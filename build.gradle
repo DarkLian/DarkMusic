@@ -1,0 +1,166 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+	id 'maven-publish'
+}
+
+repositories {
+	mavenCentral()
+	// Add repositories to retrieve artifacts from in here.
+	// You should only use this when depending on other mods because
+	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
+	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
+	// for more information about repositories.
+}
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"darkmusic" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+dependencies {
+	// To change the versions see the gradle.properties file
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	// Fabric API. This is technically optional, but you probably want it anyway.
+	['fabric-api-base', 'fabric-lifecycle-events-v1', 'fabric-key-mapping-api-v1',
+	 'fabric-screen-api-v1', 'fabric-rendering-v1', 'fabric-resource-loader-v1'].each {
+		implementation fabricApi.module(it, project.fabric_api_version)
+	}
+	implementation include('net.jthink:jaudiotagger:3.0.1')
+	['mp3spi:1.9.5.4', 'vorbisspi:1.0.3.3', 'jlayer:1.0.1.4', 'tritonus-share:0.3.7.4'].each {
+		implementation("com.googlecode.soundlibs:$it") { transitive = false }
+		include("com.googlecode.soundlibs:$it") { transitive = false }
+	}
+	implementation include('org.jflac:jflac-codec:1.5.2')
+	testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+	testImplementation 'org.ow2.asm:asm:9.10.1'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
+}
+
+configurations { thirdPartySources }
+dependencies {
+	['net.jthink:jaudiotagger:3.0.1', 'org.jflac:jflac-codec:1.5.2',
+	 'com.googlecode.soundlibs:mp3spi:1.9.5.4', 'com.googlecode.soundlibs:vorbisspi:1.0.3.3',
+	 'com.googlecode.soundlibs:jlayer:1.0.1.4', 'com.googlecode.soundlibs:tritonus-share:0.3.7.4'].each {
+		thirdPartySources("$it:sources") { transitive = false }
+	}
+}
+tasks.register('thirdPartySourceBundle', Zip) {
+	archiveBaseName = 'darkmusic'
+	archiveVersion = project.version
+	archiveClassifier = 'third-party-sources'
+	destinationDirectory = layout.buildDirectory.dir('libs')
+	from(configurations.thirdPartySources)
+	from('src/main/resources/licenses') { into 'licenses' }
+	from('src/main/resources/THIRD-PARTY-NOTICES.md')
+}
+assemble.dependsOn tasks.named('thirdPartySourceBundle')
+
+def realMusicDirectory = file(providers.gradleProperty('musicDirectory').orElse(providers.environmentVariable('DARKMUSIC_TEST_MUSIC')).getOrElse('run/config/darkmusic/music')).absolutePath
+
+// A separate development-only mod exercises actual screens and audio devices.
+// It is never included in the release JAR or normal runClient classpath.
+if (providers.gradleProperty('smoke').isPresent()) {
+	sourceSets {
+		smoke {
+			compileClasspath += sourceSets.client.output + sourceSets.client.compileClasspath
+			runtimeClasspath += sourceSets.client.output + sourceSets.client.runtimeClasspath
+		}
+	}
+	loom {
+		mods { darkmusic_smoke { sourceSet sourceSets.smoke } }
+		runs {
+			smokeClient {
+				client()
+				source sourceSets.smoke
+				runDir providers.gradleProperty('captureMusic').isPresent() ? 'build/capture-run' : 'build/smoke-run'
+				vmArg "-Ddarkmusic.music=${realMusicDirectory}"
+				vmArg "-Ddarkmusic.capture=${providers.gradleProperty('captureMusic').isPresent()}"
+				vmArg "-Ddarkmusic.privateImages=${file('docs/images_private').absolutePath}"
+				if (providers.gradleProperty('captureMusic').isPresent()) vmArg "-Ddarkmusic.downloadTools=${file('Music').absolutePath}"
+			}
+		}
+	}
+	def smokeLog = layout.buildDirectory.file(providers.gradleProperty('captureMusic').isPresent() ? 'capture-run/logs/latest.log' : 'smoke-run/logs/latest.log')
+	tasks.named('runSmokeClient') {
+		doLast {
+			if (!smokeLog.get().asFile.text.contains('DARKMUSIC_SMOKE_PASS:')) {
+				throw new GradleException('Client smoke checks failed; inspect the selected smoke/capture run logs')
+			}
+		}
+	}
+}
+
+sourceSets.test.compileClasspath += sourceSets.client.output + sourceSets.client.compileClasspath
+sourceSets.test.runtimeClasspath += sourceSets.client.output + sourceSets.client.runtimeClasspath
+test {
+	dependsOn tasks.named('jar')
+	useJUnitPlatform()
+	maxHeapSize = '512m'
+	systemProperty 'java.awt.headless', 'true'
+	systemProperty 'darkmusic.test.music', realMusicDirectory
+	systemProperty 'darkmusic.test.requireMusic', providers.gradleProperty('requireMusic').isPresent()
+	testLogging { events 'failed', 'skipped' }
+	systemProperty 'darkmusic.jar', tasks.named('jar').get().archiveFile.get().asFile.absolutePath
+	if (providers.gradleProperty('downloadIntegration').isPresent()) {
+		systemProperty 'darkmusic.test.ytdlp', file('Music/yt-dlp.exe').absolutePath
+		systemProperty 'darkmusic.test.ffmpeg', file('Music/ffmpeg.exe').absolutePath
+		systemProperty 'darkmusic.test.ffprobe', file('Music/ffprobe.exe').absolutePath
+	}
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+}
+
+java {
+	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
+	// if it is present.
+	// If you remove this line, sources will not be generated.
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+	def projectName = project.name
+	inputs.property "projectName", projectName
+
+	from("LICENSE") {
+		rename { "${it}_$projectName"}
+	}
+}
+
+// configure the maven publication
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			from components.java
+		}
+	}
+
+	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
+	repositories {
+		// Add repositories to publish to here.
+		// Notice: This block does NOT have the same function as the block in the top level.
+		// The repositories here will be used for publishing your artifact, not for
+		// retrieving dependencies.
+	}
+}

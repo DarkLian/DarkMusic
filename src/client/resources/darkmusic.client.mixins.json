@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "com.darkmusic.client.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "MusicManagerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

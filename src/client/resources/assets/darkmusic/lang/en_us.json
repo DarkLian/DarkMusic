@@ -1,0 +1,12 @@
+{
+  "key.category.darkmusic.controls": "DarkMusic",
+  "key.darkmusic.open": "Open Music Player",
+  "key.darkmusic.toggle": "Play / Pause Music",
+  "key.darkmusic.next": "Next Track",
+  "key.darkmusic.previous": "Previous Track",
+  "key.darkmusic.faster": "Speed Up (+0.1x)",
+  "key.darkmusic.slower": "Speed Down (-0.1x)",
+  "key.darkmusic.normal_speed": "Reset Speed (1.0x)",
+  "key.darkmusic.volume_up": "Volume Up (+5%)",
+  "key.darkmusic.volume_down": "Volume Down (-5%)"
+}

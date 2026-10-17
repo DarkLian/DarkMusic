@@ -1,0 +1,459 @@
+package com.darkmusic.smoke;
+
+import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.audio.AudioBackend;
+import com.darkmusic.client.gui.*;
+import com.darkmusic.client.hud.NowPlayingHud;
+import com.darkmusic.client.library.Track;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.*;
+import net.minecraft.client.gui.screens.*;
+import net.minecraft.client.input.*;
+
+import java.nio.file.Path;
+import java.util.*;
+
+/**
+ * Development-only checks in an isolated title-screen client; no server connections.
+ */
+public final class SmokeClient implements ClientModInitializer {
+    private final Set<String> playing = new HashSet<>();
+    private int ticks, stage = -1, frame;
+    private boolean selecting, fullscreenRequested, failed;
+    private MusicScreen player;
+    private int musicCount;
+    private String playlistId;
+
+    @Override
+    public void onInitializeClient() {
+        if (Boolean.getBoolean("darkmusic.capture")) new MusicCaptureClient().start();
+        else ClientTickEvents.END_CLIENT_TICK.register(this::tick);
+    }
+
+    private void require(boolean condition, String message) {
+        if (!condition) throw new IllegalStateException(message);
+    }
+
+    private AbstractWidget button(Minecraft mc, String label) {
+        return mc.gui.screen().children().stream().filter(x -> x instanceof AbstractWidget).map(x -> (AbstractWidget) x).filter(x -> x.getMessage().getString().equals(label)).findFirst().orElseThrow(() -> new IllegalStateException("Missing button: " + label));
+    }
+
+    private void click(Minecraft mc, String label) {
+        var button = button(mc, label);
+        require(button.active, "Inactive button: " + label);
+        mc.gui.screen().mouseClicked(mouse(button.getX() + 3, button.getY() + 3), false);
+    }
+
+    private MouseButtonEvent mouse(double x, double y) {
+        return new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0));
+    }
+
+    private void escape(Minecraft mc) {
+        mc.gui.screen().keyPressed(new KeyEvent(256, 0, 0));
+    }
+
+    private Object field(Object object, String name) throws Exception {
+        var field = object.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        return field.get(object);
+    }
+
+    private Object field(String name) throws Exception {
+        return field(player, name);
+    }
+
+    private void checkVolumeBindings(Minecraft mc, DarkMusicClient app) throws Exception {
+        require(app.bindings().length == 9, "Expected nine native bindings");
+        require(app.next.getDefaultKey().getValue() == 262 && app.previous.getDefaultKey().getValue() == 263, "Track arrow defaults are wrong");
+        require(app.volumeUp.getDefaultKey().getValue() == 265 && app.volumeDown.getDefaultKey().getValue() == 264, "Volume arrow defaults are wrong");
+        var up = com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.up");
+        var down = com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.down");
+        var oldUp = app.volumeUp.saveString();
+        var oldDown = app.volumeDown.saveString();
+        var oldToggle = app.toggle.saveString();
+        double oldVolume = app.settings.volume;
+        var tick = DarkMusicClient.class.getDeclaredMethod("tick", Minecraft.class, boolean.class);
+        tick.setAccessible(true);
+        try {
+            app.volumeUp.setKey(up);
+            app.volumeDown.setKey(down);
+            app.toggle.setKey(com.mojang.blaze3d.platform.InputConstants.UNKNOWN);
+            net.minecraft.client.KeyMapping.resetMapping();
+            app.volume(.5);
+            net.minecraft.client.KeyMapping.click(up);
+            tick.invoke(app, mc, false);
+            require(app.settings.volume == .5, "Volume shortcut fired while menus were blocked");
+            net.minecraft.client.KeyMapping.click(up);
+            tick.invoke(app, mc, true);
+            require(app.settings.volume == .55, "Volume up step failed");
+            net.minecraft.client.KeyMapping.click(down);
+            tick.invoke(app, mc, true);
+            require(app.settings.volume == .5, "Volume down step failed");
+            app.volume(1);
+            net.minecraft.client.KeyMapping.click(up);
+            tick.invoke(app, mc, true);
+            require(app.settings.volume == 1, "Volume exceeded 100%");
+            app.volume(0);
+            net.minecraft.client.KeyMapping.click(down);
+            tick.invoke(app, mc, true);
+            require(app.settings.volume == 0, "Volume dropped below zero");
+            app.volume(.5);
+            app.toggle.setKey(up);
+            net.minecraft.client.KeyMapping.resetMapping();
+            net.minecraft.client.KeyMapping.click(up);
+            tick.invoke(app, mc, true);
+            require(app.settings.volume == .5, "Conflicting volume shortcut fired");
+            app.toggle.setKey(com.mojang.blaze3d.platform.InputConstants.UNKNOWN);
+            app.volumeUp.setKey(com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f10"));
+            app.save();
+            require(app.settings.shortcuts.get(app.volumeUp.getName()).equals("key.keyboard.f10"), "Custom volume binding did not persist");
+        } finally {
+            app.volumeUp.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldUp));
+            app.volumeDown.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldDown));
+            app.toggle.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldToggle));
+            net.minecraft.client.KeyMapping.resetMapping();
+            app.volume(oldVolume);
+        }
+    }
+
+    private void row(Minecraft mc, Object screen, String name, int index, boolean activate) throws Exception {
+        var rows = (RowList) field(screen, name);
+        int height = name.equals("navigation") ? 22 : screen instanceof MusicScreen && mc.gui.screen().height < 320 ? 28 : 32;
+        rows.onClick(mouse(rows.getX() + 4, rows.getY() + index * height + 4), activate);
+    }
+
+    private void view(Minecraft mc, String name) throws Exception {
+        for (int i = 0; i < 4 && !field("mode").equals(name); i++) {
+            String compact = "View: " + field("mode");
+            boolean cycle = mc.gui.screen().children().stream().anyMatch(x -> x instanceof AbstractWidget b && b.getMessage().getString().equals(compact));
+            click(mc, cycle ? compact : name);
+        }
+        require(field("mode").equals(name), "View did not switch to " + name);
+    }
+
+    private void checkPlaylistBrowsing(Minecraft mc, DarkMusicClient app) throws Exception {
+        var tracks = app.library.snapshot().tracks();
+        var first = tracks.getFirst();
+        var second = tracks.get(1);
+        require(field("group").equals(playlistId), "First playlist was not selected");
+        app.playlists.removeAll(playlistId, tracks.stream().map(Track::id).collect(java.util.stream.Collectors.toSet()));
+        app.playlists.addAll(playlistId, List.of(second, first));
+        player.tick();
+        require(field("visible").equals(List.of(second, first)), "Playlist order was lost");
+        String duplicate = app.playlists.create("Smoke test");
+        app.playlists.add(duplicate, first);
+        player.tick();
+        row(mc, player, "navigation", 1, false);
+        require(field("group").equals(duplicate) && field("visible").equals(List.of(first)), "Duplicate names confused selection");
+        app.playlists.rename(duplicate, "Renamed");
+        player.tick();
+        require(field("group").equals(duplicate), "Rename lost selection");
+        app.playlists.delete(duplicate);
+        player.tick();
+        require(field("group").equals(playlistId), "Deletion did not select remaining playlist");
+        var search = (EditBox) field("search");
+        search.setValue(second.relativePath());
+        require(field("visible").equals(List.of(second)), "Playlist search failed");
+        row(mc, player, "songs", 0, true);
+        require(app.playback.state().track().id().equals(second.id()), "Playlist playback failed");
+        search.setValue("");
+        app.playlists.add(playlistId, new Track(first.rootId(), "missing.mp3", first.file(), "Missing", "", "", 0, 0, 0, ""));
+        player.tick();
+        require(field("playlistNotice").toString().contains("1 unavailable"), "Missing entry notice absent");
+        app.playlists.remove(playlistId, 2);
+        String empty = app.playlists.create("Empty");
+        player.tick();
+        row(mc, player, "navigation", 1, false);
+        require(((List<?>) field("visible")).isEmpty(), "Empty playlist exposed all songs");
+        app.playlists.delete(empty);
+        app.playlists.delete(playlistId);
+        player.tick();
+        require(((List<?>) field("visible")).isEmpty(), "No-playlists state exposed library");
+        playlistId = app.playlists.create("Smoke test");
+        app.playlists.addAll(playlistId, tracks);
+        player.tick();
+    }
+
+    private void tick(Minecraft mc) {
+        try {
+            ticks++;
+            if (ticks > 1800) throw new IllegalStateException("Smoke test timed out");
+            var app = DarkMusicClient.INSTANCE;
+            if (failed || app == null || app.library == null || !app.playlistsReady || !mc.isGameLoadFinished() || mc.gui.overlay() != null)
+                return;
+            if (!fullscreenRequested) {
+                fullscreenRequested = true;
+                if (!mc.getWindow().isFullscreen()) mc.getWindow().toggleFullScreen();
+                mc.options.guiScale().set(3);
+                mc.resizeGui();
+                return;
+            }
+            if (!selecting) {
+                selecting = true;
+                app.chooseDirectory(Path.of(System.getProperty("darkmusic.music")), () -> {
+                });
+                return;
+            }
+            if (app.library.snapshot().scanning() || app.library.snapshot().tracks().size() < 6) return;
+            musicCount = app.library.snapshot().tracks().size();
+            var audio = app.playback.state();
+            if (audio.status() == AudioBackend.Status.ERROR || !app.warning.isBlank())
+                throw new IllegalStateException("Audio/library error: " + app.warning + " " + audio.error());
+            if (audio.status() == AudioBackend.Status.PLAYING && audio.position() > 0)
+                playing.add(audio.track().relativePath());
+            if (stage == -1) {
+                require(mc.level == null && mc.player == null, "Smoke test stays at title screen");
+                mc.gui.setScreen(new TitleScreen());
+                app.open();
+                player = (MusicScreen) mc.gui.screen();
+                app.playlists.all().stream().map(p -> p.id()).toList().forEach(app.playlists::delete);
+                playlistId = app.playlists.create("Smoke test");
+                app.playlists.add(playlistId, app.library.snapshot().tracks().getFirst());
+                app.settings.suppressVanillaMusic = false;
+                app.settings.hudArtwork = true;
+                app.settings.hudX = app.settings.hudY = 0.0;
+                app.settings.hudScale = 1;
+                app.settings.playerVisualizer = true;
+                app.settings.hudVisualizer = false;
+                app.settings.visualizerX = 1;
+                app.settings.visualizerY = .65;
+                app.configureVisualizer();
+                app.playback.shuffle(false);
+                app.playback.repeat(com.darkmusic.client.audio.PlaybackController.Repeat.OFF);
+                app.speed(1);
+                app.playback.volume(.05);
+                app.playback.play(app.library.snapshot().tracks(), app.library.snapshot().tracks().getFirst());
+                stage = 0;
+                frame = ticks;
+                return;
+            }
+            if (ticks - frame < 24) return;
+            frame = ticks;
+            if (mc.gui.screen() instanceof LocalScreen screen) {
+                for (var widget : screen.children())
+                    if (widget instanceof AbstractWidget w) {
+                        require(w.getX() >= 0 && w.getY() >= 0 && w.getRight() <= screen.width && w.getBottom() <= screen.height, "Widget outside screen: " + w.getMessage().getString());
+                        require(!w.getMessage().getString().equals("Done"), "Done button remains");
+                    }
+            }
+            switch (stage++) {
+                case 0 -> {
+                    app.playback.pause();
+                    click(mc, "Settings");
+                }
+                case 1 -> {
+                    require(audio.status() == AudioBackend.Status.PAUSED, "Pause failed");
+                    app.playback.seek(.5);
+                    click(mc, "Suppress Vanilla Background Music");
+                    require(app.settings.suppressVanillaMusic, "Suppression failed");
+                    click(mc, "Suppress Vanilla Background Music");
+                    click(mc, "HUD Settings");
+                }
+                case 2 -> {
+                    require(audio.status() == AudioBackend.Status.PAUSED && audio.position() >= .49, "Paused seek failed");
+                    app.speed(1.5);
+                    require(app.playback.speed() == 1.5, "Speed did not apply");
+                    app.playback.toggle();
+                    click(mc, "HUD Artwork");
+                    require(!app.settings.hudArtwork, "Artwork toggle failed");
+                    click(mc, "HUD Artwork");
+                    click(mc, "Edit HUD Layout");
+                }
+                case 3 -> {
+                    require(mc.gui.screen() instanceof HudEditorScreen, "HUD editor not opened");
+                    var b = NowPlayingHud.bounds(app, mc.gui.screen().width, mc.gui.screen().height);
+                    mc.gui.screen().mouseClicked(mouse(b.x() + 5, b.y() + 5), false);
+                    mc.gui.screen().mouseDragged(mouse(b.x() + 105, b.y() + 85), 100, 80);
+                    mc.gui.screen().mouseReleased(mouse(b.x() + 105, b.y() + 85));
+                    require(app.settings.hudX > 0 && app.settings.hudY > 0, "HUD did not drag");
+                    var slider = mc.gui.screen().children().stream().filter(x -> x instanceof ValueSlider).map(x -> (ValueSlider) x).findFirst().orElseThrow();
+                    slider.setFocused(true);
+                    slider.keyPressed(new KeyEvent(262, 0, 0));
+                    require(app.settings.hudScale == 1.1, "Scale did not change by 0.1");
+                }
+                case 4 -> {
+                    escape(mc);
+                    require(mc.gui.screen() instanceof SettingsScreen, "Escape did not return from HUD editor");
+                }
+                case 5 -> {
+                    require(Arrays.asList(mc.options.keyMappings).containsAll(Arrays.asList(app.bindings())), "Native controls are missing DarkMusic bindings");
+                    checkVolumeBindings(mc, app);
+                    app.faster.setKey(com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f9"));
+                    app.save();
+                    require(app.settings.shortcuts.get(app.faster.getName()).equals("key.keyboard.f9"), "Speed shortcut not saved");
+                    app.faster.setKey(com.mojang.blaze3d.platform.InputConstants.UNKNOWN);
+                    net.minecraft.client.KeyMapping.resetMapping();
+                    app.save();
+                    escape(mc);
+                    require(mc.gui.screen() == player, "Escape did not return to player");
+                    click(mc, "Manage Playlists");
+                }
+                case 6 -> {
+                    require(mc.gui.screen() instanceof PlaylistScreen, "Editor not opened");
+                    click(mc, "Add Songs");
+                }
+                case 7 -> {
+                    require(mc.gui.screen() instanceof TrackPickerScreen, "Picker not opened");
+                    click(mc, "Select All");
+                    var selection = (SongSelection) field(mc.gui.screen(), "selection");
+                    require(selection.selected().size() == musicCount - 1, "Select All did not exclude the existing song");
+                    var search = (EditBox) field(mc.gui.screen(), "search");
+                    search.setValue(app.library.snapshot().tracks().get(1).relativePath());
+                    require(selection.hidden() == musicCount - 2, "Filtered selections were lost");
+                    click(mc, "Deselect All");
+                    require(selection.selected().isEmpty(), "Deselect did not clear hidden selection");
+                    click(mc, "Invert Selection");
+                    require(selection.selected().size() == 1, "Invert failed");
+                    search.setValue("");
+                    click(mc, "Select All");
+                    mc.gui.screen().tick();
+                }
+                case 8 -> {
+                    click(mc, "Add Selected");
+                    require(app.playlists.get(playlistId).entries().size() == musicCount, "Bulk add did not deduplicate");
+                    row(mc, mc.gui.screen(), "entries", 0, false);
+                    mc.gui.screen().tick();
+                    click(mc, "Remove Selected");
+                    require(app.playlists.get(playlistId).entries().size() == musicCount - 1, "Bulk removal failed");
+                    click(mc, "Add Songs");
+                    click(mc, "Select All");
+                    escape(mc);
+                    require(app.playlists.get(playlistId).entries().size() == musicCount - 1, "Cancelled picker changed playlist");
+                    app.playlists.addAll(playlistId, app.library.snapshot().tracks());
+                    escape(mc);
+                    mc.options.guiScale().set(6);
+                    mc.resizeGui();
+                    view(mc, "Playlists");
+                }
+                case 9 -> {
+                    checkPlaylistBrowsing(mc, app);
+                    mc.options.guiScale().set(3);
+                    mc.resizeGui();
+                }
+                case 10 -> {
+                    view(mc, "Artists");
+                    view(mc, "Albums");
+                    view(mc, "All");
+                    click(mc, "1.0x");
+                    require(app.settings.speed == 1, "Speed reset failed");
+                    var speed = (ValueSlider) field("speed");
+                    speed.setFocused(true);
+                    speed.keyPressed(new KeyEvent(262, 0, 0));
+                    require(app.settings.speed == 1.1, "Speed slider step failed");
+                    speed.keyPressed(new KeyEvent(263, 0, 0));
+                    require(app.settings.speed == 1, "Speed slider reverse step failed");
+                    mc.options.guiScale().set(2);
+                    mc.resizeGui();
+                }
+                case 11 -> {
+                    click(mc, "Settings");
+                    click(mc, "Choose Music Folder");
+                }
+                case 12 -> {
+                    require(mc.gui.screen() instanceof FolderScreen, "Folder picker not opened");
+                    escape(mc);
+                    escape(mc);
+                    require(mc.gui.screen() == player, "Folder Escape navigation failed");
+                    var stale = mc.gui.screen();
+                    var title = new TitleScreen();
+                    mc.gui.setScreen(title);
+                    stale.onClose();
+                    require(mc.gui.screen() == title, "Stale screen restored itself");
+                }
+                case 13 -> {
+                    mc.options.guiScale().set(3);
+                    mc.resizeGui();
+                    var first = app.library.snapshot().tracks().getFirst();
+                    app.playback.play(List.of(first), first);
+                    mc.gui.setScreen(new HudEditorScreen(app, player));
+                }
+                case 14 -> {
+                    escape(mc);
+                    mc.gui.setScreen(new PlaylistScreen(app, player));
+                }
+                case 15 -> {
+                    var first = app.library.snapshot().tracks().getFirst();
+                    app.playlists.add(playlistId, new Track(first.rootId(), "missing.mp3", first.file(), "Missing", "", "", 0, 0, 0, ""));
+                    mc.gui.screen().tick();
+                    ((SongSelection) field(mc.gui.screen(), "selection")).choose(musicCount, false, false);
+                    mc.gui.screen().tick();
+                    click(mc, "Remove Selected");
+                    require(app.playlists.get(playlistId).entries().size() == musicCount, "Missing entry removal failed");
+                }
+                case 16 -> {
+                    app.warn("Smoke transient warning");
+                    var expiry = DarkMusicClient.class.getDeclaredField("warningUntil");
+                    expiry.setAccessible(true);
+                    expiry.setLong(app, 0);
+                }
+                case 17 -> {
+                    escape(mc);
+                    click(mc, "Downloads");
+                    require(mc.gui.screen() instanceof DownloadScreen, "Downloader not opened");
+                    require(button(mc, "Download One Video").active == false, "Downloads enabled before analysis");
+                    ((EditBox) field(mc.gui.screen(), "url")).setValue("file:///invalid");
+                    click(mc, "Analyze");
+                }
+                case 18 -> {
+                    require(!app.downloads.snapshot().analyzing(), "Invalid URL analysis remained active");
+                    require(app.downloads.snapshot().items().isEmpty(), "Analysis queued a download");
+                    require(!app.downloads.snapshot().message().isBlank(), "Invalid URL has no feedback");
+                    click(mc, "Tools");
+                    require(mc.gui.screen() instanceof DownloadToolsScreen, "Tool settings not opened");
+                }
+                case 19 -> {
+                    escape(mc);
+                    require(mc.gui.screen() instanceof DownloadScreen, "Tool Escape navigation failed");
+                    require(((EditBox) field(mc.gui.screen(), "url")).getValue().equals("file:///invalid"), "URL lost across navigation");
+                    click(mc, "Show Queue / Preview");
+                    click(mc, "Cancel All");
+                    click(mc, "Clear Finished");
+                    mc.options.guiScale().set(6);
+                    mc.resizeGui();
+                }
+                case 20 -> {
+                    click(mc, "Tools");
+                }
+                case 21 -> {
+                    escape(mc);
+                    escape(mc);
+                    require(mc.gui.screen() == player, "Downloader Escape did not return to player");
+                }
+                case 22 -> {
+                    click(mc, "Settings");
+                    click(mc, "Music Visualizer");
+                    require(mc.gui.screen() instanceof VisualizerSettingsScreen, "Visualizer settings did not open");
+                    click(mc, "HUD Visualizer");
+                    require(app.settings.hudVisualizer, "HUD visualizer toggle failed");
+                    click(mc, "Music-Player Visualizer");
+                    require(!app.settings.playerVisualizer && app.settings.hudVisualizer, "Visualizer toggles are coupled");
+                    click(mc, "Music-Player Visualizer");
+                }
+                case 23 -> click(mc, "Edit Visualizer HUD Layout");
+                case 24 -> {
+                    var b = com.darkmusic.client.hud.SpectrumHud.bounds(app.settings, mc.gui.screen().width, mc.gui.screen().height);
+                    mc.gui.screen().mouseClicked(mouse(b.x() + 4, b.y() + 4), false);
+                    mc.gui.screen().mouseDragged(mouse(b.x() - 36, b.y() - 16), -40, -20);
+                    mc.gui.screen().mouseReleased(mouse(b.x() - 36, b.y() - 16));
+                    require(app.settings.visualizerX < 1 && app.settings.visualizerY < .65, "Visualizer HUD did not drag");
+                    escape(mc);
+                    escape(mc);
+                    escape(mc);
+                    mc.options.guiScale().set(3);
+                    mc.resizeGui();
+                }
+                default -> {
+                    app.playback.stop();
+                    org.slf4j.LoggerFactory.getLogger("darkmusic-smoke").info("DARKMUSIC_SMOKE_PASS: visualizer settings/independent toggles/HUD drag/compact layouts, downloader navigation/invalid URL/queue/tools/layouts, bulk selection/search/cancel, speed/pause/seek, shortcuts, HUD drag/scale, Escape, layouts, actual device playback: {}", playing);
+                    mc.stop();
+                }
+            }
+        } catch (Throwable e) {
+            failed = true;
+            org.slf4j.LoggerFactory.getLogger("darkmusic-smoke").error("DARKMUSIC_SMOKE_FAIL", e);
+            mc.stop();
+        }
+    }
+}

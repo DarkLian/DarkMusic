@@ -1,0 +1,69 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: gradle/actions/wrapper-validation@v6
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'microsoft'
+      - name: Verify version tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version=$(sed -n 's/^version=//p' gradle.properties | tr -d '\r')
+          test -n "$version"
+          test "$RELEASE_TAG" = "v$version"
+      - name: Build and test
+        run: |
+          chmod +x ./gradlew
+          ./gradlew build
+        # Private-audio checks explicitly skip on hosted runners. Full local
+        # release validation requires the real collection with -PrequireMusic.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-files
+          path: build/libs/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-files
+          path: release-files
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          for file in "darkmusic-$version.jar" "darkmusic-$version-sources.jar" "darkmusic-$version-third-party-sources.zip"; do
+            test -s "release-files/$file"
+          done
+          notes="docs/RELEASE-$version.md"
+          test -s "$notes"
+          gh release create "$RELEASE_TAG" --verify-tag --latest --title "DarkMusic $RELEASE_TAG" --notes-file "$notes" \
+            "release-files/darkmusic-$version.jar" \
+            "release-files/darkmusic-$version-sources.jar" \
+            "release-files/darkmusic-$version-third-party-sources.zip"

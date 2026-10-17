@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "darkmusic",
+  "version": "${version}",
+  "name": "DarkMusic",
+  "description": "A local, client-only music library and streaming audio player.",
+  "authors": [
+    "DarkMusic contributors"
+  ],
+  "license": "CC0-1.0",
+  "icon": "assets/darkmusic/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.darkmusic.client.DarkMusicClient"
+    ]
+  },
+  "mixins": [
+    {
+      "config": "darkmusic.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "~26.2",
+    "java": ">=25",
+    "fabric-lifecycle-events-v1": "*",
+    "fabric-key-mapping-api-v1": "*",
+    "fabric-screen-api-v1": "*",
+    "fabric-rendering-v1": "*",
+    "fabric-resource-loader-v1": "*"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "darkmusic_smoke",
+  "version": "1.0.0",
+  "name": "DarkMusic development smoke test",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.darkmusic.smoke.SmokeClient"
+    ]
+  },
+  "depends": {
+    "darkmusic": "*"
+  }
+}
