@@ -252,6 +252,71 @@ public final class SmokeClient implements ClientModInitializer {
         player.tick();
     }
 
+    private void checkNavigationAndJump(DarkMusicClient app) throws Exception {
+        var search = (EditBox) field("search");
+        var current = app.playback.state().track();
+        require(current != null, "Jump test needs current playback");
+        var visible = (java.util.List<?>) field("visible");
+        require(visible.stream().anyMatch(t -> ((Track) t).id().equals(current.id())), "Playing track missing before filtering");
+        search.setValue("No matching title for navigation check");
+        require(((java.util.List<?>) field("visible")).isEmpty(), "Search did not hide playing track");
+        player.jumpToPlaying();
+        var selected = (Track) field("selected");
+        require(selected.id().equals(current.id()), "Jump did not select the currently playing track");
+        require(((EditBox) field("search")).getValue().isEmpty(), "Jump did not clear incompatible search");
+        require(app.playback.state().track().id().equals(current.id()), "Jump changed playback");
+        var sourceField = app.playback.getClass().getDeclaredField("source");
+        sourceField.setAccessible(true);
+        var originalSource = app.playback.source();
+        for (var origin : List.of(new com.darkmusic.client.audio.PlaybackController.Source("All", "", "", app.library.rootId()),
+            new com.darkmusic.client.audio.PlaybackController.Source("All", current.relativePath().contains("/") ? current.relativePath().substring(0, current.relativePath().lastIndexOf('/')) : "", "", app.library.rootId()),
+            new com.darkmusic.client.audio.PlaybackController.Source("Playlists", playlistId, "", app.library.rootId()),
+            new com.darkmusic.client.audio.PlaybackController.Source("Artists", current.artist(), current.title(), app.library.rootId()),
+            new com.darkmusic.client.audio.PlaybackController.Source("Albums", current.album(), "", app.library.rootId()))) {
+            sourceField.set(app.playback, origin);
+            ((EditBox) field("search")).setValue("No matches before source jump");
+            player.jumpToPlaying();
+            require(field("mode").equals(origin.mode()) && field("group").equals(origin.group()), "Jump lost playback source: " + origin);
+            require(((EditBox) field("search")).getValue().equals(origin.query()), "Jump lost source search");
+            require(((Track) field("selected")).id().equals(current.id()), "Source jump selected a different track");
+        }
+        sourceField.set(app.playback, originalSource);
+        player.jumpToPlaying();
+        var list = (RowList) field("songs");
+        require(com.darkmusic.client.text.Text.get("text.darkmusic.scroll_long_text").equals("text.darkmusic.scroll_long_text"), "Long-text hover hint remains translated");
+        var originalRows = (java.util.List<RowList.Row>) field(list, "rows");
+        list.rows(java.util.stream.IntStream.range(0, 100).mapToObj(i -> new RowList.Row(current.title(), "")).toList());
+        list.reveal(99);
+        require(list.selected() == 99 && (int) field(list, "scroll") > 0, "Jump did not scroll the target row into view");
+        list.rows(originalRows);
+    }
+
+    private void checkColors(Minecraft mc, DarkMusicClient app) throws Exception {
+        var settings = new SettingsScreen(app, player);
+        mc.gui.setScreen(settings);
+        click(mc, "Spectrum Colors");
+        require(mc.gui.screen() instanceof ColorsScreen, "Spectrum colors did not open");
+        click(mc, "Aurora Borealis");
+        require(app.settings.spectrumColors.preset == com.darkmusic.client.config.VisualColors.Preset.AURORA, "Preset did not apply");
+        var start = (EditBox) field(mc.gui.screen(), "start");
+        var end = (EditBox) field(mc.gui.screen(), "end");
+        start.setValue("#55AAFF");
+        end.setValue("#FFAACC");
+        require(app.settings.spectrumColors.color(0) == 0xFF55AAFF && app.settings.spectrumColors.color(1) == 0xFFFFAACC, "Custom mixed colors failed");
+        start.setValue("#xyz");
+        require(app.settings.spectrumColors.color(0) == 0xFF55AAFF, "Invalid color changed the last valid color");
+        click(mc, "Moonlight");
+        escape(mc);
+        require(mc.gui.screen() == settings, "Colors Escape did not return to Settings");
+        click(mc, "Progress Bar Colors");
+        click(mc, "Neon Dream");
+        require(app.settings.progressColors.preset == com.darkmusic.client.config.VisualColors.Preset.NEON_DREAM && app.settings.spectrumColors.preset == com.darkmusic.client.config.VisualColors.Preset.MOONLIGHT, "Progress and spectrum colors are not independent");
+        click(mc, "Moonlight");
+        escape(mc);
+        escape(mc);
+        require(mc.gui.screen() == player, "Color navigation did not preserve player");
+    }
+
     private void tick(Minecraft mc) {
         try {
             ticks++;
@@ -512,8 +577,7 @@ public final class SmokeClient implements ClientModInitializer {
                     require(mc.gui.screen() instanceof DownloadScreen, "Tool Escape navigation failed");
                     require(((EditBox) field(mc.gui.screen(), "url")).getValue().equals("file:///invalid"), "URL lost across navigation");
                     click(mc, "Queue / Entries");
-                    click(mc, "Cancel All");
-                    click(mc, "Clear Finished");
+                    require(!button(mc, "Cancel All").active && !button(mc, "Clear Finished").active, "Empty queue actions should be disabled");
                     mc.options.guiScale().set(6);
                     mc.resizeGui();
                 }
@@ -555,9 +619,24 @@ public final class SmokeClient implements ClientModInitializer {
                     mc.options.guiScale().set(3);
                     mc.resizeGui();
                 }
+                case 25 -> {
+                    mc.gui.setScreen(new TitleScreen());
+                    app.requestScreen(true);
+                }
+                case 26 -> {
+                    require(mc.gui.screen() instanceof HudEditorScreen, "Client layout command request did not open the editor");
+                    escape(mc);
+                    app.requestScreen(false);
+                }
+                case 27 -> {
+                    require(mc.gui.screen() instanceof MusicScreen, "Client player command request did not open the player");
+                    player = (MusicScreen) mc.gui.screen();
+                    checkNavigationAndJump(app);
+                    checkColors(mc, app);
+                }
                 default -> {
                     app.playback.stop();
-                    org.slf4j.LoggerFactory.getLogger("darkmusic-smoke").info("DARKMUSIC_SMOKE_PASS:" + java.nio.file.Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip() + " unified settings/player and HUD toggles/combined HUD drag/compact layouts, downloader navigation/invalid URL/queue/tools/layouts, bulk selection/search/cancel, speed/pause/seek, shortcuts, HUD drag/scale, Escape, layouts, actual device playback: {}", playing);
+                    org.slf4j.LoggerFactory.getLogger("darkmusic-smoke").info("DARKMUSIC_SMOKE_PASS:" + java.nio.file.Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip() + " command screen requests, jump to playing, removed row tooltips, row reveal, unified settings/player and HUD toggles/combined HUD drag/compact layouts, downloader navigation/invalid URL/queue/tools/layouts, bulk selection/search/cancel, speed/pause/seek, shortcuts, HUD drag/scale, Escape, layouts, actual device playback: {}", playing);
                     mc.stop();
                 }
             }

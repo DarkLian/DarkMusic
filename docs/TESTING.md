@@ -17,7 +17,7 @@ Use `./gradlew` on Linux/macOS. Desktop checks need an interactive desktop. Do n
 
 `-PrequireMusic` fails without private audio. Downloader integration uses ignored development executables in `Music/`. Managed-tool integration explicitly downloads verified assets into ignored build output; it never silently installs tools in a user's instance.
 
-Coverage includes real-song decoding/tags/artwork and integrity; PCM gain/rate conversion and 24-bit FLAC; independent FFT comparison, smoothing/synchronization, pause/seek/track changes; device fallback and worker parking; library/cache recovery, playlists/reordering; subprocess trees/timeouts, tools, downloads/conversion, duplicate history/cancellation; native keys, localization, and artifact isolation.
+Coverage includes real-song decoding/tags/artwork and integrity; PCM gain/rate conversion and 24-bit FLAC; independent FFT comparison, smoothing/synchronization, pause/seek/track changes; device fallback and worker parking; library/cache recovery, playlists/reordering; subprocess trees/timeouts, tools, downloads/conversion, duplicate history/cancellation; native keys, localization, and artifact isolation. Color checks cover independent presets/custom RGB interpolation, invalid input, legacy defaults/reset, and persisted configuration. Queue checks include three concurrent workers, history merging, bounded retries after queue completion, manual retry, retained failures, and notification transitions.
 
 Reset checks cover fixed defaults, safe record/tool cleanup, media hashes, preserved playlists/external tools, locks, and download cancellation releasing workspace ownership. Artifact checks reject gameplay-network dependencies and Minecraft options-save/broadcast calls. Native reset changes only DarkMusic's own `options.txt` entries.
 
@@ -25,8 +25,8 @@ Downloader integration serves private audio only over loopback and exercises act
 
 ## Development client sessions
 
-- `build/smoke-run`: player/playlists/settings, real-device playback, seeking, shortcuts, combined HUD movement/scaling, compact layouts, and GUI scales 2/3/6.
-- `build/preview-run`: URL re-entry/analysis safety, search/selection, temporary audition, tool behavior, long-text panning, artwork resolution, shortcut feedback, and combined HUD orientations/combinations.
+- `build/smoke-run`: player/playlists/settings, real-device playback, seeking, shortcuts, source-aware jumps, color presets/custom edits, combined HUD movement/scaling, compact layouts, and GUI scales 2/3/6.
+- `build/preview-run`: URL/preview retention, filtered queue row identity and contextual actions, entry/queue search/selection, temporary audition, tool behavior, long-text panning, artwork resolution, shortcut feedback, and combined HUD orientations/combinations.
 - `build/reset-run`: isolated configuration and **copies** of real music. Confirms/cancels reset and playlist deletion, checks tool/history cleanup and default-folder rescan, then verifies defaults/native keys after a separate restart. Run reset before restart verification; remove only its byte-verified copies afterward.
 - `build/capture-run`: current public screenshots using the real collection and embedded artwork.
 

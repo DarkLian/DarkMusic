@@ -1,6 +1,6 @@
 # DarkMusic user guide
 
-[Project overview](../README.md) · [v1.0.2 release notes](RELEASE-1.0.2.md)
+[Project overview](../README.md) · [v1.0.3 release notes](RELEASE-1.0.3.md)
 
 Open **Music** on the title screen or press **B** during gameplay. Hover for help. **Escape** returns; settings save automatically. Playback continues across menus and worlds.
 
@@ -25,6 +25,12 @@ Use mono or stereo. OGG Opus and compressed WAV variants may need conversion.
 
 Search matches title, artist, album, and relative path. Choose **All**, **Playlists**, **Artists**, or **Albums**, then a group on the left. Compact layouts use a **View** selector. Double-click a song or press Enter with its list focused. Displayed results become the queue.
 
+In **All**, **All Tracks** stays at the top. First-level folders appear underneath; `>` / `v` expands or collapses nested folders. Selecting a folder includes its descendants. New player screens start with folders collapsed.
+
+**Jump to Playing** returns to the category, folder/playlist, and search used to start the current queue, even if that song is also visible in your current view. It follows the current track across next/previous, repeat, and shuffle without restarting playback. If that playlist or music root is no longer available, a warning explains why it cannot be revealed.
+
+Client commands: **`/da`** or **`/darkmusic`** opens the player; append **`gui`** for Edit HUD Layout or **`help`** for local tips and clickable guide/release/issue links. No chat message is sent to the server.
+
 | Control | Behavior |
 |---|---|
 | Play / Pause / Resume | Start the selected song, pause, or resume |
@@ -41,7 +47,7 @@ Speed changes tempo and pitch. Seeking uses the original song timeline. Manual N
 
 ### Long text and keyboard navigation
 
-Use the wheel vertically in lists. For overflowing titles, names, paths, and status messages, use horizontal trackpad scrolling or **Shift + wheel** over the text. Focused rows also support **Left / Right** panning. Input fields use caret scrolling; the selected folder path wraps.
+Use the wheel vertically in lists. For overflowing titles, names, paths, and status messages, use horizontal trackpad scrolling or **Shift + wheel** over the text. Focused rows also support **Left / Right** panning. Input fields use caret scrolling; the selected folder path wraps. Overflowing song titles in the gameplay HUD scroll left and loop automatically.
 
 Up/Down, Home/End, and Page Up/Page Down navigate focused lists. Enter plays in the main player. Tab moves between controls. The interface follows Minecraft's English or Traditional Chinese setting; supplied metadata is not translated.
 
@@ -51,7 +57,7 @@ Titles, artists, albums, and covers come from embedded tags. Missing titles use 
 
 Embed artwork using a tag editor, save, and refresh. Separate `cover.jpg` files are not loaded. Images retain aspect ratio with padding, without stretching/cropping. The cache preserves source resolution up to 1024 pixels and avoids upscaling small originals. Low-resolution artwork cannot gain detail from rendering.
 
-![Current music player](images/player-1.0.2-3x.png)
+![Current music player](images/player-1.0.3-3x.png)
 
 ## Playlists
 
@@ -95,6 +101,7 @@ General options are **Autoplay on Launch**, **Choose Music Folder**, and **Suppr
 | Bars | **36**; 8–64 in steps of four, combined to fit narrow areas |
 | Sensitivity | **1.0**; 0.25–4.0 visual gain |
 | Smoothing | **60%**; higher values respond more slowly |
+| Spectrum Colors / Progress Bar Colors | **Moonlight**; independent preset/custom colors in the HUD and player |
 | HUD Background Transparency | **0%**; 0% opaque, 100% transparent |
 | HUD scale | **100%** |
 | Music volume | **100%**, adjusted in the player |
@@ -105,7 +112,28 @@ Transparency affects background surfaces, including artwork padding and spectrum
 
 The preview updates immediately using the current song. With no song, preview information and preview-only sample bars show the layout. Gameplay bars always use decoded audio.
 
-![Unified settings and combined HUD preview](images/settings-1.0.2-3x.png)
+![Unified settings and combined HUD preview](images/settings-1.0.3-3x.png)
+
+### Spectrum and progress colors
+
+Open **Spectrum Colors** or **Progress Bar Colors** in Settings. Each has independent presets and an immediate live preview:
+
+| Preset | Appearance |
+|---|---|
+| Moonlight | Original solid lavender; the default |
+| Aurora Borealis | Mint to violet |
+| Neon Dream | Pink to cyan |
+| Solar Flare | Coral to gold |
+| Ocean Drive | Blue to turquoise |
+| Sakura Sky | Soft pink to lilac |
+| Glacier Glow | Ice blue to pale white |
+| Ruby Pulse | Ruby pink to rose |
+
+Choose **Custom Mix**, or edit **Start Color / End Color** using six-digit `#RRGGBB` values. Equal colors produce a solid color; different colors blend left-to-right. Valid edits save immediately. Invalid draft text preserves the last valid colors. Escape returns; Reset to Defaults restores Moonlight. Spectrum direction changes bar growth, not color ordering or audio analysis.
+
+The progress blend is anchored to the whole track width; seeking reveals the appropriate part rather than squeezing the blend into the completed portion. The player seek slider has the same color fill along its lower edge. HUD transparency does not fade foreground colors.
+
+![Spectrum color presets and live HUD preview](images/spectrum-colors-1.0.3-3x.png)
 
 ### Move and scale
 
@@ -156,11 +184,11 @@ Open **Downloads → Tools**. Each tool has a separate row and checked version/s
 
 **Check Tools** validates versions and MP3 support. **Cancel Tool Operation** appears only during checking/installing and stops that work. Escape only leaves the menu. There is no Done button. Nothing installs on startup; local playback needs none of these tools.
 
-![Tools listed individually after checking](images/download-tools-1.0.2-3x.png)
+![Tools listed individually after checking](images/download-tools-1.0.3-3x.png)
 
 ### Analyze and select
 
-Paste a URL and **Analyze** before downloading. Leaving Downloads clears entries/checks while remembering the last analyzed URL for the current client session. Re-entering requires fresh analysis.
+Paste a URL and **Analyze** before downloading. Leaving Downloads keeps the URL and analyzed preview for the current client session. Re-entering can use that matching preview immediately; a newly opened screen starts with fresh entry checks. Editing the URL requires analyzing the new URL before downloading.
 
 | Mode | Selection |
 |---|---|
@@ -171,7 +199,7 @@ Paste a URL and **Analyze** before downloading. Leaving Downloads clears entries
 
 Switching modes clears checks. Range mode uses its inputs, ignores checks, and disables row checking. A collection-only URL cannot silently download everything through This Video Only. **Queue / Entries** switches views.
 
-Search filters the loaded page without fetching more entries. Pages contain up to 100 entries; **Previous Page / Next Page** navigate. **Select Page** checks visible entries; **Deselect All** clears all pages. A batch/queue holds up to 1,000 entries; use ranges for larger collections. Dynamic Mixes need bounded ranges or checked entries.
+Search in Entries filters the loaded page without fetching more entries. Queue search matches title, localized status, error/details, or destination folder. Each view keeps its own filter. Filtering does not change queued jobs or saved selections. Pages contain up to 100 entries; **Previous Page / Next Page** navigate. **Select Page** checks visible entries; **Deselect All** clears all pages. A batch/queue holds up to 1,000 entries; use ranges for larger collections. Dynamic Mixes need bounded ranges or checked entries.
 
 YouTube videos/playlists/Mixes, Bilibili videos/collections/favorites/series/multipart videos, and other supported sites depend on yt-dlp and source availability. Use a part-specific URL for one Bilibili part. Private, deleted, restricted, or unsupported entries may fail. DarkMusic does not bypass authentication, DRM, or access controls.
 
@@ -181,13 +209,30 @@ Select an entry and **Play Audio Preview** to fetch up to 30 seconds. Double-cli
 
 ### Queue and files
 
-The queue reports waiting, downloading, converting, saved, skipped, failed, and cancelled states, available progress, and overall finished/failed counts. **Cancel Selected** stops one item; **Cancel All** also cancels analysis. **Clear Finished** only removes rows. Closing the menu keeps downloads running; exiting Minecraft cancels unfinished work. Queue rows are not restored after restart.
+The queue reports waiting, downloading, converting, saved, skipped, failed, and cancelled states, available progress, and overall finished/failed counts. **Mode / Download** are disabled in Queue; preview paging, checkboxes, and audio audition apply to Entries. The six bottom actions enable only when relevant:
+
+- **Retry Selected** retries a failed queue row, or an entry with a failed download in the current destination.
+- **Retry Failed** retries failed queue rows. Manual retries begin a new attempt cycle and use current tool settings.
+- **Clear Failed** removes failed rows, without deleting media.
+- **Cancel Selected** cancels a selected queued/active job in Queue.
+- **Cancel All** cancels queue work, analysis, and pending automatic retries.
+- **Clear Finished** removes saved, skipped, and cancelled rows; failures remain.
+
+Queue-wide actions apply to the whole queue, including rows hidden by search. Row actions target only the visible selected job. Failed entries without a usable URL require re-analysis before retrying. Closing Downloads keeps both the URL and analyzed preview for this Minecraft session. An edited URL must match its analyzed preview before downloading.
+
+![Downloads with contextual controls](images/downloads-1.0.3-3x.png)
+
+Three jobs run concurrently. When every queued/active job in a pass finishes, failed downloads automatically retry up to **three additional times** (four total attempts). Cancelled jobs are never automatically retried. Successful retries update both queue status and the brief gameplay notification. The gameplay download overlay shows processed counts, active jobs, available progress, and failures even if the Now-Playing HUD is disabled. Notices fade; F1 and open menus hide this overlay.
+
+The concurrency cap is a conservative resource limit, not a yt-dlp requirement or a function of playlist length: each job can use network bandwidth, FFmpeg CPU time, and disk space. Increasing parallelism can cause contention and more requests; yt-dlp documents [HTTP 429 from service overuse](https://github.com/yt-dlp/yt-dlp/wiki/FAQ#http-error-429-too-many-requests-or-402-payment-required). Keeping the cap at three favors predictable behavior across machines and sites.
+
+Closing the menu keeps downloads running; exiting Minecraft cancels unfinished work. Queue rows are not restored after restart.
 
 MP3s are verified before entering the selected folder. Available title, artist/uploader, album, track number, and thumbnail artwork are embedded. Collection position supplies track number when no explicit tag exists; missing artist/album information is not invented. Unusable artwork can produce an audio-only MP3 with a warning.
 
 Stable identifiers avoid collisions. `.darkmusic-downloads.json` records completed downloads for duplicate detection while their files exist. Keep it for deduplication; resetting clears it without deleting songs, allowing the same source to be queued again. Saved music triggers a background refresh and remains playable after restart.
 
-Individual failures do not stop later items. For 403, check access and tool versions. For 429, wait before retrying. Check free space in both instance and music directories for conversion/filesystem errors. Logs retain diagnostics; malformed history is preserved.
+Individual failures do not stop later items; automatic retries wait until the current queue pass finishes. For 403, check access and tool versions. For 429, wait before retrying. Check free space in both instance and music directories for conversion/filesystem errors. Logs retain diagnostics; malformed history is preserved.
 
 ## Reset to defaults
 

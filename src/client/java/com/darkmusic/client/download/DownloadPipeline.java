@@ -26,7 +26,9 @@ import static com.darkmusic.client.download.DownloadModels.*;
 public final class DownloadPipeline {
     private final ProcessRunner runner;
     private final Path data;
+    private final Object historyLock = new Object();
     private DownloadWorkspace workspace;
+    private int workspaceUsers;
 
     public DownloadPipeline(ProcessRunner runner, Path data) {
         this.runner = runner;
@@ -80,11 +82,19 @@ public final class DownloadPipeline {
         }
     }
 
+    private static Path previous(JsonObject archive, String identity, Path destination) throws IOException {
+        if (!archive.has(identity)) return null;
+        Path prior = destination.resolve(archive.get(identity).getAsString()).normalize();
+        return prior.getParent().equals(destination.toAbsolutePath().normalize()) && Files.isRegularFile(prior) && Files.size(prior) > 0 ? prior : null;
+    }
+
     synchronized void prepare() throws IOException {
         if (workspace == null) workspace = new DownloadWorkspace(data, false);
+        workspaceUsers++;
     }
 
     synchronized void close() {
+        if (workspaceUsers == 0 || --workspaceUsers != 0) return;
         if (workspace != null) try {
             workspace.close();
         } catch (IOException e) {
@@ -94,7 +104,7 @@ public final class DownloadPipeline {
         }
     }
 
-    public synchronized Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress) throws Exception {
+    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress) throws Exception {
         token.check();
         prepare();
         try {
@@ -112,12 +122,10 @@ public final class DownloadPipeline {
         if (Files.getFileStore(destination).getUsableSpace() < 16 * 1024 * 1024)
             throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.not_enough_disk_space_in_the_music_folder"));
         Path history = destination.resolve(".darkmusic-downloads.json");
-        JsonObject archive = readArchive(history);
         String identity = entry.key();
-        if (archive.has(identity)) {
-            Path prior = destination.resolve(archive.get(identity).getAsString()).normalize();
-            if (prior.getParent().equals(destination.toAbsolutePath().normalize()) && Files.isRegularFile(prior) && Files.size(prior) > 0)
-                return new Saved(prior, true, "Already downloaded");
+        synchronized (historyLock) {
+            Path prior = previous(readArchive(history), identity, destination);
+            if (prior != null) return new Saved(prior, true, "Already downloaded");
         }
         Path scratchRoot = data.resolve("downloads/work");
         Files.createDirectories(scratchRoot);
@@ -164,9 +172,6 @@ public final class DownloadPipeline {
             String title = text(metadata, "title");
             if (title.isBlank()) title = entry.title();
             String name = filename(title, identity);
-            Path target = destination.resolve(name);
-            for (int suffix = 2; Files.exists(target); suffix++)
-                target = destination.resolve(name.substring(0, name.length() - 4) + " (" + suffix + ").mp3");
             incoming = Files.createTempFile(destination, ".darkmusic-", ".tmp");
             try (var input = Files.newInputStream(converted); var output = Files.newOutputStream(incoming)) {
                 byte[] buffer = new byte[32_768];
@@ -176,16 +181,25 @@ public final class DownloadPipeline {
                     output.write(buffer, 0, read);
                 }
             }
-            token.check();
-            Files.move(incoming, target);
-            incoming = null;
-            archive.addProperty(identity, target.getFileName().toString());
-            try {
-                ConfigStore.atomicWrite(history, ConfigStore.JSON.toJson(archive));
-            } catch (IOException e) {
-                warning = "Saved, but duplicate history could not be updated";
+            synchronized (historyLock) {
+                token.check();
+                // Merge the latest history only after conversion; other workers may have committed.
+                JsonObject archive = readArchive(history);
+                Path prior = previous(archive, identity, destination);
+                if (prior != null) return new Saved(prior, true, "Already downloaded");
+                Path target = destination.resolve(name);
+                for (int suffix = 2; Files.exists(target); suffix++)
+                    target = destination.resolve(name.substring(0, name.length() - 4) + " (" + suffix + ").mp3");
+                Files.move(incoming, target);
+                incoming = null;
+                archive.addProperty(identity, target.getFileName().toString());
+                try {
+                    ConfigStore.atomicWrite(history, ConfigStore.JSON.toJson(archive));
+                } catch (IOException e) {
+                    warning = "Saved, but duplicate history could not be updated";
+                }
+                return new Saved(target, false, warning);
             }
-            return new Saved(target, false, warning);
         } finally {
             try {
                 if (incoming != null) Files.deleteIfExists(incoming);

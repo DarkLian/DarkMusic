@@ -15,6 +15,7 @@ public final class ValueSlider extends AbstractSliderButton {
     private final int steps;
     private long adjusted;
     private boolean dragging;
+    private java.util.function.Supplier<com.darkmusic.client.config.VisualColors> colors;
 
     public ValueSlider(int x, int y, int width, double value, DoubleFunction<String> label, DoubleConsumer changed, Runnable committed) {
         this(x, y, width, value, label, changed, committed, 0);
@@ -27,6 +28,19 @@ public final class ValueSlider extends AbstractSliderButton {
         this.committed = committed;
         this.steps = steps;
         updateMessage();
+    }
+
+    public void colors(java.util.function.Supplier<com.darkmusic.client.config.VisualColors> value) {
+        colors = value;
+    }
+
+    @Override
+    public void extractWidgetRenderState(net.minecraft.client.gui.GuiGraphicsExtractor g, int mx, int my, float delta) {
+        super.extractWidgetRenderState(g, mx, my, delta);
+        if (colors != null) {
+            int width = Math.max(1, getWidth() - 4);
+            ColorStrip.draw(g, colors.get(), getX() + 2, getBottom() - 4, width, 2, (int) Math.round(width * value));
+        }
     }
 
     public void sync(double next) {

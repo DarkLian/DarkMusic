@@ -22,7 +22,7 @@ class DownloadPreviewTest {
     Path temporary;
 
     @Test
-    void exitingClearsResultsKeepsTheUrlAndRejectsLateAnalysis() throws Exception {
+    void explicitlyClearingResultsKeepsTheUrlAndRejectsLateAnalysis() throws Exception {
         var runner = new Metadata();
         runner.block = true;
         try (var service = new DownloadService(temporary, () -> {

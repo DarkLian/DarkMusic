@@ -120,6 +120,56 @@ class DownloadIntegrationTest {
     }
 
     @Test
+    void realToolsConvertThreeConcurrentDownloadsAndPreserveEveryHistoryEntry() throws Exception {
+        var runner = new ProcessRunner();
+        Path data = Files.createDirectories(temp.resolve("parallel-instance"));
+        var chain = Toolchain.resolve(settings(), data, runner, new ProcessRunner.Token());
+        Path excerpt = temp.resolve("parallel-excerpt.wav");
+        var conversion = runner.run(List.of(chain.ffmpeg().toString(), "-nostdin", "-v", "error", "-ss", "30", "-i", TestMusic.featured().toString(), "-t", "2", "-vn", "-c:a", "pcm_s16le", excerpt.toString()), data, new ProcessRunner.Token(), Duration.ofSeconds(30), 32000, line -> {
+        });
+        assertEquals(0, conversion.exit(), conversion.output());
+        byte[] audio = Files.readAllBytes(excerpt);
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        var http = Executors.newCachedThreadPool();
+        server.setExecutor(http);
+        server.createContext("/", exchange -> {
+            exchange.getResponseHeaders().set("Content-Type", "audio/wav");
+            exchange.getResponseHeaders().set("Content-Length", Integer.toString(audio.length));
+            exchange.sendResponseHeaders(200, exchange.getRequestMethod().equals("HEAD") ? -1 : audio.length);
+            if (!exchange.getRequestMethod().equals("HEAD")) exchange.getResponseBody().write(audio);
+            exchange.close();
+        });
+        server.start();
+        Path destination = temp.resolve("parallel-music");
+        var pipeline = new DownloadPipeline(runner, data);
+        try (var workers = Executors.newFixedThreadPool(3)) {
+            var futures = new java.util.ArrayList<java.util.concurrent.Future<DownloadPipeline.Saved>>();
+            for (int i = 0; i < 3; i++) {
+                String id = "entry" + i;
+                var entry = new Entry(i + 1, id, "http://127.0.0.1:" + server.getAddress().getPort() + "/" + id + ".wav", "Generic", id, true);
+                futures.add(workers.submit(() -> pipeline.execute(entry, destination, chain, new ProcessRunner.Token(), (status, detail) -> {
+                })));
+            }
+            for (var future : futures) {
+                var saved = future.get(60, java.util.concurrent.TimeUnit.SECONDS);
+                assertFalse(saved.skipped());
+                try (var pcm = com.darkmusic.client.audio.PcmDecoder.open(saved.file())) {
+                    assertTrue(pcm.readNBytes(10000).length > 0);
+                }
+            }
+            var history = JsonParser.parseString(Files.readString(destination.resolve(".darkmusic-downloads.json"))).getAsJsonObject();
+            assertEquals(3, history.size());
+            for (int i = 0; i < 3; i++) assertTrue(history.has("generic:entry" + i));
+            try (var files = Files.list(data.resolve("downloads/work"))) {
+                assertEquals(0, files.count());
+            }
+        } finally {
+            server.stop(0);
+            http.shutdownNow();
+        }
+    }
+
+    @Test
     void realFfmpegPreservesUnicodeMetadataAndArtworkWithoutInventingMissingAlbum() throws Exception {
         Tools settings = settings();
         var runner = new ProcessRunner();
@@ -130,6 +180,7 @@ class DownloadIntegrationTest {
         var excerpt = runner.run(List.of(chain.ffmpeg().toString(), "-nostdin", "-v", "error", "-ss", "30", "-i", TestMusic.featured().toString(), "-t", "4", "-c:a", "libmp3lame", fixture.toString()), data, token, Duration.ofSeconds(30), 32000, line -> {
         });
         assertEquals(0, excerpt.exit(), excerpt.output());
+        byte[] realArtwork = new MetadataReader().artwork(TestMusic.featured());
         ProcessRunner supply = new ProcessRunner() {
             @Override
             public Result run(List<String> args, Path dir, Token t, Duration timeout, int max, Consumer<String> lines) throws java.io.IOException, InterruptedException {
@@ -140,8 +191,7 @@ class DownloadIntegrationTest {
                     return new Result(0, "");
                 }
                 Files.writeString(dir.resolve("source.info.json"), "{\"title\":\"歌曲と音楽\",\"artist\":\"作曲家\",\"album\":\"专辑\",\"track_number\":7}");
-                var image = new java.awt.image.BufferedImage(80, 40, java.awt.image.BufferedImage.TYPE_INT_RGB);
-                javax.imageio.ImageIO.write(image, "png", dir.resolve("source.png").toFile());
+                Files.write(dir.resolve("source.jpg"), realArtwork);
                 return new Result(0, "");
             }
         };

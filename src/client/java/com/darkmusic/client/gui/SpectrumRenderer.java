@@ -49,7 +49,7 @@ public final class SpectrumRenderer {
             if (h == 0) continue;
             int left = x + i * width / bars, right = x + (i + 1) * width / bars - 1;
             int top = downward ? y : y + height - h;
-            g.fill(left, top, Math.max(left + 1, right), top + h, 0xFFB5B0FF);
+            g.fill(left, top, Math.max(left + 1, right), top + h, app.settings.spectrumColors.color(bars <= 1 ? 0 : i / (double) (bars - 1)));
         }
     }
 }

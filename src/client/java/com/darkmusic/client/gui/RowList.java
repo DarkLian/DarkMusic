@@ -32,10 +32,11 @@ public final class RowList extends AbstractWidget {
     private List<Integer> order = List.of(), dropping;
     private double[] from = new double[0], targets = new double[0];
     private long animation;
+    private java.util.function.IntConsumer disclosure;
+    private java.util.function.IntUnaryOperator disclosureInset;
 
     public RowList(int x, int y, int width, int height, int rowHeight, String label, BiConsumer<Integer, Boolean> action) {
         super(x, y, width, height, Component.literal(label));
-        setTooltip(net.minecraft.client.gui.components.Tooltip.create(Text.component("text.darkmusic.scroll_long_text")));
         this.rowHeight = rowHeight;
         this.action = action;
     }
@@ -69,6 +70,19 @@ public final class RowList extends AbstractWidget {
 
     public void select(int index) {
         selected = index >= 0 && index < rows.size() ? index : -1;
+    }
+
+    public void reveal(int index) {
+        select(index);
+        if (selected < 0) return;
+        if (selected * rowHeight < scroll) scroll = selected * rowHeight;
+        if ((selected + 1) * rowHeight > scroll + height) scroll = (selected + 1) * rowHeight - height;
+        clamp();
+    }
+
+    public void disclosure(java.util.function.IntUnaryOperator inset, java.util.function.IntConsumer action) {
+        disclosureInset = inset;
+        disclosure = action;
     }
 
     public int selected() {
@@ -185,6 +199,11 @@ public final class RowList extends AbstractWidget {
     public void onClick(MouseButtonEvent event, boolean twice) {
         int index = (int) (event.y() - getY() + scroll) / rowHeight;
         if (index >= 0 && index < rows.size()) {
+            int inset = disclosureInset == null ? -1 : disclosureInset.applyAsInt(index);
+            if (inset >= 0 && event.x() >= getX() + inset && event.x() < getX() + inset + 12) {
+                disclosure.accept(index);
+                return;
+            }
             if (reorder != null && selection != null && event.x() >= getX() + 24 && !event.hasShiftDown() && !event.hasControlDownWithQuirk()) {
                 pressed = event;
                 pressedIndex = index;

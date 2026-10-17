@@ -149,6 +149,8 @@ class AuditRegressionTest {
             DownloadTest.await(() -> !service.snapshot().analyzing());
             assertTrue(service.snapshot().message().contains("queue holds"));
             service.clearFinished();
+            assertEquals(1000, service.snapshot().items().size(), "Failed entries must be retained");
+            service.clearFailed();
             assertTrue(service.snapshot().items().isEmpty());
         }
     }

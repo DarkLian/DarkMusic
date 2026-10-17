@@ -30,7 +30,7 @@ dependencies {
 
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	['fabric-api-base', 'fabric-lifecycle-events-v1', 'fabric-key-mapping-api-v1',
-	 'fabric-screen-api-v1', 'fabric-rendering-v1', 'fabric-resource-loader-v1'].each {
+	 'fabric-screen-api-v1', 'fabric-rendering-v1', 'fabric-resource-loader-v1', 'fabric-command-api-v2'].each {
 		implementation fabricApi.module(it, project.fabric_api_version)
 	}
 	implementation include('net.jthink:jaudiotagger:3.0.1')

@@ -45,6 +45,8 @@ public class DarkMusicClient implements ClientModInitializer {
     private volatile boolean closed;
     private boolean resetting;
     private long directoryGeneration;
+    private Boolean requestedLayout;
+    private long requestUntil;
 
     public void warn(String text) {
         warning = text;
@@ -104,6 +106,26 @@ public class DarkMusicClient implements ClientModInitializer {
             client.gui.setScreen(new MusicScreen(this, screen));
     }
 
+    public void requestScreen(boolean layout) {
+        requestedLayout = layout;
+        requestUntil = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+    }
+
+    private void openRequestedScreen(Minecraft client) {
+        if (requestedLayout == null) return;
+        if (closed || resetting || System.nanoTime() > requestUntil || client.player != null && !client.player.isAlive()) {
+            requestedLayout = null;
+            return;
+        }
+        var screen = client.gui.screen();
+        if (settings == null || library == null || client.gui.overlay() != null || !client.gui.canInterruptScreen()
+            || screen != null && !(screen instanceof TitleScreen)) return;
+        boolean layout = requestedLayout;
+        requestedLayout = null;
+        if (layout) client.gui.setScreen(new com.darkmusic.client.gui.HudEditorScreen(this, screen));
+        else open();
+    }
+
     private KeyMapping binding(String name, int key, KeyMapping.Category category) {
         return KeyMappingHelper.registerKeyMapping(new KeyMapping("key.darkmusic." + name, InputConstants.Type.KEYSYM, key, category));
     }
@@ -124,9 +146,11 @@ public class DarkMusicClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         INSTANCE = this;
+        com.darkmusic.client.command.LocalCommands.register(this);
         com.darkmusic.client.hud.NowPlayingHud.register(this);
         com.darkmusic.client.hud.VolumeFeedback.register(this);
         com.darkmusic.client.hud.SpeedFeedback.register(this);
+        com.darkmusic.client.hud.DownloadHud.register(this);
         var category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("darkmusic", "controls"));
         open = binding("open", org.lwjgl.glfw.GLFW.GLFW_KEY_B, category);
         toggle = binding("toggle", org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSLASH, category);
@@ -155,6 +179,7 @@ public class DarkMusicClient implements ClientModInitializer {
             while (open.consumeClick()) pressed = true;
             if (allowed && pressed && !conflicts(open)) open();
             tick(client, allowed);
+            openRequestedScreen(client);
         });
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
             save();
@@ -295,6 +320,7 @@ public class DarkMusicClient implements ClientModInitializer {
         if (closed || resetting)
             return CompletableFuture.failedFuture(new IllegalStateException(com.darkmusic.client.text.Text.get("reset.darkmusic.busy")));
         resetting = true;
+        requestedLayout = null;
         directoryGeneration++;
         autoplayPending = false;
         com.darkmusic.client.gui.DesktopFolderPicker.cancel();

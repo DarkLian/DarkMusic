@@ -67,7 +67,7 @@ final class DownloadPreviewClient {
     private void finish(Minecraft mc, Throwable failure) {
         if (server != null) server.stop(0);
         if (failure == null)
-            org.slf4j.LoggerFactory.getLogger("darkmusic-preview-smoke").info("DARKMUSIC_SMOKE_PASS:{} URL re-entry/explicit re-analysis, preview search/range/check modes, temporary real-device audition/stop/exit/music restore, single visualizer settings entry", readId());
+            org.slf4j.LoggerFactory.getLogger("darkmusic-preview-smoke").info("DARKMUSIC_SMOKE_PASS:{} URL and preview retention across menu re-entry, preview search/range/check modes, temporary real-device audition/stop/exit/music restore, single visualizer settings entry", readId());
         else org.slf4j.LoggerFactory.getLogger("darkmusic-preview-smoke").error("DARKMUSIC_SMOKE_FAIL", failure);
         step = 999;
         mc.stop();
@@ -116,6 +116,39 @@ final class DownloadPreviewClient {
         });
         server.start();
         return "http://127.0.0.1:" + server.getAddress().getPort() + "/song.mp3";
+    }
+
+    private void checkQueueControls(Minecraft mc, DarkMusicClient app) throws Exception {
+        var screen = mc.gui.screen();
+        for (String label : List.of("Retry Failed", "Clear Failed", "Cancel Selected", "Cancel All", "Clear Finished"))
+            require(!button(mc, label).active, "Queue-only action enabled on Entries: " + label);
+        var snapshot = app.downloads.snapshot();
+        var tracks = app.library.snapshot().tracks();
+        var jobs = List.of(new DownloadModels.Item(101, tracks.getFirst().title(), app.library.root(), DownloadModels.Status.QUEUED, -1, "Waiting"),
+            new DownloadModels.Item(202, tracks.get(1).title(), app.library.root(), DownloadModels.Status.FAILED, -1, "HTTP 403 unique queue search"),
+            new DownloadModels.Item(303, tracks.get(2).title(), app.library.root(), DownloadModels.Status.SAVED, 1, "Saved"));
+        set(app.downloads, "published", new DownloadModels.Snapshot(false, "", snapshot.toolStatus(), snapshot.preview(), jobs));
+        click(mc, "Queue / Entries");
+        screen.tick();
+        require(!((AbstractWidget) field(screen, "modeButton")).active && !((AbstractWidget) field(screen, "download")).active, "Queue allows changing download mode or queuing a new download");
+        var search = (EditBox) field(screen, "search");
+        require(search.visible && search.active, "Queue search is unavailable");
+        search.setValue("unique queue search");
+        screen.tick();
+        require(((List<?>) field(screen, "visibleJobs")).size() == 1, "Queue error search did not filter");
+        var rows = (RowList) field(screen, "rows");
+        rows.onClick(mouse(rows.getX() + 40, rows.getY() + 5), false);
+        screen.tick();
+        require((long) field(screen, "selectedJob") == 202, "Filtered row selected a different queue job");
+        require(button(mc, "Retry Selected").active && !button(mc, "Cancel Selected").active, "Failed selection has incorrect actions");
+        require(button(mc, "Retry Failed").active && button(mc, "Clear Failed").active && button(mc, "Clear Finished").active, "Queue-wide actions are missing");
+        search.setValue("No matching queue item");
+        screen.tick();
+        require(!button(mc, "Retry Selected").active && !button(mc, "Cancel Selected").active, "Hidden selection still allows item actions");
+        click(mc, "Queue / Entries");
+        require(search.getValue().isEmpty(), "Queue search leaked into Entries");
+        set(app.downloads, "published", null);
+        screen.tick();
     }
 
     private void tick(Minecraft mc) {
@@ -174,6 +207,7 @@ final class DownloadPreviewClient {
                     if (app.downloads.snapshot().analyzing()) return;
                     require(app.downloads.snapshot().preview() != null, "Local analysis failed: " + app.downloads.snapshot().message());
                     require(field(mc.gui.screen(), "mode").toString().equals("VIDEO"), "Single video did not default to This Video Only");
+                    require(button(mc, "Tools").getWidth() == button(mc, "Analyze").getWidth(), "Tools and Analyze widths differ");
                     var search = (EditBox) field(mc.gui.screen(), "search");
                     search.setValue("no matching title");
                     require(((List<?>) field(mc.gui.screen(), "visible")).isEmpty(), "Preview search did not filter");
@@ -200,11 +234,11 @@ final class DownloadPreviewClient {
                     click(mc, "Play Audio Preview");
                     escape(mc);
                     require(mc.gui.screen() == player, "Escape did not return to the player");
-                    require(app.downloads.snapshot().preview() == null, "Preview survived leaving Downloads");
+                    require(app.downloads.snapshot().preview() != null, "Preview was lost when leaving Downloads");
                     require(app.audition == null, "Audition survived leaving Downloads");
                     click(mc, "Downloads");
                     require(((EditBox) field(mc.gui.screen(), "url")).getValue().equals(address), "Last analyzed URL was not restored");
-                    require(!button(mc, "Download One Video").active, "Re-entered screen did not require re-analysis");
+                    require(button(mc, "Download One Video").active, "Restored preview was not usable");
                     step++;
                 }
                 case 3 -> {
@@ -230,6 +264,8 @@ final class DownloadPreviewClient {
                     ((EditBox) field(mc.gui.screen(), "search")).setValue(entries.get(2).title());
                     require(((List<?>) field(mc.gui.screen(), "visible")).size() == 1, "Collection search failed");
                     require(((EditBox) field(mc.gui.screen(), "first")).getValue().equals("3"), "Filtering altered range indices");
+                    ((EditBox) field(mc.gui.screen(), "search")).setValue("");
+                    checkQueueControls(mc, app);
                     escape(mc);
                     click(mc, "Settings");
                     require(mc.gui.screen().children().stream().noneMatch(x -> x instanceof AbstractWidget b && b.getMessage().getString().equals("Music Visualizer")), "Visualizer remains duplicated in general settings");

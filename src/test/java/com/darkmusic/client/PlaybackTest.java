@@ -86,6 +86,25 @@ class PlaybackTest {
     }
 
     @Test
+    void queueOriginSurvivesRepeatShuffleAndTrackChangesUntilNewPlaybackStarts() {
+        var audio = new Fake();
+        var controller = new PlaybackController(audio, message -> {
+        });
+        var tracks = tracks();
+        for (var source : List.of(new PlaybackController.Source("All", "E1/Nested", "", "root"), new PlaybackController.Source("All", "", "", "root"), new PlaybackController.Source("Playlists", "casual-id", "", "root"), new PlaybackController.Source("Artists", "Artist", "search", "root"), new PlaybackController.Source("Albums", "Album", "", "root"))) {
+            controller.play(tracks, tracks.getFirst(), source);
+            controller.repeat(PlaybackController.Repeat.ALL);
+            controller.next();
+            controller.previous();
+            controller.shuffle(true);
+            audio.ended.run();
+            assertEquals(source, controller.source());
+        }
+        controller.play(tracks, tracks.getFirst());
+        assertEquals(new PlaybackController.Source("All", "", "", "root"), controller.source());
+    }
+
+    @Test
     void softwareGainHandlesRealMusicPcm() throws Exception {
         byte[] original = TestMusic.clip().bytes();
         byte[] pcm = original.clone();

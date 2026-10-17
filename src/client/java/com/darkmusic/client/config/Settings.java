@@ -29,6 +29,7 @@ public final class Settings {
     public SpectrumPosition spectrumPosition = SpectrumPosition.BELOW;
     public SpectrumDirection spectrumDirection = SpectrumDirection.UPWARD;
     public double hudBackgroundTransparency = 0;
+    public VisualColors spectrumColors = new VisualColors(), progressColors = new VisualColors();
     public int visualizerBars = 36;
     public double visualizerSensitivity = 1, visualizerSmoothing = .6;
     public String ytDlpPath = "", ffmpegPath = "", ffprobePath = "", javascriptPath = "";
@@ -59,6 +60,10 @@ public final class Settings {
         if (!java.util.Set.of("TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT").contains(hudPosition == null ? "" : hudPosition))
             hudPosition = "TOP_LEFT";
         speed = com.darkmusic.client.audio.PcmRateConverter.clamp(speed);
+        if (spectrumColors == null) spectrumColors = new VisualColors();
+        if (progressColors == null) progressColors = new VisualColors();
+        spectrumColors.validate();
+        progressColors.validate();
         visualizerBars = Math.clamp(visualizerBars, 8, 64);
         visualizerSensitivity = Double.isFinite(visualizerSensitivity) ? Math.clamp(visualizerSensitivity, .25, 4) : 1;
         visualizerSmoothing = Double.isFinite(visualizerSmoothing) ? Math.clamp(visualizerSmoothing, 0, .95) : .6;

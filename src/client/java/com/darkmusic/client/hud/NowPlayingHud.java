@@ -11,6 +11,8 @@ public final class NowPlayingHud {
     private static final com.darkmusic.client.gui.SpectrumRenderer LIVE = new com.darkmusic.client.gui.SpectrumRenderer();
     private static final com.darkmusic.client.gui.SpectrumRenderer PREVIEW = new com.darkmusic.client.gui.SpectrumRenderer();
 
+    private static final TitleMarquee LIVE_TITLE = new TitleMarquee(), PREVIEW_TITLE = new TitleMarquee();
+
     private NowPlayingHud() {
     }
 
@@ -65,11 +67,8 @@ public final class NowPlayingHud {
             int textX = app.settings.hudArtwork ? 42 : 6;
             if (art != null) com.darkmusic.client.library.ArtworkCache.draw(g, art, 5, main + 3, 32);
             String title = track == null ? Text.get("text.darkmusic.song_title") : track.title();
-            if (text != null) {
-                text.transform(x, y, scale);
-                text.draw(g, mc.font, "hud_title", title, textX, main + 6, Math.max(1, w - textX - 6), 0xFFB5B0FF);
-            } else
-                g.text(mc.font, mc.font.plainSubstrByWidth(title, Math.max(1, w - textX - 6)), textX, main + 6, 0xFFB5B0FF);
+            if (text != null) text.transform(x, y, scale);
+            (preview ? PREVIEW_TITLE : LIVE_TITLE).draw(g, mc.font, title, textX, main + 6, Math.max(1, w - textX - 6), 0xFFB5B0FF);
             String detail = (state.track() == null ? Text.get("text.darkmusic.preview") : com.darkmusic.client.gui.MusicScreen.label(state.status().name())) + " | " + (track == null ? Text.get("text.darkmusic.artist") : track.artist());
             if (text != null)
                 text.draw(g, mc.font, "hud_detail", detail, textX, main + 21, Math.max(1, w - textX - 6), 0xFFE0DDEE);
@@ -78,7 +77,7 @@ public final class NowPlayingHud {
             if (app.settings.hudProgress) {
                 double progress = state.duration() > 0 ? Math.clamp(state.position() / state.duration(), 0, 1) : preview ? .4 : 0;
                 g.fill(6, main + 39, w - 6, main + 42, 0xFF34394F);
-                g.fill(6, main + 39, 6 + (int) ((w - 12) * progress), main + 42, 0xFFB5B0FF);
+                com.darkmusic.client.gui.ColorStrip.draw(g, app.settings.progressColors, 6, main + 39, w - 12, 3, (int) ((w - 12) * progress));
             }
             if (layout.spectrum())
                 (settingsPreview ? PREVIEW : LIVE).bars(app, g, 0, layout.spectrumY(), w, HudLayout.SPECTRUM_HEIGHT, app.settings.spectrumDirection == com.darkmusic.client.config.Settings.SpectrumDirection.DOWNWARD, settingsPreview);

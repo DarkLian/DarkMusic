@@ -16,13 +16,16 @@ import static com.darkmusic.client.download.DownloadModels.*;
  * Instance-scoped worker queues. UI callers only exchange immutable snapshots.
  */
 public final class DownloadService implements AutoCloseable {
+    public static final int PARALLEL_DOWNLOADS = 3;
+    public static final int MAX_RETRIES = 3;
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger("darkmusic-download");
     private final Path data;
     private final ProcessRunner runner;
     private final DownloadPipeline pipeline;
     private final Runnable refresh;
     private final ExecutorService analysis = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-url-analysis").factory());
-    private final ExecutorService downloads = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-download-queue").factory());
+    private final Object toolResolutionLock = new Object();
+    private final ExecutorService downloads = Executors.newFixedThreadPool(PARALLEL_DOWNLOADS, Thread.ofPlatform().daemon().name("darkmusic-download-", 1).factory());
     private final BlockingQueue<Work> pending = new LinkedBlockingQueue<>();
     private final List<Work> work = new ArrayList<>();
     private final java.util.Set<ActiveKey> activeKeys = new java.util.HashSet<>();
@@ -32,7 +35,7 @@ public final class DownloadService implements AutoCloseable {
     private volatile boolean closed;
     private String message = "", toolStatus = Text.get("download.darkmusic.tools_unchecked");
     private Preview preview;
-    private String lastAnalyzedUrl = "";
+    private String lastAnalyzedUrl = "", inputUrl = "";
     private long previewRevision;
     private ProcessRunner.Token previewToken;
     private ProcessRunner.Token analysisToken = new ProcessRunner.Token();
@@ -48,7 +51,7 @@ public final class DownloadService implements AutoCloseable {
         this.refresh = refresh;
         this.runner = runner;
         pipeline = new DownloadPipeline(runner, this.data);
-        downloads.execute(this::drain);
+        for (int i = 0; i < PARALLEL_DOWNLOADS; i++) downloads.execute(this::drain);
     }
 
     public synchronized void configure(Tools value) {
@@ -111,18 +114,20 @@ public final class DownloadService implements AutoCloseable {
     }
 
     private Toolchain tools(Tools selected, ProcessRunner.Token token) throws Exception {
-        Cache cached = cache;
-        token.check();
-        if (cached != null && selected.equals(cached.settings())) return cached.tools();
-        Files.createDirectories(data);
-        Toolchain result = Toolchain.resolve(selected, data, runner, token);
-        token.check();
-        cache = new Cache(selected, result);
-        synchronized (this) {
-            toolStatus = result.versions();
-            published = null;
+        synchronized (toolResolutionLock) {
+            Cache cached = cache;
+            token.check();
+            if (cached != null && selected.equals(cached.settings())) return cached.tools();
+            Files.createDirectories(data);
+            Toolchain result = Toolchain.resolve(selected, data, runner, token);
+            token.check();
+            cache = new Cache(selected, result);
+            synchronized (this) {
+                toolStatus = result.versions();
+                published = null;
+            }
+            return result;
         }
-        return result;
     }
 
     public synchronized List<String> toolVersions() {
@@ -132,6 +137,14 @@ public final class DownloadService implements AutoCloseable {
 
     public synchronized String lastAnalyzedUrl() {
         return lastAnalyzedUrl;
+    }
+
+    public synchronized String inputUrl() {
+        return inputUrl;
+    }
+
+    public synchronized void rememberInput(String value) {
+        inputUrl = value;
     }
 
     /**
@@ -162,6 +175,7 @@ public final class DownloadService implements AutoCloseable {
             return;
         }
         lastAnalyzedUrl = link;
+        inputUrl = link;
         long ticket = ++previewRevision;
         preview = null;
         published = null;
@@ -285,16 +299,78 @@ public final class DownloadService implements AutoCloseable {
                     item.message = "Cancelled";
                 } else item.message = "Cancelling…";
             }
+        published = null;
     }
 
     public synchronized void cancelAll() {
-        work.forEach(w -> cancel(w.id));
+        work.forEach(w -> {
+            w.retryAllowed = false;
+            cancel(w.id);
+        });
         cancelAnalysis();
     }
 
     public synchronized void clearFinished() {
-        work.removeIf(w -> w.status.finished());
+        work.removeIf(w -> w.status.finished() && w.status != Status.FAILED);
         published = null;
+    }
+
+    public synchronized void clearFailed() {
+        work.removeIf(w -> w.status == Status.FAILED);
+        published = null;
+    }
+
+    public synchronized void retry(long id) {
+        if (closed) return;
+        for (Work item : work)
+            if (item.id == id && item.status == Status.FAILED) {
+                if (item.entry.url().isBlank()) {
+                    message = Text.get("download.darkmusic.retry_missing_url");
+                    published = null;
+                    return;
+                }
+                item.tools = settings;
+                item.attempts = 0;
+                requeue(item);
+            }
+    }
+
+    public synchronized boolean failedEntry(Entry entry, Path destination) {
+        return work.stream().anyMatch(w -> w.status == Status.FAILED && w.entry.key().equals(entry.key()) && w.destination.equals(destination.toAbsolutePath().normalize()));
+    }
+
+    public synchronized void retryEntry(Entry entry, Path destination) {
+        for (Work item : work)
+            if (item.status == Status.FAILED && item.entry.key().equals(entry.key()) && item.destination.equals(destination.toAbsolutePath().normalize())) {
+                retry(item.id);
+                return;
+            }
+    }
+
+    public synchronized void retryFailed() {
+        for (Work item : work) if (item.status == Status.FAILED) retry(item.id);
+    }
+
+    private void requeue(Work item) {
+        var key = new ActiveKey(item.destination, item.entry.key());
+        if (!activeKeys.add(key)) return;
+        item.token = new ProcessRunner.Token();
+        item.retryAllowed = true;
+        item.status = Status.QUEUED;
+        item.progress = -1;
+        item.message = Text.get("download.darkmusic.retry_waiting", Math.max(0, item.attempts - 1), MAX_RETRIES);
+        pending.add(item);
+        published = null;
+    }
+
+    /**
+     * Retry only after every queued/in-flight entry has finished its current pass.
+     */
+    private void retryAfterQueue() {
+        if (closed || analyzing || work.stream().anyMatch(w -> !w.status.finished())) return;
+        for (Work item : work)
+            if (item.status == Status.FAILED && item.retryAllowed && item.attempts > 0 && item.attempts <= MAX_RETRIES && !item.token.cancelled())
+                requeue(item);
     }
 
     public synchronized void cancelAnalysis() {
@@ -346,6 +422,7 @@ public final class DownloadService implements AutoCloseable {
                     analyzing = false;
                     toolOperation = false;
                     published = null;
+                    retryAfterQueue();
                 }
             }
         });
@@ -360,6 +437,9 @@ public final class DownloadService implements AutoCloseable {
                 return;
             }
             try {
+                synchronized (this) {
+                    item.attempts++;
+                }
                 item.token.check();
                 update(item, Status.DOWNLOADING, -1, Text.get("download.darkmusic.tools_checking"));
                 Toolchain chain = tools(item.tools, item.token);
@@ -373,7 +453,11 @@ public final class DownloadService implements AutoCloseable {
                     update(item, status, percent, detail);
                 });
                 update(item, result.skipped() ? Status.SKIPPED : Status.SAVED, 1, result.file().getFileName() + (result.warning().isBlank() ? "" : " — " + result.warning()));
-                if (!result.skipped()) refresh.run();
+                if (!result.skipped()) try {
+                    refresh.run();
+                } catch (RuntimeException e) {
+                    LOG.warn("Saved download could not trigger a library refresh", e);
+                }
             } catch (CancellationException | InterruptedException e) {
                 update(item, Status.CANCELLED, -1, "Cancelled");
             } catch (Exception e) {
@@ -389,6 +473,7 @@ public final class DownloadService implements AutoCloseable {
         item.status = status;
         item.progress = progress;
         item.message = detail;
+        if (status.finished()) retryAfterQueue();
     }
 
     @Override
@@ -418,8 +503,10 @@ public final class DownloadService implements AutoCloseable {
         final long id;
         final Entry entry;
         final Path destination;
-        final Tools tools;
-        final ProcessRunner.Token token = new ProcessRunner.Token();
+        Tools tools;
+        ProcessRunner.Token token = new ProcessRunner.Token();
+        int attempts;
+        boolean retryAllowed = true;
         Status status = Status.QUEUED;
         double progress = -1;
         String message = "Waiting";

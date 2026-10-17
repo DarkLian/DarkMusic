@@ -19,6 +19,7 @@ public final class PlaybackController implements AutoCloseable {
     private double speed = 1;
     private Repeat repeat = Repeat.OFF;
     private long sequence;
+    private Source source = new Source("All", "", "", "");
 
     public PlaybackController(AudioBackend audio, Consumer<String> warning) {
         this.audio = audio;
@@ -76,6 +77,17 @@ public final class PlaybackController implements AutoCloseable {
     }
 
     public void play(List<Track> queue, Track selected) {
+        if (selected == null) return;
+        play(queue, selected, new Source("All", "", "", selected.rootId()));
+    }
+
+    public Source source() {
+        return source;
+    }
+
+    public void play(List<Track> queue, Track selected, Source origin) {
+        if (!queue.contains(selected)) return;
+        source = Objects.requireNonNull(origin);
         tracks = List.copyOf(queue);
         history.clear();
         failures = 0;
@@ -157,6 +169,7 @@ public final class PlaybackController implements AutoCloseable {
     public void reset() {
         stop();
         tracks = List.of();
+        source = new Source("All", "", "", "");
         order.clear();
         history.clear();
         cursor = -1;
@@ -174,4 +187,10 @@ public final class PlaybackController implements AutoCloseable {
     }
 
     public enum Repeat {OFF, ONE, ALL}
+
+    /**
+     * Immutable origin of the actual repeat/shuffle queue, retained across track changes.
+     */
+    public record Source(String mode, String group, String query, String rootId) {
+    }
 }

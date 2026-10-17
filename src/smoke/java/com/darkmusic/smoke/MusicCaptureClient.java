@@ -35,7 +35,7 @@ final class MusicCaptureClient {
         require(mc.getWindow().isFullscreen() && mc.options.guiScale().get() == 3 && mc.getWindow().getGuiScale() == 3, "Capture requires fullscreen GUI scale 3");
         Path root = Path.of(System.getProperty("darkmusic.privateImages"));
         Files.createDirectories(root.resolve("screenshots"));
-        Screenshot.grab(root.toFile(), name + "-1.0.2-3x.png", mc.gameRenderer.mainRenderTarget(), 1, text -> captures++);
+        Screenshot.grab(root.toFile(), name + "-1.0.3-3x.png", mc.gameRenderer.mainRenderTarget(), 1, text -> captures++);
     }
 
     private void click(Minecraft mc, String key) {
@@ -129,9 +129,18 @@ final class MusicCaptureClient {
                     click(mc, "reset.darkmusic.button");
                 }
                 case 16 -> capture(mc, "reset-confirmation");
+                case 17 -> {
+                    app.settings.spectrumColors.preset = com.darkmusic.client.config.VisualColors.Preset.AURORA;
+                    mc.gui.setScreen(new ColorsScreen(app, player, true));
+                }
+                case 18 -> capture(mc, "spectrum-colors");
+                case 19 -> {
+                    app.settings.spectrumColors.preset = com.darkmusic.client.config.VisualColors.Preset.MOONLIGHT;
+                    app.save();
+                }
                 default -> {
-                    if (captures != 9) return;
-                    org.slf4j.LoggerFactory.getLogger("darkmusic-capture").info("DARKMUSIC_SMOKE_PASS:{} nine original fullscreen GUI-scale-3 captures; real collection/artwork, unified settings/defaults, shared HUD, playlists, downloads and four tool rows",
+                    if (captures != 10) return;
+                    org.slf4j.LoggerFactory.getLogger("darkmusic-capture").info("DARKMUSIC_SMOKE_PASS:{} ten original fullscreen GUI-scale-3 captures; real collection/artwork, unified settings/defaults, shared HUD, playlists, downloads and four tool rows",
                         Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip());
                     step = 999;
                     mc.stop();

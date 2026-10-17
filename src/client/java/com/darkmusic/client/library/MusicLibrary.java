@@ -119,7 +119,7 @@ public final class MusicLibrary implements AutoCloseable {
         String message = "";
         boolean complete = false;
         long[] partialAt = {System.nanoTime()};
-        publish(ticket, new Snapshot(revisions.incrementAndGet(), snapshot.tracks(), true, "Scanning library..."));
+        publish(ticket, new Snapshot(revisions.incrementAndGet(), snapshot.tracks(), true, "Scanning library...", snapshot.folders()));
         try {
             if (!Files.isDirectory(directory) || !Files.isReadable(directory))
                 throw new IOException("Music directory unavailable. Choose another folder in Settings.");
@@ -180,7 +180,7 @@ public final class MusicLibrary implements AutoCloseable {
             }
         }
         if (!directories.isEmpty()) replaceWatcher(directories);
-        publish(ticket, new Snapshot(revisions.incrementAndGet(), List.copyOf(tracks), false, message));
+        publish(ticket, new Snapshot(revisions.incrementAndGet(), List.copyOf(tracks), false, message, directories.stream().map(directory::relativize).map(p -> p.toString().replace('\\', '/')).filter(p -> !p.isEmpty()).toList()));
     }
 
     private synchronized void publish(long ticket, Snapshot value) {
@@ -255,7 +255,15 @@ public final class MusicLibrary implements AutoCloseable {
         return scanner.awaitTermination(seconds, TimeUnit.SECONDS) && monitor.awaitTermination(seconds, TimeUnit.SECONDS);
     }
 
-    public record Snapshot(long revision, List<Track> tracks, boolean scanning, String message) {
+    public record Snapshot(long revision, List<Track> tracks, boolean scanning, String message, List<String> folders) {
+        public Snapshot {
+            tracks = List.copyOf(tracks);
+            folders = List.copyOf(folders);
+        }
+
+        public Snapshot(long revision, List<Track> tracks, boolean scanning, String message) {
+            this(revision, tracks, scanning, message, List.of());
+        }
     }
 
     private record Cached(String root, String path, String title, String artist, String album,

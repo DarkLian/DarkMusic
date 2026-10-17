@@ -8,15 +8,16 @@
 **Your music, inside Minecraft.** Play your collection, edit playlists, download authorized audio, and keep listening across menus and worlds.
 
 - MP3, OGG Vorbis, PCM WAV, and FLAC, with embedded metadata and artwork.
-- Search by title, artist, album, or path; browse playlists, artists, and albums.
+- Search by title, artist, album, or path; browse collapsible subfolders, playlists, artists, and albums; jump back to the playing song's original list.
 - Bulk playlist selection and animated reordering of connected selections.
 - Volume, seeking, shuffle, repeat, and playback speed from **0.5x to 3.0x**.
 - A combined now-playing HUD with optional artwork, progress, and real audio spectrum bars.
 - One settings screen with a live HUD preview, background transparency, and drag/scroll layout editing.
+- Independent spectrum/progress color presets and custom solid or mixed colors; the original purple stays the default.
 - URL analysis, searchable collection previews, short audio previews, download queues, and optional verified tool installation.
 - English and Traditional Chinese, following Minecraft's language setting.
 
-![DarkMusic player with the real music collection and embedded artwork](docs/images/player-1.0.2-3x.png)
+![DarkMusic player with the real music collection and embedded artwork](docs/images/player-1.0.3-3x.png)
 
 *Original fullscreen capture at Minecraft GUI scale 3.*
 
@@ -31,12 +32,14 @@
 
 ## Install and listen
 
-1. Add Fabric API for Minecraft 26.2 and **darkmusic-1.0.2.jar** to a Fabric instance's `mods` folder.
+1. Add Fabric API for Minecraft 26.2 and **darkmusic-1.0.3.jar** to a Fabric instance's `mods` folder.
 2. Launch Minecraft and click **Music** on the title screen, or press **B** during gameplay.
 3. Click **Open Folder**, then copy supported audio into that folder. Subfolders are included.
 4. Wait for discovery or click **Refresh Library**, then double-click a song.
 
 The default folder is `config/darkmusic/music` inside the active Minecraft instance. To choose an existing collection, open **Settings → Choose Music Folder** and select a directory in the desktop folder chooser. Its path appears below that option. No files are moved.
+
+**`/da`** or **`/darkmusic`** opens the player, **`/da gui`** opens Edit HUD Layout, and **`/da help`** shows local tips and useful links. Both aliases support all subcommands. These commands execute client-side; help is added locally rather than sent as chat.
 
 **Escape** closes the current screen. Settings save automatically; music continues when you close the player.
 
@@ -62,6 +65,8 @@ General and HUD options share one screen. Defaults are **Now-Playing HUD on**, *
 
 Artwork, progress, and spectrum have individual toggles. The master switch hides the whole gameplay HUD; **Music Spectrum** controls bars in both the player and HUD. Smoothing, sensitivity, bar count, placement, and direction are in the HUD section. Player bars use their own main-menu area.
 
+**Spectrum Colors** and **Progress Bar Colors** offer Moonlight (the original purple), Aurora Borealis, Neon Dream, Solar Flare, Ocean Drive, Sakura Sky, Glacier Glow, Ruby Pulse, and Custom Mix. Enter matching hex colors for a solid color or different endpoints for a blend. Choices apply to the HUD and player.
+
 The live preview updates immediately. Scroll over it to resize its independent preview; a percentage readout helps compare sizes. Use **Edit HUD Layout** to drag the actual combined HUD or scroll over it to resize in 10% steps. There is no separate spectrum layout editor.
 
 **Reset to Defaults** asks for confirmation, then restores preferences/key binds, switches to the default folder, stops pending work, removes instance-local tools and recognized download records, and clears caches. **Audio/video files, downloaded music, playlists, and external tools are preserved.** Unknown or linked files are retained and reported.
@@ -79,7 +84,7 @@ Nothing installs during normal startup. **Advanced Paths** supports existing exe
 
 Paste a video or collection URL and **Analyze**. Choose **This Video Only**, **Selected Entries**, an inclusive **Entry Range**, or explicitly **All Entries**. Search filters the loaded page. Range mode uses only its inputs; switching modes clears checks. A single result defaults to This Video Only. Nothing downloads until you click **Download**.
 
-**Play Audio Preview** lets you listen to up to 30 seconds before deciding. Leaving Downloads clears analyzed entries/checks while retaining the last analyzed URL for re-analysis. Queued downloads continue after closing the menu. Finished MP3s remain in the selected folder and appear without restarting.
+**Play Audio Preview** lets you listen to up to 30 seconds before deciding. Leaving Downloads keeps the URL and analyzed preview while stopping temporary audio playback. Entries and Queue have separate search filters. Queue disables Mode/Download and enables only applicable actions. Three downloads run concurrently; failed downloads retry after the queue finishes, up to three additional attempts. Retry Selected/Retry Failed allow manual retries. Clear Finished preserves failures; use Clear Failed to remove those rows. A gameplay overlay shows queue progress and fading completion/failure notices. Queued downloads continue after closing the menu. Finished MP3s remain in the selected folder and appear without restarting.
 
 Download only content you are authorized to save. Support and access depend on yt-dlp and the source site; DarkMusic does not bypass access controls.
 
@@ -99,9 +104,9 @@ Use a Java 25 JDK:
 ./gradlew build
 ```
 
-Install `build/libs/darkmusic-1.0.2.jar`. The `-sources.jar` and `-third-party-sources.zip` are source archives, not installable mods. Include third-party sources and notices when redistributing builds.
+Install `build/libs/darkmusic-1.0.3.jar`. The `-sources.jar` and `-third-party-sources.zip` are source archives, not installable mods. Include third-party sources and notices when redistributing builds.
 
-See **[testing and screenshots](docs/TESTING.md)** and **[v1.0.2 release notes](docs/RELEASE-1.0.2.md)**.
+See **[testing and screenshots](docs/TESTING.md)** and **[v1.0.3 release notes](docs/RELEASE-1.0.3.md)**.
 
 ## License
 
