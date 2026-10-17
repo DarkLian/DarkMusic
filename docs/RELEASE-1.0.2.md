@@ -33,4 +33,4 @@ Open Music on the title screen or press B in gameplay. Existing settings/binding
 
 ## Verification
 
-Local verification runs after the implementation commit and before publication, using the real collection and integration tools. Hosted checks explicitly skip unavailable private-audio integrations. Title-screen checks do not claim exhaustive multiplayer, full-modpack, or cross-platform runtime coverage.
+All 95 automated tests passed locally without skips after the implementation commit, using the private real collection and integration tools. The real-device client smoke check and nine original fullscreen GUI-scale-3 captures also passed. Hosted checks explicitly skip unavailable private-audio integrations. Title-screen checks do not claim exhaustive multiplayer, full-modpack, or cross-platform runtime coverage.

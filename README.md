@@ -16,6 +16,10 @@
 - URL analysis, searchable collection previews, short audio previews, download queues, and optional verified tool installation.
 - English and Traditional Chinese, following Minecraft's language setting.
 
+![DarkMusic player with the real music collection and embedded artwork](docs/images/player-1.0.2-3x.png)
+
+*Original fullscreen capture at Minecraft GUI scale 3.*
+
 ## Requirements
 
 | Component | Version |

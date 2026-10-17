@@ -51,6 +51,8 @@ Titles, artists, albums, and covers come from embedded tags. Missing titles use 
 
 Embed artwork using a tag editor, save, and refresh. Separate `cover.jpg` files are not loaded. Images retain aspect ratio with padding, without stretching/cropping. The cache preserves source resolution up to 1024 pixels and avoids upscaling small originals. Low-resolution artwork cannot gain detail from rendering.
 
+![Current music player](images/player-1.0.2-3x.png)
+
 ## Playlists
 
 Choose **Manage Playlists → New**, enter a name, and Save. Select the playlist, **Add Songs**, check songs, then **Add Selected**. Already-added songs are omitted from the picker. Playback controls remain in the main player.
@@ -103,6 +105,8 @@ Transparency affects background surfaces, including artwork padding and spectrum
 
 The preview updates immediately using the current song. With no song, preview information and preview-only sample bars show the layout. Gameplay bars always use decoded audio.
 
+![Unified settings and combined HUD preview](images/settings-1.0.2-3x.png)
+
 ### Move and scale
 
 - Scroll over the settings preview for independent scaling in 10% steps. A percentage readout helps compare sizes; this does not change actual HUD scale.
@@ -151,6 +155,8 @@ Open **Downloads → Tools**. Each tool has a separate row and checked version/s
 **Advanced Paths** supports existing executables. Blank paths search the managed bundle, instance tools, and system PATH; FFprobe can also be found beside FFmpeg. FFmpeg needs `libmp3lame`. YouTube needs Deno 2.3+ or Node.js 22+. Official standalone yt-dlp includes challenge scripts; see [EJS setup](https://github.com/yt-dlp/yt-dlp/wiki/EJS) for other distributions.
 
 **Check Tools** validates versions and MP3 support. **Cancel Tool Operation** appears only during checking/installing and stops that work. Escape only leaves the menu. There is no Done button. Nothing installs on startup; local playback needs none of these tools.
+
+![Tools listed individually after checking](images/download-tools-1.0.2-3x.png)
 
 ### Analyze and select
 
