@@ -82,16 +82,20 @@ if (providers.gradleProperty('smoke').isPresent()) {
 				source sourceSets.smoke
 				runDir providers.gradleProperty('captureMusic').isPresent() ? 'build/capture-run' : 'build/smoke-run'
 				vmArg "-Ddarkmusic.music=${realMusicDirectory}"
+				vmArg "-Ddarkmusic.smokeRunFile=${file('build/smoke-run-id.txt').absolutePath}"
 				vmArg "-Ddarkmusic.capture=${providers.gradleProperty('captureMusic').isPresent()}"
+				vmArg "-Ddarkmusic.testNativeBindings=${providers.gradleProperty('nativeBindingsSmoke').isPresent()}"
 				vmArg "-Ddarkmusic.privateImages=${file('docs/images_private').absolutePath}"
 				if (providers.gradleProperty('captureMusic').isPresent()) vmArg "-Ddarkmusic.downloadTools=${file('Music').absolutePath}"
 			}
 		}
 	}
 	def smokeLog = layout.buildDirectory.file(providers.gradleProperty('captureMusic').isPresent() ? 'capture-run/logs/latest.log' : 'smoke-run/logs/latest.log')
+	def smokeRunId = layout.buildDirectory.file('smoke-run-id.txt')
 	tasks.named('runSmokeClient') {
+		doFirst { smokeRunId.get().asFile.text = UUID.randomUUID().toString() }
 		doLast {
-			if (!smokeLog.get().asFile.text.contains('DARKMUSIC_SMOKE_PASS:')) {
+			if (!smokeLog.get().asFile.text.contains('DARKMUSIC_SMOKE_PASS:' + smokeRunId.get().asFile.text.strip())) {
 				throw new GradleException('Client smoke checks failed; inspect the selected smoke/capture run logs')
 			}
 		}
@@ -144,7 +148,7 @@ jar {
 	inputs.property "projectName", projectName
 
 	from("LICENSE") {
-		rename { "${it}_$projectName"}
+		rename { "${it}_$projectName" }
 	}
 }
 
@@ -163,4 +167,12 @@ publishing {
 		// The repositories here will be used for publishing your artifact, not for
 		// retrieving dependencies.
 	}
+}
+
+// Keep distributed notices current without modifying the original licensed source notice.
+def distributionVersion = project.version.toString()
+tasks.withType(AbstractCopyTask).configureEach {
+    filesMatching(['THIRD-PARTY-NOTICES.md', '**/THIRD-PARTY-NOTICES.md']) {
+        filter { line -> line.replaceAll(/darkmusic-[0-9]+(?:\.[0-9]+)*-third-party-sources\.zip/, "darkmusic-${distributionVersion}-third-party-sources.zip") }
+    }
 }

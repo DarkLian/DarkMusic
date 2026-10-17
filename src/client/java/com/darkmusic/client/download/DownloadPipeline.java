@@ -26,16 +26,31 @@ import static com.darkmusic.client.download.DownloadModels.*;
 public final class DownloadPipeline {
     private final ProcessRunner runner;
     private final Path data;
+    private DownloadWorkspace workspace;
 
     public DownloadPipeline(ProcessRunner runner, Path data) {
         this.runner = runner;
         this.data = data;
     }
 
+    synchronized void prepare() throws IOException {
+        if (workspace == null) workspace = new DownloadWorkspace(data);
+    }
+
+    synchronized void close() {
+        if (workspace != null) try {
+            workspace.close();
+        } catch (IOException e) {
+            org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Cannot close workspace", e);
+        } finally {
+            workspace = null;
+        }
+    }
+
     private static JsonObject readArchive(Path history) throws IOException {
         if (!Files.exists(history)) return new JsonObject();
         if (Files.size(history) > 16_000_000)
-            throw new IOException("Download history is too large. Preserve it and choose another folder.");
+            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.download_history_is_too_large_preserve_it_and_choose_another_folder"));
         try (var reader = Files.newBufferedReader(history)) {
             return JsonParser.parseReader(reader).getAsJsonObject();
         } catch (RuntimeException e) {
@@ -82,9 +97,10 @@ public final class DownloadPipeline {
     public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress) throws Exception {
         token.check();
         Files.createDirectories(destination);
-        if (!Files.isWritable(destination)) throw new IOException("The selected music folder is not writable.");
+        if (!Files.isWritable(destination))
+            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.the_selected_music_folder_is_not_writable"));
         if (Files.getFileStore(destination).getUsableSpace() < 16 * 1024 * 1024)
-            throw new IOException("Not enough disk space in the music folder.");
+            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.not_enough_disk_space_in_the_music_folder"));
         Path history = destination.resolve(".darkmusic-downloads.json");
         JsonObject archive = readArchive(history);
         String identity = entry.key();
@@ -174,11 +190,11 @@ public final class DownloadPipeline {
 
     private void verify(Toolchain tools, Path file, Path work, ProcessRunner.Token token) throws Exception {
         if (!Files.isRegularFile(file) || Files.size(file) == 0)
-            throw new IOException("Conversion produced no MP3 file.");
+            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.conversion_produced_no_mp3_file"));
         var r = runner.run(List.of(tools.ffprobe().toString(), "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=codec_name", "-of", "json", file.toString()), work, token, Duration.ofSeconds(30), 32_000, s -> {
         });
         if (r.exit() != 0 || !r.output().contains("\"mp3\""))
-            throw new IOException("The converted file failed MP3 validation.");
+            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.the_converted_file_failed_mp3_validation"));
     }
 
     public record Saved(Path file, boolean skipped, String warning) {

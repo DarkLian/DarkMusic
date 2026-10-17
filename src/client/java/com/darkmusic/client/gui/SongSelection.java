@@ -23,6 +23,14 @@ public final class SongSelection {
         checked.retainAll(new HashSet<>(available));
     }
 
+    public int size() {
+        return checked.size();
+    }
+
+    public boolean isEmpty() {
+        return checked.isEmpty();
+    }
+
     public Set<String> selected() {
         return Set.copyOf(checked);
     }

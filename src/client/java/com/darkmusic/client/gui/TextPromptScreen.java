@@ -1,5 +1,7 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.text.Text;
+
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -28,16 +30,17 @@ public final class TextPromptScreen extends LocalScreen {
         text.setMaxLength(100);
         text.setValue(initial);
         setInitialFocus(text);
-        addRenderableWidget(Button.builder(Component.literal("Save"), b -> {
+        addRenderableWidget(Button.builder(Text.component("text.darkmusic.save"), b -> {
             try {
-                if (text.getValue().isBlank()) throw new IllegalArgumentException("Enter a name");
+                if (text.getValue().isBlank())
+                    throw new IllegalArgumentException(Text.get("text.darkmusic.enter_a_name"));
                 accept.accept(text.getValue().strip());
                 show(parent);
             } catch (IllegalArgumentException e) {
                 error = e.getMessage();
             }
         }).bounds(12, 76, 72, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Cancel"), b -> onClose()).bounds(90, 76, 72, 20).build());
+        addRenderableWidget(Button.builder(Text.component("text.darkmusic.cancel"), b -> onClose()).bounds(90, 76, 72, 20).build());
     }
 
     @Override

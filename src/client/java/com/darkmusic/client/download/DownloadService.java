@@ -24,6 +24,8 @@ public final class DownloadService implements AutoCloseable {
     private final BlockingQueue<Work> pending = new LinkedBlockingQueue<>();
     private final List<Work> work = new ArrayList<>();
     private long ids;
+    private Snapshot published;
+    private final java.util.Set<ActiveKey> activeKeys = new java.util.HashSet<>();
     private boolean analyzing;
     private volatile boolean closed;
     private String message = "Paste a URL and Analyze. Nothing downloads until you choose Download.", toolStatus = "Tools not checked";
@@ -49,7 +51,9 @@ public final class DownloadService implements AutoCloseable {
     }
 
     public synchronized Snapshot snapshot() {
-        return new Snapshot(analyzing, message, toolStatus, preview, work.stream().map(Work::view).toList());
+        if (published == null)
+            published = new Snapshot(analyzing, message, toolStatus, preview, work.stream().map(Work::view).toList());
+        return published;
     }
 
     public void checkTools() {
@@ -58,18 +62,35 @@ public final class DownloadService implements AutoCloseable {
             synchronized (this) {
                 selected = settings;
             }
-            tools(selected, token);
+            synchronized (this) {
+                cache = null;
+                toolStatus = "Checking tools";
+                published = null;
+            }
+            try {
+                tools(selected, token);
+            } catch (Exception e) {
+                synchronized (this) {
+                    cache = null;
+                    toolStatus = "Tool check failed: " + e.getMessage();
+                    published = null;
+                }
+                throw e;
+            }
         });
     }
 
     private Toolchain tools(Tools selected, ProcessRunner.Token token) throws Exception {
         Cache cached = cache;
+        token.check();
         if (cached != null && selected.equals(cached.settings())) return cached.tools();
         Files.createDirectories(data);
         Toolchain result = Toolchain.resolve(selected, data, runner, token);
+        token.check();
         cache = new Cache(selected, result);
         synchronized (this) {
             toolStatus = result.versions();
+            published = null;
         }
         return result;
     }
@@ -85,7 +106,9 @@ public final class DownloadService implements AutoCloseable {
             Preview result = inspect(url, first, first + PAGE_SIZE - 1, tools(selected, token), token);
             token.check();
             synchronized (this) {
+                token.check();
                 preview = result;
+                published = null;
                 message = result.source() + (result.collection() ? " collection. Choose an explicit selection." : " single video.");
             }
         });
@@ -114,9 +137,10 @@ public final class DownloadService implements AutoCloseable {
             });
             if (result.exit() != 0) throw new IOException(DownloadJson.friendly(result.output()));
             Preview one = DownloadJson.preview(link, 1, DownloadJson.object(result.output()));
-            if (one.entries().isEmpty()) throw new IOException("No video was found at this URL.");
+            if (one.entries().isEmpty())
+                throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.no_video_was_found_at_this_url"));
             token.check();
-            add(List.of(one.entries().getFirst()), destination, selected);
+            add(List.of(one.entries().getFirst()), destination, selected, token);
         });
     }
 
@@ -134,12 +158,12 @@ public final class DownloadService implements AutoCloseable {
                 int from = (int) position;
                 Preview page = inspect(expected.url(), from, (int) Math.min(last, position + PAGE_SIZE - 1), chain, token);
                 if (!page.collection())
-                    throw new IOException("This URL is not a supported collection. Choose This Video Only.");
+                    throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.this_url_is_not_a_supported_collection_choose_this_video_only"));
                 entries.addAll(page.entries());
                 if (page.entries().isEmpty() || !page.hasMore()) break;
             }
             token.check();
-            add(entries, destination, selected);
+            add(entries, destination, selected, token);
         });
     }
 
@@ -151,29 +175,33 @@ public final class DownloadService implements AutoCloseable {
         start("Preparing selected entries…", token -> {
             tools(selected, token);
             token.check();
-            add(entries, destination, selected);
+            add(entries, destination, selected, token);
         });
     }
 
-    private synchronized void add(List<Entry> entries, Path destination, Tools selected) throws IOException {
-        if (closed) throw new CancellationException();
-        if (entries.isEmpty()) throw new IOException("There are no entries in that selection.");
+    private synchronized void add(List<Entry> entries, Path destination, Tools selected, ProcessRunner.Token token) throws IOException {
+        token.check();
+        if (closed || token != analysisToken) throw new CancellationException();
+        if (entries.isEmpty())
+            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.there_are_no_entries_in_that_selection"));
         if (entries.size() > MAX_BATCH || work.size() + entries.size() > MAX_BATCH)
             throw new IOException("The queue holds up to " + MAX_BATCH + " entries. Clear finished items or use a smaller range.");
         Path target = destination.toAbsolutePath().normalize();
         int added = 0;
         for (Entry entry : entries) {
-            if (work.stream().anyMatch(w -> !w.status.finished() && w.destination.equals(target) && w.entry.key().equals(entry.key())))
-                continue;
+            var key = new ActiveKey(target, entry.key());
+            if (!activeKeys.add(key)) continue;
             Work item = new Work(++ids, entry, target, selected);
             work.add(item);
             if (!entry.available()) {
                 item.status = Status.FAILED;
+                activeKeys.remove(key);
                 item.message = "Unavailable, private, or deleted entry";
             } else pending.add(item);
             added++;
         }
         message = added + " entries queued for " + target;
+        published = null;
     }
 
     public synchronized void cancel(long id) {
@@ -183,6 +211,7 @@ public final class DownloadService implements AutoCloseable {
                 if (item.status == Status.QUEUED) {
                     pending.remove(item);
                     item.status = Status.CANCELLED;
+                    activeKeys.remove(new ActiveKey(item.destination, item.entry.key()));
                     item.message = "Cancelled";
                 } else item.message = "Cancelling…";
             }
@@ -195,6 +224,7 @@ public final class DownloadService implements AutoCloseable {
 
     public synchronized void clearFinished() {
         work.removeIf(w -> w.status.finished());
+        published = null;
     }
 
     public synchronized void cancelAnalysis() {
@@ -202,8 +232,14 @@ public final class DownloadService implements AutoCloseable {
     }
 
     private synchronized void start(String text, Task task) {
-        if (closed || analyzing) return;
+        if (closed) return;
+        if (analyzing) {
+            message = "Already busy. Wait for analysis or cancel it first.";
+            published = null;
+            return;
+        }
         analyzing = true;
+        published = null;
         message = text;
         ProcessRunner.Token token = new ProcessRunner.Token();
         analysisToken = token;
@@ -220,11 +256,12 @@ public final class DownloadService implements AutoCloseable {
             } catch (Exception e) {
                 LOG.warn("Download analysis failed", e);
                 synchronized (this) {
-                    message = DownloadJson.friendly(String.valueOf(e.getMessage()));
+                    message = e instanceof IllegalArgumentException ? e.getMessage() : DownloadJson.friendly(String.valueOf(e.getMessage()));
                 }
             } finally {
                 synchronized (this) {
                     analyzing = false;
+                    published = null;
                 }
             }
         });
@@ -263,6 +300,8 @@ public final class DownloadService implements AutoCloseable {
     }
 
     private synchronized void update(Work item, Status status, double progress, String detail) {
+        if (status.finished()) activeKeys.remove(new ActiveKey(item.destination, item.entry.key()));
+        published = null;
         item.status = status;
         item.progress = progress;
         item.message = detail;
@@ -307,6 +346,9 @@ public final class DownloadService implements AutoCloseable {
         Item view() {
             return new Item(id, entry.title(), destination, status, progress, message);
         }
+    }
+
+    private record ActiveKey(Path directory, String media) {
     }
 
     private record Cache(Tools settings, Toolchain tools) {

@@ -1,5 +1,7 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.text.Text;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -24,7 +26,7 @@ public record PlaylistDrag(int start, int count, int insertion) {
 
     public List<Integer> order(int size) {
         if (start < 0 || count < 1 || start + count > size || insertion < 0 || insertion > size - count)
-            throw new IllegalArgumentException("Invalid block move");
+            throw new IllegalArgumentException(Text.get("text.darkmusic.invalid_block_move"));
         var remaining = new ArrayList<Integer>();
         for (int i = 0; i < size; i++) if (i < start || i >= start + count) remaining.add(i);
         for (int i = 0; i < count; i++) remaining.add(insertion + i, start + i);

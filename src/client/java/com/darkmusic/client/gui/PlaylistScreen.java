@@ -1,5 +1,7 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.text.Text;
+
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.playlist.PlaylistStore;
@@ -22,7 +24,7 @@ public final class PlaylistScreen extends LocalScreen {
     private long revision = -1, libraryRevision = -1;
 
     public PlaylistScreen(DarkMusicClient app, Screen parent) {
-        super(Component.literal("Manage Playlists"), parent);
+        super(Text.component("text.darkmusic.manage_playlists"), parent);
         this.app = app;
     }
 
@@ -36,16 +38,16 @@ public final class PlaylistScreen extends LocalScreen {
 
     @Override
     protected void init() {
-        button("New", 12, 32, 60, () -> show(new TextPromptScreen(this, "Create Playlist", "", text -> {
+        button(Text.get("text.darkmusic.new"), 12, 32, 60, () -> show(new TextPromptScreen(this, Text.get("text.darkmusic.create_playlist"), "", text -> {
             selectedId = app.playlists.create(text);
             selection.clear();
-        })), "Create a local playlist.");
-        button("Rename", 76, 32, 72, () -> {
+        })), Text.get("text.darkmusic.create_a_local_playlist"));
+        button(Text.get("text.darkmusic.rename"), 76, 32, 72, () -> {
             var p = selected();
             if (p != null)
-                show(new TextPromptScreen(this, "Rename Playlist", p.name(), text -> app.playlists.rename(p.id(), text)));
-        }, "Rename the selected playlist.");
-        button(confirmDelete ? "Confirm Delete" : "Delete", 152, 32, 100, () -> {
+                show(new TextPromptScreen(this, Text.get("text.darkmusic.rename_playlist"), p.name(), text -> app.playlists.rename(p.id(), text)));
+        }, Text.get("text.darkmusic.rename_the_selected_playlist"));
+        button(confirmDelete ? Text.get("text.darkmusic.confirm_delete") : Text.get("text.darkmusic.delete"), 152, 32, 100, () -> {
             if (selected() == null) return;
             if (!confirmDelete) {
                 confirmDelete = true;
@@ -57,14 +59,14 @@ public final class PlaylistScreen extends LocalScreen {
                 confirmDelete = false;
                 rebuildWidgets();
             }
-        }, "Click twice to delete the selected playlist.");
+        }, Text.get("text.darkmusic.click_twice_to_delete_the_selected_playlist"));
         lists = addRenderableWidget(new RowList(12, 60, 100, Math.max(28, height - 150), 22, "Playlists", (i, activated) -> {
             selectedId = app.playlists.all().get(i).id();
             selection.clear();
             confirmDelete = false;
             refreshEntries();
         }));
-        entries = addRenderableWidget(new RowList(118, 60, width - 130, Math.max(28, height - 150), 32, "Playlist songs; Space selects", (i, activated) -> {
+        entries = addRenderableWidget(new RowList(118, 60, width - 130, Math.max(28, height - 150), 32, Text.get("text.darkmusic.playlist_songs_space_selects"), (i, activated) -> {
         }));
         entries.multiple(selection);
         entries.reorder(move -> {
@@ -73,22 +75,22 @@ public final class PlaylistScreen extends LocalScreen {
         });
         int w = (width - 32) / 3;
         int half = (width - 28) / 2;
-        add = button("Add Songs", 12, height - 76, half, () -> {
+        add = button(Text.get("text.darkmusic.add_songs"), 12, height - 76, half, () -> {
             if (selected() != null) {
                 String id = selectedId;
                 show(new TrackPickerScreen(app, this, id, tracks -> app.playlists.addAll(id, tracks)));
             }
-        }, "Select library songs not already added to this playlist.");
-        remove = button("Remove Selected", 16 + half, height - 76, half, () -> {
+        }, Text.get("text.darkmusic.select_library_songs_not_already_added_to_this_playlist"));
+        remove = button(Text.get("text.darkmusic.remove_selected"), 16 + half, height - 76, half, () -> {
             app.playlists.removeAll(selectedId, selection.selected());
             selection.clear();
             refreshEntries();
-        }, "Remove all checked entries from this playlist.");
-        button("Select All", 12, height - 52, w, selection::all, "Select every entry, including missing songs. Ctrl/Cmd+A works with list focus.");
-        button("Deselect All", 16 + w, height - 52, w, selection::clear, "Clear every selected entry.");
-        button("Invert Selection", 20 + 2 * w, height - 52, w, selection::invert, "Toggle selection of every entry.");
-        up = button("Move Up", 12, height - 28, (width - 28) / 2, () -> move(-1), "Move selected songs up while preserving their relative order.");
-        down = button("Move Down", 16 + (width - 28) / 2, height - 28, (width - 28) / 2, () -> move(1), "Move selected songs down while preserving their relative order.");
+        }, Text.get("text.darkmusic.remove_all_checked_entries_from_this_playlist"));
+        button(Text.get("text.darkmusic.select_all"), 12, height - 52, w, selection::all, Text.get("text.darkmusic.select_every_entry_including_missing_songs_ctrl_cmd_a_works_with_list_focus"));
+        button(Text.get("text.darkmusic.deselect_all"), 16 + w, height - 52, w, selection::clear, Text.get("text.darkmusic.clear_every_selected_entry"));
+        button(Text.get("text.darkmusic.invert_selection"), 20 + 2 * w, height - 52, w, selection::invert, Text.get("text.darkmusic.toggle_selection_of_every_entry"));
+        up = button(Text.get("text.darkmusic.move_up"), 12, height - 28, (width - 28) / 2, () -> move(-1), Text.get("text.darkmusic.move_selected_songs_up_while_preserving_their_relative_order"));
+        down = button(Text.get("text.darkmusic.move_down"), 16 + (width - 28) / 2, height - 28, (width - 28) / 2, () -> move(1), Text.get("text.darkmusic.move_selected_songs_down_while_preserving_their_relative_order"));
         refresh();
     }
 
@@ -119,7 +121,7 @@ public final class PlaylistScreen extends LocalScreen {
         app.library.snapshot().tracks().forEach(t -> index.put(t.id(), t));
         entries.rows(p == null ? List.of() : p.entries().stream().map(e -> {
             Track t = index.get(e.key());
-            return t == null ? new RowList.Row("[Missing] " + e.path(), "Remove this entry, then add the current file with Add Songs") : new RowList.Row(t.title(), t.artist() + " | " + e.path());
+            return t == null ? new RowList.Row(Text.get("format.darkmusic.missing_song", e.path()), Text.get("text.darkmusic.remove_this_entry_then_add_the_current_file_with_add_songs")) : new RowList.Row(t.title(), t.artist() + " | " + e.path());
         }).toList());
     }
 
@@ -132,7 +134,7 @@ public final class PlaylistScreen extends LocalScreen {
         }
         entries.tickDrag();
         add.active = selected() != null;
-        remove.active = up.active = down.active = !selection.selected().isEmpty();
+        remove.active = up.active = down.active = !selection.isEmpty();
     }
 
     @Override
@@ -144,8 +146,8 @@ public final class PlaylistScreen extends LocalScreen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float d) {
         g.fill(0, 0, width, height, 0xFF111420);
-        g.text(font, "Manage Playlists", 12, 12, 0xFFB5B0FF);
-        g.text(font, selection.selected().size() + " selected", 264, 38, 0xFFCCCCDD);
+        g.text(font, Text.get("text.darkmusic.manage_playlists"), 12, 12, 0xFFB5B0FF);
+        g.text(font, Text.get("format.darkmusic.selected", selection.size()), 264, 38, 0xFFCCCCDD);
         super.extractRenderState(g, x, y, d);
     }
 }

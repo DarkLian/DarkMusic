@@ -35,14 +35,14 @@ class DownloadIntegrationTest {
         Tools selected = settings();
         var runner = new ProcessRunner();
         Path source = TestMusic.featured();
-        for (String format : List.of("wav", "flac", "ogg")) {
-            Path file = temp.resolve("excerpt." + format);
+        for (String format : List.of("wav", "flac", "ogg", "flac24")) {
+            Path file = temp.resolve("excerpt-" + format + "." + (format.equals("flac24") ? "flac" : format));
             String codec = switch (format) {
                 case "wav" -> "pcm_s16le";
-                case "flac" -> "flac";
+                case "flac", "flac24" -> "flac";
                 default -> "libvorbis";
             };
-            var result = runner.run(List.of(selected.ffmpeg(), "-nostdin", "-v", "error", "-ss", "30", "-i", source.toString(), "-t", "2", "-vn", "-c:a", codec, "-sample_fmt", format.equals("ogg") ? "fltp" : "s16", file.toString()), temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 32000, line -> {
+            var result = runner.run(List.of(selected.ffmpeg(), "-nostdin", "-v", "error", "-ss", "30", "-i", source.toString(), "-t", "2", "-vn", "-c:a", codec, "-sample_fmt", format.equals("ogg") ? "fltp" : format.equals("flac24") ? "s32" : "s16", file.toString()), temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 32000, line -> {
             });
             assertEquals(0, result.exit(), result.output());
             try (var pcm = com.darkmusic.client.audio.PcmDecoder.open(file)) {

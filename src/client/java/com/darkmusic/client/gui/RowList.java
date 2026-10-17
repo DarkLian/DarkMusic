@@ -1,5 +1,7 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.text.Text;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -18,7 +20,7 @@ public final class RowList extends AbstractWidget {
     private final int rowHeight;
     private final BiConsumer<Integer, Boolean> action;
     private List<Row> rows = List.of();
-    private String emptyMessage = "No Entries";
+    private String emptyMessage = Text.get("text.darkmusic.no_entries");
     private SongSelection selection;
     private int selected = -1, scroll;
     private java.util.function.Consumer<PlaylistDrag> reorder;

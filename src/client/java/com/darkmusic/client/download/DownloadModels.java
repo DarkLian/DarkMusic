@@ -14,14 +14,14 @@ public final class DownloadModels {
     public static String url(String value) {
         if (value != null) value = value.strip();
         if (value == null || value.length() > 4096 || value.chars().anyMatch(c -> c <= 32 || c == 127))
-            throw new IllegalArgumentException("Paste a single HTTP or HTTPS video/collection URL.");
+            throw new IllegalArgumentException(com.darkmusic.client.text.Text.get("text.darkmusic.paste_a_single_http_or_https_video_collection_url"));
         try {
             URI uri = URI.create(value.strip());
             if (!("https".equalsIgnoreCase(uri.getScheme()) || "http".equalsIgnoreCase(uri.getScheme())) || uri.getHost() == null || uri.getUserInfo() != null)
                 throw new IllegalArgumentException();
             return uri.toASCIIString();
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Enter a valid HTTP or HTTPS URL without login credentials.");
+            throw new IllegalArgumentException(com.darkmusic.client.text.Text.get("text.darkmusic.enter_a_valid_http_or_https_url_without_login_credentials"));
         }
     }
 

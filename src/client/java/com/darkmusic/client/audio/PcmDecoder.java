@@ -38,9 +38,11 @@ public final class PcmDecoder {
             if (n.endsWith(".mp3")) converted = new MpegFormatConversionProvider().getAudioInputStream(pcm, source);
             else if (n.endsWith(".ogg"))
                 converted = new VorbisFormatConversionProvider().getAudioInputStream(pcm, source);
-            else if (n.endsWith(".flac"))
-                converted = new FlacFormatConversionProvider().getAudioInputStream(pcm, source);
-            else converted = AudioSystem.getAudioInputStream(pcm, source);
+            else if (n.endsWith(".flac")) {
+                var nativePcm = new AudioFormat(format.getSampleRate(), format.getSampleSizeInBits(), format.getChannels(), true, false);
+                var decoded = new FlacFormatConversionProvider().getAudioInputStream(nativePcm, source);
+                converted = nativePcm.matches(pcm) ? decoded : AudioSystem.getAudioInputStream(pcm, decoded);
+            } else converted = AudioSystem.getAudioInputStream(pcm, source);
             return new AudioInputStream(converted, converted.getFormat(), converted.getFrameLength()) {
                 @Override
                 public void close() throws java.io.IOException {

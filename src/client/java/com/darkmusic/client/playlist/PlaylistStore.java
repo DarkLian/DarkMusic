@@ -31,12 +31,39 @@ public final class PlaylistStore {
     public List<Playlist> read() {
         try {
             if (Files.exists(file)) try (var reader = Files.newBufferedReader(file)) {
-                Playlist[] loaded = ConfigStore.JSON.fromJson(reader, Playlist[].class);
-                if (loaded == null) throw new IllegalArgumentException("Missing playlist array");
-                var result = List.of(loaded);
-                if (result.stream().map(Playlist::id).distinct().count() != result.size())
-                    throw new IllegalArgumentException("Duplicate playlist IDs");
-                return result;
+                var json = com.google.gson.JsonParser.parseReader(reader);
+                if (!json.isJsonArray()) throw new IllegalArgumentException("Missing playlist array");
+                var result = new ArrayList<Playlist>();
+                var ids = new HashSet<String>();
+                int skipped = 0;
+                for (var value : json.getAsJsonArray()) {
+                    try {
+                        var object = value.getAsJsonObject();
+                        String id = object.get("id").getAsString(), name = object.get("name").getAsString();
+                        var entries = new ArrayList<Entry>();
+                        var known = new HashSet<Entry>();
+                        for (var entry : object.getAsJsonArray("entries")) {
+                            try {
+                                Entry parsed = ConfigStore.JSON.fromJson(entry, Entry.class);
+                                if (parsed == null) throw new IllegalArgumentException("Missing entry");
+                                if (known.add(parsed)) entries.add(parsed);
+                                else skipped++;
+                            } catch (RuntimeException e) {
+                                skipped++;
+                            }
+                        }
+                        Playlist parsed = new Playlist(id, name, entries);
+                        if (ids.add(id)) result.add(parsed);
+                        else skipped++;
+                    } catch (RuntimeException e) {
+                        skipped++;
+                    }
+                }
+                if (skipped > 0) {
+                    preserveInvalid = true;
+                    warning.accept("Recovered playlists; skipped " + skipped + " invalid or duplicate records. Original preserved before saving.");
+                }
+                return List.copyOf(result);
             }
         } catch (Exception e) {
             preserveInvalid = true;

@@ -88,7 +88,7 @@ class StorageTest {
         settings.hudPosition = "bad";
         settings.validate();
         assertEquals(.7, settings.volume);
-        assertEquals("OFF", settings.repeat);
+        assertEquals(com.darkmusic.client.audio.PlaybackController.Repeat.OFF, settings.repeat);
         assertEquals("TOP_LEFT", settings.hudPosition);
     }
 

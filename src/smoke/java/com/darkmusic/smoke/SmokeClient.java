@@ -36,8 +36,22 @@ public final class SmokeClient implements ClientModInitializer {
         if (!condition) throw new IllegalStateException(message);
     }
 
+    private String translated(String label) {
+        if (label.startsWith("View: "))
+            return com.darkmusic.client.text.Text.get("format.darkmusic.view", com.darkmusic.client.text.Text.get("view.darkmusic." + label.substring(6).toLowerCase(Locale.ROOT)));
+        try (var input = getClass().getResourceAsStream("/assets/darkmusic/lang/en_us.json")) {
+            var catalog = com.google.gson.JsonParser.parseString(new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+            for (var entry : catalog.entrySet())
+                if (entry.getValue().getAsString().equals(label))
+                    return com.darkmusic.client.text.Text.get(entry.getKey());
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+        return label;
+    }
+
     private AbstractWidget button(Minecraft mc, String label) {
-        return mc.gui.screen().children().stream().filter(x -> x instanceof AbstractWidget).map(x -> (AbstractWidget) x).filter(x -> x.getMessage().getString().equals(label)).findFirst().orElseThrow(() -> new IllegalStateException("Missing button: " + label));
+        return mc.gui.screen().children().stream().filter(x -> x instanceof AbstractWidget).map(x -> (AbstractWidget) x).filter(x -> x.getMessage().getString().equals(translated(label))).findFirst().orElseThrow(() -> new IllegalStateException("Missing button: " + label));
     }
 
     private void click(Minecraft mc, String label) {
@@ -105,10 +119,12 @@ public final class SmokeClient implements ClientModInitializer {
             net.minecraft.client.KeyMapping.click(up);
             tick.invoke(app, mc, true);
             require(app.settings.volume == .5, "Conflicting volume shortcut fired");
+            require(app.warning.contains("Shortcut conflict"), "Conflicting shortcut needs a visible warning");
+            app.warning = "";
             app.toggle.setKey(com.mojang.blaze3d.platform.InputConstants.UNKNOWN);
             app.volumeUp.setKey(com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f10"));
             app.save();
-            require(app.settings.shortcuts.get(app.volumeUp.getName()).equals("key.keyboard.f10"), "Custom volume binding did not persist");
+            require(app.volumeUp.saveString().equals("key.keyboard.f10"), "Native volume binding did not change");
         } finally {
             app.volumeUp.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldUp));
             app.volumeDown.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldDown));
@@ -127,7 +143,7 @@ public final class SmokeClient implements ClientModInitializer {
     private void view(Minecraft mc, String name) throws Exception {
         for (int i = 0; i < 4 && !field("mode").equals(name); i++) {
             String compact = "View: " + field("mode");
-            boolean cycle = mc.gui.screen().children().stream().anyMatch(x -> x instanceof AbstractWidget b && b.getMessage().getString().equals(compact));
+            boolean cycle = mc.gui.screen().children().stream().anyMatch(x -> x instanceof AbstractWidget b && b.getMessage().getString().equals(translated(compact)));
             click(mc, cycle ? compact : name);
         }
         require(field("mode").equals(name), "View did not switch to " + name);
@@ -161,7 +177,7 @@ public final class SmokeClient implements ClientModInitializer {
         search.setValue("");
         app.playlists.add(playlistId, new Track(first.rootId(), "missing.mp3", first.file(), "Missing", "", "", 0, 0, 0, ""));
         player.tick();
-        require(field("playlistNotice").toString().contains("1 unavailable"), "Missing entry notice absent");
+        require(field("playlistNotice").toString().equals(com.darkmusic.client.text.Text.get("format.darkmusic.missing_entries", 1)), "Missing entry notice absent");
         app.playlists.remove(playlistId, 2);
         String empty = app.playlists.create("Empty");
         player.tick();
@@ -205,6 +221,8 @@ public final class SmokeClient implements ClientModInitializer {
                 playing.add(audio.track().relativePath());
             if (stage == -1) {
                 require(mc.level == null && mc.player == null, "Smoke test stays at title screen");
+                if (Boolean.getBoolean("darkmusic.testNativeBindings"))
+                    require(app.volumeUp.saveString().equals("key.keyboard.f10"), "Legacy config overrode the native controls binding");
                 mc.gui.setScreen(new TitleScreen());
                 app.open();
                 player = (MusicScreen) mc.gui.screen();
@@ -240,6 +258,21 @@ public final class SmokeClient implements ClientModInitializer {
             }
             switch (stage++) {
                 case 0 -> {
+                    var slider = (ValueSlider) field("progress");
+                    var backendField = app.playback.getClass().getDeclaredField("audio");
+                    backendField.setAccessible(true);
+                    var backend = backendField.get(app.playback);
+                    var generationField = backend.getClass().getDeclaredField("generation");
+                    generationField.setAccessible(true);
+                    var generation = (java.util.concurrent.atomic.AtomicLong) generationField.get(backend);
+                    long before = generation.get();
+                    double y = slider.getY() + 8;
+                    mc.gui.screen().mouseClicked(mouse(slider.getX() + 12, y), false);
+                    for (int i = 0; i < 5; i++)
+                        mc.gui.screen().mouseDragged(mouse(slider.getX() + 15 + i * 2, y), 2, 0);
+                    require(generation.get() == before, "Seek drag restarted the decoder before release");
+                    mc.gui.screen().mouseReleased(mouse(slider.getX() + 23, y));
+                    require(generation.get() == before + 1, "Seek release must issue exactly one command");
                     app.playback.pause();
                     click(mc, "Settings");
                 }
@@ -282,7 +315,7 @@ public final class SmokeClient implements ClientModInitializer {
                     checkVolumeBindings(mc, app);
                     app.faster.setKey(com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f9"));
                     app.save();
-                    require(app.settings.shortcuts.get(app.faster.getName()).equals("key.keyboard.f9"), "Speed shortcut not saved");
+                    require(app.faster.saveString().equals("key.keyboard.f9"), "Native speed binding did not change");
                     app.faster.setKey(com.mojang.blaze3d.platform.InputConstants.UNKNOWN);
                     net.minecraft.client.KeyMapping.resetMapping();
                     app.save();
@@ -446,7 +479,7 @@ public final class SmokeClient implements ClientModInitializer {
                 }
                 default -> {
                     app.playback.stop();
-                    org.slf4j.LoggerFactory.getLogger("darkmusic-smoke").info("DARKMUSIC_SMOKE_PASS: visualizer settings/independent toggles/HUD drag/compact layouts, downloader navigation/invalid URL/queue/tools/layouts, bulk selection/search/cancel, speed/pause/seek, shortcuts, HUD drag/scale, Escape, layouts, actual device playback: {}", playing);
+                    org.slf4j.LoggerFactory.getLogger("darkmusic-smoke").info("DARKMUSIC_SMOKE_PASS:" + java.nio.file.Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip() + " visualizer settings/independent toggles/HUD drag/compact layouts, downloader navigation/invalid URL/queue/tools/layouts, bulk selection/search/cancel, speed/pause/seek, shortcuts, HUD drag/scale, Escape, layouts, actual device playback: {}", playing);
                     mc.stop();
                 }
             }

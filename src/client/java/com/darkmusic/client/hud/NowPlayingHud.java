@@ -1,5 +1,7 @@
 package com.darkmusic.client.hud;
 
+import com.darkmusic.client.text.Text;
+
 import com.darkmusic.client.DarkMusicClient;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.Minecraft;
@@ -44,8 +46,8 @@ public final class NowPlayingHud {
             g.fill(0, 0, w, h, 0xDD111420);
             int textX = art == null ? 6 : 42;
             if (art != null) g.blit(RenderPipelines.GUI_TEXTURED, art, 5, 3, 0, 0, 32, 32, 256, 256, 256, 256);
-            g.text(mc.font, mc.font.plainSubstrByWidth(track == null ? "Song title" : track.title(), Math.max(1, w - textX - 6)), textX, 6, 0xFFB5B0FF);
-            String detail = (state.track() == null ? "Preview" : com.darkmusic.client.gui.MusicScreen.label(state.status().name())) + " | " + (track == null ? "Artist" : track.artist());
+            g.text(mc.font, mc.font.plainSubstrByWidth(track == null ? Text.get("text.darkmusic.song_title") : track.title(), Math.max(1, w - textX - 6)), textX, 6, 0xFFB5B0FF);
+            String detail = (state.track() == null ? Text.get("text.darkmusic.preview") : com.darkmusic.client.gui.MusicScreen.label(state.status().name())) + " | " + (track == null ? Text.get("text.darkmusic.artist") : track.artist());
             g.text(mc.font, mc.font.plainSubstrByWidth(detail, Math.max(1, w - textX - 6)), textX, 21, 0xFFE0DDEE);
             if (app.settings.hudProgress) {
                 double progress = state.duration() > 0 ? Math.clamp(state.position() / state.duration(), 0, 1) : preview ? .4 : 0;

@@ -1,5 +1,7 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.text.Text;
+
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.hud.HudLayout;
 import com.darkmusic.client.hud.NowPlayingHud;
@@ -15,20 +17,20 @@ public final class HudEditorScreen extends LocalScreen {
     private double dragX, dragY;
 
     public HudEditorScreen(DarkMusicClient app, Screen parent) {
-        super(Component.literal("Edit HUD Layout"), parent);
+        super(Text.component("text.darkmusic.edit_hud_layout"), parent);
         this.app = app;
     }
 
     @Override
     protected void init() {
         addRenderableWidget(Help.tip(new ValueSlider(12, height - 28, width - 140, (app.settings.hudScale - .5) / 1.5,
-            v -> "HUD Scale " + Math.round(app.settings.hudScale * 100) + "%", v -> app.settings.hudScale = Math.round((.5 + v * 1.5) * 10) / 10.0, app::save, 15), "Scale the entire HUD from 50% to 200%. Drag the preview to move it. Escape saves and returns."));
-        addRenderableWidget(Help.tip(Button.builder(Component.literal("Reset Layout"), b -> {
+            v -> Text.get("format.darkmusic.hud_scale", Math.round(app.settings.hudScale * 100)), v -> app.settings.hudScale = Math.round((.5 + v * 1.5) * 10) / 10.0, app::save, 15), Text.get("text.darkmusic.scale_the_entire_hud_from_50_to_200_drag_the_preview_to_move_it_escape_saves_and_r")));
+        addRenderableWidget(Help.tip(Button.builder(Text.component("text.darkmusic.reset_layout"), b -> {
             app.settings.hudX = app.settings.hudY = 0.0;
             app.settings.hudScale = 1;
             app.save();
             rebuildWidgets();
-        }).bounds(width - 120, height - 28, 108, 20).build(), "Restore top-left placement and 100% scale."));
+        }).bounds(width - 120, height - 28, 108, 20).build(), Text.get("text.darkmusic.restore_top_left_placement_and_100_scale")));
     }
 
     @Override
@@ -66,7 +68,7 @@ public final class HudEditorScreen extends LocalScreen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float d) {
         g.fill(0, 0, width, height, 0xCC111420);
-        g.text(font, "Drag the HUD to move it. Escape saves and returns.", 12, 12, 0xFFB5B0FF);
+        g.text(font, Text.get("text.darkmusic.drag_the_hud_to_move_it_escape_saves_and_returns"), 12, 12, 0xFFB5B0FF);
         NowPlayingHud.render(app, g, true);
         var b = NowPlayingHud.bounds(app, width, height);
         g.outline(b.x(), b.y(), b.width(), b.height(), 0xFFB5B0FF);

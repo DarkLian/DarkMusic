@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 public class DarkMusicClient implements ClientModInitializer {
     public static DarkMusicClient INSTANCE;
     public final ExecutorService io = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-storage").factory());
+    public final ExecutorService browsing = new java.util.concurrent.ThreadPoolExecutor(2, 2, 0, TimeUnit.MILLISECONDS, new java.util.concurrent.ArrayBlockingQueue<>(16), Thread.ofPlatform().daemon().name("darkmusic-browse").factory(), new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
     public final ConfigStore config = new ConfigStore(FabricLoader.getInstance().getConfigDir().resolve("darkmusic"), io, this::warn);
     public volatile Settings settings;
     public volatile String warning = "";
@@ -37,6 +38,7 @@ public class DarkMusicClient implements ClientModInitializer {
     public com.darkmusic.client.download.DownloadService downloads;
     public boolean playlistsReady;
     private volatile long warningUntil;
+    private long conflictWarning;
     private boolean autoplayPending;
     private volatile boolean closed;
 
@@ -65,7 +67,6 @@ public class DarkMusicClient implements ClientModInitializer {
     public void save() {
         if (!closed && settings != null) {
             configureVisualizer();
-            if (open != null) for (KeyMapping key : bindings()) settings.shortcuts.put(key.getName(), key.saveString());
             config.save(settings);
         }
     }
@@ -90,7 +91,13 @@ public class DarkMusicClient implements ClientModInitializer {
     public boolean conflicts(KeyMapping key) {
         if (key.isUnbound()) return false;
         for (KeyMapping other : Minecraft.getInstance().options.keyMappings)
-            if (other != key && key.same(other)) return true;
+            if (other != key && key.same(other)) {
+                if (System.nanoTime() - conflictWarning > TimeUnit.SECONDS.toNanos(2)) {
+                    conflictWarning = System.nanoTime();
+                    warn("Shortcut conflict. Change the overlapping bindings in Options > Controls > Key Binds.");
+                }
+                return true;
+            }
         return false;
     }
 
@@ -118,7 +125,7 @@ public class DarkMusicClient implements ClientModInitializer {
         }));
         ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
             if (screen instanceof TitleScreen)
-                Screens.getWidgets(screen).add(Button.builder(Component.literal("Music"), b -> open()).bounds(6, 6, 64, 20).build());
+                Screens.getWidgets(screen).add(Button.builder(com.darkmusic.client.text.Text.component("text.darkmusic.music"), b -> open()).bounds(6, 6, 64, 20).build());
         });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             boolean allowed = settings != null && client.gui.screen() == null && client.gui.overlay() == null && client.player != null && client.player.isAlive();
@@ -143,7 +150,7 @@ public class DarkMusicClient implements ClientModInitializer {
 
     protected void ready() {
         for (KeyMapping key : bindings()) {
-            String saved = settings.shortcuts.get(key.getName());
+            String saved = settings.nativeShortcutNames.contains(key.getName()) ? null : settings.shortcuts.get(key.getName());
             if (saved != null) try {
                 key.setKey(InputConstants.getKey(saved));
             } catch (IllegalArgumentException e) {
@@ -151,6 +158,8 @@ public class DarkMusicClient implements ClientModInitializer {
                 warn("Invalid shortcut was unbound: " + key.getName());
             }
         }
+        if (settings.nativeShortcutNames.containsAll(java.util.Arrays.stream(bindings()).map(KeyMapping::getName).toList()))
+            settings.shortcuts.clear();
         KeyMapping.resetMapping();
         playlists = new com.darkmusic.client.playlist.PlaylistStore(config.directory(), io, this::warn);
         CompletableFuture.supplyAsync(playlists::read, io).thenAccept(list -> Minecraft.getInstance().execute(() -> {
@@ -166,10 +175,10 @@ public class DarkMusicClient implements ClientModInitializer {
         configureVisualizer();
         playback.speed(settings.speed);
         playback.shuffle(settings.shuffle);
-        playback.repeat(com.darkmusic.client.audio.PlaybackController.Repeat.valueOf(settings.repeat));
+        playback.repeat(settings.repeat);
         autoplayPending = settings.autoplay;
         library = new com.darkmusic.client.library.MusicLibrary(config.directory());
-        downloads = new com.darkmusic.client.download.DownloadService(config.directory(), () -> library.rescan());
+        downloads = new com.darkmusic.client.download.DownloadService(config.directory(), () -> library.requestRescan());
         downloads.configure(new com.darkmusic.client.download.DownloadModels.Tools(settings.ytDlpPath, settings.ffmpegPath, settings.ffprobePath, settings.javascriptPath));
         try {
             activateDirectory(settings.musicDirectory.isBlank() ? config.defaultMusic() : java.nio.file.Path.of(settings.musicDirectory));
@@ -186,8 +195,18 @@ public class DarkMusicClient implements ClientModInitializer {
         save();
     }
 
+    public java.util.concurrent.Future<?> browse(Runnable task) {
+        try {
+            ((java.util.concurrent.ThreadPoolExecutor) browsing).purge();
+            return browsing.submit(task);
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            if (!closed) warn("Folder browser is busy. Wait for pending filesystem requests before trying again.");
+            return null;
+        }
+    }
+
     public void chooseDirectory(java.nio.file.Path directory, Runnable success) {
-        io.execute(() -> {
+        browse(() -> {
             try {
                 if (!java.nio.file.Files.isDirectory(directory) || !java.nio.file.Files.isReadable(directory))
                     throw new java.io.IOException("Directory unavailable or unreadable");
@@ -207,7 +226,7 @@ public class DarkMusicClient implements ClientModInitializer {
 
     public void openFolder() {
         java.nio.file.Path directory = library.root();
-        io.execute(() -> {
+        browse(() -> {
             try {
                 if (!java.nio.file.Files.isDirectory(directory))
                     throw new java.io.IOException("The configured music directory is unavailable");
@@ -235,12 +254,6 @@ public class DarkMusicClient implements ClientModInitializer {
         while (volumeDown.consumeClick())
             if (allowed && playback != null && !conflicts(volumeDown)) volume(settings.volume - .05);
         if (settings == null || playback == null) return;
-        for (KeyMapping key : bindings()) {
-            if (!key.saveString().equals(settings.shortcuts.get(key.getName()))) {
-                save();
-                break;
-            }
-        }
         if (autoplayPending && !library.snapshot().scanning()) {
             autoplayPending = false;
             if (!library.snapshot().tracks().isEmpty())
@@ -249,6 +262,7 @@ public class DarkMusicClient implements ClientModInitializer {
     }
 
     protected void shutdown() {
+        browsing.shutdownNow();
         if (downloads != null) downloads.close();
         if (library != null) library.close();
         if (playback != null) playback.close();

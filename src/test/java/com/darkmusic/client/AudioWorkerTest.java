@@ -170,4 +170,55 @@ class AudioWorkerTest {
             assertTrue(failure.get().contains("No output device"));
         }
     }
+
+    @Test
+    void stalledAvailabilityAndZeroWritesFailAndReleaseResources() throws Exception {
+        for (boolean noCapacity : new boolean[]{false, true}) {
+            var resources = new CopyOnWriteArrayList<AtomicBoolean>();
+            var failure = new AtomicReference<String>();
+            var delegate = output(resources);
+            var stalled = (SourceDataLine) Proxy.newProxyInstance(getClass().getClassLoader(), new Class[]{SourceDataLine.class}, (proxy, method, args) -> {
+                if (method.getName().equals("available") && noCapacity) return 0;
+                if (method.getName().equals("write")) return 0;
+                return method.invoke(delegate, args);
+            });
+            try (var backend = new JavaSoundBackend(Runnable::run, path -> TestMusic.clip().stream(), f -> stalled, java.time.Duration.ofMillis(300))) {
+                backend.play(StorageTest.track("real", "stalled", TestMusic.featured()), () -> fail("Unexpected completion"), failure::set);
+                StorageTest.await(() -> failure.get() != null);
+                assertTrue(failure.get().contains("Audio"));
+                assertTrue(resources.stream().allMatch(AtomicBoolean::get));
+            }
+        }
+    }
+
+    @Test
+    void unsupportedDeviceRateFallsBackAndActualPositionCanExceedEstimatedDuration() throws Exception {
+        var resources = new CopyOnWriteArrayList<AtomicBoolean>();
+        var delegate = output(resources);
+        var target = new AudioFormat(48_000, 16, TestMusic.clip().format().getChannels(), true, false);
+        var device = (SourceDataLine) Proxy.newProxyInstance(getClass().getClassLoader(), new Class[]{SourceDataLine.class}, (proxy, method, args) -> method.getName().equals("getFormat") ? target : method.invoke(delegate, args));
+        var sourceFormat = new AudioFormat(192_000, 16, target.getChannels(), true, false);
+        var failure = new AtomicReference<String>();
+        var track = new com.darkmusic.client.library.Track("real", "high-rate", TestMusic.featured(), "Real music", "", "", .001, 0, 0, "");
+        try (var backend = new JavaSoundBackend(Runnable::run, path -> new AudioInputStream(new ByteArrayInputStream(TestMusic.clip().bytes()), sourceFormat, TestMusic.clip().bytes().length / sourceFormat.getFrameSize()), f -> {
+            if (f.getFrameRate() != 48_000) throw new LineUnavailableException("Unsupported rate");
+            return device;
+        })) {
+            backend.play(track, () -> {
+            }, failure::set);
+            StorageTest.await(() -> backend.state().position() > .01 || failure.get() != null);
+            assertNull(failure.get());
+            assertTrue(backend.state().position() > track.duration());
+            assertTrue(backend.state().duration() >= backend.state().position());
+            backend.pause();
+            StorageTest.await(() -> backend.state().status() == AudioBackend.Status.PAUSED);
+            var field = JavaSoundBackend.class.getDeclaredField("worker");
+            field.setAccessible(true);
+            Thread worker = (Thread) field.get(backend);
+            StorageTest.await(() -> worker.getState() == Thread.State.WAITING);
+            backend.stop();
+            StorageTest.await(() -> resources.stream().allMatch(AtomicBoolean::get));
+        }
+    }
+
 }

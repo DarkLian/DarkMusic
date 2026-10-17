@@ -11,9 +11,10 @@ public final class Settings {
     public String musicDirectory = "";
     public Map<String, String> roots = new LinkedHashMap<>();
     public Map<String, String> shortcuts = new LinkedHashMap<>();
+    public transient java.util.Set<String> nativeShortcutNames = java.util.Set.of();
     public double volume = 0.7;
     public boolean shuffle;
-    public String repeat = "OFF";
+    public com.darkmusic.client.audio.PlaybackController.Repeat repeat = com.darkmusic.client.audio.PlaybackController.Repeat.OFF;
     public boolean autoplay;
     public double speed = 1;
     public boolean hudEnabled;
@@ -42,7 +43,7 @@ public final class Settings {
         if (ffmpegPath == null) ffmpegPath = "";
         if (ffprobePath == null) ffprobePath = "";
         if (javascriptPath == null) javascriptPath = "";
-        if (!java.util.Set.of("OFF", "ONE", "ALL").contains(repeat == null ? "" : repeat)) repeat = "OFF";
+        if (repeat == null) repeat = com.darkmusic.client.audio.PlaybackController.Repeat.OFF;
         if (!java.util.Set.of("TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT").contains(hudPosition == null ? "" : hudPosition))
             hudPosition = "TOP_LEFT";
         speed = com.darkmusic.client.audio.PcmRateConverter.clamp(speed);

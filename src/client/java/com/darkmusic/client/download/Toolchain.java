@@ -24,11 +24,11 @@ public record Toolchain(Path ytDlp, Path ffmpeg, Path ffprobe, String runtime, S
         }).output();
         for (String flag : List.of("--dump-single-json", "--flat-playlist", "--progress-template", "--no-playlist", "--no-plugin-dirs"))
             if (!help.contains(flag))
-                throw new IOException("This yt-dlp is incompatible. Update it from github.com/yt-dlp/yt-dlp/releases.");
+                throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.this_yt_dlp_is_incompatible_update_it_from_github_com_yt_dlp_yt_dlp_releases"));
         var encoders = runner.run(List.of(ff.toString(), "-hide_banner", "-encoders"), config, token, Duration.ofSeconds(15), 250_000, s -> {
         });
         if (encoders.exit() != 0 || !encoders.output().contains("libmp3lame"))
-            throw new IOException("FFmpeg must include the libmp3lame MP3 encoder.");
+            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.ffmpeg_must_include_the_libmp3lame_mp3_encoder"));
         String runtime = "";
         if (!settings.javascript().isBlank()) {
             Path js = checked(Path.of(settings.javascript()));
@@ -47,13 +47,15 @@ public record Toolchain(Path ytDlp, Path ffmpeg, Path ffprobe, String runtime, S
     private static String runtime(Path path, ProcessRunner runner, ProcessRunner.Token token, Path config) throws Exception {
         String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
         String kind = name.startsWith("deno") ? "deno" : name.startsWith("node") ? "node" : "";
-        if (kind.isEmpty()) throw new IOException("JavaScript runtime must be a Deno or Node executable.");
+        if (kind.isEmpty())
+            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.javascript_runtime_must_be_a_deno_or_node_executable"));
         String value = version(path, List.of("--version"), runner, token, config);
         var match = java.util.regex.Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)").matcher(value);
-        if (!match.find()) throw new IOException("Could not identify the JavaScript runtime version.");
+        if (!match.find())
+            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.could_not_identify_the_javascript_runtime_version"));
         int major = Integer.parseInt(match.group(1)), minor = Integer.parseInt(match.group(2));
         if (kind.equals("node") ? major < 22 : major < 2 || major == 2 && minor < 3)
-            throw new IOException("YouTube needs Deno 2.3+ or Node 22+. Update the selected JavaScript runtime.");
+            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.youtube_needs_deno_2_3_or_node_22_update_the_selected_javascript_runtime"));
         return kind + ":" + path;
     }
 
@@ -69,13 +71,28 @@ public record Toolchain(Path ytDlp, Path ffmpeg, Path ffprobe, String runtime, S
 
     static Path executable(String configured, String name, Path tools, Path sibling) throws IOException {
         if (configured != null && !configured.isBlank()) return checked(Path.of(configured));
+        return executable(name, tools, sibling, System.getenv().getOrDefault("PATH", ""));
+    }
+
+    static Path executable(String name, Path tools, Path sibling, String searchPath) throws IOException {
         String binary = name + (System.getProperty("os.name").startsWith("Windows") ? ".exe" : "");
         var dirs = new ArrayList<Path>();
         dirs.add(tools);
         if (sibling != null) dirs.add(sibling);
-        for (String entry : System.getenv().getOrDefault("PATH", "").split(java.io.File.pathSeparator))
-            if (!entry.isBlank()) dirs.add(Path.of(entry));
-        for (Path dir : dirs) if (Files.isRegularFile(dir.resolve(binary))) return checked(dir.resolve(binary));
+        for (String entry : searchPath.split(java.io.File.pathSeparator)) {
+            entry = entry.strip();
+            if (entry.startsWith("\"") && entry.endsWith("\"") && entry.length() >= 2)
+                entry = entry.substring(1, entry.length() - 1);
+            if (!entry.isBlank()) try {
+                dirs.add(Path.of(entry));
+            } catch (java.nio.file.InvalidPathException ignored) {
+            }
+        }
+        for (Path dir : dirs)
+            try {
+                if (Files.isRegularFile(dir.resolve(binary))) return checked(dir.resolve(binary));
+            } catch (IOException | SecurityException ignored) {
+            }
         throw new IOException("Missing " + name + ". Set its executable path in Download Tools or install it on PATH.");
     }
 

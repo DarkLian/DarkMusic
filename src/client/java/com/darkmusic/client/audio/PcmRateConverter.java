@@ -72,7 +72,8 @@ public final class PcmRateConverter {
     }
 
     public int read(byte[] out, int length, double value) throws IOException {
-        double speed = clamp(value);
+        double speed = Double.isFinite(value) && value > 0 ? value : 1;
+        if (speed > 64 || speed < 1.0 / 64) throw new IllegalArgumentException("Unsupported sample-rate ratio");
         prepare(speed);
         int written = 0;
         while (written + frameSize <= length) {

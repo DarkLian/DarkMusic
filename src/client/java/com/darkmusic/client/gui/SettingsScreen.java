@@ -1,5 +1,7 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.text.Text;
+
 import com.darkmusic.client.DarkMusicClient;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -14,7 +16,7 @@ public final class SettingsScreen extends LocalScreen {
     private int page;
 
     public SettingsScreen(DarkMusicClient app, Screen parent) {
-        super(Component.literal("DarkMusic Settings"), parent);
+        super(Text.component("text.darkmusic.darkmusic_settings"), parent);
         this.app = app;
     }
 
@@ -37,35 +39,35 @@ public final class SettingsScreen extends LocalScreen {
     protected void init() {
         int y = 34;
         if (page == 0) {
-            toggle("Autoplay on Launch", y, () -> app.settings.autoplay, v -> app.settings.autoplay = v, "Automatically start the library after Minecraft launches. Disabled by default.");
+            toggle(Text.get("text.darkmusic.autoplay_on_launch"), y, () -> app.settings.autoplay, v -> app.settings.autoplay = v, Text.get("text.darkmusic.automatically_start_the_library_after_minecraft_launches_disabled_by_default"));
             y += 24;
-            action("Choose Music Folder", y, () -> show(new FolderScreen(app, this)), "Choose the local folder containing your music. Subfolders are included.");
+            action(Text.get("text.darkmusic.choose_music_folder"), y, () -> show(new FolderScreen(app, this)), Text.get("text.darkmusic.choose_the_local_folder_containing_your_music_subfolders_are_included"));
             y += 24;
-            toggle("Suppress Vanilla Background Music", y, () -> app.settings.suppressVanillaMusic, v -> {
+            toggle(Text.get("text.darkmusic.suppress_vanilla_background_music"), y, () -> app.settings.suppressVanillaMusic, v -> {
                 app.settings.suppressVanillaMusic = v;
                 if (v) minecraft.getMusicManager().stopPlaying();
-            }, "Stop Minecraft's background music while keeping ordinary sound effects.");
+            }, Text.get("text.darkmusic.stop_minecraft_s_background_music_while_keeping_ordinary_sound_effects"));
             y += 24;
-            action("Music Visualizer", y, () -> show(new VisualizerSettingsScreen(app, this)), "Independent player/HUD spectra, bars, sensitivity, smoothing, size, and HUD position.");
+            action(Text.get("text.darkmusic.music_visualizer"), y, () -> show(new VisualizerSettingsScreen(app, this)), Text.get("text.darkmusic.independent_player_hud_spectra_bars_sensitivity_smoothing_size_and_hud_position"));
         } else {
-            toggle("Now-Playing HUD", y, () -> app.settings.hudEnabled, v -> app.settings.hudEnabled = v, "Show the current song during gameplay. Hidden with F1 and while menus are open.");
+            toggle(Text.get("text.darkmusic.now_playing_hud"), y, () -> app.settings.hudEnabled, v -> app.settings.hudEnabled = v, Text.get("text.darkmusic.show_the_current_song_during_gameplay_hidden_with_f1_and_while_menus_are_open"));
             y += 24;
-            toggle("HUD Artwork", y, () -> app.settings.hudArtwork, v -> app.settings.hudArtwork = v, "Show embedded artwork on the left of the HUD, preserving its proportions.");
+            toggle(Text.get("text.darkmusic.hud_artwork"), y, () -> app.settings.hudArtwork, v -> app.settings.hudArtwork = v, Text.get("text.darkmusic.show_embedded_artwork_on_the_left_of_the_hud_preserving_its_proportions"));
             y += 24;
-            toggle("HUD Progress", y, () -> app.settings.hudProgress, v -> app.settings.hudProgress = v, "Show the current track's progress below the title and artist.");
+            toggle(Text.get("text.darkmusic.hud_progress"), y, () -> app.settings.hudProgress, v -> app.settings.hudProgress = v, Text.get("text.darkmusic.show_the_current_track_s_progress_below_the_title_and_artist"));
             y += 24;
-            action("Edit HUD Layout", y, () -> show(new HudEditorScreen(app, this)), "Drag the preview anywhere on screen and adjust the scale of the entire HUD.");
+            action(Text.get("text.darkmusic.edit_hud_layout"), y, () -> show(new HudEditorScreen(app, this)), Text.get("text.darkmusic.drag_the_preview_anywhere_on_screen_and_adjust_the_scale_of_the_entire_hud"));
         }
-        button(page == 0 ? "HUD Settings" : "General Settings", height - 28, () -> {
+        button(page == 0 ? Text.get("text.darkmusic.hud_settings") : Text.get("text.darkmusic.general_settings"), height - 28, () -> {
             page = 1 - page;
             rebuildWidgets();
-        }, "Switch settings pages. Changes save automatically; Escape returns.");
+        }, Text.get("text.darkmusic.switch_settings_pages_changes_save_automatically_escape_returns"));
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float d) {
         g.fill(0, 0, width, height, 0xFF111420);
-        g.text(font, "DarkMusic Settings", 12, 12, 0xFFB5B0FF);
+        g.text(font, Text.get("text.darkmusic.darkmusic_settings"), 12, 12, 0xFFB5B0FF);
         super.extractRenderState(g, x, y, d);
     }
 }

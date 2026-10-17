@@ -22,17 +22,20 @@ public class ProcessRunner {
         builder.environment().put("PYTHONUTF8", "1");
         Process process = builder.start();
         token.process = process;
-        process.getOutputStream().close();
-        char[] output = new char[maxOutput];
-        long[] written = {0};
+        if (maxOutput < 1) {
+            process.destroyForcibly();
+            throw new IllegalArgumentException(com.darkmusic.client.text.Text.get("text.darkmusic.output_limit_must_be_positive"));
+        }
+        var output = new OutputTail(maxOutput);
         var reader = CompletableFuture.runAsync(() -> {
             try (var input = new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8)) {
                 StringBuilder current = new StringBuilder();
                 int ch;
                 while ((ch = input.read()) != -1) {
-                    output[(int) (written[0]++ % maxOutput)] = (char) ch;
+                    output.append((char) ch);
                     if (current.length() < Math.max(32_768, maxOutput)) current.append((char) ch);
-                    else throw new IOException("Tool output exceeded the allowed line length");
+                    else
+                        throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.tool_output_exceeded_the_allowed_line_length"));
                     if (ch == '\n' || ch == '\r') {
                         line.accept(current.toString().strip());
                         current.setLength(0);
@@ -45,24 +48,23 @@ public class ProcessRunner {
         }, task -> Thread.ofVirtual().name("darkmusic-tool-output").start(task));
         long deadline = System.nanoTime() + timeout.toNanos();
         try {
+            process.getOutputStream().close();
             while (!process.waitFor(50, TimeUnit.MILLISECONDS)) {
                 token.collect();
                 token.check();
                 if (reader.isCompletedExceptionally()) reader.join();
                 if (System.nanoTime() > deadline)
-                    throw new IOException("Tool timed out. Check your connection or try a smaller selection.");
+                    throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.tool_timed_out_check_your_connection_or_try_a_smaller_selection"));
             }
             token.check();
             reader.get(5, TimeUnit.SECONDS);
-            int length = (int) Math.min(written[0], maxOutput);
-            int beginning = written[0] < maxOutput ? 0 : (int) (written[0] % maxOutput);
-            int first = Math.min(length, maxOutput - beginning);
-            String captured = new String(output, beginning, first) + new String(output, 0, length - first);
+            String captured = output.text();
             if (process.exitValue() != 0)
                 org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("{} exited with code {}: {}", Path.of(command.getFirst()).getFileName(), process.exitValue(), captured);
             return new Result(process.exitValue(), captured);
         } catch (ExecutionException | TimeoutException | CompletionException e) {
-            throw new IOException("Could not read tool output", e);
+            Throwable cause = e.getCause() == null ? e : e.getCause();
+            throw new IOException("Could not read tool output: " + cause.getMessage(), e);
         } finally {
             token.kill();
             try {
@@ -104,6 +106,45 @@ public class ProcessRunner {
                 if (h.isAlive()) h.destroyForcibly();
             });
             if (p != null && p.isAlive()) p.destroyForcibly();
+            var exits = descendants.stream().filter(ProcessHandle::isAlive).map(ProcessHandle::onExit).toList();
+            try {
+                CompletableFuture.allOf(exits.toArray(CompletableFuture[]::new)).get(1, TimeUnit.SECONDS);
+                if (p != null) p.waitFor(1, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (ExecutionException | TimeoutException e) {
+                org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Timed out waiting for tool process termination", e);
+            }
+            descendants.removeIf(h -> !h.isAlive());
+        }
+    }
+
+    /**
+     * Lazily grows, then retains only the bounded diagnostic tail. Reader-thread owned.
+     */
+    static final class OutputTail {
+        private final int maximum;
+        private char[] data;
+        private int size, cursor;
+
+        OutputTail(int maximum) {
+            this.maximum = maximum;
+            data = new char[Math.min(4096, maximum)];
+        }
+
+        void append(char value) {
+            if (size == data.length && size < maximum)
+                data = java.util.Arrays.copyOf(data, Math.min(maximum, data.length * 2));
+            if (size < data.length) data[size++] = value;
+            else {
+                data[cursor] = value;
+                cursor = (cursor + 1) % maximum;
+            }
+        }
+
+        String text() {
+            if (size < maximum || cursor == 0) return new String(data, 0, size);
+            return new String(data, cursor, size - cursor) + new String(data, 0, cursor);
         }
     }
 

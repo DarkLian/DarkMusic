@@ -55,7 +55,7 @@ public final class PlaybackController implements AutoCloseable {
     }
 
     public void repeat(Repeat value) {
-        repeat = value;
+        repeat = Objects.requireNonNullElse(value, Repeat.OFF);
     }
 
     public void shuffle(boolean value) {

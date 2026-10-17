@@ -83,19 +83,20 @@ public final class DownloadJson {
 
     public static String friendly(String details) {
         String s = details.toLowerCase(Locale.ROOT);
-        if (s.contains("429") || s.contains("too many requests"))
-            return "The site is rate limiting downloads (429). Wait before retrying.";
-        if (s.contains("403") || s.contains("forbidden"))
-            return "The site refused access (403). Try a current yt-dlp version or another public entry.";
-        if (s.contains("private") || s.contains("sign in") || s.contains("login") || s.contains("drm") || s.contains("restricted"))
-            return "This entry is private, restricted, or requires authentication. Access controls are not bypassed.";
-        if (s.contains("unsupported url")) return "yt-dlp does not support this URL or collection.";
+        if (s.matches("(?s).*\\bhttp(?: error| status| status code)?[ :]+429\\b.*") || s.contains("too many requests"))
+            return com.darkmusic.client.text.Text.get("text.darkmusic.the_site_is_rate_limiting_downloads_429_wait_before_retrying");
+        if (s.matches("(?s).*\\bhttp(?: error| status| status code)?[ :]+403\\b.*"))
+            return com.darkmusic.client.text.Text.get("text.darkmusic.the_site_refused_access_403_try_a_current_yt_dlp_version_or_another_public_entry");
+        if (s.contains("video is private") || s.contains("private video") || s.contains("sign in to") || s.contains("login required") || s.matches("(?s).*\\bdrm\\b.*") || s.contains("age-restricted") || s.contains("requires authentication"))
+            return com.darkmusic.client.text.Text.get("text.darkmusic.this_entry_is_private_restricted_or_requires_authentication_access_controls_are_no");
+        if (s.contains("unsupported url"))
+            return com.darkmusic.client.text.Text.get("text.darkmusic.yt_dlp_does_not_support_this_url_or_collection");
         if (s.contains("no space") || s.contains("disk full") || s.contains("not enough space"))
-            return "Not enough disk space. Free space in the music and temporary directories.";
-        if (s.contains("javascript") || s.contains("challenge") || s.contains("js runtime"))
-            return "YouTube needs a compatible Deno/Node runtime and current yt-dlp. Check Download Tools.";
-        if (s.contains("timed out") || s.contains("timeout") || s.contains("network") || s.contains("resolve"))
-            return "Network request timed out or failed. Check your connection and retry.";
+            return com.darkmusic.client.text.Text.get("text.darkmusic.not_enough_disk_space_free_space_in_the_music_and_temporary_directories");
+        if (s.contains("javascript runtime") || s.contains("challenge solving failed") || s.contains("challenge solver") || s.contains("js runtime"))
+            return com.darkmusic.client.text.Text.get("text.darkmusic.youtube_needs_a_compatible_deno_node_runtime_and_current_yt_dlp_check_download_too");
+        if (s.contains("timed out") || s.contains("timeout") || s.contains("network is unreachable") || s.contains("connection refused") || s.contains("unable to resolve") || s.contains("name resolution"))
+            return com.darkmusic.client.text.Text.get("text.darkmusic.network_request_timed_out_or_failed_check_your_connection_and_retry");
         String last = details.lines().filter(v -> !v.isBlank()).reduce((a, b) -> b).orElse("Unknown tool error");
         return last.length() > 240 ? last.substring(0, 240) + "…" : last;
     }

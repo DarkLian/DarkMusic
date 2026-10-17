@@ -1,5 +1,7 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.text.Text;
+
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.hud.HudLayout;
 import com.darkmusic.client.hud.SpectrumHud;
@@ -15,13 +17,13 @@ public final class VisualizerEditorScreen extends LocalScreen {
     private double dragX, dragY;
 
     public VisualizerEditorScreen(DarkMusicClient app, Screen parent) {
-        super(Component.literal("Visualizer HUD Layout"), parent);
+        super(Text.component("text.darkmusic.visualizer_hud_layout"), parent);
         this.app = app;
     }
 
     @Override
     protected void init() {
-        addRenderableWidget(Button.builder(Component.literal("Reset Position"), b -> {
+        addRenderableWidget(Button.builder(Text.component("text.darkmusic.reset_position"), b -> {
             app.settings.visualizerX = 1;
             app.settings.visualizerY = .65;
             app.save();
@@ -67,7 +69,7 @@ public final class VisualizerEditorScreen extends LocalScreen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
         g.fill(0, 0, width, height, 0xCC111420);
-        g.text(font, "Drag the spectrum. Play music for a live preview; Escape saves.", 12, 12, 0xFFB5B0FF);
+        g.text(font, Text.get("text.darkmusic.drag_the_spectrum_play_music_for_a_live_preview_escape_saves"), 12, 12, 0xFFB5B0FF);
         SpectrumHud.render(app, g);
         var b = SpectrumHud.bounds(app.settings, width, height);
         g.outline(b.x(), b.y(), b.width(), b.height(), 0xFFB5B0FF);

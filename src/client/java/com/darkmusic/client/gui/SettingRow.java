@@ -1,5 +1,7 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.text.Text;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -55,7 +57,7 @@ public final class SettingRow extends AbstractWidget {
 
     @Override
     protected net.minecraft.network.chat.MutableComponent createNarrationMessage() {
-        return wrapDefaultNarrationMessage(Component.literal(getMessage().getString() + (checked == null ? "" : checked.getAsBoolean() ? ": On" : ": Off")));
+        return wrapDefaultNarrationMessage(checked == null ? getMessage() : Text.component(checked.getAsBoolean() ? "format.darkmusic.setting_on" : "format.darkmusic.setting_off", getMessage()));
     }
 
     @Override

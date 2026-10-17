@@ -9,7 +9,7 @@
 **Your music, inside Minecraft.** Browse your own collection, make playlists,
 and keep listening as you explore, build, or take a break in the menus.
 
-![DarkMusic's in-game music player showing a music library and playback controls](docs/images/player-1.0.0-3x.png)
+![DarkMusic's in-game music player showing a music library and playback controls](docs/images/player-1.0.1-3x.png)
 
 *Captured in fullscreen at Minecraft GUI scale 3 using a real music collection
 and its embedded artwork.*
@@ -23,6 +23,7 @@ and its embedded artwork.*
 - **Keep listening:** music continues when you close the player or change worlds.
 - **Stay in the game:** an optional now-playing HUD with artwork, drag positioning,
   whole-HUD scaling, and configurable playback and speed shortcuts.
+- **Choose your language:** English and Traditional Chinese follow Minecraft’s language setting.
 - **See the music:** real PCM-driven frequency bars in the player and an
   independently toggleable HUD visualizer, with size and response controls.
 
@@ -39,7 +40,7 @@ and its embedded artwork.*
 
 1. Create or select a **Minecraft 26.2 Fabric** instance in your launcher.
 2. Add **Fabric API for 26.2** to that instance's `mods` folder.
-3. Add the DarkMusic mod JAR, such as `darkmusic-1.0.0.jar`, to the same folder.
+3. Add the DarkMusic mod JAR, such as `darkmusic-1.0.1.jar`, to the same folder.
    Download it from [Releases](https://github.com/DarkLian/DarkMusic/releases/latest),
    or [build the mod from source](#build-from-source).
 4. Launch Minecraft and click **Music** on the title screen.
@@ -118,7 +119,7 @@ Use a Java 25 JDK for Gradle, open a terminal in the project directory, and run:
 ./gradlew build
 ```
 
-The mod is written to `build/libs/darkmusic-1.0.0.jar`. Install that JAR in your
+The mod is written to `build/libs/darkmusic-1.0.1.jar`. Install that JAR in your
 Minecraft instance's `mods` folder. The `-sources.jar` and
 `-third-party-sources.zip` files are source archives rather than installable mods.
 When redistributing a build, include its third-party source bundle and notices.

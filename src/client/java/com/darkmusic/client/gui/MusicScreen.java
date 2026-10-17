@@ -1,5 +1,7 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.text.Text;
+
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.audio.PlaybackController;
@@ -24,8 +26,9 @@ public final class MusicScreen extends LocalScreen {
     private List<Track> visible = List.of();
     private List<String> groups = List.of();
     private String mode = "All", group = "", query = "";
-    private Track selected;
-    private long revision = -1, playlistRevision = -1;
+    private Track selected, seekTrack;
+    private boolean seekDragging;
+    private long revision = -1, playlistRevision = -1, refreshed;
     private String playlistNotice = "";
     private Button play, shuffle, repeat;
     private ValueSlider progress;
@@ -43,7 +46,7 @@ public final class MusicScreen extends LocalScreen {
     }
 
     public static String label(String constant) {
-        return constant.charAt(0) + constant.substring(1).toLowerCase(Locale.ROOT);
+        return Text.get("state.darkmusic." + constant.toLowerCase(Locale.ROOT));
     }
 
     private Button button(String text, int x, int y, int w, Runnable action) {
@@ -52,15 +55,15 @@ public final class MusicScreen extends LocalScreen {
 
     @Override
     protected void init() {
-        Help.tip(button("Settings", width - 88, 6, 76, () -> show(new SettingsScreen(app, this))), "Music folder, autoplay, background music, and HUD layout. Assign shortcuts in Options > Controls > Key Binds.");
-        Help.tip(button("Manage Playlists", width - 216, 6, 124, () -> {
+        Help.tip(button(Text.get("text.darkmusic.settings"), width - 88, 6, 76, () -> show(new SettingsScreen(app, this))), Text.get("text.darkmusic.music_folder_autoplay_background_music_and_hud_layout_assign_shortcuts_in_options"));
+        Help.tip(button(Text.get("text.darkmusic.manage_playlists"), width - 216, 6, 124, () -> {
             if (app.playlistsReady) show(new PlaylistScreen(app, this));
-            else app.warn("Playlists are still loading.");
-        }), "Create and edit playlists. To listen, use the Playlists view below. Escape closes the player.");
+            else app.warn(Text.get("text.darkmusic.playlists_are_still_loading"));
+        }), Text.get("text.darkmusic.create_and_edit_playlists_to_listen_use_the_playlists_view_below_escape_closes_the"));
         boolean compact = height < 320;
-        search = addRenderableWidget(new EditBox(font, 12, 32, compact ? width - 144 : width - 24, 20, Component.literal("Search Songs")));
+        search = addRenderableWidget(new EditBox(font, 12, 32, compact ? width - 144 : width - 24, 20, Text.component("text.darkmusic.search_songs")));
         search.setMaxLength(512);
-        search.setHint(Component.literal("Search title, artist, album or path"));
+        search.setHint(Text.component("text.darkmusic.search_title_artist_album_or_path"));
         search.setValue(query);
         search.setResponder(text -> {
             query = text;
@@ -68,14 +71,15 @@ public final class MusicScreen extends LocalScreen {
         });
         String[] modes = {"All", "Playlists", "Artists", "Albums"};
         int tab = (width - 24) / modes.length;
-        if (compact) button("View: " + mode, width - 126, 32, 114, () -> {
-            mode = modes[(Arrays.asList(modes).indexOf(mode) + 1) % modes.length];
-            group = "";
-            rebuildWidgets();
-        });
+        if (compact)
+            button(Text.get("format.darkmusic.view", Text.get("view.darkmusic." + mode.toLowerCase(Locale.ROOT))), width - 126, 32, 114, () -> {
+                mode = modes[(Arrays.asList(modes).indexOf(mode) + 1) % modes.length];
+                group = "";
+                rebuildWidgets();
+            });
         else for (int i = 0; i < modes.length; i++) {
             String next = modes[i];
-            button(next, 12 + i * tab, 56, tab - 3, () -> {
+            button(Text.get("view.darkmusic." + next.toLowerCase(Locale.ROOT)), 12 + i * tab, 56, tab - 3, () -> {
                 mode = next;
                 group = "";
                 refresh();
@@ -86,61 +90,63 @@ public final class MusicScreen extends LocalScreen {
         boolean narrow = width < 640;
         int extra = narrow ? 24 : 0;
         int listHeight = Math.max(28, height - 144 - extra - listY);
-        navigation = addRenderableWidget(new RowList(12, listY, navWidth, listHeight, 22, "Library navigation", (i, activated) -> {
+        navigation = addRenderableWidget(new RowList(12, listY, navWidth, listHeight, 22, Text.get("text.darkmusic.library_navigation"), (i, activated) -> {
             group = groups.get(i);
             refreshSongs();
         }));
         int art = width >= 640 ? 106 : 0;
-        songs = addRenderableWidget(new RowList(18 + navWidth, listY, width - 30 - navWidth - art, listHeight, compact ? 28 : 32, "Songs; Enter or double click to play", (i, activated) -> {
+        songs = addRenderableWidget(new RowList(18 + navWidth, listY, width - 30 - navWidth - art, listHeight, compact ? 28 : 32, Text.get("text.darkmusic.songs_enter_or_double_click_to_play"), (i, activated) -> {
             selected = visible.get(i);
             if (activated) app.playback.play(visible, selected);
         }));
         progress = addRenderableWidget(Help.tip(new ValueSlider(12, height - 102 - extra, width - 24, 0,
-            v -> time(app.playback.state().position()) + " / " + time(app.playback.state().duration()),
-            v -> app.playback.seek(v * app.playback.state().duration()), () -> {
-        }), "Seek in the original song's timeline. Compressed files may take a moment to seek."));
+            v -> time(progress != null && progress.editing() ? v * app.playback.state().duration() : app.playback.state().position()) + " / " + time(app.playback.state().duration()),
+            v -> {
+                if (!seekDragging) seekTrack = app.playback.state().track();
+                seekDragging = progress != null && progress.editing();
+            }, this::commitSeek), Text.get("text.darkmusic.seek_in_the_original_song_s_timeline_compressed_files_may_take_a_moment_to_seek")));
         int gap = 4, x = 12, control = (width - 24 - gap * (narrow ? 2 : 5)) / (narrow ? 3 : 6), y = height - 78 - extra;
-        Help.tip(button("Previous", x, y, control, () -> app.playback.previous()), "Previous song in playback history, or restart the current song.");
+        Help.tip(button(Text.get("text.darkmusic.previous"), x, y, control, () -> app.playback.previous()), Text.get("text.darkmusic.previous_song_in_playback_history_or_restart_the_current_song"));
         x += control + gap;
-        play = Help.tip(button("Play", x, y, control, this::playPause), "Start the selected song when stopped; otherwise pause or resume current playback.");
+        play = Help.tip(button(Text.get("text.darkmusic.play"), x, y, control, this::playPause), Text.get("text.darkmusic.start_the_selected_song_when_stopped_otherwise_pause_or_resume_current_playback"));
         x += control + gap;
-        Help.tip(button("Next", x, y, control, () -> app.playback.next()), "Next song in the playback queue.");
+        Help.tip(button(Text.get("text.darkmusic.next"), x, y, control, () -> app.playback.next()), Text.get("text.darkmusic.next_song_in_the_playback_queue"));
         x += control + gap;
         if (narrow) {
             x = 12;
             y += 24;
         }
-        Help.tip(button("Stop", x, y, control, () -> app.playback.stop()), "Stop playback and reset its position.");
+        Help.tip(button(Text.get("text.darkmusic.stop"), x, y, control, () -> app.playback.stop()), Text.get("text.darkmusic.stop_playback_and_reset_its_position"));
         x += control + gap;
-        shuffle = Help.tip(button("Shuffle", x, y, control, () -> {
+        shuffle = Help.tip(button(Text.get("text.darkmusic.shuffle"), x, y, control, () -> {
             app.settings.shuffle = !app.playback.shuffle();
             app.playback.shuffle(app.settings.shuffle);
             app.save();
-        }), "Shuffle: play the queue in randomized order. Off restores its normal order.");
+        }), Text.get("text.darkmusic.shuffle_play_the_queue_in_randomized_order_off_restores_its_normal_order"));
         x += control + gap;
-        repeat = Help.tip(button("Repeat", x, y, width - 12 - x, () -> {
+        repeat = Help.tip(button(Text.get("text.darkmusic.repeat"), x, y, width - 12 - x, () -> {
             var values = PlaybackController.Repeat.values();
             var next = values[(app.playback.repeat().ordinal() + 1) % values.length];
-            app.settings.repeat = next.name();
+            app.settings.repeat = next;
             app.playback.repeat(next);
             app.save();
-        }), "Repeat OFF stops at the queue's end; ONE repeats the current song; ALL repeats the queue. Click to cycle.");
+        }), Text.get("text.darkmusic.repeat_off_stops_at_the_queue_s_end_one_repeats_the_current_song_all_repeats_the_q"));
         int half = (width - 28) / 2;
         volume = addRenderableWidget(Help.tip(new ValueSlider(12, height - 54, half, app.settings.volume,
-            v -> "Volume " + Math.round(v * 100) + "%", v -> {
+            v -> Text.get("format.darkmusic.volume", Math.round(v * 100)), v -> {
             app.settings.volume = v;
             app.playback.volume(v);
-        }, app::save), "DarkMusic volume, independent of Minecraft sound sliders."));
+        }, app::save), Text.get("text.darkmusic.darkmusic_volume_independent_of_minecraft_sound_sliders")));
         speed = addRenderableWidget(Help.tip(new ValueSlider(16 + half, height - 54, half - 44, (app.settings.speed - .5) / 2.5,
-            v -> String.format(Locale.ROOT, "Speed %.1fx", app.settings.speed), v -> app.speed(.5 + v * 2.5), app::save, 25), "Playback speed: 0.5x to 3.0x in 0.1x steps. Faster raises pitch; slower lowers it."));
+            v -> Text.get("format.darkmusic.speed", String.format(Locale.ROOT, "%.1f", app.settings.speed)), v -> app.speed(.5 + v * 2.5), app::save, 25), Text.get("text.darkmusic.playback_speed_0_5x_to_3_0x_in_0_1x_steps_faster_raises_pitch_slower_lowers_it")));
         Help.tip(button("1.0x", width - 52, height - 54, 40, () -> {
             app.speed(1);
             speed.syncNow((1 - .5) / 2.5);
-        }), "Reset playback speed to normal.");
+        }), Text.get("text.darkmusic.reset_playback_speed_to_normal"));
         int third = (width - 32) / 3;
-        Help.tip(button("Open Folder", 12, height - 30, third, app::openFolder), "Open the selected music folder in your file manager.");
-        Help.tip(button("Downloads", 16 + third, height - 30, third, () -> show(new DownloadScreen(app, this))), "Paste a video/collection URL, choose entries, and queue MP3 downloads into your music folder.");
-        Help.tip(button("Refresh Library", 20 + 2 * third, height - 30, width - 32 - 2 * third, () -> app.library.rescan()), "Songs are discovered automatically. Refresh now if changes were missed or a drive was reconnected.");
+        Help.tip(button(Text.get("text.darkmusic.open_folder"), 12, height - 30, third, app::openFolder), Text.get("text.darkmusic.open_the_selected_music_folder_in_your_file_manager"));
+        Help.tip(button(Text.get("text.darkmusic.downloads"), 16 + third, height - 30, third, () -> show(new DownloadScreen(app, this))), Text.get("text.darkmusic.paste_a_video_collection_url_choose_entries_and_queue_mp3_downloads_into_your_musi"));
+        Help.tip(button(Text.get("text.darkmusic.refresh_library"), 20 + 2 * third, height - 30, width - 32 - 2 * third, () -> app.library.rescan()), Text.get("text.darkmusic.songs_are_discovered_automatically_refresh_now_if_changes_were_missed_or_a_drive_w"));
         refresh();
     }
 
@@ -153,10 +159,10 @@ public final class MusicScreen extends LocalScreen {
                 tracks.stream().map(Track::artist).distinct().sorted(String.CASE_INSENSITIVE_ORDER).toList();
             case "Albums" ->
                 tracks.stream().map(Track::album).distinct().sorted(String.CASE_INSENSITIVE_ORDER).toList();
-            default -> List.of("All Tracks");
+            default -> List.of(Text.get("text.darkmusic.all_tracks"));
         };
         if (mode.equals("Playlists") && !groups.contains(group)) group = groups.isEmpty() ? "" : groups.getFirst();
-        navigation.emptyMessage(mode.equals("Playlists") ? (app.playlistsReady ? "No Playlists" : "Loading...") : "No Entries");
+        navigation.emptyMessage(mode.equals("Playlists") ? (app.playlistsReady ? Text.get("text.darkmusic.no_playlists") : Text.get("text.darkmusic.loading")) : Text.get("text.darkmusic.no_entries"));
         navigation.rows(groups.stream().map(s -> new RowList.Row(mode.equals("Playlists") ? app.playlists.get(s).name() : s, "")).toList());
         navigation.select(groups.indexOf(group));
         refreshSongs();
@@ -170,22 +176,31 @@ public final class MusicScreen extends LocalScreen {
         playlistNotice = "";
         if (playlists) {
             var playlist = app.playlists.get(group);
-            if (!app.playlistsReady) playlistNotice = "Playlists are still loading.";
-            else if (playlist == null) playlistNotice = "Create a playlist with Manage Playlists.";
+            if (!app.playlistsReady) playlistNotice = Text.get("text.darkmusic.playlists_are_still_loading");
+            else if (playlist == null)
+                playlistNotice = Text.get("text.darkmusic.create_a_playlist_with_manage_playlists");
             else if (playlist.entries().isEmpty())
-                playlistNotice = "This playlist is empty. Add Songs in Manage Playlists.";
+                playlistNotice = Text.get("text.darkmusic.this_playlist_is_empty_add_songs_in_manage_playlists");
             else if (source.size() < playlist.entries().size())
-                playlistNotice = (playlist.entries().size() - source.size()) + " unavailable song(s); select missing entries in Manage Playlists.";
+                playlistNotice = Text.get("format.darkmusic.missing_entries", playlist.entries().size() - source.size());
         }
         visible = source.stream().filter(t -> t.matches(needle)).filter(t -> group.isEmpty() || switch (mode) {
             case "Artists" -> t.artist().equals(group);
             case "Albums" -> t.album().equals(group);
             default -> true;
         }).toList();
-        songs.emptyMessage(playlists && source.isEmpty() ? "No Playable Songs" : "No Matching Songs");
+        songs.emptyMessage(playlists && source.isEmpty() ? Text.get("text.darkmusic.no_playable_songs") : Text.get("text.darkmusic.no_matching_songs"));
         songs.rows(visible.stream().map(t -> new RowList.Row(t.title(), t.artist() + " | " + time(t.duration()) + " | " + t.relativePath())).toList());
         if (selected == null || !visible.contains(selected)) selected = visible.isEmpty() ? null : visible.getFirst();
         songs.select(visible.indexOf(selected));
+    }
+
+    private void commitSeek() {
+        var state = app.playback.state();
+        if (seekTrack != null && state.track() != null && seekTrack.id().equals(state.track().id()) && progress.active)
+            app.playback.seek(progress.fraction() * state.duration());
+        seekDragging = false;
+        seekTrack = null;
     }
 
     private void playPause() {
@@ -198,7 +213,8 @@ public final class MusicScreen extends LocalScreen {
     @Override
     public void tick() {
         var state = app.library.snapshot();
-        if (revision != state.revision() || playlistRevision != app.playlists.revision()) {
+        if (playlistRevision != app.playlists.revision() || revision != state.revision() && (!state.scanning() || System.nanoTime() - refreshed > 250_000_000L)) {
+            refreshed = System.nanoTime();
             revision = state.revision();
             playlistRevision = app.playlists.revision();
             refresh();
@@ -208,9 +224,9 @@ public final class MusicScreen extends LocalScreen {
         speed.sync((app.settings.speed - .5) / 2.5);
         progress.active = audio.track() != null && audio.duration() > 0 && audio.status() != AudioBackend.Status.STOPPED && audio.status() != AudioBackend.Status.ERROR;
         progress.sync(audio.duration() > 0 ? audio.position() / audio.duration() : 0);
-        play.setMessage(Component.literal(audio.status() == AudioBackend.Status.PLAYING ? "Pause" : audio.status() == AudioBackend.Status.PAUSED ? "Resume" : "Play"));
-        shuffle.setMessage(Component.literal(app.playback.shuffle() ? "Shuffle: On" : "Shuffle: Off"));
-        repeat.setMessage(Component.literal("Repeat: " + label(app.playback.repeat().name())));
+        play.setMessage(Component.literal(audio.status() == AudioBackend.Status.PLAYING ? Text.get("text.darkmusic.pause") : audio.status() == AudioBackend.Status.PAUSED ? Text.get("text.darkmusic.resume") : Text.get("text.darkmusic.play")));
+        shuffle.setMessage(Component.literal(app.playback.shuffle() ? Text.get("text.darkmusic.shuffle_on") : Text.get("text.darkmusic.shuffle_off")));
+        repeat.setMessage(Text.component("format.darkmusic.repeat", label(app.playback.repeat().name())));
     }
 
     @Override
@@ -239,7 +255,7 @@ public final class MusicScreen extends LocalScreen {
             var art = app.artwork.get(selected);
             g.fill(x, y, x + size, y + size, 0xFF292F44);
             if (art != null) g.blit(RenderPipelines.GUI_TEXTURED, art, x, y, 0, 0, size, size, 256, 256, 256, 256);
-            else g.centeredText(font, "Music", x + size / 2, y + size / 2 - 4, 0xFFB5B0FF);
+            else g.centeredText(font, Text.get("text.darkmusic.music"), x + size / 2, y + size / 2 - 4, 0xFFB5B0FF);
         }
         super.extractRenderState(g, mx, my, delta);
     }

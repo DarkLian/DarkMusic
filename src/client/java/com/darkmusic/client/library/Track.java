@@ -14,6 +14,7 @@ public record Track(String rootId, String relativePath, Path file, String title,
     }
 
     public boolean matches(String query) {
+        if (query.isBlank()) return true;
         return (title + " " + artist + " " + album + " " + relativePath).toLowerCase(java.util.Locale.ROOT).contains(query);
     }
 }

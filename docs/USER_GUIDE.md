@@ -20,7 +20,7 @@ automatically.
 Close the player with **Escape** to keep listening. Music continues through
 menus, world changes, multiplayer server changes, and the title screen.
 
-![DarkMusic player with playback, volume, and speed controls](images/player-1.0.0-3x.png)
+![DarkMusic player with playback, volume, and speed controls](images/player-1.0.1-3x.png)
 
 *Captured in fullscreen at Minecraft GUI scale 3 using a real music collection and its embedded artwork.*
 
@@ -99,7 +99,7 @@ executables include the YouTube challenge scripts; other distributions may need
 additional setup described in the [yt-dlp JavaScript guide](https://github.com/yt-dlp/yt-dlp/wiki/EJS).
 Settings save when leaving the screen, including with **Escape**.
 
-![Download executable settings with automatic lookup hints](images/download-tools-1.0.0-3x.png)
+![Download executable settings with automatic lookup hints](images/download-tools-1.0.1-3x.png)
 
 ### Preview and choose entries
 
@@ -131,7 +131,7 @@ site's current availability. For one part of a Bilibili multipart video, use
 that part's URL. Private, deleted, restricted, or unsupported entries may fail;
 the downloader does not bypass authentication, DRM, or access controls.
 
-![Download preview showing a public YouTube video before any download is queued](images/downloads-1.0.0-3x.png)
+![Download preview showing a public YouTube video before any download is queued](images/downloads-1.0.1-3x.png)
 
 ### Queue, files, and cancellation
 
@@ -171,7 +171,7 @@ Shorter layouts use a **View** button to cycle between views.
 Starting a song uses the displayed results as the playback queue. For example,
 select an artist before playing to listen to that artist's songs.
 
-![Music library and embedded artwork at GUI scale 3](images/library-1.0.0-3x.png)
+![Music library and embedded artwork at GUI scale 3](images/library-1.0.1-3x.png)
 
 Use the mouse wheel to scroll. With the main song list focused, use **Up/Down**,
 **Home/End**, or **Page Up/Page Down** to navigate and **Enter** to play.
@@ -188,6 +188,9 @@ Cover art must be embedded in the audio file; a nearby `cover.jpg` is not used.
 Rectangular artwork is fitted proportionally with padding, without stretching
 or cropping, in both the player and HUD.
 
+The interface follows **Options → Language** and includes English and Traditional
+Chinese. Song titles, artist names, filenames, and playlist names stay as supplied.
+
 ## Playback controls
 
 | Control | Behavior |
@@ -196,7 +199,7 @@ or cropping, in both the player and HUD.
 | **Previous** | Go back through playback history, or restart the current song |
 | **Next** | Advance through the queue |
 | **Stop** | Stop and reset the playback position |
-| Progress slider | Seek using the original song's timestamps |
+| Progress slider | Preview the position while dragging; seek once when you release |
 | Volume slider | Change DarkMusic's volume independently of Minecraft sound sliders |
 | **Shuffle: Off / On** | Keep the queue order or randomize it |
 | **Repeat: Off / One / All** | Stop at the queue's end, repeat the current song, or repeat the queue |
@@ -210,7 +213,8 @@ time. Use the arrow keys on the focused speed slider to step by 0.1×.
 
 Manual **Next** advances even with repeat-one enabled; it stops at the queue's
 end unless repeat-all is selected. Seeking through compressed files can take
-a moment. You can change the seek position again or stop playback.
+a moment. Dragging previews the timestamp without repeatedly reopening the file;
+release to seek once. You can change the position again or stop playback.
 
 ## Listen to playlists
 
@@ -218,7 +222,7 @@ Select the **Playlists** view, choose a playlist on the left, then double-click
 a song in the main player. Selecting a playlist only browses its contents;
 it does not interrupt the current song. Search filters the selected playlist.
 
-![Playlist browsing in the main player](images/playlist-browser-1.0.0-3x.png)
+![Playlist browsing in the main player](images/playlist-browser-1.0.1-3x.png)
 
 Missing files are skipped during playback and reported in the player. Empty
 playlists show no songs instead of falling back to the whole library.
@@ -228,7 +232,7 @@ playlists show no songs instead of falling back to the whole library.
 Open **Manage Playlists**. Playback controls stay in the main player; Escape
 returns there after editing.
 
-![Playlist editor with bulk selection controls](images/playlists-1.0.0-3x.png)
+![Playlist editor with bulk selection controls](images/playlists-1.0.1-3x.png)
 
 1. Click **New**, enter a name, and click **Save**.
 2. Select the playlist on the left and click **Add Songs**.
@@ -237,7 +241,7 @@ returns there after editing.
    in the playlist are hidden from the picker. If everything is already added,
    the picker shows an empty-state message and disables Add Selected.
 
-![Bulk song picker with multiple songs selected](images/bulk-picker-1.0.0-3x.png)
+![Bulk song picker with multiple songs selected](images/bulk-picker-1.0.1-3x.png)
 
 ### Selecting multiple songs
 
@@ -297,7 +301,7 @@ Setting labels align left. An empty square on the right means off, and a checked
 square means on. Click the row or use Space/Enter while it is focused to toggle.
 Action rows have an arrow instead of a state checkbox; the bottom button switches pages.
 
-![General settings](images/settings-1.0.0-3x.png)
+![General settings](images/settings-1.0.1-3x.png)
 
 Open **Settings → HUD Settings** to configure:
 
@@ -317,7 +321,7 @@ available space.
 3. Adjust **HUD Scale** between **50% and 200%**, in 10% steps.
 4. Press **Escape** to save and return.
 
-![HUD layout editor with artwork on the left](images/hud-editor-1.0.0-3x.png)
+![HUD layout editor with artwork on the left](images/hud-editor-1.0.1-3x.png)
 
 The preview works even when playback is stopped or the HUD is disabled.
 **Reset Layout** restores top-left placement and 100% scale. Position is stored
@@ -370,7 +374,7 @@ timed against the sound device's played-frame position.
 | HUD Width | 80–320 GUI pixels, limited to the available screen width |
 | Height | 24–120 GUI pixels for the HUD and preferred player height, limited by available space |
 
-![Independent spectrum toggles and response/size controls](images/visualizer-settings-1.0.0-3x.png)
+![Independent spectrum toggles and response/size controls](images/visualizer-settings-1.0.1-3x.png)
 
 Choose **Edit Visualizer HUD Layout** and drag the real spectrum anywhere on the
 screen. **Reset Position** restores right-side placement. Position is stored
@@ -378,7 +382,7 @@ relative to available space, so it remains on screen across GUI scales. Play
 music for a live preview; stopped playback shows no invented animation.
 **Escape** saves and returns.
 
-![Visualizer HUD position editor showing the actual playing music spectrum](images/visualizer-hud-1.0.0-3x.png)
+![Visualizer HUD position editor showing the actual playing music spectrum](images/visualizer-hud-1.0.1-3x.png)
 
 Pausing freezes the current spectrum. Seeking, stopping, loading another track,
 or playback errors clear old levels; resuming produces fresh audio-driven bars.

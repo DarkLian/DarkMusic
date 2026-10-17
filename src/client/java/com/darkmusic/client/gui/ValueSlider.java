@@ -14,6 +14,7 @@ public final class ValueSlider extends AbstractSliderButton {
     private final DoubleFunction<String> label;
     private final int steps;
     private long adjusted;
+    private boolean dragging;
 
     public ValueSlider(int x, int y, int width, double value, DoubleFunction<String> label, DoubleConsumer changed, Runnable committed) {
         this(x, y, width, value, label, changed, committed, 0);
@@ -29,7 +30,7 @@ public final class ValueSlider extends AbstractSliderButton {
     }
 
     public void sync(double next) {
-        if (System.nanoTime() - adjusted > 500_000_000L) {
+        if (!dragging && System.nanoTime() - adjusted > 500_000_000L) {
             value = Math.clamp(next, 0, 1);
             updateMessage();
         }
@@ -54,9 +55,24 @@ public final class ValueSlider extends AbstractSliderButton {
         updateMessage();
     }
 
+    public boolean editing() {
+        return dragging;
+    }
+
+    public double fraction() {
+        return value;
+    }
+
+    @Override
+    public void onClick(MouseButtonEvent event, boolean twice) {
+        dragging = true;
+        super.onClick(event, twice);
+    }
+
     @Override
     public void onRelease(MouseButtonEvent event) {
         super.onRelease(event);
+        dragging = false;
         committed.run();
     }
 

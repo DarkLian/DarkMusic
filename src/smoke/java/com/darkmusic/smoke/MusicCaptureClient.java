@@ -67,9 +67,20 @@ final class MusicCaptureClient {
         require(mc.options.guiScale().get() == 3 && mc.getWindow().getGuiScale() == 3, "Capture requires configured and effective GUI scale 3: configured=" + mc.options.guiScale().get() + ", effective=" + mc.getWindow().getGuiScale());
         var privateImages = Path.of(System.getProperty("darkmusic.privateImages"));
         java.nio.file.Files.createDirectories(privateImages.resolve("screenshots"));
-        Screenshot.grab(privateImages.toFile(), "100-test-3x-" + name + ".png", mc.gameRenderer.mainRenderTarget(), 1, text -> {
+        Screenshot.grab(privateImages.toFile(), "101-test-3x-" + name + ".png", mc.gameRenderer.mainRenderTarget(), 1, text -> {
             LoggerFactory.getLogger("darkmusic-capture").info("FULLSCREEN GUI_SCALE=3 {}x{} {}: {}", mc.getWindow().getWidth(), mc.getWindow().getHeight(), name, text.getString());
-            mc.execute(() -> captured.add(name));
+            mc.execute(() -> {
+                try {
+                    Path saved = privateImages.resolve("screenshots").resolve("101-test-3x-" + name + ".png");
+                    require(java.nio.file.Files.isRegularFile(saved) && java.nio.file.Files.size(saved) > 0, "Screenshot was not saved: " + saved);
+                    try (var input = java.nio.file.Files.newInputStream(saved)) {
+                        require(java.util.Arrays.equals(input.readNBytes(8), new byte[]{(byte) 137, 80, 78, 71, 13, 10, 26, 10}), "Invalid screenshot PNG: " + saved);
+                    }
+                    captured.add(name);
+                } catch (Exception e) {
+                    LoggerFactory.getLogger("darkmusic-capture").error("Screenshot verification failed", e);
+                }
+            });
         });
     }
 
@@ -403,7 +414,7 @@ final class MusicCaptureClient {
                     }
                     require(played.size() == tracks.size(), "Not all real tracks played");
                     app.playback.stop();
-                    LoggerFactory.getLogger("darkmusic-capture").info("DARKMUSIC_SMOKE_PASS: {} real songs played; live PCM visualizer/pause/seek/resume/speed/stop/HUD drag, downloader preview/tools, 3x speed, connected dragging/cancel/autoscroll, filtered bulk editing, artwork, settings keyboard controls, HUD drag/scale; twelve private fullscreen GUI-scale-3 captures", played.size());
+                    LoggerFactory.getLogger("darkmusic-capture").info("DARKMUSIC_SMOKE_PASS:" + java.nio.file.Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip() + " {} real songs played; live PCM visualizer/pause/seek/resume/speed/stop/HUD drag, downloader preview/tools, 3x speed, connected dragging/cancel/autoscroll, filtered bulk editing, artwork, settings keyboard controls, HUD drag/scale; twelve private fullscreen GUI-scale-3 captures", played.size());
                     mc.stop();
                 }
             }
