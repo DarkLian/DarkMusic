@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -68,7 +67,7 @@ class DownloadTest {
         var mix = DownloadJson.preview("https://www.youtube.com/watch?v=a&list=RDa", 1, JsonParser.parseString(data).getAsJsonObject());
         assertTrue(mix.videoAlso());
         assertEquals(-1, mix.total());
-        assertTrue(DownloadJson.friendly("HTTP Error 429").contains("rate limiting"));
+        assertTrue(DownloadJson.friendly("HTTP Error 429").contains("HTTP 429"));
         assertTrue(DownloadJson.friendly("DRM restricted private").contains("not bypassed"));
     }
 
@@ -203,13 +202,12 @@ class DownloadTest {
     static class FakeRunner extends ProcessRunner {
         final Path media = TestMusic.featured();
         final byte[] artwork = new com.darkmusic.client.library.MetadataReader().artwork(media);
-
-        FakeRunner() throws Exception {
-        }
-
         final List<List<String>> commands = new CopyOnWriteArrayList<>();
         boolean failConversion, corruptProbe, noCover, badCover, hang;
         CountDownLatch entered = new CountDownLatch(1);
+
+        FakeRunner() throws Exception {
+        }
 
         @Override
         public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) throws IOException, InterruptedException {

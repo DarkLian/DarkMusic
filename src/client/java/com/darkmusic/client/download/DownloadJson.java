@@ -47,7 +47,8 @@ public final class DownloadJson {
                     }
                 }
                 if (value.isJsonObject()) entries.add(entry(value.getAsJsonObject(), position, original));
-                else entries.add(new Entry(position, "Unavailable Entry " + position, "", "", "", false));
+                else
+                    entries.add(new Entry(position, com.darkmusic.client.text.Text.get("format.darkmusic.unavailable_entry", position), "", "", "", false));
                 index++;
                 offset++;
             }
@@ -76,7 +77,8 @@ public final class DownloadJson {
             available = false;
         }
         String title = text(json, "title");
-        if (title.isBlank()) title = id.isBlank() ? "Entry " + position : id;
+        if (title.isBlank())
+            title = id.isBlank() ? com.darkmusic.client.text.Text.get("format.darkmusic.entry", position) : id;
         if (title.equals("[Deleted video]") || title.equals("[Private video]")) available = false;
         return new Entry(position, title, link, extractor, id.isBlank() ? link : id, available);
     }

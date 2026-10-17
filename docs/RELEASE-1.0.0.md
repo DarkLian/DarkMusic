@@ -1,5 +1,7 @@
 # DarkMusic v1.0.0
 
+> Historical notes for 1.0.0. Menus and defaults below describe that release. See the [current guide](USER_GUIDE.md) and [v1.0.2 notes](RELEASE-1.0.2.md) for current behavior.
+
 Play your music inside Minecraft, with playlists, in-game downloads, and a real-time audio-reactive visualizer.
 
 - Browse MP3, OGG Vorbis, PCM WAV, and FLAC files, with search, metadata, and embedded artwork.

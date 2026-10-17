@@ -23,6 +23,7 @@ public final class JavaSoundBackend implements AudioBackend {
     private final Output output;
     private final Thread worker;
     private final java.util.ArrayDeque<Segment> timeline = new java.util.ArrayDeque<>();
+    private final long stallNanos;
     private volatile State state = new State(null, Status.STOPPED, 0, 0, "");
     private volatile boolean closed, paused;
     private volatile double gain = 0.7;
@@ -31,7 +32,6 @@ public final class JavaSoundBackend implements AudioBackend {
     private long submittedFrames;
     private double deviceRate;
     private long progressedAt, lastPlayed;
-    private final long stallNanos;
     private volatile Request active;
     private AudioInputStream stream;
     private SourceDataLine line;

@@ -1,7 +1,9 @@
 package com.darkmusic.client.download;
 
 import java.io.IOException;
-import java.nio.channels.*;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 
@@ -13,6 +15,10 @@ final class DownloadWorkspace implements AutoCloseable {
     private final FileLock lock;
 
     DownloadWorkspace(Path data) throws IOException {
+        this(data, true);
+    }
+
+    DownloadWorkspace(Path data, boolean recover) throws IOException {
         Path directory = data.resolve("downloads");
         Files.createDirectories(directory);
         if (Files.isSymbolicLink(directory))
@@ -31,7 +37,7 @@ final class DownloadWorkspace implements AutoCloseable {
             Files.createDirectories(root);
             if (Files.isSymbolicLink(root))
                 throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.download_scratch_folder_must_not_be_a_symbolic_link"));
-            try (var children = Files.list(root)) {
+            if (recover) try (var children = Files.list(root)) {
                 for (Path child : children.filter(p -> p.getFileName().toString().startsWith("item-")).toList()) {
                     if (Files.isSymbolicLink(child) || !Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS)) continue;
                     try {

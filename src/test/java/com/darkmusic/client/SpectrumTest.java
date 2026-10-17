@@ -2,7 +2,7 @@ package com.darkmusic.client;
 
 import com.darkmusic.client.audio.SpectrumAnalyzer;
 import com.darkmusic.client.config.Settings;
-import com.darkmusic.client.hud.SpectrumHud;
+import com.darkmusic.client.hud.HudLayout;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -150,15 +150,12 @@ class SpectrumTest {
         settings.visualizerSensitivity = Double.NaN;
         settings.visualizerSmoothing = Double.POSITIVE_INFINITY;
         settings.visualizerBars = 200;
-        settings.visualizerWidth = 10000;
-        settings.visualizerHeight = -1;
-        settings.visualizerX = 99;
         settings.validate();
         assertEquals(64, settings.visualizerBars);
         assertEquals(1, settings.visualizerSensitivity);
         assertEquals(.6, settings.visualizerSmoothing);
         for (int width : new int[]{320, 426, 854}) {
-            var b = SpectrumHud.bounds(settings, width, 240);
+            var b = HudLayout.bounds(settings, width, 240);
             assertTrue(b.x() >= 8 && b.x() + b.width() <= width - 8);
             assertTrue(b.y() + b.height() <= 232);
         }

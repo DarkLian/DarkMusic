@@ -1,418 +1,210 @@
 # DarkMusic user guide
 
-[Back to the project overview](../README.md)
+[Project overview](../README.md) · [v1.0.2 release notes](RELEASE-1.0.2.md)
 
-Play your own music in Minecraft, browse your collection, and build playlists
-without leaving the game. Hover over buttons or focus them with the keyboard
-for explanations. **Escape** returns to the previous screen; settings save
-automatically.
-
-## Play your first song
-
-1. Launch Minecraft with DarkMusic and Fabric API installed.
-2. Click **Music** on the title screen, or press **M** during gameplay.
-3. Click **Open Folder** in the player.
-4. Copy supported audio files into that folder. Subfolders work too.
-5. Return to the player and wait for discovery, or click **Refresh Library**.
-6. Double-click a song to play it. You can also select a song and click **Play**
-   when playback is stopped, or press **Enter** while the main song list has focus.
-
-Close the player with **Escape** to keep listening. Music continues through
-menus, world changes, multiplayer server changes, and the title screen.
-
-![DarkMusic player with playback, volume, and speed controls](images/player-1.0.1-3x.png)
-
-*Captured in fullscreen at Minecraft GUI scale 3 using a real music collection and its embedded artwork.*
+Open **Music** on the title screen or press **B** during gameplay. Hover for help. **Escape** returns; settings save automatically. Playback continues across menus and worlds.
 
 ## Music folders
 
-### Use the default folder
+The default is `config/darkmusic/music` inside the active instance. **Open Folder** opens the selected directory in your desktop file manager.
 
-Click **Open Folder** to find your selected music directory. The default folder
-is created automatically inside your active Minecraft instance:
+Choose **Settings → Choose Music Folder** to open a desktop folder chooser. Select a directory and approve it there. Cancel/Escape leaves the selection unchanged. Its path appears below the setting. No files are moved. Newly queued downloads use this folder; existing queue items keep their original destinations.
 
-```text
-config/
-└── darkmusic/
-    └── music/
-```
+Subfolders are included. File watching checks every few seconds; a fallback scan runs every two minutes. Unchanged files reuse metadata. **Refresh Library** requests an immediate background scan.
 
-This follows the instance launched through Prism Launcher, Modrinth App, the
-Minecraft Launcher, or another Fabric launcher. There is no need to find a
-launcher's installation directory yourself.
-
-Organize files however you prefer. Nested folders are included automatically.
-File watching checks for changes every few seconds; a fallback scan runs every
-two minutes. Unchanged files reuse cached metadata. **Refresh Library** requests
-an immediate scan, useful after missed changes or reconnecting a drive. Scanning
-runs in the background.
-
-### Choose an existing collection
-
-1. Open **Settings → Choose Music Folder**.
-2. Click directory buttons to navigate. **Up** goes to the parent folder and
-   **Roots** lists drives or filesystem roots.
-3. Alternatively, enter an absolute directory path and click **Browse**.
-4. Click **Use This Folder** to activate the displayed directory.
-
-**Previous** and **Next** page through directories. **Default** navigates to
-the default music directory; click **Use This Folder** to select it.
-**Cancel** or **Escape** returns without selecting a new location.
-
-Different Minecraft instances can use the same music directory while keeping
-their own playlists and settings.
-
-### Supported formats
-
-| Extension | Supported audio |
+| Extension | Audio |
 |---|---|
-| `.mp3` | MP3, including variable-bitrate files |
+| `.mp3` | MP3, including variable bitrate |
 | `.ogg` | OGG Vorbis |
 | `.wav` | PCM WAV |
 | `.flac` | FLAC |
 
-Use mono or stereo audio. OGG Opus is a different codec from OGG Vorbis;
-compressed WAV variants may need conversion to PCM WAV.
+Use mono or stereo. OGG Opus and compressed WAV variants may need conversion.
 
-## Download music
+## Browse and play
 
-Open **Downloads** at the bottom of the main player. The downloader uses the same
-selected music folder and library as the player; choosing another folder in
-**Settings → Choose Music Folder** also changes the destination for newly queued
-downloads. Entries already queued keep their original destination.
-
-### Set up the tools
-
-Open **Tools** and provide executable file paths for **yt-dlp**, **FFmpeg**, and
-**FFprobe**, then click **Check Tools**. Blank paths search the instance's
-`config/darkmusic/tools` directory and system PATH; FFprobe is also searched for
-alongside FFmpeg. Shell scripts are not executable-path substitutes.
-
-Use the official [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases) and
-[FFmpeg downloads](https://ffmpeg.org/download.html). FFmpeg needs the
-`libmp3lame` encoder. Existing installations can be reused. The mod checks tool
-capabilities and does not install or update tools automatically.
-
-For YouTube, install **Deno 2.3+** or **Node 22+** and optionally set its executable
-path in the fourth field. Blank uses automatic lookup. Official yt-dlp standalone
-executables include the YouTube challenge scripts; other distributions may need
-additional setup described in the [yt-dlp JavaScript guide](https://github.com/yt-dlp/yt-dlp/wiki/EJS).
-Settings save when leaving the screen, including with **Escape**.
-
-![Download executable settings with automatic lookup hints](images/download-tools-1.0.1-3x.png)
-
-### Preview and choose entries
-
-1. Paste a video or collection URL and click **Analyze**. This only previews it.
-2. Cycle **Mode** to choose the intended selection before clicking Download.
-3. Use **Show Queue / Preview** to watch results or return to the preview list.
-
-| Mode | What is queued |
-|---|---|
-| This Video Only | One video, even if a YouTube watch URL also includes a playlist |
-| Selected Preview | Checked entries; checks persist across preview pages |
-| First N Entries | Entries 1 through the number in the first input |
-| Entry Range | Start and end inputs, inclusive; `10` and `30` select entries 10–30 |
-| All Entries | The known collection size, only after explicitly choosing this mode |
-
-Preview pages contain up to **100 entries**. **Select Page** checks the current
-page; **Clear Checks** clears checks on every page. Click rows to select them;
-Control-click toggles individual checks and Shift-click selects a connected range.
-Unavailable entries stay visible and are reported as failures when queued.
-
-Each batch and queue supports up to **1,000 entries**. Clear finished rows and
-use separate ranges for larger collections. Dynamic YouTube Mixes have no stable
-end, so use checked entries, First N, or a range. A collection-only URL cannot
-silently download all entries through **This Video Only**.
-
-YouTube playlists and Mixes, Bilibili collections/favorites/series/multipart
-videos, and other platforms depend on the installed yt-dlp extractor and the
-site's current availability. For one part of a Bilibili multipart video, use
-that part's URL. Private, deleted, restricted, or unsupported entries may fail;
-the downloader does not bypass authentication, DRM, or access controls.
-
-![Download preview showing a public YouTube video before any download is queued](images/downloads-1.0.1-3x.png)
-
-### Queue, files, and cancellation
-
-The queue shows waiting, downloading, converting, saved, skipped, failed, and
-cancelled items, available download percentages, and overall finished/failed
-counts. Select a queue row to see its destination and current message.
-**Cancel Selected** cancels that item. **Cancel All** also cancels URL analysis.
-**Clear Finished** removes completed rows without deleting saved audio.
-Closing the screen keeps downloads running; exiting Minecraft cancels unfinished
-work. Pending queue rows are not restored on restart.
-
-Completed audio is converted to MP3 and verified before entering the music
-folder. Available title, artist/uploader, album, track number, and cover artwork
-are retained; a collection position supplies the track number when no explicit
-track number exists. Missing artist/album tags are not invented. Missing or
-unusable artwork can produce an audio-only MP3 with a warning.
-
-Stable source identifiers avoid filename collisions. The folder's
-`.darkmusic-downloads.json` records completed downloads so repeating one is
-skipped while its file exists. Keep this file to preserve duplicate detection.
-Temporary work stays outside the library, and completed songs trigger the
-existing background library refresh. Saved files remain playable after restart.
-
-Failures do not stop other queued entries. The queue provides a short reason,
-with diagnostic output in the Minecraft log. For **403**, check access and tool
-updates; for **429**, wait before retrying. Network timeouts can be retried later.
-For conversion problems, check FFmpeg/FFprobe and free space in both the instance
-and music directories. A damaged duplicate-history file is preserved rather than
-overwritten; back it up before attempting repairs.
-
-## Browse and search
-
-Search matches a song's title, artist, album, or relative file path. Use **All**,
-**Playlists**, **Artists**, or **Albums**, then select a group on the left.
-Shorter layouts use a **View** button to cycle between views.
-
-Starting a song uses the displayed results as the playback queue. For example,
-select an artist before playing to listen to that artist's songs.
-
-![Music library and embedded artwork at GUI scale 3](images/library-1.0.1-3x.png)
-
-Use the mouse wheel to scroll. With the main song list focused, use **Up/Down**,
-**Home/End**, or **Page Up/Page Down** to navigate and **Enter** to play.
-**Tab** moves focus between controls.
-
-### Song information and artwork
-
-Title, artist, album, and artwork come from embedded file tags. Missing titles
-fall back to filenames; missing artist or album tags show **Unknown artist**
-or **Unknown album**. Folder names do not fill in these tags.
-
-Use an audio-tag editor to update tags, save the files, and refresh the library.
-Cover art must be embedded in the audio file; a nearby `cover.jpg` is not used.
-Rectangular artwork is fitted proportionally with padding, without stretching
-or cropping, in both the player and HUD.
-
-The interface follows **Options → Language** and includes English and Traditional
-Chinese. Song titles, artist names, filenames, and playlist names stay as supplied.
-
-## Playback controls
+Search matches title, artist, album, and relative path. Choose **All**, **Playlists**, **Artists**, or **Albums**, then a group on the left. Compact layouts use a **View** selector. Double-click a song or press Enter with its list focused. Displayed results become the queue.
 
 | Control | Behavior |
 |---|---|
-| **Play / Pause / Resume** | Start the selected song when stopped; otherwise pause or resume playback |
-| **Previous** | Go back through playback history, or restart the current song |
-| **Next** | Advance through the queue |
-| **Stop** | Stop and reset the playback position |
-| Progress slider | Preview the position while dragging; seek once when you release |
-| Volume slider | Change DarkMusic's volume independently of Minecraft sound sliders |
-| **Shuffle: Off / On** | Keep the queue order or randomize it |
-| **Repeat: Off / One / All** | Stop at the queue's end, repeat the current song, or repeat the queue |
-| Speed slider | Choose **0.5×–3.0×** in **0.1× steps** |
-| **1.0x** | Reset speed to normal |
+| Play / Pause / Resume | Start the selected song, pause, or resume |
+| Previous / Next | Go back through history / advance through the queue |
+| Stop | Stop and reset position |
+| Progress | Preview while dragging; seek once on release |
+| Volume | DarkMusic volume, separate from Minecraft sound sliders |
+| Shuffle: Off / On | Original order / randomized order |
+| Repeat: Off / One / All | Stop at end / repeat a song / repeat the queue |
+| Speed | 0.5x–3.0x, in 0.1x steps |
+| 1.0x | Reset speed to normal |
 
-Speed changes tempo **and pitch**: faster sounds higher, slower sounds lower.
-It can change while playing or paused and is saved between launches. Progress
-and seeking still refer to the original song's timeline, not elapsed listening
-time. Use the arrow keys on the focused speed slider to step by 0.1×.
+Speed changes tempo and pitch. Seeking uses the original song timeline. Manual Next advances even with repeat-one; only repeat-all wraps at the end. Compressed-file seeking may take a moment.
 
-Manual **Next** advances even with repeat-one enabled; it stops at the queue's
-end unless repeat-all is selected. Seeking through compressed files can take
-a moment. Dragging previews the timestamp without repeatedly reopening the file;
-release to seek once. You can change the position again or stop playback.
+### Long text and keyboard navigation
 
-## Listen to playlists
+Use the wheel vertically in lists. For overflowing titles, names, paths, and status messages, use horizontal trackpad scrolling or **Shift + wheel** over the text. Focused rows also support **Left / Right** panning. Input fields use caret scrolling; the selected folder path wraps.
 
-Select the **Playlists** view, choose a playlist on the left, then double-click
-a song in the main player. Selecting a playlist only browses its contents;
-it does not interrupt the current song. Search filters the selected playlist.
+Up/Down, Home/End, and Page Up/Page Down navigate focused lists. Enter plays in the main player. Tab moves between controls. The interface follows Minecraft's English or Traditional Chinese setting; supplied metadata is not translated.
 
-![Playlist browsing in the main player](images/playlist-browser-1.0.1-3x.png)
+### Metadata and artwork
 
-Missing files are skipped during playback and reported in the player. Empty
-playlists show no songs instead of falling back to the whole library.
+Titles, artists, albums, and covers come from embedded tags. Missing titles use filenames; missing artist/album tags use the corresponding unknown label. Folder names are not invented as metadata.
 
-## Create and edit playlists
+Embed artwork using a tag editor, save, and refresh. Separate `cover.jpg` files are not loaded. Images retain aspect ratio with padding, without stretching/cropping. The cache preserves source resolution up to 1024 pixels and avoids upscaling small originals. Low-resolution artwork cannot gain detail from rendering.
 
-Open **Manage Playlists**. Playback controls stay in the main player; Escape
-returns there after editing.
+## Playlists
 
-![Playlist editor with bulk selection controls](images/playlists-1.0.1-3x.png)
+Choose **Manage Playlists → New**, enter a name, and Save. Select the playlist, **Add Songs**, check songs, then **Add Selected**. Already-added songs are omitted from the picker. Playback controls remain in the main player.
 
-1. Click **New**, enter a name, and click **Save**.
-2. Select the playlist on the left and click **Add Songs**.
-3. Select songs using the checkboxes, selection buttons, or keyboard controls.
-4. Click **Add Selected** to add them in library order. Songs already present
-   in the playlist are hidden from the picker. If everything is already added,
-   the picker shows an empty-state message and disables Add Selected.
-
-![Bulk song picker with multiple songs selected](images/bulk-picker-1.0.1-3x.png)
-
-### Selecting multiple songs
-
-| Input or action | Result |
+| Selection action | Result |
 |---|---|
-| Click a checkbox | Toggle that song without clearing other selections |
-| Click a song row | Select that song and clear other selections |
-| **Ctrl/Cmd-click** | Toggle one song while keeping other selections |
-| **Shift-click** | Select a range from the selection anchor |
-| **Ctrl/Cmd+Shift-click** | Add a range to the current selection |
-| **Space / Enter** with list focus | Toggle the focused song |
-| **Shift+Up/Down** | Extend a range using the keyboard |
-| **Ctrl/Cmd+A** with list focus | Select All visible songs |
-| **Select All** | Add all visible songs to the selection |
-| **Deselect All** | Clear the entire selection, including hidden songs |
-| **Invert Selection** | Toggle visible songs while retaining hidden selections |
+| Checkbox | Toggle one song, retaining other checks |
+| Row click | Select one song, clearing other checks |
+| Ctrl/Cmd-click | Toggle one song |
+| Shift-click | Select a connected range |
+| Ctrl/Cmd+Shift-click | Add a range |
+| Space / Enter with list focus | Toggle the focused entry |
+| Shift+Up/Down | Extend selection |
+| Ctrl/Cmd+A / Select All | Select visible songs |
+| Deselect All | Clear all checks, including hidden selections |
+| Invert Selection | Toggle visible checks while retaining hidden ones |
 
-Searching in the picker keeps previous selections. The count tells you how many
-selected songs are hidden by search; **Add Selected** includes them. **Cancel**
-or **Escape** discards the pending additions. Adding is temporarily disabled
-while a library scan is incomplete.
+Search keeps selections. The count indicates songs hidden by filtering; Add Selected includes them. Cancel/Escape discards pending additions.
 
-### Manage entries
+Use **Remove Selected**, **Move Up / Move Down**, **Rename**, or **Delete**. Delete opens a confirmation; Cancel/Escape preserves the playlist. Confirming deletes references only, never media.
 
-Select entries using the same checkbox and keyboard controls, then use:
+Drag by a song's text to reorder. Connected selected songs move together in order; separate groups stay put. An insertion marker and animated rows show the destination. Hold near an edge to autoscroll. Escape or dropping outside cancels the drag. Remove missing entries and add their current files again if needed.
 
-| Action | Result |
+To listen, choose the playlist in the main player and play there. Browsing does not interrupt playback. Empty playlists stay empty; missing files are skipped and reported.
+
+## Settings and combined HUD
+
+One scrollable screen has General, HUD, and Reset sections. Rows use right-hand on/off checkboxes. A live preview appears beside or above the form.
+
+General options are **Autoplay on Launch**, **Choose Music Folder**, and **Suppress Vanilla Background Music**. Autoplay and suppression default off. Suppression affects background music, not ordinary effects. Volume, speed, shuffle, and repeat remain in the player.
+
+| Setting | Default and behavior |
 |---|---|
-| **Remove Selected** | Remove checked entries from the playlist |
-| **Move Up / Move Down** | Move checked songs while keeping their relative order |
-| **Rename** | Change the selected playlist's name |
-| **Delete → Confirm Delete** | Delete the selected playlist |
+| Now-Playing HUD | **On**; master visibility switch for the combined gameplay HUD |
+| HUD Artwork | **On**; available embedded artwork |
+| HUD Progress | **On**; progress below song information |
+| Music Spectrum | **On**; bars in both player and HUD |
+| Spectrum Position | **Below** information/progress; Above also available |
+| Spectrum Direction | **Upward**; Downward inverts bar growth |
+| Bars | **36**; 8–64 in steps of four, combined to fit narrow areas |
+| Sensitivity | **1.0**; 0.25–4.0 visual gain |
+| Smoothing | **60%**; higher values respond more slowly |
+| HUD Background Transparency | **0%**; 0% opaque, 100% transparent |
+| HUD scale | **100%** |
+| Music volume | **100%**, adjusted in the player |
 
-Drag a song by its text to insert it at another position. Adjacent selected
-songs move together, keeping their order. If your selections form separate
-groups, only the connected group containing the dragged song moves; other
-selected groups stay in place. A floating preview and insertion marker show
-the destination, and surrounding rows animate as they move aside.
+The master hides the complete gameplay HUD, including spectrum. Player bars remain available if Music Spectrum is enabled. The HUD respects F1 and hides in menus. Its spectrum shares width and scale; reserved spacing prevents bars from touching progress in either direction.
 
-Hold near the list's top or bottom to scroll while dragging. Drop inside the
-list to save the order once. **Escape** cancels the drag without leaving the
-editor; dropping outside the list also cancels it. **Move Up / Move Down**
-remain available for keyboard use.
+Transparency affects background surfaces, including artwork padding and spectrum space. Artwork, text, progress, bars, and main-menu artwork retain their opacity.
 
-For a moved or renamed file, remove its missing entry and use **Add Songs**
-to add the current file. The old replacement action has been removed.
+The preview updates immediately using the current song. With no song, preview information and preview-only sample bars show the layout. Gameplay bars always use decoded audio.
 
-Playlist edits save automatically and do not modify the audio files themselves.
+### Move and scale
 
-## Settings and now-playing HUD
+- Scroll over the settings preview for independent scaling in 10% steps. A percentage readout helps compare sizes; this does not change actual HUD scale.
+- Open **Edit HUD Layout**, drag the combined HUD, or scroll over it to resize in 10% steps from 50% to 300%.
+- **Reset HUD Layout** restores top-left placement and 100% scale. Escape saves and returns.
 
-General settings contain **Autoplay on Launch** (off by default),
-**Choose Music Folder**, and **Suppress Vanilla Background Music**. Suppression
-affects background music while ordinary sound effects remain available.
-Volume, speed, shuffle, and repeat are controlled in the main player.
-Setting labels align left. An empty square on the right means off, and a checked
-square means on. Click the row or use Space/Enter while it is focused to toggle.
-Action rows have an arrow instead of a state checkbox; the bottom button switches pages.
+All enabled components move/scale together. Relative positioning keeps the HUD visible across window sizes and GUI scales. The editor can preview it even when the gameplay master is off.
 
-![General settings](images/settings-1.0.1-3x.png)
+### Spectrum behavior
 
-Open **Settings → HUD Settings** to configure:
+FFT uses decoded PCM after volume/speed processing. Analysis and smoothing run off the render thread and follow audio-device timing. Pause freezes bars; seek, stop, track changes, and errors clear old levels. Quiet audio/low volume produces shorter bars. Player bars use the area below artwork; HUD placement/direction settings affect the HUD only.
 
-- **Now-Playing HUD:** show the title, artist, and playback status during gameplay.
-- **HUD Artwork:** show available embedded artwork on the left; enabled by default.
-- **HUD Progress:** show the track's progress indicator.
-- **Edit HUD Layout:** drag the HUD and change its whole-panel scale.
+## Keyboard shortcuts
 
-The HUD starts disabled. It respects Minecraft's **F1** visibility toggle and
-hides while menus are open. When artwork is absent or disabled, text uses the
-available space.
-
-### Move and scale the HUD
-
-1. Open **Edit HUD Layout**.
-2. Drag the preview to your preferred position.
-3. Adjust **HUD Scale** between **50% and 200%**, in 10% steps.
-4. Press **Escape** to save and return.
-
-![HUD layout editor with artwork on the left](images/hud-editor-1.0.1-3x.png)
-
-The preview works even when playback is stopped or the HUD is disabled.
-**Reset Layout** restores top-left placement and 100% scale. Position is stored
-relative to the available screen area so the HUD remains visible across window
-sizes and GUI scales. Older corner-based positions migrate automatically.
-
-### Keyboard shortcuts
-
-Open **Options → Controls → Key Binds**, then find the **DarkMusic** category.
-Use Minecraft's binding controls to assign or clear a key. Conflicting DarkMusic
-shortcuts are disabled until you choose a free key. There is no separate binding
-screen in the mod's settings.
+Change bindings in **Options → Controls → Key Binds → DarkMusic**.
 
 | Action | Default |
 |---|---|
-| Open music player | **M** |
-| Play / pause | Unassigned |
-| Next / previous track | **Right Arrow / Left Arrow** |
-| Volume up / volume down | **Up Arrow / Down Arrow**; each press changes volume by 5%, bounded to 0–100% |
-| Speed up / speed down | Unassigned; each press changes speed by 0.1× |
-| Reset speed | Unassigned; returns to 1.0× |
+| Open Music Player | B |
+| Play / Pause Music | Backslash (`\`) |
+| Previous / Next Song | `[` / `]` |
+| Increase / Decrease Music Volume | Up Arrow / Down Arrow; 5% per press |
+| Decrease / Increase Playback Speed | Left Arrow / Right Arrow; 0.1x per press |
+| Mute / Unmute Music | M; restores the last audible volume |
+| Reset Playback Speed | Numpad 0; return to 1.0x |
 
-Global shortcuts work during gameplay with menus closed. Use the on-screen
-controls while the player is open.
-These are ordinary arrow-key bindings; no special keyboard media keys are
-required. Defaults apply to new bindings. Updating the mod preserves existing
-saved assignments, including unbound keys. Use Minecraft's Reset control to
-apply a binding's new default.
+Shortcuts require gameplay with menus closed. Volume, mute, and speed changes show brief fading notices. Conflicting bindings are disabled until assigned a free key. Keys are ordinary keys, not special media buttons. Reassign Reset Playback Speed if your keyboard lacks a numeric keypad.
 
-## Music visualizer
+Saved choices, including unbound keys, survive updates. New installs and **Reset to Defaults** use the fixed defaults above. Minecraft's Reset control can restore individual bindings.
 
-Open **Settings → Music Visualizer**. The player visualizer starts enabled;
-the HUD visualizer starts disabled. Each has its own toggle, independent of the
-now-playing text/artwork HUD.
+## Download music
 
-Player bars occupy the existing right-hand space beneath artwork. Compact
-layouts use the right side of the status row, without moving playback controls.
-The spectrum comes from actual decoded audio after playback-speed and volume
-processing. It uses FFT frequency bands from bass to treble; no simulated bars
-appear when audio is absent. Analysis and smoothing run on the audio worker,
-timed against the sound device's played-frame position.
+### Tools
 
-| Setting | Effect |
+Open **Downloads → Tools**. Each tool has a separate row and checked version/status:
+
+| Tool | Purpose and source |
 |---|---|
-| Music-Player Visualizer | Show bars in the main player |
-| HUD Visualizer | Show an independent gameplay spectrum; respects F1 and menu visibility |
-| Bars | 8–64 frequency bands, in steps of four; narrow areas combine bands to fit |
-| Sensitivity | 0.25×–4× visual gain, without changing playback volume |
-| Smoothing | Faster or slower attack/decay; higher values respond more slowly |
-| HUD Width | 80–320 GUI pixels, limited to the available screen width |
-| Height | 24–120 GUI pixels for the HUD and preferred player height, limited by available space |
+| yt-dlp | [Extraction and supported sites](https://github.com/yt-dlp/yt-dlp) |
+| FFmpeg | [MP3 conversion, metadata/artwork](https://ffmpeg.org/) |
+| FFprobe | [Output validation](https://ffmpeg.org/ffprobe.html) |
+| Deno / Node.js | [Deno](https://deno.com/) or [Node.js](https://nodejs.org/) for YouTube JavaScript |
 
-![Independent spectrum toggles and response/size controls](images/visualizer-settings-1.0.1-3x.png)
+**Install / Update Tools** explicitly installs a managed yt-dlp, FFmpeg/FFprobe, and Deno bundle. Published checksums are verified before use; the previous bundle stays active until a replacement validates. Bundles live in `config/darkmusic/tools/managed`. Managed FFmpeg comes from [ffmpeg-static releases](https://github.com/eugeneware/ffmpeg-static/releases); publisher/release metadata and notices are retained. Availability depends on detected OS/architecture and published assets.
 
-Choose **Edit Visualizer HUD Layout** and drag the real spectrum anywhere on the
-screen. **Reset Position** restores right-side placement. Position is stored
-relative to available space, so it remains on screen across GUI scales. Play
-music for a live preview; stopped playback shows no invented animation.
-**Escape** saves and returns.
+**Advanced Paths** supports existing executables. Blank paths search the managed bundle, instance tools, and system PATH; FFprobe can also be found beside FFmpeg. FFmpeg needs `libmp3lame`. YouTube needs Deno 2.3+ or Node.js 22+. Official standalone yt-dlp includes challenge scripts; see [EJS setup](https://github.com/yt-dlp/yt-dlp/wiki/EJS) for other distributions.
 
-![Visualizer HUD position editor showing the actual playing music spectrum](images/visualizer-hud-1.0.1-3x.png)
+**Check Tools** validates versions and MP3 support. **Cancel Tool Operation** appears only during checking/installing and stops that work. Escape only leaves the menu. There is no Done button. Nothing installs on startup; local playback needs none of these tools.
 
-Pausing freezes the current spectrum. Seeking, stopping, loading another track,
-or playback errors clear old levels; resuming produces fresh audio-driven bars.
-Quiet music or low DarkMusic volume can produce short bars; increase Sensitivity
-if desired. Speed changes also change the audible frequencies and the spectrum.
+### Analyze and select
 
-## Troubleshooting
+Paste a URL and **Analyze** before downloading. Leaving Downloads clears entries/checks while remembering the last analyzed URL for the current client session. Re-entering requires fresh analysis.
 
-| Symptom | Try this |
+| Mode | Selection |
 |---|---|
-| Empty library | Open the folder, check supported files, clear search, select **All**, and refresh |
-| New file not appearing | Wait for file discovery or click **Refresh Library** |
-| Missing artist/album/artwork | Update the embedded tags, save the audio file, and refresh |
-| Missing playlist song | Remove that entry in Manage Playlists, then use **Add Songs** to add the current file |
-| Add Songs picker is empty | Every available library song is already in this playlist; clear search or scan for new files if needed |
-| Add Selected disabled | Select at least one song and wait for the library scan to finish |
-| Unavailable folder | Reconnect the drive or choose another music folder |
-| Music sounds too high/low | Set the speed to **1.0x** |
-| HUD not visible | Enable it, start a song, close menus, check F1, or reset its layout |
-| Shortcut not working | Assign a free key; check the conflict message |
-| No sound | Check player volume, output device, and playback status; try another supported file |
+| This Video Only | One video, even if its watch URL includes a playlist; default for a single result |
+| Selected Entries | Checked entries across loaded pages |
+| Entry Range | Inclusive start/end; use 1–N for the first N |
+| All Entries | Explicitly choose the known collection size |
 
-Transient warning messages clear automatically after ten seconds. Ongoing
-library/audio errors remain visible in the player's status; logs retain details.
+Switching modes clears checks. Range mode uses its inputs, ignores checks, and disables row checking. A collection-only URL cannot silently download everything through This Video Only. **Queue / Entries** switches views.
 
-## Keep settings between installations
+Search filters the loaded page without fetching more entries. Pages contain up to 100 entries; **Previous Page / Next Page** navigate. **Select Page** checks visible entries; **Deselect All** clears all pages. A batch/queue holds up to 1,000 entries; use ranges for larger collections. Dynamic Mixes need bounded ranges or checked entries.
 
-Each instance stores settings in `config/darkmusic/config.json` and playlists
-in `config/darkmusic/playlists.json`. Close Minecraft before copying these
-files to another instance, then select the same music collection there.
-Settings and playlists are saved in the active Minecraft instance.
+YouTube videos/playlists/Mixes, Bilibili videos/collections/favorites/series/multipart videos, and other supported sites depend on yt-dlp and source availability. Use a part-specific URL for one Bilibili part. Private, deleted, restricted, or unsupported entries may fail. DarkMusic does not bypass authentication, DRM, or access controls.
 
-[Back to the project overview](../README.md)
+### Listen before downloading
+
+Select an entry and **Play Audio Preview** to fetch up to 30 seconds. Double-clicking also starts a preview. **Stop Audio Preview**, changing page/mode, switching to Queue, or leaving stops it. Main playback pauses/resumes where appropriate. Clips are temporary; successful queue downloads are permanent.
+
+### Queue and files
+
+The queue reports waiting, downloading, converting, saved, skipped, failed, and cancelled states, available progress, and overall finished/failed counts. **Cancel Selected** stops one item; **Cancel All** also cancels analysis. **Clear Finished** only removes rows. Closing the menu keeps downloads running; exiting Minecraft cancels unfinished work. Queue rows are not restored after restart.
+
+MP3s are verified before entering the selected folder. Available title, artist/uploader, album, track number, and thumbnail artwork are embedded. Collection position supplies track number when no explicit tag exists; missing artist/album information is not invented. Unusable artwork can produce an audio-only MP3 with a warning.
+
+Stable identifiers avoid collisions. `.darkmusic-downloads.json` records completed downloads for duplicate detection while their files exist. Keep it for deduplication; resetting clears it without deleting songs, allowing the same source to be queued again. Saved music triggers a background refresh and remains playable after restart.
+
+Individual failures do not stop later items. For 403, check access and tool versions. For 429, wait before retrying. Check free space in both instance and music directories for conversion/filesystem errors. Logs retain diagnostics; malformed history is preserved.
+
+## Reset to defaults
+
+Choose **Settings → Reset to Defaults**. Confirmation explains the scope, with Cancel initially focused. Cancel/Escape leaves data unchanged before confirmation. Once confirmed, wait for completion.
+
+Reset stops playback/audition/downloads, restores all DarkMusic preferences/native keys, resets actual/preview HUD scales, switches to the default folder, clears recognized history/caches, and removes recognized instance-local tool executables. This includes legacy `downloaded.txt` records in known music folders.
+
+**Audio/video files, downloaded music, playlists, and external tools stay untouched.** No music folder is moved or recursively deleted. Playlist folder identities remain so reselecting an old collection restores matching. Unknown, linked, or inaccessible files are retained/reported; another client actively using tools/downloads prevents cleanup. Caches rebuild as needed. Unrelated Minecraft options/key binds are unchanged.
+
+## Troubleshooting and persistence
+
+| Symptom | Try |
+|---|---|
+| Empty library | Check path, formats, search/view, and Refresh Library |
+| Missing tags/artwork | Embed tags/artwork, save, and refresh |
+| Missing playlist song | Reconnect its original folder, or remove/add the current file |
+| Add Songs is empty | Already-added songs are omitted; clear search or refresh |
+| HUD invisible | Enable master, play music, close menus, check F1, or reset layout |
+| Shortcut does nothing | Close menus and resolve conflicts |
+| No sound | Check mute, volume, output device, playback status |
+| Unexpected pitch | Return speed to 1.0x |
+| Tool error | Check separate tool rows, paths, network, platform support, and logs |
+
+Transient warnings expire after ten seconds; ongoing errors remain in status. Settings/playlists are `config/darkmusic/config.json` and `playlists.json`. Close Minecraft before copying them between instances. Native key binds are in Minecraft's `options.txt`.
+
+[Project overview](../README.md)

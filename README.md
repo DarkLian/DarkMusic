@@ -1,130 +1,104 @@
 # DarkMusic
 
-<img src="src/main/resources/assets/darkmusic/icon.png" alt="DarkMusic logo: a purple pixel-style musical note on a dark background" width="160" height="160">
+<img src="src/main/resources/assets/darkmusic/icon.png" alt="DarkMusic purple musical note logo" width="160" height="160">
 
 [![Build](https://github.com/DarkLian/DarkMusic/actions/workflows/build.yml/badge.svg)](https://github.com/DarkLian/DarkMusic/actions/workflows/build.yml)
-[Download the latest release](https://github.com/DarkLian/DarkMusic/releases/latest)
-· [Source code](https://github.com/DarkLian/DarkMusic)
+[Download the latest release](https://github.com/DarkLian/DarkMusic/releases/latest) · [Source code](https://github.com/DarkLian/DarkMusic)
 
-**Your music, inside Minecraft.** Browse your own collection, make playlists,
-and keep listening as you explore, build, or take a break in the menus.
+**Your music, inside Minecraft.** Play your collection, edit playlists, download authorized audio, and keep listening across menus and worlds.
 
-![DarkMusic's in-game music player showing a music library and playback controls](docs/images/player-1.0.1-3x.png)
-
-*Captured in fullscreen at Minecraft GUI scale 3 using a real music collection
-and its embedded artwork.*
-
-- **Play your collection:** MP3, OGG Vorbis, PCM WAV, and FLAC.
-- **Find the next song:** search and browse by playlist, artist, or album.
-- **Download in-game:** preview a video or collection URL, choose entries, and
-  save MP3s with available metadata and artwork directly into your music folder.
-- **Make it yours:** bulk playlist editing with animated drag reordering, shuffle, repeat, seeking, volume,
-  and playback speed from 0.5× to 3.0×.
-- **Keep listening:** music continues when you close the player or change worlds.
-- **Stay in the game:** an optional now-playing HUD with artwork, drag positioning,
-  whole-HUD scaling, and configurable playback and speed shortcuts.
-- **Choose your language:** English and Traditional Chinese follow Minecraft’s language setting.
-- **See the music:** real PCM-driven frequency bars in the player and an
-  independently toggleable HUD visualizer, with size and response controls.
+- MP3, OGG Vorbis, PCM WAV, and FLAC, with embedded metadata and artwork.
+- Search by title, artist, album, or path; browse playlists, artists, and albums.
+- Bulk playlist selection and animated reordering of connected selections.
+- Volume, seeking, shuffle, repeat, and playback speed from **0.5x to 3.0x**.
+- A combined now-playing HUD with optional artwork, progress, and real audio spectrum bars.
+- One settings screen with a live HUD preview, background transparency, and drag/scroll layout editing.
+- URL analysis, searchable collection previews, short audio previews, download queues, and optional verified tool installation.
+- English and Traditional Chinese, following Minecraft's language setting.
 
 ## Requirements
 
 | Component | Version |
 |---|---|
 | Minecraft Java Edition | **26.2** |
-| Fabric Loader | **0.19.5 or newer** |
+| Fabric Loader | **0.19.5+** |
 | Fabric API | **0.161.0+26.2** |
-| Java runtime | **25 or newer** |
+| Java | **25+** |
 
-## Install
+## Install and listen
 
-1. Create or select a **Minecraft 26.2 Fabric** instance in your launcher.
-2. Add **Fabric API for 26.2** to that instance's `mods` folder.
-3. Add the DarkMusic mod JAR, such as `darkmusic-1.0.1.jar`, to the same folder.
-   Download it from [Releases](https://github.com/DarkLian/DarkMusic/releases/latest),
-   or [build the mod from source](#build-from-source).
-4. Launch Minecraft and click **Music** on the title screen.
+1. Add Fabric API for Minecraft 26.2 and **darkmusic-1.0.2.jar** to a Fabric instance's `mods` folder.
+2. Launch Minecraft and click **Music** on the title screen, or press **B** during gameplay.
+3. Click **Open Folder**, then copy supported audio into that folder. Subfolders are included.
+4. Wait for discovery or click **Refresh Library**, then double-click a song.
 
-The player also opens with **M** during gameplay. You can change that key in
-**Options → Controls → Key Binds**. Fresh installations use **Right/Left Arrow**
-for next/previous track and **Up/Down Arrow** for volume, in 5% steps.
-Existing saved bindings are preserved.
+The default folder is `config/darkmusic/music` inside the active Minecraft instance. To choose an existing collection, open **Settings → Choose Music Folder** and select a directory in the desktop folder chooser. Its path appears below that option. No files are moved.
 
-## Your first five steps
+**Escape** closes the current screen. Settings save automatically; music continues when you close the player.
 
-1. **Open the player:** click **Music** on the title screen or press **M** in-game.
-2. **Open your music folder:** click **Open Folder** at the bottom of the player.
-3. **Add Songs:** copy supported audio files into the folder. Subfolders work too.
-4. **Refresh:** wait for discovery or click **Refresh Library**.
-5. **Listen:** double-click a song, then use the playback buttons and sliders.
+## Default shortcuts
 
-Already have a music collection? Choose it through
-**Settings → Choose Music Folder**, browse to the directory, and click
-**Use This Folder**. The default folder follows your active Minecraft instance,
-so you can start with **Open Folder** without searching through launcher folders.
+Change these in **Options → Controls → Key Binds → DarkMusic**.
 
-## Explore the player
-
-| You want to… | Start here |
+| Action | Default |
 |---|---|
-| Find an artist or album | Use the search field and **View** selector, or the tabs on taller layouts |
-| Listen to a playlist | Select the **Playlists** view, choose its name on the left, and double-click a song |
-| Make or edit a playlist | Open **Manage Playlists → New**, name it, then use **Add Songs → Add Selected** |
-| Choose another music directory | Open **Settings → Choose Music Folder** |
-| Show the current song while playing | Enable **Settings → HUD Settings → Now-Playing HUD** |
-| Assign playback, speed, or volume shortcuts | Open **Options → Controls → Key Binds → DarkMusic** |
-| Adjust volume, speed, shuffle, or repeat | Use the main player's bottom controls; hover for explanations |
-| Move or resize the HUD | Open **Settings → HUD Settings → Edit HUD Layout** |
-| Download authorized audio | Open **Downloads → Tools** for setup, then paste a URL and **Analyze** |
-| Configure spectrum bars | Open **Settings → Music Visualizer** |
-| Adjust autoplay | Open **Settings** |
+| Open music player | **B** |
+| Play / pause music | **Backslash (`\`)** |
+| Previous / next song | **`[` / `]`** |
+| Decrease / increase volume | **Down Arrow / Up Arrow** (5% per press) |
+| Decrease / increase speed | **Left Arrow / Right Arrow** (0.1x per press) |
+| Mute / unmute | **M** |
+| Reset playback speed | **Numpad 0** |
 
-Use **Escape** to return from screens. Settings save automatically.
+Shortcuts work during gameplay with menus closed. Volume, mute, and speed shortcuts show brief fading feedback. Saved bindings stay unchanged until reset.
 
-Read the **[illustrated user guide](docs/USER_GUIDE.md)** for detailed steps,
-control descriptions, playlist editing, metadata tips, and troubleshooting.
+## Settings and HUD
+
+General and HUD options share one screen. Defaults are **Now-Playing HUD on**, **100% volume**, **100% HUD scale**, **0% background transparency**, and **36 bars**, placed **below** the song information/progress and growing **upward**.
+
+Artwork, progress, and spectrum have individual toggles. The master switch hides the whole gameplay HUD; **Music Spectrum** controls bars in both the player and HUD. Smoothing, sensitivity, bar count, placement, and direction are in the HUD section. Player bars use their own main-menu area.
+
+The live preview updates immediately. Scroll over it to resize its independent preview; a percentage readout helps compare sizes. Use **Edit HUD Layout** to drag the actual combined HUD or scroll over it to resize in 10% steps. There is no separate spectrum layout editor.
+
+**Reset to Defaults** asks for confirmation, then restores preferences/key binds, switches to the default folder, stops pending work, removes instance-local tools and recognized download records, and clears caches. **Audio/video files, downloaded music, playlists, and external tools are preserved.** Unknown or linked files are retained and reported.
 
 ## Download music in-game
 
-Open **Downloads** from the player. Set up [yt-dlp](https://github.com/yt-dlp/yt-dlp/releases),
-[FFmpeg and FFprobe](https://ffmpeg.org/download.html) through **Tools**, using
-existing executables, your system PATH, or the instance's `config/darkmusic/tools`
-directory. YouTube also needs a compatible JavaScript runtime: **Deno 2.3+** or
-**Node 22+** ([yt-dlp setup guide](https://github.com/yt-dlp/yt-dlp/wiki/EJS)).
-These tools are separate from the mod and are never installed or updated automatically.
+Open **Downloads → Tools → Install / Update Tools** to explicitly install a verified instance-local bundle. Tools are listed separately:
 
-Paste a YouTube, Bilibili, or another yt-dlp-supported URL and click **Analyze**.
-Choose **This Video Only**, checked preview entries, **First N**, an inclusive
-range, or explicitly **All Entries**. Downloads never start from previewing alone.
-Pages show up to 100 entries and batches support up to 1,000; use separate ranges
-for larger collections. Dynamic Mixes require a bounded selection.
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp): extraction and supported-site handling.
+- [FFmpeg](https://ffmpeg.org/): MP3 conversion and metadata/artwork embedding.
+- [FFprobe](https://ffmpeg.org/ffprobe.html): output validation.
+- [Deno](https://deno.com/): YouTube JavaScript support; a compatible Node.js installation can also be used.
 
-Finished MP3s are saved permanently in your selected music folder and appear
-without restarting. Download only content you are authorized to save. See the
-[downloader guide](docs/USER_GUIDE.md#download-music) for setup and troubleshooting.
+Nothing installs during normal startup. **Advanced Paths** supports existing executables and system tools. YouTube needs Deno 2.3+ or Node.js 22+; see [yt-dlp's JavaScript guide](https://github.com/yt-dlp/yt-dlp/wiki/EJS). External tools are not in the mod JAR and are unnecessary for local playback.
+
+Paste a video or collection URL and **Analyze**. Choose **This Video Only**, **Selected Entries**, an inclusive **Entry Range**, or explicitly **All Entries**. Search filters the loaded page. Range mode uses only its inputs; switching modes clears checks. A single result defaults to This Video Only. Nothing downloads until you click **Download**.
+
+**Play Audio Preview** lets you listen to up to 30 seconds before deciding. Leaving Downloads clears analyzed entries/checks while retaining the last analyzed URL for re-analysis. Queued downloads continue after closing the menu. Finished MP3s remain in the selected folder and appear without restarting.
+
+Download only content you are authorized to save. Support and access depend on yt-dlp and the source site; DarkMusic does not bypass access controls.
+
+See the **[user guide](docs/USER_GUIDE.md)** for selection behavior, metadata, troubleshooting, and reset details.
 
 ## Build from source
 
-Use a Java 25 JDK for Gradle, open a terminal in the project directory, and run:
-
-**Windows**
+Use a Java 25 JDK:
 
 ```powershell
+# Windows
 .\gradlew.bat build
 ```
 
-**Linux / macOS**
-
 ```sh
+# Linux / macOS
 ./gradlew build
 ```
 
-The mod is written to `build/libs/darkmusic-1.0.1.jar`. Install that JAR in your
-Minecraft instance's `mods` folder. The `-sources.jar` and
-`-third-party-sources.zip` files are source archives rather than installable mods.
-When redistributing a build, include its third-party source bundle and notices.
+Install `build/libs/darkmusic-1.0.2.jar`. The `-sources.jar` and `-third-party-sources.zip` are source archives, not installable mods. Include third-party sources and notices when redistributing builds.
+
+See **[testing and screenshots](docs/TESTING.md)** and **[v1.0.2 release notes](docs/RELEASE-1.0.2.md)**.
 
 ## License
 
-DarkMusic is **[CC0-1.0](LICENSE)**. Included libraries retain their respective
-licenses; see the **[third-party notices](src/main/resources/THIRD-PARTY-NOTICES.md)**.
+DarkMusic is **[CC0-1.0](LICENSE)**. Libraries retain their licenses; see the **[third-party notices](src/main/resources/THIRD-PARTY-NOTICES.md)**. Personal music and artwork are not bundled.

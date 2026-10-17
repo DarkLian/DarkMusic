@@ -1,5 +1,7 @@
 # DarkMusic v1.0.1
 
+> Historical notes for 1.0.1. Menus and defaults below describe that release. See the [current guide](USER_GUIDE.md) and [v1.0.2 notes](RELEASE-1.0.2.md) for current behavior.
+
 This maintenance release improves playback, library recovery, downloads, and settings while preserving the existing player, HUD, and playlists.
 
 - Add English and Traditional Chinese interface text, tooltips, and formatted labels through Minecraft's language setting.

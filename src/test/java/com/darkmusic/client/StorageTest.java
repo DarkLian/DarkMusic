@@ -9,8 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import javax.sound.sampled.AudioFileFormat;
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -87,7 +85,7 @@ class StorageTest {
         settings.repeat = null;
         settings.hudPosition = "bad";
         settings.validate();
-        assertEquals(.7, settings.volume);
+        assertEquals(1, settings.volume);
         assertEquals(com.darkmusic.client.audio.PlaybackController.Repeat.OFF, settings.repeat);
         assertEquals("TOP_LEFT", settings.hudPosition);
     }

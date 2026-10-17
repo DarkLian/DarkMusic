@@ -1,14 +1,21 @@
 package com.darkmusic.client;
 
-import com.darkmusic.client.download.*;
+import com.darkmusic.client.download.DownloadJson;
+import com.darkmusic.client.download.DownloadModels;
+import com.darkmusic.client.download.DownloadService;
+import com.darkmusic.client.download.ProcessRunner;
 import com.darkmusic.client.playlist.PlaylistStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -21,7 +28,7 @@ class AuditRegressionTest {
     @Test
     void validationAndUnrelatedNumbersAreNotAuthenticationOrHttpErrors() throws Exception {
         assertEquals("Track 429 is private network music", DownloadJson.friendly("Track 429 is private network music"));
-        assertTrue(DownloadJson.friendly("HTTP Error 429: Too Many Requests").contains("rate limiting"));
+        assertTrue(DownloadJson.friendly("HTTP Error 429: Too Many Requests").contains("HTTP 429"));
         assertTrue(DownloadJson.friendly("HTTP Error 403: Forbidden").contains("403"));
         try (var service = new DownloadService(temp, () -> {
         })) {
@@ -30,23 +37,6 @@ class AuditRegressionTest {
             assertTrue(service.snapshot().message().contains("valid HTTP"));
             assertFalse(service.snapshot().message().contains("authentication"));
             assertSame(service.snapshot(), service.snapshot());
-        }
-    }
-
-    static class ToolsRunner extends ProcessRunner {
-        final AtomicInteger versions = new AtomicInteger();
-        volatile boolean fail;
-
-        @Override
-        public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) {
-            token.check();
-            if (args.contains("--version") || args.contains("-version")) {
-                int n = versions.incrementAndGet();
-                return new Result(fail ? 1 : 0, "tool version 2026.1." + n);
-            }
-            if (args.contains("--help"))
-                return new Result(0, "--dump-single-json --flat-playlist --progress-template --no-playlist --no-plugin-dirs");
-            return new Result(0, "libmp3lame");
         }
     }
 
@@ -192,6 +182,23 @@ class AuditRegressionTest {
             Files.copy(TestMusic.featured(), root.resolve(".darkmusic-song.mp3"));
             poll.invoke(library);
             DownloadTest.await(() -> !library.snapshot().scanning() && library.snapshot().tracks().size() == 1);
+        }
+    }
+
+    static class ToolsRunner extends ProcessRunner {
+        final AtomicInteger versions = new AtomicInteger();
+        volatile boolean fail;
+
+        @Override
+        public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) {
+            token.check();
+            if (args.contains("--version") || args.contains("-version")) {
+                int n = versions.incrementAndGet();
+                return new Result(fail ? 1 : 0, "tool version 2026.1." + n);
+            }
+            if (args.contains("--help"))
+                return new Result(0, "--dump-single-json --flat-playlist --progress-template --no-playlist --no-plugin-dirs");
+            return new Result(0, "libmp3lame");
         }
     }
 

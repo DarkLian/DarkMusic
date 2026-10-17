@@ -33,20 +33,6 @@ public final class DownloadPipeline {
         this.data = data;
     }
 
-    synchronized void prepare() throws IOException {
-        if (workspace == null) workspace = new DownloadWorkspace(data);
-    }
-
-    synchronized void close() {
-        if (workspace != null) try {
-            workspace.close();
-        } catch (IOException e) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Cannot close workspace", e);
-        } finally {
-            workspace = null;
-        }
-    }
-
     private static JsonObject readArchive(Path history) throws IOException {
         if (!Files.exists(history)) return new JsonObject();
         if (Files.size(history) > 16_000_000)
@@ -94,7 +80,31 @@ public final class DownloadPipeline {
         }
     }
 
-    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress) throws Exception {
+    synchronized void prepare() throws IOException {
+        if (workspace == null) workspace = new DownloadWorkspace(data, false);
+    }
+
+    synchronized void close() {
+        if (workspace != null) try {
+            workspace.close();
+        } catch (IOException e) {
+            org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Cannot close workspace", e);
+        } finally {
+            workspace = null;
+        }
+    }
+
+    public synchronized Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress) throws Exception {
+        token.check();
+        prepare();
+        try {
+            return download(entry, destination, tools, token, progress);
+        } finally {
+            close();
+        }
+    }
+
+    private Saved download(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress) throws Exception {
         token.check();
         Files.createDirectories(destination);
         if (!Files.isWritable(destination))
@@ -116,7 +126,7 @@ public final class DownloadPipeline {
         try {
             var command = tools.base();
             command.addAll(List.of("--no-playlist", "--playlist-items", "1", "--no-overwrites", "--newline", "--progress", "--progress-delta", "1", "--progress-template", "download:DM_PROGRESS:%(progress._percent_str)s", "--format", "bestaudio/best", "--write-info-json", "--write-thumbnail", "--paths", work.toString(), "--output", "source.%(ext)s", "--", url(entry.url())));
-            progress.accept(Status.DOWNLOADING, "Starting download");
+            progress.accept(Status.DOWNLOADING, com.darkmusic.client.text.Text.get("download.darkmusic.starting"));
             var result = runner.run(command, work, token, Duration.ofMinutes(30), 128_000, s -> {
                 if (s.startsWith("DM_PROGRESS:")) progress.accept(Status.DOWNLOADING, s.substring(12).strip());
                 else if (!s.isBlank()) org.slf4j.LoggerFactory.getLogger("darkmusic-download").debug("yt-dlp: {}", s);
@@ -138,7 +148,7 @@ public final class DownloadPipeline {
                 cover = files.filter(p -> p.toString().matches("(?i).*\\.(jpg|jpeg|png|webp|avif)$")).findFirst().orElse(null);
             }
             Path converted = work.resolve("converted.mp3");
-            progress.accept(Status.CONVERTING, "Converting to MP3 and embedding available metadata");
+            progress.accept(Status.CONVERTING, com.darkmusic.client.text.Text.get("download.darkmusic.converting"));
             String warning = cover == null ? "No thumbnail was available" : "";
             result = runner.run(convert(tools, source, converted, cover, metadata, entry), work, token, Duration.ofMinutes(20), 64_000, s -> {
             });

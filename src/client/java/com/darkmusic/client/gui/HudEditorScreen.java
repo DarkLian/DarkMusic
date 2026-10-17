@@ -1,77 +1,100 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.text.Text;
-
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.hud.HudLayout;
+import com.darkmusic.client.hud.HudScale;
 import com.darkmusic.client.hud.NowPlayingHud;
+import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.network.chat.Component;
 
-public final class HudEditorScreen extends LocalScreen {
+/**
+ * One layout editor and shared wheel behavior for the combined HUD.
+ */
+public class HudEditorScreen extends LocalScreen {
     private final DarkMusicClient app;
+    private final HudScale wheel = new HudScale();
     private boolean dragging;
     private double dragX, dragY;
+    private long scaleChanged;
 
     public HudEditorScreen(DarkMusicClient app, Screen parent) {
-        super(Text.component("text.darkmusic.edit_hud_layout"), parent);
+        super(Text.component("hud.darkmusic.layout"), parent);
         this.app = app;
     }
 
     @Override
     protected void init() {
-        addRenderableWidget(Help.tip(new ValueSlider(12, height - 28, width - 140, (app.settings.hudScale - .5) / 1.5,
-            v -> Text.get("format.darkmusic.hud_scale", Math.round(app.settings.hudScale * 100)), v -> app.settings.hudScale = Math.round((.5 + v * 1.5) * 10) / 10.0, app::save, 15), Text.get("text.darkmusic.scale_the_entire_hud_from_50_to_200_drag_the_preview_to_move_it_escape_saves_and_r")));
-        addRenderableWidget(Help.tip(Button.builder(Text.component("text.darkmusic.reset_layout"), b -> {
+        addRenderableWidget(Help.tip(Button.builder(Text.component("hud.darkmusic.reset_selected"), b -> {
             app.settings.hudX = app.settings.hudY = 0.0;
             app.settings.hudScale = 1;
+            scaleChanged = System.nanoTime();
             app.save();
-            rebuildWidgets();
-        }).bounds(width - 120, height - 28, 108, 20).build(), Text.get("text.darkmusic.restore_top_left_placement_and_100_scale")));
+        }).bounds(width - 144, 8, 106, 20).build(), Text.get("hud.darkmusic.help")));
+        addRenderableWidget(Help.tip(Button.builder(net.minecraft.network.chat.Component.literal("?"), b -> {
+        }).bounds(width - 32, 8, 20, 20).build(), Text.get("hud.darkmusic.help")));
+    }
+
+    private HudLayout.Bounds bounds() {
+        return NowPlayingHud.bounds(app, width, height);
+    }
+
+    private boolean target(double x, double y) {
+        return bounds().contains(x, y);
     }
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean twice) {
         if (super.mouseClicked(event, twice)) return true;
-        var bounds = NowPlayingHud.bounds(app, width, height);
-        if (event.button() == 0 && bounds.contains(event.x(), event.y())) {
-            dragging = true;
-            dragX = event.x() - bounds.x();
-            dragY = event.y() - bounds.y();
-            return true;
-        }
-        return false;
+        if (event.button() != 0 || !target(event.x(), event.y())) return false;
+        var b = bounds();
+        dragging = true;
+        dragX = event.x() - b.x();
+        dragY = event.y() - b.y();
+        return true;
+    }
+
+    @Override
+    public boolean mouseScrolled(double x, double y, double dx, double dy) {
+        if (dragging) return true;
+        if (HorizontalText.horizontalIntent(dx, dy)) return super.mouseScrolled(x, y, dx, dy);
+        if (dy == 0 || !target(x, y)) return super.mouseScrolled(x, y, dx, dy);
+        app.settings.hudScale = wheel.scroll(app.settings.hudScale, dy);
+        scaleChanged = System.nanoTime();
+        app.save();
+        return true;
     }
 
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
         if (!dragging) return super.mouseDragged(event, dx, dy);
-        var bounds = NowPlayingHud.bounds(app, width, height);
-        app.settings.hudX = HudLayout.normalized(event.x() - dragX, width, bounds.width());
-        app.settings.hudY = HudLayout.normalized(event.y() - dragY, height, bounds.height());
+        var b = bounds();
+        double x = HudLayout.normalized(event.x() - dragX, width, b.width());
+        double y = HudLayout.normalized(event.y() - dragY, height, b.height());
+        app.settings.hudX = x;
+        app.settings.hudY = y;
         return true;
     }
 
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
-        if (dragging) {
-            dragging = false;
-            app.save();
-            return true;
-        }
-        return super.mouseReleased(event);
+        if (!dragging) return super.mouseReleased(event);
+        dragging = false;
+        app.save();
+        return true;
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float d) {
+    public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
+        longText.begin();
         g.fill(0, 0, width, height, 0xCC111420);
-        g.text(font, Text.get("text.darkmusic.drag_the_hud_to_move_it_escape_saves_and_returns"), 12, 12, 0xFFB5B0FF);
-        NowPlayingHud.render(app, g, true);
-        var b = NowPlayingHud.bounds(app, width, height);
+        NowPlayingHud.render(app, g, longText);
+        var b = bounds();
         g.outline(b.x(), b.y(), b.width(), b.height(), 0xFFB5B0FF);
-        super.extractRenderState(g, x, y, d);
+        if (System.nanoTime() - scaleChanged < 2_000_000_000L)
+            g.centeredText(font, Text.get("hud.darkmusic.scale", Math.round(app.settings.hudScale * 100)), width / 2, 36, 0xFFB5B0FF);
+        super.extractRenderState(g, x, y, delta);
     }
 }

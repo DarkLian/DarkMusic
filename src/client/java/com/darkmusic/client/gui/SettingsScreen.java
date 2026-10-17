@@ -1,73 +1,216 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.text.Text;
-
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.hud.NowPlayingHud;
+import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.DoubleConsumer;
+import java.util.function.DoubleFunction;
 
+/**
+ * One scrollable settings form with a fixed, independently contained live preview.
+ */
 public final class SettingsScreen extends LocalScreen {
     private final DarkMusicClient app;
-    private int page;
+    private final List<Placed> controls = new ArrayList<>();
+    private final List<Section> sections = new ArrayList<>();
+    private com.darkmusic.client.hud.HudScale previewWheel = new com.darkmusic.client.hud.HudScale();
+    private double previewScale = 1;
+    private Settings shownSettings;
+    private long scaleChanged;
+    private int folderY;
+    private String folderPath = "";
+    private List<net.minecraft.util.FormattedCharSequence> folderLines = List.of();
+    private int scroll, top, bottom, formWidth, cursor, previewX, previewY, previewWidth, previewHeight;
 
     public SettingsScreen(DarkMusicClient app, Screen parent) {
         super(Text.component("text.darkmusic.darkmusic_settings"), parent);
         this.app = app;
     }
 
-    private void button(String label, int y, Runnable action, String help) {
-        addRenderableWidget(Help.tip(Button.builder(Component.literal(label), b -> action.run()).bounds(12, y, width - 24, 20).build(), help));
+    private void section(String key) {
+        sections.add(new Section(Text.get(key), cursor));
+        cursor += 22;
     }
 
-    private void action(String label, int y, Runnable action, String help) {
-        addRenderableWidget(Help.tip(new SettingRow(12, y, width - 24, label, null, action), help));
+    private void put(AbstractWidget widget, String help) {
+        if (!help.isEmpty()) Help.tip(widget, help);
+        controls.add(new Placed(addRenderableWidget(widget), cursor));
+        cursor += 24;
     }
 
-    private void toggle(String label, int y, BooleanSupplier get, Consumer<Boolean> set, String help) {
-        addRenderableWidget(Help.tip(new SettingRow(12, y, width - 24, label, get, () -> {
+    private void toggle(String key, BooleanSupplier get, Consumer<Boolean> set, String help) {
+        put(new SettingRow(12, 0, formWidth, Text.get(key), get, () -> {
             set.accept(!get.getAsBoolean());
             app.save();
-        }), help));
+        }), Text.get(help));
+    }
+
+    private void action(String key, Runnable action, String help) {
+        put(new SettingRow(12, 0, formWidth, Text.get(key), null, action), Text.get(help));
+    }
+
+    private void slider(double initial, DoubleFunction<String> label, DoubleConsumer change, int steps, String help) {
+        put(new ValueSlider(12, 0, formWidth, initial, label, v -> {
+            change.accept(v);
+            app.configureVisualizer();
+        }, app::save, steps), Text.get(help));
     }
 
     @Override
     protected void init() {
-        int y = 34;
-        if (page == 0) {
-            toggle(Text.get("text.darkmusic.autoplay_on_launch"), y, () -> app.settings.autoplay, v -> app.settings.autoplay = v, Text.get("text.darkmusic.automatically_start_the_library_after_minecraft_launches_disabled_by_default"));
-            y += 24;
-            action(Text.get("text.darkmusic.choose_music_folder"), y, () -> show(new FolderScreen(app, this)), Text.get("text.darkmusic.choose_the_local_folder_containing_your_music_subfolders_are_included"));
-            y += 24;
-            toggle(Text.get("text.darkmusic.suppress_vanilla_background_music"), y, () -> app.settings.suppressVanillaMusic, v -> {
-                app.settings.suppressVanillaMusic = v;
-                if (v) minecraft.getMusicManager().stopPlaying();
-            }, Text.get("text.darkmusic.stop_minecraft_s_background_music_while_keeping_ordinary_sound_effects"));
-            y += 24;
-            action(Text.get("text.darkmusic.music_visualizer"), y, () -> show(new VisualizerSettingsScreen(app, this)), Text.get("text.darkmusic.independent_player_hud_spectra_bars_sensitivity_smoothing_size_and_hud_position"));
-        } else {
-            toggle(Text.get("text.darkmusic.now_playing_hud"), y, () -> app.settings.hudEnabled, v -> app.settings.hudEnabled = v, Text.get("text.darkmusic.show_the_current_song_during_gameplay_hidden_with_f1_and_while_menus_are_open"));
-            y += 24;
-            toggle(Text.get("text.darkmusic.hud_artwork"), y, () -> app.settings.hudArtwork, v -> app.settings.hudArtwork = v, Text.get("text.darkmusic.show_embedded_artwork_on_the_left_of_the_hud_preserving_its_proportions"));
-            y += 24;
-            toggle(Text.get("text.darkmusic.hud_progress"), y, () -> app.settings.hudProgress, v -> app.settings.hudProgress = v, Text.get("text.darkmusic.show_the_current_track_s_progress_below_the_title_and_artist"));
-            y += 24;
-            action(Text.get("text.darkmusic.edit_hud_layout"), y, () -> show(new HudEditorScreen(app, this)), Text.get("text.darkmusic.drag_the_preview_anywhere_on_screen_and_adjust_the_scale_of_the_entire_hud"));
+        if (shownSettings != null && shownSettings != app.settings) {
+            previewScale = 1;
+            scaleChanged = 0;
+            scroll = 0;
+            previewWheel = new com.darkmusic.client.hud.HudScale();
         }
-        button(page == 0 ? Text.get("text.darkmusic.hud_settings") : Text.get("text.darkmusic.general_settings"), height - 28, () -> {
-            page = 1 - page;
+        shownSettings = app.settings;
+        controls.clear();
+        sections.clear();
+        cursor = 0;
+        boolean wide = width >= 600;
+        formWidth = wide ? Math.min(440, width / 2 - 20) : width - 24;
+        previewX = wide ? formWidth + 32 : 12;
+        previewY = 32;
+        previewWidth = wide ? width - previewX - 12 : width - 24;
+        previewHeight = wide ? height - 44 : Math.min(100, height / 3);
+        top = wide ? 32 : previewY + previewHeight + 8;
+        bottom = height - 12;
+        var s = app.settings;
+        section("text.darkmusic.general_settings");
+        toggle("text.darkmusic.autoplay_on_launch", () -> s.autoplay, v -> s.autoplay = v, "text.darkmusic.automatically_start_the_library_after_minecraft_launches_disabled_by_default");
+        action("text.darkmusic.choose_music_folder", () -> DesktopFolderPicker.open(app, this::isCurrent), "text.darkmusic.choose_the_local_folder_containing_your_music_subfolders_are_included");
+        folderY = cursor;
+        folderPath = app.library.root().toString();
+        folderLines = font.split(net.minecraft.network.chat.Component.literal(folderPath), formWidth - 14);
+        cursor += folderLines.size() * 10 + 4;
+        toggle("text.darkmusic.suppress_vanilla_background_music", () -> s.suppressVanillaMusic, v -> {
+            s.suppressVanillaMusic = v;
+            if (v) minecraft.getMusicManager().stopPlaying();
+        }, "text.darkmusic.stop_minecraft_s_background_music_while_keeping_ordinary_sound_effects");
+        section("text.darkmusic.hud_settings");
+        toggle("text.darkmusic.now_playing_hud", () -> s.hudEnabled, v -> s.hudEnabled = v, "hud.darkmusic.master_help");
+        toggle("text.darkmusic.hud_artwork", () -> s.hudArtwork, v -> s.hudArtwork = v, "hud.darkmusic.artwork_help");
+        toggle("text.darkmusic.hud_progress", () -> s.hudProgress, v -> s.hudProgress = v, "text.darkmusic.show_the_current_track_s_progress_below_the_title_and_artist");
+        toggle("hud.darkmusic.spectrum", () -> s.hudVisualizer, v -> s.hudVisualizer = v, "hud.darkmusic.spectrum_help");
+        action("hud.darkmusic.position", () -> {
+            s.spectrumPosition = s.spectrumPosition == Settings.SpectrumPosition.ABOVE ? Settings.SpectrumPosition.BELOW : Settings.SpectrumPosition.ABOVE;
+            app.save();
             rebuildWidgets();
-        }, Text.get("text.darkmusic.switch_settings_pages_changes_save_automatically_escape_returns"));
+        }, "hud.darkmusic.position_help");
+        controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("hud.darkmusic.position") + ": " + Text.get("hud.darkmusic.position." + s.spectrumPosition.name().toLowerCase(Locale.ROOT))));
+        action("hud.darkmusic.direction", () -> {
+            s.spectrumDirection = s.spectrumDirection == Settings.SpectrumDirection.UPWARD ? Settings.SpectrumDirection.DOWNWARD : Settings.SpectrumDirection.UPWARD;
+            app.save();
+            rebuildWidgets();
+        }, "hud.darkmusic.direction_help");
+        controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("hud.darkmusic.direction") + ": " + Text.get("hud.darkmusic.direction." + s.spectrumDirection.name().toLowerCase(Locale.ROOT))));
+        slider(s.visualizerSmoothing / .95, v -> Text.get("format.darkmusic.smoothing", Math.round(s.visualizerSmoothing * 100)), v -> s.visualizerSmoothing = v * .95, 19, "text.darkmusic.higher_values_give_slower_attack_and_decay_pausing_freezes_the_actual_spectrum_sto");
+        slider((s.visualizerSensitivity - .25) / 3.75, v -> Text.get("format.darkmusic.sensitivity", String.format(Locale.ROOT, "%.2f", s.visualizerSensitivity)), v -> s.visualizerSensitivity = .25 + v * 3.75, 15, "text.darkmusic.boost_quiet_spectra_or_reduce_strong_levels_samples_follow_playback_speed_and_dark");
+        slider((s.visualizerBars - 8) / 56.0, v -> Text.get("format.darkmusic.bars", s.visualizerBars), v -> s.visualizerBars = 8 + (int) Math.round(v * 56), 14, "text.darkmusic.8_64_logarithmic_frequency_bands_from_bass_to_treble_narrow_areas_combine_bars_to");
+        slider(s.hudBackgroundTransparency, v -> Text.get("hud.darkmusic.transparency", Math.round(s.hudBackgroundTransparency * 100)), v -> s.hudBackgroundTransparency = v, 100, "hud.darkmusic.transparency_help");
+        action("text.darkmusic.edit_hud_layout", () -> show(new HudEditorScreen(app, this)), "hud.darkmusic.help");
+        section("reset.darkmusic.section");
+        action("reset.darkmusic.button", () -> show(new ConfirmationScreen(this, Text.component("reset.darkmusic.title"),
+            Text.component("reset.darkmusic.body"), Text.component("reset.darkmusic.confirm"), app::resetDefaults)), "reset.darkmusic.help");
+        position();
+        app.configureVisualizer();
+    }
+
+    private void position() {
+        scroll = Math.clamp(scroll, 0, Math.max(0, cursor - (bottom - top)));
+        for (var p : controls) {
+            int y = top + p.y() - scroll;
+            p.widget().setY(y);
+            p.widget().visible = y >= top && y + 20 <= bottom;
+        }
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float d) {
+    public boolean mouseScrolled(double x, double y, double dx, double dy) {
+        if (HorizontalText.horizontalIntent(dx, dy)) return super.mouseScrolled(x, y, dx, dy);
+        if (app.settings.hudEnabled && x >= previewX && x < previewX + previewWidth && y >= previewY + 20 && y < previewY + previewHeight && dy != 0) {
+            previewScale = previewWheel.scroll(previewScale, dy);
+            fitPreview();
+            scaleChanged = System.nanoTime();
+            return true;
+        }
+        if (x >= 12 && x <= 12 + formWidth && y >= top && y <= bottom) {
+            scroll -= (int) Math.round(dy * 24);
+            position();
+            return true;
+        }
+        return super.mouseScrolled(x, y, dx, dy);
+    }
+
+    @Override
+    public void tick() {
+        if (!folderPath.equals(app.library.root().toString())) rebuildWidgets();
+    }
+
+    private void fitPreview() {
+        var layout = com.darkmusic.client.hud.HudLayout.content(app.settings, Integer.MAX_VALUE);
+        double fit = Math.min((previewWidth - 16.0) / layout.width(), (previewHeight - 30.0) / layout.height());
+        previewScale = Math.min(previewScale, Math.max(.1, Math.floor(fit * 10) / 10));
+    }
+
+    @Override
+    public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
+        longText.begin();
         g.fill(0, 0, width, height, 0xFF111420);
-        g.text(font, Text.get("text.darkmusic.darkmusic_settings"), 12, 12, 0xFFB5B0FF);
-        super.extractRenderState(g, x, y, d);
+        g.text(font, title, 12, 12, 0xFFB5B0FF);
+        g.outline(previewX, previewY, previewWidth, previewHeight, 0xFF34394F);
+        g.text(font, Text.get("hud.darkmusic.live_preview"), previewX + 6, previewY + 6, 0xFFB5B0FF);
+        g.enableScissor(previewX + 2, previewY + 20, previewX + previewWidth - 2, previewY + previewHeight - 2);
+        for (int cy = previewY + 20; cy < previewY + previewHeight - 2; cy += 16)
+            for (int cx = previewX + 2; cx < previewX + previewWidth - 2; cx += 16)
+                g.fill(cx, cy, Math.min(cx + 16, previewX + previewWidth - 2), Math.min(cy + 16, previewY + previewHeight - 2), ((cx - previewX) / 16 + (cy - previewY) / 16) % 2 == 0 ? 0xFF20283A : 0xFF293246);
+        fitPreview();
+        NowPlayingHud.renderPreview(app, g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30, previewScale, longText);
+        g.disableScissor();
+        if (System.nanoTime() - scaleChanged < 2_000_000_000L) {
+            String scale = Text.get("hud.darkmusic.preview_scale", Math.round(previewScale * 100));
+            g.text(font, scale, previewX + previewWidth - font.width(scale) - 8, previewY + 6, 0xFFB5B0FF);
+        }
+        g.enableScissor(12, top, 12 + formWidth, bottom);
+        for (var section : sections) {
+            int sy = top + section.y() - scroll;
+            g.fill(12, sy + 17, 12 + formWidth, sy + 18, 0xFF34394F);
+            g.text(font, section.title(), 14, sy + 3, 0xFFB5B0FF);
+        }
+        int pathY = top + folderY - scroll + 3;
+        for (var line : folderLines) {
+            g.text(font, line, 19, pathY, 0xFFAAAAC0);
+            pathY += 10;
+        }
+        super.extractRenderState(g, x, y, delta);
+        g.disableScissor();
+        if (cursor > bottom - top) {
+            int length = Math.max(12, (bottom - top) * (bottom - top) / cursor);
+            int sy = top + (bottom - top - length) * scroll / Math.max(1, cursor - (bottom - top));
+            g.fill(8, sy, 10, sy + length, 0xFFB5B0FF);
+        }
+    }
+
+    @Override
+    public void removed() {
+        super.removed();
+        app.configureVisualizer();
+    }
+
+    private record Placed(AbstractWidget widget, int y) {
+    }
+
+    private record Section(String title, int y) {
     }
 }

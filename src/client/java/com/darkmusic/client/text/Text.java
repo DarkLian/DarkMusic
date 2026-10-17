@@ -5,7 +5,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Localized UI prose with bundled English fallbacks; user metadata is never translated.

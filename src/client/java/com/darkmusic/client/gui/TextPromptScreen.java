@@ -45,9 +45,10 @@ public final class TextPromptScreen extends LocalScreen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float d) {
+        longText.begin();
         g.fill(0, 0, width, height, 0xFF111420);
         g.text(font, title, 12, 20, 0xFFB5B0FF);
-        g.text(font, error, 12, 108, 0xFFFFBC80);
+        longText.draw(g, font, "error", error, 12, 108, width - 24, 0xFFFFBC80);
         super.extractRenderState(g, x, y, d);
     }
 }

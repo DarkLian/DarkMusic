@@ -1,74 +1,45 @@
 # Testing and documentation captures
 
-All audio checks use the same private real music collection as gameplay tests
-and documentation screenshots. The default is `run/config/darkmusic/music`.
-Override it with `-PmusicDirectory=/path/to/music` or `DARKMUSIC_TEST_MUSIC`.
-Original files are opened read-only. No music or artwork is bundled, committed,
-or uploaded. Temporary excerpts, format conversions, and artwork copies derive
-from that collection and stay in test-managed temporary directories.
+Use Java 25. Audio checks, playtests, and screenshots use the private real collection at `run/config/darkmusic/music`. Override with `-PmusicDirectory=/path/to/music` or `DARKMUSIC_TEST_MUSIC`. Originals are read-only, never committed/uploaded. Temporary excerpts, conversions, and copies derive from that collection and are removed after testing. Do not substitute dummy media.
 
-## Local release validation
-
-Use Java 25:
+## Local release verification
 
 ```powershell
-./gradlew.bat build -PrequireMusic -PdownloadIntegration
+./gradlew.bat build compileSmokeJava -Psmoke -PrequireMusic -PdownloadIntegration -PdesktopIntegration -PmanagedToolsIntegration
 ./gradlew.bat runSmokeClient -Psmoke
+./gradlew.bat runSmokeClient -Psmoke -PpreviewSmoke
+./gradlew.bat runSmokeClient -Psmoke -PresetSmoke
+./gradlew.bat runSmokeClient -Psmoke -PresetSmoke -PverifyHudRestart
 ./gradlew.bat runSmokeClient -Psmoke -PcaptureMusic
 ```
 
-The equivalent Unix command is `./gradlew`. `-PrequireMusic` fails when the real
-collection is unavailable, preventing a skipped audio suite from being mistaken
-for full release validation. The downloader integration checks additionally use
-the optional development executables in ignored `Music/`.
+Use `./gradlew` on Linux/macOS. Desktop checks need an interactive desktop. Do not run separate GUI automation sessions simultaneously.
 
-The 65 automated checks cover real-song decoding and tags, embedded artwork,
-read-only files, PCM gain/rate conversion, FFT comparison with an independent
-Fourier calculation on actual music, attack/decay, pause/seek/reset, device-clock
-synchronization, library discovery, playlists, subprocess trees/timeouts, queue
-failures/cancellation, duplicate history, and release-package isolation. Real
-music excerpts are converted to PCM16 WAV, 16-bit and 24-bit FLAC, and OGG Vorbis for format coverage.
-Downloader tests serve a real music excerpt only over loopback, then exercise
-actual yt-dlp/FFmpeg/FFprobe and immediate library discovery. They do not upload
-audio to an external site. Public YouTube/Bilibili checks are metadata-only.
+`-PrequireMusic` fails without private audio. Downloader integration uses ignored development executables in `Music/`. Managed-tool integration explicitly downloads verified assets into ignored build output; it never silently installs tools in a user's instance.
 
-Additional regressions cover device-format fallback, stalled output, inaccurate
-duration tags, idle parking, scan-cache recovery, malformed playlist records,
-native key-binding migration, downloader error classification, PATH lookup,
-workspace ownership/cleanup, queue cancellation, localization, and legacy enum
-settings. Localization tests compare both catalogs and exercise fallback text,
-format placeholders, and percent signs. Package checks verify localized resources,
-icon size, current notices, and isolation from gameplay networking.
+Coverage includes real-song decoding/tags/artwork and integrity; PCM gain/rate conversion and 24-bit FLAC; independent FFT comparison, smoothing/synchronization, pause/seek/track changes; device fallback and worker parking; library/cache recovery, playlists/reordering; subprocess trees/timeouts, tools, downloads/conversion, duplicate history/cancellation; native keys, localization, and artifact isolation.
 
-The ordinary in-game session uses the real collection in `build/smoke-run` and
-checks GUI scales 2, 3, and 6, shortcuts, playlist selection/editing, downloader
-navigation, independent visualizer toggles, HUD dragging, and Escape behavior.
-The ordinary session has also passed in Traditional Chinese. The progress slider
-check confirms no seek while dragging and exactly one seek on release.
-The capture session uses separate settings/playlists in `build/capture-run`,
-samples playback starts for all 33 current songs, and tests seeking, pause/resume,
-speed, connected dragging/cancellation/autoscrolling, filtered bulk editing,
-artwork, and visualizer pause/seek/resume/stop behavior. Sampling a song's start
-is not an end-to-end audition. Full-modpack and world-transition behavior is not
-exhaustively covered by these title-screen sessions.
+Reset checks cover fixed defaults, safe record/tool cleanup, media hashes, preserved playlists/external tools, locks, and download cancellation releasing workspace ownership. Artifact checks reject gameplay-network dependencies and Minecraft options-save/broadcast calls. Native reset changes only DarkMusic's own `options.txt` entries.
+
+Downloader integration serves private audio only over loopback and exercises actual yt-dlp/FFmpeg/FFprobe. Audio is not uploaded to external services. Public-site checks are metadata-only.
+
+## Development client sessions
+
+- `build/smoke-run`: player/playlists/settings, real-device playback, seeking, shortcuts, combined HUD movement/scaling, compact layouts, and GUI scales 2/3/6.
+- `build/preview-run`: URL re-entry/analysis safety, search/selection, temporary audition, tool behavior, long-text panning, artwork resolution, shortcut feedback, and combined HUD orientations/combinations.
+- `build/reset-run`: isolated configuration and **copies** of real music. Confirms/cancels reset and playlist deletion, checks tool/history cleanup and default-folder rescan, then verifies defaults/native keys after a separate restart. Run reset before restart verification; remove only its byte-verified copies afterward.
+- `build/capture-run`: current public screenshots using the real collection and embedded artwork.
+
+These are title-screen development sessions. They do not exhaustively verify full modpacks, multiplayer/world transitions, every site, physical device disconnection, or Linux/macOS runtime integration. Sampling playback is not a full audition of every song.
 
 ## Hosted CI
 
-`./gradlew build` compiles and runs the tests on GitHub. Hosted runners do not
-have the private collection, so audio-dependent checks are explicitly reported
-as skipped. The current no-music run has 34 passing checks and 31 skipped audio
-checks; local validation runs all 65 without skips. No dummy media replaces the
-private collection, and an all-green hosted build does not claim audio coverage.
+`./gradlew build` compiles/tests on GitHub. Hosted runners lack private audio, desktop access, and development tools, so dependent checks explicitly skip. A green hosted build does not claim audio coverage. Counts vary with flags; inspect reports rather than relying on old counts.
+
+Release automation checks the tag/version match, main-branch ancestry, and build/tests before publishing the mod, sources, and third-party source bundle.
 
 ## Screenshots and code style
 
-Captures require fullscreen, a monitor-attached window, and both configured and
-effective Minecraft GUI scale 3. Current captures are original 2560×1440 images,
-without cropping/resizing, under ignored `docs/images_private/screenshots/` with
-prefix `101-test-3x-`. All twelve capture callbacks must finish before success.
-Inspect captures before copying only the images used by public documentation
-into `docs/images`. Use new versioned filenames to avoid stale image caches.
-Only images used in public documentation belong in docs/images.
+Documentation captures require fullscreen and **configured and effective GUI scale 3**, without cropping/resizing. Keep originals in ignored `docs/images_private`, inspect them, then promote only public/Markdown images into `docs/images`. Use versioned filenames; remove obsolete captures after UI changes.
 
-Use IntelliJ IDEA's built-in formatter and the current project's code style for
-source changes. Java uses four spaces and JSON two, recorded in `.editorconfig`.
+Use IntelliJ IDEA's built-in Reformat Code dialog with **Code cleanup** enabled and the project's style. Java uses four spaces and JSON two, recorded in `.editorconfig`. Review cleanup for behavioral changes, especially defaults, localization, and file/subprocess safety.

@@ -1,64 +1,64 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.text.Text;
-
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.download.DownloadModels.Tools;
+import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
 
 public final class DownloadToolsScreen extends LocalScreen {
     private final DarkMusicClient app;
-    private EditBox yt, ffmpeg, probe, javascript;
-    private String[] values;
+    private Button install, check, advanced, cancel;
+    private RowList tools;
+    private java.util.List<String> displayed = java.util.List.of();
 
     public DownloadToolsScreen(DarkMusicClient app, Screen parent) {
         super(Text.component("text.darkmusic.download_tools"), parent);
         this.app = app;
-        values = new String[]{app.settings.ytDlpPath, app.settings.ffmpegPath, app.settings.ffprobePath, app.settings.javascriptPath};
-    }
-
-    private EditBox input(String value, String label, int y) {
-        var field = new EditBox(font, 12, y, width - 24, 20, Component.literal(label));
-        field.setMaxLength(4096);
-        field.setValue(value);
-        field.setHint(Text.component("text.darkmusic.auto_instance_tools_directory_then_path"));
-        return addRenderableWidget(Help.tip(field, Text.get("text.darkmusic.paste_the_executable_file_s_full_path_leave_blank_for_automatic_lookup_no_tools_ar")));
     }
 
     @Override
     protected void init() {
-        yt = input(values[0], Text.get("text.darkmusic.yt_dlp_executable"), 36);
-        ffmpeg = input(values[1], Text.get("text.darkmusic.ffmpeg_executable"), 76);
-        probe = input(values[2], Text.get("text.darkmusic.ffprobe_executable"), 116);
-        javascript = input(values[3], Text.get("text.darkmusic.deno_node_executable_optional"), 156);
-        yt.setResponder(s -> values[0] = s);
-        ffmpeg.setResponder(s -> values[1] = s);
-        probe.setResponder(s -> values[2] = s);
-        javascript.setResponder(s -> values[3] = s);
-        javascript.setHint(Text.component("text.darkmusic.auto_deno_or_node_on_path_youtube_may_require_this"));
-        addRenderableWidget(Button.builder(Text.component("text.darkmusic.check_tools"), b -> {
+        int half = (width - 28) / 2;
+        install = addRenderableWidget(Help.tip(Button.builder(Text.component("tools.darkmusic.install"), b -> {
+            persist();
+            app.downloads.installTools();
+        }).bounds(12, 34, half, 20).build(), Text.get("tools.darkmusic.install_help")));
+        check = addRenderableWidget(Button.builder(Text.component("text.darkmusic.check_tools"), b -> {
             persist();
             app.downloads.checkTools();
-        }).bounds(12, height - 28, (width - 28) / 2, 20).build());
-        addRenderableWidget(Button.builder(Text.component("text.darkmusic.save"), b -> {
+        }).bounds(16 + half, 34, half, 20).build());
+        advanced = addRenderableWidget(Button.builder(Text.component("tools.darkmusic.advanced"), b -> {
             persist();
-            onClose();
-        }).bounds(16 + (width - 28) / 2, height - 28, (width - 28) / 2, 20).build());
+            show(new DownloadPathsScreen(app, this));
+        }).bounds(12, 60, half, 20).build());
+        cancel = addRenderableWidget(Help.tip(Button.builder(Text.component("tools.darkmusic.cancel_operation"), b -> app.downloads.cancelTools()).bounds(16 + half, 60, half, 20).build(), Text.get("tools.darkmusic.cancel_help")));
+        tools = addRenderableWidget(new RowList(12, 90, width - 24, Math.max(28, height - 132), 28, Text.get("text.darkmusic.download_tools"), (i, activated) -> { }));
+        displayed = null;
+        tick();
     }
 
     private void persist() {
-        if (yt == null) return;
-        values = new String[]{yt.getValue().strip(), ffmpeg.getValue().strip(), probe.getValue().strip(), javascript.getValue().strip()};
-        app.settings.ytDlpPath = values[0];
-        app.settings.ffmpegPath = values[1];
-        app.settings.ffprobePath = values[2];
-        app.settings.javascriptPath = values[3];
-        app.downloads.configure(new Tools(values[0], values[1], values[2], values[3]));
-        app.save();
+        app.downloads.configure(new Tools(app.settings.ytDlpPath, app.settings.ffmpegPath, app.settings.ffprobePath, app.settings.javascriptPath));
+    }
+
+    @Override
+    public void tick() {
+        boolean busy = app.downloads.snapshot().analyzing();
+        var versions = app.downloads.toolVersions();
+        if (!versions.equals(displayed)) {
+            displayed = versions;
+            String pending = Text.get("download.darkmusic.tools_unchecked");
+            String[] names = {"yt-dlp", "FFmpeg", "FFprobe", "Deno / Node.js"};
+            var rows = new java.util.ArrayList<RowList.Row>();
+            for (int i = 0; i < names.length; i++)
+                rows.add(new RowList.Row(names[i], i < versions.size() ? versions.get(i) : pending));
+            tools.rows(rows);
+        }
+        install.active = check.active = !busy;
+        cancel.visible = cancel.active = app.downloads.toolsBusy();
+        advanced.setWidth(cancel.visible ? (width - 28) / 2 : width - 24);
     }
 
     @Override
@@ -69,13 +69,13 @@ public final class DownloadToolsScreen extends LocalScreen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
+        longText.begin();
         g.fill(0, 0, width, height, 0xFF111420);
-        g.text(font, title, 12, 10, 0xFFB5B0FF);
-        String[] labels = {Text.get("text.darkmusic.yt_dlp_executable"), Text.get("text.darkmusic.ffmpeg_executable"), Text.get("text.darkmusic.ffprobe_blank_alongside_ffmpeg_or_path"), Text.get("text.darkmusic.deno_node_executable_optional")};
-        for (int i = 0; i < labels.length; i++) g.text(font, labels[i], 12, 24 + i * 40, 0xFFCCCCDD);
-        var s = app.downloads.snapshot();
-        g.text(font, font.plainSubstrByWidth(s.toolStatus(), width - 24), 12, height - 62, 0xFFCCCCDD);
-        g.text(font, font.plainSubstrByWidth(s.analyzing() ? Text.get("text.darkmusic.checking") : s.message(), width - 24), 12, height - 48, 0xFFFFCC88);
+        g.text(font, title, 12, 12, 0xFFB5B0FF);
+        var status = app.downloads.snapshot();
+        String summary = app.downloads.toolVersions().isEmpty() || status.analyzing() ? status.toolStatus() : Text.get("download.darkmusic.tools_ready");
+        longText.draw(g, font, "tools", summary, 12, height - 34, width - 24, 0xFFCCCCDD);
+        longText.draw(g, font, "tools_message", status.message(), 12, height - 20, width - 24, 0xFFFFCC88);
         super.extractRenderState(g, x, y, delta);
     }
 }

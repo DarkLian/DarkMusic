@@ -16,6 +16,7 @@ import java.util.function.BooleanSupplier;
  * A full-width keyboard-accessible setting, with state distinct from its label.
  */
 public final class SettingRow extends AbstractWidget {
+    private final HorizontalText horizontal = new HorizontalText();
     private final Runnable action;
     private final BooleanSupplier checked;
 
@@ -32,6 +33,8 @@ public final class SettingRow extends AbstractWidget {
 
     @Override
     public boolean keyPressed(KeyEvent event) {
+        if (isFocused() && (event.key() == 262 || event.key() == 263))
+            return horizontal.pan("label", event.key() == 262 ? 24 : -24);
         if (isFocused() && active && (event.key() == 32 || event.isConfirmation())) {
             action.run();
             return true;
@@ -44,7 +47,8 @@ public final class SettingRow extends AbstractWidget {
         g.fill(getX(), getY(), getRight(), getBottom(), isHoveredOrFocused() ? 0xFF393650 : 0xFF252A3B);
         if (isFocused()) g.outline(getX(), getY(), width, height, 0xFFB5B0FF);
         var font = Minecraft.getInstance().font;
-        g.text(font, font.plainSubstrByWidth(getMessage().getString(), width - 36), getX() + 7, getY() + 6, 0xFFEEEEFF);
+        horizontal.begin();
+        horizontal.draw(g, font, "label", getMessage().getString(), getX() + 7, getY() + 6, width - 36, 0xFFEEEEFF);
         int right = getRight() - 19, top = getY() + 4;
         if (checked != null) {
             g.outline(right, top, 12, 12, 0xFFB5B0FF);
@@ -53,6 +57,11 @@ public final class SettingRow extends AbstractWidget {
                 for (int i = 0; i < 5; i++) g.fill(right + 5 + i, top + 7 - i, right + 7 + i, top + 9 - i, 0xFFDDD9FF);
             }
         } else g.text(font, ">", right + 3, getY() + 6, 0xFFB5B0FF);
+    }
+
+    @Override
+    public boolean mouseScrolled(double x, double y, double dx, double dy) {
+        return isMouseOver(x, y) && horizontal.scroll(x, y, dx, dy, HorizontalText.shiftDown());
     }
 
     @Override

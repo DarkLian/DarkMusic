@@ -1,9 +1,8 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.text.Text;
-
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -52,7 +51,7 @@ public final class TrackPickerScreen extends LocalScreen {
             query = s;
             refresh();
         });
-        rows = addRenderableWidget(new RowList(12, 60, width - 24, Math.max(28, height - 140), 32, Text.get("text.darkmusic.songs"), (i, activated) -> {
+        rows = addRenderableWidget(new RowList(12, 60, width - 24, Math.max(28, height - 126), 32, Text.get("text.darkmusic.songs"), (i, activated) -> {
         }));
         {
             rows.multiple(selection);
@@ -100,9 +99,10 @@ public final class TrackPickerScreen extends LocalScreen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float d) {
+        longText.begin();
         g.fill(0, 0, width, height, 0xFF111420);
         g.text(font, title, 12, 12, 0xFFB5B0FF);
-        g.text(font, Text.get("format.darkmusic.selected_hidden", selection.size(), selection.hidden()), 12, height - 72, 0xFFCCCCDD);
+        longText.draw(g, font, "selection", selection.hidden() == 0 ? Text.get("format.darkmusic.selected", selection.size()) : Text.get("playlist.darkmusic.filtered_selection", selection.size(), selection.hidden()), Math.max(120, width / 2), 12, width - Math.max(120, width / 2) - 12, 0xFFCCCCDD);
         super.extractRenderState(g, x, y, d);
     }
 }

@@ -7,6 +7,7 @@ import net.minecraft.network.chat.Component;
  * Prevents delayed local UI work from restoring a screen after death or a world transition.
  */
 public abstract class LocalScreen extends Screen {
+    protected final HorizontalText longText = new HorizontalText();
     private final Screen returnTo;
     private final Object openedIn;
 
@@ -22,6 +23,12 @@ public abstract class LocalScreen extends Screen {
 
     protected final void show(Screen next) {
         if (isCurrent()) minecraft.gui.setScreen(next);
+    }
+
+    @Override
+    public boolean mouseScrolled(double x, double y, double dx, double dy) {
+        if (longText.scroll(x, y, dx, dy, HorizontalText.shiftDown())) return true;
+        return super.mouseScrolled(x, y, dx, dy);
     }
 
     @Override

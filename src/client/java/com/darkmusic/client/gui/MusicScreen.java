@@ -1,16 +1,14 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.text.Text;
-
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.audio.PlaybackController;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 
 import java.util.Arrays;
@@ -85,7 +83,8 @@ public final class MusicScreen extends LocalScreen {
                 refresh();
             });
         }
-        int navWidth = width >= 480 ? 120 : 86;
+        var layout = PlayerLayout.of(width, height);
+        int navWidth = layout.navigationWidth();
         int listY = compact ? 58 : 82;
         boolean narrow = width < 640;
         int extra = narrow ? 24 : 0;
@@ -94,7 +93,7 @@ public final class MusicScreen extends LocalScreen {
             group = groups.get(i);
             refreshSongs();
         }));
-        int art = width >= 640 ? 106 : 0;
+        int art = layout.panelWidth() == 0 ? 0 : layout.panelWidth() + 8;
         songs = addRenderableWidget(new RowList(18 + navWidth, listY, width - 30 - navWidth - art, listHeight, compact ? 28 : 32, Text.get("text.darkmusic.songs_enter_or_double_click_to_play"), (i, activated) -> {
             selected = visible.get(i);
             if (activated) app.playback.play(visible, selected);
@@ -134,8 +133,7 @@ public final class MusicScreen extends LocalScreen {
         int half = (width - 28) / 2;
         volume = addRenderableWidget(Help.tip(new ValueSlider(12, height - 54, half, app.settings.volume,
             v -> Text.get("format.darkmusic.volume", Math.round(v * 100)), v -> {
-            app.settings.volume = v;
-            app.playback.volume(v);
+            app.volume(v);
         }, app::save), Text.get("text.darkmusic.darkmusic_volume_independent_of_minecraft_sound_sliders")));
         speed = addRenderableWidget(Help.tip(new ValueSlider(16 + half, height - 54, half - 44, (app.settings.speed - .5) / 2.5,
             v -> Text.get("format.darkmusic.speed", String.format(Locale.ROOT, "%.1f", app.settings.speed)), v -> app.speed(.5 + v * 2.5), app::save, 25), Text.get("text.darkmusic.playback_speed_0_5x_to_3_0x_in_0_1x_steps_faster_raises_pitch_slower_lowers_it")));
@@ -231,6 +229,7 @@ public final class MusicScreen extends LocalScreen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
+        longText.begin();
         g.fill(0, 0, width, height, 0xFF111420);
         g.text(font, "DarkMusic", 12, 12, 0xFFB5B0FF);
         var audio = app.playback.state();
@@ -240,21 +239,20 @@ public final class MusicScreen extends LocalScreen {
         var thumbnail = app.artwork.get(now);
         g.fill(12, height - 123 - extra, 28, height - 107 - extra, 0xFF292F44);
         if (thumbnail != null)
-            g.blit(RenderPipelines.GUI_TEXTURED, thumbnail, 12, height - 123 - extra, 0, 0, 16, 16, 256, 256, 256, 256);
-        int spectrumY = (height < 320 ? 58 : 82) + 104;
-        int spectrumHeight = Math.min(app.settings.visualizerHeight, height - 144 - spectrumY);
-        boolean sidebarSpectrum = width >= 640 && spectrumHeight >= 16;
-        g.text(font, font.plainSubstrByWidth(status, width - 46 - (app.settings.playerVisualizer && !sidebarSpectrum ? 108 : 0)), 34, height - 118 - extra, 0xFFEEEEFF);
-        if (app.settings.playerVisualizer)
-            spectrum.render(app, g, width - 108, sidebarSpectrum ? spectrumY : height - 123 - extra, 96, sidebarSpectrum ? spectrumHeight : 16);
+            com.darkmusic.client.library.ArtworkCache.draw(g, thumbnail, 12, height - 123 - extra, 16);
+        var layout = PlayerLayout.of(width, height);
+        boolean sidebarSpectrum = layout.panelWidth() > 0 && layout.spectrumY() + layout.spectrumHeight() <= layout.listY() + layout.listHeight();
+        longText.draw(g, font, "status", status, 34, height - 118 - extra, width - 46 - (app.settings.hudVisualizer && !sidebarSpectrum ? 108 : 0), 0xFFEEEEFF);
+        if (app.settings.hudVisualizer)
+            spectrum.render(app, g, sidebarSpectrum ? layout.panelX() : width - 108, sidebarSpectrum ? layout.spectrumY() : height - 123 - extra, sidebarSpectrum ? layout.panelWidth() : 96, sidebarSpectrum ? layout.spectrumHeight() : 16);
         String message = !app.warning.isBlank() ? app.warning : !app.library.snapshot().message().isBlank() ? app.library.snapshot().message() : audio.status() == AudioBackend.Status.ERROR ? audio.error() : playlistNotice;
         if (!message.isBlank())
-            g.text(font, font.plainSubstrByWidth(message, width - 24), 12, height - 138 - extra, 0xFFFFBC80);
+            longText.draw(g, font, "message", message, 12, height - 138 - extra, width - 24, 0xFFFFBC80);
         if (width >= 640 && selected != null) {
-            int x = width - 108, y = height < 320 ? 58 : 82, size = Math.min(96, Math.max(16, height - 144 - y));
+            int size = layout.artworkSize(), x = layout.panelX() + (layout.panelWidth() - size) / 2, y = layout.listY();
             var art = app.artwork.get(selected);
             g.fill(x, y, x + size, y + size, 0xFF292F44);
-            if (art != null) g.blit(RenderPipelines.GUI_TEXTURED, art, x, y, 0, 0, size, size, 256, 256, 256, 256);
+            if (art != null) com.darkmusic.client.library.ArtworkCache.draw(g, art, x, y, size);
             else g.centeredText(font, Text.get("text.darkmusic.music"), x + size / 2, y + size / 2 - 4, 0xFFB5B0FF);
         }
         super.extractRenderState(g, mx, my, delta);

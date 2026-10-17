@@ -15,7 +15,7 @@ included as separate, unmodified nested JARs under META-INF/jars.
 
 Complete LGPL-2.0, LGPL-2.1 and Apache-2.0 texts are in licenses/. Original
 per-file copyright and license notices are preserved in the corresponding
-source archives in darkmusic-1.0.0-third-party-sources.zip, built alongside
+source archives in darkmusic-1.0.2-third-party-sources.zip, built alongside
 the mod by `gradlew build`. Distribute that source bundle with the mod.
 
 Corresponding sources are also obtainable from Maven Central using the exact
@@ -32,8 +32,12 @@ Minecraft provides JOrbis 0.0.17. DarkMusic does not redistribute a second
 JOrbis copy. Fabric API is a separately installed dependency (Apache-2.0).
 Gson and SLF4J are provided by the Minecraft/Fabric runtime.
 
-yt-dlp, FFmpeg, FFprobe, and optional JavaScript runtimes are external tools
-configured by the user for downloading/conversion. They are not bundled with
-the mod or required for local playback. Audio tests read a private music
+yt-dlp, FFmpeg, FFprobe, and JavaScript runtimes are external tools for
+downloading/conversion. They are not bundled with the mod or required for local
+playback. Users can explicitly install/update a verified instance-local tool
+bundle or configure existing executables. The managed bundle records publisher
+sources and releases in its manifest and retains the published FFmpeg license
+and README. Tool releases retain their own licenses; installing them does not
+change the licenses of DarkMusic or its bundled audio libraries. Audio tests read a private music
 collection and temporary excerpts/conversions derived from it. Music and its
 artwork retain their original rights and are never bundled or published.

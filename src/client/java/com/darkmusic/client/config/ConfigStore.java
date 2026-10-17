@@ -108,6 +108,29 @@ public final class ConfigStore {
         return settings;
     }
 
+    /**
+     * Writes only DarkMusic's native bindings; Options.save() would broadcast unrelated options.
+     */
+    public void resetShortcuts(java.util.Map<String, String> defaults) throws IOException {
+        Path options = directory.toAbsolutePath().getParent().getParent().resolve("options.txt");
+        if (Files.isSymbolicLink(options) || Files.exists(options, LinkOption.NOFOLLOW_LINKS)
+            && (!Files.isRegularFile(options, LinkOption.NOFOLLOW_LINKS) || Files.size(options) > 16_000_000))
+            throw new IOException(com.darkmusic.client.text.Text.get("reset.darkmusic.options_unsafe"));
+        var lines = Files.exists(options) ? Files.readAllLines(options, StandardCharsets.UTF_8) : java.util.List.<String>of();
+        var remaining = new java.util.LinkedHashMap<>(defaults);
+        var updated = new java.util.ArrayList<String>();
+        for (String line : lines) {
+            int colon = line.indexOf(':');
+            String name = colon < 0 ? "" : line.substring(0, colon);
+            if (defaults.containsKey(name)) {
+                String value = remaining.remove(name);
+                if (value != null) updated.add(name + ":" + value);
+            } else updated.add(line);
+        }
+        remaining.forEach((name, value) -> updated.add(name + ":" + value));
+        atomicWrite(options, String.join("\n", updated) + "\n");
+    }
+
     public void save(Settings settings) {
         String json = JSON.toJson(settings);
         synchronized (this) {

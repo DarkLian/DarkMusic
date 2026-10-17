@@ -1,5 +1,7 @@
 package com.darkmusic.client.download;
 
+import com.darkmusic.client.text.Text;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,13 +25,16 @@ public final class DownloadService implements AutoCloseable {
     private final ExecutorService downloads = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-download-queue").factory());
     private final BlockingQueue<Work> pending = new LinkedBlockingQueue<>();
     private final List<Work> work = new ArrayList<>();
+    private final java.util.Set<ActiveKey> activeKeys = new java.util.HashSet<>();
     private long ids;
     private Snapshot published;
-    private final java.util.Set<ActiveKey> activeKeys = new java.util.HashSet<>();
-    private boolean analyzing;
+    private boolean analyzing, toolOperation;
     private volatile boolean closed;
-    private String message = "Paste a URL and Analyze. Nothing downloads until you choose Download.", toolStatus = "Tools not checked";
+    private String message = "", toolStatus = Text.get("download.darkmusic.tools_unchecked");
     private Preview preview;
+    private String lastAnalyzedUrl = "";
+    private long previewRevision;
+    private ProcessRunner.Token previewToken;
     private ProcessRunner.Token analysisToken = new ProcessRunner.Token();
     private Tools settings = new Tools("", "", "", "");
     private volatile Cache cache;
@@ -56,15 +61,40 @@ public final class DownloadService implements AutoCloseable {
         return published;
     }
 
+    public void installTools() {
+        start(Text.get("download.darkmusic.tools_installing"), true, token -> {
+            synchronized (this) {
+                if (!activeKeys.isEmpty())
+                    throw new IOException(Text.get("download.darkmusic.finish_queue_before_update"));
+            }
+            new ManagedTools(data).install(runner, token, text -> {
+                synchronized (this) {
+                    toolStatus = text;
+                    published = null;
+                }
+            });
+            cache = null;
+            Tools selected;
+            synchronized (this) {
+                selected = settings;
+            }
+            tools(selected, token);
+            synchronized (this) {
+                message = Text.get("download.darkmusic.tools_ready");
+                published = null;
+            }
+        });
+    }
+
     public void checkTools() {
-        start("Checking tools…", token -> {
+        start(Text.get("download.darkmusic.tools_checking"), true, token -> {
             Tools selected;
             synchronized (this) {
                 selected = settings;
             }
             synchronized (this) {
                 cache = null;
-                toolStatus = "Checking tools";
+                toolStatus = Text.get("download.darkmusic.tools_checking");
                 published = null;
             }
             try {
@@ -72,7 +102,7 @@ public final class DownloadService implements AutoCloseable {
             } catch (Exception e) {
                 synchronized (this) {
                     cache = null;
-                    toolStatus = "Tool check failed: " + e.getMessage();
+                    toolStatus = Text.get("download.darkmusic.tool_check_failed", e.getMessage());
                     published = null;
                 }
                 throw e;
@@ -95,23 +125,63 @@ public final class DownloadService implements AutoCloseable {
         return result;
     }
 
-    public void analyze(String value, int page) {
-        start("Analyzing URL…", token -> {
-            String url = url(value);
+    public synchronized List<String> toolVersions() {
+        Cache resolved = cache;
+        return resolved == null || !resolved.settings().equals(settings) ? List.of() : List.of(resolved.tools().versions().split(" \\| ", -1));
+    }
+
+    public synchronized String lastAnalyzedUrl() {
+        return lastAnalyzedUrl;
+    }
+
+    /**
+     * Forget UI-only results without cancelling queued downloads or tool installation.
+     */
+    public synchronized void clearPreview() {
+        previewRevision++;
+        if (previewToken != null) previewToken.cancel();
+        preview = null;
+        if (!analyzing) message = "";
+        published = null;
+    }
+
+    public synchronized void analyze(String value, int page) {
+        if (closed) return;
+        if (analyzing) {
+            message = Text.get("download.darkmusic.busy");
+            published = null;
+            return;
+        }
+        final String link;
+        try {
+            link = url(value);
+        } catch (IllegalArgumentException e) {
+            preview = null;
+            message = e.getMessage();
+            published = null;
+            return;
+        }
+        lastAnalyzedUrl = link;
+        long ticket = ++previewRevision;
+        preview = null;
+        published = null;
+        start(Text.get("download.darkmusic.analyzing"), token -> {
+            token.check();
             int first = Math.addExact(Math.multiplyExact(Math.max(0, page), PAGE_SIZE), 1);
             Tools selected;
             synchronized (this) {
                 selected = settings;
             }
-            Preview result = inspect(url, first, first + PAGE_SIZE - 1, tools(selected, token), token);
-            token.check();
+            Preview result = inspect(link, first, first + PAGE_SIZE - 1, tools(selected, token), token);
             synchronized (this) {
                 token.check();
+                if (ticket != previewRevision) return;
                 preview = result;
                 published = null;
                 message = result.source() + (result.collection() ? " collection. Choose an explicit selection." : " single video.");
             }
         });
+        previewToken = analysisToken;
     }
 
     private Preview inspect(String value, int first, int last, Toolchain tools, ProcessRunner.Token token) throws Exception {
@@ -125,7 +195,7 @@ public final class DownloadService implements AutoCloseable {
     }
 
     public void enqueueVideo(String value, Path destination) {
-        start("Preparing one video…", token -> {
+        start(Text.get("download.darkmusic.preparing_video"), token -> {
             String link = url(value);
             Tools selected;
             synchronized (this) {
@@ -145,7 +215,7 @@ public final class DownloadService implements AutoCloseable {
     }
 
     public void enqueueRange(Preview expected, int first, int last, Path destination) {
-        start("Preparing selected collection entries…", token -> {
+        start(Text.get("download.darkmusic.preparing_collection"), token -> {
             range(first, last);
             Tools selected;
             synchronized (this) {
@@ -172,7 +242,7 @@ public final class DownloadService implements AutoCloseable {
         synchronized (this) {
             selected = settings;
         }
-        start("Preparing selected entries…", token -> {
+        start(Text.get("download.darkmusic.preparing_selected"), token -> {
             tools(selected, token);
             token.check();
             add(entries, destination, selected, token);
@@ -231,14 +301,27 @@ public final class DownloadService implements AutoCloseable {
         analysisToken.cancel();
     }
 
+    public synchronized boolean toolsBusy() {
+        return analyzing && toolOperation;
+    }
+
+    public synchronized void cancelTools() {
+        if (toolsBusy()) cancelAnalysis();
+    }
+
     private synchronized void start(String text, Task task) {
+        start(text, false, task);
+    }
+
+    private synchronized void start(String text, boolean tools, Task task) {
         if (closed) return;
         if (analyzing) {
-            message = "Already busy. Wait for analysis or cancel it first.";
+            message = Text.get("download.darkmusic.busy");
             published = null;
             return;
         }
         analyzing = true;
+        toolOperation = tools;
         published = null;
         message = text;
         ProcessRunner.Token token = new ProcessRunner.Token();
@@ -247,20 +330,21 @@ public final class DownloadService implements AutoCloseable {
             try {
                 task.run(token);
                 synchronized (this) {
-                    if (message.equals(text)) message = "Ready";
+                    if (message.equals(text)) message = Text.get("download.darkmusic.ready");
                 }
             } catch (CancellationException | InterruptedException e) {
                 synchronized (this) {
-                    message = "Analysis cancelled";
+                    message = tools ? Text.get("download.darkmusic.tools_cancelled") : Text.get("download.darkmusic.cancelled");
                 }
             } catch (Exception e) {
-                LOG.warn("Download analysis failed", e);
+                LOG.warn("Download operation failed", e);
                 synchronized (this) {
                     message = e instanceof IllegalArgumentException ? e.getMessage() : DownloadJson.friendly(String.valueOf(e.getMessage()));
                 }
             } finally {
                 synchronized (this) {
                     analyzing = false;
+                    toolOperation = false;
                     published = null;
                 }
             }
@@ -277,7 +361,7 @@ public final class DownloadService implements AutoCloseable {
             }
             try {
                 item.token.check();
-                update(item, Status.DOWNLOADING, -1, "Checking tools");
+                update(item, Status.DOWNLOADING, -1, Text.get("download.darkmusic.tools_checking"));
                 Toolchain chain = tools(item.tools, item.token);
                 var result = pipeline.execute(item.entry, item.destination, chain, item.token, (status, detail) -> {
                     double percent = -1;
@@ -319,6 +403,10 @@ public final class DownloadService implements AutoCloseable {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    public boolean awaitStopped(long seconds) throws InterruptedException {
+        return analysis.awaitTermination(seconds, TimeUnit.SECONDS) && downloads.awaitTermination(seconds, TimeUnit.SECONDS);
     }
 
     @FunctionalInterface

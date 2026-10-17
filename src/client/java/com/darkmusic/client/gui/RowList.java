@@ -17,6 +17,7 @@ import java.util.function.BiConsumer;
  * Only visible rows are extracted, even for large libraries.
  */
 public final class RowList extends AbstractWidget {
+    private final HorizontalText horizontal = new HorizontalText();
     private final int rowHeight;
     private final BiConsumer<Integer, Boolean> action;
     private List<Row> rows = List.of();
@@ -34,6 +35,7 @@ public final class RowList extends AbstractWidget {
 
     public RowList(int x, int y, int width, int height, int rowHeight, String label, BiConsumer<Integer, Boolean> action) {
         super(x, y, width, height, Component.literal(label));
+        setTooltip(net.minecraft.client.gui.components.Tooltip.create(Text.component("text.darkmusic.scroll_long_text")));
         this.rowHeight = rowHeight;
         this.action = action;
     }
@@ -133,6 +135,7 @@ public final class RowList extends AbstractWidget {
 
     @Override
     protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float d) {
+        horizontal.begin();
         var font = Minecraft.getInstance().font;
         g.fill(getX(), getY(), getRight(), getBottom(), 0xFF191D2B);
         g.enableScissor(getX(), getY(), getRight(), getBottom());
@@ -154,7 +157,7 @@ public final class RowList extends AbstractWidget {
             }
         }
         if (rows.isEmpty())
-            g.text(font, font.plainSubstrByWidth(emptyMessage, Math.max(1, width - 14)), getX() + 5, getY() + 6, 0xFFAAAABD);
+            horizontal.draw(g, font, "empty", emptyMessage, getX() + 5, getY() + 6, Math.max(1, width - 14), 0xFFAAAABD);
         if (rows.size() * rowHeight > height) {
             int bar = Math.max(8, height * height / (rows.size() * rowHeight));
             int top = getY() + (height - bar) * scroll / Math.max(1, rows.size() * rowHeight - height);
@@ -173,9 +176,9 @@ public final class RowList extends AbstractWidget {
         Row row = rows.get(i);
         int inset = selection == null ? 5 : 25;
         if (selection != null) g.text(font, selection.checked(i) ? "[x]" : "[ ]", getX() + 4, y + 4, 0xFFB5B0FF);
-        g.text(font, font.plainSubstrByWidth(row.title(), Math.max(1, width - inset - 9)), getX() + inset, y + 4, 0xFFF0EEFF);
+        horizontal.draw(g, font, "title" + i, row.title(), getX() + inset, y + 4, Math.max(1, width - inset - 9), 0xFFF0EEFF);
         if (rowHeight >= 28)
-            g.text(font, font.plainSubstrByWidth(row.subtitle(), Math.max(1, width - inset - 9)), getX() + inset, y + 16, 0xFFAAAABD);
+            horizontal.draw(g, font, "subtitle" + i, row.subtitle(), getX() + inset, y + 16, Math.max(1, width - inset - 9), 0xFFAAAABD);
     }
 
     @Override
@@ -232,6 +235,8 @@ public final class RowList extends AbstractWidget {
     public boolean mouseScrolled(double x, double y, double dx, double dy) {
         if (!isMouseOver(x, y)) return false;
         if (drag != null) return true;
+        if (horizontal.scroll(x, y, dx, dy, HorizontalText.shiftDown())) return true;
+        if (HorizontalText.horizontalIntent(dx, dy)) return false;
         scroll -= (int) (dy * rowHeight * 2);
         clamp();
         return true;
@@ -247,6 +252,11 @@ public final class RowList extends AbstractWidget {
         if (selection != null && (event.key() == 32 || event.isConfirmation())) {
             if (selected >= 0) selection.choose(selected, true, event.hasShiftDown());
             return true;
+        }
+        if (event.key() == 262 || event.key() == 263) {
+            int index = Math.max(0, selected);
+            double amount = event.key() == 262 ? 24 : -24;
+            return horizontal.pan("title" + index, amount) | horizontal.pan("subtitle" + index, amount);
         }
         int old = selected;
         switch (event.key()) {

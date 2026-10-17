@@ -145,9 +145,22 @@ public final class PlaybackController implements AutoCloseable {
         audio.pause();
     }
 
+    public void resume() {
+        audio.resume();
+    }
+
     public void stop() {
         sequence++;
         audio.stop();
+    }
+
+    public void reset() {
+        stop();
+        tracks = List.of();
+        order.clear();
+        history.clear();
+        cursor = -1;
+        failures = 0;
     }
 
     public void seek(double seconds) {

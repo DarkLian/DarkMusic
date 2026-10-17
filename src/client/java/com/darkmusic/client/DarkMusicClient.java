@@ -15,7 +15,6 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.TitleScreen;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
 import java.util.concurrent.CompletableFuture;
@@ -30,17 +29,22 @@ public class DarkMusicClient implements ClientModInitializer {
     public final ConfigStore config = new ConfigStore(FabricLoader.getInstance().getConfigDir().resolve("darkmusic"), io, this::warn);
     public volatile Settings settings;
     public volatile String warning = "";
-    public KeyMapping open, toggle, next, previous, faster, slower, normalSpeed, volumeUp, volumeDown;
+    public KeyMapping open, toggle, next, previous, faster, slower, normalSpeed, volumeUp, volumeDown, mute;
+    public final com.darkmusic.client.hud.SpeedFeedback speedFeedback = new com.darkmusic.client.hud.SpeedFeedback();
+    public final com.darkmusic.client.hud.VolumeFeedback volumeFeedback = new com.darkmusic.client.hud.VolumeFeedback();
     public com.darkmusic.client.library.MusicLibrary library;
     public com.darkmusic.client.audio.PlaybackController playback;
     public com.darkmusic.client.library.ArtworkCache artwork;
     public com.darkmusic.client.playlist.PlaylistStore playlists;
     public com.darkmusic.client.download.DownloadService downloads;
+    public com.darkmusic.client.download.AuditionPlayer audition;
     public boolean playlistsReady;
     private volatile long warningUntil;
     private long conflictWarning;
     private boolean autoplayPending;
     private volatile boolean closed;
+    private boolean resetting;
+    private long directoryGeneration;
 
     public void warn(String text) {
         warning = text;
@@ -49,7 +53,7 @@ public class DarkMusicClient implements ClientModInitializer {
     }
 
     public KeyMapping[] bindings() {
-        return new KeyMapping[]{open, toggle, next, previous, faster, slower, normalSpeed, volumeUp, volumeDown};
+        return new KeyMapping[]{open, toggle, next, previous, faster, slower, normalSpeed, volumeUp, volumeDown, mute};
     }
 
     public void speed(double value) {
@@ -58,14 +62,30 @@ public class DarkMusicClient implements ClientModInitializer {
         save();
     }
 
+    private void shortcutSpeed(double value) {
+        speed(value);
+        speedFeedback.show(settings.speed);
+    }
+
     public void volume(double value) {
         settings.volume = Settings.clampVolume(value);
+        if (settings.volume > 0) settings.lastAudibleVolume = settings.volume;
         playback.volume(settings.volume);
         save();
     }
 
+    public void toggleMute() {
+        volume(settings.volume > 0 ? 0 : settings.lastAudibleVolume);
+        volumeFeedback.show(settings.volume);
+    }
+
+    private void shortcutVolume(double value) {
+        volume(value);
+        volumeFeedback.show(settings.volume);
+    }
+
     public void save() {
-        if (!closed && settings != null) {
+        if (!closed && !resetting && settings != null) {
             configureVisualizer();
             config.save(settings);
         }
@@ -73,13 +93,13 @@ public class DarkMusicClient implements ClientModInitializer {
 
     public void configureVisualizer() {
         if (playback != null && playback.spectrum() != null)
-            playback.spectrum().configure(settings.playerVisualizer || settings.hudVisualizer, settings.visualizerBars, settings.visualizerSensitivity, settings.visualizerSmoothing);
+            playback.spectrum().configure(settings.hudVisualizer, settings.visualizerBars, settings.visualizerSensitivity, settings.visualizerSmoothing);
     }
 
     public void open() {
         var client = Minecraft.getInstance();
         var screen = client.gui.screen();
-        if (!closed && settings != null && library != null && client.gui.overlay() == null && client.gui.canInterruptScreen()
+        if (!closed && !resetting && settings != null && library != null && client.gui.overlay() == null && client.gui.canInterruptScreen()
             && (screen == null || screen instanceof TitleScreen) && (client.player == null || client.player.isAlive()))
             client.gui.setScreen(new MusicScreen(this, screen));
     }
@@ -105,17 +125,19 @@ public class DarkMusicClient implements ClientModInitializer {
     public void onInitializeClient() {
         INSTANCE = this;
         com.darkmusic.client.hud.NowPlayingHud.register(this);
-        com.darkmusic.client.hud.SpectrumHud.register(this);
+        com.darkmusic.client.hud.VolumeFeedback.register(this);
+        com.darkmusic.client.hud.SpeedFeedback.register(this);
         var category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("darkmusic", "controls"));
-        open = binding("open", 77, category);
-        toggle = binding("toggle", -1, category);
-        next = binding("next", org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT, category);
-        previous = binding("previous", org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT, category);
-        faster = binding("faster", -1, category);
-        slower = binding("slower", -1, category);
-        normalSpeed = binding("normal_speed", -1, category);
+        open = binding("open", org.lwjgl.glfw.GLFW.GLFW_KEY_B, category);
+        toggle = binding("toggle", org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSLASH, category);
+        next = binding("next", org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_BRACKET, category);
+        previous = binding("previous", org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_BRACKET, category);
+        faster = binding("faster", org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT, category);
+        slower = binding("slower", org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT, category);
+        normalSpeed = binding("normal_speed", org.lwjgl.glfw.GLFW.GLFW_KEY_KP_0, category);
         volumeUp = binding("volume_up", org.lwjgl.glfw.GLFW.GLFW_KEY_UP, category);
         volumeDown = binding("volume_down", org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN, category);
+        mute = binding("mute", org.lwjgl.glfw.GLFW.GLFW_KEY_M, category);
         CompletableFuture.supplyAsync(config::load, io).thenAccept(loaded -> Minecraft.getInstance().execute(() -> {
             if (!closed) {
                 settings = loaded;
@@ -128,7 +150,7 @@ public class DarkMusicClient implements ClientModInitializer {
                 Screens.getWidgets(screen).add(Button.builder(com.darkmusic.client.text.Text.component("text.darkmusic.music"), b -> open()).bounds(6, 6, 64, 20).build());
         });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            boolean allowed = settings != null && client.gui.screen() == null && client.gui.overlay() == null && client.player != null && client.player.isAlive();
+            boolean allowed = !resetting && settings != null && client.gui.screen() == null && client.gui.overlay() == null && client.player != null && client.player.isAlive();
             boolean pressed = false;
             while (open.consumeClick()) pressed = true;
             if (allowed && pressed && !conflicts(open)) open();
@@ -183,7 +205,7 @@ public class DarkMusicClient implements ClientModInitializer {
         try {
             activateDirectory(settings.musicDirectory.isBlank() ? config.defaultMusic() : java.nio.file.Path.of(settings.musicDirectory));
         } catch (Exception e) {
-            warn("Invalid saved directory; select another folder. " + e.getMessage());
+            warn("The saved music folder is invalid; choose another folder. " + e.getMessage());
             activateDirectory(config.defaultMusic());
         }
     }
@@ -200,26 +222,27 @@ public class DarkMusicClient implements ClientModInitializer {
             ((java.util.concurrent.ThreadPoolExecutor) browsing).purge();
             return browsing.submit(task);
         } catch (java.util.concurrent.RejectedExecutionException e) {
-            if (!closed) warn("Folder browser is busy. Wait for pending filesystem requests before trying again.");
+            if (!closed) warn("A folder operation is running. Wait for it to finish and try again.");
             return null;
         }
     }
 
     public void chooseDirectory(java.nio.file.Path directory, Runnable success) {
+        long generation = directoryGeneration;
         browse(() -> {
             try {
                 if (!java.nio.file.Files.isDirectory(directory) || !java.nio.file.Files.isReadable(directory))
                     throw new java.io.IOException("Directory unavailable or unreadable");
                 java.nio.file.Path canonical = directory.toRealPath();
                 Minecraft.getInstance().execute(() -> {
-                    if (!closed) {
+                    if (!closed && !resetting && generation == directoryGeneration) {
                         settings.musicDirectory = canonical.toString();
                         activateDirectory(canonical);
                         success.run();
                     }
                 });
             } catch (Exception e) {
-                warn("Cannot select directory: " + e.getMessage());
+                warn("Cannot choose music folder: " + e.getMessage());
             }
         });
     }
@@ -246,14 +269,18 @@ public class DarkMusicClient implements ClientModInitializer {
         }
         while (next.consumeClick()) if (allowed && playback != null && !conflicts(next)) playback.next();
         while (previous.consumeClick()) if (allowed && playback != null && !conflicts(previous)) playback.previous();
-        while (faster.consumeClick()) if (allowed && playback != null && !conflicts(faster)) speed(settings.speed + .1);
-        while (slower.consumeClick()) if (allowed && playback != null && !conflicts(slower)) speed(settings.speed - .1);
-        while (normalSpeed.consumeClick()) if (allowed && playback != null && !conflicts(normalSpeed)) speed(1);
+        while (faster.consumeClick())
+            if (allowed && playback != null && !conflicts(faster)) shortcutSpeed(settings.speed + .1);
+        while (slower.consumeClick())
+            if (allowed && playback != null && !conflicts(slower)) shortcutSpeed(settings.speed - .1);
+        while (normalSpeed.consumeClick()) if (allowed && playback != null && !conflicts(normalSpeed)) shortcutSpeed(1);
         while (volumeUp.consumeClick())
-            if (allowed && playback != null && !conflicts(volumeUp)) volume(settings.volume + .05);
+            if (allowed && playback != null && !conflicts(volumeUp)) shortcutVolume(settings.volume + .05);
         while (volumeDown.consumeClick())
-            if (allowed && playback != null && !conflicts(volumeDown)) volume(settings.volume - .05);
-        if (settings == null || playback == null) return;
+            if (allowed && playback != null && !conflicts(volumeDown)) shortcutVolume(settings.volume - .05);
+        while (mute.consumeClick())
+            if (allowed && playback != null && !conflicts(mute)) toggleMute();
+        if (resetting || settings == null || playback == null) return;
         if (autoplayPending && !library.snapshot().scanning()) {
             autoplayPending = false;
             if (!library.snapshot().tracks().isEmpty())
@@ -261,8 +288,112 @@ public class DarkMusicClient implements ClientModInitializer {
         }
     }
 
+    /**
+     * Called on the client thread only, after explicit confirmation.
+     */
+    public CompletableFuture<Void> resetDefaults() {
+        if (closed || resetting) return CompletableFuture.failedFuture(new IllegalStateException(com.darkmusic.client.text.Text.get("reset.darkmusic.busy")));
+        resetting = true;
+        directoryGeneration++;
+        autoplayPending = false;
+        com.darkmusic.client.gui.DesktopFolderPicker.cancel();
+        var prior = settings;
+        var defaultBindings = new java.util.LinkedHashMap<String, String>();
+        for (KeyMapping key : bindings()) defaultBindings.put("key_" + key.getName(), key.getDefaultKey().getName());
+        var roots = new java.util.LinkedHashSet<java.nio.file.Path>();
+        roots.add(library.root());
+        for (String root : prior.roots.keySet())
+            try {
+                roots.add(java.nio.file.Path.of(root));
+            } catch (java.nio.file.InvalidPathException ignored) {
+            }
+        playback.reset();
+        speedFeedback.clear();
+        volumeFeedback.clear();
+        artwork.close();
+        var oldPlayback = playback;
+        var oldLibrary = library;
+        var oldDownloads = downloads;
+        var oldAudition = audition;
+        audition = null;
+        var finished = new CompletableFuture<Void>();
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                if (oldAudition != null) oldAudition.close();
+                oldPlayback.close();
+                oldDownloads.close();
+                oldLibrary.close();
+                if (!oldDownloads.awaitStopped(15) || !oldLibrary.awaitStopped(15)
+                    || oldAudition != null && !oldAudition.awaitStopped(15))
+                    throw new java.io.IOException(com.darkmusic.client.text.Text.get("reset.darkmusic.waiting"));
+                var retained = com.darkmusic.client.config.ResetStorage.clear(config.directory(), roots);
+                config.resetShortcuts(defaultBindings);
+                return retained;
+            } catch (Exception e) {
+                throw new java.util.concurrent.CompletionException(e);
+            }
+        }, io).whenComplete((retained, failure) -> Minecraft.getInstance().execute(() -> {
+            if (closed) {
+                finished.completeExceptionally(new IllegalStateException(com.darkmusic.client.text.Text.get("reset.darkmusic.closing")));
+                return;
+            }
+            settings = failure == null ? Settings.defaults(prior) : prior;
+            playback = new com.darkmusic.client.audio.PlaybackController(new com.darkmusic.client.audio.JavaSoundBackend(Minecraft.getInstance()::execute), this::warn);
+            artwork = new com.darkmusic.client.library.ArtworkCache();
+            library = new com.darkmusic.client.library.MusicLibrary(config.directory());
+            downloads = new com.darkmusic.client.download.DownloadService(config.directory(), () -> library.requestRescan());
+            downloads.configure(new com.darkmusic.client.download.DownloadModels.Tools(settings.ytDlpPath, settings.ffmpegPath, settings.ffprobePath, settings.javascriptPath));
+            resetting = false;
+            playback.volume(settings.volume);
+            playback.speed(settings.speed);
+            playback.shuffle(settings.shuffle);
+            playback.repeat(settings.repeat);
+            configureVisualizer();
+            if (failure == null) {
+                warning = "";
+                warningUntil = 0;
+                conflictWarning = 0;
+                for (KeyMapping key : bindings()) {
+                    key.setKey(key.getDefaultKey());
+                    key.setDown(false);
+                    while (key.consumeClick()) {
+                    }
+                }
+                KeyMapping.resetMapping();
+            }
+            try {
+                activateDirectory(settings.musicDirectory.isBlank() ? config.defaultMusic() : java.nio.file.Path.of(settings.musicDirectory));
+            } catch (Exception e) {
+                activateDirectory(config.defaultMusic());
+            }
+            save();
+            if (failure != null) finished.completeExceptionally(failure);
+            else if (!retained.isEmpty()) {
+                String message = com.darkmusic.client.text.Text.get("reset.darkmusic.retained");
+                warn(message);
+                finished.completeExceptionally(new java.io.IOException(message));
+            } else {
+                String expected = ConfigStore.JSON.toJson(settings);
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        if (!java.nio.file.Files.readString(config.directory().resolve("config.json")).equals(expected))
+                            throw new java.io.IOException(com.darkmusic.client.text.Text.get("reset.darkmusic.save_failed"));
+                    } catch (java.io.IOException e) {
+                        throw new java.util.concurrent.CompletionException(e);
+                    }
+                }, io).whenComplete((unused, error) -> {
+                if (error == null) finished.complete(null);
+                    else finished.completeExceptionally(error);
+                });
+            }
+        }));
+        return finished;
+    }
+
     protected void shutdown() {
+        com.darkmusic.client.gui.DesktopFolderPicker.cancel();
         browsing.shutdownNow();
+        if (audition != null) audition.close();
         if (downloads != null) downloads.close();
         if (library != null) library.close();
         if (playback != null) playback.close();

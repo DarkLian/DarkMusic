@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
-import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,7 +21,30 @@ class SpeedAndHudTest {
         assertEquals(.7, Settings.clampVolume(.75 - .05));
         assertEquals(1, Settings.clampVolume(1 + .05));
         assertEquals(0, Settings.clampVolume(-.05));
-        assertEquals(.7, Settings.clampVolume(Double.NaN));
+        assertEquals(1, Settings.clampVolume(Double.NaN));
+    }
+
+    @Test
+    void hudWheelUsesTenthsAndClampsTheCombinedComponent() {
+        var wheel = new com.darkmusic.client.hud.HudScale();
+        assertEquals(1.1, wheel.scroll(1, 1));
+        assertEquals(1, wheel.scroll(1.1, -1));
+        assertEquals(1, wheel.scroll(1, .4));
+        assertEquals(1.1, wheel.scroll(1, .6));
+        assertEquals(3, wheel.scroll(2.9, 20));
+        assertEquals(.5, wheel.scroll(.6, -20));
+        var settings = new Settings();
+        settings.hudScale = 2;
+        settings.validate();
+        var bounds = HudLayout.bounds(settings, 850, 480);
+        assertEquals(440, bounds.width());
+        assertEquals(164, bounds.height());
+        settings.hudScale = Double.NaN;
+        settings.validate();
+        assertEquals(1, settings.hudScale);
+        settings.hudScale = 3;
+        var compact = HudLayout.bounds(settings, 200, 100);
+        assertTrue(compact.x() + compact.width() <= 192 && compact.y() + compact.height() <= 92);
     }
 
     private AudioInputStream music(int channels) throws Exception {
@@ -85,9 +107,9 @@ class SpeedAndHudTest {
         byte[] bytes = new com.darkmusic.client.library.MetadataReader().artwork(TestMusic.featured());
         var original = javax.imageio.ImageIO.read(new ByteArrayInputStream(bytes));
         var image = ArtworkCache.fitArtwork(original);
-        assertEquals(256, image.getWidth());
-        assertEquals(256, image.getHeight());
-        assertTrue((image.getRGB(128, 128) >>> 24) > 0);
+        assertEquals(Math.min(ArtworkCache.MAX_SIZE, Math.max(original.getWidth(), original.getHeight())), image.getWidth());
+        assertEquals(image.getWidth(), image.getHeight());
+        assertTrue((image.getRGB(image.getWidth() / 2, image.getHeight() / 2) >>> 24) > 0);
         if (original.getWidth() != original.getHeight()) assertEquals(0, image.getRGB(0, 0));
     }
 

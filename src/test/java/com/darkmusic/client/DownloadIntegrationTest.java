@@ -94,6 +94,13 @@ class DownloadIntegrationTest {
             assertEquals(0, info.exit(), info.output());
             var preview = DownloadJson.preview(url, 1, DownloadJson.object(info.output()));
             assertFalse(preview.collection());
+            try (var audition = com.darkmusic.client.download.AuditionClip.fetch(preview.entries().getFirst(), settings, data, runner, new ProcessRunner.Token())) {
+                try (var pcm = com.darkmusic.client.audio.PcmDecoder.open(audition.track().file())) {
+                    assertTrue(pcm.readNBytes(10000).length > 0);
+                }
+                assertFalse(audition.track().file().startsWith(destination));
+                assertTrue(Files.size(audition.track().file()) < 8_388_608);
+            }
             var saved = new DownloadPipeline(runner, data).execute(preview.entries().getFirst(), destination, chain, token, (status, detail) -> {
             });
             assertTrue(Files.size(saved.file()) > 1000);

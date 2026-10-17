@@ -24,12 +24,12 @@ public final class MusicLibrary implements AutoCloseable {
     private final MetadataReader metadata = new MetadataReader();
     private final Path cacheFile;
     private final Map<String, Cached> cache = new HashMap<>();
+    private final AtomicBoolean delayed = new AtomicBoolean();
     private volatile Path root;
     private volatile String rootId;
     private volatile boolean closed;
     private volatile WatchService watcher;
     private volatile Set<Path> watchedDirectories = Set.of();
-    private final AtomicBoolean delayed = new AtomicBoolean();
     private boolean cacheDirty;
     private volatile Snapshot snapshot = new Snapshot(0, List.of(), false, "Waiting for library");
 
@@ -249,6 +249,10 @@ public final class MusicLibrary implements AutoCloseable {
         monitor.shutdownNow();
         closeWatcher();
         scanner.shutdownNow();
+    }
+
+    public boolean awaitStopped(long seconds) throws InterruptedException {
+        return scanner.awaitTermination(seconds, TimeUnit.SECONDS) && monitor.awaitTermination(seconds, TimeUnit.SECONDS);
     }
 
     public record Snapshot(long revision, List<Track> tracks, boolean scanning, String message) {

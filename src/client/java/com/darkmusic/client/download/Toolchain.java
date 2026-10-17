@@ -12,7 +12,8 @@ import static com.darkmusic.client.download.DownloadModels.Tools;
 
 public record Toolchain(Path ytDlp, Path ffmpeg, Path ffprobe, String runtime, String versions) {
     public static Toolchain resolve(Tools settings, Path config, ProcessRunner runner, ProcessRunner.Token token) throws Exception {
-        Path directory = config.resolve("tools");
+        Path managed = ManagedTools.current(config);
+        Path directory = managed == null ? config.resolve("tools") : managed;
         Files.createDirectories(directory);
         Path yt = executable(settings.ytDlp(), "yt-dlp", directory, null);
         Path ff = executable(settings.ffmpeg(), "ffmpeg", directory, null);

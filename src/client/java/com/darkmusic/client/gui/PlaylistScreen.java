@@ -1,10 +1,9 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.text.Text;
-
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.playlist.PlaylistStore;
+import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -20,7 +19,6 @@ public final class PlaylistScreen extends LocalScreen {
     private String selectedId = "";
     private RowList lists, entries;
     private Button remove, up, down, add;
-    private boolean confirmDelete;
     private long revision = -1, libraryRevision = -1;
 
     public PlaylistScreen(DarkMusicClient app, Screen parent) {
@@ -47,23 +45,20 @@ public final class PlaylistScreen extends LocalScreen {
             if (p != null)
                 show(new TextPromptScreen(this, Text.get("text.darkmusic.rename_playlist"), p.name(), text -> app.playlists.rename(p.id(), text)));
         }, Text.get("text.darkmusic.rename_the_selected_playlist"));
-        button(confirmDelete ? Text.get("text.darkmusic.confirm_delete") : Text.get("text.darkmusic.delete"), 152, 32, 100, () -> {
-            if (selected() == null) return;
-            if (!confirmDelete) {
-                confirmDelete = true;
-                rebuildWidgets();
-            } else {
-                app.playlists.delete(selectedId);
+        button(Text.get("text.darkmusic.delete"), 152, 32, 100, () -> {
+            var playlist = selected();
+            if (playlist == null) return;
+            show(new ConfirmationScreen(this, Text.component("confirm.darkmusic.delete_title"),
+                Text.component("confirm.darkmusic.delete_body", playlist.name()), Text.component("text.darkmusic.delete"), () -> {
+                app.playlists.delete(playlist.id());
                 selectedId = "";
                 selection.clear();
-                confirmDelete = false;
-                rebuildWidgets();
-            }
-        }, Text.get("text.darkmusic.click_twice_to_delete_the_selected_playlist"));
+                return java.util.concurrent.CompletableFuture.completedFuture(null);
+            }));
+        }, Text.get("confirm.darkmusic.delete_help"));
         lists = addRenderableWidget(new RowList(12, 60, 100, Math.max(28, height - 150), 22, "Playlists", (i, activated) -> {
             selectedId = app.playlists.all().get(i).id();
             selection.clear();
-            confirmDelete = false;
             refreshEntries();
         }));
         entries = addRenderableWidget(new RowList(118, 60, width - 130, Math.max(28, height - 150), 32, Text.get("text.darkmusic.playlist_songs_space_selects"), (i, activated) -> {
@@ -145,9 +140,10 @@ public final class PlaylistScreen extends LocalScreen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float d) {
+        longText.begin();
         g.fill(0, 0, width, height, 0xFF111420);
         g.text(font, Text.get("text.darkmusic.manage_playlists"), 12, 12, 0xFFB5B0FF);
-        g.text(font, Text.get("format.darkmusic.selected", selection.size()), 264, 38, 0xFFCCCCDD);
+        longText.draw(g, font, "selection", Text.get("format.darkmusic.selected", selection.size()), 264, 38, width - 276, 0xFFCCCCDD);
         super.extractRenderState(g, x, y, d);
     }
 }
