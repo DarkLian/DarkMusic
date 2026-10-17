@@ -14,6 +14,13 @@ public final class SpeedFeedback {
     private final FeedbackTimer timer = new FeedbackTimer();
     private double speed = 1;
 
+    public static void register(DarkMusicClient app) {
+        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("darkmusic", "speed_feedback"), (g, delta) -> {
+            var mc = Minecraft.getInstance();
+            if (mc.level != null && mc.gui.screen() == null && !mc.gui.hud.isHidden()) app.speedFeedback.render(g);
+        });
+    }
+
     public void clear() {
         timer.clear();
     }
@@ -25,13 +32,6 @@ public final class SpeedFeedback {
 
     public double opacity(long now) {
         return timer.opacity(now);
-    }
-
-    public static void register(DarkMusicClient app) {
-        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("darkmusic", "speed_feedback"), (g, delta) -> {
-            var mc = Minecraft.getInstance();
-            if (mc.level != null && mc.gui.screen() == null && !mc.gui.hud.isHidden()) app.speedFeedback.render(g);
-        });
     }
 
     public void render(GuiGraphicsExtractor g) {

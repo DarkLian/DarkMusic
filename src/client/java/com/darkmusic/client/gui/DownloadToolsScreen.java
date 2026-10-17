@@ -34,7 +34,8 @@ public final class DownloadToolsScreen extends LocalScreen {
             show(new DownloadPathsScreen(app, this));
         }).bounds(12, 60, half, 20).build());
         cancel = addRenderableWidget(Help.tip(Button.builder(Text.component("tools.darkmusic.cancel_operation"), b -> app.downloads.cancelTools()).bounds(16 + half, 60, half, 20).build(), Text.get("tools.darkmusic.cancel_help")));
-        tools = addRenderableWidget(new RowList(12, 90, width - 24, Math.max(28, height - 132), 28, Text.get("text.darkmusic.download_tools"), (i, activated) -> { }));
+        tools = addRenderableWidget(new RowList(12, 90, width - 24, Math.max(28, height - 132), 28, Text.get("text.darkmusic.download_tools"), (i, activated) -> {
+        }));
         displayed = null;
         tick();
     }

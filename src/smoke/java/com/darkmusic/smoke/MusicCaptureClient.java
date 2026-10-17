@@ -14,7 +14,9 @@ import net.minecraft.client.input.*;
 
 import java.nio.file.*;
 
-/** Original fullscreen captures from the private collection; never included in the mod. */
+/**
+ * Original fullscreen captures from the private collection; never included in the mod.
+ */
 final class MusicCaptureClient {
     private int ticks, step = -2, captures;
     private boolean fullscreen, choosing;
@@ -38,9 +40,10 @@ final class MusicCaptureClient {
 
     private void click(Minecraft mc, String key) {
         String label = Text.get(key);
-        AbstractWidget button = mc.gui.screen().children().stream().filter(c -> c instanceof AbstractWidget w && w.getMessage().getString().equals(label)).map(c -> (AbstractWidget)c).findFirst().orElseThrow();
+        AbstractWidget button = mc.gui.screen().children().stream().filter(c -> c instanceof AbstractWidget w && w.getMessage().getString().equals(label)).map(c -> (AbstractWidget) c).findFirst().orElseThrow();
         if (!button.visible && mc.gui.screen() instanceof SettingsScreen)
-            for (int i = 0; i < 50 && !button.visible; i++) mc.gui.screen().mouseScrolled(20, mc.gui.screen().height - 20, 0, -1);
+            for (int i = 0; i < 50 && !button.visible; i++)
+                mc.gui.screen().mouseScrolled(20, mc.gui.screen().height - 20, 0, -1);
         require(button.active && button.visible, "Unavailable capture control " + label);
         mc.gui.screen().mouseClicked(new MouseButtonEvent(button.getX() + 3, button.getY() + 3, new MouseButtonInfo(0, 0)), false);
     }
@@ -50,7 +53,8 @@ final class MusicCaptureClient {
         try {
             if (++ticks > 2400) throw new IllegalStateException("Release capture timed out at " + step);
             var app = DarkMusicClient.INSTANCE;
-            if (app == null || app.settings == null || app.library == null || !app.playlistsReady || !mc.isGameLoadFinished() || mc.gui.overlay() != null) return;
+            if (app == null || app.settings == null || app.library == null || !app.playlistsReady || !mc.isGameLoadFinished() || mc.gui.overlay() != null)
+                return;
             if (!fullscreen) {
                 fullscreen = true;
                 if (!mc.getWindow().isFullscreen()) mc.getWindow().toggleFullScreen();
@@ -94,7 +98,8 @@ final class MusicCaptureClient {
                 case 7 -> mc.gui.setScreen(new PlaylistScreen(app, player));
                 case 8 -> capture(mc, "playlists");
                 case 9 -> {
-                    mc.gui.setScreen(new TrackPickerScreen(app, player, emptyPlaylist, tracks -> { }));
+                    mc.gui.setScreen(new TrackPickerScreen(app, player, emptyPlaylist, tracks -> {
+                    }));
                     click(mc, "text.darkmusic.select_all");
                 }
                 case 10 -> capture(mc, "bulk-picker");

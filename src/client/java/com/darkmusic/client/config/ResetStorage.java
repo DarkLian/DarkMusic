@@ -6,7 +6,10 @@ import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.function.Predicate;
 
@@ -46,6 +49,29 @@ public final class ResetStorage {
             reset.tools();
         }
         return List.copyOf(reset.retained);
+    }
+
+    private static boolean executable(Path file) throws IOException {
+        try (var channel = FileChannel.open(file, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+            var header = java.nio.ByteBuffer.allocate(64);
+            while (header.hasRemaining() && channel.read(header) > 0) {
+            }
+            if (header.position() < 4) return false;
+            byte[] bytes = header.array();
+            int magic = java.nio.ByteBuffer.wrap(bytes).getInt();
+            if (magic == 0x7f454c46 || magic == 0xfeedface || magic == 0xcefaedfe || magic == 0xfeedfacf || magic == 0xcffaedfe || magic == 0xcafebabe)
+                return true;
+            if (bytes[0] == '#' && bytes[1] == '!')
+                return new String(bytes, java.nio.charset.StandardCharsets.US_ASCII).contains("python");
+            if (header.position() < 64 || bytes[0] != 'M' || bytes[1] != 'Z') return false;
+            long offset = Integer.toUnsignedLong(java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN).getInt(60));
+            if (offset < 64 || offset > channel.size() - 4) return false;
+            channel.position(offset);
+            var pe = java.nio.ByteBuffer.allocate(4);
+            while (pe.hasRemaining() && channel.read(pe) > 0) {
+            }
+            return pe.position() == 4 && pe.getInt(0) == 0x50450000;
+        }
     }
 
     private Locked lock(String relative) throws IOException {
@@ -142,29 +168,6 @@ public final class ResetStorage {
             } catch (IOException e) {
                 keep(file, e);
             }
-        }
-    }
-
-    private static boolean executable(Path file) throws IOException {
-        try (var channel = FileChannel.open(file, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
-            var header = java.nio.ByteBuffer.allocate(64);
-            while (header.hasRemaining() && channel.read(header) > 0) {
-            }
-            if (header.position() < 4) return false;
-            byte[] bytes = header.array();
-            int magic = java.nio.ByteBuffer.wrap(bytes).getInt();
-            if (magic == 0x7f454c46 || magic == 0xfeedface || magic == 0xcefaedfe || magic == 0xfeedfacf || magic == 0xcffaedfe || magic == 0xcafebabe)
-                return true;
-            if (bytes[0] == '#' && bytes[1] == '!')
-                return new String(bytes, java.nio.charset.StandardCharsets.US_ASCII).contains("python");
-            if (header.position() < 64 || bytes[0] != 'M' || bytes[1] != 'Z') return false;
-            long offset = Integer.toUnsignedLong(java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN).getInt(60));
-            if (offset < 64 || offset > channel.size() - 4) return false;
-            channel.position(offset);
-            var pe = java.nio.ByteBuffer.allocate(4);
-            while (pe.hasRemaining() && channel.read(pe) > 0) {
-            }
-            return pe.position() == 4 && pe.getInt(0) == 0x50450000;
         }
     }
 

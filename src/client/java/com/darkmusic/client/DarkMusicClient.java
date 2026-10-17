@@ -27,11 +27,11 @@ public class DarkMusicClient implements ClientModInitializer {
     public final ExecutorService io = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-storage").factory());
     public final ExecutorService browsing = new java.util.concurrent.ThreadPoolExecutor(2, 2, 0, TimeUnit.MILLISECONDS, new java.util.concurrent.ArrayBlockingQueue<>(16), Thread.ofPlatform().daemon().name("darkmusic-browse").factory(), new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
     public final ConfigStore config = new ConfigStore(FabricLoader.getInstance().getConfigDir().resolve("darkmusic"), io, this::warn);
+    public final com.darkmusic.client.hud.SpeedFeedback speedFeedback = new com.darkmusic.client.hud.SpeedFeedback();
+    public final com.darkmusic.client.hud.VolumeFeedback volumeFeedback = new com.darkmusic.client.hud.VolumeFeedback();
     public volatile Settings settings;
     public volatile String warning = "";
     public KeyMapping open, toggle, next, previous, faster, slower, normalSpeed, volumeUp, volumeDown, mute;
-    public final com.darkmusic.client.hud.SpeedFeedback speedFeedback = new com.darkmusic.client.hud.SpeedFeedback();
-    public final com.darkmusic.client.hud.VolumeFeedback volumeFeedback = new com.darkmusic.client.hud.VolumeFeedback();
     public com.darkmusic.client.library.MusicLibrary library;
     public com.darkmusic.client.audio.PlaybackController playback;
     public com.darkmusic.client.library.ArtworkCache artwork;
@@ -292,7 +292,8 @@ public class DarkMusicClient implements ClientModInitializer {
      * Called on the client thread only, after explicit confirmation.
      */
     public CompletableFuture<Void> resetDefaults() {
-        if (closed || resetting) return CompletableFuture.failedFuture(new IllegalStateException(com.darkmusic.client.text.Text.get("reset.darkmusic.busy")));
+        if (closed || resetting)
+            return CompletableFuture.failedFuture(new IllegalStateException(com.darkmusic.client.text.Text.get("reset.darkmusic.busy")));
         resetting = true;
         directoryGeneration++;
         autoplayPending = false;
@@ -382,7 +383,7 @@ public class DarkMusicClient implements ClientModInitializer {
                         throw new java.util.concurrent.CompletionException(e);
                     }
                 }, io).whenComplete((unused, error) -> {
-                if (error == null) finished.complete(null);
+                    if (error == null) finished.complete(null);
                     else finished.completeExceptionally(error);
                 });
             }

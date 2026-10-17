@@ -14,6 +14,13 @@ public final class VolumeFeedback {
     private final FeedbackTimer timer = new FeedbackTimer();
     private double volume;
 
+    public static void register(DarkMusicClient app) {
+        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("darkmusic", "volume_feedback"), (g, delta) -> {
+            var mc = Minecraft.getInstance();
+            if (mc.level != null && mc.gui.screen() == null && !mc.gui.hud.isHidden()) app.volumeFeedback.render(g);
+        });
+    }
+
     public void show(double value) {
         show(value, System.nanoTime());
     }
@@ -29,13 +36,6 @@ public final class VolumeFeedback {
 
     public double opacity(long now) {
         return timer.opacity(now);
-    }
-
-    public static void register(DarkMusicClient app) {
-        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("darkmusic", "volume_feedback"), (g, delta) -> {
-            var mc = Minecraft.getInstance();
-            if (mc.level != null && mc.gui.screen() == null && !mc.gui.hud.isHidden()) app.volumeFeedback.render(g);
-        });
     }
 
     public void render(GuiGraphicsExtractor g) {

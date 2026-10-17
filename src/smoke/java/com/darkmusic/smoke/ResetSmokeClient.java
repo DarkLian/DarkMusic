@@ -17,18 +17,14 @@ import java.util.concurrent.*;
  * Isolated reset verification; only copies of private real music enter reset's scope.
  */
 final class ResetSmokeClient {
+    private final Map<Path, String> hashes = new LinkedHashMap<>();
     private int tick, stage;
     private boolean configured;
     private Path data, custom, source;
     private CompletableFuture<Void> prepared;
-    private final Map<Path, String> hashes = new LinkedHashMap<>();
     private String playlist, retainedPlaylist, jumpKey;
     private net.minecraft.client.gui.screens.Screen settingsScreen;
     private CompletableFuture<Settings> saved;
-
-    void start() {
-        ClientTickEvents.END_CLIENT_TICK.register(this::tick);
-    }
 
     private static void require(boolean ok, String message) {
         if (!ok) throw new IllegalStateException(message);
@@ -36,6 +32,10 @@ final class ResetSmokeClient {
 
     private static String hash(Path file) throws Exception {
         return HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(file)));
+    }
+
+    void start() {
+        ClientTickEvents.END_CLIENT_TICK.register(this::tick);
     }
 
     private void click(Minecraft mc, String key) {

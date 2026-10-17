@@ -22,6 +22,10 @@ final class HudSmokeClient {
     private CompletableFuture<Settings> saved;
     private SettingsScreen screen;
 
+    private static void require(boolean ok, String message) {
+        if (!ok) throw new IllegalStateException(message);
+    }
+
     private Object field(Object value, String name) throws Exception {
         for (Class<?> type = value.getClass(); type != null; type = type.getSuperclass())
             try {
@@ -54,10 +58,6 @@ final class HudSmokeClient {
         rows.keyPressed(new KeyEvent(262, 0, 0));
         require((double) field(line, "offset") == end, "Right key did not pan the focused row");
         require((int) field(rows, "scroll") == vertical && rows.selected() == 0, "Horizontal panning changed vertical position or selection");
-    }
-
-    private static void require(boolean ok, String message) {
-        if (!ok) throw new IllegalStateException(message);
     }
 
     private MouseButtonEvent mouse(double x, double y) {

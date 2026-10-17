@@ -1,6 +1,7 @@
 package com.darkmusic.client;
 
-import com.darkmusic.client.config.*;
+import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.gui.PlayerLayout;
 import com.darkmusic.client.hud.VolumeFeedback;
 import org.junit.jupiter.api.Test;

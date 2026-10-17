@@ -1,13 +1,15 @@
 package com.darkmusic.client;
 
-import com.darkmusic.client.download.*;
+import com.darkmusic.client.download.DownloadModels;
+import com.darkmusic.client.download.DownloadService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.file.*;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;

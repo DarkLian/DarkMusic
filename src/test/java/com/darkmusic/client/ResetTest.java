@@ -8,9 +8,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.channels.FileChannel;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
-import java.util.*;
+import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -177,10 +181,13 @@ class ResetTest {
             var entry = new com.darkmusic.client.download.DownloadModels.Entry(1, "Authorized entry", "https://example.com/video", "generic", "one", true);
             var active = worker.submit(() -> {
                 try {
-                    pipeline.execute(entry, temp.resolve("music"), tools, token, (status, detail) -> { });
+                    pipeline.execute(entry, temp.resolve("music"), tools, token, (status, detail) -> {
+                    });
                     fail("Cancelled download completed");
                 } catch (java.util.concurrent.CancellationException expected) {
-                } catch (Exception e) { throw new RuntimeException(e); }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
             });
             assertTrue(entered.await(3, java.util.concurrent.TimeUnit.SECONDS));
             Files.writeString(temp.resolve("library-cache.json"), "[]");

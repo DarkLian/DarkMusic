@@ -20,14 +20,10 @@ import java.util.concurrent.Executors;
  */
 public final class ArtworkCache implements AutoCloseable {
     public static final int MAX_SIZE = 1024;
-    private int cachedBytes;
-
-    public record Cover(Identifier id, int size) {
-    }
-
     private final LinkedHashMap<String, Cover> cache = new LinkedHashMap<>(32, 0.75f, true);
     private final Set<String> pending = new HashSet<>();
     private final ExecutorService worker = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-artwork").factory());
+    private int cachedBytes;
     private volatile boolean closed;
     private int serial;
 
@@ -44,6 +40,10 @@ public final class ArtworkCache implements AutoCloseable {
             graphics.dispose();
         }
         return image;
+    }
+
+    public static void draw(net.minecraft.client.gui.GuiGraphicsExtractor g, Cover cover, int x, int y, int size) {
+        g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, cover.id(), x, y, 0, 0, size, size, cover.size(), cover.size(), cover.size(), cover.size());
     }
 
     public Cover get(Track track) {
@@ -110,10 +110,6 @@ public final class ArtworkCache implements AutoCloseable {
         return null;
     }
 
-    public static void draw(net.minecraft.client.gui.GuiGraphicsExtractor g, Cover cover, int x, int y, int size) {
-        g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, cover.id(), x, y, 0, 0, size, size, cover.size(), cover.size(), cover.size(), cover.size());
-    }
-
     @Override
     public void close() {
         closed = true;
@@ -122,5 +118,8 @@ public final class ArtworkCache implements AutoCloseable {
         cachedBytes = 0;
         cache.clear();
         pending.clear();
+    }
+
+    public record Cover(Identifier id, int size) {
     }
 }

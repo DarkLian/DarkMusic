@@ -5,38 +5,18 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.lwjgl.glfw.GLFW;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Bounded, Unicode-safe panning for read-only lines; ordinary wheel scrolling stays vertical.
  */
 public final class HorizontalText {
     private final LinkedHashMap<String, Line> lines = new LinkedHashMap<>(32, .75f, true);
-    private double originX, originY, scale = 1;
-
-    public void transform(double x, double y, double value) {
-        originX = x;
-        originY = y;
-        scale = value;
-    }
-
     private final List<Zone> zones = new ArrayList<>();
-
-    private static final class Line {
-        String text, visible;
-        int measured, maximum, paintedOffset = -1, paintedWidth, shift;
-        double offset;
-    }
-
-    private record Zone(String key, int x, int y, int width, int height) {
-        boolean contains(double px, double py) {
-            return px >= x && px < x + width && py >= y && py < y + height;
-        }
-    }
-
-    public void begin() {
-        zones.clear();
-    }
+    private double originX, originY, scale = 1;
 
     public static boolean shiftDown() {
         long window = Minecraft.getInstance().getWindow().handle();
@@ -45,6 +25,20 @@ public final class HorizontalText {
 
     public static boolean horizontalIntent(double dx, double dy) {
         return dx != 0 || (dy != 0 && shiftDown());
+    }
+
+    public static double clamp(double value, int maximum) {
+        return Double.isFinite(value) ? Math.clamp(value, 0, Math.max(0, maximum)) : 0;
+    }
+
+    public void transform(double x, double y, double value) {
+        originX = x;
+        originY = y;
+        scale = value;
+    }
+
+    public void begin() {
+        zones.clear();
     }
 
     public void draw(GuiGraphicsExtractor g, Font font, String key, String text, int x, int y, int width, int color) {
@@ -95,7 +89,15 @@ public final class HorizontalText {
         return true;
     }
 
-    public static double clamp(double value, int maximum) {
-        return Double.isFinite(value) ? Math.clamp(value, 0, Math.max(0, maximum)) : 0;
+    private static final class Line {
+        String text, visible;
+        int measured, maximum, paintedOffset = -1, paintedWidth, shift;
+        double offset;
+    }
+
+    private record Zone(String key, int x, int y, int width, int height) {
+        boolean contains(double px, double py) {
+            return px >= x && px < x + width && py >= y && py < y + height;
+        }
     }
 }
