@@ -58,6 +58,8 @@ public final class MusicScreen extends LocalScreen {
 
     @Override
     protected void init() {
+        if (width >= 400 && app.settings.lyricsEnabled)
+            button(Text.get("lyrics.darkmusic.title"), 80, 6, 60, () -> show(new LyricsScreen(app, this)));
         Help.tip(button(Text.get("text.darkmusic.settings"), width - 88, 6, 76, () -> show(new SettingsScreen(app, this))), Text.get("text.darkmusic.music_folder_autoplay_background_music_and_hud_layout_assign_shortcuts_in_options"));
         Help.tip(button(Text.get("text.darkmusic.manage_playlists"), width - 216, 6, 124, () -> {
             if (app.playlistsReady) show(new PlaylistScreen(app, this));
@@ -183,7 +185,23 @@ public final class MusicScreen extends LocalScreen {
         if (mode.equals("Playlists") && !groups.contains(group)) group = groups.isEmpty() ? "" : groups.getFirst();
         if (mode.equals("All") && !folders.contains(group)) group = "";
         navigation.emptyMessage(mode.equals("Playlists") ? (app.playlistsReady ? Text.get("text.darkmusic.no_playlists") : Text.get("text.darkmusic.loading")) : Text.get("text.darkmusic.no_entries"));
-        navigation.rows(java.util.stream.IntStream.range(0, groups.size()).mapToObj(i -> new RowList.Row(mode.equals("All") ? i == 0 ? Text.get("text.darkmusic.all_tracks") : folderRows.get(i - 1).label() : mode.equals("Playlists") ? app.playlists.get(groups.get(i)).name() : groups.get(i), "")).toList());
+        var counts = new java.util.HashMap<String, Integer>();
+        for (Track track : tracks) {
+            if (mode.equals("Artists")) counts.merge(track.artist(), 1, Integer::sum);
+            else if (mode.equals("Albums")) counts.merge(track.album(), 1, Integer::sum);
+            else if (mode.equals("All")) {
+                counts.merge("", 1, Integer::sum);
+                String path = track.relativePath().replace('\\', '/');
+                for (int slash = path.indexOf('/'); slash >= 0; slash = path.indexOf('/', slash + 1))
+                    counts.merge(path.substring(0, slash), 1, Integer::sum);
+            }
+        }
+        navigation.rows(java.util.stream.IntStream.range(0, groups.size()).mapToObj(i -> {
+            String key = groups.get(i);
+            String label = mode.equals("All") ? i == 0 ? Text.get("text.darkmusic.all_tracks") : folderRows.get(i - 1).label() : mode.equals("Playlists") ? app.playlists.get(key).name() : key;
+            int count = mode.equals("Playlists") ? app.playlists.resolve(key, tracks).size() : counts.getOrDefault(key, 0);
+            return new RowList.Row(label + " (" + count + ")", "");
+        }).toList());
         navigation.select(groups.indexOf(group));
         refreshSongs();
     }

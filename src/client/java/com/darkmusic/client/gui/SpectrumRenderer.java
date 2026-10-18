@@ -9,6 +9,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
  */
 public final class SpectrumRenderer {
     private final float[] levels = new float[64];
+    private final float[] peaks = new float[64];
 
     private long previewTime;
 
@@ -17,6 +18,8 @@ public final class SpectrumRenderer {
     }
 
     private static void fill(DarkMusicClient app, GuiGraphicsExtractor g, int left, int top, int right, int bottom, int color, int width, int hudHeight) {
+        if (app.settings.visualQuality.glow)
+            rawFill(app, g, left - 1, top - 1, right + 1, bottom + 1, (color & 0xffffff) | 0x22000000, width, hudHeight);
         if (app.settings.spectrumFinish != com.darkmusic.client.config.Settings.SurfaceFinish.BEVELED || bottom - top < 2) {
             rawFill(app, g, left, top, right, bottom, color, width, hudHeight);
             return;
@@ -43,6 +46,8 @@ public final class SpectrumRenderer {
         if (actual) app.playback.spectrum().copyTo(levels);
         else if (!settingsPreview) return false;
         int bands = app.settings.visualizerBars;
+        if (actual) app.playback.spectrum().copyPeaks(peaks);
+        else System.arraycopy(levels, 0, peaks, 0, levels.length);
         if (!actual) {
             long now = System.nanoTime();
             double dt = previewTime == 0 ? .016 : Math.min(.1, (now - previewTime) / 1e9);
@@ -83,7 +88,7 @@ public final class SpectrumRenderer {
         int bands = app.settings.visualizerBars;
         if (app.settings.spectrumStyle != com.darkmusic.client.config.Settings.SpectrumStyle.BARS) {
             // At most 384 columns, even on large windows. Reuse the analysis snapshot above.
-            int columns = Math.min(width, 384), previous = 0;
+            int columns = Math.min(width, app.settings.visualQuality.detail), previous = 0;
             for (int i = 0; i < columns; i++) {
                 double position = columns == 1 ? 0 : i / (double) (columns - 1);
                 boolean spike = app.settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.SPIKE || app.settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.FILLED_SPIKE;
@@ -99,6 +104,10 @@ public final class SpectrumRenderer {
                 int left = x + i * width / columns, right = x + (i + 1) * width / columns;
                 int top = downward ? y + low : y + height - high;
                 int bottom = downward ? y + high : y + height - low;
+                if (app.settings.visualQuality.trails) {
+                    int tail = barHeight(SpectrumCurve.sample(peaks, bands, position), height);
+                    rawFill(app, g, left, downward ? y : y + height - tail, right, downward ? y + tail : y + height, (app.settings.spectrumColors.color(position) & 0xffffff) | 0x33000000, width, hudHeight);
+                }
                 fill(app, g, left, top, right, bottom, app.settings.spectrumColors.color(i / (double) (columns - 1)), width, hudHeight);
                 previous = h;
             }
@@ -112,6 +121,16 @@ public final class SpectrumRenderer {
             if (h == 0) continue;
             int left = x + i * width / bars, right = x + (i + 1) * width / bars - 1;
             int top = downward ? y : y + height - h;
+            if (app.settings.visualQuality.trails || app.settings.visualQuality.peakHold) {
+                int peak = 0;
+                for (int j = i * bands / bars; j < (i + 1) * bands / bars; j++)
+                    peak = Math.max(peak, barHeight(peaks[j], height));
+                int color = (app.settings.spectrumColors.color(i / (double) Math.max(1, bars - 1)) & 0xffffff) | 0x55000000;
+                if (app.settings.visualQuality.trails)
+                    rawFill(app, g, left, downward ? y : y + height - peak, Math.max(left + 1, right), downward ? y + peak : y + height, color, width, hudHeight);
+                if (app.settings.visualQuality.peakHold)
+                    rawFill(app, g, left, downward ? y + Math.max(0, peak - 1) : y + height - peak, Math.max(left + 1, right), downward ? y + peak : y + height - peak + 1, color | 0xff000000, width, hudHeight);
+            }
             fill(app, g, left, top, Math.max(left + 1, right), top + h, app.settings.spectrumColors.color(bars <= 1 ? 0 : i / (double) (bars - 1)), width, hudHeight);
         }
     }

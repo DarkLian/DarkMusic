@@ -425,6 +425,7 @@ final class HudSmokeClient {
                 }
                 case 43 -> {
                     s.hudStyle = Settings.HudStyle.CLASSIC;
+                    s.circularSpectrumStyle = Settings.SpectrumStyle.BARS;
                     screen = new SettingsScreen(app, null);
                     mc.gui.setScreen(screen);
                     var style = screen.children().stream().filter(c -> c instanceof SettingRow w && w.getMessage().getString().startsWith("HUD Style:")).map(c -> (SettingRow) c).findFirst().orElseThrow();

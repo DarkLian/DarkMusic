@@ -97,18 +97,25 @@ public final class SettingsScreen extends LocalScreen {
         bottom = height - 12;
         var s = app.settings;
         section("text.darkmusic.general_settings");
+        action("audio.darkmusic.title", () -> show(new AudioSettingsScreen(app, this)), "audio.darkmusic.options_help");
+        toggle("lyrics.darkmusic.enabled", () -> s.lyricsEnabled, v -> {
+            s.lyricsEnabled = v;
+            rebuildWidgets();
+        }, "lyrics.darkmusic.enabled_help");
+        if (s.lyricsEnabled)
+            action("lyrics.darkmusic.title", () -> show(new LyricsScreen(app, this)), "lyrics.darkmusic.help");
         toggle("text.darkmusic.autoplay_on_launch", () -> s.autoplay, v -> s.autoplay = v, "text.darkmusic.automatically_start_the_library_after_minecraft_launches_disabled_by_default");
         action("text.darkmusic.choose_music_folder", () -> DesktopFolderPicker.open(app, this::isCurrent), "text.darkmusic.choose_the_local_folder_containing_your_music_subfolders_are_included");
         folderY = cursor;
         folderPath = app.library.root().toString();
         folderLines = font.split(net.minecraft.network.chat.Component.literal(folderPath), formWidth - 14);
         cursor += folderLines.size() * 10 + 4;
-        toggle("text.darkmusic.suppress_vanilla_background_music", () -> s.suppressVanillaMusic, v -> {
-            s.suppressVanillaMusic = v;
-            if (v) minecraft.getMusicManager().stopPlaying();
-        }, "text.darkmusic.stop_minecraft_s_background_music_while_keeping_ordinary_sound_effects");
         section("text.darkmusic.hud_settings");
         toggle("text.darkmusic.now_playing_hud", () -> s.hudEnabled, v -> s.hudEnabled = v, "hud.darkmusic.master_help");
+        if (s.lyricsEnabled) {
+            toggle("lyrics.darkmusic.hud", () -> s.lyricsHud, v -> s.lyricsHud = v, "lyrics.darkmusic.help");
+            toggle("lyrics.darkmusic.next", () -> s.lyricsNextLine, v -> s.lyricsNextLine = v, "lyrics.darkmusic.help");
+        }
         action("circle.darkmusic.style", () -> {
             s.hudStyle = s.hudStyle == Settings.HudStyle.CLASSIC ? Settings.HudStyle.CIRCULAR : Settings.HudStyle.CLASSIC;
             app.save();
@@ -124,6 +131,17 @@ public final class SettingsScreen extends LocalScreen {
             toggle("circle.darkmusic.text", () -> s.circularText, v -> s.circularText = v, "circle.darkmusic.text_help");
             toggle("circle.darkmusic.pulse", () -> s.circularIconPulse, v -> s.circularIconPulse = v, "circle.darkmusic.pulse_help");
         }
+        if (classic) {
+            action("style.darkmusic.shape", () -> {
+                s.hudShape = Settings.HudShape.values()[(s.hudShape.ordinal() + 1) % Settings.HudShape.values().length];
+                app.save();
+                rebuildWidgets();
+            }, "style.darkmusic.shape_help");
+            controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("style.darkmusic.shape") + ": " + Text.get("style.darkmusic.shape." + s.hudShape.name().toLowerCase(Locale.ROOT))));
+            toggle("style.darkmusic.raised", () -> s.hudRaised, v -> s.hudRaised = v, "style.darkmusic.raised_help");
+        }
+        action("text.darkmusic.edit_hud_layout", () -> show(new HudEditorScreen(app, this)), "hud.darkmusic.help");
+        section("hud.darkmusic.section_spectrum");
         action("style.darkmusic.spectrum", () -> {
             if (classic)
                 s.spectrumStyle = Settings.SpectrumStyle.values()[(s.spectrumStyle.ordinal() + 1) % Settings.SpectrumStyle.values().length];
@@ -138,13 +156,6 @@ public final class SettingsScreen extends LocalScreen {
         var chosenStyle = classic ? s.spectrumStyle : s.circularSpectrumStyle;
         controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("style.darkmusic.spectrum") + ": " + Text.get((classic ? "style.darkmusic.spectrum." : "circle.darkmusic.spectrum.") + chosenStyle.name().toLowerCase(Locale.ROOT))));
         if (classic) {
-            action("style.darkmusic.shape", () -> {
-                s.hudShape = Settings.HudShape.values()[(s.hudShape.ordinal() + 1) % Settings.HudShape.values().length];
-                app.save();
-                rebuildWidgets();
-            }, "style.darkmusic.shape_help");
-            controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("style.darkmusic.shape") + ": " + Text.get("style.darkmusic.shape." + s.hudShape.name().toLowerCase(Locale.ROOT))));
-            toggle("style.darkmusic.raised", () -> s.hudRaised, v -> s.hudRaised = v, "style.darkmusic.raised_help");
             action("hud.darkmusic.position", () -> {
                 s.spectrumPosition = s.spectrumPosition == Settings.SpectrumPosition.ABOVE ? Settings.SpectrumPosition.BELOW : Settings.SpectrumPosition.ABOVE;
                 app.save();
@@ -161,13 +172,25 @@ public final class SettingsScreen extends LocalScreen {
         slider(s.visualizerSmoothing / .95, v -> Text.get("format.darkmusic.smoothing", Math.round(s.visualizerSmoothing * 100)), v -> s.visualizerSmoothing = v * .95, 19, "text.darkmusic.higher_values_give_slower_attack_and_decay_pausing_freezes_the_actual_spectrum_sto");
         slider((s.visualizerSensitivity - .25) / 3.75, v -> Text.get("format.darkmusic.sensitivity", String.format(Locale.ROOT, "%.2f", s.visualizerSensitivity)), v -> s.visualizerSensitivity = .25 + v * 3.75, 15, "text.darkmusic.boost_quiet_spectra_or_reduce_strong_levels_samples_follow_playback_speed_and_dark");
         slider((s.visualizerBars - 8) / 56.0, v -> Text.get("format.darkmusic.bars", s.visualizerBars), v -> s.visualizerBars = 8 + (int) Math.round(v * 56), 14, "text.darkmusic.8_64_logarithmic_frequency_bands_from_bass_to_treble_narrow_areas_combine_bars_to");
+        section("hud.darkmusic.section_appearance");
         finish("finish.darkmusic.spectrum", () -> s.spectrumFinish, v -> s.spectrumFinish = v);
         finish("finish.darkmusic.progress", () -> s.progressFinish, v -> s.progressFinish = v);
         action("colors.darkmusic.spectrum", () -> show(new ColorsScreen(app, this, true)), "colors.darkmusic.help");
         action("colors.darkmusic.progress", () -> show(new ColorsScreen(app, this, false)), "colors.darkmusic.help");
         if (classic)
             slider(s.hudBackgroundTransparency, v -> Text.get("hud.darkmusic.transparency", Math.round(s.hudBackgroundTransparency * 100)), v -> s.hudBackgroundTransparency = v, 100, "hud.darkmusic.transparency_help");
-        action("text.darkmusic.edit_hud_layout", () -> show(new HudEditorScreen(app, this)), "hud.darkmusic.help");
+        section("hud.darkmusic.section_effects");
+        action("quality.darkmusic.preset", () -> {
+            s.visualQuality.next();
+            app.save();
+            rebuildWidgets();
+        }, "quality.darkmusic.help");
+        controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("quality.darkmusic.preset") + ": " + Text.get("quality.darkmusic." + s.visualQuality.preset().name().toLowerCase(Locale.ROOT))));
+        toggle("quality.darkmusic.frequency", () -> s.visualQuality.frequencySmoothing, v -> s.visualQuality.frequencySmoothing = v, "quality.darkmusic.help");
+        toggle("quality.darkmusic.peaks", () -> s.visualQuality.peakHold, v -> s.visualQuality.peakHold = v, "quality.darkmusic.help");
+        toggle("quality.darkmusic.trails", () -> s.visualQuality.trails, v -> s.visualQuality.trails = v, "quality.darkmusic.help");
+        toggle("quality.darkmusic.glow", () -> s.visualQuality.glow, v -> s.visualQuality.glow = v, "quality.darkmusic.help");
+        toggle("quality.darkmusic.beat", () -> s.visualQuality.beatReactive, v -> s.visualQuality.beatReactive = v, "quality.darkmusic.help");
         section("reset.darkmusic.section");
         action("reset.darkmusic.button", () -> show(new ConfirmationScreen(this, Text.component("reset.darkmusic.title"),
             Text.component("reset.darkmusic.body"), Text.component("reset.darkmusic.confirm"), app::resetDefaults)), "reset.darkmusic.help");

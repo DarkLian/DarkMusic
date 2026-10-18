@@ -40,6 +40,17 @@ public final class DownloadService implements AutoCloseable {
     private ProcessRunner.Token previewToken;
     private ProcessRunner.Token analysisToken = new ProcessRunner.Token();
     private Tools settings = new Tools("", "", "", "");
+    private DownloadEncoding.Format format = DownloadEncoding.Format.ORIGINAL;
+    private volatile boolean lyricsEnabled = true;
+
+    public void lyrics(boolean enabled) {
+        lyricsEnabled = enabled;
+    }
+
+    public synchronized void format(DownloadEncoding.Format value) {
+        format = java.util.Objects.requireNonNull(value);
+    }
+
     private volatile Cache cache;
 
     public DownloadService(Path data, Runnable refresh) {
@@ -276,6 +287,7 @@ public final class DownloadService implements AutoCloseable {
             var key = new ActiveKey(target, entry.key());
             if (!activeKeys.add(key)) continue;
             Work item = new Work(++ids, entry, target, selected);
+            item.format = format;
             work.add(item);
             if (!entry.available()) {
                 item.status = Status.FAILED;
@@ -330,6 +342,7 @@ public final class DownloadService implements AutoCloseable {
                     return;
                 }
                 item.tools = settings;
+                item.format = format;
                 item.attempts = 0;
                 requeue(item);
             }
@@ -451,7 +464,7 @@ public final class DownloadService implements AutoCloseable {
                     } catch (NumberFormatException ignored) {
                     }
                     update(item, status, percent, detail);
-                });
+                }, item.format, () -> lyricsEnabled);
                 update(item, result.skipped() ? Status.SKIPPED : Status.SAVED, 1, result.file().getFileName() + (result.warning().isBlank() ? "" : " — " + result.warning()));
                 if (!result.skipped()) try {
                     refresh.run();
@@ -504,6 +517,7 @@ public final class DownloadService implements AutoCloseable {
         final Entry entry;
         final Path destination;
         Tools tools;
+        DownloadEncoding.Format format = DownloadEncoding.Format.ORIGINAL;
         ProcessRunner.Token token = new ProcessRunner.Token();
         int attempts;
         boolean retryAllowed = true;

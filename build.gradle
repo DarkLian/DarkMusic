@@ -80,20 +80,21 @@ if (providers.gradleProperty('smoke').isPresent()) {
 			smokeClient {
 				client()
 				source sourceSets.smoke
-				runDir providers.gradleProperty('resetSmoke').isPresent() ? 'build/reset-run' : providers.gradleProperty('previewSmoke').isPresent() ? 'build/preview-run' : providers.gradleProperty('captureMusic').isPresent() ? 'build/capture-run' : 'build/smoke-run'
+				runDir providers.gradleProperty('advancedSmoke').isPresent() ? 'build/advanced-run' : providers.gradleProperty('resetSmoke').isPresent() ? 'build/reset-run' : providers.gradleProperty('previewSmoke').isPresent() ? 'build/preview-run' : providers.gradleProperty('captureMusic').isPresent() ? 'build/capture-run' : 'build/smoke-run'
 				vmArg "-Ddarkmusic.music=${realMusicDirectory}"
 				vmArg "-Ddarkmusic.smokeRunFile=${file('build/smoke-run-id.txt').absolutePath}"
 				vmArg "-Ddarkmusic.verifyHudRestart=${providers.gradleProperty('verifyHudRestart').isPresent()}"
 				vmArg "-Ddarkmusic.resetSmoke=${providers.gradleProperty('resetSmoke').isPresent()}"
 				vmArg "-Ddarkmusic.previewSmoke=${providers.gradleProperty('previewSmoke').isPresent()}"
 				vmArg "-Ddarkmusic.capture=${providers.gradleProperty('captureMusic').isPresent()}"
+				vmArg "-Ddarkmusic.advanced=${providers.gradleProperty('advancedSmoke').isPresent()}"
 				vmArg "-Ddarkmusic.testNativeBindings=${providers.gradleProperty('nativeBindingsSmoke').isPresent()}"
 				vmArg "-Ddarkmusic.privateImages=${file('docs/images_private').absolutePath}"
-				if (providers.gradleProperty('captureMusic').isPresent() || providers.gradleProperty('previewSmoke').isPresent()) vmArg "-Ddarkmusic.downloadTools=${file('Music').absolutePath}"
+				if (providers.gradleProperty('captureMusic').isPresent() || providers.gradleProperty('previewSmoke').isPresent() || providers.gradleProperty('advancedSmoke').isPresent()) vmArg "-Ddarkmusic.downloadTools=${file('Music').absolutePath}"
 			}
 		}
 	}
-	def smokeLog = layout.buildDirectory.file(providers.gradleProperty('resetSmoke').isPresent() ? 'reset-run/logs/latest.log' : providers.gradleProperty('previewSmoke').isPresent() ? 'preview-run/logs/latest.log' : providers.gradleProperty('captureMusic').isPresent() ? 'capture-run/logs/latest.log' : 'smoke-run/logs/latest.log')
+	def smokeLog = layout.buildDirectory.file(providers.gradleProperty('advancedSmoke').isPresent() ? 'advanced-run/logs/latest.log' : providers.gradleProperty('resetSmoke').isPresent() ? 'reset-run/logs/latest.log' : providers.gradleProperty('previewSmoke').isPresent() ? 'preview-run/logs/latest.log' : providers.gradleProperty('captureMusic').isPresent() ? 'capture-run/logs/latest.log' : 'smoke-run/logs/latest.log')
 	def smokeRunId = layout.buildDirectory.file('smoke-run-id.txt')
 	tasks.named('runSmokeClient') {
 		doFirst { smokeRunId.get().asFile.text = UUID.randomUUID().toString() }

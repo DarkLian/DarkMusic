@@ -9,7 +9,9 @@ import java.io.IOException;
 public final class PcmRateConverter {
     private static final int TAPS = 32, PHASES = 512;
     private final AudioInputStream input;
-    private final int channels, frameSize;
+    private final int channels, frameSize, sampleBytes;
+    private final boolean floating;
+    private final float[] scratch = new float[2048];
     private final byte[] buffer = new byte[4096];
     private final double[][] ring;
     private final double[][] weights = new double[PHASES][TAPS];
@@ -21,9 +23,11 @@ public final class PcmRateConverter {
     public PcmRateConverter(AudioInputStream input) {
         this.input = input;
         channels = input.getFormat().getChannels();
-        frameSize = channels * 2;
-        if (channels < 1 || channels > 2 || input.getFormat().getSampleSizeInBits() != 16 || input.getFormat().isBigEndian())
-            throw new IllegalArgumentException("Expected little-endian 16-bit mono/stereo PCM");
+        sampleBytes = input.getFormat().getSampleSizeInBits() / 8;
+        floating = input.getFormat().getEncoding().equals(javax.sound.sampled.AudioFormat.Encoding.PCM_FLOAT);
+        frameSize = channels * sampleBytes;
+        if (channels < 1 || channels > 2 || sampleBytes < 2 || sampleBytes > 4 || floating && sampleBytes != 4 || input.getFormat().isBigEndian())
+            throw new IllegalArgumentException("Expected little-endian 16/24/32-bit or float mono/stereo PCM");
         ring = new double[64][channels];
     }
 
@@ -63,8 +67,11 @@ public final class PcmRateConverter {
             if (limit == 0) return 0;
         }
         for (int c = 0; c < channels; c++) {
-            int at = cursor + c * 2;
-            ring[(int) (loaded & 63)][c] = (short) ((buffer[at] & 255) | (buffer[at + 1] << 8));
+            int at = cursor + c * sampleBytes;
+            int bits = 0;
+            for (int i = 0; i < sampleBytes; i++) bits |= (buffer[at + i] & 255) << (i * 8);
+            double value = floating ? Float.intBitsToFloat(bits) : (bits << (32 - sampleBytes * 8) >> (32 - sampleBytes * 8)) / Math.scalb(1.0, sampleBytes * 8 - 1);
+            ring[(int) (loaded & 63)][c] = Double.isFinite(value) ? value : 0;
         }
         cursor += frameSize;
         loaded++;
@@ -72,11 +79,23 @@ public final class PcmRateConverter {
     }
 
     public int read(byte[] out, int length, double value) throws IOException {
+        int samples = Math.min(scratch.length, length / (channels * 2) * channels);
+        int n = read(scratch, samples, value);
+        if (n < 0) return -1;
+        for (int i = 0; i < n; i++) {
+            int pcm = Math.clamp(Math.round(scratch[i] * 32768.0), -32768, 32767);
+            out[i * 2] = (byte) pcm;
+            out[i * 2 + 1] = (byte) (pcm >> 8);
+        }
+        return n * 2;
+    }
+
+    public int read(float[] out, int length, double value) throws IOException {
         double speed = Double.isFinite(value) && value > 0 ? value : 1;
         if (speed > 64 || speed < 1.0 / 64) throw new IllegalArgumentException("Unsupported sample-rate ratio");
         prepare(speed);
         int written = 0;
-        while (written + frameSize <= length) {
+        while (written + channels <= length) {
             long base = (long) position;
             while (!ended && loaded <= base + 16) if (load() == 0) return written;
             if (ended && position >= loaded) break;
@@ -87,9 +106,7 @@ public final class PcmRateConverter {
                     long frame = base + i - 15;
                     if (frame >= 0 && frame < loaded) sample += ring[(int) (frame & 63)][c] * weights[phase][i];
                 }
-                int pcm = Math.clamp(Math.round(sample), -32768, 32767);
-                out[written++] = (byte) pcm;
-                out[written++] = (byte) (pcm >> 8);
+                out[written++] = (float) sample;
             }
             position += speed;
         }

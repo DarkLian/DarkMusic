@@ -14,14 +14,18 @@ public final class HudLayout {
     public static Content content(Settings settings, int maximumWidth) {
         if (settings.hudStyle == Settings.HudStyle.CIRCULAR) {
             var circle = CircularHudLayout.of(settings.hudVisualizer, settings.circularText);
-            return new Content(Math.max(1, Math.min(circle.width(), maximumWidth)), circle.height(), 0, circle.height(), 0, settings.hudVisualizer);
+            return new Content(Math.max(1, Math.min(circle.width(), maximumWidth)), circle.height() + lyricsHeight(settings), 0, circle.height(), 0, settings.hudVisualizer);
         }
         int width = Math.max(1, Math.min(settings.hudArtwork ? 220 : 184, maximumWidth));
         int mainHeight = settings.hudProgress ? 46 : 38;
         boolean above = settings.hudVisualizer && settings.spectrumPosition == Settings.SpectrumPosition.ABOVE;
         int extra = settings.hudVisualizer ? GAP + SPECTRUM_HEIGHT : 0;
-        return new Content(width, mainHeight + extra, above ? extra : 0, mainHeight,
+        return new Content(width, mainHeight + extra + lyricsHeight(settings), above ? extra : 0, mainHeight,
             above ? 0 : mainHeight + GAP, settings.hudVisualizer);
+    }
+
+    public static int lyricsHeight(Settings settings) {
+        return settings.lyricsEnabled && settings.lyricsHud ? settings.lyricsNextLine ? 28 : 16 : 0;
     }
 
     public static Bounds bounds(Settings settings, int width, int height) {

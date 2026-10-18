@@ -25,6 +25,12 @@ public interface AudioBackend extends AutoCloseable {
 
     void speed(double speed);
 
+    default void configure(com.darkmusic.client.config.AudioSettings settings) {
+    }
+
+    default void nextTrack(Track track, Runnable started, Runnable ended, Consumer<String> failed) {
+    }
+
     @Override
     void close();
 

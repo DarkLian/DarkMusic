@@ -70,7 +70,7 @@ public record Toolchain(Path ytDlp, Path ffmpeg, Path ffprobe, String runtime, S
         return result.output().lines().findFirst().orElse("Unknown version");
     }
 
-    static Path executable(String configured, String name, Path tools, Path sibling) throws IOException {
+    public static Path executable(String configured, String name, Path tools, Path sibling) throws IOException {
         if (configured != null && !configured.isBlank()) return checked(Path.of(configured));
         return executable(name, tools, sibling, System.getenv().getOrDefault("PATH", ""));
     }

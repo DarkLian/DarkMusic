@@ -24,7 +24,6 @@ public final class Settings {
     public double hudScale = 1;
     public boolean hudArtwork = true;
     public boolean hudProgress = true;
-    public boolean suppressVanillaMusic;
     public boolean hudVisualizer = true;
     public HudStyle hudStyle = HudStyle.CLASSIC;
     public SpectrumStyle circularSpectrumStyle = SpectrumStyle.BARS;
@@ -40,6 +39,11 @@ public final class Settings {
     public int visualizerBars = 36;
     public double visualizerSensitivity = 1, visualizerSmoothing = .6;
     public String ytDlpPath = "", ffmpegPath = "", ffprobePath = "", javascriptPath = "";
+    public com.darkmusic.client.download.DownloadEncoding.Format downloadFormat = com.darkmusic.client.download.DownloadEncoding.Format.ORIGINAL;
+    public AudioSettings audio = new AudioSettings();
+    public boolean lyricsEnabled = true;
+    public boolean lyricsHud, lyricsNextLine;
+    public VisualQuality visualQuality = new VisualQuality();
 
     public static Settings defaults(Settings previous) {
         var defaults = new Settings();
@@ -63,6 +67,11 @@ public final class Settings {
         if (ffmpegPath == null) ffmpegPath = "";
         if (ffprobePath == null) ffprobePath = "";
         if (javascriptPath == null) javascriptPath = "";
+        if (downloadFormat == null) downloadFormat = com.darkmusic.client.download.DownloadEncoding.Format.ORIGINAL;
+        if (audio == null) audio = new AudioSettings();
+        audio.validate();
+        if (visualQuality == null) visualQuality = new VisualQuality();
+        visualQuality.validate();
         if (repeat == null) repeat = com.darkmusic.client.audio.PlaybackController.Repeat.OFF;
         if (!java.util.Set.of("TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT").contains(hudPosition == null ? "" : hudPosition))
             hudPosition = "TOP_LEFT";

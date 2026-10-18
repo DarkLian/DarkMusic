@@ -33,7 +33,8 @@ final class CircularHudMesh {
         int r = (int) Math.round((first >> 16 & 255) * (1 - t) + (last >> 16 & 255) * t);
         int g = (int) Math.round((first >> 8 & 255) * (1 - t) + (last >> 8 & 255) * t);
         int b = (int) Math.round((first & 255) * (1 - t) + (last & 255) * t);
-        return 0xFF000000 | r << 16 | g << 8 | b;
+        int alpha = (first >>> 24) == 0 && (last >>> 24) == 0 ? 255 : (int) Math.round((first >>> 24) * (1 - t) + (last >>> 24) * t);
+        return alpha << 24 | r << 16 | g << 8 | b;
     }
 
     private static void point(VertexConsumer v, Matrix3x2fc pose, float cx, float cy, float radius, double turn, int color) {
@@ -79,7 +80,11 @@ final class CircularHudMesh {
                  double progress, float[] levels, int bands, Settings.SpectrumStyle style, int progressStart,
                  int progressEnd, int spectrumStart,
                  int spectrumEnd, Settings.SurfaceFinish spectrumFinish,
-                 Settings.SurfaceFinish progressFinish) implements GuiElementRenderState {
+                 Settings.SurfaceFinish progressFinish, int detail, boolean glow) implements GuiElementRenderState {
+        Rings(Matrix3x2fc pose, ScreenRectangle scissorArea, ScreenRectangle bounds, float cx, float cy, double progress, float[] levels, int bands, Settings.SpectrumStyle style, int progressStart, int progressEnd, int spectrumStart, int spectrumEnd, Settings.SurfaceFinish spectrumFinish, Settings.SurfaceFinish progressFinish) {
+            this(pose, scissorArea, bounds, cx, cy, progress, levels, bands, style, progressStart, progressEnd, spectrumStart, spectrumEnd, spectrumFinish, progressFinish, 192, false);
+        }
+
         @Override
         public RenderPipeline pipeline() {
             return RenderPipelines.GUI;
@@ -92,8 +97,8 @@ final class CircularHudMesh {
 
         @Override
         public void buildVertices(VertexConsumer v) {
-            for (int i = 0; i < SEGMENTS; i++) {
-                double start = i / (double) SEGMENTS, end = (i + 1) / (double) SEGMENTS;
+            for (int i = 0; progress >= 0 && i < detail; i++) {
+                double start = i / (double) detail, end = (i + 1) / (double) detail;
                 surfaceArc(v, pose, cx, cy, CircularHudLayout.RING_INNER, CircularHudLayout.RING_OUTER, start, end, 0xFF49485F, 0xFF49485F, progressFinish, true);
                 if (start < progress) {
                     double filled = Math.min(end, progress);
@@ -103,7 +108,7 @@ final class CircularHudMesh {
             }
             if (levels == null) return;
             if (style != Settings.SpectrumStyle.BARS) {
-                int segments = style == Settings.SpectrumStyle.FILLED_SPIKE ? bands * 8 : SEGMENTS;
+                int segments = style == Settings.SpectrumStyle.FILLED_SPIKE ? bands * 8 : detail;
                 for (int i = 0; i < segments; i++) {
                     double a = i / (double) segments, b = (i + 1) / (double) segments;
                     float h0 = CircularHudLayout.waveHeight(levels, bands, a, style), h1 = CircularHudLayout.waveHeight(levels, bands, b, style);
@@ -128,6 +133,8 @@ final class CircularHudMesh {
                     point(v, pose, cx, cy, base + h0, a, outer0);
                     point(v, pose, cx, cy, base + h1, b, outer1);
                     point(v, pose, cx, cy, base + h1 + feather, b, outer1 & 0xFFFFFF);
+                    if (glow)
+                        strip(v, pose, cx, cy, base + Math.max(h0, h1), base + Math.max(h0, h1) + 1.6f, a, b, (first & 0xffffff) | 0x33000000, first & 0xffffff, (last & 0xffffff) | 0x33000000, last & 0xffffff);
                 }
                 return;
             }
@@ -141,6 +148,8 @@ final class CircularHudMesh {
                 for (int slice = 0; slice < slices; slice++)
                     surfaceArc(v, pose, cx, cy, CircularHudLayout.RING_OUTER, CircularHudLayout.RING_OUTER + height,
                         turn - half + 2 * half * slice / slices, turn - half + 2 * half * (slice + 1) / slices, color, color, spectrumFinish, false);
+                if (glow)
+                    strip(v, pose, cx, cy, CircularHudLayout.RING_OUTER + height, CircularHudLayout.RING_OUTER + height + 1.6f, turn - half, turn + half, (color & 0xffffff) | 0x33000000, color & 0xffffff, (color & 0xffffff) | 0x33000000, color & 0xffffff);
             }
         }
     }

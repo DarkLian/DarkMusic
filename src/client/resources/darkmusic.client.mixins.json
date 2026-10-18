@@ -3,7 +3,7 @@
   "package": "com.darkmusic.client.mixin",
   "compatibilityLevel": "JAVA_25",
   "client": [
-    "MusicManagerMixin"
+    "SoundEngineMixin"
   ],
   "injectors": {
     "defaultRequire": 1

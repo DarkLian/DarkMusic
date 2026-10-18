@@ -43,7 +43,13 @@ final class TestMusic {
             var metadata = new MetadataReader().read("real", file.getFileName().toString(), file, Files.size(file), 0);
             try (var pcm = PcmDecoder.open(file)) {
                 var format = pcm.getFormat();
-                pcm.skipNBytes((long) (Math.min(30, Math.max(0, metadata.duration() - 5)) * format.getFrameRate()) * format.getFrameSize());
+                long remaining = (long) (Math.min(30, Math.max(0, metadata.duration() - 5)) * format.getFrameRate()) * format.getFrameSize();
+                byte[] discard = new byte[16_384 / format.getFrameSize() * format.getFrameSize()];
+                while (remaining > 0) {
+                    int read = pcm.read(discard, 0, (int) Math.min(remaining, discard.length));
+                    if (read < 0) throw new java.io.EOFException("Real music excerpt ended before the requested position");
+                    remaining -= read;
+                }
                 byte[] bytes = pcm.readNBytes((int) format.getFrameRate() * format.getFrameSize() * 4);
                 if (bytes.length < 16384)
                     throw new AssertionError("Choose a real song with at least four seconds of audio");

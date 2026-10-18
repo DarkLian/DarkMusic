@@ -67,6 +67,7 @@ public final class NowPlayingHud {
             g.pose().scale((float) scale);
             if (app.settings.hudStyle == com.darkmusic.client.config.Settings.HudStyle.CIRCULAR) {
                 (settingsPreview ? PREVIEW_CIRCLE : LIVE_CIRCLE).render(app, g, track, state, preview, settingsPreview);
+                lyrics(app, g, w, h);
                 return;
             }
             HudSurface.draw(g, app.settings, w, h);
@@ -87,9 +88,24 @@ public final class NowPlayingHud {
             }
             if (layout.spectrum())
                 (settingsPreview ? PREVIEW : LIVE).bars(app, g, 0, layout.spectrumY(), w, HudLayout.SPECTRUM_HEIGHT, app.settings.spectrumDirection == com.darkmusic.client.config.Settings.SpectrumDirection.DOWNWARD, settingsPreview, h);
+            lyrics(app, g, w, h);
         } finally {
             if (text != null) text.transform(0, 0, 1);
             g.pose().popMatrix();
         }
+    }
+
+    private static void lyrics(DarkMusicClient app, GuiGraphicsExtractor g, int width, int height) {
+        if (!app.settings.lyricsEnabled || !app.settings.lyricsHud) return;
+        var audio = app.playback.state();
+        app.lyrics.request(audio.track());
+        var data = app.lyrics.get(audio.track());
+        int current = data.current(audio.position());
+        int y = height - HudLayout.lyricsHeight(app.settings) + 4;
+        var font = Minecraft.getInstance().font;
+        String line = current >= 0 ? data.lines().get(current).text() : Text.get("lyrics.darkmusic.missing");
+        g.centeredText(font, CircularHudRenderer.ellipsis(line, width - 12, font::width), width / 2, y, 0xffddd9ff);
+        if (app.settings.lyricsNextLine && current + 1 < data.lines().size())
+            g.centeredText(font, CircularHudRenderer.ellipsis(data.lines().get(current + 1).text(), width - 12, font::width), width / 2, y + 12, 0xffaaa7bd);
     }
 }

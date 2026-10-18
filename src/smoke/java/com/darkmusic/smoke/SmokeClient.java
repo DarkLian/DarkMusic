@@ -28,7 +28,8 @@ public final class SmokeClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        if (Boolean.getBoolean("darkmusic.resetSmoke")) new ResetSmokeClient().start();
+        if (Boolean.getBoolean("darkmusic.advanced")) new AdvancedSmokeClient().start();
+        else if (Boolean.getBoolean("darkmusic.resetSmoke")) new ResetSmokeClient().start();
         else if (Boolean.getBoolean("darkmusic.previewSmoke")) new DownloadPreviewClient().start();
         else if (Boolean.getBoolean("darkmusic.capture")) new MusicCaptureClient().start();
         else ClientTickEvents.END_CLIENT_TICK.register(this::tick);
@@ -60,7 +61,7 @@ public final class SmokeClient implements ClientModInitializer {
         var button = button(mc, label);
         if (mc.gui.screen() instanceof SettingsScreen && !button.visible) {
             mc.gui.screen().mouseScrolled(20, mc.gui.screen().height - 20, 0, 100);
-            for (int i = 0; i < 30 && !button.visible; i++)
+            for (int i = 0; i < mc.gui.screen().children().size() * 2 && !button.visible; i++)
                 mc.gui.screen().mouseScrolled(20, mc.gui.screen().height - 20, 0, -1);
         }
         require(button.active && button.visible, "Inactive button: " + label);
@@ -279,6 +280,15 @@ public final class SmokeClient implements ClientModInitializer {
             require(field("mode").equals(origin.mode()) && field("group").equals(origin.group()), "Jump lost playback source: " + origin);
             require(((EditBox) field("search")).getValue().equals(origin.query()), "Jump lost source search");
             require(((Track) field("selected")).id().equals(current.id()), "Source jump selected a different track");
+            var groups = (List<?>) field("groups");
+            var rows = (List<RowList.Row>) field(field("navigation"), "rows");
+            var tracks = app.library.snapshot().tracks();
+            long count = origin.mode().equals("Playlists") ? app.playlists.resolve(origin.group(), tracks).size() : tracks.stream().filter(track -> switch (origin.mode()) {
+                case "Artists" -> track.artist().equals(origin.group());
+                case "Albums" -> track.album().equals(origin.group());
+                default -> com.darkmusic.client.gui.FolderTree.includes(origin.group(), track);
+            }).count();
+            require(rows.get(groups.indexOf(origin.group())).title().endsWith(" (" + count + ")"), "Navigation count differs from total playable tracks: " + origin);
         }
         sourceField.set(app.playback, originalSource);
         player.jumpToPlaying();
@@ -354,7 +364,6 @@ public final class SmokeClient implements ClientModInitializer {
                 app.playlists.all().stream().map(p -> p.id()).toList().forEach(app.playlists::delete);
                 playlistId = app.playlists.create("Smoke test");
                 app.playlists.add(playlistId, app.library.snapshot().tracks().getFirst());
-                app.settings.suppressVanillaMusic = false;
                 app.settings.hudArtwork = true;
                 app.settings.hudX = app.settings.hudY = 0.0;
                 app.settings.hudScale = 1;
@@ -382,6 +391,8 @@ public final class SmokeClient implements ClientModInitializer {
             }
             switch (stage++) {
                 case 0 -> {
+                    var coverTrack = app.library.snapshot().tracks().stream().filter(t -> t.relativePath().contains("Departure")).findFirst();
+                    coverTrack.ifPresent(app.artwork::get);
                     var slider = (ValueSlider) field("progress");
                     var backendField = app.playback.getClass().getDeclaredField("audio");
                     backendField.setAccessible(true);
@@ -403,9 +414,12 @@ public final class SmokeClient implements ClientModInitializer {
                 case 1 -> {
                     require(audio.status() == AudioBackend.Status.PAUSED, "Pause failed");
                     app.playback.seek(.5);
-                    click(mc, "Suppress Vanilla Background Music");
-                    require(app.settings.suppressVanillaMusic, "Suppression failed");
-                    click(mc, "Suppress Vanilla Background Music");
+                    if (!app.settings.lyricsEnabled) click(mc, "Enable Lyrics");
+                    click(mc, "Enable Lyrics");
+                    require(!app.settings.lyricsEnabled, "Global lyrics toggle did not disable lyrics");
+                    require(mc.gui.screen().children().stream().filter(w -> w instanceof AbstractWidget).map(w -> ((AbstractWidget) w).getMessage().getString()).noneMatch(text -> text.equals("Lyrics") || text.equals("Lyrics in HUD")), "Disabled lyrics controls remained visible");
+                    click(mc, "Enable Lyrics");
+                    require(app.settings.lyricsEnabled, "Global lyrics toggle did not re-enable lyrics");
                 }
                 case 2 -> {
                     require(audio.status() == AudioBackend.Status.PAUSED && audio.position() >= .49, "Paused seek failed");
@@ -454,6 +468,11 @@ public final class SmokeClient implements ClientModInitializer {
                 }
                 case 6 -> {
                     require(mc.gui.screen() instanceof PlaylistScreen, "Editor not opened");
+                    var coverTrack = app.library.snapshot().tracks().stream().filter(t -> t.relativePath().contains("Departure")).findFirst();
+                    if (coverTrack.isPresent())
+                        require(app.artwork.get(coverTrack.get()) != null, "Real artwork did not become a Minecraft texture");
+                    var rows = (List<RowList.Row>) field(field(mc.gui.screen(), "lists"), "rows");
+                    require(rows.getFirst().title().endsWith(" (" + app.playlists.resolve(playlistId, app.library.snapshot().tracks()).size() + ")"), "Manage Playlists count differs from playable tracks");
                     click(mc, "Add Songs");
                 }
                 case 7 -> {

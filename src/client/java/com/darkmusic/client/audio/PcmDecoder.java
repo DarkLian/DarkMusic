@@ -22,7 +22,15 @@ public final class PcmDecoder {
     }
 
     public static AudioInputStream open(Path file) throws Exception {
-        String n = file.getFileName().toString().toLowerCase(Locale.ROOT);
+        var type = AudioFormats.detect(file);
+        if (type == AudioFormats.Container.OPUS || type == AudioFormats.Container.MP4 || type == AudioFormats.Container.AAC || type == AudioFormats.Container.WEBM)
+            return sixteen(ExternalAudio.open(file));
+        String n = switch (type) {
+            case MP3 -> ".mp3";
+            case FLAC -> ".flac";
+            case VORBIS -> ".ogg";
+            default -> file.getFileName().toString().toLowerCase(Locale.ROOT);
+        };
         AudioInputStream source;
         if (n.endsWith(".mp3")) source = new MpegAudioFileReader().getAudioInputStream(file.toFile());
         else if (n.endsWith(".ogg")) source = new VorbisAudioFileReader().getAudioInputStream(file.toFile());
@@ -57,5 +65,59 @@ public final class PcmDecoder {
             source.close();
             throw e;
         }
+    }
+
+    public static AudioInputStream openPrecise(Path file) throws Exception {
+        // FFmpeg honors codec delay/padding and supplies float PCM without a lossy intermediate.
+        try {
+            ExternalAudio.tool(false);
+            ExternalAudio.tool(true);
+        } catch (java.io.IOException unavailable) {
+            var type = AudioFormats.detect(file);
+            if (type == AudioFormats.Container.FLAC) {
+                var source = new FlacAudioFileReader().getAudioInputStream(file.toFile());
+                try {
+                    var f = source.getFormat();
+                    return new FlacFormatConversionProvider().getAudioInputStream(new AudioFormat(f.getSampleRate(), f.getSampleSizeInBits(), f.getChannels(), true, false), source);
+                } catch (Exception e) {
+                    source.close();
+                    throw e;
+                }
+            }
+            if (type == AudioFormats.Container.WAVE || type == AudioFormats.Container.AIFF) {
+                var source = AudioSystem.getAudioInputStream(file.toFile());
+                var f = source.getFormat();
+                if (!f.isBigEndian() && (f.getEncoding().equals(AudioFormat.Encoding.PCM_SIGNED) || f.getEncoding().equals(AudioFormat.Encoding.PCM_FLOAT)) && f.getSampleSizeInBits() >= 16 && f.getSampleSizeInBits() <= 32)
+                    return source;
+                source.close();
+            }
+            return open(file);
+        }
+        return ExternalAudio.open(file);
+    }
+
+    private static AudioInputStream sixteen(AudioInputStream source) {
+        var rate = new PcmRateConverter(source);
+        var f = source.getFormat();
+        return new AudioInputStream(new java.io.InputStream() {
+            @Override
+            public int read() throws java.io.IOException {
+                throw new java.io.IOException("Read complete PCM frames");
+            }
+
+            @Override
+            public int read(byte[] b, int off, int len) throws java.io.IOException {
+                if (off == 0) return rate.read(b, len, 1);
+                byte[] data = new byte[len];
+                int n = rate.read(data, len, 1);
+                if (n > 0) System.arraycopy(data, 0, b, off, n);
+                return n;
+            }
+
+            @Override
+            public void close() throws java.io.IOException {
+                source.close();
+            }
+        }, new AudioFormat(f.getSampleRate(), 16, f.getChannels(), true, false), -1);
     }
 }

@@ -63,8 +63,11 @@ public final class ArtworkCache implements AutoCloseable {
                         try {
                             reader.setInput(input);
                             int w = reader.getWidth(0), h = reader.getHeight(0);
-                            if (w > 0 && h > 0 && (long) w * h <= 4_000_000) {
-                                var original = reader.read(0);
+                            if (w > 0 && h > 0 && w <= 32_768 && h <= 32_768 && (long) w * h <= 268_435_456) {
+                                var parameters = reader.getDefaultReadParam();
+                                int step = Math.max(1, (Math.max(w, h) + MAX_SIZE - 1) / MAX_SIZE);
+                                parameters.setSourceSubsampling(step, step, 0, 0);
+                                var original = reader.read(0, parameters);
                                 var image = fitArtwork(original);
                                 dimension = image.getWidth();
                                 pixels = image.getRGB(0, 0, dimension, dimension, null, 0, dimension);

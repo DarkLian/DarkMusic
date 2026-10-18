@@ -222,6 +222,7 @@ class DownloadTest {
                 return new Result(0, "{\"_type\":\"playlist\",\"title\":\"Collection\",\"playlist_count\":3,\"entries\":[{\"id\":\"a\",\"ie_key\":\"Youtube\",\"url\":\"https://example.com/a\",\"title\":\"歌曲 音楽\"},null,{\"id\":\"c\",\"ie_key\":\"Youtube\",\"url\":\"https://example.com/c\",\"title\":\"C\"}]}\n");
             if (args.contains("-show_entries"))
                 return new Result(0, corruptProbe ? "{}" : "{\"streams\":[{\"codec_name\":\"mp3\"}]}");
+            if (args.contains("-f") && args.contains("null")) return new Result(0, "");
             if (args.contains("--write-info-json")) {
                 entered.countDown();
                 while (hang) {
@@ -234,7 +235,7 @@ class DownloadTest {
                 line.accept("DM_PROGRESS:25.0%");
                 return new Result(0, "downloaded");
             }
-            if (args.contains("libmp3lame")) {
+            if (args.contains("libmp3lame") || args.contains("copy")) {
                 if (failConversion || (badCover && args.contains("attached_pic")))
                     return new Result(1, "Conversion failed");
                 Files.copy(media, Path.of(args.getLast()), java.nio.file.StandardCopyOption.REPLACE_EXISTING);

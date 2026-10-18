@@ -53,7 +53,13 @@ public final class MusicLibrary implements AutoCloseable {
 
     public static boolean supported(Path file) {
         String n = file.getFileName().toString().toLowerCase(Locale.ROOT);
-        return n.endsWith(".mp3") || n.endsWith(".ogg") || n.endsWith(".wav") || n.endsWith(".flac");
+        if (com.darkmusic.client.audio.AudioFormats.candidate(file)) return true;
+        if (n.startsWith(".") || !Files.isRegularFile(file)) return false;
+        try {
+            return com.darkmusic.client.audio.AudioFormats.detect(file) != com.darkmusic.client.audio.AudioFormats.Container.UNKNOWN;
+        } catch (IOException ignored) {
+            return false;
+        }
     }
 
     public Snapshot snapshot() {

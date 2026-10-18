@@ -21,6 +21,7 @@ public final class CircularHudRenderer {
     private static final Identifier ICON = Identifier.fromNamespaceAndPath("darkmusic", "icon.png");
     private final SpectrumRenderer spectrum = new SpectrumRenderer();
     private final float[] levels = new float[64];
+    private final float[] peaks = new float[64];
 
     private static void centered(GuiGraphicsExtractor g, Font font, String text, int width, int lineWidth, int y, float scale, int color) {
         String fitted = ellipsis(text, (int) ((lineWidth - 8) / scale), font::width);
@@ -61,13 +62,19 @@ public final class CircularHudRenderer {
         if (bounds == null) return;
         boolean analyzed = (settings.hudVisualizer || settings.circularIconPulse) && spectrum.copyLevels(app, levels, settingsPreview);
         float zoom = analyzed && settings.circularIconPulse ? CircularHudLayout.iconZoom(levels, settings.visualizerBars) : 1;
+        if (analyzed && settings.circularIconPulse && settings.visualQuality.beatReactive)
+            zoom = 1 + app.playback.spectrum().beat() * .045f;
         var texture = Minecraft.getInstance().getTextureManager().getTexture(ICON);
         g.guiRenderState.addGuiElement(new CircularHudMesh.Icon(pose, clip, bounds,
             TextureSetup.singleTexture(texture.getTextureView(), texture.getSampler()), layout.centerX(), layout.centerY(), zoom));
+        if (analyzed && settings.hudVisualizer && (settings.visualQuality.trails || settings.visualQuality.peakHold)) {
+            app.playback.spectrum().copyPeaks(peaks);
+            g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(pose, clip, bounds, layout.centerX(), layout.centerY(), -1, peaks.clone(), settings.visualizerBars, settings.circularSpectrumStyle, 0, 0, (settings.spectrumColors.first() & 0xffffff) | 0x44000000, (settings.spectrumColors.last() & 0xffffff) | 0x44000000, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, settings.visualQuality.detail, false));
+        }
         g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(pose, clip, bounds, layout.centerX(), layout.centerY(),
             settings.hudProgress ? CircularHudLayout.progress(audio.position(), audio.duration(), preview) : 0,
             analyzed && settings.hudVisualizer ? levels.clone() : null, settings.visualizerBars, settings.circularSpectrumStyle,
-            settings.progressColors.first(), settings.progressColors.last(), settings.spectrumColors.first(), settings.spectrumColors.last(), settings.spectrumFinish, settings.progressFinish));
+            settings.progressColors.first(), settings.progressColors.last(), settings.spectrumColors.first(), settings.spectrumColors.last(), settings.spectrumFinish, settings.progressFinish, settings.visualQuality.detail, settings.visualQuality.glow));
         if (!settings.circularText) return;
         var font = Minecraft.getInstance().font;
         int lineWidth = Math.round((CircularHudLayout.RING_OUTER + (settings.hudVisualizer ? CircularHudLayout.SPECTRUM_HEIGHT : 0)) * 2) + 8;

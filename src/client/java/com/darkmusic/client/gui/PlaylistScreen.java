@@ -101,7 +101,8 @@ public final class PlaylistScreen extends LocalScreen {
             selectedId = all.isEmpty() ? "" : all.getFirst().id();
             selection.clear();
         }
-        lists.rows(all.stream().map(p -> new RowList.Row(p.name(), "")).toList());
+        var library = app.library.snapshot().tracks();
+        lists.rows(all.stream().map(p -> new RowList.Row(p.name() + " (" + app.playlists.resolve(p.id(), library).size() + ")", "")).toList());
         lists.select(java.util.stream.IntStream.range(0, all.size()).filter(i -> all.get(i).id().equals(selectedId)).findFirst().orElse(-1));
         refreshEntries();
     }

@@ -88,7 +88,7 @@ To listen, choose the playlist in the main player and play there. Browsing does 
 
 One scrollable screen has General, HUD, and Reset sections. Rows use right-hand on/off checkboxes. A live preview appears beside or above the form.
 
-General options are **Autoplay on Launch**, **Choose Music Folder**, and **Suppress Vanilla Background Music**. Autoplay and suppression default off. Suppression affects background music, not ordinary effects. Volume, speed, shuffle, and repeat remain in the player.
+General options include **Autoplay on Launch** and **Choose Music Folder**. Autoplay defaults off. Volume, speed, shuffle, and repeat remain in the player. HUD controls are grouped into Components & Layout, Spectrum, Appearance, and Visual Effects.
 
 | Setting | Default and behavior |
 |---|---|

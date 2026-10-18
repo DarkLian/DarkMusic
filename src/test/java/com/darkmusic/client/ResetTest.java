@@ -34,7 +34,7 @@ class ResetTest {
         old.volume = 0;
         old.lastAudibleVolume = .2;
         old.speed = 3;
-        old.autoplay = old.shuffle = old.hudEnabled = old.suppressVanillaMusic = true;
+        old.autoplay = old.shuffle = old.hudEnabled = true;
         old.hudArtwork = old.hudProgress = old.hudVisualizer = false;
         old.hudScale = 2.3;
         old.hudX = .4;

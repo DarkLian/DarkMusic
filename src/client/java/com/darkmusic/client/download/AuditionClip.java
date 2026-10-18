@@ -20,14 +20,17 @@ public record AuditionClip(Path directory, Track track) implements AutoCloseable
             var tools = Toolchain.resolve(selected, data, runner, token);
             var args = tools.base();
             args.addAll(List.of("--no-playlist", "--playlist-items", "1", "--format", "bestaudio/best",
-                "--download-sections", "*0-30", "--force-keyframes-at-cuts", "--max-filesize", "50M",
-                "--no-write-thumbnail", "--no-write-info-json", "--extract-audio", "--audio-format", "mp3",
-                "--audio-quality", "5", "--output", "source.%(ext)s", "--", DownloadModels.url(entry.url())));
+                "--download-sections", "*0-30", "--max-filesize", "50M",
+                "--no-write-thumbnail", "--no-write-info-json", "--output", "source.%(ext)s", "--", DownloadModels.url(entry.url())));
             var result = runner.run(args, directory, token, Duration.ofMinutes(2), 100_000, line -> {
             });
             token.check();
             if (result.exit() != 0) throw new IOException(DownloadJson.friendly(result.output()));
-            Path source = directory.resolve("source.mp3"), clip = directory.resolve("preview.mp3");
+            Path source;
+            try (var files = Files.list(directory)) {
+                source = files.filter(Files::isRegularFile).filter(p -> p.getFileName().toString().startsWith("source.")).filter(com.darkmusic.client.audio.AudioFormats::candidate).findFirst().orElseThrow(() -> new IOException("The site did not provide a usable short audio preview"));
+            }
+            Path clip = directory.resolve("preview.mp3");
             if (!Files.isRegularFile(source) || Files.size(source) > 64_000_000)
                 throw new IOException("The site did not provide a usable short audio preview");
             // Enforce the playback limit locally as well; some extractors approximate section boundaries.

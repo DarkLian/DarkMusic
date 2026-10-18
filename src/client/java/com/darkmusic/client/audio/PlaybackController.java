@@ -55,14 +55,21 @@ public final class PlaybackController implements AutoCloseable {
         audio.volume(value);
     }
 
+    public void configure(com.darkmusic.client.config.AudioSettings settings) {
+        audio.configure(settings);
+        refreshNext();
+    }
+
     public void repeat(Repeat value) {
         repeat = Objects.requireNonNullElse(value, Repeat.OFF);
+        refreshNext();
     }
 
     public void shuffle(boolean value) {
         shuffle = value;
         int current = cursor >= 0 && cursor < order.size() ? order.get(cursor) : -1;
         rebuildOrder(current);
+        refreshNext();
     }
 
     private void rebuildOrder(int current) {
@@ -99,17 +106,58 @@ public final class PlaybackController implements AutoCloseable {
 
     private void start(int index) {
         long ticket = ++sequence;
-        audio.play(tracks.get(index), () -> {
+        audio.play(tracks.get(index), () -> finished(index, ticket), message -> failed(index, ticket, message));
+        refreshNext();
+    }
+
+    private void finished(int index, long ticket) {
+        if (ticket != sequence) return;
+        failures = 0;
+        if (repeat == Repeat.ONE) start(index);
+        else advance(false);
+    }
+
+    private void failed(int index, long ticket, String message) {
+        if (ticket != sequence) return;
+        warning.accept("Cannot play " + tracks.get(index).title() + ": " + message);
+        if (++failures >= tracks.size()) stop();
+        else advance(false);
+    }
+
+    private void refreshNext() {
+        if (cursor < 0 || cursor >= order.size()) return;
+        long ticket = sequence;
+        int old = order.get(cursor);
+        List<Integer> nextOrder = new ArrayList<>(order);
+        int nextCursor = cursor + 1;
+        if (repeat == Repeat.ONE) nextCursor = cursor;
+        else if (nextCursor >= order.size()) {
+            if (repeat != Repeat.ALL) {
+                audio.nextTrack(null, () -> {
+                }, () -> {
+                }, s -> {
+                });
+                return;
+            }
+            nextCursor = 0;
+            if (shuffle) {
+                Collections.shuffle(nextOrder);
+                if (nextOrder.size() > 1 && nextOrder.getFirst() == old) Collections.swap(nextOrder, 0, 1);
+            }
+        }
+        int destination = nextCursor, index = nextOrder.get(destination);
+        audio.nextTrack(tracks.get(index), () -> {
             if (ticket != sequence) return;
+            if (repeat != Repeat.ONE) {
+                history.addLast(old);
+                if (history.size() > 1000) history.removeFirst();
+            }
+            order.clear();
+            order.addAll(nextOrder);
+            cursor = destination;
             failures = 0;
-            if (repeat == Repeat.ONE) start(index);
-            else advance(false);
-        }, message -> {
-            if (ticket != sequence) return;
-            warning.accept("Cannot play " + tracks.get(index).title() + ": " + message);
-            if (++failures >= tracks.size()) stop();
-            else advance(false);
-        });
+            refreshNext();
+        }, () -> finished(index, ticket), message -> failed(index, ticket, message));
     }
 
     public void next() {
@@ -163,6 +211,10 @@ public final class PlaybackController implements AutoCloseable {
 
     public void stop() {
         sequence++;
+        audio.nextTrack(null, () -> {
+        }, () -> {
+        }, s -> {
+        });
         audio.stop();
     }
 
@@ -178,6 +230,7 @@ public final class PlaybackController implements AutoCloseable {
 
     public void seek(double seconds) {
         audio.seek(seconds);
+        refreshNext();
     }
 
     @Override

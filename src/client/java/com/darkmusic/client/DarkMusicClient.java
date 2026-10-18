@@ -38,6 +38,7 @@ public class DarkMusicClient implements ClientModInitializer {
     public com.darkmusic.client.playlist.PlaylistStore playlists;
     public com.darkmusic.client.download.DownloadService downloads;
     public com.darkmusic.client.download.AuditionPlayer audition;
+    public final com.darkmusic.client.lyrics.LyricsService lyrics = new com.darkmusic.client.lyrics.LyricsService();
     public boolean playlistsReady;
     private volatile long warningUntil;
     private long conflictWarning;
@@ -94,8 +95,17 @@ public class DarkMusicClient implements ClientModInitializer {
     }
 
     public void configureVisualizer() {
-        if (playback != null && playback.spectrum() != null)
+        if (settings != null) {
+            com.darkmusic.client.audio.ExternalAudio.configure(() -> new com.darkmusic.client.audio.ExternalAudio.Paths(config.directory(), settings.ffmpegPath, settings.ffprobePath));
+            if (downloads != null) downloads.format(settings.downloadFormat);
+            if (downloads != null) downloads.lyrics(settings.lyricsEnabled);
+            lyrics.enabled(settings.lyricsEnabled);
+            if (playback != null) playback.configure(settings.audio);
+        }
+        if (playback != null && playback.spectrum() != null) {
             playback.spectrum().configure(settings.hudVisualizer || settings.hudStyle == com.darkmusic.client.config.Settings.HudStyle.CIRCULAR && settings.circularIconPulse, settings.visualizerBars, settings.visualizerSensitivity, settings.visualizerSmoothing);
+            playback.spectrum().refine(settings.visualQuality);
+        }
     }
 
     public void open() {
@@ -215,7 +225,6 @@ public class DarkMusicClient implements ClientModInitializer {
                 playlistsReady = true;
             }
         }));
-        if (settings.suppressVanillaMusic) Minecraft.getInstance().getMusicManager().stopPlaying();
         artwork = new com.darkmusic.client.library.ArtworkCache();
         playback = new com.darkmusic.client.audio.PlaybackController(new com.darkmusic.client.audio.JavaSoundBackend(Minecraft.getInstance()::execute), this::warn);
         playback.volume(settings.volume);
@@ -227,6 +236,8 @@ public class DarkMusicClient implements ClientModInitializer {
         library = new com.darkmusic.client.library.MusicLibrary(config.directory());
         downloads = new com.darkmusic.client.download.DownloadService(config.directory(), () -> library.requestRescan());
         downloads.configure(new com.darkmusic.client.download.DownloadModels.Tools(settings.ytDlpPath, settings.ffmpegPath, settings.ffprobePath, settings.javascriptPath));
+        downloads.format(settings.downloadFormat);
+        downloads.lyrics(settings.lyricsEnabled);
         try {
             activateDirectory(settings.musicDirectory.isBlank() ? config.defaultMusic() : java.nio.file.Path.of(settings.musicDirectory));
         } catch (Exception e) {
@@ -425,5 +436,6 @@ public class DarkMusicClient implements ClientModInitializer {
         if (library != null) library.close();
         if (playback != null) playback.close();
         if (artwork != null) artwork.close();
+        lyrics.close();
     }
 }
