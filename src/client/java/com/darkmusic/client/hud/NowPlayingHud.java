@@ -11,6 +11,8 @@ public final class NowPlayingHud {
     private static final com.darkmusic.client.gui.SpectrumRenderer LIVE = new com.darkmusic.client.gui.SpectrumRenderer();
     private static final com.darkmusic.client.gui.SpectrumRenderer PREVIEW = new com.darkmusic.client.gui.SpectrumRenderer();
 
+    private static final CircularHudRenderer LIVE_CIRCLE = new CircularHudRenderer(), PREVIEW_CIRCLE = new CircularHudRenderer();
+
     private static final TitleMarquee LIVE_TITLE = new TitleMarquee(), PREVIEW_TITLE = new TitleMarquee();
 
     private NowPlayingHud() {
@@ -56,14 +58,18 @@ public final class NowPlayingHud {
         if (track == null && !preview) return;
         if (track == null && !app.library.snapshot().tracks().isEmpty())
             track = app.library.snapshot().tracks().getFirst();
-        var art = app.settings.hudArtwork && track != null ? app.artwork.get(track) : null;
+        var art = app.settings.hudStyle == com.darkmusic.client.config.Settings.HudStyle.CLASSIC && app.settings.hudArtwork && track != null ? app.artwork.get(track) : null;
         var layout = HudLayout.content(app.settings, Integer.MAX_VALUE);
         int w = layout.width(), h = layout.height(), main = layout.mainY();
         g.pose().pushMatrix();
         try {
             g.pose().translate((float) x, (float) y);
             g.pose().scale((float) scale);
-            g.fill(0, 0, w, h, HudLayout.background(app.settings));
+            if (app.settings.hudStyle == com.darkmusic.client.config.Settings.HudStyle.CIRCULAR) {
+                (settingsPreview ? PREVIEW_CIRCLE : LIVE_CIRCLE).render(app, g, track, state, preview, settingsPreview);
+                return;
+            }
+            HudSurface.draw(g, app.settings, w, h);
             int textX = app.settings.hudArtwork ? 42 : 6;
             if (art != null) com.darkmusic.client.library.ArtworkCache.draw(g, art, 5, main + 3, 32);
             String title = track == null ? Text.get("text.darkmusic.song_title") : track.title();
@@ -76,11 +82,11 @@ public final class NowPlayingHud {
                 g.text(mc.font, mc.font.plainSubstrByWidth(detail, Math.max(1, w - textX - 6)), textX, main + 21, 0xFFE0DDEE);
             if (app.settings.hudProgress) {
                 double progress = state.duration() > 0 ? Math.clamp(state.position() / state.duration(), 0, 1) : preview ? .4 : 0;
-                g.fill(6, main + 39, w - 6, main + 42, 0xFF34394F);
-                com.darkmusic.client.gui.ColorStrip.draw(g, app.settings.progressColors, 6, main + 39, w - 12, 3, (int) ((w - 12) * progress));
+                com.darkmusic.client.gui.ColorStrip.track(g, 6, main + 39, w - 12, 3, app.settings.progressFinish);
+                com.darkmusic.client.gui.ColorStrip.draw(g, app.settings.progressColors, 6, main + 39, w - 12, 3, (int) ((w - 12) * progress), app.settings.progressFinish);
             }
             if (layout.spectrum())
-                (settingsPreview ? PREVIEW : LIVE).bars(app, g, 0, layout.spectrumY(), w, HudLayout.SPECTRUM_HEIGHT, app.settings.spectrumDirection == com.darkmusic.client.config.Settings.SpectrumDirection.DOWNWARD, settingsPreview);
+                (settingsPreview ? PREVIEW : LIVE).bars(app, g, 0, layout.spectrumY(), w, HudLayout.SPECTRUM_HEIGHT, app.settings.spectrumDirection == com.darkmusic.client.config.Settings.SpectrumDirection.DOWNWARD, settingsPreview, h);
         } finally {
             if (text != null) text.transform(0, 0, 1);
             g.pose().popMatrix();

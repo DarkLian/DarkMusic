@@ -35,7 +35,7 @@ final class MusicCaptureClient {
         require(mc.getWindow().isFullscreen() && mc.options.guiScale().get() == 3 && mc.getWindow().getGuiScale() == 3, "Capture requires fullscreen GUI scale 3");
         Path root = Path.of(System.getProperty("darkmusic.privateImages"));
         Files.createDirectories(root.resolve("screenshots"));
-        Screenshot.grab(root.toFile(), name + "-1.0.3-3x.png", mc.gameRenderer.mainRenderTarget(), 1, text -> captures++);
+        Screenshot.grab(root.toFile(), name + "-" + net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("darkmusic").orElseThrow().getMetadata().getVersion().getFriendlyString() + "-3x.png", mc.gameRenderer.mainRenderTarget(), 1, text -> captures++);
     }
 
     private void click(Minecraft mc, String key) {
@@ -138,9 +138,38 @@ final class MusicCaptureClient {
                     app.settings.spectrumColors.preset = com.darkmusic.client.config.VisualColors.Preset.MOONLIGHT;
                     app.save();
                 }
+                case 20 -> {
+                    app.settings.hudStyle = Settings.HudStyle.CIRCULAR;
+                    app.settings.circularSpectrumStyle = Settings.SpectrumStyle.FILLED_WAVE;
+                    app.settings.spectrumFinish = app.settings.progressFinish = Settings.SurfaceFinish.BEVELED;
+                    mc.gui.setScreen(new SettingsScreen(app, player));
+                }
+                case 21 -> capture(mc, "circular-hud");
+                case 22 -> {
+                    app.settings.circularSpectrumStyle = Settings.SpectrumStyle.FILLED_SPIKE;
+                    app.settings.circularText = false;
+                    mc.gui.setScreen(new SettingsScreen(app, player));
+                }
+                case 23 -> capture(mc, "circular-spike");
+                case 24 -> {
+                    app.settings.hudStyle = Settings.HudStyle.CLASSIC;
+                    app.settings.hudShape = Settings.HudShape.ROUNDED;
+                    app.settings.hudRaised = true;
+                    mc.gui.setScreen(new SettingsScreen(app, player));
+                    mc.gui.screen().mouseScrolled(20, mc.gui.screen().height - 20, 0, -15);
+                }
+                case 25 -> capture(mc, "beveled-hud");
+                case 26 -> {
+                    app.settings.hudShape = Settings.HudShape.RECTANGLE;
+                    app.settings.hudRaised = false;
+                    app.settings.spectrumFinish = app.settings.progressFinish = Settings.SurfaceFinish.FLAT;
+                    app.settings.circularSpectrumStyle = Settings.SpectrumStyle.BARS;
+                    app.settings.circularText = true;
+                    app.save();
+                }
                 default -> {
-                    if (captures != 10) return;
-                    org.slf4j.LoggerFactory.getLogger("darkmusic-capture").info("DARKMUSIC_SMOKE_PASS:{} ten original fullscreen GUI-scale-3 captures; real collection/artwork, unified settings/defaults, shared HUD, playlists, downloads and four tool rows",
+                    if (captures != 13) return;
+                    org.slf4j.LoggerFactory.getLogger("darkmusic-capture").info("DARKMUSIC_SMOKE_PASS:{} 13 original fullscreen GUI-scale-3 captures; real collection/artwork, Classic/Circular HUDs and beveled finishes, unified settings/defaults, playlists, downloads and four tool rows",
                         Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip());
                     step = 999;
                     mc.stop();

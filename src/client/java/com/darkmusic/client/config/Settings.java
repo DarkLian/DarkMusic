@@ -26,6 +26,13 @@ public final class Settings {
     public boolean hudProgress = true;
     public boolean suppressVanillaMusic;
     public boolean hudVisualizer = true;
+    public HudStyle hudStyle = HudStyle.CLASSIC;
+    public SpectrumStyle circularSpectrumStyle = SpectrumStyle.BARS;
+    public boolean circularText = true, circularIconPulse = true;
+    public SpectrumStyle spectrumStyle = SpectrumStyle.BARS;
+    public SurfaceFinish spectrumFinish = SurfaceFinish.FLAT, progressFinish = SurfaceFinish.FLAT;
+    public HudShape hudShape = HudShape.RECTANGLE;
+    public boolean hudRaised;
     public SpectrumPosition spectrumPosition = SpectrumPosition.BELOW;
     public SpectrumDirection spectrumDirection = SpectrumDirection.UPWARD;
     public double hudBackgroundTransparency = 0;
@@ -67,6 +74,13 @@ public final class Settings {
         visualizerBars = Math.clamp(visualizerBars, 8, 64);
         visualizerSensitivity = Double.isFinite(visualizerSensitivity) ? Math.clamp(visualizerSensitivity, .25, 4) : 1;
         visualizerSmoothing = Double.isFinite(visualizerSmoothing) ? Math.clamp(visualizerSmoothing, 0, .95) : .6;
+        if (hudStyle == null) hudStyle = HudStyle.CLASSIC;
+        if (spectrumStyle == null) spectrumStyle = SpectrumStyle.BARS;
+        if (spectrumFinish == null) spectrumFinish = SurfaceFinish.FLAT;
+        if (progressFinish == null) progressFinish = SurfaceFinish.FLAT;
+        if (circularSpectrumStyle != SpectrumStyle.BARS && circularSpectrumStyle != SpectrumStyle.FILLED_WAVE && circularSpectrumStyle != SpectrumStyle.FILLED_SPIKE)
+            circularSpectrumStyle = SpectrumStyle.BARS;
+        if (hudShape == null) hudShape = HudShape.RECTANGLE;
         if (spectrumPosition == null) spectrumPosition = SpectrumPosition.BELOW;
         if (spectrumDirection == null) spectrumDirection = SpectrumDirection.UPWARD;
         hudBackgroundTransparency = Double.isFinite(hudBackgroundTransparency) ? Math.clamp(hudBackgroundTransparency, 0, 1) : 0;
@@ -74,6 +88,14 @@ public final class Settings {
         hudX = hudX == null || !Double.isFinite(hudX) ? (hudPosition.endsWith("RIGHT") ? 1.0 : 0.0) : Math.clamp(hudX, 0, 1);
         hudY = hudY == null || !Double.isFinite(hudY) ? (hudPosition.startsWith("BOTTOM") ? 1.0 : 0.0) : Math.clamp(hudY, 0, 1);
     }
+
+    public enum HudStyle {CLASSIC, CIRCULAR}
+
+    public enum SurfaceFinish {FLAT, BEVELED}
+
+    public enum SpectrumStyle {BARS, SMOOTH_WAVE, FILLED_WAVE, SPIKE, FILLED_SPIKE}
+
+    public enum HudShape {RECTANGLE, ROUNDED, CHAMFERED}
 
     public enum SpectrumPosition {ABOVE, BELOW}
 

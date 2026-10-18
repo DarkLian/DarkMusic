@@ -114,6 +114,7 @@ public final class MusicScreen extends LocalScreen {
                 seekDragging = progress != null && progress.editing();
             }, this::commitSeek), Text.get("text.darkmusic.seek_in_the_original_song_s_timeline_compressed_files_may_take_a_moment_to_seek")));
         progress.colors(() -> app.settings.progressColors);
+        progress.finish(() -> app.settings.progressFinish);
         int gap = 4, x = 12, control = (width - 24 - gap * (narrow ? 2 : 5)) / (narrow ? 3 : 6), y = height - 78 - extra;
         Help.tip(button(Text.get("text.darkmusic.previous"), x, y, control, () -> app.playback.previous()), Text.get("text.darkmusic.previous_song_in_playback_history_or_restart_the_current_song"));
         x += control + gap;
@@ -305,14 +306,9 @@ public final class MusicScreen extends LocalScreen {
         var audio = app.playback.state();
         int extra = width < 640 ? 24 : 0;
         String status = label(audio.status().name()) + (audio.track() == null ? "" : "  |  " + audio.track().title() + " - " + audio.track().artist());
-        Track now = audio.track() != null ? audio.track() : selected;
-        var thumbnail = app.artwork.get(now);
-        g.fill(12, height - 123 - extra, 28, height - 107 - extra, 0xFF292F44);
-        if (thumbnail != null)
-            com.darkmusic.client.library.ArtworkCache.draw(g, thumbnail, 12, height - 123 - extra, 16);
         var layout = PlayerLayout.of(width, height);
         boolean sidebarSpectrum = layout.panelWidth() > 0 && layout.spectrumY() + layout.spectrumHeight() <= layout.listY() + layout.listHeight();
-        longText.draw(g, font, "status", status, 34, height - 118 - extra, width - 46 - (app.settings.hudVisualizer && !sidebarSpectrum ? 108 : 0), 0xFFEEEEFF);
+        longText.draw(g, font, "status", status, 12, height - 118 - extra, width - 24 - (app.settings.hudVisualizer && !sidebarSpectrum ? 108 : 0), 0xFFEEEEFF);
         if (app.settings.hudVisualizer)
             spectrum.render(app, g, sidebarSpectrum ? layout.panelX() : width - 108, sidebarSpectrum ? layout.spectrumY() : height - 123 - extra, sidebarSpectrum ? layout.panelWidth() : 96, sidebarSpectrum ? layout.spectrumHeight() : 16);
         String message = !app.warning.isBlank() ? app.warning : !app.library.snapshot().message().isBlank() ? app.library.snapshot().message() : audio.status() == AudioBackend.Status.ERROR ? audio.error() : playlistNotice;

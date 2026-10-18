@@ -1,0 +1,207 @@
+package com.darkmusic.client.hud;
+
+import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.config.Settings;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import org.joml.Matrix3x2f;
+import org.junit.jupiter.api.Test;
+
+import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class CircularHudTest {
+    @Test
+    void beveledCircularFacesStayInsideFlatBoundsAndUseSeveralLightingTones() {
+        var layout = CircularHudLayout.of(true);
+        float[] levels = new float[64];
+        Arrays.fill(levels, 1);
+        for (var style : new Settings.SpectrumStyle[]{Settings.SpectrumStyle.BARS, Settings.SpectrumStyle.FILLED_WAVE, Settings.SpectrumStyle.FILLED_SPIKE}) {
+            var colors = new java.util.HashSet<Integer>();
+            VertexConsumer consumer = (VertexConsumer) Proxy.newProxyInstance(VertexConsumer.class.getClassLoader(), new Class<?>[]{VertexConsumer.class}, (proxy, method, args) -> {
+                if (method.getName().equals("addVertex")) {
+                    float x = (float) args[0], y = (float) args[1];
+                    assertTrue(x >= 0 && x <= layout.width() && y >= 0 && y < layout.titleY() - 8);
+                    double radius = Math.hypot(x - layout.centerX(), y - layout.centerY());
+                    assertTrue(radius >= CircularHudLayout.RING_INNER - CircularHudLayout.FEATHER - .001 && radius <= CircularHudLayout.RING_OUTER + CircularHudLayout.SPECTRUM_HEIGHT + CircularHudLayout.FEATHER + .001);
+                }
+                if (method.getName().equals("setColor")) colors.add((int) args[0]);
+                return proxy;
+            });
+            new CircularHudMesh.Rings(new Matrix3x2f(), null, new ScreenRectangle(0, 0, layout.width(), layout.height()), layout.centerX(), layout.centerY(), .375,
+                levels, 36, style, 0xB5B0FF, 0xB5B0FF, 0xB5B0FF, 0xB5B0FF, Settings.SurfaceFinish.BEVELED, Settings.SurfaceFinish.BEVELED).buildVertices(consumer);
+            assertTrue(colors.size() > 20, "Circular bevel should shade faces rather than draw one flat color");
+        }
+    }
+
+    private List<Point> vertices(double progress, float[] levels, int bars) {
+        return vertices(progress, levels, bars, Settings.SpectrumStyle.BARS);
+    }
+
+    private List<Point> vertices(double progress, float[] levels, int bars, Settings.SpectrumStyle style) {
+        var points = new ArrayList<Point>();
+        VertexConsumer consumer = (VertexConsumer) Proxy.newProxyInstance(VertexConsumer.class.getClassLoader(), new Class<?>[]{VertexConsumer.class}, (proxy, method, args) -> {
+            if (method.getName().equals("addVertex")) points.add(new Point((float) args[0], (float) args[1]));
+            return proxy;
+        });
+        var layout = CircularHudLayout.of(true);
+        new CircularHudMesh.Rings(new Matrix3x2f(), null, new ScreenRectangle(0, 0, layout.width(), layout.height()),
+            layout.centerX(), layout.centerY(), progress, levels, bars, style, 0xB5B0FF, 0xB5B0FF, 0xB5B0FF, 0xB5B0FF, Settings.SurfaceFinish.FLAT, Settings.SurfaceFinish.FLAT).buildVertices(consumer);
+        return points;
+    }
+
+    @Test
+    void progressStartsAtTwelveAndFillsClockwiseWithoutRoundingToSegments() {
+        int base = vertices(0, null, 36).size();
+        for (double fraction : new double[]{.001, .125, .25, .5, .75, 1}) {
+            var points = vertices(fraction, null, 36);
+            assertTrue(points.size() > base);
+            // Each progress arc follows its base arc; the last quad is its outer feather.
+            int segment = (int) Math.ceil(fraction * 192) - 1;
+            int lastProgressVertex = (segment + 1) * 24 - 1;
+            var endpoint = points.get(lastProgressVertex);
+            double angle = Math.atan2(endpoint.x() - 88, 82 - endpoint.y());
+            if (angle < 0) angle += Math.PI * 2;
+            double actual = angle / (Math.PI * 2);
+            assertTrue(Math.abs(actual - fraction) < .00001 || fraction == 1 && actual < .00001);
+        }
+        assertEquals(.25, CircularHudLayout.progress(10, 40, false));
+        assertEquals(1, CircularHudLayout.progress(50, 40, false));
+        assertEquals(0, CircularHudLayout.progress(10, 0, false));
+        assertEquals(.4, CircularHudLayout.progress(Double.NaN, 0, true));
+    }
+
+    @Test
+    void everyRadialVertexStaysOutsideIconAndAboveTextEvenAtFullMagnitude() {
+        var layout = CircularHudLayout.of(true);
+        var levels = new float[64];
+        Arrays.fill(levels, 1);
+        int ringVertices = vertices(0, null, 36).size();
+        for (int bands = 8; bands <= 64; bands++) {
+            var points = vertices(0, levels, bands);
+            assertTrue(points.size() > ringVertices);
+            for (var p : points.subList(ringVertices, points.size())) {
+                double radius = Math.hypot(p.x() - layout.centerX(), p.y() - layout.centerY());
+                assertTrue(radius >= CircularHudLayout.RING_OUTER - CircularHudLayout.FEATHER - .001);
+                assertTrue(radius <= CircularHudLayout.RING_OUTER + CircularHudLayout.SPECTRUM_HEIGHT + CircularHudLayout.FEATHER + .001);
+                assertTrue(p.x() >= 0 && p.x() < layout.width() && p.y() >= 0 && p.y() < layout.titleY() - 8);
+            }
+        }
+    }
+
+    @Test
+    void radialSpectrumHasNoSeamOrSyntheticMotionAndHandlesInvalidSamples() {
+        float[] levels = {.2f, .8f, .4f, 1, 0, .3f, .1f, .6f};
+        assertEquals(CircularHudLayout.magnitude(levels, 8, 0), CircularHudLayout.magnitude(levels, 8, 1));
+        for (int i = 0; i < 100; i++) {
+            double turn = i / 100.0;
+            float value = CircularHudLayout.magnitude(levels, 8, turn);
+            assertTrue(value >= 0 && value <= 1);
+            assertEquals(value, CircularHudLayout.magnitude(levels, 8, 1 - turn), .00001);
+        }
+        assertEquals(vertices(.5, levels, 8), vertices(.5, levels, 8));
+        Arrays.fill(levels, Float.NaN);
+        assertEquals(vertices(0, null, 8), vertices(0, levels, 8));
+    }
+
+    @Test
+    void filledCircularStylesProduceDifferentBoundedGeometry() {
+        float[] levels = new float[64];
+        Arrays.fill(levels, 1);
+        var bars = vertices(0, levels, 36, Settings.SpectrumStyle.BARS);
+        var waves = vertices(0, levels, 36, Settings.SpectrumStyle.FILLED_WAVE);
+        var spikes = vertices(0, levels, 36, Settings.SpectrumStyle.FILLED_SPIKE);
+        assertTrue(!bars.equals(waves) && !waves.equals(spikes) && !bars.equals(spikes));
+        int base = vertices(0, null, 36).size();
+        for (var style : new Settings.SpectrumStyle[]{Settings.SpectrumStyle.FILLED_WAVE, Settings.SpectrumStyle.FILLED_SPIKE})
+            for (var point : vertices(0, levels, 36, style).subList(base, vertices(0, levels, 36, style).size())) {
+                double radius = Math.hypot(point.x() - 88, point.y() - 82);
+                assertTrue(radius >= CircularHudLayout.RING_OUTER - .001 && radius <= CircularHudLayout.RING_OUTER + CircularHudLayout.SPECTRUM_HEIGHT + CircularHudLayout.FEATHER + .001);
+            }
+        assertEquals(0, CircularHudLayout.waveHeight(levels, 36, 0, Settings.SpectrumStyle.FILLED_SPIKE));
+        assertEquals(18, CircularHudLayout.waveHeight(levels, 36, .5 / 36, Settings.SpectrumStyle.FILLED_SPIKE), .001);
+    }
+
+    @Test
+    void iconMeetsRingAndPulseIsStableBoundedAndIndependentOfText() {
+        assertEquals(CircularHudLayout.RING_INNER, CircularHudLayout.ICON_RADIUS);
+        float[] levels = new float[64];
+        assertEquals(1, CircularHudLayout.iconZoom(levels, 36));
+        Arrays.fill(levels, 1);
+        assertEquals(1.045, CircularHudLayout.iconZoom(levels, 36), .00001);
+        assertEquals(CircularHudLayout.iconZoom(levels, 36), CircularHudLayout.iconZoom(levels, 36));
+        Arrays.fill(levels, Float.NaN);
+        assertEquals(1, CircularHudLayout.iconZoom(levels, 36));
+        for (boolean spectrum : new boolean[]{false, true}) {
+            var withText = CircularHudLayout.of(spectrum, true);
+            var withoutText = CircularHudLayout.of(spectrum, false);
+            assertEquals(withText.centerY(), withoutText.centerY());
+            assertTrue(withoutText.height() < withText.height());
+            assertEquals(withoutText.centerY() * 2, withoutText.height());
+        }
+        var settings = new Settings();
+        settings.circularText = false;
+        settings.circularIconPulse = false;
+        settings.circularSpectrumStyle = Settings.SpectrumStyle.FILLED_SPIKE;
+        settings.spectrumStyle = Settings.SpectrumStyle.SMOOTH_WAVE;
+        var loaded = ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(settings), Settings.class);
+        loaded.validate();
+        assertTrue(!loaded.circularText && !loaded.circularIconPulse);
+        assertEquals(Settings.SpectrumStyle.FILLED_SPIKE, loaded.circularSpectrumStyle);
+        assertEquals(Settings.SpectrumStyle.SMOOTH_WAVE, loaded.spectrumStyle);
+        loaded.circularSpectrumStyle = Settings.SpectrumStyle.SMOOTH_WAVE;
+        loaded.validate();
+        assertEquals(Settings.SpectrumStyle.BARS, loaded.circularSpectrumStyle);
+    }
+
+    @Test
+    void circularModePreservesClassicPreferencesAndFitsTheWholeComponent() {
+        var settings = ConfigStore.JSON.fromJson("{}", Settings.class);
+        settings.validate();
+        assertEquals(Settings.HudStyle.CLASSIC, settings.hudStyle);
+        settings.hudStyle = Settings.HudStyle.CIRCULAR;
+        settings.hudArtwork = true;
+        settings.hudShape = Settings.HudShape.CHAMFERED;
+        settings.hudX = .8;
+        settings.hudY = .7;
+        var restored = ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(settings), Settings.class);
+        restored.validate();
+        assertEquals(Settings.HudStyle.CIRCULAR, restored.hudStyle);
+        assertTrue(restored.hudArtwork);
+        assertEquals(settings.hudShape, restored.hudShape);
+        for (boolean spectrum : new boolean[]{false, true}) {
+            settings.hudVisualizer = spectrum;
+            for (int width : new int[]{320, 426, 854, 1280})
+                for (int height : new int[]{180, 240, 480, 720})
+                    for (double scale : new double[]{.5, 1, 3}) {
+                        settings.hudScale = scale;
+                        var bounds = HudLayout.bounds(settings, width, height);
+                        assertTrue(bounds.x() >= 8 && bounds.y() >= 8 && bounds.x() + bounds.width() <= width - 8 && bounds.y() + bounds.height() <= height - 8);
+                        assertEquals(176, bounds.contentWidth());
+                    }
+            var artLayout = HudLayout.content(settings, Integer.MAX_VALUE);
+            settings.hudArtwork = !settings.hudArtwork;
+            assertEquals(artLayout, HudLayout.content(settings, Integer.MAX_VALUE));
+        }
+        assertEquals(Settings.HudStyle.CLASSIC, Settings.defaults(restored).hudStyle);
+    }
+
+    @Test
+    void centeredTextEllipsisKeepsUnicodeIntactAndWithinMeasuredWidth() {
+        String value = "歌曲🎵音樂𝄞Artist";
+        for (int width = 0; width <= 20; width++) {
+            String fitted = CircularHudRenderer.ellipsis(value, width, s -> s.codePointCount(0, s.length()));
+            assertTrue(fitted.codePointCount(0, fitted.length()) <= width);
+            assertEquals(fitted, new String(fitted.getBytes(java.nio.charset.StandardCharsets.UTF_8), java.nio.charset.StandardCharsets.UTF_8));
+        }
+        assertEquals(value, CircularHudRenderer.ellipsis(value, 100, String::length));
+    }
+
+    private record Point(float x, float y) {
+    }
+}

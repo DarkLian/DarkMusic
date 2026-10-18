@@ -16,6 +16,7 @@ public final class ValueSlider extends AbstractSliderButton {
     private long adjusted;
     private boolean dragging;
     private java.util.function.Supplier<com.darkmusic.client.config.VisualColors> colors;
+    private java.util.function.Supplier<com.darkmusic.client.config.Settings.SurfaceFinish> finish = () -> com.darkmusic.client.config.Settings.SurfaceFinish.FLAT;
 
     public ValueSlider(int x, int y, int width, double value, DoubleFunction<String> label, DoubleConsumer changed, Runnable committed) {
         this(x, y, width, value, label, changed, committed, 0);
@@ -34,12 +35,18 @@ public final class ValueSlider extends AbstractSliderButton {
         colors = value;
     }
 
+    public void finish(java.util.function.Supplier<com.darkmusic.client.config.Settings.SurfaceFinish> value) {
+        finish = value;
+    }
+
     @Override
     public void extractWidgetRenderState(net.minecraft.client.gui.GuiGraphicsExtractor g, int mx, int my, float delta) {
         super.extractWidgetRenderState(g, mx, my, delta);
         if (colors != null) {
             int width = Math.max(1, getWidth() - 4);
-            ColorStrip.draw(g, colors.get(), getX() + 2, getBottom() - 4, width, 2, (int) Math.round(width * value));
+            if (finish.get() == com.darkmusic.client.config.Settings.SurfaceFinish.BEVELED)
+                ColorStrip.track(g, getX() + 2, getBottom() - 4, width, 2, finish.get());
+            ColorStrip.draw(g, colors.get(), getX() + 2, getBottom() - 4, width, 2, (int) Math.round(width * value), finish.get());
         }
     }
 

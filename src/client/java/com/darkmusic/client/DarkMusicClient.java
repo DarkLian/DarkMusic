@@ -95,7 +95,7 @@ public class DarkMusicClient implements ClientModInitializer {
 
     public void configureVisualizer() {
         if (playback != null && playback.spectrum() != null)
-            playback.spectrum().configure(settings.hudVisualizer, settings.visualizerBars, settings.visualizerSensitivity, settings.visualizerSmoothing);
+            playback.spectrum().configure(settings.hudVisualizer || settings.hudStyle == com.darkmusic.client.config.Settings.HudStyle.CIRCULAR && settings.circularIconPulse, settings.visualizerBars, settings.visualizerSensitivity, settings.visualizerSmoothing);
     }
 
     public void open() {

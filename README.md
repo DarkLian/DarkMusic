@@ -11,13 +11,13 @@
 - Search by title, artist, album, or path; browse collapsible subfolders, playlists, artists, and albums; jump back to the playing song's original list.
 - Bulk playlist selection and animated reordering of connected selections.
 - Volume, seeking, shuffle, repeat, and playback speed from **0.5x to 3.0x**.
-- A combined now-playing HUD with optional artwork, progress, and real audio spectrum bars.
+- Classic and Circular now-playing HUDs, with real audio spectra, progress tracking, and one combined layout.
 - One settings screen with a live HUD preview, background transparency, and drag/scroll layout editing.
-- Independent spectrum/progress color presets and custom solid or mixed colors; the original purple stays the default.
+- Bars, smooth waves, and spikes; independent spectrum/progress colors and optional beveled depth. The original flat purple design stays the default.
 - URL analysis, searchable collection previews, short audio previews, download queues, and optional verified tool installation.
 - English and Traditional Chinese, following Minecraft's language setting.
 
-![DarkMusic player with the real music collection and embedded artwork](docs/images/player-1.0.3-3x.png)
+![DarkMusic player with the real music collection and embedded artwork](docs/images/player-1.0.4-3x.png)
 
 *Original fullscreen capture at Minecraft GUI scale 3.*
 
@@ -32,7 +32,7 @@
 
 ## Install and listen
 
-1. Add Fabric API for Minecraft 26.2 and **darkmusic-1.0.3.jar** to a Fabric instance's `mods` folder.
+1. Add Fabric API for Minecraft 26.2 and **darkmusic-1.0.4.jar** to a Fabric instance's `mods` folder.
 2. Launch Minecraft and click **Music** on the title screen, or press **B** during gameplay.
 3. Click **Open Folder**, then copy supported audio into that folder. Subfolders are included.
 4. Wait for discovery or click **Refresh Library**, then double-click a song.
@@ -63,11 +63,17 @@ Shortcuts work during gameplay with menus closed. Volume, mute, and speed shortc
 
 General and HUD options share one screen. Defaults are **Now-Playing HUD on**, **100% volume**, **100% HUD scale**, **0% background transparency**, and **36 bars**, placed **below** the song information/progress and growing **upward**.
 
-Artwork, progress, and spectrum have individual toggles. The master switch hides the whole gameplay HUD; **Music Spectrum** controls bars in both the player and HUD. Smoothing, sensitivity, bar count, placement, and direction are in the HUD section. Player bars use their own main-menu area.
+**HUD Style → Classic** preserves optional album artwork and a progress bar, with Rectangle, Rounded Card, or Chamfered Card backgrounds and an optional Raised HUD Finish. Its spectrum offers Filled Bars, Smooth Wave, Filled Wave, Spike, and Filled Spike. Placement and direction apply to the Classic HUD; its spectrum style also applies to the music player.
+
+**HUD Style → Circular** uses the original DarkMusic icon with its background, a clockwise progress ring, and outward spectrum growth. Choose Filled Bars, Filled Waves, or Filled Spike independently of Classic. **Song Information** toggles the centered title/artist lines; **Audio-Reactive Icon** enables a gentle bass-driven zoom inside the fixed ring. Both default on. Circular uses no album artwork or rectangular card background.
+
+**Spectrum Finish** and **Progress Finish** independently select Flat or Beveled in both HUD styles and the music player. Flat is the default. Beveled adds shaded faces, bright edges, and a recessed progress track without changing bounds or playback.
+
+The master switch hides the complete gameplay HUD. **Music Spectrum** controls spectra in both the player and HUD; smoothing, sensitivity, and bar count apply to both. Circular icon motion can remain enabled with the spectrum hidden. Switching HUD styles keeps the other style's preferences.
 
 **Spectrum Colors** and **Progress Bar Colors** offer Moonlight (the original purple), Aurora Borealis, Neon Dream, Solar Flare, Ocean Drive, Sakura Sky, Glacier Glow, Ruby Pulse, and Custom Mix. Enter matching hex colors for a solid color or different endpoints for a blend. Choices apply to the HUD and player.
 
-The live preview updates immediately. Scroll over it to resize its independent preview; a percentage readout helps compare sizes. Use **Edit HUD Layout** to drag the actual combined HUD or scroll over it to resize in 10% steps. There is no separate spectrum layout editor.
+The live preview updates immediately, including shapes, finishes, and Circular text visibility. Scroll over it to resize its independent preview; a percentage readout helps compare sizes. Use **Edit HUD Layout** to drag the actual combined HUD or scroll over it to resize in 10% steps. There is no separate spectrum layout editor.
 
 **Reset to Defaults** asks for confirmation, then restores preferences/key binds, switches to the default folder, stops pending work, removes instance-local tools and recognized download records, and clears caches. **Audio/video files, downloaded music, playlists, and external tools are preserved.** Unknown or linked files are retained and reported.
 
@@ -104,9 +110,9 @@ Use a Java 25 JDK:
 ./gradlew build
 ```
 
-Install `build/libs/darkmusic-1.0.3.jar`. The `-sources.jar` and `-third-party-sources.zip` are source archives, not installable mods. Include third-party sources and notices when redistributing builds.
+Install `build/libs/darkmusic-1.0.4.jar`. The `-sources.jar` and `-third-party-sources.zip` are source archives, not installable mods. Include third-party sources and notices when redistributing builds.
 
-See **[testing and screenshots](docs/TESTING.md)** and **[v1.0.3 release notes](docs/RELEASE-1.0.3.md)**.
+See **[testing and screenshots](docs/TESTING.md)** and **[v1.0.4 release notes](docs/RELEASE-1.0.4.md)**.
 
 ## License
 

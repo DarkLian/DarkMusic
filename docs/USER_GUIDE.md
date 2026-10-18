@@ -1,6 +1,6 @@
 # DarkMusic user guide
 
-[Project overview](../README.md) · [v1.0.3 release notes](RELEASE-1.0.3.md)
+[Project overview](../README.md) · [v1.0.4 release notes](RELEASE-1.0.4.md)
 
 Open **Music** on the title screen or press **B** during gameplay. Hover for help. **Escape** returns; settings save automatically. Playback continues across menus and worlds.
 
@@ -47,7 +47,7 @@ Speed changes tempo and pitch. Seeking uses the original song timeline. Manual N
 
 ### Long text and keyboard navigation
 
-Use the wheel vertically in lists. For overflowing titles, names, paths, and status messages, use horizontal trackpad scrolling or **Shift + wheel** over the text. Focused rows also support **Left / Right** panning. Input fields use caret scrolling; the selected folder path wraps. Overflowing song titles in the gameplay HUD scroll left and loop automatically.
+Use the wheel vertically in lists. For overflowing titles, names, paths, and status messages, use horizontal trackpad scrolling or **Shift + wheel** over the text. Focused rows also support **Left / Right** panning. Input fields use caret scrolling; the selected folder path wraps. Overflowing song titles in the Classic gameplay HUD scroll left and loop automatically. Circular titles and artist lines use ellipsis instead.
 
 Up/Down, Home/End, and Page Up/Page Down navigate focused lists. Enter plays in the main player. Tab moves between controls. The interface follows Minecraft's English or Traditional Chinese setting; supplied metadata is not translated.
 
@@ -57,7 +57,7 @@ Titles, artists, albums, and covers come from embedded tags. Missing titles use 
 
 Embed artwork using a tag editor, save, and refresh. Separate `cover.jpg` files are not loaded. Images retain aspect ratio with padding, without stretching/cropping. The cache preserves source resolution up to 1024 pixels and avoids upscaling small originals. Low-resolution artwork cannot gain detail from rendering.
 
-![Current music player](images/player-1.0.3-3x.png)
+![Current music player](images/player-1.0.4-3x.png)
 
 ## Playlists
 
@@ -93,26 +93,62 @@ General options are **Autoplay on Launch**, **Choose Music Folder**, and **Suppr
 | Setting | Default and behavior |
 |---|---|
 | Now-Playing HUD | **On**; master visibility switch for the combined gameplay HUD |
-| HUD Artwork | **On**; available embedded artwork |
-| HUD Progress | **On**; progress below song information |
-| Music Spectrum | **On**; bars in both player and HUD |
-| Spectrum Position | **Below** information/progress; Above also available |
-| Spectrum Direction | **Upward**; Downward inverts bar growth |
-| Bars | **36**; 8–64 in steps of four, combined to fit narrow areas |
+| HUD Style | **Classic**; Circular is optional |
+| HUD Artwork | **On**; embedded artwork in Classic only |
+| HUD Progress | **On**; a Classic progress bar or Circular progress ring |
+| Music Spectrum | **On**; spectrum in both player and HUD |
+| Spectrum Style (Classic) | **Filled Bars**; Smooth Wave, Filled Wave, Spike, and Filled Spike also available; shared with the music player |
+| Spectrum Style (Circular) | **Filled Bars**; Filled Waves and Filled Spike also available; saved independently |
+| HUD Shape | **Rectangle**; Rounded Card and Chamfered Card for Classic |
+| Raised HUD Finish | **Off**; a subtle Classic background bevel, separate from spectrum/progress finishes |
+| Spectrum Position | **Below** information/progress in Classic; Above also available |
+| Spectrum Direction | **Upward** in Classic; Downward inverts growth |
+| Song Information | **On** in Circular; centered title and smaller artist line, with ellipsis |
+| Audio-Reactive Icon | **On** in Circular; subtle bass-driven image zoom within the fixed circular edge |
+| Spectrum Finish / Progress Finish | **Flat**; independent Beveled options for Classic, Circular, and the player |
+| Bars | **36**; 8–64 in steps of four; controls frequency bands and Circular bar/spike count |
 | Sensitivity | **1.0**; 0.25–4.0 visual gain |
 | Smoothing | **60%**; higher values respond more slowly |
 | Spectrum Colors / Progress Bar Colors | **Moonlight**; independent preset/custom colors in the HUD and player |
-| HUD Background Transparency | **0%**; 0% opaque, 100% transparent |
+| HUD Background Transparency | **0%**; 0% opaque, 100% transparent; Classic background surfaces only |
 | HUD scale | **100%** |
 | Music volume | **100%**, adjusted in the player |
 
-The master hides the complete gameplay HUD, including spectrum. Player bars remain available if Music Spectrum is enabled. The HUD respects F1 and hides in menus. Its spectrum shares width and scale; reserved spacing prevents bars from touching progress in either direction.
+The master hides the complete gameplay HUD, including spectrum. The music-player spectrum remains available if Music Spectrum is enabled. The gameplay HUD respects F1 and hides in menus.
 
-Transparency affects background surfaces, including artwork padding and spectrum space. Artwork, text, progress, bars, and main-menu artwork retain their opacity.
+### Classic layout
 
-The preview updates immediately using the current song. With no song, preview information and preview-only sample bars show the layout. Gameplay bars always use decoded audio.
+Artwork, progress, and spectrum remain independently configurable. The spectrum follows the card width, with reserved spacing preventing overlap in either direction. Rounded/chamfered corners also clip the spectrum to the background silhouette. The optional raised finish shades the card background; it does not change the spectrum or progress finish.
 
-![Unified settings and combined HUD preview](images/settings-1.0.3-3x.png)
+Transparency affects Classic background surfaces, including artwork padding and spectrum space. Artwork, text, progress, spectra, and main-menu artwork retain their opacity. Classic titles loop when they overflow.
+
+![Unified settings and Classic HUD preview](images/settings-1.0.4-3x.png)
+
+### Circular layout
+
+Circular displays the high-quality DarkMusic icon with its original image background, meeting the progress ring without a gap. The ring starts at twelve o'clock and fills clockwise on the existing track timeline. Disabling HUD Progress leaves a quiet outline. No album artwork is loaded for this style; the Classic artwork preference is kept for switching back.
+
+The spectrum grows outward from the ring. **Filled Bars**, **Filled Waves**, and **Filled Spike** produce separate radial shapes, using the same decoded-audio bands, sensitivity, and smoothing. There is no separate spectrum position, direction, or scale in Circular.
+
+**Song Information** hides or shows both lines below the circle. The title is larger than the artist line, both are centered, and long text uses ellipsis. Hiding text removes its reserved height from the combined HUD bounds.
+
+**Audio-Reactive Icon** gently zooms the image with the bass while keeping its edge attached to the ring. It freezes on pause and works with Music Spectrum disabled. Turn it off for a static icon. Actual gameplay animation uses decoded audio; any simulated motion is confined to idle settings previews.
+
+Circular has no rectangular background or background-transparency control. Its icon keeps its normal opacity. Classic shape, artwork, and layout options are preserved when switching styles.
+
+![Circular filled-wave HUD with beveled spectrum and progress ring](images/circular-hud-1.0.4-3x.png)
+
+![Circular filled-spike HUD with Song Information disabled](images/circular-spike-1.0.4-3x.png)
+
+### Flat and beveled finishes
+
+Choose **Spectrum Finish** and **Progress Finish** independently. **Flat** retains the original appearance. **Beveled** adds shaded faces and highlighted edges; the progress track appears recessed. The effect supports every spectrum style, both HUD designs, and the music player, with consistent upper-left lighting on Circular surfaces.
+
+Finishes stay inside existing geometry. They do not change progress accuracy, spectrum magnitude, saved colors, audio analysis, artwork opacity, or HUD bounds. A raised Classic card can be combined with either finish.
+
+![Rounded Classic HUD with beveled bars and progress](images/beveled-hud-1.0.4-3x.png)
+
+The settings preview uses the same renderer as the HUD and updates immediately. When nothing is playing, preview-only sample spectra make the layout visible. There is no simulated gameplay spectrum.
 
 ### Spectrum and progress colors
 
@@ -133,7 +169,7 @@ Choose **Custom Mix**, or edit **Start Color / End Color** using six-digit `#RRG
 
 The progress blend is anchored to the whole track width; seeking reveals the appropriate part rather than squeezing the blend into the completed portion. The player seek slider has the same color fill along its lower edge. HUD transparency does not fade foreground colors.
 
-![Spectrum color presets and live HUD preview](images/spectrum-colors-1.0.3-3x.png)
+![Spectrum color presets and live HUD preview](images/spectrum-colors-1.0.4-3x.png)
 
 ### Move and scale
 
@@ -145,7 +181,7 @@ All enabled components move/scale together. Relative positioning keeps the HUD v
 
 ### Spectrum behavior
 
-FFT uses decoded PCM after volume/speed processing. Analysis and smoothing run off the render thread and follow audio-device timing. Pause freezes bars; seek, stop, track changes, and errors clear old levels. Quiet audio/low volume produces shorter bars. Player bars use the area below artwork; HUD placement/direction settings affect the HUD only.
+FFT uses decoded PCM after volume/speed processing. Analysis and smoothing run off the render thread and follow audio-device timing. Pause freezes spectra and icon motion; seek, stop, track changes, and errors clear old levels. Quiet audio/low volume produces smaller spectra. Spatial profiles and bevel shading only change rendering. Player spectra use the area below artwork; Classic placement/direction settings affect the HUD only. The Circular icon can keep audio analysis active when its spectrum is hidden.
 
 ## Keyboard shortcuts
 
@@ -184,7 +220,7 @@ Open **Downloads → Tools**. Each tool has a separate row and checked version/s
 
 **Check Tools** validates versions and MP3 support. **Cancel Tool Operation** appears only during checking/installing and stops that work. Escape only leaves the menu. There is no Done button. Nothing installs on startup; local playback needs none of these tools.
 
-![Tools listed individually after checking](images/download-tools-1.0.3-3x.png)
+![Tools listed individually after checking](images/download-tools-1.0.4-3x.png)
 
 ### Analyze and select
 
@@ -220,7 +256,7 @@ The queue reports waiting, downloading, converting, saved, skipped, failed, and 
 
 Queue-wide actions apply to the whole queue, including rows hidden by search. Row actions target only the visible selected job. Failed entries without a usable URL require re-analysis before retrying. Closing Downloads keeps both the URL and analyzed preview for this Minecraft session. An edited URL must match its analyzed preview before downloading.
 
-![Downloads with contextual controls](images/downloads-1.0.3-3x.png)
+![Downloads with contextual controls](images/downloads-1.0.4-3x.png)
 
 Three jobs run concurrently. When every queued/active job in a pass finishes, failed downloads automatically retry up to **three additional times** (four total attempts). Cancelled jobs are never automatically retried. Successful retries update both queue status and the brief gameplay notification. The gameplay download overlay shows processed counts, active jobs, available progress, and failures even if the Now-Playing HUD is disabled. Notices fade; F1 and open menus hide this overlay.
 
