@@ -307,6 +307,7 @@ public final class MusicScreen extends LocalScreen {
         }
         var audio = app.playback.state();
         jump.active = audio.track() != null;
+        if (app.settings.lyricsEnabled) app.lyrics.request(audio.track());
         volume.sync(app.settings.volume);
         speed.sync((app.settings.speed - .5) / 2.5);
         progress.active = audio.track() != null && audio.duration() > 0 && audio.status() != AudioBackend.Status.STOPPED && audio.status() != AudioBackend.Status.ERROR;
@@ -326,7 +327,14 @@ public final class MusicScreen extends LocalScreen {
         String status = label(audio.status().name()) + (audio.track() == null ? "" : "  |  " + audio.track().title() + " - " + audio.track().artist());
         var layout = PlayerLayout.of(width, height);
         boolean sidebarSpectrum = layout.panelWidth() > 0 && layout.spectrumY() + layout.spectrumHeight() <= layout.listY() + layout.listHeight();
-        longText.draw(g, font, "status", status, 12, height - 118 - extra, width - 24 - (app.settings.hudVisualizer && !sidebarSpectrum ? 108 : 0), 0xFFEEEEFF);
+        int statusWidth = width - 24 - (app.settings.hudVisualizer && !sidebarSpectrum ? 108 : 0);
+        if (app.settings.lyricsEnabled && !app.lyrics.get(audio.track()).lines().isEmpty()) {
+            String available = Text.get("lyrics.darkmusic.available");
+            int indicatorWidth = font.width(available);
+            g.text(font, available, 12 + statusWidth - indicatorWidth, height - 118 - extra, 0xFFB5B0FF);
+            statusWidth -= indicatorWidth + 8;
+        }
+        longText.draw(g, font, "status", status, 12, height - 118 - extra, Math.max(1, statusWidth), 0xFFEEEEFF);
         if (app.settings.hudVisualizer)
             spectrum.render(app, g, sidebarSpectrum ? layout.panelX() : width - 108, sidebarSpectrum ? layout.spectrumY() : height - 123 - extra, sidebarSpectrum ? layout.panelWidth() : 96, sidebarSpectrum ? layout.spectrumHeight() : 16);
         String message = !app.warning.isBlank() ? app.warning : !app.library.snapshot().message().isBlank() ? app.library.snapshot().message() : audio.status() == AudioBackend.Status.ERROR ? audio.error() : playlistNotice;

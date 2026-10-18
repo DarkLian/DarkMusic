@@ -432,6 +432,7 @@
   "audio.darkmusic.value.focus": "專注",
   "audio.darkmusic.value.ambient": "環境",
   "lyrics.darkmusic.title": "歌詞",
+  "lyrics.darkmusic.available": "有可用歌詞",
   "lyrics.darkmusic.enabled": "啟用歌詞",
   "lyrics.darkmusic.enabled_help": "啟用同步歌詞並下載來源提供的人工字幕；字幕不一定是歌詞。停用時會保留現有檔案。",
   "lyrics.darkmusic.disabled": "歌詞已在設定中停用。",

@@ -6,6 +6,7 @@ import com.darkmusic.client.hud.NowPlayingHud;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 
 import java.util.ArrayList;
@@ -92,9 +93,13 @@ public final class SettingsScreen extends LocalScreen {
         previewX = wide ? formWidth + 32 : 12;
         previewY = 32;
         previewWidth = wide ? width - previewX - 12 : width - 24;
-        previewHeight = wide ? height - 44 : Math.min(100, height / 3);
-        top = wide ? 32 : previewY + previewHeight + 8;
+        previewHeight = wide ? height - 68 : Math.min(100, height / 3);
+        top = wide ? 32 : previewY + previewHeight + 32;
         bottom = height - 12;
+        int layoutButtonWidth = Math.min(previewWidth, font.width(Text.get("text.darkmusic.edit_hud_layout")) + 24);
+        addRenderableWidget(Button.builder(Text.component("text.darkmusic.edit_hud_layout"),
+            button -> show(new HudEditorScreen(app, this)))
+            .bounds(previewX + (previewWidth - layoutButtonWidth) / 2, previewY + previewHeight + 4, layoutButtonWidth, 20).build());
         var s = app.settings;
         section("text.darkmusic.general_settings");
         action("audio.darkmusic.title", () -> show(new AudioSettingsScreen(app, this)), "audio.darkmusic.options_help");
@@ -140,7 +145,6 @@ public final class SettingsScreen extends LocalScreen {
             controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("style.darkmusic.shape") + ": " + Text.get("style.darkmusic.shape." + s.hudShape.name().toLowerCase(Locale.ROOT))));
             toggle("style.darkmusic.raised", () -> s.hudRaised, v -> s.hudRaised = v, "style.darkmusic.raised_help");
         }
-        action("text.darkmusic.edit_hud_layout", () -> show(new HudEditorScreen(app, this)), "hud.darkmusic.help");
         section("hud.darkmusic.section_spectrum");
         action("style.darkmusic.spectrum", () -> {
             if (classic)
@@ -264,8 +268,8 @@ public final class SettingsScreen extends LocalScreen {
             g.text(font, line, 19, pathY, 0xFFAAAAC0);
             pathY += 10;
         }
-        super.extractRenderState(g, x, y, delta);
         g.disableScissor();
+        super.extractRenderState(g, x, y, delta);
         if (cursor > bottom - top) {
             int length = Math.max(12, (bottom - top) * (bottom - top) / cursor);
             int sy = top + (bottom - top - length) * scroll / Math.max(1, cursor - (bottom - top));

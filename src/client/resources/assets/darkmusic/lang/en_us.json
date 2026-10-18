@@ -432,6 +432,7 @@
   "audio.darkmusic.value.focus": "Focus",
   "audio.darkmusic.value.ambient": "Ambient",
   "lyrics.darkmusic.title": "Lyrics",
+  "lyrics.darkmusic.available": "Lyrics Available",
   "lyrics.darkmusic.enabled": "Enable Lyrics",
   "lyrics.darkmusic.enabled_help": "Enable timed lyrics and download available manual source captions. Captions may not be song lyrics. Disabling keeps existing files.",
   "lyrics.darkmusic.disabled": "Lyrics are disabled in Settings.",

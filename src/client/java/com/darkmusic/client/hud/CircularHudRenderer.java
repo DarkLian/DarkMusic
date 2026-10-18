@@ -22,6 +22,21 @@ public final class CircularHudRenderer {
     private final SpectrumRenderer spectrum = new SpectrumRenderer();
     private final float[] levels = new float[64];
     private final float[] peaks = new float[64];
+    private final TitleMarquee title = new TitleMarquee();
+
+    private void title(GuiGraphicsExtractor g, Font font, String text, int width, int lineWidth, int y) {
+        float scale = 1.1f;
+        int available = Math.max(1, (int) ((lineWidth - 8) / scale));
+        g.pose().pushMatrix();
+        try {
+            g.pose().translate(width / 2f, y);
+            g.pose().scale(scale);
+            if (font.width(text) <= available) g.text(font, text, -font.width(text) / 2, 0, 0xFFDDD9FF);
+            else title.draw(g, font, text, -available / 2, 0, available, 0xFFDDD9FF);
+        } finally {
+            g.pose().popMatrix();
+        }
+    }
 
     private static void centered(GuiGraphicsExtractor g, Font font, String text, int width, int lineWidth, int y, float scale, int color) {
         String fitted = ellipsis(text, (int) ((lineWidth - 8) / scale), font::width);
@@ -78,7 +93,7 @@ public final class CircularHudRenderer {
         if (!settings.circularText) return;
         var font = Minecraft.getInstance().font;
         int lineWidth = Math.round((CircularHudLayout.RING_OUTER + (settings.hudVisualizer ? CircularHudLayout.SPECTRUM_HEIGHT : 0)) * 2) + 8;
-        centered(g, font, track == null ? Text.get("text.darkmusic.song_title") : track.title(), layout.width(), lineWidth, layout.titleY(), 1.1f, 0xFFDDD9FF);
+        title(g, font, track == null ? Text.get("text.darkmusic.song_title") : track.title(), layout.width(), lineWidth, layout.titleY());
         centered(g, font, track == null ? Text.get("text.darkmusic.artist") : track.artist(), layout.width(), lineWidth, layout.artistY(), .85f, 0xFFB0ADC2);
     }
 }
