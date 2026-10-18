@@ -50,13 +50,29 @@ public final class HudSurface {
             g.fill(left, top, right, bottom, color);
             return;
         }
-        int middleTop = Math.max(top, 6), middleBottom = Math.min(bottom, height - 6);
-        if (middleBottom > middleTop) g.fill(left, middleTop, right, middleBottom, color);
-        for (int row = top; row < bottom; row++) {
-            if (row >= middleTop && row < middleBottom) continue;
+        for (int row = top; row < bottom; ) {
             int inset = inset(shape, width, height, row);
             int start = Math.max(left, inset), end = Math.min(right, width - inset);
-            if (end > start) g.fill(start, row, end, row + 1, color);
+            int next = spanBottom(shape, width, height, left, right, row, bottom);
+            if (end > start) g.fill(start, row, end, next, color);
+            row = next;
         }
+    }
+
+    /**
+     * Adjacent rows with identical clipped edges are one rectangle, including at HUD corners.
+     * Splitting them makes GUI overlap-layer searches quadratic for dense beveled waves.
+     */
+    static int spanBottom(Settings.HudShape shape, int width, int height, int left, int right, int top, int bottom) {
+        int inset = inset(shape, width, height, top);
+        int start = Math.max(left, inset), end = Math.min(right, width - inset);
+        int next = top + 1;
+        while (next < bottom) {
+            int candidate = inset(shape, width, height, next);
+            if (Math.max(left, candidate) != start || Math.min(right, width - candidate) != end) break;
+            // All interior rows have zero inset; only the two corner bands need inspection.
+            next = next >= 6 && next < height - 6 ? Math.min(bottom, height - 6) : next + 1;
+        }
+        return next;
     }
 }
