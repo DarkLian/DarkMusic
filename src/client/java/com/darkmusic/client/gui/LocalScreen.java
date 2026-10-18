@@ -25,6 +25,30 @@ public abstract class LocalScreen extends Screen {
         if (isCurrent()) minecraft.gui.setScreen(next);
     }
 
+    /**
+     * Preserve native editing state when a responsive rebuild retains the same draft.
+     */
+    @Override
+    protected void rebuildWidgets() {
+        var editing = children().stream().filter(c -> c instanceof UiInput).map(c -> (UiInput) c)
+            .map(c -> new EditorState(c.getMessage().getString(), c.getValue(), c.getCursorPosition(), c.selectionEnd(), c.isFocused())).toList();
+        var focused = getFocused() instanceof net.minecraft.client.gui.components.AbstractWidget w ? w.getMessage() : null;
+        super.rebuildWidgets();
+        for (var child : children())
+            if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget && widget.visible && widget.active) {
+                if (focused != null && focused.equals(widget.getMessage())) setFocused(widget);
+                if (widget instanceof UiInput input) for (var saved : editing)
+                    if (saved.label().equals(input.getMessage().getString()) && saved.value().equals(input.getValue())) {
+                        input.setCursorPosition(saved.cursor());
+                        input.setHighlightPos(saved.end());
+                        if (saved.focused()) setFocused(input);
+                    }
+            }
+    }
+
+    private record EditorState(String label, String value, int cursor, int end, boolean focused) {
+    }
+
     @Override
     public boolean mouseScrolled(double x, double y, double dx, double dy) {
         if (longText.scroll(x, y, dx, dy, HorizontalText.shiftDown())) return true;
@@ -33,6 +57,11 @@ public abstract class LocalScreen extends Screen {
 
     @Override
     public void removed() {
+        for (var child : children()) {
+            if (child instanceof RowList rows) rows.cancelDrag();
+            else if (child instanceof ScrollBar bar) bar.cancel();
+            else if (child instanceof ToolCards cards) cards.setFocused(false);
+        }
         var app = com.darkmusic.client.DarkMusicClient.INSTANCE;
         if (app != null) app.save();
     }

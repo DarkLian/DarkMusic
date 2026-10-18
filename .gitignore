@@ -44,3 +44,6 @@ replay_*.log
 
 # local agent instructions
 AGENTS.md
+
+# Runtime logs
+/logs/

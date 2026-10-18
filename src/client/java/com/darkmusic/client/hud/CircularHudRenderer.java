@@ -84,7 +84,10 @@ public final class CircularHudRenderer {
             TextureSetup.singleTexture(texture.getTextureView(), texture.getSampler()), layout.centerX(), layout.centerY(), zoom));
         if (analyzed && settings.hudVisualizer && (settings.visualQuality.trails || settings.visualQuality.peakHold)) {
             app.playback.spectrum().copyPeaks(peaks);
-            g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(pose, clip, bounds, layout.centerX(), layout.centerY(), -1, peaks.clone(), settings.visualizerBars, settings.circularSpectrumStyle, 0, 0, (settings.spectrumColors.first() & 0xffffff) | 0x44000000, (settings.spectrumColors.last() & 0xffffff) | 0x44000000, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, settings.visualQuality.detail, false));
+            if (settings.visualQuality.trails)
+                g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(pose, clip, bounds, layout.centerX(), layout.centerY(), -1, peaks.clone(), settings.visualizerBars, settings.circularSpectrumStyle, 0, 0, (settings.spectrumColors.first() & 0xffffff) | 0x22000000, (settings.spectrumColors.last() & 0xffffff) | 0x22000000, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, settings.visualQuality.detail, false));
+            if (settings.visualQuality.peakHold)
+                g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(pose, clip, bounds, layout.centerX(), layout.centerY(), -2, peaks.clone(), settings.visualizerBars, settings.circularSpectrumStyle, 0, 0, settings.spectrumColors.first() | 0xff000000, settings.spectrumColors.last() | 0xff000000, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, settings.visualQuality.detail, false));
         }
         g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(pose, clip, bounds, layout.centerX(), layout.centerY(),
             settings.hudProgress ? CircularHudLayout.progress(audio.position(), audio.duration(), preview) : 0,

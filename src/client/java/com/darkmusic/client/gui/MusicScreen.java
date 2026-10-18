@@ -17,7 +17,6 @@ import java.util.Locale;
 
 public final class MusicScreen extends LocalScreen {
     private final DarkMusicClient app;
-    private final Screen parent;
     private final SpectrumRenderer spectrum = new SpectrumRenderer();
     private final java.util.Set<String> expandedFolders = new java.util.HashSet<>();
     private EditBox search;
@@ -29,6 +28,15 @@ public final class MusicScreen extends LocalScreen {
     private long folderRevision = -1;
     private String folderRoot = "";
     private String mode = "All", group = "", query = "";
+    private final java.util.Map<String, String> selectedGroups = new java.util.HashMap<>();
+
+    private void mode(String next) {
+        selectedGroups.put(mode, group);
+        mode = next;
+        group = selectedGroups.getOrDefault(next, "");
+        rebuildWidgets();
+    }
+
     private Track selected, seekTrack;
     private boolean seekDragging;
     private long revision = -1, playlistRevision = -1, refreshed;
@@ -36,11 +44,12 @@ public final class MusicScreen extends LocalScreen {
     private Button play, shuffle, repeat, jump;
     private ValueSlider progress;
     private ValueSlider speed, volume;
+    private String playingId = "";
+    private UiIcon playingIcon = UiIcon.PLAY;
 
     public MusicScreen(DarkMusicClient app, Screen parent) {
         super(Component.literal("DarkMusic"), parent);
         this.app = app;
-        this.parent = parent;
     }
 
     public static String time(double seconds) {
@@ -53,112 +62,168 @@ public final class MusicScreen extends LocalScreen {
     }
 
     private Button button(String text, int x, int y, int w, Runnable action) {
-        return addRenderableWidget(Button.builder(Component.literal(text), b -> action.run()).bounds(x, y, w, 20).build());
+        var button = addRenderableWidget(UiButton.builder(Component.literal(text), b -> action.run()).bounds(x, y, w, 20).build());
+        if (y >= height - 32) UiButton.style(button, UiButton.Style.SUBTLE);
+        return button;
+    }
+
+    private enum Pane {LIBRARY, COLLECTIONS, DETAILS}
+
+    private Pane pane = Pane.LIBRARY;
+    private PlayerLayout layout;
+    private int songScroll, collectionScroll;
+
+    private Button icon(String key, UiIcon icon, int x, int y, int w, boolean only, Runnable action) {
+        return UiButton.icon(button(Text.get(key), x, y, w, action), icon, only);
+    }
+
+    private void pane(Pane next) {
+        pane = next;
+        rebuildWidgets();
+    }
+
+    private void shuffle() {
+        app.settings.shuffle = !app.playback.shuffle();
+        app.playback.shuffle(app.settings.shuffle);
+        app.save();
+    }
+
+    private void repeat() {
+        var values = PlaybackController.Repeat.values();
+        var next = values[(app.playback.repeat().ordinal() + 1) % values.length];
+        app.settings.repeat = next;
+        app.playback.repeat(next);
+        app.save();
     }
 
     @Override
     protected void init() {
-        if (width >= 400 && app.settings.lyricsEnabled)
-            button(Text.get("lyrics.darkmusic.title"), 80, 6, 60, () -> show(new LyricsScreen(app, this)));
-        Help.tip(button(Text.get("text.darkmusic.settings"), width - 88, 6, 76, () -> show(new SettingsScreen(app, this))), Text.get("text.darkmusic.music_folder_autoplay_background_music_and_hud_layout_assign_shortcuts_in_options"));
-        Help.tip(button(Text.get("text.darkmusic.manage_playlists"), width - 216, 6, 124, () -> {
-            if (app.playlistsReady) show(new PlaylistScreen(app, this));
-            else app.warn(Text.get("text.darkmusic.playlists_are_still_loading"));
-        }), Text.get("text.darkmusic.create_and_edit_playlists_to_listen_use_the_playlists_view_below_escape_closes_the"));
-        jump = Help.tip(button(width >= 600 ? Text.get("player.darkmusic.jump") : "->", width >= 600 ? width - 332 : width - 244, 6, width >= 600 ? 112 : 24, this::jumpToPlaying), Text.get("player.darkmusic.jump_tip"));
-        boolean compact = height < 320;
-        search = addRenderableWidget(new EditBox(font, 12, 32, compact ? width - 144 : width - 24, 20, Text.component("text.darkmusic.search_songs")));
+        if (songs != null) songScroll = songs.scrollOffset();
+        if (navigation != null) collectionScroll = navigation.scrollOffset();
+        seekDragging = false;
+        seekTrack = null;
+        if (width < 320 || height < 240) {
+            icon("phase2.back", UiIcon.BACK, 4, 4, Math.max(1, Math.min(80, width - 8)), false, this::onClose);
+            return;
+        }
+        layout = PlayerLayout.of(width, height);
+        shuffle = repeat = null;
+        int contextY = height < 300 ? 64 : 70;
+        icon("text.darkmusic.downloads", UiIcon.DOWNLOAD, width - 180, 6, 96, false, () -> show(new DownloadScreen(app, this)));
+        icon("text.darkmusic.settings", UiIcon.SETTINGS, width - 80, 6, 68, false, () -> show(new SettingsScreen(app, this)));
+        if (width >= 480 && app.settings.lyricsEnabled)
+            icon("lyrics.darkmusic.title", UiIcon.LYRICS, width - 208, 6, 24, true, () -> show(new LyricsScreen(app, this)));
+        String[] modes = {"All", "Playlists", "Artists", "Albums"};
+        int searchX;
+        if (width >= 800) {
+            for (int i = 0; i < modes.length; i++) {
+                String next = modes[i];
+                UiButton.selected(button(Text.get("view.darkmusic." + next.toLowerCase(Locale.ROOT)), 12 + i * 68, 38, 64, () -> {
+                    mode(next);
+                }), () -> mode.equals(next));
+            }
+            searchX = 292;
+        } else {
+            button(Text.get("format.darkmusic.view", Text.get("view.darkmusic." + mode.toLowerCase(Locale.ROOT))), 12, 38, 108, () -> {
+                mode(modes[(Arrays.asList(modes).indexOf(mode) + 1) % modes.length]);
+            });
+            searchX = 128;
+        }
+        search = addRenderableWidget(new UiInput(font, searchX, 38, width - searchX - 40, 20, Text.component("text.darkmusic.search_songs")));
         search.setMaxLength(512);
         search.setHint(Text.component("text.darkmusic.search_title_artist_album_or_path"));
         search.setValue(query);
         search.setResponder(text -> {
             query = text;
-            refresh();
+            refreshSongs();
         });
-        String[] modes = {"All", "Playlists", "Artists", "Albums"};
-        int tab = (width - 24) / modes.length;
-        if (compact)
-            button(Text.get("format.darkmusic.view", Text.get("view.darkmusic." + mode.toLowerCase(Locale.ROOT))), width - 126, 32, 114, () -> {
-                mode = modes[(Arrays.asList(modes).indexOf(mode) + 1) % modes.length];
-                group = "";
-                rebuildWidgets();
+        icon("text.darkmusic.refresh_library", UiIcon.REFRESH, width - 36, 38, 24, true, () -> app.library.rescan());
+        boolean library = pane == Pane.LIBRARY;
+        if (pane != Pane.LIBRARY) icon("phase2.back", UiIcon.BACK, 12, contextY, 68, false, () -> pane(Pane.LIBRARY));
+        else if (layout.singleColumn())
+            icon("ui.darkmusic.collections", UiIcon.FOLDER, 12, contextY, 110, false, () -> pane(Pane.COLLECTIONS));
+        else icon("text.darkmusic.open_folder", UiIcon.FOLDER, 12, contextY, 24, true, app::openFolder);
+        if (mode.equals("Playlists")) {
+            var manage = icon("text.darkmusic.manage_playlists", UiIcon.PLAYLIST, width - 160, contextY, 120, false, () -> {
+                if (app.playlistsReady) show(new PlaylistScreen(app, this));
+                else app.warn(Text.get("text.darkmusic.playlists_are_still_loading"));
             });
-        else for (int i = 0; i < modes.length; i++) {
-            String next = modes[i];
-            button(Text.get("view.darkmusic." + next.toLowerCase(Locale.ROOT)), 12 + i * tab, 56, tab - 3, () -> {
-                mode = next;
-                group = "";
-                refresh();
-            });
+            manage.active = app.playlistsReady;
         }
-        var layout = PlayerLayout.of(width, height);
-        int navWidth = layout.navigationWidth();
-        int listY = compact ? 58 : 82;
-        boolean narrow = width < 640;
-        int extra = narrow ? 24 : 0;
-        int listHeight = Math.max(28, height - 144 - extra - listY);
-        navigation = addRenderableWidget(new RowList(12, listY, navWidth, listHeight, 22, Text.get("text.darkmusic.library_navigation"), (i, activated) -> {
+        if (layout.inspector().width() == 0 && library)
+            icon("phase2.details", UiIcon.ALBUM, width - 36, contextY, 24, true, () -> pane(Pane.DETAILS));
+        var list = layout.tracks();
+        var nav = layout.navigation();
+        boolean drawer = pane == Pane.COLLECTIONS;
+        navigation = addRenderableWidget(new RowList(drawer ? 12 : nav.x(), nav.y(), drawer ? width - 24 : Math.max(1, nav.width()), nav.height(), 24,
+            Text.get("text.darkmusic.library_navigation"), (i, activated) -> {
             group = groups.get(i);
             if (activated && mode.equals("All") && i > 0 && folderRows.get(i - 1).children()) toggleFolder(i);
             else refreshSongs();
+            if (drawer && !(activated && mode.equals("All") && i > 0 && folderRows.get(i - 1).children()))
+                pane(Pane.LIBRARY);
         }));
+        navigation.visible = drawer || library && !layout.singleColumn();
         navigation.disclosure(i -> mode.equals("All") && i > 0 && i <= folderRows.size() && folderRows.get(i - 1).children() ? 5 + folderRows.get(i - 1).depth() * 8 : -1, this::toggleFolder);
-        int art = layout.panelWidth() == 0 ? 0 : layout.panelWidth() + 8;
-        songs = addRenderableWidget(new RowList(18 + navWidth, listY, width - 30 - navWidth - art, listHeight, compact ? 28 : 32, Text.get("text.darkmusic.songs_enter_or_double_click_to_play"), (i, activated) -> {
+        navigation.icons(i -> mode.equals("All") ? i == 0 ? UiIcon.MUSIC : UiIcon.FOLDER : mode.equals("Artists") ? UiIcon.ARTIST : mode.equals("Albums") ? UiIcon.ALBUM : UiIcon.PLAYLIST);
+        navigation.indent(i -> mode.equals("All") && i > 0 && i <= folderRows.size() ? folderRows.get(i - 1).depth() * 8 : 0);
+        navigation.expanded(i -> mode.equals("All") && i > 0 && i <= folderRows.size() && folderRows.get(i - 1).expanded());
+        songs = addRenderableWidget(new RowList(list.x(), list.y(), list.width(), list.height(), 36,
+            Text.get("text.darkmusic.songs_enter_or_double_click_to_play"), (i, activated) -> {
             selected = visible.get(i);
             if (activated)
-                app.playback.play(visible, selected, new PlaybackController.Source(mode, group, query, app.library.rootId()));
+                app.playback.play(collectionTracks(), selected, new PlaybackController.Source(mode, group, "", app.library.rootId()));
         }));
-        progress = addRenderableWidget(Help.tip(new ValueSlider(12, height - 102 - extra, width - 24, 0,
+        songs.visible = library;
+        songs.artwork(app.artwork, i -> i < visible.size() ? visible.get(i) : null);
+        songs.lyrics(app.lyrics, () -> app.settings.lyricsEnabled);
+        songs.playing(i -> i < visible.size() && visible.get(i).id().equals(playingId));
+        songs.playingIcon(() -> playingIcon);
+        int transportY = layout.transportY();
+        int x = layout.transportX();
+        int sliderWidth = layout.controlWidth();
+        speed = addRenderableWidget(Help.tip(new ValueSlider(x, transportY, sliderWidth, (app.settings.speed - .5) / 2.5,
+                v -> Text.get("format.darkmusic.speed", String.format(Locale.ROOT, "%.1f", app.settings.speed)),
+                v -> app.speed(.5 + v * 2.5), app::save, 25),
+            Text.get("text.darkmusic.playback_speed_0_5x_to_3_0x_in_0_1x_steps_faster_raises_pitch_slower_lowers_it")));
+        speed.plain(true);
+        x += sliderWidth + 8;
+        int buttonWidth = layout.transportButtonWidth();
+        shuffle = icon("text.darkmusic.shuffle", UiIcon.SHUFFLE, x, transportY, buttonWidth, true, this::shuffle);
+        x += buttonWidth + 4;
+        jump = icon("player.darkmusic.jump", UiIcon.LOCATE, x, transportY, buttonWidth, true, this::jumpToPlaying);
+        x += buttonWidth + 4;
+        icon("text.darkmusic.previous", UiIcon.PREVIOUS, x, transportY, buttonWidth, true, () -> app.playback.previous());
+        x += buttonWidth + 4;
+        play = icon("text.darkmusic.play", UiIcon.PLAY, x, transportY - 4, buttonWidth + 8, true, this::playPause);
+        play.setHeight(28);
+        x += buttonWidth + 12;
+        icon("text.darkmusic.next", UiIcon.NEXT, x, transportY, buttonWidth, true, () -> app.playback.next());
+        x += buttonWidth + 4;
+        icon("text.darkmusic.stop", UiIcon.STOP, x, transportY, buttonWidth, true, () -> app.playback.stop());
+        x += buttonWidth + 4;
+        repeat = icon("text.darkmusic.repeat", UiIcon.REPEAT, x, transportY, buttonWidth, true, this::repeat);
+        x += buttonWidth + 8;
+        volume = addRenderableWidget(Help.tip(new ValueSlider(x, transportY, sliderWidth, app.settings.volume,
+                v -> Text.get("format.darkmusic.volume", Math.round(v * 100)), app::volume, app::save),
+            Text.get("text.darkmusic.darkmusic_volume_independent_of_minecraft_sound_sliders")));
+        volume.plain(true);
+        progress = addRenderableWidget(new ValueSlider(layout.dock().x() + 4, layout.seekY(), layout.dock().width() - 8, 0,
             v -> time(progress != null && progress.editing() ? v * app.playback.state().duration() : app.playback.state().position()) + " / " + time(app.playback.state().duration()),
             v -> {
                 if (!seekDragging) seekTrack = app.playback.state().track();
                 seekDragging = progress != null && progress.editing();
-            }, this::commitSeek), Text.get("text.darkmusic.seek_in_the_original_song_s_timeline_compressed_files_may_take_a_moment_to_seek")));
+            }, this::commitSeek));
+        progress.trackOnly(true);
+        progress.simpleProgress(true);
         progress.colors(() -> app.settings.progressColors);
-        progress.finish(() -> app.settings.progressFinish);
-        int gap = 4, x = 12, control = (width - 24 - gap * (narrow ? 2 : 5)) / (narrow ? 3 : 6), y = height - 78 - extra;
-        Help.tip(button(Text.get("text.darkmusic.previous"), x, y, control, () -> app.playback.previous()), Text.get("text.darkmusic.previous_song_in_playback_history_or_restart_the_current_song"));
-        x += control + gap;
-        play = Help.tip(button(Text.get("text.darkmusic.play"), x, y, control, this::playPause), Text.get("text.darkmusic.start_the_selected_song_when_stopped_otherwise_pause_or_resume_current_playback"));
-        x += control + gap;
-        Help.tip(button(Text.get("text.darkmusic.next"), x, y, control, () -> app.playback.next()), Text.get("text.darkmusic.next_song_in_the_playback_queue"));
-        x += control + gap;
-        if (narrow) {
-            x = 12;
-            y += 24;
-        }
-        Help.tip(button(Text.get("text.darkmusic.stop"), x, y, control, () -> app.playback.stop()), Text.get("text.darkmusic.stop_playback_and_reset_its_position"));
-        x += control + gap;
-        shuffle = Help.tip(button(Text.get("text.darkmusic.shuffle"), x, y, control, () -> {
-            app.settings.shuffle = !app.playback.shuffle();
-            app.playback.shuffle(app.settings.shuffle);
-            app.save();
-        }), Text.get("text.darkmusic.shuffle_play_the_queue_in_randomized_order_off_restores_its_normal_order"));
-        x += control + gap;
-        repeat = Help.tip(button(Text.get("text.darkmusic.repeat"), x, y, width - 12 - x, () -> {
-            var values = PlaybackController.Repeat.values();
-            var next = values[(app.playback.repeat().ordinal() + 1) % values.length];
-            app.settings.repeat = next;
-            app.playback.repeat(next);
-            app.save();
-        }), Text.get("text.darkmusic.repeat_off_stops_at_the_queue_s_end_one_repeats_the_current_song_all_repeats_the_q"));
-        int half = (width - 28) / 2;
-        volume = addRenderableWidget(Help.tip(new ValueSlider(12, height - 54, half, app.settings.volume,
-            v -> Text.get("format.darkmusic.volume", Math.round(v * 100)), v -> {
-            app.volume(v);
-        }, app::save), Text.get("text.darkmusic.darkmusic_volume_independent_of_minecraft_sound_sliders")));
-        speed = addRenderableWidget(Help.tip(new ValueSlider(16 + half, height - 54, half - 44, (app.settings.speed - .5) / 2.5,
-            v -> Text.get("format.darkmusic.speed", String.format(Locale.ROOT, "%.1f", app.settings.speed)), v -> app.speed(.5 + v * 2.5), app::save, 25), Text.get("text.darkmusic.playback_speed_0_5x_to_3_0x_in_0_1x_steps_faster_raises_pitch_slower_lowers_it")));
-        Help.tip(button("1.0x", width - 52, height - 54, 40, () -> {
-            app.speed(1);
-            speed.syncNow((1 - .5) / 2.5);
-        }), Text.get("text.darkmusic.reset_playback_speed_to_normal"));
-        int third = (width - 32) / 3;
-        Help.tip(button(Text.get("text.darkmusic.open_folder"), 12, height - 30, third, app::openFolder), Text.get("text.darkmusic.open_the_selected_music_folder_in_your_file_manager"));
-        Help.tip(button(Text.get("text.darkmusic.downloads"), 16 + third, height - 30, third, () -> show(new DownloadScreen(app, this))), Text.get("text.darkmusic.paste_a_video_collection_url_choose_entries_and_queue_mp3_downloads_into_your_musi"));
-        Help.tip(button(Text.get("text.darkmusic.refresh_library"), 20 + 2 * third, height - 30, width - 32 - 2 * third, () -> app.library.rescan()), Text.get("text.darkmusic.songs_are_discovered_automatically_refresh_now_if_changes_were_missed_or_a_drive_w"));
+        if (drawer) icon("text.darkmusic.open_folder", UiIcon.FOLDER, 128, contextY, 24, true, app::openFolder);
+        UiButton.style(play, UiButton.Style.PRIMARY);
+        if (shuffle != null) UiButton.selected(shuffle, () -> app.playback.shuffle());
+        if (repeat != null) UiButton.selected(repeat, () -> app.playback.repeat() != PlaybackController.Repeat.OFF);
         refresh();
+        songs.scrollOffset(songScroll);
+        navigation.scrollOffset(collectionScroll);
     }
 
     private void refresh() {
@@ -182,7 +247,7 @@ public final class MusicScreen extends LocalScreen {
             default ->
                 java.util.stream.Stream.concat(java.util.stream.Stream.of(""), folderRows.stream().map(FolderTree.Entry::path)).toList();
         };
-        if (mode.equals("Playlists") && !groups.contains(group)) group = groups.isEmpty() ? "" : groups.getFirst();
+        if (!mode.equals("All") && !groups.contains(group)) group = groups.isEmpty() ? "" : groups.getFirst();
         if (mode.equals("All") && !folders.contains(group)) group = "";
         navigation.emptyMessage(mode.equals("Playlists") ? (app.playlistsReady ? Text.get("text.darkmusic.no_playlists") : Text.get("text.darkmusic.loading")) : Text.get("text.darkmusic.no_entries"));
         var counts = new java.util.HashMap<String, Integer>();
@@ -198,12 +263,23 @@ public final class MusicScreen extends LocalScreen {
         }
         navigation.rows(java.util.stream.IntStream.range(0, groups.size()).mapToObj(i -> {
             String key = groups.get(i);
-            String label = mode.equals("All") ? i == 0 ? Text.get("text.darkmusic.all_tracks") : folderRows.get(i - 1).label() : mode.equals("Playlists") ? app.playlists.get(key).name() : key;
+            String label = mode.equals("All") ? i == 0 ? Text.get("text.darkmusic.all_tracks") : folderRows.get(i - 1).name() : mode.equals("Playlists") ? app.playlists.get(key).name() : key;
             int count = mode.equals("Playlists") ? app.playlists.resolve(key, tracks).size() : counts.getOrDefault(key, 0);
             return new RowList.Row(label + " (" + count + ")", "");
         }).toList());
         navigation.select(groups.indexOf(group));
         refreshSongs();
+    }
+
+    private List<Track> collectionTracks() {
+        var tracks = app.library.snapshot().tracks();
+        var source = mode.equals("Playlists") ? app.playlists.resolve(group, tracks) : tracks;
+        return source.stream().filter(t -> switch (mode) {
+            case "All" -> FolderTree.includes(group, t);
+            case "Artists" -> t.artist().equals(group);
+            case "Albums" -> t.album().equals(group);
+            default -> true;
+        }).toList();
     }
 
     private void refreshSongs() {
@@ -222,14 +298,14 @@ public final class MusicScreen extends LocalScreen {
             else if (source.size() < playlist.entries().size())
                 playlistNotice = Text.get("format.darkmusic.missing_entries", playlist.entries().size() - source.size());
         }
-        visible = source.stream().filter(t -> t.matches(needle)).filter(t -> group.isEmpty() || switch (mode) {
+        visible = source.stream().filter(t -> t.matches(needle)).filter(t -> switch (mode) {
             case "All" -> FolderTree.includes(group, t);
             case "Artists" -> t.artist().equals(group);
             case "Albums" -> t.album().equals(group);
             default -> true;
         }).toList();
-        songs.emptyMessage(playlists && source.isEmpty() ? Text.get("text.darkmusic.no_playable_songs") : Text.get("text.darkmusic.no_matching_songs"));
-        songs.rows(visible.stream().map(t -> new RowList.Row(t.title(), t.artist() + " | " + time(t.duration()) + " | " + t.relativePath())).toList());
+        songs.emptyMessage(app.library.snapshot().tracks().isEmpty() ? Text.get("ui.darkmusic.library_empty") : playlists && source.isEmpty() ? Text.get("text.darkmusic.no_playable_songs") : Text.get("text.darkmusic.no_matching_songs"));
+        songs.rows(visible.stream().map(t -> new RowList.Row(t.title(), t.artist() + " | " + time(t.duration()) + " | " + t.album(), t.relativePath())).toList());
         if (selected == null || !visible.contains(selected)) selected = visible.isEmpty() ? null : visible.getFirst();
         songs.select(visible.indexOf(selected));
     }
@@ -254,9 +330,11 @@ public final class MusicScreen extends LocalScreen {
             app.warn(Text.get("player.darkmusic.source_missing"));
             return;
         }
+        selectedGroups.put(mode, group);
         mode = source.mode();
+        pane = Pane.LIBRARY;
         group = source.group();
-        query = source.query();
+        query = "";
         if (mode.equals("All")) {
             for (int slash = group.indexOf('/'); slash >= 0; slash = group.indexOf('/', slash + 1))
                 expandedFolders.add(group.substring(0, slash));
@@ -292,12 +370,13 @@ public final class MusicScreen extends LocalScreen {
         var status = app.playback.state().status();
         if (status == AudioBackend.Status.STOPPED || status == AudioBackend.Status.ERROR) {
             if (selected != null)
-                app.playback.play(visible, selected, new PlaybackController.Source(mode, group, query, app.library.rootId()));
+                app.playback.play(collectionTracks(), selected, new PlaybackController.Source(mode, group, "", app.library.rootId()));
         } else app.playback.toggle();
     }
 
     @Override
     public void tick() {
+        if (width < 320 || height < 240) return;
         var state = app.library.snapshot();
         if (playlistRevision != app.playlists.revision() || revision != state.revision() && (!state.scanning() || System.nanoTime() - refreshed > 250_000_000L)) {
             refreshed = System.nanoTime();
@@ -306,46 +385,104 @@ public final class MusicScreen extends LocalScreen {
             refresh();
         }
         var audio = app.playback.state();
+        playingId = audio.track() != null && audio.status() != AudioBackend.Status.STOPPED && audio.status() != AudioBackend.Status.ERROR ? audio.track().id() : "";
+        playingIcon = audio.status() == AudioBackend.Status.PAUSED ? UiIcon.PAUSE : UiIcon.PLAY;
         jump.active = audio.track() != null;
-        if (app.settings.lyricsEnabled) app.lyrics.request(audio.track());
+        if (app.settings.lyricsEnabled) {
+            app.lyrics.request(audio.track());
+            app.lyrics.request(selected);
+            songs.inspectVisibleLyrics();
+        }
         volume.sync(app.settings.volume);
         speed.sync((app.settings.speed - .5) / 2.5);
         progress.active = audio.track() != null && audio.duration() > 0 && audio.status() != AudioBackend.Status.STOPPED && audio.status() != AudioBackend.Status.ERROR;
         progress.sync(audio.duration() > 0 ? audio.position() / audio.duration() : 0);
         play.setMessage(Component.literal(audio.status() == AudioBackend.Status.PLAYING ? Text.get("text.darkmusic.pause") : audio.status() == AudioBackend.Status.PAUSED ? Text.get("text.darkmusic.resume") : Text.get("text.darkmusic.play")));
-        shuffle.setMessage(Component.literal(app.playback.shuffle() ? Text.get("text.darkmusic.shuffle_on") : Text.get("text.darkmusic.shuffle_off")));
-        repeat.setMessage(Text.component("format.darkmusic.repeat", label(app.playback.repeat().name())));
+        UiButton.icon(play, audio.status() == AudioBackend.Status.PLAYING ? UiIcon.PAUSE : UiIcon.PLAY, true);
+        if (shuffle != null)
+            shuffle.setMessage(Component.literal(app.playback.shuffle() ? Text.get("text.darkmusic.shuffle_on") : Text.get("text.darkmusic.shuffle_off")));
+        if (repeat != null) {
+            repeat.setMessage(Text.component("format.darkmusic.repeat", label(app.playback.repeat().name())));
+            UiButton.icon(repeat, app.playback.repeat() == PlaybackController.Repeat.ONE ? UiIcon.REPEAT_ONE : app.playback.repeat() == PlaybackController.Repeat.ALL ? UiIcon.REPEAT_ALL : UiIcon.REPEAT, true);
+        }
+    }
+
+    @Override
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        if (event.key() == 256 && pane != Pane.LIBRARY) {
+            pane(Pane.LIBRARY);
+            return true;
+        }
+        return super.keyPressed(event);
+    }
+
+    private void details(GuiGraphicsExtractor g, PlayerLayout.Rect area, boolean standalone) {
+        UiTheme.panel(g, area.x(), area.y(), area.width(), area.height());
+        if (selected == null) {
+            UiIcon.MUSIC.draw(g, area.x() + 12, area.y() + 12, 24, UiTheme.MUTED);
+            return;
+        }
+        int size = standalone ? Math.min(area.height() - 16, Math.min(180, area.width() / 3)) : layout.artworkSize();
+        size = Math.max(16, size);
+        int artX = area.x() + (standalone ? 8 : (area.width() - size) / 2), artY = area.y() + 8;
+        var cover = app.artwork.get(selected);
+        if (cover != null) {
+            boolean landscape = cover.contentWidth() - cover.menuInset() * 2 > cover.contentHeight();
+            com.darkmusic.client.library.ArtworkCache.drawMenu(g, cover,
+                !standalone && landscape ? area.x() + 8 : artX, artY,
+                !standalone && landscape ? area.width() - 16 : size, size);
+        } else UiIcon.MUSIC.draw(g, artX + size / 4, artY + size / 4, size / 2, UiTheme.MUTED);
+        int x = standalone ? artX + size + 12 : area.x() + 8;
+        int y = standalone ? artY : artY + size + 8;
+        int textWidth = area.right() - x - 8;
+        longText.draw(g, font, "selected_title", selected.title(), x, y, textWidth, UiTheme.TEXT);
+        longText.draw(g, font, "selected_artist", selected.artist(), x, y + 13, textWidth, UiTheme.SECONDARY);
+        UiIcon.ALBUM.draw(g, x, y + 26, 10, UiTheme.MUTED);
+        longText.draw(g, font, "selected_album", selected.album(), x + 15, y + 27, textWidth - 15, UiTheme.SECONDARY);
+        UiIcon.SPEED.draw(g, x, y + 38, 10, UiTheme.MUTED);
+        g.text(font, time(selected.duration()), x + 15, y + 39, UiTheme.SECONDARY);
+        UiIcon.FOLDER.draw(g, x, y + 50, 10, UiTheme.MUTED);
+        longText.draw(g, font, "selected_path", selected.relativePath(), x + 15, y + 51, textWidth - 15, UiTheme.MUTED);
+        if (app.settings.lyricsEnabled) {
+            var info = app.lyrics.info(selected);
+            UiIcon.LYRICS.draw(g, x, y + 63, 10, info.color());
+            longText.draw(g, font, "selected_lyrics", info.mark() + " " + Text.get(info.key()), x + 15, y + 64, textWidth - 15, info.color());
+        }
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
         longText.begin();
-        g.fill(0, 0, width, height, 0xFF111420);
-        g.text(font, "DarkMusic", 12, 12, 0xFFB5B0FF);
-        var audio = app.playback.state();
-        int extra = width < 640 ? 24 : 0;
-        String status = label(audio.status().name()) + (audio.track() == null ? "" : "  |  " + audio.track().title() + " - " + audio.track().artist());
-        var layout = PlayerLayout.of(width, height);
-        boolean sidebarSpectrum = layout.panelWidth() > 0 && layout.spectrumY() + layout.spectrumHeight() <= layout.listY() + layout.listHeight();
-        int statusWidth = width - 24 - (app.settings.hudVisualizer && !sidebarSpectrum ? 108 : 0);
-        if (app.settings.lyricsEnabled && !app.lyrics.get(audio.track()).lines().isEmpty()) {
-            String available = Text.get("lyrics.darkmusic.available");
-            int indicatorWidth = font.width(available);
-            g.text(font, available, 12 + statusWidth - indicatorWidth, height - 118 - extra, 0xFFB5B0FF);
-            statusWidth -= indicatorWidth + 8;
+        UiTheme.background(g, width, height);
+        if (width < 320 || height < 240) {
+            g.text(font, Text.get("phase2.minimum_size"), 8, 34, UiTheme.WARNING);
+            super.extractRenderState(g, mx, my, delta);
+            return;
         }
-        longText.draw(g, font, "status", status, 12, height - 118 - extra, Math.max(1, statusWidth), 0xFFEEEEFF);
-        if (app.settings.hudVisualizer)
-            spectrum.render(app, g, sidebarSpectrum ? layout.panelX() : width - 108, sidebarSpectrum ? layout.spectrumY() : height - 123 - extra, sidebarSpectrum ? layout.panelWidth() : 96, sidebarSpectrum ? layout.spectrumHeight() : 16);
-        String message = !app.warning.isBlank() ? app.warning : !app.library.snapshot().message().isBlank() ? app.library.snapshot().message() : audio.status() == AudioBackend.Status.ERROR ? audio.error() : playlistNotice;
-        if (!message.isBlank())
-            longText.draw(g, font, "message", message, 12, height - 138 - extra, width - 24, 0xFFFFBC80);
-        if (width >= 640 && selected != null) {
-            int size = layout.artworkSize(), x = layout.panelX() + (layout.panelWidth() - size) / 2, y = layout.listY();
-            var art = app.artwork.get(selected);
-            g.fill(x, y, x + size, y + size, 0xFF292F44);
-            if (art != null) com.darkmusic.client.library.ArtworkCache.draw(g, art, x, y, size);
-            else g.centeredText(font, Text.get("text.darkmusic.music"), x + size / 2, y + size / 2 - 4, 0xFFB5B0FF);
+        UiIcon.MUSIC.draw(g, 12, 10, 12, UiTheme.ACCENT);
+        g.text(font, "DarkMusic", 30, 12, UiTheme.TEXT);
+        var audio = app.playback.state();
+        boolean library = pane == Pane.LIBRARY;
+        if (library) {
+            String collection = mode.equals("All") ? group.isEmpty() ? Text.get("text.darkmusic.all_tracks") : group : mode.equals("Playlists") && app.playlists.get(group) != null ? app.playlists.get(group).name() : group;
+
+            longText.draw(g, font, "collection_title", collection + " (" + visible.size() + ")", layout.tracks().x() + (layout.singleColumn() ? 116 : 0), height < 300 ? 70 : 76,
+                Math.max(1, layout.tracks().width() - (layout.singleColumn() ? 150 : mode.equals("Playlists") ? 150 : 32)), UiTheme.ACCENT);
+            if (layout.inspector().width() > 0) {
+                details(g, layout.inspector(), false);
+                if (app.settings.hudVisualizer) {
+                    spectrum.render(app, g, layout.inspector().x() + 8, layout.spectrumY(), layout.inspector().width() - 16, layout.spectrumHeight());
+                }
+            }
+        } else if (pane == Pane.DETAILS)
+            details(g, new PlayerLayout.Rect(12, 96, width - 24, layout.dock().y() - 108), true);
+        {
+            var dock = layout.dock();
+            String message = !app.warning.isBlank() ? app.warning : !app.library.snapshot().message().isBlank() ? app.library.snapshot().message() : audio.status() == AudioBackend.Status.ERROR ? audio.error() : playlistNotice;
+            if (!message.isBlank()) {
+                UiIcon.WARNING.draw(g, 12, dock.y() - 14, 10, UiTheme.WARNING);
+                longText.draw(g, font, "message", message, 28, dock.y() - 13, width - 40, UiTheme.WARNING);
+            }
         }
         super.extractRenderState(g, mx, my, delta);
     }

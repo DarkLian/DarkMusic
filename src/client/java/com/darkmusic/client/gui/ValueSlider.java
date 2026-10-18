@@ -9,12 +9,37 @@ import java.util.function.DoubleConsumer;
 import java.util.function.DoubleFunction;
 
 public final class ValueSlider extends AbstractSliderButton {
+    @Override
+    public void setTooltip(net.minecraft.client.gui.components.Tooltip tooltip) {
+        super.setTooltip(tooltip);
+        Help.remember(this, tooltip);
+    }
+
+    @Override
+    protected void extractTooltipForNextRenderPass(net.minecraft.client.gui.GuiGraphicsExtractor g, int x, int y) {
+        Help.extract(this, g, x, y);
+    }
+
     private final DoubleConsumer changed;
     private final Runnable committed;
     private final DoubleFunction<String> label;
     private final int steps;
     private long adjusted;
     private boolean dragging;
+    private boolean trackOnly, plain, simpleProgress;
+
+    public void plain(boolean value) {
+        plain = value;
+    }
+
+    public void simpleProgress(boolean value) {
+        simpleProgress = value;
+    }
+
+    public void trackOnly(boolean value) {
+        trackOnly = value;
+    }
+
     private java.util.function.Supplier<com.darkmusic.client.config.VisualColors> colors;
     private java.util.function.Supplier<com.darkmusic.client.config.Settings.SurfaceFinish> finish = () -> com.darkmusic.client.config.Settings.SurfaceFinish.FLAT;
 
@@ -41,9 +66,35 @@ public final class ValueSlider extends AbstractSliderButton {
 
     @Override
     public void extractWidgetRenderState(net.minecraft.client.gui.GuiGraphicsExtractor g, int mx, int my, float delta) {
-        super.extractWidgetRenderState(g, mx, my, delta);
+        if (!trackOnly)
+            g.fill(getX(), getY(), getRight(), getBottom(), active ? isHoveredOrFocused() ? UiTheme.HOVER : UiTheme.RAISED : UiTheme.SURFACE);
+        if (!trackOnly || isFocused())
+            g.outline(getX(), getY(), getWidth(), getHeight(), isFocused() ? UiTheme.ACCENT : UiTheme.BORDER);
+        if (simpleProgress) {
+            g.fill(getX(), getY(), getRight(), getBottom(), UiTheme.BACKGROUND);
+            ColorStrip.draw(g, colors.get(), getX(), getY() + 8, getWidth(), 4,
+                (int) Math.round(getWidth() * value), com.darkmusic.client.config.Settings.SurfaceFinish.FLAT);
+            return;
+        }
+        if (plain) {
+            int marker = getX() + 2 + (int) Math.round(value * (getWidth() - 6));
+            g.fill(marker, getY() + 3, marker + 2, getBottom() - 3, active ? UiTheme.ACCENT : UiTheme.MUTED);
+            extractScrollingStringOverContents(g.textRendererForWidget(this, net.minecraft.client.gui.GuiGraphicsExtractor.HoveredTextEffects.NONE), getMessage(), 2);
+            return;
+        }
+        int handle = getX() + (int) Math.round(value * (getWidth() - 8));
+        if (colors == null) {
+            g.fill(getX() + 4, getBottom() - 4, getRight() - 4, getBottom() - 2, UiTheme.BORDER);
+            g.fill(getX() + 4, getBottom() - 4, Math.max(getX() + 4, handle + 4), getBottom() - 2, active ? UiTheme.ACCENT : UiTheme.MUTED);
+        }
+        g.fill(handle + 2, trackOnly ? getBottom() - 7 : getY() + 2, handle + 6, getBottom() - 2, active ? UiTheme.ACCENT : UiTheme.BORDER);
+        if (!trackOnly)
+            extractScrollingStringOverContents(g.textRendererForWidget(this, net.minecraft.client.gui.GuiGraphicsExtractor.HoveredTextEffects.NONE), getMessage(), 2);
+        handleCursor(g);
+        if (!active) g.fill(getX() + 1, getY() + 1, getRight() - 1, getBottom() - 1, 0x55111420);
         if (colors != null) {
             int width = Math.max(1, getWidth() - 4);
+            if (trackOnly) g.fill(getX() + 2, getBottom() - 4, getRight() - 2, getBottom() - 2, UiTheme.BORDER);
             if (finish.get() == com.darkmusic.client.config.Settings.SurfaceFinish.BEVELED)
                 ColorStrip.track(g, getX() + 2, getBottom() - 4, width, 2, finish.get());
             ColorStrip.draw(g, colors.get(), getX() + 2, getBottom() - 4, width, 2, (int) Math.round(width * value), finish.get());

@@ -10,6 +10,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 public final class SpectrumRenderer {
     private final float[] levels = new float[64];
     private final float[] peaks = new float[64];
+    private final SpectrumMesh mesh = new SpectrumMesh();
 
     private long previewTime;
 
@@ -17,26 +18,22 @@ public final class SpectrumRenderer {
         return Float.isFinite(magnitude) ? Math.round(Math.clamp(magnitude, 0, 1) * height) : 0;
     }
 
-    private static void fill(DarkMusicClient app, GuiGraphicsExtractor g, int left, int top, int right, int bottom, int color, int width, int hudHeight) {
-        if (app.settings.visualQuality.glow)
-            rawFill(app, g, left - 1, top - 1, right + 1, bottom + 1, (color & 0xffffff) | 0x22000000, width, hudHeight);
+    private void fill(DarkMusicClient app, int left, int top, int right, int bottom, int color) {
         if (app.settings.spectrumFinish != com.darkmusic.client.config.Settings.SurfaceFinish.BEVELED || bottom - top < 2) {
-            rawFill(app, g, left, top, right, bottom, color, width, hudHeight);
+            rawFill(left, top, right, bottom, color);
             return;
         }
-        rawFill(app, g, left, top, right, bottom, Bevel.shade(color, -.08), width, hudHeight);
-        rawFill(app, g, left, top, right, top + 1, Bevel.shade(color, .32), width, hudHeight);
-        rawFill(app, g, left, bottom - 1, right, bottom, Bevel.shade(color, -.28), width, hudHeight);
+        rawFill(left, top, right, bottom, Bevel.shade(color, -.08));
+        rawFill(left, top, right, top + 1, Bevel.shade(color, .32));
+        rawFill(left, bottom - 1, right, bottom, Bevel.shade(color, -.28));
         if (app.settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.BARS && right - left >= 3 && bottom - top >= 3) {
-            rawFill(app, g, left, top + 1, left + 1, bottom - 1, Bevel.shade(color, .16), width, hudHeight);
-            rawFill(app, g, right - 1, top + 1, right, bottom - 1, Bevel.shade(color, -.25), width, hudHeight);
+            rawFill(left, top + 1, left + 1, bottom - 1, Bevel.shade(color, .16));
+            rawFill(right - 1, top + 1, right, bottom - 1, Bevel.shade(color, -.25));
         }
     }
 
-    private static void rawFill(DarkMusicClient app, GuiGraphicsExtractor g, int left, int top, int right, int bottom, int color, int width, int hudHeight) {
-        if (hudHeight > 0)
-            com.darkmusic.client.hud.HudSurface.fill(g, app.settings.hudShape, width, hudHeight, left, top, right, bottom, color);
-        else g.fill(left, top, right, bottom, color);
+    private void rawFill(int left, int top, int right, int bottom, int color) {
+        mesh.fill(left, top, right, bottom, color);
     }
 
     private boolean update(DarkMusicClient app, boolean settingsPreview) {
@@ -86,17 +83,16 @@ public final class SpectrumRenderer {
         if (width < 8 || height < 1 || app.playback.spectrum() == null) return;
         if (!update(app, settingsPreview)) return;
         int bands = app.settings.visualizerBars;
+        mesh.begin(width, hudHeight, app.settings.hudShape);
+        if (app.settings.visualQuality.glow)
+            SpectrumHalo.draw(g, app.settings, x, y, width, height, levels, bands, downward, hudHeight);
         if (app.settings.spectrumStyle != com.darkmusic.client.config.Settings.SpectrumStyle.BARS) {
             // At most 384 columns, even on large windows. Reuse the analysis snapshot above.
-            int columns = Math.min(width, app.settings.visualQuality.detail), previous = 0;
+            int columns = Math.min(width, app.settings.visualQuality.detail), previous = 0, previousPeak = 0;
             for (int i = 0; i < columns; i++) {
                 double position = columns == 1 ? 0 : i / (double) (columns - 1);
                 boolean spike = app.settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.SPIKE || app.settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.FILLED_SPIKE;
                 int h = barHeight(spike ? SpectrumCurve.spike(levels, bands, position) : SpectrumCurve.sample(levels, bands, position), height);
-                if (h == 0) {
-                    previous = 0;
-                    continue;
-                }
                 if (i == 0) previous = h;
                 boolean filled = app.settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.FILLED_WAVE || app.settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.FILLED_SPIKE;
                 int low = filled ? 0 : Math.max(0, Math.min(h, previous) - 2);
@@ -104,13 +100,25 @@ public final class SpectrumRenderer {
                 int left = x + i * width / columns, right = x + (i + 1) * width / columns;
                 int top = downward ? y + low : y + height - high;
                 int bottom = downward ? y + high : y + height - low;
+                int peak = app.settings.visualQuality.trails || app.settings.visualQuality.peakHold
+                    ? barHeight(spike ? SpectrumCurve.spike(peaks, bands, position) : SpectrumCurve.sample(peaks, bands, position), height) : 0;
+                if (i == 0) previousPeak = peak;
                 if (app.settings.visualQuality.trails) {
-                    int tail = barHeight(SpectrumCurve.sample(peaks, bands, position), height);
-                    rawFill(app, g, left, downward ? y : y + height - tail, right, downward ? y + tail : y + height, (app.settings.spectrumColors.color(position) & 0xffffff) | 0x33000000, width, hudHeight);
+                    int tailLow = filled ? 0 : Math.max(0, Math.min(peak, previousPeak) - 2);
+                    int tailHigh = filled ? peak : Math.max(peak, previousPeak);
+                    if (tailHigh > 0)
+                        rawFill(left, downward ? y + tailLow : y + height - tailHigh, right, downward ? y + tailHigh : y + height - tailLow, (app.settings.spectrumColors.color(position) & 0xffffff) | 0x22000000);
                 }
-                fill(app, g, left, top, right, bottom, app.settings.spectrumColors.color(i / (double) (columns - 1)), width, hudHeight);
+                if (app.settings.visualQuality.peakHold) {
+                    if (peak > 0)
+                        rawFill(left, downward ? y + peak - 1 : y + height - peak, right, downward ? y + peak : y + height - peak + 1, app.settings.spectrumColors.color(position));
+                }
+                if (h > 0)
+                    fill(app, left, top, right, bottom, app.settings.spectrumColors.color(position));
                 previous = h;
+                previousPeak = peak;
             }
+            mesh.submit(g);
             return;
         }
         int bars = Math.min(bands, width / 2);
@@ -118,20 +126,21 @@ public final class SpectrumRenderer {
             float value = 0;
             for (int j = i * bands / bars; j < (i + 1) * bands / bars; j++) value = Math.max(value, levels[j]);
             int h = barHeight(value, height);
-            if (h == 0) continue;
             int left = x + i * width / bars, right = x + (i + 1) * width / bars - 1;
             int top = downward ? y : y + height - h;
             if (app.settings.visualQuality.trails || app.settings.visualQuality.peakHold) {
                 int peak = 0;
                 for (int j = i * bands / bars; j < (i + 1) * bands / bars; j++)
                     peak = Math.max(peak, barHeight(peaks[j], height));
-                int color = (app.settings.spectrumColors.color(i / (double) Math.max(1, bars - 1)) & 0xffffff) | 0x55000000;
+                int color = (app.settings.spectrumColors.color(i / (double) Math.max(1, bars - 1)) & 0xffffff) | 0x22000000;
                 if (app.settings.visualQuality.trails)
-                    rawFill(app, g, left, downward ? y : y + height - peak, Math.max(left + 1, right), downward ? y + peak : y + height, color, width, hudHeight);
-                if (app.settings.visualQuality.peakHold)
-                    rawFill(app, g, left, downward ? y + Math.max(0, peak - 1) : y + height - peak, Math.max(left + 1, right), downward ? y + peak : y + height - peak + 1, color | 0xff000000, width, hudHeight);
+                    rawFill(left, downward ? y : y + height - peak, Math.max(left + 1, right), downward ? y + peak : y + height, color);
+                if (app.settings.visualQuality.peakHold && peak > 0)
+                    rawFill(left, downward ? y + Math.max(0, peak - 1) : y + height - peak, Math.max(left + 1, right), downward ? y + peak : y + height - peak + 1, color | 0xff000000);
             }
-            fill(app, g, left, top, Math.max(left + 1, right), top + h, app.settings.spectrumColors.color(bars <= 1 ? 0 : i / (double) (bars - 1)), width, hudHeight);
+            if (h > 0)
+                fill(app, left, top, Math.max(left + 1, right), top + h, app.settings.spectrumColors.color(bars <= 1 ? 0 : i / (double) (bars - 1)));
         }
+        mesh.submit(g);
     }
 }

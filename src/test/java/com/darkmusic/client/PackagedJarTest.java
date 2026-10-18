@@ -67,8 +67,8 @@ class PackagedJarTest {
             assertTrue(notices.contains("darkmusic-" + metadata.get("version").getAsString() + "-third-party-sources.zip"));
             assertTrue(jar.getJarEntry("assets/darkmusic/icon.png").getSize() < 1024 * 1024, "Packaged icon exceeded the 1 MiB budget");
             var english = JsonParser.parseString(new String(jar.getInputStream(jar.getJarEntry("assets/darkmusic/lang/en_us.json")).readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
-            var chinese = JsonParser.parseString(new String(jar.getInputStream(jar.getJarEntry("assets/darkmusic/lang/zh_tw.json")).readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
-            assertEquals(english.keySet(), chinese.keySet());
+            assertFalse(english.isEmpty());
+            assertNull(jar.getJarEntry("assets/darkmusic/lang/zh_tw.json"));
             for (var entry : jar.stream().filter(e -> e.getName().endsWith(".class")).toList()) {
                 assertFalse(entry.getName().contains("smoke") || entry.getName().contains("Test"));
                 String constants = new String(jar.getInputStream(entry).readAllBytes(), java.nio.charset.StandardCharsets.ISO_8859_1);

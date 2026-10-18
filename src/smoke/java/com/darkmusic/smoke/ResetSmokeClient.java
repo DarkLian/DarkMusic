@@ -39,14 +39,7 @@ final class ResetSmokeClient {
     }
 
     private void click(Minecraft mc, String key) {
-        String label = Text.get(key);
-        AbstractWidget button = mc.gui.screen().children().stream().filter(c -> c instanceof AbstractWidget).map(c -> (AbstractWidget) c)
-            .filter(w -> w.getMessage().getString().equals(label)).findFirst().orElseThrow(() -> new IllegalStateException("Missing control " + label));
-        if (!button.visible && mc.gui.screen() instanceof SettingsScreen)
-            for (int i = 0; i < 50 && !button.visible; i++)
-                mc.gui.screen().mouseScrolled(20, mc.gui.screen().height - 20, 0, -1);
-        require(button.active && button.visible, "Control is disabled or hidden: " + label);
-        mc.gui.screen().mouseClicked(new MouseButtonEvent(button.getX() + 3, button.getY() + 3, new MouseButtonInfo(0, 0)), false);
+        SmokeUi.click(mc, Text.get(key));
     }
 
     private void escape(Minecraft mc) {

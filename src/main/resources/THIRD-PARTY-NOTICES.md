@@ -15,7 +15,7 @@ included as separate, unmodified nested JARs under META-INF/jars.
 
 Complete LGPL-2.0, LGPL-2.1 and Apache-2.0 texts are in licenses/. Original
 per-file copyright and license notices are preserved in the corresponding
-source archives in darkmusic-1.0.2-third-party-sources.zip, built alongside
+source archives in darkmusic-2.0.0-third-party-sources.zip, built alongside
 the mod by `gradlew build`. Distribute that source bundle with the mod.
 
 Corresponding sources are also obtainable from Maven Central using the exact

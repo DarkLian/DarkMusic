@@ -47,9 +47,7 @@ final class DownloadPreviewClient {
     }
 
     private void click(Minecraft mc, String label) {
-        var b = button(mc, label);
-        require(b.active, "Inactive: " + label);
-        mc.gui.screen().mouseClicked(mouse(b.getX() + 3, b.getY() + 3), false);
+        SmokeUi.click(mc, label);
     }
 
     private MouseButtonEvent mouse(double x, double y) {
@@ -206,6 +204,9 @@ final class DownloadPreviewClient {
                 case 0 -> {
                     if (app.downloads.snapshot().analyzing()) return;
                     require(app.downloads.snapshot().preview() != null, "Local analysis failed: " + app.downloads.snapshot().message());
+                    var urlScroll = EditBox.class.getDeclaredField("displayPos");
+                    urlScroll.setAccessible(true);
+                    require(urlScroll.getInt(field(mc.gui.screen(), "url")) == 0, "The short analyzed URL is stored but visually scrolled out of the input");
                     require(field(mc.gui.screen(), "mode").toString().equals("VIDEO"), "Single video did not default to This Video Only");
                     require(button(mc, "Tools").getWidth() == button(mc, "Analyze").getWidth(), "Tools and Analyze widths differ");
                     var search = (EditBox) field(mc.gui.screen(), "search");

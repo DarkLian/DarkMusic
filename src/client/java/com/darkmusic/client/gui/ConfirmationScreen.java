@@ -19,6 +19,7 @@ public final class ConfirmationScreen extends LocalScreen {
     private final Supplier<CompletableFuture<Void>> action;
     private List<net.minecraft.util.FormattedCharSequence> lines;
     private Button confirm, cancel;
+    private ScrollBar scrollbar;
     private int left, top, panelWidth, panelHeight, scroll, bodyHeight;
     private boolean busy;
     private String error = "";
@@ -40,10 +41,13 @@ public final class ConfirmationScreen extends LocalScreen {
         panelHeight = bodyHeight + 96;
         top = (height - panelHeight) / 2;
         int half = (panelWidth - 28) / 2;
-        cancel = addRenderableWidget(Button.builder(Text.component("text.darkmusic.cancel"), b -> onClose()).bounds(left + 10, top + panelHeight - 30, half, 20).build());
-        confirm = addRenderableWidget(Button.builder(confirmLabel, b -> submit()).bounds(left + 18 + half, top + panelHeight - 30, half, 20).build());
+        cancel = addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.cancel"), b -> onClose()).bounds(left + 10, top + panelHeight - 30, half, 20).build());
+        confirm = addRenderableWidget(UiButton.builder(confirmLabel, b -> submit()).bounds(left + 18 + half, top + panelHeight - 30, half, 20).build());
+        UiButton.style(confirm, UiButton.Style.DESTRUCTIVE);
         setInitialFocus(cancel);
         confirm.active = cancel.active = !busy;
+        scrollbar = addRenderableWidget(new ScrollBar(() -> scroll, value -> scroll = value));
+        scrollbar.configure(left + panelWidth - 10, top + 30, bodyHeight, lines.size() * 11, bodyHeight);
     }
 
     private void submit() {
@@ -88,15 +92,15 @@ public final class ConfirmationScreen extends LocalScreen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
         longText.begin();
-        g.fill(0, 0, width, height, 0xFF111420);
-        g.fill(left, top, left + panelWidth, top + panelHeight, 0xFF1C2030);
-        g.outline(left, top, panelWidth, panelHeight, 0xFF54506F);
-        longText.draw(g, font, "title", title.getString(), left + 12, top + 12, panelWidth - 24, 0xFFB5B0FF);
+        UiTheme.background(g, width, height);
+        UiTheme.panel(g, left, top, panelWidth, panelHeight);
+        UiIcon.WARNING.draw(g, left + 12, top + 10, 12, UiTheme.ERROR);
+        longText.draw(g, font, "title", title.getString(), left + 32, top + 12, panelWidth - 44, UiTheme.TEXT);
         g.enableScissor(left + 12, top + 30, left + panelWidth - 12, top + 30 + bodyHeight);
         for (int i = 0; i < lines.size(); i++)
-            g.text(font, lines.get(i), left + 12, top + 30 + i * 11 - scroll, 0xFFCCCCDD);
+            g.text(font, lines.get(i), left + 12, top + 30 + i * 11 - scroll, UiTheme.SECONDARY);
         g.disableScissor();
-        longText.draw(g, font, "status", busy ? Text.get("reset.darkmusic.working") : error, left + 12, top + panelHeight - 50, panelWidth - 24, 0xFFFFBC80);
+        longText.draw(g, font, "status", busy ? Text.get("reset.darkmusic.working") : error, left + 12, top + panelHeight - 50, panelWidth - 24, UiTheme.WARNING);
         super.extractRenderState(g, x, y, delta);
     }
 }

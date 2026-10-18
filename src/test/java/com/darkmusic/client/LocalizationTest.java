@@ -29,77 +29,49 @@ class LocalizationTest {
     }
 
     @Test
-    void englishAndTraditionalChineseHaveMatchingKeysAndPlaceholders() throws Exception {
+    void englishCatalogIsCompleteAndTraditionalChineseIsNotBundled() throws Exception {
         var english = catalog("en_us");
-        var chinese = catalog("zh_tw");
-        assertEquals(english.keySet(), chinese.keySet());
-        for (var key : english.keySet()) {
-            assertFalse(chinese.get(key).isBlank(), key);
-            assertEquals(english.get(key).replace("%%", "").split("%s", -1).length,
-                chinese.get(key).replace("%%", "").split("%s", -1).length, key);
-        }
+        assertFalse(english.isEmpty());
+        english.forEach((key, value) -> assertFalse(value.isBlank(), key));
+        assertNull(Text.class.getResource("/assets/darkmusic/lang/zh_tw.json"));
     }
 
     @Test
-    void allDynamicHudChoicesHaveTranslations() throws Exception {
+    void allDynamicHudChoicesHaveEnglishLabels() throws Exception {
         var english = catalog("en_us");
-        var chinese = catalog("zh_tw");
-        for (var choice : com.darkmusic.client.config.Settings.SpectrumPosition.values()) {
-            String key = "hud.darkmusic.position." + choice.name().toLowerCase(java.util.Locale.ROOT);
-            assertTrue(english.containsKey(key));
-            assertTrue(chinese.containsKey(key));
-        }
-        for (var choice : com.darkmusic.client.config.Settings.SpectrumDirection.values()) {
-            String key = "hud.darkmusic.direction." + choice.name().toLowerCase(java.util.Locale.ROOT);
-            assertTrue(english.containsKey(key));
-            assertTrue(chinese.containsKey(key));
-        }
+        for (var choice : Settings.SpectrumPosition.values())
+            assertTrue(english.containsKey("hud.darkmusic.position." + choice.name().toLowerCase(java.util.Locale.ROOT)));
+        for (var choice : Settings.SpectrumDirection.values())
+            assertTrue(english.containsKey("hud.darkmusic.direction." + choice.name().toLowerCase(java.util.Locale.ROOT)));
     }
 
     @Test
-    void translationsAndEnglishFallbackPreserveFormattingAndUserMetadata() throws Exception {
+    void untranslatedGameLanguagesUseEnglishWithoutChangingUserMetadata() throws Exception {
         Language original = Language.getInstance();
-        var chinese = catalog("zh_tw");
         try {
             Language.inject(new Language() {
                 @Override
-                public String getOrDefault(String key, String fallback) {
-                    return chinese.getOrDefault(key, fallback);
-                }
-
+                public String getOrDefault(String key, String fallback) { return fallback; }
                 @Override
-                public boolean has(String key) {
-                    return chinese.containsKey(key);
-                }
-
+                public boolean has(String key) { return false; }
                 @Override
-                public boolean isDefaultRightToLeft() {
-                    return false;
-                }
-
+                public boolean isDefaultRightToLeft() { return false; }
                 @Override
-                public FormattedCharSequence getVisualOrder(FormattedText text) {
-                    return original.getVisualOrder(text);
-                }
+                public FormattedCharSequence getVisualOrder(FormattedText text) { return original.getVisualOrder(text); }
             });
-            assertEquals("\u958b\u555f\u97f3\u6a02\u64ad\u653e\u5668", Text.get("key.darkmusic.open"));
-            assertEquals("\u97f3\u91cf\uff1a50%", Text.get("format.darkmusic.volume", 50));
-            assertTrue(Text.get("format.darkmusic.missing_song", "Private 429 music.mp3").endsWith("Private 429 music.mp3"));
-            assertEquals("DarkMusic", Text.get("key.category.darkmusic.controls"));
-            for (var key : chinese.keySet()) {
-                String rendered = Text.get(key, "1", "2", "3", "4");
-                assertNotEquals(rendered, key, key);
-                assertFalse(rendered.contains("%s"), key);
-                assertFalse(rendered.contains("%%"), key);
-            }
-            Language.inject(original);
             assertEquals("Volume: 50%", Text.get("format.darkmusic.volume", 50));
             assertEquals("Speed: 1.5x", Text.get("format.darkmusic.speed", "1.5"));
+            String filename = "歌曲 音楽.mp3";
+            assertTrue(Text.get("format.darkmusic.missing_song", filename).endsWith(filename));
+            for (var key : catalog("en_us").keySet()) {
+                String rendered = Text.get(key, "1", "2", "3", "4");
+                assertNotEquals(key, rendered, key);
+                assertFalse(rendered.contains("%s"), key);
+            }
         } finally {
             Language.inject(original);
         }
     }
-
     @Test
     void enumSettingsReadLegacyAndMalformedValuesWithoutDiscardingPreferences() {
         for (var repeat : Repeat.values()) {

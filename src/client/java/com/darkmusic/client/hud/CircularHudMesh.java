@@ -81,6 +81,10 @@ final class CircularHudMesh {
                  int progressEnd, int spectrumStart,
                  int spectrumEnd, Settings.SurfaceFinish spectrumFinish,
                  Settings.SurfaceFinish progressFinish, int detail, boolean glow) implements GuiElementRenderState {
+        private boolean peakOnly() {
+            return progress == -2;
+        }
+
         Rings(Matrix3x2fc pose, ScreenRectangle scissorArea, ScreenRectangle bounds, float cx, float cy, double progress, float[] levels, int bands, Settings.SpectrumStyle style, int progressStart, int progressEnd, int spectrumStart, int spectrumEnd, Settings.SurfaceFinish spectrumFinish, Settings.SurfaceFinish progressFinish) {
             this(pose, scissorArea, bounds, cx, cy, progress, levels, bands, style, progressStart, progressEnd, spectrumStart, spectrumEnd, spectrumFinish, progressFinish, 192, false);
         }
@@ -120,8 +124,8 @@ final class CircularHudMesh {
                     int outer0 = beveled ? Bevel.shade(first, Bevel.circularLight(a) * .34) : first;
                     int outer1 = beveled ? Bevel.shade(last, Bevel.circularLight(b) * .34) : last;
                     point(v, pose, cx, cy, base + h0, a, outer0);
-                    point(v, pose, cx, cy, base, a, beveled ? Bevel.shade(first, -.22) : first);
-                    point(v, pose, cx, cy, base, b, beveled ? Bevel.shade(last, -.22) : last);
+                    point(v, pose, cx, cy, peakOnly() ? base + Math.max(0, h0 - .75f) : base, a, beveled ? Bevel.shade(first, -.22) : first);
+                    point(v, pose, cx, cy, peakOnly() ? base + Math.max(0, h1 - .75f) : base, b, beveled ? Bevel.shade(last, -.22) : last);
                     point(v, pose, cx, cy, base + h1, b, outer1);
                     if (beveled) {
                         point(v, pose, cx, cy, base + h0, a, outer0);
@@ -133,8 +137,13 @@ final class CircularHudMesh {
                     point(v, pose, cx, cy, base + h0, a, outer0);
                     point(v, pose, cx, cy, base + h1, b, outer1);
                     point(v, pose, cx, cy, base + h1 + feather, b, outer1 & 0xFFFFFF);
-                    if (glow)
-                        strip(v, pose, cx, cy, base + Math.max(h0, h1), base + Math.max(h0, h1) + 1.6f, a, b, (first & 0xffffff) | 0x33000000, first & 0xffffff, (last & 0xffffff) | 0x33000000, last & 0xffffff);
+                    if (glow) {
+                        // Follow both endpoints of the true contour: a constant maximum radius detaches from slopes.
+                        point(v, pose, cx, cy, base + h0 + 1.6f, a, first & 0xffffff);
+                        point(v, pose, cx, cy, base + h0, a, (first & 0xffffff) | 0x33000000);
+                        point(v, pose, cx, cy, base + h1, b, (last & 0xffffff) | 0x33000000);
+                        point(v, pose, cx, cy, base + h1 + 1.6f, b, last & 0xffffff);
+                    }
                 }
                 return;
             }
@@ -146,7 +155,7 @@ final class CircularHudMesh {
                 int color = mix(spectrumStart, spectrumEnd, 1 - Math.abs(2 * turn - 1));
                 int slices = Math.max(1, (int) Math.ceil(SEGMENTS * half * 2));
                 for (int slice = 0; slice < slices; slice++)
-                    surfaceArc(v, pose, cx, cy, CircularHudLayout.RING_OUTER, CircularHudLayout.RING_OUTER + height,
+                    surfaceArc(v, pose, cx, cy, peakOnly() ? CircularHudLayout.RING_OUTER + Math.max(0, height - .75f) : CircularHudLayout.RING_OUTER, CircularHudLayout.RING_OUTER + height,
                         turn - half + 2 * half * slice / slices, turn - half + 2 * half * (slice + 1) / slices, color, color, spectrumFinish, false);
                 if (glow)
                     strip(v, pose, cx, cy, CircularHudLayout.RING_OUTER + height, CircularHudLayout.RING_OUTER + height + 1.6f, turn - half, turn + half, (color & 0xffffff) | 0x33000000, color & 0xffffff, (color & 0xffffff) | 0x33000000, color & 0xffffff);

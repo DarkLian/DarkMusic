@@ -17,6 +17,7 @@ public final class Settings {
     public boolean shuffle;
     public com.darkmusic.client.audio.PlaybackController.Repeat repeat = com.darkmusic.client.audio.PlaybackController.Repeat.OFF;
     public boolean autoplay;
+    public boolean showHoverInfo = true;
     public double speed = 1;
     public boolean hudEnabled = true;
     public String hudPosition = "TOP_LEFT";

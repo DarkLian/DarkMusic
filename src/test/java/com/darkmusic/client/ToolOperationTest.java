@@ -35,7 +35,7 @@ class ToolOperationTest {
             service.cancelTools();
             DownloadTest.await(() -> !service.snapshot().analyzing());
             assertFalse(service.toolsBusy());
-            assertTrue(service.snapshot().message().contains("Tool operation cancelled"));
+            assertEquals(com.darkmusic.client.text.Text.get("download.darkmusic.tools_cancelled"), service.snapshot().message());
         }
     }
 

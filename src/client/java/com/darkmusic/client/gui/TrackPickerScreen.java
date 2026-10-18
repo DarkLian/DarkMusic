@@ -40,12 +40,12 @@ public final class TrackPickerScreen extends LocalScreen {
     }
 
     private Button button(String text, int x, int y, int width, Runnable action, String help) {
-        return addRenderableWidget(Help.tip(Button.builder(Component.literal(text), b -> action.run()).bounds(x, y, width, 20).build(), help));
+        return addRenderableWidget(Help.tip(UiButton.builder(Component.literal(text), b -> action.run()).bounds(x, y, width, 20).build(), help));
     }
 
     @Override
     protected void init() {
-        search = addRenderableWidget(new EditBox(font, 12, 32, width - 24, 20, Text.component("text.darkmusic.search_songs")));
+        search = addRenderableWidget(new UiInput(font, 12, 32, width - 24, 20, Text.component("text.darkmusic.search_songs")));
         search.setValue(query);
         search.setResponder(s -> {
             query = s;
@@ -53,6 +53,8 @@ public final class TrackPickerScreen extends LocalScreen {
         });
         rows = addRenderableWidget(new RowList(12, 60, width - 24, Math.max(28, height - 126), 32, Text.get("text.darkmusic.songs"), (i, activated) -> {
         }));
+        rows.artwork(app.artwork, i -> i < tracks.size() ? tracks.get(i) : null);
+        rows.lyrics(app.lyrics, () -> app.settings.lyricsEnabled);
         {
             rows.multiple(selection);
             int w = (width - 32) / 3;
@@ -61,6 +63,7 @@ public final class TrackPickerScreen extends LocalScreen {
             button(Text.get("text.darkmusic.invert_selection"), 20 + w * 2, height - 52, w, selection::invert, Text.get("text.darkmusic.toggle_selection_of_visible_songs_hidden_selections_are_kept"));
         }
         choose = button(Text.get("text.darkmusic.add_selected"), 12, height - 28, (width - 28) / 2, this::choose, Text.get("text.darkmusic.add_selected_songs_in_library_order_songs_already_added_are_hidden"));
+        UiButton.style(choose, UiButton.Style.PRIMARY);
         button(Text.get("text.darkmusic.cancel"), 16 + (width - 28) / 2, height - 28, (width - 28) / 2, this::onClose, Text.get("text.darkmusic.return_without_changing_the_playlist_escape_also_cancels"));
         refresh();
     }
@@ -73,7 +76,7 @@ public final class TrackPickerScreen extends LocalScreen {
         tracks = library.stream().filter(t -> t.matches(query.toLowerCase(Locale.ROOT).strip())).toList();
         rows.emptyMessage(library.isEmpty() && !app.library.snapshot().tracks().isEmpty() ? Text.get("text.darkmusic.all_library_songs_are_already_added") : Text.get("text.darkmusic.no_matching_songs"));
         selection.visible(tracks.stream().map(Track::id).toList());
-        rows.rows(tracks.stream().map(t -> new RowList.Row(t.title(), t.artist() + " | " + t.relativePath())).toList());
+        rows.rows(tracks.stream().map(t -> new RowList.Row(t.title(), t.artist() + " | " + MusicScreen.time(t.duration()), t.relativePath())).toList());
         if (choose != null)
             choose.active = app.playlists.get(playlistId) != null && !app.library.snapshot().scanning() && !selection.isEmpty();
     }
@@ -89,6 +92,7 @@ public final class TrackPickerScreen extends LocalScreen {
 
     @Override
     public void tick() {
+        rows.inspectVisibleLyrics();
         if (revision != app.library.snapshot().revision() || playlistRevision != app.playlists.revision()) {
             revision = app.library.snapshot().revision();
             playlistRevision = app.playlists.revision();
@@ -100,9 +104,9 @@ public final class TrackPickerScreen extends LocalScreen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float d) {
         longText.begin();
-        g.fill(0, 0, width, height, 0xFF111420);
-        g.text(font, title, 12, 12, 0xFFB5B0FF);
-        longText.draw(g, font, "selection", selection.hidden() == 0 ? Text.get("format.darkmusic.selected", selection.size()) : Text.get("playlist.darkmusic.filtered_selection", selection.size(), selection.hidden()), Math.max(120, width / 2), 12, width - Math.max(120, width / 2) - 12, 0xFFCCCCDD);
+        UiTheme.background(g, width, height);
+        UiTheme.header(g, font, title, UiIcon.ADD);
+        longText.draw(g, font, "selection", selection.hidden() == 0 ? Text.get("format.darkmusic.selected", selection.size()) : Text.get("playlist.darkmusic.filtered_selection", selection.size(), selection.hidden()), Math.max(120, width / 2), 12, width - Math.max(120, width / 2) - 12, UiTheme.SECONDARY);
         super.extractRenderState(g, x, y, d);
     }
 }

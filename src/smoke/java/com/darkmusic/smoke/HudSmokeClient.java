@@ -49,8 +49,12 @@ final class HudSmokeClient {
         rows.setFocused(true);
         rows.select(0);
         int vertical = (int) field(rows, "scroll");
-        require(rows.mouseScrolled(rows.getX() + 30, rows.getY() + 6, -1000, 0), "Horizontal trackpad input was ignored");
         var text = field(rows, "horizontal");
+        Object zone = null;
+        for (var candidate : (java.util.List<?>) field(text, "zones"))
+            if (field(candidate, "key").equals("title0")) zone = candidate;
+        require(zone != null, "Visible title has no horizontal text hit zone");
+        require(rows.mouseScrolled((int) field(zone, "x") + 1, (int) field(zone, "y") + 1, -1000, 0), "Horizontal trackpad input was ignored");
         var lines = (java.util.Map<?, ?>) field(text, "lines");
         var line = lines.get("title0");
         double end = (double) field(line, "offset");
@@ -178,6 +182,7 @@ final class HudSmokeClient {
                     double original = s.hudScale;
                     screen.mouseScrolled(20, screen.height - 20, 0, -30);
                     require(s.hudScale == original, "Settings scroll changed HUD scale");
+                    SmokeUi.preview(mc);
                     var edit = screen.children().stream().filter(c -> c instanceof AbstractWidget w && w.getMessage().getString().equals("Edit HUD Layout")).map(c -> (AbstractWidget) c).findFirst().orElseThrow();
                     require(edit.visible, "Layout action is unreachable by scrolling");
                     screen.mouseClicked(mouse(edit.getX() + 3, edit.getY() + 3), false);
@@ -298,7 +303,7 @@ final class HudSmokeClient {
                 }
                 case 29 -> {
                     pan((RowList) field(mc.gui.screen(), "rows"));
-                    require(mc.gui.screen().mouseScrolled(20, 158, -1000, 0), "Long download status did not scroll");
+                    require(mc.gui.screen().mouseScrolled(20, (int) field(mc.gui.screen(), "resultTop") - 8, -1000, 0), "Long download status did not scroll");
                     state++;
                 }
                 case 30 -> {
@@ -480,6 +485,7 @@ final class HudSmokeClient {
                     if (!saved.isDone()) return;
                     require(saved.join().hudStyle == Settings.HudStyle.CIRCULAR, "Circular HUD style did not survive disk reload");
                     screen.mouseScrolled(20, screen.height - 20, 0, -30);
+                    SmokeUi.preview(mc);
                     var edit = screen.children().stream().filter(c -> c instanceof AbstractWidget w && w.getMessage().getString().equals("Edit HUD Layout")).map(c -> (AbstractWidget) c).findFirst().orElseThrow();
                     require(edit.visible, "Circular HUD layout action is unreachable");
                     screen.mouseClicked(mouse(edit.getX() + 3, edit.getY() + 3), false);

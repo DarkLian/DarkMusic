@@ -26,10 +26,11 @@ public final class DownloadScreen extends LocalScreen {
     private final DarkMusicClient app;
     private final SongSelection selection = new SongSelection();
     private final Map<String, Entry> known = new LinkedHashMap<>();
-    private EditBox url, first, last, search;
+    private EditBox url, first, last, search, pageNumber;
     private RowList rows;
-    private Button analyze, download, modeButton, previous, next, selectAll, deselect, listen, stopListening, retrySelected, retryFailed, clearFailed, cancelSelected, cancelAll, clearFinished;
+    private Button queueToggle, analyze, download, modeButton, previous, next, goToPage, selectAll, deselect, listen, stopListening, retrySelected, retryFailed, clearFailed, cancelSelected, cancelAll, clearFinished;
     private Preview displayed;
+    private int furthestPage = 1;
     private Snapshot rowsSnapshot;
     private boolean rowsQueue, queueView;
     private Mode mode = Mode.VIDEO;
@@ -66,23 +67,54 @@ public final class DownloadScreen extends LocalScreen {
     }
 
     private Button button(String label, int x, int y, int w, Runnable action, String help) {
-        return addRenderableWidget(Help.tip(Button.builder(Component.literal(label), b -> action.run()).bounds(x, y, w, 20).build(), help));
+        return addRenderableWidget(Help.tip(UiButton.builder(Component.literal(label), b -> action.run()).bounds(x, y, w, 20).build(), help));
+    }
+
+    private boolean sourceExpanded = true;
+    private int sourceY, tabsY, modeY, searchY, pageY, resultTop;
+    private Button sourceToggle, entriesTab;
+
+    private void queue(boolean next) {
+        if (queueView == next) return;
+        if (queueView) queueQuery = query;
+        else entryQuery = query;
+        queueView = next;
+        query = queueView ? queueQuery : entryQuery;
+        search.setValue(query);
+        if (queueView) stopAudition();
+        rowsSnapshot = null;
+        refreshRows();
+        updateButtons();
+    }
+
+    private Button action(String key, Runnable callback, String help) {
+        return button(Text.get(key), 0, 0, 1, callback, Text.get(help));
+    }
+
+    private UiInput input(String key, int max, String value, java.util.function.Consumer<String> change) {
+        var field = addRenderableWidget(new UiInput(font, 0, 0, 1, 20, Text.component(key)));
+        field.setMaxLength(max);
+        field.setValue(value);
+        field.setResponder(change);
+        return field;
     }
 
     @Override
     protected void init() {
         rowsSnapshot = null;
-        button(Text.get("text.darkmusic.tools"), width - 100, 6, 88, () -> show(new DownloadToolsScreen(app, this)), Text.get("text.darkmusic.set_executable_paths_and_check_yt_dlp_ffmpeg_ffprobe_and_optional_javascript_runti"));
-        url = addRenderableWidget(new EditBox(font, 12, 30, width - 116, 20, Text.component("text.darkmusic.video_or_collection_url")));
-        url.setMaxLength(4096);
-        url.setValue(input);
-        url.setHint(Text.component("text.darkmusic.paste_a_video_or_collection_url"));
-        url.setResponder(s -> {
+        UiButton.icon(button(Text.get("text.darkmusic.tools"), width - 100, 6, 88,
+            () -> show(new DownloadToolsScreen(app, this)), Text.get("text.darkmusic.set_executable_paths_and_check_yt_dlp_ffmpeg_ffprobe_and_optional_javascript_runti")), UiIcon.TOOLS, false);
+        sourceToggle = UiButton.icon(button(Text.get("phase2.source"), width - 192, 6, 88, () -> {
+            sourceExpanded = !sourceExpanded;
+            updateButtons();
+        }, Text.get("download.darkmusic.mode_help")), UiIcon.SEARCH, false);
+        url = input("text.darkmusic.video_or_collection_url", 4096, input, s -> {
             input = s;
             app.downloads.rememberInput(s);
             notice = "";
         });
-        analyze = button(Text.get("text.darkmusic.analyze"), width - 100, 30, 88, () -> {
+        url.setHint(Text.component("text.darkmusic.paste_a_video_or_collection_url"));
+        analyze = action("text.darkmusic.analyze", () -> {
             stopAudition();
             notice = "";
             selection.clear();
@@ -95,47 +127,35 @@ public final class DownloadScreen extends LocalScreen {
             }
             queueView = false;
             app.downloads.analyze(input, 0);
-        }, Text.get("text.darkmusic.identify_the_source_and_preview_up_to_100_entries_nothing_downloads_automatically"));
-        int half = (width - 28) / 2;
-        modeButton = button("", 12, 54, half, this::cycleMode, Text.get("download.darkmusic.mode_help"));
-        first = addRenderableWidget(Help.tip(new EditBox(font, 16 + half, 54, (half - 4) / 2, 20, Text.component("download.darkmusic.range_start")), Text.get("download.darkmusic.range_help")));
-        first.setMaxLength(7);
-        first.setValue(from);
-        first.setResponder(s -> from = s);
-        last = addRenderableWidget(Help.tip(new EditBox(font, 20 + half + (half - 4) / 2, 54, (half - 4) / 2, 20, Text.component("text.darkmusic.range_end")), Text.get("download.darkmusic.range_help")));
-        last.setMaxLength(7);
-        last.setValue(to);
-        last.setResponder(s -> to = s);
-        download = button(Text.get("text.darkmusic.download"), 12, 78, half, this::download, Text.get("text.darkmusic.queue_only_the_explicitly_chosen_selection_into_the_current_music_folder_up_to_1_0"));
-        button(Text.get("text.darkmusic.show_queue_preview"), 16 + half, 78, half, () -> {
-            if (queueView) queueQuery = query;
-            else entryQuery = query;
-            queueView = !queueView;
-            query = queueView ? queueQuery : entryQuery;
-            search.setValue(query);
-            if (queueView) stopAudition();
-            rowsSnapshot = null;
-            refreshRows();
-            updateButtons();
-        }, Text.get("text.darkmusic.switch_between_collection_preview_and_download_queue_closing_this_screen_does_not"));
-        int w = (width - 36) / 4;
-        previous = button(Text.get("text.darkmusic.prev_100"), 12, 102, w, () -> page(-1), Text.get("text.darkmusic.preview_the_previous_page_checked_entries_are_kept_across_pages"));
-        next = button(Text.get("text.darkmusic.next_100"), 16 + w, 102, w, () -> page(1), Text.get("text.darkmusic.preview_the_next_page_this_does_not_download_it"));
-        selectAll = button(Text.get("text.darkmusic.select_page"), 20 + 2 * w, 102, w, selection::all, Text.get("download.darkmusic.search_help"));
-        deselect = button(Text.get("text.darkmusic.clear_checks"), 24 + 3 * w, 102, w, selection::clear, Text.get("text.darkmusic.clear_all_preview_checks_including_hidden_pages"));
-        int actionWidth = Math.min(116, (width - 36) / 3);
-        search = addRenderableWidget(Help.tip(new EditBox(font, 12, 128, width - 32 - actionWidth * 2, 20, Text.component("download.darkmusic.search")), Text.get("download.darkmusic.search_help")));
-        search.setMaxLength(256);
-        search.setValue(query);
-        search.setHint(Text.component("download.darkmusic.search"));
-        search.setResponder(s -> {
+        }, "text.darkmusic.identify_the_source_and_preview_up_to_100_entries_nothing_downloads_automatically");
+        modeButton = action("phase2.source", this::cycleMode, "download.darkmusic.mode_help");
+        first = input("download.darkmusic.range_start", 7, from, s -> from = s);
+        last = input("text.darkmusic.range_end", 7, to, s -> to = s);
+        Help.tip(first, Text.get("download.darkmusic.range_help"));
+        Help.tip(last, Text.get("download.darkmusic.range_help"));
+        download = action("text.darkmusic.download", this::download, "text.darkmusic.queue_only_the_explicitly_chosen_selection_into_the_current_music_folder_up_to_1_0");
+        entriesTab = action("phase2.entries", () -> queue(false), "text.darkmusic.switch_between_collection_preview_and_download_queue_closing_this_screen_does_not");
+        queueToggle = action("ui.darkmusic.queue", () -> queue(true), "text.darkmusic.switch_between_collection_preview_and_download_queue_closing_this_screen_does_not");
+        previous = action("text.darkmusic.prev_100", () -> page(-1), "text.darkmusic.preview_the_previous_page_checked_entries_are_kept_across_pages");
+        next = action("text.darkmusic.next_100", () -> page(1), "text.darkmusic.preview_the_next_page_this_does_not_download_it");
+        UiButton.icon(previous, UiIcon.PREVIOUS, true);
+        UiButton.icon(next, UiIcon.NEXT, true);
+        pageNumber = input("download.darkmusic.page", 7, pageNumber == null ? "1" : pageNumber.getValue(), value -> {
+        });
+        goToPage = action("download.darkmusic.go_to_page", this::jumpPage, "download.darkmusic.page_help");
+        selectAll = action("text.darkmusic.select_page", selection::all, "download.darkmusic.search_help");
+        deselect = action("text.darkmusic.clear_checks", selection::clear, "text.darkmusic.clear_all_preview_checks_including_hidden_pages");
+        search = input("download.darkmusic.search", 256, query, s -> {
             query = s;
             rowsSnapshot = null;
             refreshRows();
         });
-        listen = button(Text.get("download.darkmusic.listen"), width - 16 - actionWidth * 2, 128, actionWidth, this::listen, Text.get("download.darkmusic.listen_help"));
-        stopListening = button(Text.get("download.darkmusic.stop_listening"), width - 12 - actionWidth, 128, actionWidth, this::stopAudition, Text.get("download.darkmusic.listen_help"));
-        rows = addRenderableWidget(new RowList(12, 182, width - 24, Math.max(16, height - 242), 32, Text.get("text.darkmusic.preview_or_queue"), (i, activated) -> {
+        Help.tip(search, Text.get("download.darkmusic.search_help"));
+        listen = action("download.darkmusic.listen", this::listen, "download.darkmusic.listen_help");
+        stopListening = action("download.darkmusic.stop_listening", this::stopAudition, "download.darkmusic.listen_help");
+        UiButton.icon(listen, UiIcon.PLAY, true);
+        UiButton.icon(stopListening, UiIcon.STOP, true);
+        rows = addRenderableWidget(new RowList(12, 150, width - 24, 40, 36, Text.get("text.darkmusic.preview_or_queue"), (i, activated) -> {
             if (queueView) {
                 if (i < visibleJobs.size()) selectedJob = visibleJobs.get(i).id();
             } else if (i < visible.size()) {
@@ -143,19 +163,94 @@ public final class DownloadScreen extends LocalScreen {
                 if (activated) listen();
             }
         }));
-        int third = (width - 32) / 3;
-        retrySelected = button(Text.get("download.darkmusic.retry_selected"), 12, height - 52, third, () -> {
+        rows.rowTooltips(false);
+        retrySelected = action("download.darkmusic.retry_selected", () -> {
             if (queueView && selectedJob >= 0) app.downloads.retry(selectedJob);
-            else if (listeningEntry != null) app.downloads.retryEntry(listeningEntry, app.library.root());
-        }, Text.get("download.darkmusic.retry_help"));
-        retryFailed = button(Text.get("download.darkmusic.retry_failed"), 16 + third, height - 52, third, app.downloads::retryFailed, Text.get("download.darkmusic.retry_help"));
-        clearFailed = button(Text.get("download.darkmusic.clear_failed"), 20 + 2 * third, height - 52, third, app.downloads::clearFailed, Text.get("download.darkmusic.clear_failed_help"));
-        cancelSelected = button(Text.get("text.darkmusic.cancel_selected"), 12, height - 28, third, () -> {
+
+        }, "download.darkmusic.retry_help");
+        retryFailed = action("download.darkmusic.retry_failed", app.downloads::retryFailed, "download.darkmusic.retry_help");
+        clearFailed = action("download.darkmusic.clear_failed", app.downloads::clearFailed, "download.darkmusic.clear_failed_help");
+        cancelSelected = action("text.darkmusic.cancel_selected", () -> {
             if (selectedJob >= 0) app.downloads.cancel(selectedJob);
-        }, Text.get("text.darkmusic.cancel_the_selected_queued_or_active_item_other_downloads_continue"));
-        cancelAll = button(Text.get("text.darkmusic.cancel_all"), 16 + third, height - 28, third, app.downloads::cancelAll, Text.get("text.darkmusic.cancel_url_analysis_active_work_and_queued_entries_completed_songs_are_kept"));
-        clearFinished = button(Text.get("text.darkmusic.clear_finished"), 20 + 2 * third, height - 28, third, app.downloads::clearFinished, Text.get("download.darkmusic.clear_finished_help"));
+        }, "text.darkmusic.cancel_the_selected_queued_or_active_item_other_downloads_continue");
+        cancelAll = action("text.darkmusic.cancel_all", app.downloads::cancelAll, "text.darkmusic.cancel_url_analysis_active_work_and_queued_entries_completed_songs_are_kept");
+        clearFinished = action("text.darkmusic.clear_finished", app.downloads::clearFinished, "download.darkmusic.clear_finished_help");
+        UiButton.style(analyze, UiButton.Style.PRIMARY);
+        UiButton.style(download, UiButton.Style.PRIMARY);
+        UiButton.selected(entriesTab, () -> !queueView);
+        UiButton.selected(queueToggle, () -> queueView);
+        UiButton.style(cancelSelected, UiButton.Style.DESTRUCTIVE);
+        UiButton.style(cancelAll, UiButton.Style.DESTRUCTIVE);
+        UiButton.style(clearFailed, UiButton.Style.DESTRUCTIVE);
+        UiButton.style(clearFinished, UiButton.Style.SUBTLE);
+        rows.tint(i -> queueView && i < visibleJobs.size() ? switch (visibleJobs.get(i).status()) {
+            case FAILED -> UiTheme.ERROR;
+            case SAVED, SKIPPED -> UiTheme.SUCCESS;
+            case CANCELLED -> UiTheme.MUTED;
+            default -> UiTheme.SECONDARY;
+        } : UiTheme.SECONDARY);
+        rows.icons(i -> queueView && i < visibleJobs.size() ? switch (visibleJobs.get(i).status()) {
+            case FAILED -> UiIcon.WARNING;
+            case SAVED, SKIPPED -> UiIcon.CHECK;
+            case CANCELLED -> UiIcon.STOP;
+            case CONVERTING -> UiIcon.TOOLS;
+            default -> UiIcon.DOWNLOAD;
+        } : UiIcon.MUSIC);
+        rows.progress(i -> queueView && i < visibleJobs.size() ? visibleJobs.get(i).progress() : -1);
         tick();
+    }
+
+    private void place(net.minecraft.client.gui.components.AbstractWidget widget, int x, int y, int w, boolean visible) {
+        int previousWidth = widget.getWidth();
+        widget.setX(x);
+        widget.setY(y);
+        widget.setWidth(w);
+        if (previousWidth != w && widget instanceof EditBox editor)
+            editor.setCursorPosition(editor.getCursorPosition());
+        widget.visible = visible;
+        if (!visible && getFocused() == widget) setFocused(null);
+    }
+
+    private void layout() {
+        boolean wide = width >= 640 && height >= 360;
+        boolean source = wide || sourceExpanded;
+        sourceY = 38;
+        tabsY = source ? 68 : 38;
+        modeY = tabsY + 28;
+        boolean modes = !queueView && source;
+        searchY = modes ? modeY + 26 : tabsY + 28;
+        pageY = searchY + 26;
+        resultTop = queueView ? searchY + 42 : pageY + 42;
+        sourceToggle.visible = !wide;
+        place(url, 12, sourceY, width - 116, source);
+        place(analyze, width - 100, sourceY, 88, source);
+        place(entriesTab, 12, tabsY, 84, true);
+        place(queueToggle, 100, tabsY, 84, true);
+        place(download, 192, tabsY, width - 204, !queueView);
+        int half = (width - 28) / 2;
+        place(modeButton, 12, modeY, half, modes);
+        place(first, 16 + half, modeY, (half - 4) / 2, modes && mode == Mode.RANGE);
+        place(last, 20 + half + (half - 4) / 2, modeY, (half - 4) / 2, modes && mode == Mode.RANGE);
+        place(search, 12, searchY, width - (queueView ? 24 : 80), true);
+        place(listen, width - 64, searchY, 24, !queueView);
+        place(stopListening, width - 36, searchY, 24, !queueView);
+        place(previous, 12, pageY, 24, !queueView);
+        place(next, 40, pageY, 24, !queueView);
+        place(pageNumber, 68, pageY, 40, !queueView);
+        place(goToPage, 112, pageY, 28, !queueView);
+        int choice = (width - 172) / 2;
+        place(selectAll, 144, pageY, choice, !queueView && mode == Mode.SELECTED);
+        place(deselect, 148 + choice, pageY, choice, !queueView && mode == Mode.SELECTED);
+        int third = (width - 32) / 3;
+        UiButton.icon(retrySelected, UiIcon.REFRESH, false);
+        place(retrySelected, 12, height - 56, third, queueView);
+        place(retryFailed, 16 + third, height - 56, third, queueView);
+        place(clearFailed, 20 + third * 2, height - 56, third, queueView);
+        place(cancelSelected, 12, height - 30, third, queueView);
+        place(cancelAll, 16 + third, height - 30, third, queueView);
+        place(clearFinished, 20 + third * 2, height - 30, third, queueView);
+        rows.setY(resultTop);
+        rows.setHeight(height - (queueView ? 66 : 12) - resultTop);
     }
 
     private void cycleMode() {
@@ -176,6 +271,36 @@ public final class DownloadScreen extends LocalScreen {
             stopAudition();
             app.downloads.analyze(p.url(), Math.max(0, (p.first() - 1) / PAGE_SIZE + delta));
         }
+    }
+
+    private int availablePages(Preview preview) {
+        return preview.total() > 0 ? (int) ((preview.total() + (long) PAGE_SIZE - 1) / PAGE_SIZE) : furthestPage;
+    }
+
+    private void jumpPage() {
+        var snapshot = app.downloads.snapshot();
+        var preview = snapshot.preview();
+        if (queueView || snapshot.analyzing() || !matches(preview)) return;
+        try {
+            int page = positive(pageNumber.getValue());
+            if (page > availablePages(preview)) throw new IllegalArgumentException();
+            notice = "";
+            if (page != (preview.first() - 1) / PAGE_SIZE + 1) {
+                stopAudition();
+                app.downloads.analyze(preview.url(), page - 1);
+            }
+        } catch (IllegalArgumentException e) {
+            notice = Text.get("download.darkmusic.page_invalid", availablePages(preview));
+        }
+    }
+
+    @Override
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        if (pageNumber != null && pageNumber.visible && pageNumber.isFocused() && event.isConfirmation()) {
+            jumpPage();
+            return true;
+        }
+        return super.keyPressed(event);
     }
 
     private void listen() {
@@ -270,22 +395,23 @@ public final class DownloadScreen extends LocalScreen {
         first.active = last.active = !queueView && valid && mode == Mode.RANGE && !snapshot.analyzing();
         previous.active = !queueView && !snapshot.analyzing() && valid && p.first() > 1;
         next.active = !queueView && !snapshot.analyzing() && valid && p.hasMore();
+        pageNumber.active = goToPage.active = !queueView && !snapshot.analyzing() && valid && availablePages(p) > 1;
         selectAll.active = deselect.active = !queueView && valid && mode == Mode.SELECTED;
         search.visible = true;
         listen.visible = stopListening.visible = !queueView;
         search.active = queueView || valid;
-        search.setWidth(queueView ? width - 24 : width - 32 - Math.min(116, (width - 36) / 3) * 2);
         search.setHint(Text.component(queueView ? "download.darkmusic.search_queue" : "download.darkmusic.search"));
         listen.active = valid && listeningEntry != null && listeningEntry.available() && !snapshot.analyzing();
         stopListening.active = audition != null && (audition.snapshot().status() == AuditionPlayer.Status.LOADING || audition.snapshot().status() == AuditionPlayer.Status.PLAYING);
         var selectedItem = visibleJobs.stream().filter(i -> i.id() == selectedJob).findFirst();
         var failedJob = selectedItem.filter(i -> i.status() == Status.FAILED);
-        retrySelected.active = queueView ? failedJob.isPresent() : valid && listeningEntry != null && app.downloads.failedEntry(listeningEntry, app.library.root());
+        retrySelected.active = queueView && failedJob.isPresent();
         retryFailed.active = clearFailed.active = queueView && snapshot.items().stream().anyMatch(i -> i.status() == Status.FAILED);
         cancelSelected.active = queueView && selectedItem.filter(i -> !i.status().finished()).isPresent();
         cancelAll.active = queueView && (snapshot.analyzing() || snapshot.items().stream().anyMatch(i -> !i.status().finished()));
         clearFinished.active = queueView && snapshot.items().stream().anyMatch(i -> i.status().finished() && i.status() != Status.FAILED);
         download.setMessage(Component.literal(mode == Mode.SELECTED ? Text.get("format.darkmusic.download_checked", selection.size()) : mode == Mode.VIDEO ? Text.get("text.darkmusic.download_one_video") : mode == Mode.ALL ? Text.get("text.darkmusic.download_all_entries") : Text.get("text.darkmusic.download_range")));
+        layout();
     }
 
     private void refreshRows() {
@@ -295,6 +421,7 @@ public final class DownloadScreen extends LocalScreen {
         rowsSnapshot = snapshot;
         rowsQueue = queueView;
         var p = snapshot.preview();
+        rows.lyrics(i -> i < visible.size() ? visible.get(i).lyrics() : com.darkmusic.client.lyrics.LyricsInfo.UNKNOWN, () -> app.settings.lyricsEnabled && !queueView);
         rows.multiple(!queueView && mode == Mode.SELECTED ? selection : null);
         if (queueView) {
             String filter = query.strip().toLowerCase(Locale.ROOT);
@@ -307,7 +434,7 @@ public final class DownloadScreen extends LocalScreen {
             visible = p == null ? List.of() : p.entries().stream().filter(e -> filter.isEmpty() || (e.title() + " " + Math.max(1, e.index())).toLowerCase(Locale.ROOT).contains(filter)).toList();
             if (listeningEntry != null && !visible.contains(listeningEntry)) listeningEntry = null;
             selection.visible(visible.stream().map(DownloadScreen::key).toList());
-            rows.rows(visible.stream().map(e -> new RowList.Row(Math.max(1, e.index()) + ". " + e.title(), e.available() ? p.source() : Text.get("text.darkmusic.unavailable_private_deleted"))).toList());
+            rows.rows(visible.stream().map(e -> new RowList.Row(Math.max(1, e.index()) + ". " + e.title(), e.available() ? p.source() + (app.settings.lyricsEnabled ? " | " + Text.get(e.lyrics().key()) : "") : Text.get("text.darkmusic.unavailable_private_deleted"))).toList());
             rows.emptyMessage(p == null ? Text.get("text.darkmusic.analyze_a_url_to_preview_entries") : Text.get("download.darkmusic.no_matches"));
         }
     }
@@ -316,12 +443,18 @@ public final class DownloadScreen extends LocalScreen {
     public void tick() {
         var p = app.downloads.snapshot().preview();
         if (p != displayed) {
+            if (p != null && displayed == null && (width < 640 || height < 360)) sourceExpanded = false;
             if (p != null) {
                 if (displayed == null && known.isEmpty() || displayed != null && !displayed.url().equals(p.url())) {
                     selection.clear();
                     known.clear();
+                    furthestPage = 1;
                     mode = single(p) || p.videoAlso() ? Mode.VIDEO : Mode.SELECTED;
                 }
+                int currentPage = (p.first() - 1) / PAGE_SIZE + 1;
+                furthestPage = Math.max(furthestPage, currentPage);
+                pageNumber.setValue(Integer.toString(currentPage));
+                Help.tip(pageNumber, Text.get("download.darkmusic.page_range", availablePages(p)));
                 p.entries().forEach(e -> known.put(key(e), e));
             }
             displayed = p;
@@ -344,8 +477,10 @@ public final class DownloadScreen extends LocalScreen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
         longText.begin();
-        g.fill(0, 0, width, height, 0xFF111420);
-        g.text(font, title, 12, 10, 0xFFB5B0FF);
+        UiTheme.background(g, width, height);
+        UiTheme.header(g, font, title, UiIcon.DOWNLOAD);
+        if (url.visible) UiTheme.panel(g, 10, sourceY - 2, width - 20, 24);
+        if (queueView) UiTheme.panel(g, 10, height - 60, width - 20, 54);
         var s = app.downloads.snapshot();
         String detail = notice.isBlank() ? s.message() : notice;
         if (audition != null && !queueView) {
@@ -354,10 +489,11 @@ public final class DownloadScreen extends LocalScreen {
             else if (a.status() != AuditionPlayer.Status.STOPPED)
                 detail = Text.get(a.status() == AuditionPlayer.Status.LOADING ? "download.darkmusic.loading_audio" : "download.darkmusic.listening", a.title());
         }
-        longText.draw(g, font, "detail", detail, 12, 154, width - 24, 0xFFFFCC88);
+
         long done = s.items().stream().filter(i -> i.status().finished()).count(), failed = s.items().stream().filter(i -> i.status() == Status.FAILED).count();
         String summary = queueView ? Text.get("format.darkmusic.queue_summary", done, s.items().size(), failed) : s.preview() == null ? "" : Text.get("format.darkmusic.preview_summary", s.preview().source(), s.preview().first(), s.preview().first() + s.preview().entries().size() - 1, s.preview().total() >= 0 ? Text.get("format.darkmusic.total", s.preview().total()) : Text.get("format.darkmusic.unknown_total"));
-        longText.draw(g, font, "summary", summary, 12, 168, width - 24, 0xFFCCCCDD);
+        summary = Text.get(queueView ? "ui.darkmusic.queue" : "ui.darkmusic.preview_entries") + (summary.isBlank() ? "" : ": " + summary);
+        longText.draw(g, font, "detail", detail.isBlank() ? summary : detail + " | " + summary, 12, resultTop - 13, width - 24, detail.isBlank() ? UiTheme.SECONDARY : UiTheme.WARNING);
         super.extractRenderState(g, x, y, delta);
     }
 

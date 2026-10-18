@@ -63,7 +63,7 @@ public final class HudSurface {
      * Adjacent rows with identical clipped edges are one rectangle, including at HUD corners.
      * Splitting them makes GUI overlap-layer searches quadratic for dense beveled waves.
      */
-    static int spanBottom(Settings.HudShape shape, int width, int height, int left, int right, int top, int bottom) {
+    public static int spanBottom(Settings.HudShape shape, int width, int height, int left, int right, int top, int bottom) {
         int inset = inset(shape, width, height, top);
         int start = Math.max(left, inset), end = Math.min(right, width - inset);
         int next = top + 1;

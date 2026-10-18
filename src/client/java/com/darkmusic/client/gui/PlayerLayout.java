@@ -1,17 +1,75 @@
 package com.darkmusic.client.gui;
 
 /**
- * Shared dimensions keep the expanded media panel separate from the song list.
+ * Immutable viewport geometry shared by painting, clipping and native hit targets.
  */
-public record PlayerLayout(int navigationWidth, int panelX, int panelWidth, int listY, int listHeight, int artworkSize,
-                           int spectrumY, int spectrumHeight) {
+public record PlayerLayout(int width, int height, Rect navigation, Rect tracks, Rect inspector, Rect dock) {
+    public record Rect(int x, int y, int width, int height) {
+        public int right() {
+            return x + width;
+        }
+
+        public int bottom() {
+            return y + height;
+        }
+    }
+
     public static PlayerLayout of(int width, int height) {
-        int nav = width >= 640 ? Math.clamp(width / 9, 86, 112) : width >= 480 ? 120 : 86;
-        int y = height < 320 ? 58 : 82;
-        int available = Math.max(28, height - 144 - (width < 640 ? 24 : 0) - y);
-        int panel = width >= 640 ? Math.clamp(width / 4, 140, 240) : 0;
-        int spectrum = Math.min(80, Math.max(16, available / 3));
-        int art = panel == 0 ? 0 : Math.min(panel, Math.max(16, available - spectrum - 8));
-        return new PlayerLayout(nav, width - 12 - panel, panel, y, available, art, y + art + 8, spectrum);
+        int margin = width < 480 ? 8 : 12;
+        int dockHeight = 64;
+        int top = height < 300 ? 88 : 96, dockY = height - dockHeight - 8;
+        int available = Math.max(1, dockY - 16 - top);
+        int nav = width >= 480 && height >= 300 ? Math.clamp(width / 6, 104, 156) : 0;
+        int panel = width >= 640 && height >= 400 ? Math.clamp(width / 4, 140, 220) : 0;
+        int listX = margin + (nav > 0 ? nav + 8 : 0);
+        int listWidth = width - margin - listX - (panel > 0 ? panel + 8 : 0);
+        if (listWidth < (width >= 800 ? 280 : 240)) {
+            panel = 0;
+            listWidth = width - margin - listX;
+        }
+        return new PlayerLayout(width, height, new Rect(margin, top, nav, available),
+            new Rect(listX, top, listWidth, available),
+            new Rect(width - margin - panel, top, panel, available),
+            new Rect(margin, dockY, width - margin * 2, dockHeight));
+    }
+
+    public boolean singleColumn() {
+        return navigation.width() == 0;
+    }
+
+    public int artworkSize() {
+        return inspector.width() == 0 ? 0 : Math.min(inspector.width() - 16, inspector.height() - spectrumHeight() - 100);
+    }
+
+    public int transportY() {
+        return dock.y() + 32;
+    }
+
+    public int transportButtonWidth() {
+        return width < 400 ? 20 : 24;
+    }
+
+    public int controlWidth() {
+        return Math.clamp((dock.width() - 7 * transportButtonWidth() - 48) / 2, 54, 104);
+    }
+
+    public int controlsWidth() {
+        return controlWidth() * 2 + 7 * transportButtonWidth() + 48;
+    }
+
+    public int transportX() {
+        return (width - controlsWidth()) / 2;
+    }
+
+    public int seekY() {
+        return dock.y() + 2;
+    }
+
+    public int spectrumHeight() {
+        return Math.min(40, Math.max(16, inspector.height() / 7));
+    }
+
+    public int spectrumY() {
+        return inspector.bottom() - spectrumHeight() - 8;
     }
 }

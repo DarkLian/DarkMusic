@@ -47,18 +47,18 @@ class PlayerRefinementsTest {
         for (int width : new int[]{426, 640, 854, 1280})
             for (int height : new int[]{240, 360, 480, 720}) {
                 var p = PlayerLayout.of(width, height);
-                assertTrue(p.navigationWidth() >= 86);
-                if (p.panelWidth() > 0) {
-                    assertTrue(p.panelX() > 18 + p.navigationWidth() + 120);
-                    assertEquals(width - 12, p.panelX() + p.panelWidth());
-                    assertTrue(p.artworkSize() <= p.panelWidth());
-                    assertTrue(p.listY() + p.artworkSize() <= height - 144);
-                    if (height >= 360) assertTrue(p.spectrumY() + p.spectrumHeight() <= p.listY() + p.listHeight());
+                assertTrue(p.navigation().width() == 0 || p.navigation().width() >= 104);
+                if (p.inspector().width() > 0) {
+                    assertTrue(p.inspector().x() > p.tracks().x() + 240);
+                    assertEquals(width - 12, p.inspector().right());
+                    assertTrue(p.artworkSize() <= p.inspector().width());
+                    assertTrue(p.inspector().y() + p.artworkSize() < p.dock().y());
+                    assertTrue(p.spectrumY() + p.spectrumHeight() <= p.inspector().bottom());
                 }
             }
         var usual = PlayerLayout.of(854, 480);
         assertTrue(usual.artworkSize() > 96);
-        assertTrue(usual.panelWidth() > 96);
-        assertTrue(usual.spectrumHeight() > 48);
+        assertTrue(usual.inspector().width() >= 180);
+        assertTrue(usual.spectrumHeight() >= 24);
     }
 }

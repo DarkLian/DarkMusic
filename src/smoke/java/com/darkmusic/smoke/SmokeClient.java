@@ -58,14 +58,7 @@ public final class SmokeClient implements ClientModInitializer {
     }
 
     private void click(Minecraft mc, String label) {
-        var button = button(mc, label);
-        if (mc.gui.screen() instanceof SettingsScreen && !button.visible) {
-            mc.gui.screen().mouseScrolled(20, mc.gui.screen().height - 20, 0, 100);
-            for (int i = 0; i < mc.gui.screen().children().size() * 2 && !button.visible; i++)
-                mc.gui.screen().mouseScrolled(20, mc.gui.screen().height - 20, 0, -1);
-        }
-        require(button.active && button.visible, "Inactive button: " + label);
-        mc.gui.screen().mouseClicked(mouse(button.getX() + 3, button.getY() + 3), false);
+        SmokeUi.click(mc, translated(label));
     }
 
     private MouseButtonEvent mouse(double x, double y) {
@@ -197,11 +190,16 @@ public final class SmokeClient implements ClientModInitializer {
 
     private void row(Minecraft mc, Object screen, String name, int index, boolean activate) throws Exception {
         var rows = (RowList) field(screen, name);
-        int height = name.equals("navigation") ? 22 : screen instanceof MusicScreen && mc.gui.screen().height < 320 ? 28 : 32;
+        if (!rows.visible && name.equals("navigation")) {
+            SmokeUi.click(mc, com.darkmusic.client.text.Text.get("ui.darkmusic.collections"));
+            rows = (RowList) field(screen, name);
+        }
+        int height = (int) field(rows, "rowHeight");
         rows.onClick(mouse(rows.getX() + 4, rows.getY() + index * height + 4), activate);
     }
 
     private void view(Minecraft mc, String name) throws Exception {
+        SmokeUi.library(mc);
         for (int i = 0; i < 4 && !field("mode").equals(name); i++) {
             String compact = "View: " + field("mode");
             boolean cycle = mc.gui.screen().children().stream().anyMatch(x -> x instanceof AbstractWidget b && b.getMessage().getString().equals(translated(compact)));

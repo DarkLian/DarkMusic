@@ -1,0 +1,1 @@
+Original DarkMusic interface icons. Dedicated to the public domain under CC0 1.0 Universal. https://creativecommons.org/publicdomain/zero/1.0/ . Vector master: icons.svg; raster atlas: 31 cells of 64 x 64 pixels in UiIcon ordinal order.

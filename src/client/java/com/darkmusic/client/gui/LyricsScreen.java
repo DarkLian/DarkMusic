@@ -20,22 +20,39 @@ public final class LyricsScreen extends LocalScreen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
-        g.fill(0, 0, width, height, 0xff111420);
-        g.text(font, title, 12, 12, 0xffb5b0ff);
+        longText.begin();
+        UiTheme.background(g, width, height);
+        UiTheme.header(g, font, title, UiIcon.LYRICS);
+        int panelWidth = Math.min(720, width - 24), panelX = (width - panelWidth) / 2;
+        UiTheme.panel(g, panelX, 32, panelWidth, height - 44);
         var state = app.playback.state();
+        if (state.track() != null)
+            longText.draw(g, font, "track", state.track().title() + " | " + state.track().artist(), panelX + 12, 43, panelWidth - 24, UiTheme.SECONDARY);
         var data = app.lyrics.get(state.track());
         int current = data.current(state.position());
         if (!app.settings.lyricsEnabled)
             g.centeredText(font, Text.get("lyrics.darkmusic.disabled"), width / 2, height / 2, 0xffb0adc2);
         else if (data.lines().isEmpty())
-            g.centeredText(font, Text.get("lyrics.darkmusic.missing"), width / 2, height / 2, 0xffb0adc2);
+            g.centeredText(font, Text.get(app.lyrics.info(state.track()).key()), width / 2, height / 2, 0xffb0adc2);
         else {
-            int visible = Math.max(1, (height - 70) / 24), first = Math.max(0, current - visible / 2);
+            int visible = Math.max(1, (height - 100) / 24), first = Math.max(0, current - visible / 2);
             for (int i = first; i < Math.min(data.lines().size(), first + visible); i++) {
-                String line = com.darkmusic.client.hud.CircularHudRenderer.ellipsis(data.lines().get(i).text(), width - 32, font::width);
-                g.centeredText(font, line, width / 2, 44 + (i - first) * 24, i == current ? 0xffddd9ff : 0xff8b8999);
+                String line = data.lines().get(i).text();
+                if (i == current)
+                    g.fill(panelX + 1, 64 + (i - first) * 24, panelX + panelWidth - 1, 86 + (i - first) * 24, UiTheme.SELECTED);
+                int measured = font.width(line);
+                longText.draw(g, font, "line" + i, line, measured <= panelWidth - 24 ? (width - measured) / 2 : panelX + 12, 69 + (i - first) * 24, Math.min(measured + 1, panelWidth - 24), i == current ? UiTheme.TEXT : UiTheme.MUTED);
             }
         }
         super.extractRenderState(g, x, y, delta);
+    }
+
+    @Override
+    public net.minecraft.network.chat.Component getNarrationMessage() {
+        var state = app.playback.state();
+        var data = app.lyrics.get(state.track());
+        int current = data.current(state.position());
+        return net.minecraft.network.chat.Component.literal(title.getString() + (state.track() == null ? "" : ": " + state.track().title())
+            + (current >= 0 && current < data.lines().size() ? ": " + data.lines().get(current).text() : ""));
     }
 }

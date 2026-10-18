@@ -3,7 +3,6 @@ package com.darkmusic.client.gui;
 import com.darkmusic.client.text.Text;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -16,6 +15,7 @@ public final class TextPromptScreen extends LocalScreen {
     private final Consumer<String> accept;
     private EditBox text;
     private String error = "";
+    private int left, top, panelWidth;
 
     public TextPromptScreen(Screen parent, String label, String initial, Consumer<String> accept) {
         super(Component.literal(label), parent);
@@ -26,11 +26,15 @@ public final class TextPromptScreen extends LocalScreen {
 
     @Override
     protected void init() {
-        text = addRenderableWidget(new EditBox(font, 12, 44, width - 24, 20, title));
+        String draft = text == null ? initial : text.getValue();
+        panelWidth = Math.min(390, width - 24);
+        left = (width - panelWidth) / 2;
+        top = Math.max(32, (height - 140) / 2);
+        text = addRenderableWidget(new UiInput(font, left + 12, top + 38, panelWidth - 24, 20, title));
         text.setMaxLength(100);
-        text.setValue(initial);
+        text.setValue(draft);
         setInitialFocus(text);
-        addRenderableWidget(Button.builder(Text.component("text.darkmusic.save"), b -> {
+        UiButton.style(addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.save"), b -> {
             try {
                 if (text.getValue().isBlank())
                     throw new IllegalArgumentException(Text.get("text.darkmusic.enter_a_name"));
@@ -39,16 +43,18 @@ public final class TextPromptScreen extends LocalScreen {
             } catch (IllegalArgumentException e) {
                 error = e.getMessage();
             }
-        }).bounds(12, 76, 72, 20).build());
-        addRenderableWidget(Button.builder(Text.component("text.darkmusic.cancel"), b -> onClose()).bounds(90, 76, 72, 20).build());
+        }).bounds(left + 12, top + 70, (panelWidth - 28) / 2, 20).build()), UiButton.Style.PRIMARY);
+        addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.cancel"), b -> onClose()).bounds(left + 16 + (panelWidth - 28) / 2, top + 70, (panelWidth - 28) / 2, 20).build());
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float d) {
         longText.begin();
-        g.fill(0, 0, width, height, 0xFF111420);
-        g.text(font, title, 12, 20, 0xFFB5B0FF);
-        longText.draw(g, font, "error", error, 12, 108, width - 24, 0xFFFFBC80);
+        UiTheme.background(g, width, height);
+        UiTheme.panel(g, left, top, panelWidth, 130);
+        UiIcon.EDIT.draw(g, left + 12, top + 10, 12, UiTheme.ACCENT);
+        longText.draw(g, font, "title", title.getString(), left + 32, top + 12, panelWidth - 44, UiTheme.TEXT);
+        longText.draw(g, font, "error", error, left + 12, top + 104, panelWidth - 24, UiTheme.WARNING);
         super.extractRenderState(g, x, y, d);
     }
 }

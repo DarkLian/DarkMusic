@@ -4,92 +4,165 @@ import com.darkmusic.client.library.Track;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
+import java.util.Map;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
- * File reads are serialized off the render thread; publication is immutable and track-keyed.
+ * Bounded, deduplicated local inspection. Rendering reads immutable track-keyed snapshots only.
  */
 public final class LyricsService implements AutoCloseable {
     private static final Lrc EMPTY = new Lrc(List.of());
-    private final ExecutorService io = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-lyrics").factory());
-    private volatile Snapshot snapshot = new Snapshot("", new Lrc(List.of()));
-    private String requested = "";
-    private long next;
+    private static final int MAX_CACHED = 64, MAX_PENDING = 8;
+    private final LinkedBlockingDeque<Runnable> queue = new LinkedBlockingDeque<>(MAX_PENDING);
+    private final ThreadPoolExecutor io = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, queue,
+        Thread.ofPlatform().daemon().name("darkmusic-lyrics").factory());
+    private final Map<String, Job> pending = new LinkedHashMap<>();
+    private final LinkedHashMap<String, Cached> cache = new LinkedHashMap<>(16, .75f, true);
+    private volatile Map<String, Cached> published = Map.of();
     private volatile boolean enabled = true;
+    private boolean closed;
     private long generation;
-    private final java.util.LinkedHashMap<String, Cached> cache = new java.util.LinkedHashMap<>(8, .75f, true);
+
+    public LyricsService() {
+        io.prestartCoreThread();
+    }
 
     public synchronized void enabled(boolean value) {
-        if (enabled == value) return;
+        if (enabled == value || closed) return;
         enabled = value;
-        requested = "";
-        next = 0;
-        snapshot = new Snapshot("", EMPTY);
         generation++;
+        pending.clear();
+        queue.clear();
+        published = Map.of();
     }
 
-    public synchronized void request(Track track) {
-        if (!enabled || track == null) return;
+    public void request(Track track) {
+        enqueue(track, true);
+    }
+
+    public void inspect(Track track) {
+        enqueue(track, false);
+    }
+
+    private synchronized void enqueue(Track track, boolean priority) {
+        if (!enabled || closed || track == null) return;
         String key = track.file().toString();
+        Cached known = published.get(key);
         long now = System.nanoTime();
-        if (key.equals(requested) && now < next) return;
-        requested = key;
-        next = now + TimeUnit.SECONDS.toNanos(2);
-        long ticket = ++generation;
-        try {
-            io.execute(() -> load(track, key, ticket));
-        } catch (RejectedExecutionException ignored) {
+        if (known != null && now - known.checked < TimeUnit.SECONDS.toNanos(priority ? 2 : 5)) return;
+        Job existing = pending.get(key);
+        if (existing != null) {
+            if (priority && queue.remove(existing)) {
+                existing.priority = true;
+                queue.offerFirst(existing);
+            }
+            return;
+        }
+        if (pending.size() >= MAX_PENDING) {
+            if (!priority) return;
+            Job victim = pending.values().stream().filter(j -> !j.priority && queue.contains(j)).findFirst().orElse(null);
+            if (victim == null || !queue.remove(victim)) return;
+            pending.remove(victim.key);
+        }
+        Job job = new Job(track, key, generation, priority);
+        pending.put(key, job);
+        if (!(priority ? queue.offerFirst(job) : queue.offerLast(job))) pending.remove(key, job);
+    }
+
+    private final class Job implements Runnable {
+        final Track track;
+        final String key;
+        final long ticket;
+        boolean priority;
+
+        Job(Track track, String key, long ticket, boolean priority) {
+            this.track = track;
+            this.key = key;
+            this.ticket = ticket;
+            this.priority = priority;
+        }
+
+        @Override
+        public void run() {
+            Cached previous;
+            synchronized (LyricsService.this) {
+                if (!enabled || closed || ticket != generation) return;
+                previous = cache.get(key);
+            }
+            Cached result;
+            try {
+                Path sidecar = com.darkmusic.client.download.DownloadLyrics.sidecar(track.file());
+                Fingerprint fingerprint = new Fingerprint(stamp(track.file()), stamp(sidecar));
+                if (previous != null && fingerprint.equals(previous.fingerprint))
+                    result = new Cached(fingerprint, previous.data, previous.info, System.nanoTime());
+                else result = read(track.file(), sidecar, fingerprint);
+            } catch (Exception failure) {
+                org.slf4j.LoggerFactory.getLogger("darkmusic-lyrics").debug("Lyric inspection failed for {}", track.file(), failure);
+                result = new Cached(null, EMPTY, LyricsInfo.UNKNOWN, System.nanoTime());
+            }
+            synchronized (LyricsService.this) {
+                pending.remove(key, this);
+                if (!enabled || closed || ticket != generation) return;
+                cache.put(key, result);
+                while (cache.size() > MAX_CACHED) cache.remove(cache.keySet().iterator().next());
+                // Revalidate retained fingerprints after re-enabling; never republish unchecked old entries.
+                var next = new LinkedHashMap<>(published);
+                next.put(key, result);
+                next.keySet().retainAll(cache.keySet());
+                published = Map.copyOf(next);
+            }
         }
     }
 
-    private void load(Track track, String key, long ticket) {
-        if (!enabled) return;
-        Lrc data = new Lrc(List.of());
-        try {
-            String name = track.file().getFileName().toString();
-            int dot = name.lastIndexOf('.');
-            Path file = track.file().resolveSibling((dot < 0 ? name : name.substring(0, dot)) + ".lrc");
-            var fingerprint = new Fingerprint(stamp(track.file()), stamp(file));
-            var previous = cache.get(key);
-            if (previous != null && previous.fingerprint.equals(fingerprint)) data = previous.data;
-            else {
-                if (fingerprint.sidecar.size >= 0 && fingerprint.sidecar.size <= 1_000_000)
-                    data = Lrc.parse(Files.readString(file));
-                else if (fingerprint.audio.size >= 0) {
-                    try {
-                        var tag = org.jaudiotagger.audio.AudioFileIO.read(track.file().toFile()).getTag();
-                        if (tag != null) data = Lrc.parse(tag.getFirst(org.jaudiotagger.tag.FieldKey.LYRICS));
-                    } catch (org.jaudiotagger.audio.exceptions.CannotReadException |
-                             org.jaudiotagger.audio.exceptions.InvalidAudioFrameException ignored) {
-                        // Unsupported embedded tags do not require reopening an unchanged file.
-                    }
-                }
-                cache.put(key, new Cached(fingerprint, data));
-                while (cache.size() > 8) cache.remove(cache.keySet().iterator().next());
-            }
-        } catch (Exception e) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic-lyrics").debug("No timestamped lyrics for {}", track.file(), e);
+    private static Cached read(Path audio, Path sidecar, Fingerprint fingerprint) throws Exception {
+        String text;
+        if (fingerprint.sidecar.size >= 0) {
+            if (fingerprint.sidecar.size > 1_000_000)
+                return new Cached(fingerprint, EMPTY, LyricsInfo.UNKNOWN, System.nanoTime());
+            text = Files.readString(sidecar);
+        } else {
+            if (fingerprint.audio.size < 0)
+                return new Cached(fingerprint, EMPTY, LyricsInfo.UNKNOWN, System.nanoTime());
+            var tag = org.jaudiotagger.audio.AudioFileIO.read(audio.toFile()).getTag();
+            text = tag == null ? "" : tag.getFirst(org.jaudiotagger.tag.FieldKey.LYRICS);
         }
-        synchronized (this) {
-            if (enabled && ticket == generation && requested.equals(key)) snapshot = new Snapshot(key, data);
-        }
+        Lrc data = Lrc.parse(text);
+        LyricsInfo info = data.lines().stream().anyMatch(line -> !line.text().isBlank()) ? LyricsInfo.AVAILABLE : text.isBlank() ? LyricsInfo.UNAVAILABLE : LyricsInfo.UNKNOWN;
+        return new Cached(fingerprint, data, info, System.nanoTime());
     }
 
     public Lrc get(Track track) {
-        var s = snapshot;
-        return enabled && track != null && s.path.equals(track.file().toString()) ? s.data : EMPTY;
+        Cached value = enabled && track != null ? published.get(track.file().toString()) : null;
+        return value == null ? EMPTY : value.data;
+    }
+
+    public LyricsInfo info(Track track) {
+        Cached value = enabled && track != null ? published.get(track.file().toString()) : null;
+        return value == null ? LyricsInfo.UNKNOWN : value.info;
+    }
+
+    public synchronized int pendingCount() {
+        return pending.size();
+    }
+
+    public int cachedCount() {
+        return published.size();
     }
 
     @Override
-    public void close() {
+    public synchronized void close() {
+        closed = true;
+        enabled = false;
+        generation++;
+        pending.clear();
+        queue.clear();
+        cache.clear();
+        published = Map.of();
         io.shutdownNow();
-    }
-
-    private record Snapshot(String path, Lrc data) {
     }
 
     private static Stamp stamp(Path file) throws java.io.IOException {
@@ -107,6 +180,6 @@ public final class LyricsService implements AutoCloseable {
     private record Fingerprint(Stamp audio, Stamp sidecar) {
     }
 
-    private record Cached(Fingerprint fingerprint, Lrc data) {
+    private record Cached(Fingerprint fingerprint, Lrc data, LyricsInfo info, long checked) {
     }
 }

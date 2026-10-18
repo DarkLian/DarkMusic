@@ -55,7 +55,16 @@ public final class DownloadModels {
     public record Tools(String ytDlp, String ffmpeg, String ffprobe, String javascript) {
     }
 
-    public record Entry(int index, String title, String url, String extractor, String mediaId, boolean available) {
+    public record Entry(int index, String title, String url, String extractor, String mediaId, boolean available,
+                        com.darkmusic.client.lyrics.LyricsInfo lyrics) {
+        public Entry(int index, String title, String url, String extractor, String mediaId, boolean available) {
+            this(index, title, url, extractor, mediaId, available, com.darkmusic.client.lyrics.LyricsInfo.UNKNOWN);
+        }
+
+        public Entry {
+            if (lyrics == null) lyrics = com.darkmusic.client.lyrics.LyricsInfo.UNKNOWN;
+        }
+
         public String key() {
             return extractor.toLowerCase(Locale.ROOT) + ":" + mediaId;
         }

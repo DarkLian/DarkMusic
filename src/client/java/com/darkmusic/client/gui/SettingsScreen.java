@@ -6,7 +6,6 @@ import com.darkmusic.client.hud.NowPlayingHud;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 
 import java.util.ArrayList;
@@ -22,6 +21,7 @@ import java.util.function.DoubleFunction;
  */
 public final class SettingsScreen extends LocalScreen {
     private final DarkMusicClient app;
+    private ScrollBar scrollbar;
     private final List<Placed> controls = new ArrayList<>();
     private final List<Section> sections = new ArrayList<>();
     private com.darkmusic.client.hud.HudScale previewWheel = new com.darkmusic.client.hud.HudScale();
@@ -32,6 +32,9 @@ public final class SettingsScreen extends LocalScreen {
     private String folderPath = "";
     private List<net.minecraft.util.FormattedCharSequence> folderLines = List.of();
     private int scroll, top, bottom, formWidth, cursor, previewX, previewY, previewWidth, previewHeight;
+    private int formX, selectedSection, buildingSection;
+    private final int[] sectionScroll = new int[6];
+    private boolean previewOnly, previewVisible;
 
     public SettingsScreen(DarkMusicClient app, Screen parent) {
         super(Text.component("text.darkmusic.darkmusic_settings"), parent);
@@ -40,12 +43,13 @@ public final class SettingsScreen extends LocalScreen {
 
     private void section(String key) {
         sections.add(new Section(Text.get(key), cursor));
+        buildingSection++;
         cursor += 22;
     }
 
     private void put(AbstractWidget widget, String help) {
         if (!help.isEmpty()) Help.tip(widget, help);
-        controls.add(new Placed(addRenderableWidget(widget), cursor));
+        controls.add(new Placed(addRenderableWidget(widget), cursor, buildingSection));
         cursor += 24;
     }
 
@@ -83,25 +87,52 @@ public final class SettingsScreen extends LocalScreen {
             scaleChanged = 0;
             scroll = 0;
             previewWheel = new com.darkmusic.client.hud.HudScale();
+            java.util.Arrays.fill(sectionScroll, 0);
+            selectedSection = 0;
         }
         shownSettings = app.settings;
         controls.clear();
         sections.clear();
         cursor = 0;
-        boolean wide = width >= 600;
-        formWidth = wide ? Math.min(440, width / 2 - 20) : width - 24;
-        previewX = wide ? formWidth + 32 : 12;
-        previewY = 32;
+        buildingSection = -1;
+        boolean wide = width >= 800 && height >= 360;
+        if (wide) previewOnly = false;
+        formX = wide ? 136 : 12;
+        formWidth = wide ? Math.min(400, (width - 172) / 2) : width - 24;
+        previewX = wide ? formX + formWidth + 12 : 12;
+        previewY = wide ? 44 : 68;
         previewWidth = wide ? width - previewX - 12 : width - 24;
-        previewHeight = wide ? height - 68 : Math.min(100, height / 3);
-        top = wide ? 32 : previewY + previewHeight + 32;
+        previewHeight = height - previewY - 44;
+        previewVisible = wide || previewOnly;
+        top = wide ? 44 : 68;
         bottom = height - 12;
-        int layoutButtonWidth = Math.min(previewWidth, font.width(Text.get("text.darkmusic.edit_hud_layout")) + 24);
-        addRenderableWidget(Button.builder(Text.component("text.darkmusic.edit_hud_layout"),
-            button -> show(new HudEditorScreen(app, this)))
-            .bounds(previewX + (previewWidth - layoutButtonWidth) / 2, previewY + previewHeight + 4, layoutButtonWidth, 20).build());
+        for (int i = 0; i < 6; i++) {
+            final int index = i;
+            if (wide || i == selectedSection) {
+                var button = addRenderableWidget(UiButton.builder(Text.component("phase2.section." + i), b -> {
+                    sectionScroll[selectedSection] = scroll;
+                    selectedSection = wide ? index : (selectedSection + 1) % 6;
+                    scroll = sectionScroll[selectedSection];
+                    previewOnly = false;
+                    rebuildWidgets();
+                }).bounds(12, wide ? 44 + i * 28 : 38, wide ? 112 : 140, 24).build());
+                UiButton.selected(button, () -> selectedSection == index);
+            }
+        }
+        if (!wide)
+            addRenderableWidget(UiButton.builder(Text.component(previewOnly ? "phase2.settings_form" : "phase2.preview"), b -> {
+                previewOnly = !previewOnly;
+                rebuildWidgets();
+            }).bounds(width - 120, 38, 108, 24).build());
+        if (previewVisible) {
+            int layoutButtonWidth = Math.min(previewWidth, font.width(Text.get("text.darkmusic.edit_hud_layout")) + 32);
+            UiButton.icon(addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.edit_hud_layout"),
+                    button -> show(new HudEditorScreen(app, this)))
+                .bounds(previewX + (previewWidth - layoutButtonWidth) / 2, previewY + previewHeight + 4, layoutButtonWidth, 24).build()), UiIcon.EDIT, false);
+        }
         var s = app.settings;
         section("text.darkmusic.general_settings");
+        toggle("ui.darkmusic.show_hover_info", () -> s.showHoverInfo, v -> s.showHoverInfo = v, "ui.darkmusic.show_hover_info_help");
         action("audio.darkmusic.title", () -> show(new AudioSettingsScreen(app, this)), "audio.darkmusic.options_help");
         toggle("lyrics.darkmusic.enabled", () -> s.lyricsEnabled, v -> {
             s.lyricsEnabled = v;
@@ -118,8 +149,8 @@ public final class SettingsScreen extends LocalScreen {
         section("text.darkmusic.hud_settings");
         toggle("text.darkmusic.now_playing_hud", () -> s.hudEnabled, v -> s.hudEnabled = v, "hud.darkmusic.master_help");
         if (s.lyricsEnabled) {
-            toggle("lyrics.darkmusic.hud", () -> s.lyricsHud, v -> s.lyricsHud = v, "lyrics.darkmusic.help");
-            toggle("lyrics.darkmusic.next", () -> s.lyricsNextLine, v -> s.lyricsNextLine = v, "lyrics.darkmusic.help");
+            toggle("lyrics.darkmusic.hud", () -> s.lyricsHud, v -> s.lyricsHud = v, "lyrics.darkmusic.hud_help");
+            toggle("lyrics.darkmusic.next", () -> s.lyricsNextLine, v -> s.lyricsNextLine = v, "lyrics.darkmusic.next_help");
         }
         action("circle.darkmusic.style", () -> {
             s.hudStyle = s.hudStyle == Settings.HudStyle.CLASSIC ? Settings.HudStyle.CIRCULAR : Settings.HudStyle.CLASSIC;
@@ -190,37 +221,50 @@ public final class SettingsScreen extends LocalScreen {
             rebuildWidgets();
         }, "quality.darkmusic.help");
         controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("quality.darkmusic.preset") + ": " + Text.get("quality.darkmusic." + s.visualQuality.preset().name().toLowerCase(Locale.ROOT))));
-        toggle("quality.darkmusic.frequency", () -> s.visualQuality.frequencySmoothing, v -> s.visualQuality.frequencySmoothing = v, "quality.darkmusic.help");
-        toggle("quality.darkmusic.peaks", () -> s.visualQuality.peakHold, v -> s.visualQuality.peakHold = v, "quality.darkmusic.help");
-        toggle("quality.darkmusic.trails", () -> s.visualQuality.trails, v -> s.visualQuality.trails = v, "quality.darkmusic.help");
-        toggle("quality.darkmusic.glow", () -> s.visualQuality.glow, v -> s.visualQuality.glow = v, "quality.darkmusic.help");
-        toggle("quality.darkmusic.beat", () -> s.visualQuality.beatReactive, v -> s.visualQuality.beatReactive = v, "quality.darkmusic.help");
+        toggle("quality.darkmusic.frequency", () -> s.visualQuality.frequencySmoothing, v -> s.visualQuality.frequencySmoothing = v, "quality.darkmusic.frequency_help");
+        toggle("quality.darkmusic.peaks", () -> s.visualQuality.peakHold, v -> s.visualQuality.peakHold = v, "quality.darkmusic.peaks_help");
+        toggle("quality.darkmusic.trails", () -> s.visualQuality.trails, v -> s.visualQuality.trails = v, "quality.darkmusic.trails_help");
+        toggle("quality.darkmusic.glow", () -> s.visualQuality.glow, v -> s.visualQuality.glow = v, "quality.darkmusic.glow_help");
+        toggle("quality.darkmusic.beat", () -> s.visualQuality.beatReactive, v -> s.visualQuality.beatReactive = v, "quality.darkmusic.beat_help");
         section("reset.darkmusic.section");
         action("reset.darkmusic.button", () -> show(new ConfirmationScreen(this, Text.component("reset.darkmusic.title"),
             Text.component("reset.darkmusic.body"), Text.component("reset.darkmusic.confirm"), app::resetDefaults)), "reset.darkmusic.help");
+        scrollbar = addRenderableWidget(new ScrollBar(() -> scroll, value -> {
+            scroll = value;
+            position();
+        }));
         position();
         app.configureVisualizer();
     }
 
     private void position() {
-        scroll = Math.clamp(scroll, 0, Math.max(0, cursor - (bottom - top)));
+        int origin = sections.get(selectedSection).y();
+        int end = selectedSection < sections.size() - 1 ? sections.get(selectedSection + 1).y() : cursor;
+        scroll = Math.clamp(scroll, 0, Math.max(0, end - origin - (bottom - top)));
+        sectionScroll[selectedSection] = scroll;
+        if (scrollbar != null) {
+            scrollbar.configure(formX - 10, top, bottom - top, end - origin, bottom - top);
+            scrollbar.visible &= !previewOnly;
+        }
         for (var p : controls) {
-            int y = top + p.y() - scroll;
+            int y = top + p.y() - origin - scroll;
+            p.widget().setX(formX);
             p.widget().setY(y);
-            p.widget().visible = y >= top && y + 20 <= bottom;
+            p.widget().visible = !previewOnly && p.section() == selectedSection && y >= top && y + 20 <= bottom;
+            if (!p.widget().visible && getFocused() == p.widget()) setFocused(null);
         }
     }
 
     @Override
     public boolean mouseScrolled(double x, double y, double dx, double dy) {
         if (HorizontalText.horizontalIntent(dx, dy)) return super.mouseScrolled(x, y, dx, dy);
-        if (app.settings.hudEnabled && x >= previewX && x < previewX + previewWidth && y >= previewY + 20 && y < previewY + previewHeight && dy != 0) {
+        if (previewVisible && app.settings.hudEnabled && x >= previewX && x < previewX + previewWidth && y >= previewY + 20 && y < previewY + previewHeight && dy != 0) {
             previewScale = previewWheel.scroll(previewScale, dy);
             fitPreview();
             scaleChanged = System.nanoTime();
             return true;
         }
-        if (x >= 12 && x <= 12 + formWidth && y >= top && y <= bottom) {
+        if (!previewOnly && x >= formX && x <= formX + formWidth && y >= top && y <= bottom) {
             scroll -= (int) Math.round(dy * 24);
             position();
             return true;
@@ -242,39 +286,39 @@ public final class SettingsScreen extends LocalScreen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
         longText.begin();
-        g.fill(0, 0, width, height, 0xFF111420);
-        g.text(font, title, 12, 12, 0xFFB5B0FF);
-        g.outline(previewX, previewY, previewWidth, previewHeight, 0xFF34394F);
-        g.text(font, Text.get("hud.darkmusic.live_preview"), previewX + 6, previewY + 6, 0xFFB5B0FF);
-        g.enableScissor(previewX + 2, previewY + 20, previewX + previewWidth - 2, previewY + previewHeight - 2);
-        for (int cy = previewY + 20; cy < previewY + previewHeight - 2; cy += 16)
-            for (int cx = previewX + 2; cx < previewX + previewWidth - 2; cx += 16)
-                g.fill(cx, cy, Math.min(cx + 16, previewX + previewWidth - 2), Math.min(cy + 16, previewY + previewHeight - 2), ((cx - previewX) / 16 + (cy - previewY) / 16) % 2 == 0 ? 0xFF20283A : 0xFF293246);
-        fitPreview();
-        NowPlayingHud.renderPreview(app, g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30, previewScale, longText);
-        g.disableScissor();
-        if (System.nanoTime() - scaleChanged < 2_000_000_000L) {
-            String scale = Text.get("hud.darkmusic.preview_scale", Math.round(previewScale * 100));
-            g.text(font, scale, previewX + previewWidth - font.width(scale) - 8, previewY + 6, 0xFFB5B0FF);
+        UiTheme.background(g, width, height);
+        UiTheme.header(g, font, title, UiIcon.SETTINGS);
+        if (!previewOnly) UiTheme.panel(g, formX - 2, top - 2, formWidth + 4, bottom - top + 4);
+        if (previewVisible) {
+            UiTheme.panel(g, previewX, previewY, previewWidth, previewHeight);
+            g.text(font, Text.get("hud.darkmusic.live_preview"), previewX + 6, previewY + 6, UiTheme.ACCENT);
+            g.enableScissor(previewX + 2, previewY + 20, previewX + previewWidth - 2, previewY + previewHeight - 2);
+            for (int cy = previewY + 20; cy < previewY + previewHeight - 2; cy += 16)
+                for (int cx = previewX + 2; cx < previewX + previewWidth - 2; cx += 16)
+                    g.fill(cx, cy, Math.min(cx + 16, previewX + previewWidth - 2), Math.min(cy + 16, previewY + previewHeight - 2), ((cx - previewX) / 16 + (cy - previewY) / 16) % 2 == 0 ? 0xFF20283A : 0xFF293246);
+            fitPreview();
+            NowPlayingHud.renderPreview(app, g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30, previewScale, longText);
+            g.disableScissor();
+            if (System.nanoTime() - scaleChanged < 2_000_000_000L) {
+                String scale = Text.get("hud.darkmusic.preview_scale", Math.round(previewScale * 100));
+                g.text(font, scale, previewX + previewWidth - font.width(scale) - 8, previewY + 6, UiTheme.ACCENT);
+            }
         }
-        g.enableScissor(12, top, 12 + formWidth, bottom);
-        for (var section : sections) {
-            int sy = top + section.y() - scroll;
-            g.fill(12, sy + 17, 12 + formWidth, sy + 18, 0xFF34394F);
-            g.text(font, section.title(), 14, sy + 3, 0xFFB5B0FF);
+        if (!previewOnly) {
+            g.enableScissor(formX, top, formX + formWidth, bottom);
+            var section = sections.get(selectedSection);
+            int sy = top - scroll;
+            g.fill(formX, sy + 17, formX + formWidth, sy + 18, UiTheme.BORDER);
+            g.text(font, section.title(), formX + 2, sy + 3, UiTheme.ACCENT);
+            int pathY = top + folderY - section.y() - scroll + 3;
+            if (selectedSection == 0)
+                for (var line : folderLines) {
+                    g.text(font, line, formX + 7, pathY, UiTheme.SECONDARY);
+                    pathY += 10;
+                }
+            g.disableScissor();
         }
-        int pathY = top + folderY - scroll + 3;
-        for (var line : folderLines) {
-            g.text(font, line, 19, pathY, 0xFFAAAAC0);
-            pathY += 10;
-        }
-        g.disableScissor();
         super.extractRenderState(g, x, y, delta);
-        if (cursor > bottom - top) {
-            int length = Math.max(12, (bottom - top) * (bottom - top) / cursor);
-            int sy = top + (bottom - top - length) * scroll / Math.max(1, cursor - (bottom - top));
-            g.fill(8, sy, 10, sy + length, 0xFFB5B0FF);
-        }
     }
 
     @Override
@@ -283,7 +327,7 @@ public final class SettingsScreen extends LocalScreen {
         app.configureVisualizer();
     }
 
-    private record Placed(AbstractWidget widget, int y) {
+    private record Placed(AbstractWidget widget, int y, int section) {
     }
 
     private record Section(String title, int y) {

@@ -17,6 +17,32 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CircularHudTest {
     @Test
+    void glowTracksBothSlopeEndpointsAndPeakHoldIsOnlyAnOuterCap() {
+        var layout = CircularHudLayout.of(true);
+        float[] levels = new float[64];
+        Arrays.fill(levels, 1);
+        var points = new ArrayList<Point>();
+        VertexConsumer consumer = (VertexConsumer) Proxy.newProxyInstance(VertexConsumer.class.getClassLoader(), new Class<?>[]{VertexConsumer.class}, (proxy, method, args) -> {
+            if (method.getName().equals("addVertex")) points.add(new Point((float) args[0], (float) args[1]));
+            return proxy;
+        });
+        new CircularHudMesh.Rings(new Matrix3x2f(), null, null, layout.centerX(), layout.centerY(), -1,
+            levels, 8, Settings.SpectrumStyle.FILLED_SPIKE, 0, 0, 0xff123456, 0xffabcdef,
+            Settings.SurfaceFinish.FLAT, Settings.SurfaceFinish.FLAT, 96, true).buildVertices(consumer);
+        java.util.function.ToDoubleFunction<Point> radius = p -> Math.hypot(p.x() - layout.centerX(), p.y() - layout.centerY());
+        for (int i = 0; i < points.size(); i += 12) {
+            assertEquals(radius.applyAsDouble(points.get(i)), radius.applyAsDouble(points.get(i + 9)), .0001);
+            assertEquals(radius.applyAsDouble(points.get(i + 3)), radius.applyAsDouble(points.get(i + 10)), .0001);
+            assertEquals(radius.applyAsDouble(points.get(i)) + 1.6, radius.applyAsDouble(points.get(i + 8)), .0001);
+        }
+        points.clear();
+        new CircularHudMesh.Rings(new Matrix3x2f(), null, null, layout.centerX(), layout.centerY(), -2,
+            levels, 36, Settings.SpectrumStyle.FILLED_WAVE, 0, 0, 0xff123456, 0xffabcdef,
+            Settings.SurfaceFinish.FLAT, Settings.SurfaceFinish.FLAT, 96, false).buildVertices(consumer);
+        assertTrue(points.stream().allMatch(p -> radius.applyAsDouble(p) >= CircularHudLayout.RING_OUTER + CircularHudLayout.SPECTRUM_HEIGHT - .751));
+    }
+
+    @Test
     void beveledCircularFacesStayInsideFlatBoundsAndUseSeveralLightingTones() {
         var layout = CircularHudLayout.of(true);
         float[] levels = new float[64];

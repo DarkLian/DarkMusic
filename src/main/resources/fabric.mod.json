@@ -3,7 +3,7 @@
   "id": "darkmusic",
   "version": "${version}",
   "name": "DarkMusic",
-  "description": "A local, client-only music library and streaming audio player.",
+  "description": "A client-side music library, player, downloader, and audio-reactive HUD.",
   "authors": [
     "DarkMusic contributors"
   ],

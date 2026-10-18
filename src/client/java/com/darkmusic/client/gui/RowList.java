@@ -17,7 +17,29 @@ import java.util.function.BiConsumer;
  * Only visible rows are extracted, even for large libraries.
  */
 public final class RowList extends AbstractWidget {
+    @Override
+    public void setTooltip(net.minecraft.client.gui.components.Tooltip tooltip) {
+        super.setTooltip(tooltip);
+        Help.remember(this, tooltip);
+    }
+
+    @Override
+    protected void extractTooltipForNextRenderPass(net.minecraft.client.gui.GuiGraphicsExtractor g, int x, int y) {
+        if (rowTooltips) Help.extract(this, g, x, y);
+    }
+
+    private boolean rowTooltips = true;
+
+    public void rowTooltips(boolean enabled) {
+        rowTooltips = enabled;
+        if (!enabled) setTooltip(null);
+    }
+
     private final HorizontalText horizontal = new HorizontalText();
+    private final ScrollBar scrollbar = new ScrollBar(() -> this.scroll, value -> {
+        this.scroll = value;
+        clamp();
+    });
     private final int rowHeight;
     private final BiConsumer<Integer, Boolean> action;
     private List<Row> rows = List.of();
@@ -32,6 +54,92 @@ public final class RowList extends AbstractWidget {
     private List<Integer> order = List.of(), dropping;
     private double[] from = new double[0], targets = new double[0];
     private long animation;
+    private java.util.function.IntPredicate playing = i -> false;
+    private java.util.function.Supplier<UiIcon> playingIcon = () -> UiIcon.PLAY;
+
+    public void playingIcon(java.util.function.Supplier<UiIcon> icon) {
+        playingIcon = icon;
+    }
+
+    private java.util.function.IntUnaryOperator tint = i -> UiTheme.SECONDARY;
+    private java.util.function.IntFunction<com.darkmusic.client.library.Track> artwork;
+    private com.darkmusic.client.library.ArtworkCache artworkCache;
+    private com.darkmusic.client.lyrics.LyricsService lyricsService;
+    private java.util.function.IntFunction<com.darkmusic.client.lyrics.LyricsInfo> lyrics;
+    private java.util.function.BooleanSupplier lyricsEnabled = () -> false;
+    private com.darkmusic.client.lyrics.LyricsInfo hoveredLyrics;
+
+    public void lyrics(com.darkmusic.client.lyrics.LyricsService service, java.util.function.BooleanSupplier enabled) {
+        lyricsService = service;
+        lyrics(i -> service.info(artwork == null ? null : artwork.apply(i)), enabled);
+    }
+
+    public void lyrics(java.util.function.IntFunction<com.darkmusic.client.lyrics.LyricsInfo> info, java.util.function.BooleanSupplier enabled) {
+        lyrics = info;
+        lyricsEnabled = enabled;
+    }
+
+    public void inspectVisibleLyrics() {
+        if (!visible || lyricsService == null || artwork == null || !lyricsEnabled.getAsBoolean()) return;
+        if (selected >= 0 && selected < rows.size()) lyricsService.request(artwork.apply(selected));
+        for (int i = Math.max(0, scroll / rowHeight), last = Math.min(rows.size(), (scroll + height) / rowHeight + 1); i < last; i++)
+            lyricsService.inspect(artwork.apply(i));
+    }
+
+    private com.darkmusic.client.lyrics.LyricsInfo lyricInfo(int index) {
+        return lyrics != null && lyricsEnabled.getAsBoolean() && index >= 0 && index < rows.size() ? lyrics.apply(index) : null;
+    }
+
+    public int tooltipY() {
+        return Math.clamp(getY() + selected * rowHeight - scroll + rowHeight / 2, getY(), getBottom());
+    }
+
+    private java.util.function.IntFunction<UiIcon> icons;
+    private java.util.function.IntUnaryOperator indent = i -> 0;
+    private java.util.function.IntPredicate expanded = i -> false;
+
+    public void indent(java.util.function.IntUnaryOperator indent) {
+        this.indent = indent;
+    }
+
+    public void expanded(java.util.function.IntPredicate expanded) {
+        this.expanded = expanded;
+    }
+
+    private java.util.function.IntToDoubleFunction progress;
+    private int hoveredRow = -2;
+
+    public void artwork(com.darkmusic.client.library.ArtworkCache cache, java.util.function.IntFunction<com.darkmusic.client.library.Track> tracks) {
+        rowTooltips(false);
+        artworkCache = cache;
+        artwork = tracks;
+    }
+
+    public void icons(java.util.function.IntFunction<UiIcon> icons) {
+        this.icons = icons;
+    }
+
+    public void progress(java.util.function.IntToDoubleFunction progress) {
+        this.progress = progress;
+    }
+
+    public int scrollOffset() {
+        return scroll;
+    }
+
+    public void scrollOffset(int value) {
+        scroll = value;
+        clamp();
+    }
+
+    public void playing(java.util.function.IntPredicate value) {
+        playing = value;
+    }
+
+    public void tint(java.util.function.IntUnaryOperator value) {
+        tint = value;
+    }
+
     private java.util.function.IntConsumer disclosure;
     private java.util.function.IntUnaryOperator disclosureInset;
 
@@ -43,6 +151,7 @@ public final class RowList extends AbstractWidget {
 
     public void rows(List<Row> rows) {
         if (this.rows.equals(rows)) return;
+        hoveredRow = -2;
         if (dropping != null && dropping.stream().map(this.rows::get).toList().equals(rows)) {
             var prior = dropping;
             double[] nextFrom = new double[rows.size()];
@@ -130,6 +239,7 @@ public final class RowList extends AbstractWidget {
     }
 
     public boolean cancelDrag() {
+        scrollbar.cancel();
         boolean had = drag != null || pressed != null;
         if (!had) return false;
         drag = null;
@@ -145,13 +255,23 @@ public final class RowList extends AbstractWidget {
 
     private void clamp() {
         scroll = Math.clamp(scroll, 0, Math.max(0, rows.size() * rowHeight - height));
+        scrollbar.configure(getRight() - 9, getY(), height, rows.size() * rowHeight, height);
     }
 
     @Override
     protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float d) {
         horizontal.begin();
         var font = Minecraft.getInstance().font;
-        g.fill(getX(), getY(), getRight(), getBottom(), 0xFF191D2B);
+        int hover = isMouseOver(mx, my) && mx < getRight() - 9 ? (my - getY() + scroll) / rowHeight : -1;
+        if (hover < 0 && isFocused() && Minecraft.getInstance().getLastInputType().isKeyboard()) hover = selected;
+        var lyric = lyricInfo(hover);
+        if (rowTooltips && (hover != hoveredRow || !java.util.Objects.equals(lyric, hoveredLyrics))) {
+            hoveredRow = hover;
+            hoveredLyrics = lyric;
+            var row = hover >= 0 && hover < rows.size() ? rows.get(hover) : null;
+            setTooltip(row == null ? null : net.minecraft.client.gui.components.Tooltip.create(Component.literal(row.title() + "\n" + row.subtitle() + (row.details().isBlank() ? "" : "\n" + row.details()) + (lyric == null || row.subtitle().contains(Text.get(lyric.key())) ? "" : "\n" + Text.get(lyric.key())))));
+        }
+        UiTheme.panel(g, getX(), getY(), width, height);
         g.enableScissor(getX(), getY(), getRight(), getBottom());
         for (int slot = Math.max(0, scroll / rowHeight - 1), last = Math.min(rows.size(), (scroll + height) / rowHeight + 2); slot < last; slot++) {
             int i = order.get(slot);
@@ -170,33 +290,71 @@ public final class RowList extends AbstractWidget {
                 drawRow(g, drag.start() + offset, y, -1, -1);
             }
         }
-        if (rows.isEmpty())
-            horizontal.draw(g, font, "empty", emptyMessage, getX() + 5, getY() + 6, Math.max(1, width - 14), 0xFFAAAABD);
-        if (rows.size() * rowHeight > height) {
-            int bar = Math.max(8, height * height / (rows.size() * rowHeight));
-            int top = getY() + (height - bar) * scroll / Math.max(1, rows.size() * rowHeight - height);
-            g.fill(getRight() - 3, top, getRight(), top + bar, 0xFF9993D9);
+        if (rows.isEmpty()) {
+            UiIcon.MUSIC.draw(g, getX() + 8, getY() + 9, 16, UiTheme.MUTED);
+            horizontal.draw(g, font, "empty", emptyMessage, getX() + 30, getY() + 13, Math.max(1, width - 40), UiTheme.SECONDARY);
         }
+        scrollbar.configure(getRight() - 9, getY(), height, rows.size() * rowHeight, height);
+        scrollbar.extractRenderState(g, mx, my, d);
         g.disableScissor();
-        if (isFocused()) g.outline(getX(), getY(), width, height, 0xFFB8B2FF);
+        if (isFocused()) g.outline(getX(), getY(), width, height, UiTheme.ACCENT);
     }
 
     private void drawRow(GuiGraphicsExtractor g, int i, int y, int mx, int my) {
         var font = Minecraft.getInstance().font;
         if (selection != null ? selection.checked(i) : selected == i)
-            g.fill(getX(), y, getRight(), y + rowHeight - 1, 0xFF49436D);
+            g.fill(getX(), y, getRight(), y + rowHeight - 1, UiTheme.SELECTED);
         else if (mx >= getX() && mx < getRight() && my >= y && my < y + rowHeight)
-            g.fill(getX(), y, getRight(), y + rowHeight - 1, 0xFF292F44);
+            g.fill(getX(), y, getRight(), y + rowHeight - 1, UiTheme.HOVER);
+        if (selection != null ? selection.checked(i) : selected == i)
+            g.fill(getX() + 1, y + 2, getX() + 3, y + rowHeight - 3, UiTheme.ACCENT);
+        boolean current = playing.test(i);
+        var lyric = lyricInfo(i);
+        int rightInset = (current ? 34 : 9) + (lyric != null ? 34 : 0);
+        if (lyric != null) {
+            int x = getRight() - rightInset + 2;
+            UiIcon.LYRICS.draw(g, x, y + (rowHeight - 14) / 2, 14, lyric.color());
+            g.text(font, lyric.mark(), x + 17, y + (rowHeight - 9) / 2, lyric.color());
+        }
+        if (current) playingIcon.get().draw(g, getRight() - 26, y + (rowHeight - 14) / 2, 14, UiTheme.ACCENT);
         Row row = rows.get(i);
         int inset = selection == null ? 5 : 25;
-        if (selection != null) g.text(font, selection.checked(i) ? "[x]" : "[ ]", getX() + 4, y + 4, 0xFFB5B0FF);
-        horizontal.draw(g, font, "title" + i, row.title(), getX() + inset, y + 4, Math.max(1, width - inset - 9), 0xFFF0EEFF);
+        if (selection != null) g.text(font, selection.checked(i) ? "[x]" : "[ ]", getX() + 4, y + 4, UiTheme.ACCENT);
+        if (artwork != null && artworkCache != null) {
+            int size = Math.min(28, rowHeight - 6);
+            var cover = artworkCache.thumbnail(artwork.apply(i));
+            if (cover != null)
+                com.darkmusic.client.library.ArtworkCache.drawMenu(g, cover, getX() + inset, y + 3, size);
+            else UiIcon.MUSIC.draw(g, getX() + inset + 4, y + 7, size - 8, UiTheme.MUTED);
+            inset += size + 7;
+        } else if (icons != null) {
+            inset += indent.applyAsInt(i);
+            if (disclosureInset != null) {
+                if (disclosureInset.applyAsInt(i) >= 0)
+                    g.text(font, expanded.test(i) ? "v" : ">", getX() + inset + 1, y + 5, UiTheme.ACCENT);
+                inset += 12;
+            }
+            icons.apply(i).draw(g, getX() + inset, y + 4, 12, UiTheme.ACCENT);
+            inset += 18;
+        }
+        horizontal.draw(g, font, "title" + i, row.title(), getX() + inset, y + 4, Math.max(1, width - inset - rightInset), UiTheme.TEXT);
         if (rowHeight >= 28)
-            horizontal.draw(g, font, "subtitle" + i, row.subtitle(), getX() + inset, y + 16, Math.max(1, width - inset - 9), 0xFFAAAABD);
+            horizontal.draw(g, font, "subtitle" + i, row.subtitle(), getX() + inset, y + 16, Math.max(1, width - inset - rightInset), tint.applyAsInt(i));
+        if (progress != null) {
+            double value = progress.applyAsDouble(i);
+            if (value >= 0)
+                g.fill(getX() + inset, y + rowHeight - 3, getX() + inset + (int) Math.round(Math.clamp(value, 0, 1) * Math.max(1, width - inset - 9)), y + rowHeight - 2, tint.applyAsInt(i));
+        }
     }
 
     @Override
     public void onClick(MouseButtonEvent event, boolean twice) {
+        clamp();
+        if (scrollbar.hit(event.x(), event.y())) {
+            cancelDrag();
+            scrollbar.onClick(event, twice);
+            return;
+        }
         int index = (int) (event.y() - getY() + scroll) / rowHeight;
         if (index >= 0 && index < rows.size()) {
             int inset = disclosureInset == null ? -1 : disclosureInset.applyAsInt(index);
@@ -218,6 +376,10 @@ public final class RowList extends AbstractWidget {
 
     @Override
     protected void onDrag(MouseButtonEvent event, double dx, double dy) {
+        if (scrollbar.dragging()) {
+            scrollbar.drag(event.y());
+            return;
+        }
         if (pressed == null) return;
         pointerX = event.x();
         pointerY = event.y();
@@ -232,6 +394,10 @@ public final class RowList extends AbstractWidget {
 
     @Override
     public void onRelease(MouseButtonEvent event) {
+        if (scrollbar.dragging()) {
+            scrollbar.cancel();
+            return;
+        }
         if (pressed == null) return;
         if (drag != null) {
             pointerX = event.x();
@@ -253,7 +419,7 @@ public final class RowList extends AbstractWidget {
     @Override
     public boolean mouseScrolled(double x, double y, double dx, double dy) {
         if (!isMouseOver(x, y)) return false;
-        if (drag != null) return true;
+        if (drag != null || scrollbar.dragging()) return true;
         if (horizontal.scroll(x, y, dx, dy, HorizontalText.shiftDown())) return true;
         if (HorizontalText.horizontalIntent(dx, dy)) return false;
         scroll -= (int) (dy * rowHeight * 2);
@@ -305,12 +471,23 @@ public final class RowList extends AbstractWidget {
     }
 
     @Override
+    public void setFocused(boolean focused) {
+        super.setFocused(focused);
+        if (!focused) cancelDrag();
+    }
+
+    @Override
     protected void updateWidgetNarration(NarrationElementOutput output) {
-        if (selected >= 0 && selected < rows.size())
-            setMessage(Component.literal(rows.get(selected).title() + ", " + rows.get(selected).subtitle()));
+        if (selected >= 0 && selected < rows.size()) {
+            var info = lyricInfo(selected);
+            setMessage(Component.literal(rows.get(selected).title() + ", " + rows.get(selected).subtitle() + ", " + rows.get(selected).details() + (info == null || rows.get(selected).subtitle().contains(Text.get(info.key())) ? "" : ", " + Text.get(info.key()))));
+        }
         defaultButtonNarrationText(output);
     }
 
-    public record Row(String title, String subtitle) {
+    public record Row(String title, String subtitle, String details) {
+        public Row(String title, String subtitle) {
+            this(title, subtitle, "");
+        }
     }
 }

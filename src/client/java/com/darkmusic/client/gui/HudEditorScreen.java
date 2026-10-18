@@ -6,7 +6,6 @@ import com.darkmusic.client.hud.HudScale;
 import com.darkmusic.client.hud.NowPlayingHud;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 
@@ -19,6 +18,7 @@ public class HudEditorScreen extends LocalScreen {
     private boolean dragging;
     private double dragX, dragY;
     private long scaleChanged;
+    private net.minecraft.client.gui.components.AbstractWidget reset, help;
 
     public HudEditorScreen(DarkMusicClient app, Screen parent) {
         super(Text.component("hud.darkmusic.layout"), parent);
@@ -27,14 +27,34 @@ public class HudEditorScreen extends LocalScreen {
 
     @Override
     protected void init() {
-        addRenderableWidget(Help.tip(Button.builder(Text.component("hud.darkmusic.reset_selected"), b -> {
+        dragging = false;
+        reset = addRenderableWidget(Help.tip(UiButton.builder(Text.component("hud.darkmusic.reset_selected"), b -> {
             app.settings.hudX = app.settings.hudY = 0.0;
             app.settings.hudScale = 1;
             scaleChanged = System.nanoTime();
             app.save();
         }).bounds(width - 144, 8, 106, 20).build(), Text.get("hud.darkmusic.help")));
-        addRenderableWidget(Help.tip(Button.builder(net.minecraft.network.chat.Component.literal("?"), b -> {
-        }).bounds(width - 32, 8, 20, 20).build(), Text.get("hud.darkmusic.help")));
+        help = addRenderableWidget(new InfoHint(width - 32, 8, Text.component("hud.darkmusic.help")));
+        positionToolbar();
+    }
+
+    private void positionToolbar() {
+        var b = bounds();
+        int[][] corners = {{width - 148, 8}, {8, 8}, {width - 148, height - 32}, {8, height - 32}};
+        for (var corner : corners) {
+            int x = corner[0], y = corner[1];
+            if (x < b.x() + b.width() && x + 140 > b.x() && y < b.y() + b.height() && y + 24 > b.y()) continue;
+            reset.setX(x + 4);
+            reset.setY(y + 2);
+            help.setX(x + 116);
+            help.setY(y + 2);
+            return;
+        }
+    }
+
+    @Override
+    public void tick() {
+        if (!dragging) positionToolbar();
     }
 
     private HudLayout.Bounds bounds() {
@@ -90,11 +110,12 @@ public class HudEditorScreen extends LocalScreen {
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
         longText.begin();
         g.fill(0, 0, width, height, 0xCC111420);
+        UiTheme.panel(g, reset.getX() - 4, reset.getY() - 2, 140, 24);
         NowPlayingHud.render(app, g, longText);
         var b = bounds();
-        g.outline(b.x(), b.y(), b.width(), b.height(), 0xFFB5B0FF);
+        g.outline(b.x(), b.y(), b.width(), b.height(), UiTheme.ACCENT);
         if (System.nanoTime() - scaleChanged < 2_000_000_000L)
-            g.centeredText(font, Text.get("hud.darkmusic.scale", Math.round(app.settings.hudScale * 100)), width / 2, 36, 0xFFB5B0FF);
+            g.centeredText(font, Text.get("hud.darkmusic.scale", Math.round(app.settings.hudScale * 100)), width / 2, 36, UiTheme.ACCENT);
         super.extractRenderState(g, x, y, delta);
     }
 }
