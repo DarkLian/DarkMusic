@@ -25,6 +25,48 @@ public final class AudioSettings {
 
     public enum Equalizer {FLAT, BASS_BOOST, VOCAL_CLARITY, CLASSICAL, ELECTRONIC, ROCK, CUSTOM}
 
+    /**
+     * A detached snapshot containing only values consumed by playback.
+     */
+    public AudioSettings playbackCopy() {
+        var copy = new AudioSettings();
+        copy.neutral = neutral;
+        copy.equalizer = equalizer;
+        copy.normalization = normalization;
+        copy.analyzeLoudness = analyzeLoudness;
+        copy.limiter = limiter;
+        copy.compressor = compressor;
+        copy.targetLufs = targetLufs;
+        copy.width = width;
+        copy.bass = bass;
+        copy.crossfade = crossfade;
+        copy.gapless = gapless;
+        copy.reverb = reverb;
+        copy.gainMode = gainMode;
+        copy.listening = listening;
+        copy.ambientGain = ambientGain;
+        copy.focusGain = focusGain;
+        copy.ducking = ducking;
+        copy.duckGain = duckGain;
+        copy.duckAttack = duckAttack;
+        copy.duckHold = duckHold;
+        copy.duckRelease = duckRelease;
+        copy.bands = bands == null ? null : bands.clone();
+        copy.validate();
+        return copy;
+    }
+
+    public boolean samePlayback(AudioSettings other) {
+        return other != null && neutral == other.neutral && equalizer == other.equalizer
+            && normalization == other.normalization && analyzeLoudness == other.analyzeLoudness
+            && limiter == other.limiter && compressor == other.compressor && targetLufs == other.targetLufs
+            && width == other.width && bass == other.bass && crossfade == other.crossfade && gapless == other.gapless
+            && reverb == other.reverb && gainMode == other.gainMode && listening == other.listening
+            && ambientGain == other.ambientGain && focusGain == other.focusGain && ducking == other.ducking
+            && duckGain == other.duckGain && duckAttack == other.duckAttack && duckHold == other.duckHold
+            && duckRelease == other.duckRelease && java.util.Arrays.equals(bands, other.bands);
+    }
+
     public void validate() {
         if (bands == null || bands.length != 10) bands = new double[10];
         for (int i = 0; i < bands.length; i++) bands[i] = finite(bands[i], -12, 12, 0);

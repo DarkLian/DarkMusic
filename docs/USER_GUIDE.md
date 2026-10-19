@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v2.0.1 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v2.0.2 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Interface language
 

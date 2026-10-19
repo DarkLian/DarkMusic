@@ -19,6 +19,11 @@ final class SpectrumHalo {
 
     static void draw(GuiGraphicsExtractor g, Settings settings, int x, int y, int width, int height,
                      float[] levels, int bands, boolean downward, int hudHeight) {
+        var pose = new Matrix3x2f(g.pose());
+        var clip = g.scissorStack.peek();
+        var bounds = new ScreenRectangle(x, Math.max(0, y - 2), width, height + 4).transformMaxBounds(pose);
+        if (clip != null) bounds = clip.intersection(bounds);
+        if (bounds == null) return;
         int columns = settings.spectrumStyle == Settings.SpectrumStyle.BARS ? Math.min(bands, width / 2) : Math.min(width, settings.visualQuality.detail);
         float[] tops = new float[columns], bottoms = new float[columns];
         boolean bars = settings.spectrumStyle == Settings.SpectrumStyle.BARS;
@@ -39,12 +44,7 @@ final class SpectrumHalo {
             bottoms[i] = downward ? y + high : y + height - low;
             previous = h;
         }
-        var pose = new Matrix3x2f(g.pose());
-        var clip = g.scissorStack.peek();
-        var bounds = new ScreenRectangle(x, Math.max(0, y - 2), width, height + 4).transformMaxBounds(pose);
-        if (clip != null) bounds = clip.intersection(bounds);
-        if (bounds != null)
-            g.guiRenderState.addGuiElement(new Halo(pose, clip, bounds, x, width, tops, bottoms, bars, settings.hudShape, hudHeight, settings.spectrumColors.first(), settings.spectrumColors.last()));
+        g.guiRenderState.addGuiElement(new Halo(pose, clip, bounds, x, width, tops, bottoms, bars, settings.hudShape, hudHeight, settings.spectrumColors.first(), settings.spectrumColors.last()));
     }
 
     record Halo(Matrix3x2f pose, ScreenRectangle scissorArea, ScreenRectangle bounds, int x, int width,

@@ -131,13 +131,13 @@ public final class JavaSoundBackend implements AudioBackend {
 
     @Override
     public void configure(com.darkmusic.client.config.AudioSettings value) {
-        options = com.darkmusic.client.config.ConfigStore.JSON.fromJson(com.darkmusic.client.config.ConfigStore.JSON.toJson(value), com.darkmusic.client.config.AudioSettings.class);
-        options.validate();
+        options = value.playbackCopy();
     }
 
     @Override
     public void nextTrack(Track track, Runnable started, Runnable ended, Consumer<String> failed) {
-        if (closed || track == null || !options.gapless && options.crossfade <= 0) {
+        var selected = options;
+        if (closed || track == null || !selected.gapless && selected.crossfade <= 0) {
             cancelUpcoming();
             return;
         }
@@ -279,6 +279,9 @@ public final class JavaSoundBackend implements AudioBackend {
                     if (played != lastPlayed) {
                         lastPlayed = played;
                         progressedAt = System.nanoTime();
+                    } else if (line.available() >= line.getBufferSize()) {
+                        // Decoder/disk starvation is not a stalled output device.
+                        progressedAt = System.nanoTime();
                     } else if (System.nanoTime() - progressedAt > stallNanos)
                         throw new java.io.IOException("Audio output stopped making progress. Check or reconnect the audio device.");
                     int bytesPerSample = line.getFormat().getSampleSizeInBits() / 8;
@@ -294,6 +297,8 @@ public final class JavaSoundBackend implements AudioBackend {
                     int inputChannels = stream.getFormat().getChannels(), outputChannels = line.getFormat().getChannels();
                     int frames = Math.min(amount / frame, pcm.length / inputChannels);
                     int samples = converter.read(pcm, frames * inputChannels, rate * stream.getFormat().getFrameRate() / deviceRate);
+                    // Time spent decoding must not consume the output device's stall budget.
+                    progressedAt = System.nanoTime();
                     if (samples > 0 && inputChannels != outputChannels) {
                         if (inputChannels == 1) {
                             for (int i = samples - 1; i >= 0; i--) {
@@ -350,12 +355,12 @@ public final class JavaSoundBackend implements AudioBackend {
                         }
                         var ready = next == null ? null : next.peek();
                         double remaining = request.track.duration() - (offset + converter.positionFrames() / stream.getFormat().getFrameRate());
-                        if (options.crossfade > 0 && remaining / optionsSpeed() <= options.crossfade && request.track.duration() > 0 && ready != null && next.generation == request.generation) {
+                        if (selected.crossfade > 0 && remaining / rate <= selected.crossfade && request.track.duration() > 0 && ready != null && next.generation == request.generation) {
                             int outputFrames = samples / outputChannels;
                             int nextChannels = ready.stream().getFormat().getChannels();
                             int n;
                             try {
-                                n = ready.converter().read(nextPcm, outputFrames * nextChannels, speed * ready.stream().getFormat().getFrameRate() / deviceRate);
+                                n = ready.converter().read(nextPcm, outputFrames * nextChannels, rate * ready.stream().getFormat().getFrameRate() / deviceRate);
                             } catch (Exception failure) {
                                 n = -1;
                                 org.slf4j.LoggerFactory.getLogger("darkmusic-audio").debug("Prepared track became unavailable", failure);
@@ -363,10 +368,10 @@ public final class JavaSoundBackend implements AudioBackend {
                             if (n > 0) {
                                 double incomingTarget = normalize ? loudness.gain(next.track, selected) : 1;
                                 if (overlap == 0)
-                                    overlap = Math.max(0, options.crossfade - Math.max(0, remaining / optionsSpeed()));
+                                    overlap = Math.max(0, selected.crossfade - Math.max(0, remaining / rate));
                                 for (int f = 0; f < outputFrames; f++) {
                                     incomingNormalization += (incomingTarget - incomingNormalization) * gainSmoothing;
-                                    double t = Math.clamp((overlap + f / deviceRate) / options.crossfade, 0, 1), mix = Math.pow(Math.sin(t * Math.PI / 2), 2);
+                                    double t = Math.clamp((overlap + f / deviceRate) / selected.crossfade, 0, 1), mix = Math.pow(Math.sin(t * Math.PI / 2), 2);
                                     for (int c = 0; c < outputChannels; c++) {
                                         double incoming = 0;
                                         if (f * nextChannels < n)
@@ -414,13 +419,10 @@ public final class JavaSoundBackend implements AudioBackend {
         }
     }
 
-    private double optionsSpeed() {
-        return Math.max(.5, speed);
-    }
-
     private boolean handoff(Request previous) {
         var next = upcoming.get();
-        if (next == null || next.generation != previous.generation || !options.gapless && options.crossfade <= 0)
+        var selected = options;
+        if (next == null || next.generation != previous.generation || !selected.gapless && selected.crossfade <= 0)
             return false;
         var ready = next.peek();
         if (ready == null) return false;
@@ -514,6 +516,12 @@ public final class JavaSoundBackend implements AudioBackend {
                 stream = null;
             }
         }
+    }
+
+    @Override
+    public boolean awaitStopped(long seconds) throws InterruptedException {
+        worker.join(java.util.concurrent.TimeUnit.SECONDS.toMillis(seconds));
+        return !worker.isAlive();
     }
 
     @Override

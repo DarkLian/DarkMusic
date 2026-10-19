@@ -10,6 +10,10 @@ public final class AudioProcessor {
     private final double[][] x1 = new double[10][2], x2 = new double[10][2], y1 = new double[10][2], y2 = new double[10][2];
     private final double[][] coefficients = new double[10][5];
     private final double[] smoothed = new double[10];
+    private final double[] filterCos = new double[10], filterAlpha = new double[10];
+    private final double[] responseCos = new double[96], responseCos2 = new double[96];
+    private double response;
+    private boolean coefficientsReady;
     private RoomReverb room;
     private int channels;
     private double rate, gain = 1, envelope, compressorGain = 1, duck = 1;
@@ -25,7 +29,16 @@ public final class AudioProcessor {
         envelope = 0;
         compressorGain = 1;
         room = null;
+        coefficientsReady = false;
+        for (int i = 0; i < responseCos.length; i++) {
+            double w = 2 * Math.PI * (20 * Math.pow(Math.min(20000, rate * .45) / 20, i / 95.0)) / rate;
+            responseCos[i] = Math.cos(w);
+            responseCos2[i] = Math.cos(2 * w);
+        }
         for (int i = 0; i < 10; i++) {
+            double w = 2 * Math.PI * Math.min(FREQUENCIES[i], rate * .43) / rate;
+            filterCos[i] = Math.cos(w);
+            filterAlpha[i] = Math.sin(w) / (2 * 1.4);
             java.util.Arrays.fill(x1[i], 0);
             java.util.Arrays.fill(x2[i], 0);
             java.util.Arrays.fill(y1[i], 0);
@@ -41,14 +54,24 @@ public final class AudioProcessor {
         if (s.listening == AudioSettings.Listening.AMBIENT) target *= s.ambientGain;
         boolean eq = effects && (s.equalizer || s.bass > 0);
         double maxBoost = 0;
+        boolean changed = !coefficientsReady;
+        double eqSmoothing = 1 - Math.exp(-count / (channels * rate * .04));
         if (eq) for (int b = 0; b < 10; b++) {
             double desired = (s.equalizer ? s.bands[b] : 0) + (b < 3 ? s.bass * (3 - b) / 3 : 0);
-            smoothed[b] += (desired - smoothed[b]) * (1 - Math.exp(-count / (channels * rate * .04)));
+            double previous = smoothed[b];
+            smoothed[b] += (desired - smoothed[b]) * eqSmoothing;
             maxBoost = Math.max(maxBoost, Math.max(desired, smoothed[b]));
-            peak(b, Math.min(FREQUENCIES[b], rate * .43), smoothed[b]);
+            if (!coefficientsReady || previous != smoothed[b]) {
+                peak(b, smoothed[b]);
+                changed = true;
+            }
+        }
+        if (eq && changed) {
+            response = responsePeak();
+            coefficientsReady = true;
         }
         // Reserve headroom before the filter cascade; do not normalize back into clipping.
-        double headroom = eq ? Math.pow(10, -Math.max(maxBoost, responsePeak()) / 20) : 1;
+        double headroom = eq ? Math.pow(10, -Math.max(maxBoost, response) / 20) : 1;
         if (effects && s.reverb != AudioSettings.Reverb.DRY && (room == null || room.mode != s.reverb))
             room = new RoomReverb(rate, s.reverb);
         if (!effects || s.reverb == AudioSettings.Reverb.DRY) room = null;
@@ -107,7 +130,7 @@ public final class AudioProcessor {
     private double responsePeak() {
         double peak = 0;
         for (int i = 0; i < 96; i++) {
-            double w = 2 * Math.PI * (20 * Math.pow(Math.min(20000, rate * .45) / 20, i / 95.0)) / rate, c = Math.cos(w), c2 = Math.cos(2 * w), db = 0;
+            double c = responseCos[i], c2 = responseCos2[i], db = 0;
             for (double[] q : coefficients) {
                 double numerator = q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + 2 * (q[0] * q[1] + q[1] * q[2]) * c + 2 * q[0] * q[2] * c2;
                 double denominator = 1 + q[3] * q[3] + q[4] * q[4] + 2 * (q[3] + q[3] * q[4]) * c + 2 * q[4] * c2;
@@ -131,8 +154,8 @@ public final class AudioProcessor {
         return x;
     }
 
-    private void peak(int b, double hz, double db) {
-        double a = Math.pow(10, db / 40), w = 2 * Math.PI * hz / rate, alpha = Math.sin(w) / (2 * 1.4), c = Math.cos(w), d = 1 + alpha / a;
+    private void peak(int b, double db) {
+        double a = Math.pow(10, db / 40), alpha = filterAlpha[b], c = filterCos[b], d = 1 + alpha / a;
         double[] q = coefficients[b];
         q[0] = (1 + alpha * a) / d;
         q[1] = -2 * c / d;

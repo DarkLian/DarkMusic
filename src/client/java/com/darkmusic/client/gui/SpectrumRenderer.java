@@ -36,6 +36,13 @@ public final class SpectrumRenderer {
         mesh.fill(left, top, right, bottom, color);
     }
 
+    private void trail(int left, int right, int y, int height, int low, int high, int color, boolean downward) {
+        if (high <= low) return;
+        int near = (color & 0xffffff) | 0x58000000, far = (color & 0xffffff) | 0x10000000;
+        mesh.gradient(left, downward ? y + low : y + height - high, right,
+            downward ? y + high : y + height - low, downward ? near : far, downward ? far : near);
+    }
+
     private boolean update(DarkMusicClient app, boolean settingsPreview) {
         if (app.playback.spectrum() == null) return false;
         var status = app.playback.state().status();
@@ -104,10 +111,10 @@ public final class SpectrumRenderer {
                     ? barHeight(spike ? SpectrumCurve.spike(peaks, bands, position) : SpectrumCurve.sample(peaks, bands, position), height) : 0;
                 if (i == 0) previousPeak = peak;
                 if (app.settings.visualQuality.trails) {
-                    int tailLow = filled ? 0 : Math.max(0, Math.min(peak, previousPeak) - 2);
+                    int tailLow = filled ? h : Math.max(0, Math.min(peak, previousPeak) - 2);
                     int tailHigh = filled ? peak : Math.max(peak, previousPeak);
                     if (tailHigh > 0)
-                        rawFill(left, downward ? y + tailLow : y + height - tailHigh, right, downward ? y + tailHigh : y + height - tailLow, (app.settings.spectrumColors.color(position) & 0xffffff) | 0x22000000);
+                        trail(left, right, y, height, tailLow, tailHigh, app.settings.spectrumColors.color(position), downward);
                 }
                 if (app.settings.visualQuality.peakHold) {
                     if (peak > 0)
@@ -134,7 +141,7 @@ public final class SpectrumRenderer {
                     peak = Math.max(peak, barHeight(peaks[j], height));
                 int color = (app.settings.spectrumColors.color(i / (double) Math.max(1, bars - 1)) & 0xffffff) | 0x22000000;
                 if (app.settings.visualQuality.trails)
-                    rawFill(left, downward ? y : y + height - peak, Math.max(left + 1, right), downward ? y + peak : y + height, color);
+                    trail(left, Math.max(left + 1, right), y, height, h, peak, color, downward);
                 if (app.settings.visualQuality.peakHold && peak > 0)
                     rawFill(left, downward ? y + Math.max(0, peak - 1) : y + height - peak, Math.max(left + 1, right), downward ? y + peak : y + height - peak + 1, color | 0xff000000);
             }

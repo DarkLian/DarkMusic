@@ -8,6 +8,31 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class SpectrumMeshTest {
     @Test
+    void clippedTrailGradientsKeepTheirAlphaAndBoundedGeometry() throws Exception {
+        for (var shape : Settings.HudShape.values()) {
+            var mesh = new SpectrumMesh();
+            mesh.begin(220, 82, shape);
+            mesh.gradient(0, 50, 220, 82, 0x10B8A8FA, 0x58B8A8FA);
+            var countField = SpectrumMesh.class.getDeclaredField("count");
+            countField.setAccessible(true);
+            var dataField = SpectrumMesh.class.getDeclaredField("rectangles");
+            dataField.setAccessible(true);
+            var bottomField = SpectrumMesh.class.getDeclaredField("bottomColors");
+            bottomField.setAccessible(true);
+            int count = (int) countField.get(mesh);
+            int[] data = (int[]) dataField.get(mesh);
+            int[] bottoms = (int[]) bottomField.get(mesh);
+            assertTrue(count / 5 <= 7);
+            for (int i = 0; i < count; i += 5) {
+                assertEquals(0xB8A8FA, data[i + 4] & 0xffffff);
+                assertEquals(0xB8A8FA, bottoms[i / 5] & 0xffffff);
+                int a = data[i + 4] >>> 24, b = bottoms[i / 5] >>> 24;
+                assertTrue(a >= 0x10 && b <= 0x58 && b >= a, "Gradient must not become opaque during clipping");
+            }
+        }
+    }
+
+    @Test
     void batchingPreservesEveryClippedPixelAndCoalescesInteriorSpans() throws Exception {
         for (var shape : Settings.HudShape.values()) {
             var mesh = new SpectrumMesh();

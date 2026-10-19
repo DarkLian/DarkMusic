@@ -192,6 +192,36 @@ class AudioWorkerTest {
     }
 
     @Test
+    void slowDecoderDoesNotConsumeTheOutputStallTimeout() throws Exception {
+        var clip = TestMusic.clip();
+        var resources = new CopyOnWriteArrayList<AtomicBoolean>();
+        var failure = new AtomicReference<String>();
+        var completed = new AtomicBoolean();
+        try (var backend = new JavaSoundBackend(Runnable::run, path -> new AudioInputStream(clip.stream(), clip.format(), clip.bytes().length / clip.format().getFrameSize()) {
+            boolean delayed;
+
+            @Override
+            public int read(byte[] bytes, int off, int len) throws IOException {
+                if (!delayed) {
+                    delayed = true;
+                    try {
+                        Thread.sleep(250);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IOException(e);
+                    }
+                }
+                return super.read(bytes, off, len);
+            }
+        }, f -> output(resources), java.time.Duration.ofMillis(100))) {
+            backend.play(StorageTest.track("real", "slow-decoder", TestMusic.featured()), () -> completed.set(true), failure::set);
+            StorageTest.await(() -> completed.get() || failure.get() != null);
+            assertNull(failure.get());
+            assertTrue(completed.get());
+        }
+    }
+
+    @Test
     void unsupportedDeviceRateFallsBackAndActualPositionCanExceedEstimatedDuration() throws Exception {
         var resources = new CopyOnWriteArrayList<AtomicBoolean>();
         var delegate = output(resources);

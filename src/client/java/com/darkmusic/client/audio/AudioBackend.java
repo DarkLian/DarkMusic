@@ -31,6 +31,10 @@ public interface AudioBackend extends AutoCloseable {
     default void nextTrack(Track track, Runnable started, Runnable ended, Consumer<String> failed) {
     }
 
+    default boolean awaitStopped(long seconds) throws InterruptedException {
+        return true;
+    }
+
     @Override
     void close();
 

@@ -18,6 +18,7 @@ public final class PlaybackController implements AutoCloseable {
     private boolean shuffle;
     private double speed = 1;
     private Repeat repeat = Repeat.OFF;
+    private com.darkmusic.client.config.AudioSettings configuredAudio;
     private long sequence;
     private Source source = new Source("All", "", "", "");
 
@@ -56,8 +57,13 @@ public final class PlaybackController implements AutoCloseable {
     }
 
     public void configure(com.darkmusic.client.config.AudioSettings settings) {
-        audio.configure(settings);
-        refreshNext();
+        if (configuredAudio != null && configuredAudio.samePlayback(settings)) return;
+        var snapshot = settings.playbackCopy();
+        boolean transitionsChanged = configuredAudio == null || configuredAudio.gapless != snapshot.gapless
+            || configuredAudio.crossfade != snapshot.crossfade;
+        audio.configure(snapshot);
+        configuredAudio = snapshot;
+        if (transitionsChanged) refreshNext();
     }
 
     public void repeat(Repeat value) {
@@ -237,6 +243,10 @@ public final class PlaybackController implements AutoCloseable {
     public void close() {
         sequence++;
         audio.close();
+    }
+
+    public boolean awaitStopped(long seconds) throws InterruptedException {
+        return audio.awaitStopped(seconds);
     }
 
     public enum Repeat {OFF, ONE, ALL}

@@ -133,7 +133,10 @@ public final class ManagedTools {
             try {
                 int code = connection.getResponseCode();
                 if (Set.of(301, 302, 303, 307, 308).contains(code)) {
-                    uri = uri.resolve(connection.getHeaderField("Location"));
+                    String location = connection.getHeaderField("Location");
+                    if (location == null || location.isBlank())
+                        throw new IOException("Tool download redirect has no Location header");
+                    uri = uri.resolve(location);
                     continue;
                 }
                 if (code != 200)

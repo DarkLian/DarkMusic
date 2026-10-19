@@ -164,14 +164,14 @@ public final class MusicLibrary implements AutoCloseable {
             });
             tracks.sort(Comparator.comparing(Track::relativePath, String.CASE_INSENSITIVE_ORDER));
             complete = unreadable[0] == 0;
-            if (!complete) message = unreadable[0] + " unreadable library entries; metadata cache preserved";
+            if (!complete) message = unreadable[0] + " unreadable library entries; inaccessible metadata retained";
         } catch (Exception e) {
             message = String.valueOf(e.getMessage());
         }
         if (closed || ticket != generation.get()) return;
-        if (complete) {
+        if (complete || !tracks.isEmpty()) {
             var next = new HashMap<>(cache);
-            next.entrySet().removeIf(e -> e.getValue().root.equals(id));
+            if (complete) next.entrySet().removeIf(e -> e.getValue().root.equals(id));
             for (Track t : tracks) next.put(t.id(), Cached.of(t));
             if (!next.equals(cache) || cacheDirty) {
                 cache.clear();

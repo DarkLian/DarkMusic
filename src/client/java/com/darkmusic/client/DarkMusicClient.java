@@ -361,7 +361,7 @@ public class DarkMusicClient implements ClientModInitializer {
                 oldPlayback.close();
                 oldDownloads.close();
                 oldLibrary.close();
-                if (!oldDownloads.awaitStopped(15) || !oldLibrary.awaitStopped(15)
+                if (!oldPlayback.awaitStopped(15) || !oldDownloads.awaitStopped(15) || !oldLibrary.awaitStopped(15)
                     || oldAudition != null && !oldAudition.awaitStopped(15))
                     throw new java.io.IOException(com.darkmusic.client.text.Text.get("reset.darkmusic.waiting"));
                 var retained = com.darkmusic.client.config.ResetStorage.clear(config.directory(), roots);

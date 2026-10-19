@@ -60,7 +60,7 @@ class LoudnessIntegrationTest {
             }
             assertEquals(Math.pow(10, -1 / 20.0) / .5, gain, .01, "Tagged sample peak must constrain gain");
             assertArrayEquals(before, Files.readAllBytes(tagged));
-            assertTrue(Files.isRegularFile(temp.resolve("loudness-cache.json")));
+            StorageTest.await(() -> Files.isRegularFile(temp.resolve("loudness-cache.json")));
             options.analyzeLoudness = true;
             var untagged = reader.read("t", "source.wav", source, Files.size(source), Files.getLastModifiedTime(source).toMillis());
             deadline = System.nanoTime() + 20_000_000_000L;
