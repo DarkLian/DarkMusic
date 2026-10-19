@@ -12,7 +12,8 @@ import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -75,12 +76,13 @@ class UiPolishTest {
     }
 
     @Test
-    void captionEvidenceIsHonestWithoutEnrichingFlatEntries() {
-        assertEquals(LyricsInfo.UNKNOWN, DownloadJson.lyrics(JsonParser.parseString("{\"_type\":\"url\"}").getAsJsonObject()));
-        assertEquals(LyricsInfo.CAPTIONS, DownloadJson.lyrics(JsonParser.parseString("{\"subtitles\":{\"ja\":[{}]}}").getAsJsonObject()));
-        assertEquals(LyricsInfo.UNKNOWN, DownloadJson.lyrics(JsonParser.parseString("{\"automatic_captions\":{\"en\":[{}]}}").getAsJsonObject()));
-        assertEquals(LyricsInfo.NO_CAPTIONS, DownloadJson.lyrics(JsonParser.parseString("{\"subtitles\":{\"live_chat\":[{}]}}").getAsJsonObject()));
-        assertEquals(LyricsInfo.NO_CAPTIONS, DownloadJson.lyrics(JsonParser.parseString("{\"subtitles\":{}}").getAsJsonObject()));
+    void previewDoesNotCarryCaptionEvidenceEvenWhenMetadataContainsIt() {
+        var plain = JsonParser.parseString("{\"id\":\"song\",\"title\":\"Song\",\"url\":\"https://example.com/song\"}").getAsJsonObject();
+        var enriched = plain.deepCopy();
+        enriched.add("subtitles", JsonParser.parseString("{\"ja\":[{}]}"));
+        enriched.add("automatic_captions", JsonParser.parseString("{\"en\":[{}]}"));
+        assertEquals(DownloadJson.preview("https://example.com/song", 1, plain), DownloadJson.preview("https://example.com/song", 1, enriched));
+        assertTrue(java.util.Arrays.stream(com.darkmusic.client.download.DownloadModels.Entry.class.getRecordComponents()).noneMatch(field -> field.getName().equals("lyrics")));
     }
 
     @Test

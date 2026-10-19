@@ -64,11 +64,6 @@ public final class HorizontalText {
             line.paintedWidth = width;
         }
         g.text(font, line.visible, x - line.shift, y, color);
-        if (line.maximum > 0) {
-            int thumb = Math.max(8, width * width / Math.max(1, line.measured));
-            int left = x + (int) Math.round((width - thumb) * line.offset / line.maximum);
-            g.fill(left, y + font.lineHeight + 1, left + thumb, y + font.lineHeight + 2, 0xFF555968);
-        }
         g.disableScissor();
     }
 

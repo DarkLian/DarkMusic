@@ -421,7 +421,6 @@ public final class DownloadScreen extends LocalScreen {
         rowsSnapshot = snapshot;
         rowsQueue = queueView;
         var p = snapshot.preview();
-        rows.lyrics(i -> i < visible.size() ? visible.get(i).lyrics() : com.darkmusic.client.lyrics.LyricsInfo.UNKNOWN, () -> app.settings.lyricsEnabled && !queueView);
         rows.multiple(!queueView && mode == Mode.SELECTED ? selection : null);
         if (queueView) {
             String filter = query.strip().toLowerCase(Locale.ROOT);
@@ -434,7 +433,7 @@ public final class DownloadScreen extends LocalScreen {
             visible = p == null ? List.of() : p.entries().stream().filter(e -> filter.isEmpty() || (e.title() + " " + Math.max(1, e.index())).toLowerCase(Locale.ROOT).contains(filter)).toList();
             if (listeningEntry != null && !visible.contains(listeningEntry)) listeningEntry = null;
             selection.visible(visible.stream().map(DownloadScreen::key).toList());
-            rows.rows(visible.stream().map(e -> new RowList.Row(Math.max(1, e.index()) + ". " + e.title(), e.available() ? p.source() + (app.settings.lyricsEnabled ? " | " + Text.get(e.lyrics().key()) : "") : Text.get("text.darkmusic.unavailable_private_deleted"))).toList());
+            rows.rows(visible.stream().map(e -> new RowList.Row(Math.max(1, e.index()) + ". " + e.title(), e.available() ? p.source() : Text.get("text.darkmusic.unavailable_private_deleted"))).toList());
             rows.emptyMessage(p == null ? Text.get("text.darkmusic.analyze_a_url_to_preview_entries") : Text.get("download.darkmusic.no_matches"));
         }
     }

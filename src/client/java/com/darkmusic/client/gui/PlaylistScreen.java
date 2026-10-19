@@ -47,7 +47,6 @@ public final class PlaylistScreen extends LocalScreen {
 
     @Override
     public void onFilesDrop(List<java.nio.file.Path> files) {
-        importOverlay.dropped();
         app.importAudio(files, "", selected() == null ? "" : selectedId);
     }
 
@@ -175,7 +174,6 @@ public final class PlaylistScreen extends LocalScreen {
 
     @Override
     public void tick() {
-        importOverlay.tick();
         entries.inspectVisibleLyrics();
         if (revision != app.playlists.revision() || libraryRevision != app.library.snapshot().revision()) {
             revision = app.playlists.revision();
@@ -208,6 +206,6 @@ public final class PlaylistScreen extends LocalScreen {
         if (entries.visible)
             longText.draw(g, font, "selection", (selected() == null ? "" : app.playlists.displayName(selected()) + " | ") + Text.get("format.darkmusic.selected", selection.size()), entries.getX() + 2, 64, entries.getWidth() - 4, UiTheme.SECONDARY);
         super.extractRenderState(g, x, y, d);
-        importOverlay.render(app, g, width, height, selected() == null ? Text.get("text.darkmusic.all_tracks") : app.playlists.displayName(selected()));
+        importOverlay.render(app, g, width, height);
     }
 }

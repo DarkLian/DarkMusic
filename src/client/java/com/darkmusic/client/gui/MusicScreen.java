@@ -438,7 +438,6 @@ public final class MusicScreen extends LocalScreen {
 
     @Override
     public void tick() {
-        importOverlay.tick();
         if (width < 320 || height < 240) return;
         var state = app.library.snapshot();
         if (playlistRevision != app.playlists.revision() || revision != state.revision() && (!state.scanning() || System.nanoTime() - refreshed > 250_000_000L)) {
@@ -476,7 +475,6 @@ public final class MusicScreen extends LocalScreen {
 
     @Override
     public void onFilesDrop(java.util.List<java.nio.file.Path> files) {
-        importOverlay.dropped();
         String folder = mode.equals("All") ? group : "";
         String playlist = mode.equals("Playlists") && app.playlists.get(group) != null ? group : "";
         app.importAudio(files, folder, playlist);
@@ -561,8 +559,6 @@ public final class MusicScreen extends LocalScreen {
             }
         }
         super.extractRenderState(g, mx, my, delta);
-        String target = mode.equals("Playlists") && app.playlists.get(group) != null ? app.playlists.displayName(app.playlists.get(group))
-            : mode.equals("All") && !group.isBlank() ? group : Text.get("text.darkmusic.all_tracks");
-        importOverlay.render(app, g, width, height, target);
+        importOverlay.render(app, g, width, height);
     }
 }

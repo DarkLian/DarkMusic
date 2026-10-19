@@ -43,6 +43,7 @@ public final class Settings {
     public com.darkmusic.client.download.DownloadEncoding.Format downloadFormat = com.darkmusic.client.download.DownloadEncoding.Format.ORIGINAL;
     public AudioSettings audio = new AudioSettings();
     public boolean lyricsEnabled = true;
+    public String lyricsLanguages = "auto";
     public boolean lyricsHud, lyricsNextLine;
     public VisualQuality visualQuality = new VisualQuality();
 
@@ -59,6 +60,11 @@ public final class Settings {
     }
 
     public void validate() {
+        try {
+            lyricsLanguages = com.darkmusic.client.download.LyricsLanguages.normalize(lyricsLanguages);
+        } catch (IllegalArgumentException e) {
+            lyricsLanguages = "auto";
+        }
         volume = Double.isFinite(volume) ? Math.clamp(volume, 0, 1) : 1;
         lastAudibleVolume = volume > 0 ? volume : Double.isFinite(lastAudibleVolume) && lastAudibleVolume > 0 ? Math.clamp(lastAudibleVolume, .01, 1) : 1;
         if (musicDirectory == null) musicDirectory = "";

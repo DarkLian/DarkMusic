@@ -97,7 +97,7 @@ public final class RowList extends AbstractWidget {
     }
 
     public int tooltipY() {
-        return Math.clamp(getY() + selected * rowHeight - scroll + rowHeight / 2, getY(), getBottom());
+        return Math.clamp(getY() + (long) selected * rowHeight - scroll + rowHeight / 2, getY(), getBottom());
     }
 
     private java.util.function.IntFunction<UiIcon> icons;

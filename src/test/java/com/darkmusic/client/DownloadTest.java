@@ -40,6 +40,22 @@ class DownloadTest {
     }
 
     @Test
+    void previewAnalysisUsesOneFlatRequestWithoutCaptionChecks() throws Exception {
+        var fake = new FakeRunner();
+        try (var service = new DownloadService(temp.resolve("preview-data"), () -> {
+        }, fake)) {
+            service.configure(tools());
+            service.lyrics(true, "ja, en", "en-US");
+            service.analyze("https://www.youtube.com/playlist?list=PL1", 1);
+            await(() -> !service.snapshot().analyzing() && service.snapshot().preview() != null);
+            var requests = fake.commands.stream().filter(command -> command.contains("--dump-single-json")).toList();
+            assertEquals(1, requests.size());
+            assertTrue(requests.getFirst().contains("--flat-playlist"));
+            assertTrue(fake.commands.stream().noneMatch(command -> command.contains("--list-subs") || command.contains("--write-subs") || command.contains("--write-auto-subs")));
+        }
+    }
+
+    @Test
     void urlsSelectionsAndUnicodeNamesAreSafe() {
         assertEquals("YouTube", source("https://www.youtube.com/watch?v=a&list=PL1"));
         assertEquals("Bilibili", source("https://space.bilibili.com/1/favlist"));

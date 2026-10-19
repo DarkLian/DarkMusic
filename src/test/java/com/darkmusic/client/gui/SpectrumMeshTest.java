@@ -4,7 +4,8 @@ import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.hud.HudSurface;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SpectrumMeshTest {
     @Test

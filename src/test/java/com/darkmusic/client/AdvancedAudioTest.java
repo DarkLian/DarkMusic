@@ -15,12 +15,26 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AdvancedAudioTest {
-    @Test void twentyFourBitOutputKeepsSubSixteenBitDetailAndSpectrumReadsItsFrames() throws Exception {
-        float[] values={1f/8388608,-1f/8388608,.5f};byte[] bytes=new byte[9];AudioProcessor.quantize(values,bytes,3,3);
-        assertArrayEquals(new byte[]{1,0,0,-1,-1,-1,0,0,64},bytes);
-        float[] pcm=excerpt();byte[] converted=new byte[pcm.length*3];AudioProcessor.quantize(pcm,converted,pcm.length,3);
-        var analyzer=new SpectrumAnalyzer();var format=TestMusic.clip().format();analyzer.configure(true,36,1,.6);analyzer.begin(format.getFrameRate(),format.getChannels());analyzer.accept(converted,0,converted.length,0,3);analyzer.advance(pcm.length/format.getChannels(),true);float[] levels=new float[64];analyzer.copyTo(levels);assertTrue(Arrays.stream(toDouble(levels)).sum()>0);
+    @Test
+    void twentyFourBitOutputKeepsSubSixteenBitDetailAndSpectrumReadsItsFrames() throws Exception {
+        float[] values = {1f / 8388608, -1f / 8388608, .5f};
+        byte[] bytes = new byte[9];
+        AudioProcessor.quantize(values, bytes, 3, 3);
+        assertArrayEquals(new byte[]{1, 0, 0, -1, -1, -1, 0, 0, 64}, bytes);
+        float[] pcm = excerpt();
+        byte[] converted = new byte[pcm.length * 3];
+        AudioProcessor.quantize(pcm, converted, pcm.length, 3);
+        var analyzer = new SpectrumAnalyzer();
+        var format = TestMusic.clip().format();
+        analyzer.configure(true, 36, 1, .6);
+        analyzer.begin(format.getFrameRate(), format.getChannels());
+        analyzer.accept(converted, 0, converted.length, 0, 3);
+        analyzer.advance(pcm.length / format.getChannels(), true);
+        float[] levels = new float[64];
+        analyzer.copyTo(levels);
+        assertTrue(Arrays.stream(toDouble(levels)).sum() > 0);
     }
+
     private float[] excerpt() throws Exception {
         try (var in = TestMusic.clip().stream()) {
             var converter = new PcmRateConverter(in);

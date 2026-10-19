@@ -78,13 +78,15 @@ public final class SettingRow extends AbstractWidget {
             int valueX = getRight() - 8 - valueWidth;
             horizontal.draw(g, font, "label", optionLabel, left, getY() + 6, Math.max(1, valueX - left - 12), active ? UiTheme.TEXT : UiTheme.MUTED);
             horizontal.draw(g, font, "value", optionValue, valueX, getY() + 6, valueWidth, active ? UiTheme.ACCENT : UiTheme.MUTED);
-        } else horizontal.draw(g, font, "label", message, left, getY() + 6, width - (icon == null ? 36 : 53), active ? UiTheme.TEXT : UiTheme.MUTED);
+        } else
+            horizontal.draw(g, font, "label", message, left, getY() + 6, width - (icon == null ? 36 : 53), active ? UiTheme.TEXT : UiTheme.MUTED);
         int right = getRight() - 19, top = getY() + 4;
         if (checked != null) {
             g.outline(right, top, 12, 12, active ? UiTheme.ACCENT : UiTheme.MUTED);
             if (checked.getAsBoolean())
                 UiIcon.CHECK.draw(g, right + 1, top + 1, 10, active ? UiTheme.TEXT : UiTheme.MUTED);
-        } else if (optionValue.isEmpty()) g.text(font, ">", right + 3, getY() + 6, active ? UiTheme.ACCENT : UiTheme.MUTED);
+        } else if (optionValue.isEmpty())
+            g.text(font, ">", right + 3, getY() + 6, active ? UiTheme.ACCENT : UiTheme.MUTED);
     }
 
     @Override

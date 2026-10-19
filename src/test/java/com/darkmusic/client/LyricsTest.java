@@ -2,7 +2,10 @@ package com.darkmusic.client;
 
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
-import com.darkmusic.client.download.*;
+import com.darkmusic.client.download.DownloadLyrics;
+import com.darkmusic.client.download.DownloadModels;
+import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.download.Toolchain;
 import com.darkmusic.client.hud.HudLayout;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.lyrics.LyricsService;
@@ -24,7 +27,7 @@ class LyricsTest {
     @Test
     void choosesOneManualLanguageAndNeverRequestsAutomaticCaptionsOrChat() {
         var metadata = JsonParser.parseString("{\"language\":\"ja\",\"subtitles\":{\"live_chat\":[{}],\"ja\":[{}],\"en\":[{}]},\"automatic_captions\":{\"fr\":[{}]}}").getAsJsonObject();
-        assertEquals("ja", DownloadLyrics.language(metadata));
+        assertEquals("ja", com.darkmusic.client.download.LyricsLanguages.select(metadata, List.of("ja")));
         metadata.remove("subtitles");
         assertEquals("", DownloadLyrics.language(metadata));
     }

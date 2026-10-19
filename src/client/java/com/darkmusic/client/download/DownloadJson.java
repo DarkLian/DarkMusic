@@ -80,14 +80,7 @@ public final class DownloadJson {
         if (title.isBlank())
             title = id.isBlank() ? com.darkmusic.client.text.Text.get("format.darkmusic.entry", position) : id;
         if (title.equals("[Deleted video]") || title.equals("[Private video]")) available = false;
-        return new Entry(position, title, link, extractor, id.isBlank() ? link : id, available, lyrics(json));
-    }
-
-    public static com.darkmusic.client.lyrics.LyricsInfo lyrics(JsonObject json) {
-        if (!DownloadLyrics.language(json).isBlank()) return com.darkmusic.client.lyrics.LyricsInfo.CAPTIONS;
-        if (json.has("subtitles") && json.get("subtitles").isJsonObject() && !text(json, "_type").startsWith("url"))
-            return com.darkmusic.client.lyrics.LyricsInfo.NO_CAPTIONS;
-        return com.darkmusic.client.lyrics.LyricsInfo.UNKNOWN;
+        return new Entry(position, title, link, extractor, id.isBlank() ? link : id, available);
     }
 
     public static String friendly(String details) {

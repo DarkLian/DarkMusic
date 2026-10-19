@@ -47,7 +47,8 @@ final class TestMusic {
                 byte[] discard = new byte[16_384 / format.getFrameSize() * format.getFrameSize()];
                 while (remaining > 0) {
                     int read = pcm.read(discard, 0, (int) Math.min(remaining, discard.length));
-                    if (read < 0) throw new java.io.EOFException("Real music excerpt ended before the requested position");
+                    if (read < 0)
+                        throw new java.io.EOFException("Real music excerpt ended before the requested position");
                     remaining -= read;
                 }
                 byte[] bytes = pcm.readNBytes((int) format.getFrameRate() * format.getFrameSize() * 4);

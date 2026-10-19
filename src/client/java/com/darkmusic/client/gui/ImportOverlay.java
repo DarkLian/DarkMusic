@@ -9,26 +9,18 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
  * Constant-size geometry; reuses the menu blur pass only while an import cue is visible.
  */
 final class ImportOverlay {
-    private boolean hover;
     private long entered;
 
-    void tick() {
-        boolean next = ExternalDragHover.over(Minecraft.getInstance().getWindow().handle());
-        if (next && !hover) entered = System.nanoTime();
-        hover = next;
-    }
-
-    void dropped() {
-        hover = false;
-    }
-
     boolean visible(DarkMusicClient app) {
-        return hover || app.importing;
+        return app.importing;
     }
 
-    void render(DarkMusicClient app, GuiGraphicsExtractor g, int width, int height, String targetLabel) {
-        boolean importing = app.importing;
-        if (!hover && !importing) return;
+    void render(DarkMusicClient app, GuiGraphicsExtractor g, int width, int height) {
+        if (!app.importing) {
+            entered = 0;
+            return;
+        }
+        if (entered == 0) entered = System.nanoTime();
         g.nextStratum();
         if (Minecraft.getInstance().options.getMenuBackgroundBlurriness() >= 1) g.blurBeforeThisStratum();
         g.fill(0, 0, width, height, 0xCC0C0E18);
@@ -39,13 +31,12 @@ final class ImportOverlay {
         g.outline(x, y, w, h, accent);
         UiIcon.DOWNLOAD.draw(g, (width - 24) / 2, y + 12, 24, UiTheme.ACCENT);
         var font = Minecraft.getInstance().font;
-        String title = Text.get(importing ? "import.darkmusic.importing" : "import.darkmusic.drop");
+        String title = Text.get("import.darkmusic.importing");
         g.text(font, font.plainSubstrByWidth(title, w - 20), x + (w - Math.min(font.width(title), w - 20)) / 2, y + 47, UiTheme.TEXT);
-        String target = importing ? app.importDestination : targetLabel;
-        String label = Text.get("import.darkmusic.destination", target);
+        String label = Text.get("import.darkmusic.destination", app.importDestination);
         label = font.plainSubstrByWidth(label, w - 24);
         g.text(font, label, x + (w - font.width(label)) / 2, y + 65, UiTheme.SECONDARY);
-        String hint = Text.get(importing ? "import.darkmusic.copying" : "import.darkmusic.copy_hint");
+        String hint = Text.get("import.darkmusic.copying");
         hint = font.plainSubstrByWidth(hint, w - 24);
         g.text(font, hint, x + (w - font.width(hint)) / 2, y + 83, UiTheme.MUTED);
     }

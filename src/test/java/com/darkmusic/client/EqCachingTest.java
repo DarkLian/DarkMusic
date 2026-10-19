@@ -5,7 +5,8 @@ import com.darkmusic.client.audio.PcmRateConverter;
 import com.darkmusic.client.config.AudioSettings;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EqCachingTest {
     @Test

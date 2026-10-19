@@ -75,7 +75,6 @@ public final class SpectrumRenderer {
     }
 
     public void render(DarkMusicClient app, GuiGraphicsExtractor g, int x, int y, int width, int height) {
-        g.fill(x, y, x + width, y + height, 0xBB111420);
         bars(app, g, x + 2, y + 2, width - 4, height - 4, false, false);
     }
 

@@ -119,16 +119,20 @@ public final class DownloadPipeline {
     }
 
     public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadEncoding.Format format, java.util.function.BooleanSupplier lyricsEnabled) throws Exception {
+        return execute(entry, destination, tools, token, progress, format, lyricsEnabled, () -> LyricsLanguages.resolve("auto", java.util.Locale.getDefault().toLanguageTag()));
+    }
+
+    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadEncoding.Format format, java.util.function.BooleanSupplier lyricsEnabled, java.util.function.Supplier<List<String>> lyricsLanguages) throws Exception {
         token.check();
         prepare();
         try {
-            return download(entry, destination, tools, token, progress, format, lyricsEnabled);
+            return download(entry, destination, tools, token, progress, format, lyricsEnabled, lyricsLanguages);
         } finally {
             close();
         }
     }
 
-    private Saved download(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadEncoding.Format format, java.util.function.BooleanSupplier lyricsEnabled) throws Exception {
+    private Saved download(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadEncoding.Format format, java.util.function.BooleanSupplier lyricsEnabled, java.util.function.Supplier<List<String>> lyricsLanguages) throws Exception {
         token.check();
         Files.createDirectories(destination);
         if (!Files.isWritable(destination))
@@ -212,7 +216,7 @@ public final class DownloadPipeline {
             DownloadLyrics.Result lyrics = new DownloadLyrics.Result("", "");
             if (lyricsEnabled.getAsBoolean()) {
                 progress.accept(Status.CONVERTING, com.darkmusic.client.text.Text.get("lyrics.darkmusic.downloading"));
-                lyrics = DownloadLyrics.fetch(runner, tools, entry, metadata, work, token);
+                lyrics = DownloadLyrics.fetch(runner, tools, entry, metadata, work, token, lyricsLanguages.get());
                 if (!lyrics.warning().isBlank()) warning = (warning + "; " + lyrics.warning()).replaceFirst("^; ", "");
             }
             token.check();

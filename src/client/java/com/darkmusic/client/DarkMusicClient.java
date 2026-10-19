@@ -213,7 +213,8 @@ public class DarkMusicClient implements ClientModInitializer {
         if (settings != null) {
             com.darkmusic.client.audio.ExternalAudio.configure(() -> new com.darkmusic.client.audio.ExternalAudio.Paths(config.directory(), settings.ffmpegPath, settings.ffprobePath));
             if (downloads != null) downloads.format(settings.downloadFormat);
-            if (downloads != null) downloads.lyrics(settings.lyricsEnabled);
+            if (downloads != null)
+                downloads.lyrics(settings.lyricsEnabled, settings.lyricsLanguages, Minecraft.getInstance().options.languageCode);
             lyrics.enabled(settings.lyricsEnabled);
             if (playback != null) playback.configure(settings.audio);
         }
@@ -353,7 +354,7 @@ public class DarkMusicClient implements ClientModInitializer {
         downloads = new com.darkmusic.client.download.DownloadService(config.directory(), () -> library.requestRescan());
         downloads.configure(new com.darkmusic.client.download.DownloadModels.Tools(settings.ytDlpPath, settings.ffmpegPath, settings.ffprobePath, settings.javascriptPath));
         downloads.format(settings.downloadFormat);
-        downloads.lyrics(settings.lyricsEnabled);
+        downloads.lyrics(settings.lyricsEnabled, settings.lyricsLanguages, Minecraft.getInstance().options.languageCode);
         try {
             activateDirectory(settings.musicDirectory.isBlank() ? config.defaultMusic() : java.nio.file.Path.of(settings.musicDirectory));
         } catch (Exception e) {

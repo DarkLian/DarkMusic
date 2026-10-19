@@ -42,8 +42,14 @@ public final class DownloadService implements AutoCloseable {
     private Tools settings = new Tools("", "", "", "");
     private DownloadEncoding.Format format = DownloadEncoding.Format.ORIGINAL;
     private volatile boolean lyricsEnabled = true;
+    private volatile List<String> lyricsLanguages = LyricsLanguages.resolve("auto", java.util.Locale.getDefault().toLanguageTag());
 
     public void lyrics(boolean enabled) {
+        lyricsEnabled = enabled;
+    }
+
+    public void lyrics(boolean enabled, String preferences, String automatic) {
+        lyricsLanguages = LyricsLanguages.resolve(preferences, automatic);
         lyricsEnabled = enabled;
     }
 
@@ -464,7 +470,7 @@ public final class DownloadService implements AutoCloseable {
                     } catch (NumberFormatException ignored) {
                     }
                     update(item, status, percent, detail);
-                }, item.format, () -> lyricsEnabled);
+                }, item.format, () -> lyricsEnabled, () -> lyricsLanguages);
                 update(item, result.skipped() ? Status.SKIPPED : Status.SAVED, 1, result.file().getFileName() + (result.warning().isBlank() ? "" : " — " + result.warning()));
                 if (!result.skipped()) try {
                     refresh.run();

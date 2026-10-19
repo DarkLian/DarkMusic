@@ -28,6 +28,7 @@ class MenuLayoutTest {
                 assertTrue(layout.transportY() + 24 <= layout.dock().bottom());
             }
     }
+
     @Test
     void artworkFitRecordsOnlyGeneratedGuttersWithoutCroppingOrUpscalingSource() {
         assertEquals(new com.darkmusic.client.library.ArtworkCache.Fit(1024, 1024, 576), com.darkmusic.client.library.ArtworkCache.fit(1024, 576));

@@ -140,8 +140,14 @@ public final class SettingsScreen extends LocalScreen {
             s.lyricsEnabled = v;
             rebuildWidgets();
         }, "lyrics.darkmusic.enabled_help");
-        if (s.lyricsEnabled)
+        if (s.lyricsEnabled) {
             action("lyrics.darkmusic.title", () -> show(new LyricsScreen(app, this)), "lyrics.darkmusic.help");
+            action("lyrics.darkmusic.languages", () -> show(new TextPromptScreen(this, Text.get("lyrics.darkmusic.languages_prompt"), s.lyricsLanguages, value -> {
+                s.lyricsLanguages = com.darkmusic.client.download.LyricsLanguages.normalize(value);
+                app.save();
+            })), "lyrics.darkmusic.languages_help");
+            controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("lyrics.darkmusic.languages") + ": " + (s.lyricsLanguages.equals("auto") ? Text.get("lyrics.darkmusic.language_auto") : s.lyricsLanguages)));
+        }
         toggle("text.darkmusic.autoplay_on_launch", () -> s.autoplay, v -> s.autoplay = v, "text.darkmusic.automatically_start_the_library_after_minecraft_launches_disabled_by_default");
         action("text.darkmusic.choose_music_folder", () -> DesktopFolderPicker.open(app, this::isCurrent), "text.darkmusic.choose_the_local_folder_containing_your_music_subfolders_are_included");
         folderY = cursor;
