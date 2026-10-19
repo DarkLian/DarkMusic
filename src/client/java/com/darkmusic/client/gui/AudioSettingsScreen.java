@@ -73,11 +73,13 @@ public final class AudioSettingsScreen extends LocalScreen {
     }
 
     private void slider(double value, String key, DoubleFunction<String> label, DoubleConsumer change, int steps, String help) {
-        place(Help.tip(new ValueSlider(formX, 0, formWidth, value, v -> Text.get(key) + ": " + label.apply(v), v -> {
+        var slider = new ValueSlider(formX, 0, formWidth, value, v -> Text.get(key) + ": " + label.apply(v), v -> {
             change.accept(v);
             app.settings.audio.profile = "CUSTOM";
             app.configureVisualizer();
-        }, app::save, steps), Text.get(help)));
+        }, app::save, steps);
+        slider.plain(true);
+        place(Help.tip(slider, Text.get(help)));
     }
 
     @Override

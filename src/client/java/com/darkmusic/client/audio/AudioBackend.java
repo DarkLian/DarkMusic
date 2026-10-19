@@ -13,6 +13,12 @@ public interface AudioBackend extends AutoCloseable {
 
     void play(Track track, Runnable ended, Consumer<String> failed);
 
+    default void playFrom(Track track, double position, boolean paused, Runnable ended, Consumer<String> failed) {
+        play(track, ended, failed);
+        seek(position);
+        if (paused) pause();
+    }
+
     void pause();
 
     void resume();
@@ -32,6 +38,10 @@ public interface AudioBackend extends AutoCloseable {
     }
 
     default boolean awaitStopped(long seconds) throws InterruptedException {
+        return true;
+    }
+
+    default boolean awaitIdle(long seconds) throws InterruptedException {
         return true;
     }
 

@@ -22,6 +22,7 @@ public final class JavaSoundBackend implements AudioBackend {
     private volatile com.darkmusic.client.config.AudioSettings options = new com.darkmusic.client.config.AudioSettings();
     private LoudnessCache loudness;
     private final AtomicReference<NextAudio> upcoming = new AtomicReference<>();
+    private final java.util.concurrent.ConcurrentLinkedQueue<java.util.concurrent.CompletableFuture<Void>> closingDecoders = new java.util.concurrent.ConcurrentLinkedQueue<>();
     private final java.util.concurrent.ThreadPoolExecutor preloader = new java.util.concurrent.ThreadPoolExecutor(1, 1, 0, java.util.concurrent.TimeUnit.SECONDS, new java.util.concurrent.ArrayBlockingQueue<>(1), Thread.ofPlatform().daemon().name("darkmusic-preload").factory());
     private double overlap;
     private double normalizationGain = 1, incomingNormalization = 1;
@@ -92,8 +93,13 @@ public final class JavaSoundBackend implements AudioBackend {
 
     @Override
     public void play(Track track, Runnable ended, Consumer<String> failed) {
-        paused = false;
-        submit(track, 0, ended, failed);
+        playFrom(track, 0, false, ended, failed);
+    }
+
+    @Override
+    public void playFrom(Track track, double position, boolean paused, Runnable ended, Consumer<String> failed) {
+        this.paused = paused;
+        submit(track, Double.isFinite(position) ? Math.max(0, position) : 0, ended, failed);
     }
 
     private void submit(Track track, double seconds, Runnable ended, Consumer<String> failed) {
@@ -168,7 +174,8 @@ public final class JavaSoundBackend implements AudioBackend {
 
     private void cancelUpcoming() {
         var old = upcoming.getAndSet(null);
-        if (old != null) old.cancel();
+        closingDecoders.removeIf(java.util.concurrent.CompletableFuture::isDone);
+        if (old != null) closingDecoders.add(old.cancel());
         preloader.getQueue().clear();
     }
 
@@ -522,6 +529,19 @@ public final class JavaSoundBackend implements AudioBackend {
     public boolean awaitStopped(long seconds) throws InterruptedException {
         worker.join(java.util.concurrent.TimeUnit.SECONDS.toMillis(seconds));
         return !worker.isAlive();
+    }
+
+    @Override
+    public boolean awaitIdle(long seconds) throws InterruptedException {
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(seconds);
+        while (System.nanoTime() < deadline) {
+            closingDecoders.removeIf(java.util.concurrent.CompletableFuture::isDone);
+            var current = active;
+            if (pending.get() == null && (current == null || current.track == null) && stream == null && preloader.getActiveCount() == 0 && closingDecoders.isEmpty())
+                return true;
+            Thread.sleep(10);
+        }
+        return false;
     }
 
     @Override

@@ -23,6 +23,23 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @Timeout(20)
 class AudioWorkerTest {
+    @Test
+    void openingAtSavedPositionIsAtomicAndCanRemainPaused() throws Exception {
+        var lines = new CopyOnWriteArrayList<AtomicBoolean>();
+        var failure = new AtomicReference<String>();
+        Path file = TestMusic.featured();
+        var track = new com.darkmusic.client.library.MetadataReader().read("real", file.getFileName().toString(), file, java.nio.file.Files.size(file), 0);
+        try (var backend = new JavaSoundBackend(Runnable::run, path -> com.darkmusic.client.audio.PcmDecoder.open(path), f -> output(lines))) {
+            for (int i = 0; i < 8; i++) {
+                backend.playFrom(track, 30 + i * .1, true, () -> fail("Unexpected completion"), failure::set);
+                StorageTest.await(() -> backend.state().status() == AudioBackend.Status.PAUSED);
+                assertEquals(30 + i * .1, backend.state().position(), .02);
+                backend.stop();
+                assertTrue(backend.awaitIdle(3));
+            }
+            assertNull(failure.get());
+        }
+    }
 
 
     private SourceDataLine output(List<AtomicBoolean> resources) throws Exception {
@@ -95,6 +112,7 @@ class AudioWorkerTest {
             StorageTest.await(() -> backend.state().status() == AudioBackend.Status.PLAYING && backend.state().position() >= .74);
             assertTrue(backend.state().position() < 1.5, "An obsolete seek must not replace the latest seek");
             backend.stop();
+            assertTrue(backend.awaitIdle(3), "Stopped playback must release file handles for metadata editing");
             StorageTest.await(() -> lines.stream().allMatch(AtomicBoolean::get) && streams.stream().allMatch(AtomicBoolean::get));
             assertEquals(AudioBackend.Status.STOPPED, backend.state().status());
             assertNull(failure.get());
@@ -213,7 +231,15 @@ class AudioWorkerTest {
                 }
                 return super.read(bytes, off, len);
             }
-        }, f -> output(resources), java.time.Duration.ofMillis(100))) {
+        }, f -> {
+            var delegate = output(resources);
+            // Keep the deliberately slow decoder test independent of host sleep granularity.
+            // A tiny fake device buffer otherwise requires thousands of timed writes.
+            return (SourceDataLine) Proxy.newProxyInstance(getClass().getClassLoader(), new Class[]{SourceDataLine.class}, (proxy, method, args) -> {
+                if (method.getName().equals("available") || method.getName().equals("getBufferSize")) return 4096;
+                return method.invoke(delegate, args);
+            });
+        }, java.time.Duration.ofMillis(100))) {
             backend.play(StorageTest.track("real", "slow-decoder", TestMusic.featured()), () -> completed.set(true), failure::set);
             StorageTest.await(() -> completed.get() || failure.get() != null);
             assertNull(failure.get());

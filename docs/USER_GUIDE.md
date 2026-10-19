@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v2.0.2 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v2.1.0 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Interface language
 
@@ -14,7 +14,24 @@ The default folder is `config/darkmusic/music` inside your Minecraft instance. C
 
 MP3, FLAC, WAV, Ogg Vorbis, and AIFF use the bundled audio readers. Opus, AAC, MP4/M4A, and WebM playback uses FFmpeg. These formats require a compatible FFmpeg installation, available through **Downloads → Tools**. Actual playback depends on the codec in the file.
 
-Titles, artists, albums, duration, and artwork are read from available metadata. Missing metadata may appear as a filename or an unknown artist/album. Edit source tags with an audio tag editor if you want different library information.
+Titles, artists, albums, duration, and artwork are read from available metadata. Missing metadata may appear as a filename or an unknown artist/album. Use the player's pencil button to edit a selected song's tags.
+
+### Drag and import
+
+Drag one or more audio files into the music player or playlist manager. DarkMusic copies the files into the configured music folder; the originals stay where they are. Imported songs appear automatically. Existing destination files are kept, with a numbered filename used for a new copy when necessary.
+
+The destination follows the selected collection:
+
+| Selected view | Import destination |
+|---|---|
+| All Tracks | Music folder root |
+| A folder in All | That folder |
+| A playlist, including Favorite Music | Music folder root, with entries added to that playlist |
+| Artists, Albums, or no valid collection | Music folder root |
+
+On Windows, a hover overlay indicates the destination while dragging over the window. All supported systems show import feedback while files are copied. File acceptance uses Minecraft's normal file-drop handling.
+
+Open **Import History** beside Open Folder to review import times, filenames, destinations, and success or failure results.
 
 ## Browse and play
 
@@ -26,9 +43,9 @@ Search filters the visible list. Select a song and press Play, or double-click i
 
 The centered controls are:
 
-**Speed · Shuffle · Jump to Playing · Previous · Play/Pause · Next · Stop · Repeat · Volume**
+**Reset Speed · Speed · Shuffle · Jump to Playing · Previous · Play/Pause · Next · Stop · Repeat · Volume · Mute/Unmute**
 
-Drag the speed or volume marker, or focus the slider and use the arrow keys. Speed ranges from **0.5× to 3.0×** in 0.1× steps; speed changes also change pitch. Drag or click the filled progress track above the controls to seek.
+Drag the speed or volume marker, or focus the slider and use the arrow keys. Speed ranges from **0.5× to 3.0×** in 0.1× steps; speed changes also change pitch. Reset Speed returns to 1.0×. Mute/Unmute restores the last audible volume when unmuting. Supported controls show their current key bindings in hover help. Drag or click the filled progress track above the controls to seek.
 
 Repeat cycles between:
 
@@ -53,6 +70,22 @@ Use selection controls or Ctrl/Cmd-click to select individual songs. Shift-click
 Remove Selected removes playlist entries. Deleting a playlist opens a confirmation dialog. Neither action deletes your audio files. Missing entries can be removed and the current files added again.
 
 Play playlists from the main player's Playlists view.
+
+### Favorite Music
+
+Click the heart in the selected song's right-hand panel to add or remove it from **Favorite Music**. A filled heart marks a favorite; liking a song briefly animates the button. Favorite songs also show a small filled heart before their artwork in the track list.
+
+Favorite Music is a built-in playlist with a heart icon in both playlist views. It supports adding, importing, reordering, and removing songs. Its name and playlist cannot be deleted or renamed.
+
+### Edit song details
+
+![Song metadata editor](images/metadata.png)
+
+Select a song and click the pencil in its details panel to edit the title, artist, album, or filename. The filename field contains only the name; the file extension is kept automatically. Saving writes the metadata to the audio file and updates the library and playlist references.
+
+If that song is playing, saving briefly releases its playback handle and resumes at the previous position and playing/paused state. Renaming also keeps matching lyric sidecars with the song. Unsupported tag formats or failed writes show an error. Opus and WebM tagging requires FFmpeg. Back up important files before deliberately editing their tags.
+
+The heart and pencil buttons are hidden when the panel has no selected song.
 
 ## Download music
 
@@ -101,7 +134,9 @@ Settings contains General, HUD, Spectrum, Appearance, Effects, and Reset section
 
 ![Circular HUD preview](images/circular-hud.png)
 
-Choose a spectrum style, position/direction for Classic, bar count, sensitivity, and smoothing. Appearance offers colors, HUD background transparency, and flat or beveled finishes. Effects provides quality presets, frequency smoothing, peak hold, trails, glow, and beat-reactive motion.
+Choose a spectrum style, position/direction for Classic, bar count, sensitivity, and smoothing. Appearance offers colors, HUD background transparency, and flat or beveled finishes. Effects provides quality presets, frequency smoothing, peak hold, trails, and glow.
+
+For Circular HUD, **Audio-Reactive Icon** selects **Off**, **Audio Level**, or **Beat**. Audio Level follows the music's energy; Beat pulses on detected onsets. Quality presets can also select the underlying beat-reactive mode. Settings sliders use a vertical handle without a filled horizontal track.
 
 ![Spectrum controls](images/spectrum.png)
 
@@ -160,9 +195,9 @@ These commands are handled client-side; help feedback is shown locally.
 
 ## Saved data and reset
 
-Settings are stored in the instance's `config/darkmusic` directory. Your configured music folder can be elsewhere. Keep that configuration directory with your library when backing up playlists and preferences.
+Settings, playlists, and import history are stored in the instance's `config/darkmusic` directory. Your configured music folder can be elsewhere. Keep that configuration directory with your library when backing up playlists and preferences.
 
-**Reset to Defaults** opens a confirmation dialog. It restores settings, key binds, HUD layout/scale, volume, speed, and the default music folder. It stops work and clears DarkMusic-installed tools, recognized download history, and caches. Your audio/video files and playlists are kept. Clearing download history allows the same sources to be downloaded again.
+**Reset to Defaults** opens a confirmation dialog. It restores settings, key binds, HUD layout/scale, volume, speed, and the default music folder. It stops work and clears DarkMusic-installed tools, recognized download history, import history, and caches. Your audio/video files and playlists are kept. Clearing download history allows the same sources to be downloaded again.
 
 ## Troubleshooting
 

@@ -10,6 +10,12 @@ public final class Help {
     private Help() {
     }
 
+    public static String withKeys(String label, net.minecraft.client.KeyMapping... bindings) {
+        String keys = java.util.Arrays.stream(bindings).filter(key -> key != null && !key.isUnbound())
+            .map(key -> key.getTranslatedKeyMessage().getString()).collect(java.util.stream.Collectors.joining(" / "));
+        return keys.isEmpty() ? label : label + " (" + keys + ")";
+    }
+
     public static <T extends AbstractWidget> T tip(T widget, String explanation) {
         widget.setTooltip(Tooltip.create(Component.literal(explanation)));
         return widget;

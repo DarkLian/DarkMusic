@@ -35,9 +35,13 @@ Inspect the smoke entrypoint and Gradle flags before choosing an optional captur
 
 Review library navigation, search-independent playback queues, playlists and selection/reordering, download paging/cancellation/retries, settings persistence, lyrics, and HUD input/layout at multiple GUI scales. Performance-sensitive spectrum changes should preserve detail/effects and compare measurements on the same local fixture.
 
+For imports, use real files from the private collection and an isolated destination. Check root/subfolder/playlist routing, filename collisions, history persistence, and byte-for-byte preservation of imported copies. On Windows, check an external file drag before and after the target gains focus, leaving the window, cancellation, and a completed drop. Normal mouse clicks in the mod must not display the import overlay. Check these interactions in both the player and playlist manager.
+
+For metadata edits, work on temporary copies. Cover active and paused playback, position restoration, filename changes, playlist/favorite references, matching lyric sidecars, embedded artwork preservation, and supported tag containers. Delete temporary audio copies after the run.
+
 ## Screenshots
 
-Capture documentation fullscreen at configured and effective Minecraft GUI scale 3. Keep original captures without cropping or resizing. Store unpublished captures under ignored `docs/images_private`, and promote only reviewed public screenshots to `docs/images`.
+Capture documentation fullscreen at configured and effective Minecraft GUI scale 3, with Enable Lyrics turned off. Disable forced Unicode-font scaling if it rounds the effective GUI scale up. Use the private real collection through temporary copies, and keep original captures without cropping or resizing. Store unpublished captures under ignored `docs/images_private`, and promote only reviewed public screenshots to `docs/images`.
 
 ## Style and publication
 

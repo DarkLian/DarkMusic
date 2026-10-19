@@ -135,7 +135,7 @@ class StorageTest {
             other.remove(id, 0);
             assertEquals("renamed.mp3", other.get(id).entries().getFirst().path());
             other.delete(id);
-            assertTrue(other.all().isEmpty());
+            assertEquals(List.of(PlaylistStore.FAVORITES), other.all().stream().map(PlaylistStore.Playlist::id).toList());
             io.submit(() -> {
             }).get();
             assertThrows(IllegalArgumentException.class, () -> new PlaylistStore.Entry("root", "../escape.mp3"));

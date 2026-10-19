@@ -234,7 +234,7 @@ class ResetTest {
             }).get();
             assertNull(store.get(first));
             assertNotNull(store.get(second));
-            assertEquals(1, store.read().size());
+            assertEquals(2, store.read().size());
             assertEquals(before, hash(source));
         } finally {
             io.shutdownNow();

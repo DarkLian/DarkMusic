@@ -133,6 +133,8 @@ public final class MusicLibrary implements AutoCloseable {
                 @Override
                 public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
                     if (closed || ticket != generation.get()) return FileVisitResult.TERMINATE;
+                    if (!dir.equals(directory) && dir.getFileName().toString().startsWith(".darkmusic-work-"))
+                        return FileVisitResult.SKIP_SUBTREE;
                     if (dir.toAbsolutePath().normalize().equals(cacheFile.toAbsolutePath().getParent().resolve("downloads/work")))
                         return FileVisitResult.SKIP_SUBTREE;
                     directories.add(dir);

@@ -102,10 +102,14 @@ public final class OggArtwork {
     }
 
     public static String picture(byte[] jpeg, int width, int height) throws IOException {
+        return picture(jpeg, width, height, "image/jpeg");
+    }
+
+    public static String picture(byte[] jpeg, int width, int height, String mimeType) throws IOException {
         if (jpeg.length > 8 * 1024 * 1024) throw new IOException("Cover image exceeds size limit");
         var bytes = new ByteArrayOutputStream();
         try (var output = new DataOutputStream(bytes)) {
-            byte[] mime = "image/jpeg".getBytes(StandardCharsets.US_ASCII);
+            byte[] mime = mimeType.getBytes(StandardCharsets.US_ASCII);
             output.writeInt(3);
             output.writeInt(mime.length);
             output.write(mime);

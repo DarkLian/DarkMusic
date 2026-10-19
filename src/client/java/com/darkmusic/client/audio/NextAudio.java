@@ -50,15 +50,24 @@ final class NextAudio {
         return result;
     }
 
-    synchronized void cancel() {
+    synchronized java.util.concurrent.CompletableFuture<Void> cancel() {
         cancelled = true;
         if (future != null) future.cancel(true);
         if (ready != null) {
             var abandoned = ready.stream;
             ExternalAudio.abort(abandoned);
-            Thread.ofVirtual().name("darkmusic-decoder-close").start(() -> close(abandoned));
+            var released = new java.util.concurrent.CompletableFuture<Void>();
+            Thread.ofVirtual().name("darkmusic-decoder-close").start(() -> {
+                try {
+                    close(abandoned);
+                } finally {
+                    released.complete(null);
+                }
+            });
             ready = null;
+            return released;
         }
+        return java.util.concurrent.CompletableFuture.completedFuture(null);
     }
 
     static void close(AudioInputStream stream) {

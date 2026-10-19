@@ -111,8 +111,12 @@ public final class PlaybackController implements AutoCloseable {
     }
 
     private void start(int index) {
+        start(index, 0, false);
+    }
+
+    private void start(int index, double position, boolean paused) {
         long ticket = ++sequence;
-        audio.play(tracks.get(index), () -> finished(index, ticket), message -> failed(index, ticket, message));
+        audio.playFrom(tracks.get(index), position, paused, () -> finished(index, ticket), message -> failed(index, ticket, message));
         refreshNext();
     }
 
@@ -237,6 +241,28 @@ public final class PlaybackController implements AutoCloseable {
     public void seek(double seconds) {
         audio.seek(seconds);
         refreshNext();
+    }
+
+    public record EditResume(long sequence, double position, AudioBackend.Status status) {
+    }
+
+    public EditResume suspendForEdit() {
+        var state = audio.state();
+        stop();
+        return new EditResume(sequence, state.position(), state.status());
+    }
+
+    public boolean awaitIdle(long seconds) throws InterruptedException {
+        return audio.awaitIdle(seconds);
+    }
+
+    public void finishEdit(EditResume resume, Track old, Track replacement) {
+        tracks = tracks.stream().map(t -> t.id().equals(old.id()) ? replacement : t).toList();
+        if (sequence != resume.sequence || cursor < 0 || cursor >= order.size()) return;
+        if (resume.status == AudioBackend.Status.PLAYING || resume.status == AudioBackend.Status.PAUSED
+            || resume.status == AudioBackend.Status.SEEKING || resume.status == AudioBackend.Status.LOADING) {
+            start(order.get(cursor), resume.position, resume.status == AudioBackend.Status.PAUSED);
+        }
     }
 
     @Override

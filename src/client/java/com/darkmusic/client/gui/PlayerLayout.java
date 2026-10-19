@@ -50,11 +50,11 @@ public record PlayerLayout(int width, int height, Rect navigation, Rect tracks, 
     }
 
     public int controlWidth() {
-        return Math.clamp((dock.width() - 7 * transportButtonWidth() - 48) / 2, 54, 104);
+        return Math.clamp((dock.width() - 9 * transportButtonWidth() - 56) / 2, 32, 104);
     }
 
     public int controlsWidth() {
-        return controlWidth() * 2 + 7 * transportButtonWidth() + 48;
+        return controlWidth() * 2 + 9 * transportButtonWidth() + 56;
     }
 
     public int transportX() {

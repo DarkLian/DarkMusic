@@ -16,6 +16,28 @@ import java.util.function.Consumer;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PlaybackTest {
+    @Test
+    void metadataEditPreservesQueueOriginPauseAndSelectionAndDoesNotUndoUserStop() {
+        var audio = new Fake();
+        var controller = new PlaybackController(audio, message -> fail(message));
+        var tracks = tracks();
+        var source = new PlaybackController.Source("Playlists", "evening", "", "root");
+        controller.play(tracks, tracks.getFirst(), source);
+        controller.toggle();
+        var ticket = controller.suspendForEdit();
+        Track renamed = StorageTest.track("root", "renamed.wav", Path.of("renamed.wav"));
+        controller.finishEdit(ticket, tracks.getFirst(), renamed);
+        assertEquals(renamed, controller.state().track());
+        assertEquals(AudioBackend.Status.PAUSED, controller.state().status());
+        assertEquals(source, controller.source());
+        controller.next();
+        assertEquals(tracks.get(1), controller.state().track());
+        ticket = controller.suspendForEdit();
+        controller.stop();
+        controller.finishEdit(ticket, renamed, renamed);
+        assertEquals(AudioBackend.Status.STOPPED, controller.state().status());
+    }
+
     List<Track> tracks() {
         return java.util.stream.IntStream.range(0, 5).mapToObj(i -> StorageTest.track("root", i + ".wav", Path.of(i + ".wav"))).toList();
     }

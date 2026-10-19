@@ -40,6 +40,121 @@ public class DarkMusicClient implements ClientModInitializer {
     public com.darkmusic.client.download.AuditionPlayer audition;
     public final com.darkmusic.client.lyrics.LyricsService lyrics = new com.darkmusic.client.lyrics.LyricsService();
     public boolean playlistsReady;
+    public boolean mediaBusy;
+    public boolean importing;
+    public String importDestination = "";
+    public com.darkmusic.client.library.ImportHistory importHistory;
+    private com.darkmusic.client.download.ProcessRunner.Token mediaToken;
+
+    public void importAudio(java.util.List<java.nio.file.Path> paths, String folder, String playlistId) {
+        if (mediaBusy || resetting || !playlistsReady) {
+            warn(com.darkmusic.client.text.Text.get("library.darkmusic.busy"));
+            return;
+        }
+        var root = library.root();
+        String rootId = library.rootId();
+        var store = playlists;
+        var scanned = library;
+        String target = store.get(playlistId) != null ? store.displayName(store.get(playlistId)) : folder.isBlank() ? com.darkmusic.client.text.Text.get("text.darkmusic.all_tracks") : folder;
+        String destination = root.toString() + " | " + target;
+        long started = System.currentTimeMillis();
+        mediaBusy = true;
+        var token = mediaToken = new com.darkmusic.client.download.ProcessRunner.Token();
+        var accepted = java.util.List.copyOf(paths);
+        if (accepted.size() > 1000) {
+            mediaBusy = false;
+            warn(com.darkmusic.client.text.Text.get("library.darkmusic.import_limit"));
+            return;
+        }
+        importing = true;
+        importDestination = target;
+        var task = browse(() -> {
+            try {
+                var imported = new com.darkmusic.client.library.MediaFiles().importFiles(root, rootId, folder, accepted, token);
+                if (importHistory != null)
+                    importHistory.record(new com.darkmusic.client.library.ImportHistory.Batch(started, destination, accepted.size(), imported.entries(), ""));
+                Minecraft.getInstance().execute(() -> {
+                    importing = false;
+                    mediaBusy = false;
+                    if (closed || resetting || playlists != store) return;
+                    if (store.get(playlistId) != null) store.addAll(playlistId, imported.tracks());
+                    scanned.requestRescan();
+                    warn(com.darkmusic.client.text.Text.get("library.darkmusic.import_result", imported.tracks().size(), imported.errors().size()));
+                    if (!imported.errors().isEmpty())
+                        org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Audio import: {}", imported.errors());
+                });
+            } catch (Exception failure) {
+                if (importHistory != null)
+                    importHistory.record(new com.darkmusic.client.library.ImportHistory.Batch(started, destination, accepted.size(), java.util.List.of(), String.valueOf(failure.getMessage())));
+                Minecraft.getInstance().execute(() -> {
+                    importing = false;
+                    mediaBusy = false;
+                    warn(com.darkmusic.client.text.Text.get("library.darkmusic.import_failed") + ": " + failure.getMessage());
+                });
+            }
+        });
+        if (task == null) importing = mediaBusy = false;
+    }
+
+    public CompletableFuture<com.darkmusic.client.library.MediaFiles.Fields> readMetadata(com.darkmusic.client.library.Track track) {
+        var result = new CompletableFuture<com.darkmusic.client.library.MediaFiles.Fields>();
+        if (browse(() -> {
+            try {
+                result.complete(new com.darkmusic.client.library.MediaFiles().fields(track));
+            } catch (Exception e) {
+                result.completeExceptionally(e);
+            }
+        }) == null)
+            result.completeExceptionally(new IllegalStateException(com.darkmusic.client.text.Text.get("library.darkmusic.busy")));
+        return result;
+    }
+
+    public CompletableFuture<com.darkmusic.client.library.Track> editMetadata(com.darkmusic.client.library.Track track,
+                                                                              com.darkmusic.client.library.MediaFiles.Fields original, com.darkmusic.client.library.MediaFiles.Fields fields) {
+        if (mediaBusy || resetting)
+            return CompletableFuture.failedFuture(new IllegalStateException(com.darkmusic.client.text.Text.get("library.darkmusic.busy")));
+        mediaBusy = true;
+        var token = mediaToken = new com.darkmusic.client.download.ProcessRunner.Token();
+        var player = playback;
+        var store = playlists;
+        var scanned = library;
+        var resume = player.suspendForEdit();
+        var result = new CompletableFuture<com.darkmusic.client.library.Track>();
+        var task = browse(() -> {
+            com.darkmusic.client.library.Track replacement = track;
+            Exception problem = null;
+            try {
+                if (!player.awaitIdle(10))
+                    throw new java.io.IOException(com.darkmusic.client.text.Text.get("library.darkmusic.file_busy"));
+                replacement = new com.darkmusic.client.library.MediaFiles().edit(track, original, fields, token);
+            } catch (Exception e) {
+                problem = e;
+            }
+            var edited = replacement;
+            var failure = problem;
+            Minecraft.getInstance().execute(() -> {
+                mediaBusy = false;
+                if (closed || resetting || playback != player) {
+                    result.completeExceptionally(new IllegalStateException(com.darkmusic.client.text.Text.get("library.darkmusic.busy")));
+                    return;
+                }
+                if (failure == null) {
+                    store.replaceTrack(track, edited);
+                    scanned.requestRescan();
+                }
+                player.finishEdit(resume, track, edited);
+                if (failure == null) result.complete(edited);
+                else result.completeExceptionally(failure);
+            });
+        });
+        if (task == null) {
+            mediaBusy = false;
+            player.finishEdit(resume, track, track);
+            result.completeExceptionally(new IllegalStateException(com.darkmusic.client.text.Text.get("library.darkmusic.busy")));
+        }
+        return result;
+    }
+
     private volatile long warningUntil;
     private long conflictWarning;
     private boolean autoplayPending;
@@ -206,6 +321,7 @@ public class DarkMusicClient implements ClientModInitializer {
     }
 
     protected void ready() {
+        importHistory = new com.darkmusic.client.library.ImportHistory(config.directory(), io, this::warn);
         for (KeyMapping key : bindings()) {
             String saved = settings.nativeShortcutNames.contains(key.getName()) ? null : settings.shortcuts.get(key.getName());
             if (saved != null) try {
@@ -264,6 +380,10 @@ public class DarkMusicClient implements ClientModInitializer {
     }
 
     public void chooseDirectory(java.nio.file.Path directory, Runnable success) {
+        if (mediaBusy) {
+            warn(com.darkmusic.client.text.Text.get("library.darkmusic.busy"));
+            return;
+        }
         long generation = directoryGeneration;
         browse(() -> {
             try {
@@ -271,7 +391,7 @@ public class DarkMusicClient implements ClientModInitializer {
                     throw new java.io.IOException("Directory unavailable or unreadable");
                 java.nio.file.Path canonical = directory.toRealPath();
                 Minecraft.getInstance().execute(() -> {
-                    if (!closed && !resetting && generation == directoryGeneration) {
+                    if (!closed && !resetting && !mediaBusy && generation == directoryGeneration) {
                         settings.musicDirectory = canonical.toString();
                         activateDirectory(canonical);
                         success.run();
@@ -297,6 +417,7 @@ public class DarkMusicClient implements ClientModInitializer {
     }
 
     protected void tick(Minecraft client, boolean allowed) {
+        allowed &= !mediaBusy;
         if (!warning.isEmpty() && System.nanoTime() >= warningUntil) warning = "";
         while (toggle.consumeClick()) if (allowed && playback != null && !conflicts(toggle)) {
             if (playback.state().track() == null && !library.snapshot().tracks().isEmpty())
@@ -317,7 +438,7 @@ public class DarkMusicClient implements ClientModInitializer {
         while (mute.consumeClick())
             if (allowed && playback != null && !conflicts(mute)) toggleMute();
         if (resetting || settings == null || playback == null) return;
-        if (autoplayPending && !library.snapshot().scanning()) {
+        if (autoplayPending && !mediaBusy && !library.snapshot().scanning()) {
             autoplayPending = false;
             if (!library.snapshot().tracks().isEmpty())
                 playback.play(library.snapshot().tracks(), library.snapshot().tracks().getFirst());
@@ -328,7 +449,7 @@ public class DarkMusicClient implements ClientModInitializer {
      * Called on the client thread only, after explicit confirmation.
      */
     public CompletableFuture<Void> resetDefaults() {
-        if (closed || resetting)
+        if (closed || resetting || mediaBusy)
             return CompletableFuture.failedFuture(new IllegalStateException(com.darkmusic.client.text.Text.get("reset.darkmusic.busy")));
         resetting = true;
         requestedLayout = null;
@@ -430,6 +551,7 @@ public class DarkMusicClient implements ClientModInitializer {
 
     protected void shutdown() {
         com.darkmusic.client.gui.DesktopFolderPicker.cancel();
+        if (mediaToken != null) mediaToken.cancel();
         browsing.shutdownNow();
         if (audition != null) audition.close();
         if (downloads != null) downloads.close();

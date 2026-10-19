@@ -55,6 +55,12 @@ public final class RowList extends AbstractWidget {
     private double[] from = new double[0], targets = new double[0];
     private long animation;
     private java.util.function.IntPredicate playing = i -> false;
+    private java.util.function.IntPredicate favorite = i -> false;
+
+    public void favorites(java.util.function.IntPredicate favorite) {
+        this.favorite = favorite;
+    }
+
     private java.util.function.Supplier<UiIcon> playingIcon = () -> UiIcon.PLAY;
 
     public void playingIcon(java.util.function.Supplier<UiIcon> icon) {
@@ -320,6 +326,10 @@ public final class RowList extends AbstractWidget {
         Row row = rows.get(i);
         int inset = selection == null ? 5 : 25;
         if (selection != null) g.text(font, selection.checked(i) ? "[x]" : "[ ]", getX() + 4, y + 4, UiTheme.ACCENT);
+        if (favorite.test(i)) {
+            UiIcon.HEART_FILLED.draw(g, getX() + inset, y + (rowHeight - 12) / 2, 12, UiTheme.ACCENT);
+            inset += 18;
+        }
         if (artwork != null && artworkCache != null) {
             int size = Math.min(28, rowHeight - 6);
             var cover = artworkCache.thumbnail(artwork.apply(i));

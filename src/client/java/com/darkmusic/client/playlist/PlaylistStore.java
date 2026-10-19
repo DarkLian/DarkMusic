@@ -13,6 +13,7 @@ import java.util.function.Consumer;
  * Instance-local playlists. References are matched against the scanned library, never opened as paths.
  */
 public final class PlaylistStore {
+    public static final String FAVORITES = "darkmusic-favorites";
     private final Path file;
     private final ExecutorService io;
     private final Consumer<String> warning;
@@ -21,6 +22,7 @@ public final class PlaylistStore {
     private long revision;
     private String pending;
     private boolean writing;
+    private Set<Entry> favoriteEntries = Set.of();
 
     public PlaylistStore(Path directory, ExecutorService io, Consumer<String> warning) {
         file = directory.resolve("playlists.json");
@@ -75,6 +77,38 @@ public final class PlaylistStore {
     public void loaded(List<Playlist> loaded) {
         playlists = List.copyOf(loaded);
         revision++;
+        if (get(FAVORITES) == null) {
+            var next = new ArrayList<>(playlists);
+            next.addFirst(new Playlist(FAVORITES, "Favorite Music", List.of()));
+            update(next);
+        }
+        refreshFavorites();
+    }
+
+    public String displayName(Playlist playlist) {
+        return playlist.id.equals(FAVORITES) ? com.darkmusic.client.text.Text.get("library.darkmusic.favorites") : playlist.name;
+    }
+
+    public boolean favorite(Track track) {
+        return track != null && !favoriteEntries.isEmpty() && favoriteEntries.contains(Entry.of(track));
+    }
+
+    private void refreshFavorites() {
+        var favorites = get(FAVORITES);
+        favoriteEntries = favorites == null ? Set.of() : Set.copyOf(favorites.entries);
+    }
+
+    public void toggleFavorite(Track track) {
+        if (track == null) return;
+        if (favorite(track)) removeAll(FAVORITES, Set.of(track.id()));
+        else add(FAVORITES, track);
+    }
+
+    public void replaceTrack(Track before, Track after) {
+        Entry old = Entry.of(before), replacement = Entry.of(after);
+        var next = playlists.stream().map(p -> new Playlist(p.id, p.name,
+            p.entries.stream().map(e -> e.equals(old) ? replacement : e).distinct().toList())).toList();
+        if (!next.equals(playlists)) update(next);
     }
 
     public List<Playlist> all() {
@@ -98,11 +132,13 @@ public final class PlaylistStore {
     }
 
     public void rename(String id, String name) {
+        if (FAVORITES.equals(id)) return;
         var p = get(id);
         if (p != null) replace(new Playlist(id, name.strip(), p.entries));
     }
 
     public void delete(String id) {
+        if (FAVORITES.equals(id)) return;
         update(playlists.stream().filter(p -> !p.id.equals(id)).toList());
     }
 
@@ -196,6 +232,7 @@ public final class PlaylistStore {
 
     private void update(List<Playlist> next) {
         playlists = List.copyOf(next);
+        refreshFavorites();
         revision++;
         String json = ConfigStore.JSON.toJson(playlists);
         synchronized (this) {

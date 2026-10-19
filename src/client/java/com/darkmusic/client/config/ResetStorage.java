@@ -33,6 +33,7 @@ public final class ResetStorage {
              var tools = reset.lock("tools/install.lock")) {
             Files.createDirectories(reset.data.resolve("music"));
             reset.json(reset.data.resolve("library-cache.json"), JsonElement::isJsonArray);
+            reset.json(reset.data.resolve("import-history.json"), JsonElement::isJsonArray);
             reset.json(reset.data.resolve("loudness-cache.json"), JsonElement::isJsonObject);
             var roots = new LinkedHashSet<>(musicRoots);
             roots.add(reset.data.resolve("music"));

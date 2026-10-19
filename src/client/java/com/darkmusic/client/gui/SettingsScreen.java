@@ -74,10 +74,12 @@ public final class SettingsScreen extends LocalScreen {
     }
 
     private void slider(double initial, DoubleFunction<String> label, DoubleConsumer change, int steps, String help) {
-        put(new ValueSlider(12, 0, formWidth, initial, label, v -> {
+        var slider = new ValueSlider(12, 0, formWidth, initial, label, v -> {
             change.accept(v);
             app.configureVisualizer();
-        }, app::save, steps), Text.get(help));
+        }, app::save, steps);
+        slider.plain(true);
+        put(slider, Text.get(help));
     }
 
     @Override
@@ -165,7 +167,17 @@ public final class SettingsScreen extends LocalScreen {
         toggle("hud.darkmusic.spectrum", () -> s.hudVisualizer, v -> s.hudVisualizer = v, "hud.darkmusic.spectrum_help");
         if (!classic) {
             toggle("circle.darkmusic.text", () -> s.circularText, v -> s.circularText = v, "circle.darkmusic.text_help");
-            toggle("circle.darkmusic.pulse", () -> s.circularIconPulse, v -> s.circularIconPulse = v, "circle.darkmusic.pulse_help");
+            action("circle.darkmusic.pulse", () -> {
+                if (!s.circularIconPulse) {
+                    s.circularIconPulse = true;
+                    s.visualQuality.beatReactive = false;
+                } else if (!s.visualQuality.beatReactive) s.visualQuality.beatReactive = true;
+                else s.circularIconPulse = false;
+                app.save();
+                rebuildWidgets();
+            }, "circle.darkmusic.pulse_help");
+            String pulse = !s.circularIconPulse ? "off" : s.visualQuality.beatReactive ? "beat" : "level";
+            controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("circle.darkmusic.pulse") + ": " + Text.get("circle.darkmusic.pulse." + pulse)));
         }
         if (classic) {
             action("style.darkmusic.shape", () -> {
@@ -225,7 +237,6 @@ public final class SettingsScreen extends LocalScreen {
         toggle("quality.darkmusic.peaks", () -> s.visualQuality.peakHold, v -> s.visualQuality.peakHold = v, "quality.darkmusic.peaks_help");
         toggle("quality.darkmusic.trails", () -> s.visualQuality.trails, v -> s.visualQuality.trails = v, "quality.darkmusic.trails_help");
         toggle("quality.darkmusic.glow", () -> s.visualQuality.glow, v -> s.visualQuality.glow = v, "quality.darkmusic.glow_help");
-        toggle("quality.darkmusic.beat", () -> s.visualQuality.beatReactive, v -> s.visualQuality.beatReactive = v, "quality.darkmusic.beat_help");
         section("reset.darkmusic.section");
         action("reset.darkmusic.button", () -> show(new ConfirmationScreen(this, Text.component("reset.darkmusic.title"),
             Text.component("reset.darkmusic.body"), Text.component("reset.darkmusic.confirm"), app::resetDefaults)), "reset.darkmusic.help");

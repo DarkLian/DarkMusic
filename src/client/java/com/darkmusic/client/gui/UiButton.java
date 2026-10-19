@@ -32,6 +32,7 @@ public final class UiButton extends Button {
     private UiIcon icon;
     private boolean iconOnly;
     private boolean automaticTooltip;
+    private net.minecraft.client.KeyMapping[] shortcuts = new net.minecraft.client.KeyMapping[0];
     private long transitionAt = System.nanoTime();
     private float emphasis;
 
@@ -52,8 +53,16 @@ public final class UiButton extends Button {
     }
 
     private void actionTooltip() {
-        setTooltip(Tooltip.create(getMessage()));
+        setTooltip(Tooltip.create(Component.literal(Help.withKeys(getMessage().getString(), shortcuts))));
         automaticTooltip = true;
+    }
+
+    public static Button shortcuts(Button button, net.minecraft.client.KeyMapping... bindings) {
+        if (button instanceof UiButton themed) {
+            themed.shortcuts = bindings;
+            themed.actionTooltip();
+        }
+        return button;
     }
 
     private UiButton(int x, int y, int width, int height, Component label, OnPress press, CreateNarration narration) {

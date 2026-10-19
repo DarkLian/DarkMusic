@@ -16,6 +16,13 @@ import java.util.Map;
 public final class PlaylistScreen extends LocalScreen {
     private final DarkMusicClient app;
     private final SongSelection selection = new SongSelection();
+    private final ImportOverlay importOverlay = new ImportOverlay();
+
+    @Override
+    protected void extractBlurredBackground(GuiGraphicsExtractor g) {
+        if (!importOverlay.visible(app)) super.extractBlurredBackground(g);
+    }
+
     private String selectedId = "";
     private RowList lists, entries;
     private Button remove, up, down, add, rename, delete;
@@ -36,6 +43,12 @@ public final class PlaylistScreen extends LocalScreen {
 
     private PlaylistStore.Playlist selected() {
         return app.playlists.get(selectedId);
+    }
+
+    @Override
+    public void onFilesDrop(List<java.nio.file.Path> files) {
+        importOverlay.dropped();
+        app.importAudio(files, "", selected() == null ? "" : selectedId);
     }
 
     @Override
@@ -88,7 +101,7 @@ public final class PlaylistScreen extends LocalScreen {
         entries.multiple(selection);
         entries.artwork(app.artwork, i -> i < entryTracks.size() ? entryTracks.get(i) : null);
         entries.lyrics(app.lyrics, () -> app.settings.lyricsEnabled);
-        lists.icons(i -> UiIcon.PLAYLIST);
+        lists.icons(i -> PlaylistStore.FAVORITES.equals(app.playlists.all().get(i).id()) ? UiIcon.HEART_FILLED : UiIcon.PLAYLIST);
         lists.visible = !compact || browsing;
         entries.visible = !compact || !browsing;
         entries.reorder(move -> {
@@ -139,7 +152,7 @@ public final class PlaylistScreen extends LocalScreen {
             selection.clear();
         }
         var library = app.library.snapshot().tracks();
-        lists.rows(all.stream().map(p -> new RowList.Row(p.name() + " (" + app.playlists.resolve(p.id(), library).size() + ")", "")).toList());
+        lists.rows(all.stream().map(p -> new RowList.Row(app.playlists.displayName(p) + " (" + app.playlists.resolve(p.id(), library).size() + ")", "")).toList());
         lists.select(java.util.stream.IntStream.range(0, all.size()).filter(i -> all.get(i).id().equals(selectedId)).findFirst().orElse(-1));
         refreshEntries();
     }
@@ -162,6 +175,7 @@ public final class PlaylistScreen extends LocalScreen {
 
     @Override
     public void tick() {
+        importOverlay.tick();
         entries.inspectVisibleLyrics();
         if (revision != app.playlists.revision() || libraryRevision != app.library.snapshot().revision()) {
             revision = app.playlists.revision();
@@ -169,7 +183,8 @@ public final class PlaylistScreen extends LocalScreen {
             refresh();
         }
         entries.tickDrag();
-        add.active = rename.active = delete.active = selected() != null;
+        add.active = selected() != null && !app.mediaBusy;
+        rename.active = delete.active = selected() != null && !PlaylistStore.FAVORITES.equals(selectedId) && !app.mediaBusy;
         remove.active = up.active = down.active = !selection.isEmpty();
     }
 
@@ -191,7 +206,8 @@ public final class PlaylistScreen extends LocalScreen {
         UiTheme.header(g, font, title, UiIcon.PLAYLIST);
         if (lists.visible) g.text(font, Text.get("view.darkmusic.playlists"), 14, 64, UiTheme.ACCENT);
         if (entries.visible)
-            longText.draw(g, font, "selection", (selected() == null ? "" : selected().name() + " | ") + Text.get("format.darkmusic.selected", selection.size()), entries.getX() + 2, 64, entries.getWidth() - 4, UiTheme.SECONDARY);
+            longText.draw(g, font, "selection", (selected() == null ? "" : app.playlists.displayName(selected()) + " | ") + Text.get("format.darkmusic.selected", selection.size()), entries.getX() + 2, 64, entries.getWidth() - 4, UiTheme.SECONDARY);
         super.extractRenderState(g, x, y, d);
+        importOverlay.render(app, g, width, height, selected() == null ? Text.get("text.darkmusic.all_tracks") : app.playlists.displayName(selected()));
     }
 }
