@@ -6,9 +6,9 @@ A client-side music player for Minecraft. Browse your own library, build playlis
 
 ## Install
 
-DarkMusic **v2.0.0** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v2.0.1** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-2.0.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-2.0.1.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Open **Settings → Choose Music Folder**, or add songs to `config/darkmusic/music` inside the instance.
@@ -60,7 +60,7 @@ Use JDK 25 and the included Gradle wrapper:
 
 Windows: `gradlew.bat build`. Output files are in `build/libs`. See [Development and verification](docs/TESTING.md) for private-audio and runtime workflows.
 
-Interface wording is in [en_us.json](src/client/resources/assets/darkmusic/lang/en_us.json). Preserve translation keys and formatting placeholders when editing text. English is the bundled interface language.
+Interface wording is in [en_us.json](src/client/resources/assets/darkmusic/lang/en_us.json). Preserve translation keys and formatting placeholders when editing text. English and Traditional Chinese (Taiwan) are bundled. Select your language in Minecraft's Language menu; the Traditional Chinese catalog is [zh_tw.json](src/client/resources/assets/darkmusic/lang/zh_tw.json).
 
 Report problems through [GitHub Issues](https://github.com/DarkLian/DarkMusic/issues). Include your Minecraft/mod versions, operating system, reproduction steps, and relevant logs. Remove account details and private paths before sharing logs.
 

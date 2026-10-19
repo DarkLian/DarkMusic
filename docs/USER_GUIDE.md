@@ -1,6 +1,10 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v2.0.0 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v2.0.1 for Minecraft 26.2 with Fabric and Java 25.
+
+## Interface language
+
+DarkMusic includes English and Traditional Chinese (Taiwan). Choose **繁體中文（台灣）** in Minecraft's **Options → Language** menu to use Traditional Chinese. Song names and other music metadata remain as supplied by your files.
 
 ## Add your music
 
