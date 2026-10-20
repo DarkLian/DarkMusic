@@ -158,11 +158,11 @@ public final class SettingsScreen extends LocalScreen {
         action("settings.darkmusic.menu_background", () -> show(new ColorPickerScreen(this, s.menuBackgroundColor, 0x111420, color -> {
             s.menuBackgroundColor = color;
             app.save();
-        })), "settings.darkmusic.menu_colors_help");
+        })), "settings.darkmusic.menu_background_help");
         action("settings.darkmusic.menu_accent", () -> show(new ColorPickerScreen(this, s.menuAccentColor, 0xB8A8FA, color -> {
             s.menuAccentColor = color;
             app.save();
-        })), "settings.darkmusic.menu_colors_help");
+        })), "settings.darkmusic.menu_accent_help");
         section("text.darkmusic.hud_settings");
         toggle("text.darkmusic.now_playing_hud", () -> s.hudEnabled, v -> s.hudEnabled = v, "hud.darkmusic.master_help");
         if (s.lyricsEnabled && s.hudStyle != Settings.HudStyle.ARTWORK) {

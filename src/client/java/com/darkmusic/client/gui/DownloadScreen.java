@@ -108,7 +108,7 @@ public final class DownloadScreen extends LocalScreen {
         sourceToggle = UiButton.icon(button(Text.get("phase2.source"), width - 192, 6, 88, () -> {
             sourceExpanded = !sourceExpanded;
             updateButtons();
-        }, Text.get("download.darkmusic.mode_help")), UiIcon.SEARCH, false);
+        }, Text.get("download.darkmusic.source_panel_help")), UiIcon.SEARCH, false);
         url = input("text.darkmusic.video_or_collection_url", 4096, input, s -> {
             input = s;
             app.downloads.rememberInput(s);
@@ -144,7 +144,7 @@ public final class DownloadScreen extends LocalScreen {
         pageNumber = input("download.darkmusic.page", 7, pageNumber == null ? "1" : pageNumber.getValue(), value -> {
         });
         goToPage = action("download.darkmusic.go_to_page", this::jumpPage, "download.darkmusic.page_help");
-        selectAll = action("text.darkmusic.select_page", selection::all, "download.darkmusic.search_help");
+        selectAll = action("text.darkmusic.select_page", selection::all, "download.darkmusic.select_page_help");
         deselect = action("text.darkmusic.clear_checks", selection::clear, "text.darkmusic.clear_all_preview_checks_including_hidden_pages");
         search = input("download.darkmusic.search", 256, query, s -> {
             query = s;

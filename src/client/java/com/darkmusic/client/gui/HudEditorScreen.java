@@ -33,7 +33,7 @@ public class HudEditorScreen extends LocalScreen {
             app.settings.hudScale = 1;
             scaleChanged = System.nanoTime();
             app.save();
-        }).bounds(width - 144, 8, 106, 20).build(), Text.get("hud.darkmusic.help")));
+        }).bounds(width - 144, 8, 106, 20).build(), Text.get("hud.darkmusic.reset_help")));
         help = addRenderableWidget(new InfoHint(width - 32, 8, Text.component("hud.darkmusic.help")));
         positionToolbar();
     }
