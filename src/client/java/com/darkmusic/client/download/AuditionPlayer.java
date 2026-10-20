@@ -96,6 +96,18 @@ public final class AuditionPlayer implements AutoCloseable {
         notifyFinished(completed);
     }
 
+    public synchronized void pause() {
+        if (closed || state.status() != Status.PLAYING || audio == null) return;
+        audio.pause();
+        state = new Snapshot(Status.PAUSED, state.title(), "");
+    }
+
+    public synchronized void resume() {
+        if (closed || state.status() != Status.PAUSED || audio == null) return;
+        audio.resume();
+        state = new Snapshot(Status.PLAYING, state.title(), "");
+    }
+
     private void release() {
         var backend = audio;
         audio = null;
@@ -121,7 +133,7 @@ public final class AuditionPlayer implements AutoCloseable {
         return worker.awaitTermination(seconds, java.util.concurrent.TimeUnit.SECONDS);
     }
 
-    public enum Status {STOPPED, LOADING, PLAYING, ERROR}
+    public enum Status {STOPPED, LOADING, PLAYING, PAUSED, ERROR}
 
     @FunctionalInterface
     public interface Fetcher {

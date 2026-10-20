@@ -60,6 +60,7 @@ public final class MediaFiles {
                     Files.move(scratch, target); // Never replace an existing song.
                     scratch = null;
                 }
+                SourceLinks.record(target, SourceLinks.read(source));
                 imported.add(metadata.read(rootId, base.relativize(target).toString().replace('\\', '/'), target,
                     Files.size(target), Files.getLastModifiedTime(target).toMillis()));
                 entries.add(new ImportEntry(source.toAbsolutePath().toString(), target.toString(), true, ""));
@@ -173,6 +174,7 @@ public final class MediaFiles {
                 if (lyricMoved) Files.move(nextLyric, lyric);
                 throw failure;
             }
+            SourceLinks.record(target, SourceLinks.read(source));
             String relative = track.relativePath();
             int slash = relative.lastIndexOf('/');
             relative = (slash < 0 ? "" : relative.substring(0, slash + 1)) + target.getFileName();

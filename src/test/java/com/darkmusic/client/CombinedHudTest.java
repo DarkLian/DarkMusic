@@ -69,7 +69,7 @@ class CombinedHudTest {
         assertTrue(defaults.hudEnabled);
         assertEquals(1, defaults.volume);
         assertEquals(1, defaults.hudScale);
-        assertEquals(0, defaults.hudBackgroundTransparency);
+        assertEquals(1, defaults.hudBackgroundTransparency);
         assertEquals(36, defaults.visualizerBars);
         assertEquals(Settings.SpectrumDirection.UPWARD, defaults.spectrumDirection);
         assertTrue(defaults.hudArtwork && defaults.hudProgress && defaults.hudVisualizer);
@@ -95,7 +95,7 @@ class CombinedHudTest {
         }
         s.hudBackgroundTransparency = Double.NaN;
         s.validate();
-        assertEquals(255, HudLayout.background(s) >>> 24);
+        assertEquals(0, HudLayout.background(s) >>> 24);
     }
 
     @Test

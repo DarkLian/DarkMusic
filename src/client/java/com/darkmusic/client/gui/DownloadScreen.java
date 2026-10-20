@@ -40,6 +40,7 @@ public final class DownloadScreen extends LocalScreen {
     private List<Item> visibleJobs = List.of();
     private String entryQuery = "", queueQuery = "";
     private Entry listeningEntry;
+    private Entry auditionEntry;
     private AuditionPlayer audition;
     private Track pausedTrack;
     private double pausedPosition;
@@ -306,6 +307,17 @@ public final class DownloadScreen extends LocalScreen {
     private void listen() {
         var p = app.downloads.snapshot().preview();
         if (queueView || !matches(p) || listeningEntry == null || !listeningEntry.available()) return;
+        if (audition != null && auditionEntry != null && auditionEntry.key().equals(listeningEntry.key())) {
+            if (audition.snapshot().status() == AuditionPlayer.Status.PLAYING) {
+                audition.pause();
+                return;
+            }
+            if (audition.snapshot().status() == AuditionPlayer.Status.PAUSED) {
+                audition.resume();
+                return;
+            }
+            if (audition.snapshot().status() == AuditionPlayer.Status.LOADING) return;
+        }
         if (audition == null) {
             var runner = new ProcessRunner();
             audition = new AuditionPlayer((entry, tools, token) -> AuditionClip.fetch(entry, tools, app.config.directory(), runner, token), () -> new JavaSoundBackend(minecraft::execute), minecraft::execute, this::resumeMusic);
@@ -317,11 +329,12 @@ public final class DownloadScreen extends LocalScreen {
             pausedPosition = state.position();
             app.playback.pause();
         }
+        auditionEntry = listeningEntry;
         audition.play(listeningEntry, new Tools(app.settings.ytDlpPath, app.settings.ffmpegPath, app.settings.ffprobePath, app.settings.javascriptPath), app.settings.volume);
     }
 
     private void resumeMusic() {
-        if (audition != null && (audition.snapshot().status() == AuditionPlayer.Status.LOADING || audition.snapshot().status() == AuditionPlayer.Status.PLAYING))
+        if (audition != null && (audition.snapshot().status() == AuditionPlayer.Status.LOADING || audition.snapshot().status() == AuditionPlayer.Status.PLAYING || audition.snapshot().status() == AuditionPlayer.Status.PAUSED))
             return;
         Track track = pausedTrack;
         pausedTrack = null;
@@ -402,7 +415,13 @@ public final class DownloadScreen extends LocalScreen {
         search.active = queueView || valid;
         search.setHint(Text.component(queueView ? "download.darkmusic.search_queue" : "download.darkmusic.search"));
         listen.active = valid && listeningEntry != null && listeningEntry.available() && !snapshot.analyzing();
-        stopListening.active = audition != null && (audition.snapshot().status() == AuditionPlayer.Status.LOADING || audition.snapshot().status() == AuditionPlayer.Status.PLAYING);
+        boolean currentAudition = audition != null && auditionEntry != null && listeningEntry != null && auditionEntry.key().equals(listeningEntry.key());
+        var auditionStatus = audition == null ? AuditionPlayer.Status.STOPPED : audition.snapshot().status();
+        boolean playing = currentAudition && auditionStatus == AuditionPlayer.Status.PLAYING;
+        listen.setMessage(Text.component(playing ? "text.darkmusic.pause" : currentAudition && auditionStatus == AuditionPlayer.Status.PAUSED ? "text.darkmusic.resume" : "download.darkmusic.listen"));
+        UiButton.icon(listen, playing ? UiIcon.PAUSE : UiIcon.PLAY, true);
+        listen.active &= !(currentAudition && auditionStatus == AuditionPlayer.Status.LOADING);
+        stopListening.active = auditionStatus == AuditionPlayer.Status.LOADING || auditionStatus == AuditionPlayer.Status.PLAYING || auditionStatus == AuditionPlayer.Status.PAUSED;
         var selectedItem = visibleJobs.stream().filter(i -> i.id() == selectedJob).findFirst();
         var failedJob = selectedItem.filter(i -> i.status() == Status.FAILED);
         retrySelected.active = queueView && failedJob.isPresent();
@@ -486,7 +505,7 @@ public final class DownloadScreen extends LocalScreen {
             var a = audition.snapshot();
             if (a.status() == AuditionPlayer.Status.ERROR) detail = a.error();
             else if (a.status() != AuditionPlayer.Status.STOPPED)
-                detail = Text.get(a.status() == AuditionPlayer.Status.LOADING ? "download.darkmusic.loading_audio" : "download.darkmusic.listening", a.title());
+                detail = Text.get(a.status() == AuditionPlayer.Status.LOADING ? "download.darkmusic.loading_audio" : a.status() == AuditionPlayer.Status.PAUSED ? "download.darkmusic.preview_paused" : "download.darkmusic.listening", a.title());
         }
 
         long done = s.items().stream().filter(i -> i.status().finished()).count(), failed = s.items().stream().filter(i -> i.status() == Status.FAILED).count();

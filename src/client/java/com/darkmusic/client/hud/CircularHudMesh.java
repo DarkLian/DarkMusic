@@ -80,13 +80,22 @@ final class CircularHudMesh {
                  double progress, float[] levels, int bands, Settings.SpectrumStyle style, int progressStart,
                  int progressEnd, int spectrumStart,
                  int spectrumEnd, Settings.SurfaceFinish spectrumFinish,
-                 Settings.SurfaceFinish progressFinish, int detail, boolean glow) implements GuiElementRenderState {
+                 Settings.SurfaceFinish progressFinish, int detail, boolean glow,
+                 float spectrumHeight) implements GuiElementRenderState {
         private boolean peakOnly() {
             return progress == -2;
         }
 
+        Rings(Matrix3x2fc pose, ScreenRectangle scissorArea, ScreenRectangle bounds, float cx, float cy,
+              double progress, float[] levels, int bands, Settings.SpectrumStyle style, int progressStart,
+              int progressEnd, int spectrumStart, int spectrumEnd, Settings.SurfaceFinish spectrumFinish,
+              Settings.SurfaceFinish progressFinish, int detail, boolean glow) {
+            this(pose, scissorArea, bounds, cx, cy, progress, levels, bands, style, progressStart, progressEnd,
+                spectrumStart, spectrumEnd, spectrumFinish, progressFinish, detail, glow, CircularHudLayout.SPECTRUM_HEIGHT);
+        }
+
         Rings(Matrix3x2fc pose, ScreenRectangle scissorArea, ScreenRectangle bounds, float cx, float cy, double progress, float[] levels, int bands, Settings.SpectrumStyle style, int progressStart, int progressEnd, int spectrumStart, int spectrumEnd, Settings.SurfaceFinish spectrumFinish, Settings.SurfaceFinish progressFinish) {
-            this(pose, scissorArea, bounds, cx, cy, progress, levels, bands, style, progressStart, progressEnd, spectrumStart, spectrumEnd, spectrumFinish, progressFinish, 192, false);
+            this(pose, scissorArea, bounds, cx, cy, progress, levels, bands, style, progressStart, progressEnd, spectrumStart, spectrumEnd, spectrumFinish, progressFinish, 192, false, CircularHudLayout.SPECTRUM_HEIGHT);
         }
 
         @Override
@@ -115,7 +124,7 @@ final class CircularHudMesh {
                 int segments = style == Settings.SpectrumStyle.FILLED_SPIKE ? bands * 8 : detail;
                 for (int i = 0; i < segments; i++) {
                     double a = i / (double) segments, b = (i + 1) / (double) segments;
-                    float h0 = CircularHudLayout.waveHeight(levels, bands, a, style), h1 = CircularHudLayout.waveHeight(levels, bands, b, style);
+                    float h0 = CircularHudLayout.waveHeight(levels, bands, a, style, spectrumHeight), h1 = CircularHudLayout.waveHeight(levels, bands, b, style, spectrumHeight);
                     if (Math.max(h0, h1) < .01f) continue;
                     int first = mix(spectrumStart, spectrumEnd, 1 - Math.abs(2 * a - 1));
                     int last = mix(spectrumStart, spectrumEnd, 1 - Math.abs(2 * b - 1));
@@ -150,7 +159,7 @@ final class CircularHudMesh {
             }
             for (int i = 0; i < bands; i++) {
                 double turn = i / (double) bands, half = .28 / bands;
-                float height = CircularHudLayout.magnitude(levels, bands, turn) * CircularHudLayout.SPECTRUM_HEIGHT;
+                float height = CircularHudLayout.magnitude(levels, bands, turn) * spectrumHeight;
                 if (height < .15f) continue;
                 // The innermost radius is always the ring's outer edge, never the icon.
                 int color = mix(spectrumStart, spectrumEnd, 1 - Math.abs(2 * turn - 1));

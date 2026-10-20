@@ -12,24 +12,37 @@ public final class HudLayout {
     }
 
     public static Content content(Settings settings, int maximumWidth) {
+        return content(settings, maximumWidth, 1, 1);
+    }
+
+    public static Content content(Settings settings, int maximumWidth, int imageWidth, int imageHeight) {
+        if (settings.hudStyle == Settings.HudStyle.ARTWORK) {
+            var art = ArtworkHudLayout.of(settings, imageWidth, imageHeight);
+            return new Content(art.width(), art.height(), art.artworkY(), art.artworkHeight(), art.spectrumY(), settings.hudVisualizer, settings.artworkSpectrumHeight);
+        }
         if (settings.hudStyle == Settings.HudStyle.CIRCULAR) {
-            var circle = CircularHudLayout.of(settings.hudVisualizer, settings.circularText);
+            var circle = CircularHudLayout.of(settings.hudVisualizer, settings.circularText, settings.circularSpectrumHeight);
             return new Content(Math.max(1, Math.min(circle.width(), maximumWidth)), circle.height() + lyricsHeight(settings), 0, circle.height(), 0, settings.hudVisualizer);
         }
         int width = Math.max(1, Math.min(settings.hudArtwork ? 220 : 184, maximumWidth));
         int mainHeight = settings.hudProgress ? 46 : 38;
         boolean above = settings.hudVisualizer && settings.spectrumPosition == Settings.SpectrumPosition.ABOVE;
-        int extra = settings.hudVisualizer ? GAP + SPECTRUM_HEIGHT : 0;
+        int extra = settings.hudVisualizer ? GAP + settings.classicSpectrumHeight : 0;
         return new Content(width, mainHeight + extra + lyricsHeight(settings), above ? extra : 0, mainHeight,
-            above ? 0 : mainHeight + GAP, settings.hudVisualizer);
+            above ? 0 : mainHeight + GAP, settings.hudVisualizer, settings.classicSpectrumHeight);
     }
 
     public static int lyricsHeight(Settings settings) {
+        if (settings.hudStyle == Settings.HudStyle.ARTWORK) return 0;
         return settings.lyricsEnabled && settings.lyricsHud ? settings.lyricsNextLine ? 28 : 16 : 0;
     }
 
     public static Bounds bounds(Settings settings, int width, int height) {
         var content = content(settings, Integer.MAX_VALUE);
+        return bounds(settings, width, height, content);
+    }
+
+    public static Bounds bounds(Settings settings, int width, int height, Content content) {
         double scale = Math.min(settings.hudScale, Math.max(.01, (height - 16.0) / content.height()));
         scale = Math.min(scale, Math.max(.01, (width - 16.0) / content.width()));
         int w = (int) Math.ceil(content.width() * scale - 1e-9), h = (int) Math.ceil(content.height() * scale - 1e-9);
@@ -51,12 +64,17 @@ public final class HudLayout {
     }
 
     public static int background(Settings settings) {
-        return ((int) Math.round((1 - settings.hudBackgroundTransparency) * 255) << 24) | 0x111420;
+        return ((int) Math.round((1 - settings.hudBackgroundTransparency) * 255) << 24) | settings.hudBackgroundColors.first();
     }
 
-    public record Content(int width, int height, int mainY, int mainHeight, int spectrumY, boolean spectrum) {
+    public record Content(int width, int height, int mainY, int mainHeight, int spectrumY, boolean spectrum,
+                          int spectrumHeight) {
+        public Content(int width, int height, int mainY, int mainHeight, int spectrumY, boolean spectrum) {
+            this(width, height, mainY, mainHeight, spectrumY, spectrum, SPECTRUM_HEIGHT);
+        }
+
         public int baseline(Settings.SpectrumDirection direction) {
-            return direction == Settings.SpectrumDirection.UPWARD ? spectrumY + SPECTRUM_HEIGHT : spectrumY;
+            return direction == Settings.SpectrumDirection.UPWARD ? spectrumY + spectrumHeight : spectrumY;
         }
     }
 

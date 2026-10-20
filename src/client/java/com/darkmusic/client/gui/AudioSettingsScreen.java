@@ -115,6 +115,17 @@ public final class AudioSettingsScreen extends LocalScreen {
                 }
             }, "audio.darkmusic.load_profile_help");
             rows.getLast().setMessage(Component.literal(Text.get("audio.darkmusic.load_profile") + ": " + name));
+            rows.getLast().setWidth(formWidth - 28);
+            var delete = UiButton.icon(UiButton.builder(Text.component("audio.darkmusic.delete_profile", name), b ->
+                show(new ConfirmationScreen(this, Text.component("audio.darkmusic.delete_profile_title"),
+                    Text.component("audio.darkmusic.delete_profile_body", name), Text.component("text.darkmusic.delete"), () -> {
+                    app.settings.audio.savedProfiles.remove(name);
+                    app.save();
+                    return java.util.concurrent.CompletableFuture.completedFuture(null);
+                }))).bounds(formX + formWidth - 24, 0, 24, 20).build(), UiIcon.DELETE, true);
+            UiButton.style(delete, UiButton.Style.DESTRUCTIVE);
+            rows.add(addRenderableWidget(delete));
+            positions.add(cursor - 24);
         }
         int effectsStart = rows.size();
         section("audio.darkmusic.section_loudness");

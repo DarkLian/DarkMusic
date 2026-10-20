@@ -69,7 +69,7 @@ public final class CircularHudRenderer {
 
     public void render(DarkMusicClient app, GuiGraphicsExtractor g, Track track, com.darkmusic.client.audio.AudioBackend.State audio, boolean preview, boolean settingsPreview) {
         var settings = app.settings;
-        var layout = CircularHudLayout.of(settings.hudVisualizer, settings.circularText);
+        var layout = CircularHudLayout.of(settings.hudVisualizer, settings.circularText, settings.circularSpectrumHeight);
         var pose = new Matrix3x2f(g.pose());
         var clip = g.scissorStack.peek();
         var bounds = new ScreenRectangle(0, 0, layout.width(), layout.height()).transformMaxBounds(pose);
@@ -85,17 +85,17 @@ public final class CircularHudRenderer {
         if (analyzed && settings.hudVisualizer && (settings.visualQuality.trails || settings.visualQuality.peakHold)) {
             app.playback.spectrum().copyPeaks(peaks);
             if (settings.visualQuality.trails)
-                g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(pose, clip, bounds, layout.centerX(), layout.centerY(), -1, peaks.clone(), settings.visualizerBars, settings.circularSpectrumStyle, 0, 0, (settings.spectrumColors.first() & 0xffffff) | 0x22000000, (settings.spectrumColors.last() & 0xffffff) | 0x22000000, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, settings.visualQuality.detail, false));
+                g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(pose, clip, bounds, layout.centerX(), layout.centerY(), -1, peaks.clone(), settings.visualizerBars, settings.circularSpectrumStyle, 0, 0, (settings.spectrumColors.first() & 0xffffff) | 0x22000000, (settings.spectrumColors.last() & 0xffffff) | 0x22000000, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, settings.visualQuality.detail, false, settings.circularSpectrumHeight));
             if (settings.visualQuality.peakHold)
-                g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(pose, clip, bounds, layout.centerX(), layout.centerY(), -2, peaks.clone(), settings.visualizerBars, settings.circularSpectrumStyle, 0, 0, settings.spectrumColors.first() | 0xff000000, settings.spectrumColors.last() | 0xff000000, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, settings.visualQuality.detail, false));
+                g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(pose, clip, bounds, layout.centerX(), layout.centerY(), -2, peaks.clone(), settings.visualizerBars, settings.circularSpectrumStyle, 0, 0, settings.spectrumColors.first() | 0xff000000, settings.spectrumColors.last() | 0xff000000, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, settings.visualQuality.detail, false, settings.circularSpectrumHeight));
         }
         g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(pose, clip, bounds, layout.centerX(), layout.centerY(),
             settings.hudProgress ? CircularHudLayout.progress(audio.position(), audio.duration(), preview) : 0,
             analyzed && settings.hudVisualizer ? levels.clone() : null, settings.visualizerBars, settings.circularSpectrumStyle,
-            settings.progressColors.first(), settings.progressColors.last(), settings.spectrumColors.first(), settings.spectrumColors.last(), settings.spectrumFinish, settings.progressFinish, settings.visualQuality.detail, settings.visualQuality.glow));
+            settings.progressColors.first(), settings.progressColors.last(), settings.spectrumColors.first(), settings.spectrumColors.last(), settings.spectrumFinish, settings.progressFinish, settings.visualQuality.detail, settings.visualQuality.glow, settings.circularSpectrumHeight));
         if (!settings.circularText) return;
         var font = Minecraft.getInstance().font;
-        int lineWidth = Math.round((CircularHudLayout.RING_OUTER + (settings.hudVisualizer ? CircularHudLayout.SPECTRUM_HEIGHT : 0)) * 2) + 8;
+        int lineWidth = Math.round((CircularHudLayout.RING_OUTER + (settings.hudVisualizer ? settings.circularSpectrumHeight : 0)) * 2) + 8;
         title(g, font, track == null ? Text.get("text.darkmusic.song_title") : track.title(), layout.width(), lineWidth, layout.titleY());
         centered(g, font, track == null ? Text.get("text.darkmusic.artist") : track.artist(), layout.width(), lineWidth, layout.artistY(), .85f, 0xFFB0ADC2);
     }

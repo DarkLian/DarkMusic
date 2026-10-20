@@ -81,7 +81,8 @@ class LyricsTest {
             assertEquals("Updated line", service.get(track).lines().getFirst().text());
         }
         var settings = ConfigStore.JSON.fromJson("{\"lyricsHud\":true}", Settings.class);
-        assertTrue(settings.lyricsEnabled);
+        assertFalse(settings.lyricsEnabled);
+        settings.lyricsEnabled = true;
         int enabled = HudLayout.content(settings, 1000).height();
         settings.lyricsEnabled = false;
         assertEquals(enabled - 16, HudLayout.content(settings, 1000).height());

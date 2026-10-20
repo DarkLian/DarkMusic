@@ -243,6 +243,7 @@ public final class DownloadPipeline {
                     target = destination.resolve(name.substring(0, name.lastIndexOf('.')) + " (" + suffix + ")." + plan.extension());
                 Files.move(incoming, target);
                 incoming = null;
+                com.darkmusic.client.library.SourceLinks.record(target, entry.url());
                 if (lyricsEnabled.getAsBoolean() && !lyrics.text().isBlank()) {
                     Path temporaryLyrics = null;
                     try {

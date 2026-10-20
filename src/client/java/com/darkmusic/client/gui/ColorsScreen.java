@@ -15,21 +15,28 @@ import java.util.Locale;
  */
 public final class ColorsScreen extends LocalScreen {
     private final DarkMusicClient app;
-    private final boolean spectrum;
+    private final VisualColors target;
     private EditBox start, end;
     private int fieldsY, swatchY, editorWidth, previewX, previewY, previewWidth;
     private boolean previewOnly;
+    private int presetPage, pageY, pageCount;
     private VisualColors.Preset shownPreset;
     private String draftStart, draftEnd;
 
     public ColorsScreen(DarkMusicClient app, Screen parent, boolean spectrum) {
         super(Text.component(spectrum ? "colors.darkmusic.spectrum" : "colors.darkmusic.progress"), parent);
         this.app = app;
-        this.spectrum = spectrum;
+        this.target = spectrum ? app.settings.spectrumColors : app.settings.progressColors;
+    }
+
+    public ColorsScreen(DarkMusicClient app, Screen parent, VisualColors target, String titleKey) {
+        super(Text.component(titleKey), parent);
+        this.app = app;
+        this.target = target;
     }
 
     private VisualColors colors() {
-        return spectrum ? app.settings.spectrumColors : app.settings.progressColors;
+        return target;
     }
 
     @Override
@@ -47,8 +54,12 @@ public final class ColorsScreen extends LocalScreen {
         int columns = 3, gap = 4, cell = (editorWidth - (columns - 1) * gap) / columns;
         int tileHeight = height < 330 ? 20 : 30, gridTop = height < 330 ? 34 : 52;
         var presets = VisualColors.Preset.values();
-        for (int i = 0; i < presets.length; i++) {
-            var preset = presets[i];
+        int rows = Math.max(1, Math.min(4, (height - gridTop - 130) / (tileHeight + gap)));
+        int perPage = rows * columns;
+        pageCount = (presets.length + perPage - 1) / perPage;
+        presetPage = Math.clamp(presetPage, 0, pageCount - 1);
+        for (int i = 0; i < perPage && presetPage * perPage + i < presets.length; i++) {
+            var preset = presets[presetPage * perPage + i];
             String name = Text.get("colors.darkmusic." + preset.name().toLowerCase(Locale.ROOT));
             var tile = addRenderableWidget(UiButton.builder(net.minecraft.network.chat.Component.literal(name), button -> {
                 var selected = colors();
@@ -64,7 +75,30 @@ public final class ColorsScreen extends LocalScreen {
             UiButton.selected(tile, () -> colors().preset == preset);
             tile.swatch(() -> preset == VisualColors.Preset.CUSTOM ? colors().start : preset.start, () -> preset == VisualColors.Preset.CUSTOM ? colors().end : preset.end);
         }
-        fieldsY = gridTop + ((presets.length + columns - 1) / columns) * (tileHeight + gap) + 24;
+        pageY = gridTop + rows * (tileHeight + gap) + 2;
+        var previous = addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.previous"), b -> {
+            presetPage--;
+            rebuildWidgets();
+        }).bounds(12, pageY, 24, 20).build());
+        UiButton.icon(previous, UiIcon.PREVIOUS, true);
+        previous.active = presetPage > 0;
+        var next = addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.next"), b -> {
+            presetPage++;
+            rebuildWidgets();
+        }).bounds(40, pageY, 24, 20).build());
+        UiButton.icon(next, UiIcon.NEXT, true);
+        next.active = presetPage < pageCount - 1;
+        addRenderableWidget(UiButton.builder(Text.component("colors.darkmusic.default"), b -> {
+            if (target == app.settings.hudBackgroundColors) {
+                target.preset = VisualColors.Preset.CUSTOM;
+                target.start = target.end = 0x111420;
+            } else target.preset = VisualColors.Preset.OCEAN_DRIVE;
+            shownPreset = null;
+            presetPage = 0;
+            app.save();
+            rebuildWidgets();
+        }).bounds(12 + editorWidth - 88, pageY, 88, 20).build());
+        fieldsY = pageY + 42;
         int half = (editorWidth - 4) / 2;
         start = addRenderableWidget(new UiInput(font, 12, fieldsY + 12, half, 20, Text.component("colors.darkmusic.start")));
         end = addRenderableWidget(new UiInput(font, 16 + half, fieldsY + 12, half, 20, Text.component("colors.darkmusic.end")));
@@ -77,6 +111,10 @@ public final class ColorsScreen extends LocalScreen {
         Help.tip(start, Text.get("colors.darkmusic.hex_help"));
         Help.tip(end, Text.get("colors.darkmusic.hex_help"));
         swatchY = fieldsY + 38;
+        addRenderableWidget(UiButton.builder(Text.component("colors.darkmusic.pick_start"), b -> pick(true))
+            .bounds(12, swatchY + 30, half, 20).build());
+        addRenderableWidget(UiButton.builder(Text.component("colors.darkmusic.pick_end"), b -> pick(false))
+            .bounds(16 + half, swatchY + 30, half, 20).build());
         previewX = wide ? editorWidth + 28 : 12;
         previewWidth = wide ? width - previewX - 12 : width - 24;
         previewY = 36;
@@ -88,6 +126,20 @@ public final class ColorsScreen extends LocalScreen {
                 rebuildWidgets();
             }).bounds(width - 116, 6, 104, 24).build()), UiIcon.PREVIEW, false);
         }
+    }
+
+    private void pick(boolean first) {
+        int defaultColor = target == app.settings.hudBackgroundColors ? 0x111420
+            : first ? VisualColors.Preset.OCEAN_DRIVE.start : VisualColors.Preset.OCEAN_DRIVE.end;
+        show(new ColorPickerScreen(this, first ? colors().first() : colors().last(), defaultColor, color -> {
+            var value = colors();
+            int a = value.first(), b = value.last();
+            value.start = first ? color : a;
+            value.end = first ? b : color;
+            value.preset = VisualColors.Preset.CUSTOM;
+            shownPreset = null;
+            app.save();
+        }));
     }
 
     private void custom() {
@@ -108,6 +160,7 @@ public final class ColorsScreen extends LocalScreen {
         longText.draw(g, font, "color_title", title.getString() + ": " + Text.get("colors.darkmusic." + colors().preset.name().toLowerCase(Locale.ROOT)), 12, 10, width - (width < 700 ? 140 : 24), UiTheme.ACCENT);
         if (width >= 700 || !previewOnly) {
             if (height >= 330) UiTheme.section(g, font, Text.get("ui.darkmusic.presets"), 12, 30, editorWidth);
+            g.text(font, (presetPage + 1) + " / " + pageCount, 72, pageY + 6, UiTheme.SECONDARY);
             UiTheme.section(g, font, Text.get("ui.darkmusic.custom_colors"), 12, fieldsY - 20, editorWidth);
             g.text(font, Text.get("colors.darkmusic.start"), 12, fieldsY, UiTheme.SECONDARY);
             g.text(font, Text.get("colors.darkmusic.end"), 16 + (editorWidth - 4) / 2, fieldsY, UiTheme.SECONDARY);

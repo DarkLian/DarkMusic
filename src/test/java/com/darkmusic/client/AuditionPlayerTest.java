@@ -100,6 +100,39 @@ class AuditionPlayerTest {
         }
     }
 
+    @Test
+    void pauseResumeRetainsExcerptAndNeverResumesLibraryUntilStopped() throws Exception {
+        var excerpt = clip("pause-resume");
+        var fetches = new AtomicInteger();
+        var finished = new AtomicInteger();
+        var backend = new Audio();
+        try (var player = new AuditionPlayer((e, t, k) -> {
+            fetches.incrementAndGet();
+            return excerpt;
+        },
+            () -> backend, Runnable::run, finished::incrementAndGet)) {
+            player.play(entry("1"), new Tools("", "", "", ""), .5);
+            DownloadTest.await(() -> player.snapshot().status() == AuditionPlayer.Status.PLAYING);
+            player.pause();
+            assertEquals(AuditionPlayer.Status.PAUSED, player.snapshot().status());
+            assertEquals(AudioBackend.Status.PAUSED, backend.state().status());
+            assertEquals(0, finished.get());
+            assertTrue(Files.exists(excerpt.track().file()));
+            assertFalse(backend.closed);
+            player.resume();
+            assertEquals(AuditionPlayer.Status.PLAYING, player.snapshot().status());
+            assertEquals(AudioBackend.Status.PLAYING, backend.state().status());
+            assertEquals(1, fetches.get());
+            player.pause();
+            player.stop();
+            DownloadTest.await(() -> !Files.exists(excerpt.directory()));
+            assertEquals(1, finished.get());
+            assertTrue(backend.closed);
+            player.resume();
+            assertEquals(AuditionPlayer.Status.STOPPED, player.snapshot().status());
+        }
+    }
+
     private static class Audio implements AudioBackend {
         volatile State state = new State(null, Status.STOPPED, 0, 0, "");
         volatile boolean closed;
@@ -115,9 +148,11 @@ class AuditionPlayerTest {
         }
 
         public void pause() {
+            state = new State(state.track(), Status.PAUSED, state.position(), state.duration(), "");
         }
 
         public void resume() {
+            state = new State(state.track(), Status.PLAYING, state.position(), state.duration(), "");
         }
 
         public void seek(double seconds) {

@@ -13,9 +13,14 @@ public record CircularHudLayout(int width, int height, float centerX, float cent
     }
 
     public static CircularHudLayout of(boolean spectrum, boolean text) {
-        int radius = (int) Math.ceil(RING_OUTER + (spectrum ? SPECTRUM_HEIGHT : 0) + FEATHER + 1);
+        return of(spectrum, text, SPECTRUM_HEIGHT);
+    }
+
+    public static CircularHudLayout of(boolean spectrum, boolean text, float spectrumHeight) {
+        int radius = (int) Math.ceil(RING_OUTER + (spectrum ? spectrumHeight : 0) + FEATHER + 1);
         int title = radius * 2 + 9;
-        return new CircularHudLayout(176, text ? title + 28 : radius * 2, 88, radius, title, title + 16);
+        int width = Math.max(176, radius * 2 + 12);
+        return new CircularHudLayout(width, text ? title + 28 : radius * 2, width / 2f, radius, title, title + 16);
     }
 
     public static float iconZoom(float[] levels, int bands) {
@@ -26,13 +31,17 @@ public record CircularHudLayout(int width, int height, float centerX, float cent
     }
 
     public static float waveHeight(float[] levels, int bands, double turn, com.darkmusic.client.config.Settings.SpectrumStyle style) {
+        return waveHeight(levels, bands, turn, style, SPECTRUM_HEIGHT);
+    }
+
+    public static float waveHeight(float[] levels, int bands, double turn, com.darkmusic.client.config.Settings.SpectrumStyle style, float height) {
         if (style == com.darkmusic.client.config.Settings.SpectrumStyle.FILLED_SPIKE) {
             double cell = (turn - Math.floor(turn)) * bands;
             int index = (int) cell;
             double triangle = 1 - Math.abs(2 * (cell - index) - 1);
-            return magnitude(levels, bands, (index + .5) / bands) * (float) triangle * SPECTRUM_HEIGHT;
+            return magnitude(levels, bands, (index + .5) / bands) * (float) triangle * height;
         }
-        return magnitude(levels, bands, turn) * SPECTRUM_HEIGHT;
+        return magnitude(levels, bands, turn) * height;
     }
 
     public static double progress(double position, double duration, boolean preview) {

@@ -6,9 +6,9 @@ A client-side music player for Minecraft. Browse your own library, build playlis
 
 ## Install
 
-DarkMusic **v2.1.0** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v2.2.0** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-2.1.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-2.2.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Open **Settings → Choose Music Folder**, or add songs to `config/darkmusic/music` inside the instance.
@@ -20,14 +20,14 @@ Install DarkMusic on the client. Servers do not need it. Windows, Linux, and mac
 - **Library:** browse All Tracks, nested folders, playlists, artists, and albums. Search titles, artists, albums, and paths.
 - **Import:** drag audio files into the player or playlist manager to copy them into your library. Import into the selected folder or playlist, and review results through Import History beside Open Folder.
 - **Favorites:** mark songs with the heart button and find them in the built-in Favorite Music playlist.
-- **Metadata:** edit the selected song's title, artist, album, and filename using the pencil button. Tags are saved to the file, and the filename extension stays protected.
+- **Metadata:** edit the selected song's title, artist, album, and filename using the pencil button. Open or copy its source link when available. Tags are saved to the file, and the filename extension stays protected.
 - **Playback:** seek, shuffle, repeat, mute, and change speed from 0.5× to 3.0×. Jump to Playing returns to the collection where playback started. Search does not narrow the playback queue.
-- **Playlists:** bulk-select songs, reorder connected selections by dragging, and manage playlist entries without deleting audio.
+- **Playlists:** bulk-select songs and reorder connected selections by dragging. Complete library scans clean up confirmed missing entries, including favorites, without deleting audio.
 - **Downloads:** analyze a video or collection URL, select entries or a range, preview audio, jump between available preview pages, and manage parallel downloads and retries.
-- **HUD:** classic and circular layouts, album artwork or a central icon, progress, scrolling titles, optional lyrics, and a spectrum driven by decoded audio.
-- **Visuals:** bars, waves, spikes, gradients, beveled finishes, glow, trails, peak markers, and quality presets.
+- **HUD:** Classic, Circular, and Artwork layouts with optional progress and a spectrum driven by decoded audio. Artwork mode preserves image proportions and supports outward horizontal spectra beside the image.
+- **Visuals:** bars, waves, spikes, gradient presets, beveled finishes, glow, trails, peak markers, and quality presets. Customize menu colors and HUD backgrounds using a visual color spectrum, RGB sliders, or hex values.
 - **Audio:** profiles, loudness normalization, a 10-band equalizer, bass, stereo width, compression, reverb, limiting, gapless playback, crossfade, and game-audio balance.
-- **Lyrics:** synchronized local `.lrc` files and supported embedded tags, plus available source captions during downloads.
+- **Lyrics:** optional synchronized local `.lrc` files and supported embedded tags, plus matching manual source captions during downloads with ordered language preferences.
 
 See the [User Guide](docs/USER_GUIDE.md) for controls, setup, and limitations.
 

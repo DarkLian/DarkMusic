@@ -10,7 +10,7 @@ import net.minecraft.resources.Identifier;
 public enum UiIcon {
     MUSIC, PLAY, PAUSE, PREVIOUS, NEXT, STOP, SHUFFLE, REPEAT, REPEAT_ONE,
     VOLUME, SPEED, LOCATE, FOLDER, REFRESH, DOWNLOAD, SETTINGS, LYRICS, PLAYLIST,
-    ARTIST, ALBUM, SEARCH, MORE, BACK, ADD, DELETE, EDIT, CHECK, WARNING, TOOLS, PREVIEW, REPEAT_ALL, HEART, HEART_FILLED;
+    ARTIST, ALBUM, SEARCH, MORE, BACK, ADD, DELETE, EDIT, CHECK, WARNING, TOOLS, PREVIEW, REPEAT_ALL, HEART, HEART_FILLED, LINK, CHAIN;
 
     private static final Identifier ATLAS = Identifier.fromNamespaceAndPath("darkmusic", "textures/gui/icons.png");
     public static final int CELL = 64, ATLAS_WIDTH = CELL * values().length;
@@ -31,7 +31,10 @@ public enum UiIcon {
     }
 
     public void draw(GuiGraphicsExtractor g, int x, int y, int size, int color) {
+        int enlarged = Math.max(size + 1, Math.round(size * 1.15f));
+        x -= (enlarged - size) / 2;
+        y -= (enlarged - size) / 2;
         g.blit(RenderPipelines.GUI_TEXTURED, ATLAS, x, y, ordinal() * CELL, 0,
-            size, size, CELL, CELL, ATLAS_WIDTH, CELL, color);
+            enlarged, enlarged, CELL, CELL, ATLAS_WIDTH, CELL, color);
     }
 }

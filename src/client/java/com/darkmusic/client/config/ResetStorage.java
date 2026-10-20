@@ -14,11 +14,10 @@ import java.util.*;
 import java.util.function.Predicate;
 
 /**
- * Reset removes an allowlist of owned records and executables, never a directory tree.
+ * Reset removes an allowlist of owned records. Download tools and media are preserved.
  * Unknown, modified, linked, and media files are deliberately left alone.
  */
 public final class ResetStorage {
-    private static final Set<String> EXECUTABLES = Set.of("yt-dlp", "yt-dlp.exe", "ffmpeg", "ffmpeg.exe", "ffprobe", "ffprobe.exe", "ffplay", "ffplay.exe", "deno", "deno.exe");
     private final Path data;
     private final List<String> retained = new ArrayList<>();
 
@@ -29,8 +28,7 @@ public final class ResetStorage {
     public static List<String> clear(Path data, Collection<Path> musicRoots) throws IOException {
         var reset = new ResetStorage(data);
         // These are lock-only operations, unlike DownloadWorkspace's scratch recovery.
-        try (var downloads = reset.lock("downloads/workspace.lock");
-             var tools = reset.lock("tools/install.lock")) {
+        try (var downloads = reset.lock("downloads/workspace.lock")) {
             Files.createDirectories(reset.data.resolve("music"));
             reset.json(reset.data.resolve("library-cache.json"), JsonElement::isJsonArray);
             reset.json(reset.data.resolve("import-history.json"), JsonElement::isJsonArray);
@@ -48,32 +46,8 @@ public final class ResetStorage {
                     reset.keep(root, e);
                 }
             }
-            reset.tools();
         }
         return List.copyOf(reset.retained);
-    }
-
-    private static boolean executable(Path file) throws IOException {
-        try (var channel = FileChannel.open(file, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
-            var header = java.nio.ByteBuffer.allocate(64);
-            while (header.hasRemaining() && channel.read(header) > 0) {
-            }
-            if (header.position() < 4) return false;
-            byte[] bytes = header.array();
-            int magic = java.nio.ByteBuffer.wrap(bytes).getInt();
-            if (magic == 0x7f454c46 || magic == 0xfeedface || magic == 0xcefaedfe || magic == 0xfeedfacf || magic == 0xcffaedfe || magic == 0xcafebabe)
-                return true;
-            if (bytes[0] == '#' && bytes[1] == '!')
-                return new String(bytes, java.nio.charset.StandardCharsets.US_ASCII).contains("python");
-            if (header.position() < 64 || bytes[0] != 'M' || bytes[1] != 'Z') return false;
-            long offset = Integer.toUnsignedLong(java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN).getInt(60));
-            if (offset < 64 || offset > channel.size() - 4) return false;
-            channel.position(offset);
-            var pe = java.nio.ByteBuffer.allocate(4);
-            while (pe.hasRemaining() && channel.read(pe) > 0) {
-            }
-            return pe.position() == 4 && pe.getInt(0) == 0x50450000;
-        }
     }
 
     private Locked lock(String relative) throws IOException {
@@ -123,53 +97,6 @@ public final class ResetStorage {
             Files.delete(path);
         } catch (IOException e) {
             keep(path, e);
-        }
-    }
-
-    private void tools() throws IOException {
-        Path root = data.resolve("tools");
-        if (!local(root)) throw new IOException(com.darkmusic.client.text.Text.get("reset.darkmusic.tools_linked"));
-        // Legacy instance-local executables; configured external paths are never visited.
-        executables(root);
-        Path managed = root.resolve("managed");
-        if (!Files.exists(managed, LinkOption.NOFOLLOW_LINKS)) return;
-        if (!local(managed)) {
-            keep(managed, null);
-            return;
-        }
-        json(managed.resolve("current.json"), value -> value.isJsonObject()
-            && value.getAsJsonObject().has("directory") && value.getAsJsonObject().get("directory").isJsonPrimitive()
-            && value.getAsJsonObject().get("directory").getAsString().matches("bundle-[a-fA-F0-9-]+"));
-        try (var children = Files.list(managed)) {
-            for (Path bundle : children.toList()) {
-                if (!bundle.getFileName().toString().matches("(?:bundle|staging)-[a-zA-Z0-9-]+")) continue;
-                if (!Files.isDirectory(bundle, LinkOption.NOFOLLOW_LINKS) || !local(bundle)) {
-                    keep(bundle, null);
-                    continue;
-                }
-                executables(bundle);
-                json(bundle.resolve("manifest.json"), value -> value.isJsonObject() && value.getAsJsonObject().has("ytDlpRelease")
-                    && value.getAsJsonObject().has("ffmpegRelease") && value.getAsJsonObject().has("digests"));
-                for (String name : List.of("FFmpeg.LICENSE", "FFmpeg.README"))
-                    record(bundle.resolve(name), text -> !text.isBlank() && (text.contains("FFmpeg") || text.contains("GNU")));
-                try (var files = Files.list(bundle)) {
-                    if (files.findAny().isEmpty()) Files.delete(bundle);
-                }
-            }
-        }
-    }
-
-    private void executables(Path directory) {
-        for (String name : EXECUTABLES) {
-            Path file = directory.resolve(name);
-            if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) continue;
-            try {
-                if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) && local(file) && executable(file))
-                    Files.delete(file);
-                else keep(file, null);
-            } catch (IOException e) {
-                keep(file, e);
-            }
         }
     }
 

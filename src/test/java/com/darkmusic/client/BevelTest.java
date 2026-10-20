@@ -31,19 +31,19 @@ class BevelTest {
     void finishDefaultsAndPersistencePreserveIndependentChoicesAndColors() {
         var settings = ConfigStore.JSON.fromJson("{}", Settings.class);
         settings.validate();
-        assertEquals(Settings.SurfaceFinish.FLAT, settings.spectrumFinish);
-        assertEquals(Settings.SurfaceFinish.FLAT, settings.progressFinish);
-        settings.spectrumFinish = Settings.SurfaceFinish.BEVELED;
+        assertEquals(Settings.SurfaceFinish.BEVELED, settings.spectrumFinish);
+        assertEquals(Settings.SurfaceFinish.BEVELED, settings.progressFinish);
+        settings.spectrumFinish = Settings.SurfaceFinish.FLAT;
         int color = settings.spectrumColors.color(.5);
         var loaded = ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(settings), Settings.class);
         loaded.validate();
-        assertEquals(Settings.SurfaceFinish.BEVELED, loaded.spectrumFinish);
-        assertEquals(Settings.SurfaceFinish.FLAT, loaded.progressFinish);
+        assertEquals(Settings.SurfaceFinish.FLAT, loaded.spectrumFinish);
+        assertEquals(Settings.SurfaceFinish.BEVELED, loaded.progressFinish);
         assertEquals(color, loaded.spectrumColors.color(.5));
-        assertEquals(Settings.SurfaceFinish.FLAT, Settings.defaults(loaded).spectrumFinish);
+        assertEquals(Settings.SurfaceFinish.BEVELED, Settings.defaults(loaded).spectrumFinish);
         loaded.progressFinish = loaded.spectrumFinish = null;
         loaded.validate();
-        assertEquals(Settings.SurfaceFinish.FLAT, loaded.progressFinish);
-        assertEquals(Settings.SurfaceFinish.FLAT, loaded.spectrumFinish);
+        assertEquals(Settings.SurfaceFinish.BEVELED, loaded.progressFinish);
+        assertEquals(Settings.SurfaceFinish.BEVELED, loaded.spectrumFinish);
     }
 }

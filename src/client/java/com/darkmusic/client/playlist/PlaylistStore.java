@@ -119,6 +119,31 @@ public final class PlaylistStore {
         return revision;
     }
 
+    /**
+     * Run off-thread, after a complete scan. Unknown/inaccessible files are retained.
+     */
+    public static Set<Entry> missing(Path root, String rootId, List<Playlist> playlists, List<Track> tracks) {
+        if (!Files.isDirectory(root) || !Files.isReadable(root)) return Set.of();
+        var present = new HashSet<Entry>();
+        tracks.forEach(t -> present.add(Entry.of(t)));
+        var missing = new HashSet<Entry>();
+        Path base = root.toAbsolutePath().normalize();
+        for (var playlist : playlists)
+            for (var entry : playlist.entries) {
+                if (!entry.rootId.equals(rootId) || present.contains(entry)) continue;
+                Path file = base.resolve(entry.path).normalize();
+                if (file.startsWith(base) && Files.notExists(file)) missing.add(entry);
+            }
+        return Files.isDirectory(root) && Files.isReadable(root) ? Set.copyOf(missing) : Set.of();
+    }
+
+    public void removeMissing(Set<Entry> missing) {
+        if (missing.isEmpty()) return;
+        var next = playlists.stream().map(p -> new Playlist(p.id, p.name,
+            p.entries.stream().filter(e -> !missing.contains(e)).toList())).toList();
+        if (!next.equals(playlists)) update(next);
+    }
+
     public Playlist get(String id) {
         return playlists.stream().filter(p -> p.id.equals(id)).findFirst().orElse(null);
     }

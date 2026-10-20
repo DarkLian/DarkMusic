@@ -53,6 +53,7 @@ class ResetTest {
         var expected = new Settings();
         expected.validate();
         expected.roots.putAll(old.roots);
+        expected.ytDlpPath = expected.ffmpegPath = expected.ffprobePath = expected.javascriptPath = "custom";
         assertEquals(ConfigStore.JSON.toJson(expected), ConfigStore.JSON.toJson(reset));
         reset.roots.put("new music", "new-id");
         assertFalse(old.roots.containsKey("new music"));
@@ -91,7 +92,7 @@ class ResetTest {
     }
 
     @Test
-    void clearsOnlyRecognizedRecordsAndExecutablesAndPreservesEveryMediaByte() throws Exception {
+    void clearsOnlyRecognizedRecordsAndPreservesToolsAndEveryMediaByte() throws Exception {
         Path real = TestMusic.featured();
         String originalHash = hash(real);
         var modified = Files.getLastModifiedTime(real);
@@ -116,23 +117,23 @@ class ResetTest {
         Files.writeString(bundle.resolve("FFmpeg.LICENSE"), "GNU GENERAL PUBLIC LICENSE");
         Files.writeString(bundle.getParent().resolve("current.json"), "{\"directory\":\"bundle-1234-abcd\"}");
         // This is the actual development tool, not an executable or media fixture.
-        Path developmentTool = Path.of("Music/yt-dlp.exe");
+        Path developmentTool = Path.of(System.getProperty("darkmusic.test.ytdlp", "Music/yt-dlp.exe"));
         boolean localTool = Files.isRegularFile(developmentTool);
         if (localTool) Files.copy(developmentTool, bundle.resolve("yt-dlp.exe"));
         var retained = ResetStorage.clear(data, List.of(custom, other));
         assertFalse(Files.exists(data.resolve("library-cache.json")));
         assertFalse(Files.exists(custom.resolve(".darkmusic-downloads.json")));
         assertFalse(Files.exists(custom.resolve("downloaded.txt")));
-        assertFalse(Files.exists(bundle.resolve("manifest.json")));
-        assertFalse(Files.exists(bundle.resolve("FFmpeg.LICENSE")));
-        assertFalse(Files.exists(bundle.getParent().resolve("current.json")));
-        if (localTool) assertFalse(Files.exists(bundle.resolve("yt-dlp.exe")));
+        assertTrue(Files.exists(bundle.resolve("manifest.json")));
+        assertTrue(Files.exists(bundle.resolve("FFmpeg.LICENSE")));
+        assertTrue(Files.exists(bundle.getParent().resolve("current.json")));
+        if (localTool) assertTrue(Files.exists(bundle.resolve("yt-dlp.exe")));
         assertEquals("[]", Files.readString(data.resolve("playlists.json")));
         for (var entry : kept.entrySet())
             assertEquals(entry.getValue(), hash(entry.getKey()), entry.getKey().toString());
         assertEquals(originalHash, hash(real));
         assertEquals(modified, Files.getLastModifiedTime(real));
-        assertEquals(3, retained.size(), retained.toString());
+        assertEquals(2, retained.size(), retained.toString());
     }
 
     @Test
@@ -147,8 +148,8 @@ class ResetTest {
     }
 
     @Test
-    void activeWorkspaceOrInstallerPreventsAnyDiskCleanup() throws Exception {
-        for (String name : List.of("downloads/workspace.lock", "tools/install.lock")) {
+    void activeWorkspacePreventsAnyDiskCleanup() throws Exception {
+        for (String name : List.of("downloads/workspace.lock")) {
             Path lockPath = temp.resolve(name);
             Files.createDirectories(lockPath.getParent());
             Files.writeString(temp.resolve("library-cache.json"), "[]");
@@ -206,7 +207,7 @@ class ResetTest {
     @Test
     void mediaInReservedCacheAndLockPathsIsNeverRemoved() throws Exception {
         Path real = TestMusic.featured();
-        for (String name : List.of("library-cache.json", "downloads/workspace.lock", "tools/install.lock")) {
+        for (String name : List.of("library-cache.json", "downloads/workspace.lock")) {
             Path data = Files.createDirectories(temp.resolve(name.replace('/', '_')));
             Path target = data.resolve(name);
             Files.createDirectories(target.getParent());

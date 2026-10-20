@@ -30,27 +30,36 @@ public final class Settings {
     public SpectrumStyle circularSpectrumStyle = SpectrumStyle.BARS;
     public boolean circularText = true, circularIconPulse = true;
     public SpectrumStyle spectrumStyle = SpectrumStyle.BARS;
-    public SurfaceFinish spectrumFinish = SurfaceFinish.FLAT, progressFinish = SurfaceFinish.FLAT;
+    public SurfaceFinish spectrumFinish = SurfaceFinish.BEVELED, progressFinish = SurfaceFinish.BEVELED;
     public HudShape hudShape = HudShape.RECTANGLE;
     public boolean hudRaised;
     public SpectrumPosition spectrumPosition = SpectrumPosition.BELOW;
     public SpectrumDirection spectrumDirection = SpectrumDirection.UPWARD;
-    public double hudBackgroundTransparency = 0;
-    public VisualColors spectrumColors = new VisualColors(), progressColors = new VisualColors();
+    public double hudBackgroundTransparency = 1;
+    public boolean hudBackgroundGradient;
+    public VisualColors hudBackgroundColors = backgroundColors();
+    public int menuBackgroundColor = 0x111420, menuAccentColor = 0xB8A8FA;
+    public int classicSpectrumHeight = 32, circularSpectrumHeight = 18, artworkSpectrumHeight = 40;
+    public ArtworkSpectrumPosition artworkSpectrumPosition = ArtworkSpectrumPosition.BELOW;
+    public VisualColors spectrumColors = defaultVisualColors(), progressColors = defaultVisualColors();
     public int visualizerBars = 36;
     public double visualizerSensitivity = 1, visualizerSmoothing = .6;
     public String ytDlpPath = "", ffmpegPath = "", ffprobePath = "", javascriptPath = "";
     public com.darkmusic.client.download.DownloadEncoding.Format downloadFormat = com.darkmusic.client.download.DownloadEncoding.Format.ORIGINAL;
     public AudioSettings audio = new AudioSettings();
-    public boolean lyricsEnabled = true;
+    public boolean lyricsEnabled;
     public String lyricsLanguages = "auto";
     public boolean lyricsHud, lyricsNextLine;
-    public VisualQuality visualQuality = new VisualQuality();
+    public VisualQuality visualQuality = defaultVisualQuality();
 
     public static Settings defaults(Settings previous) {
         var defaults = new Settings();
         // Folder identities are playlist reference data, not preferences.
         defaults.roots.putAll(previous.roots);
+        defaults.ytDlpPath = previous.ytDlpPath;
+        defaults.ffmpegPath = previous.ffmpegPath;
+        defaults.ffprobePath = previous.ffprobePath;
+        defaults.javascriptPath = previous.javascriptPath;
         defaults.validate();
         return defaults;
     }
@@ -60,6 +69,14 @@ public final class Settings {
     }
 
     public void validate() {
+        menuBackgroundColor &= 0xFFFFFF;
+        menuAccentColor &= 0xFFFFFF;
+        circularSpectrumHeight = Math.clamp(circularSpectrumHeight, 4, 60);
+        classicSpectrumHeight = Math.clamp(classicSpectrumHeight, 8, 100);
+        artworkSpectrumHeight = Math.clamp(artworkSpectrumHeight, 8, 100);
+        if (artworkSpectrumPosition == null) artworkSpectrumPosition = ArtworkSpectrumPosition.BELOW;
+        if (hudBackgroundColors == null) hudBackgroundColors = backgroundColors();
+        hudBackgroundColors.validate();
         try {
             lyricsLanguages = com.darkmusic.client.download.LyricsLanguages.normalize(lyricsLanguages);
         } catch (IllegalArgumentException e) {
@@ -77,14 +94,14 @@ public final class Settings {
         if (downloadFormat == null) downloadFormat = com.darkmusic.client.download.DownloadEncoding.Format.ORIGINAL;
         if (audio == null) audio = new AudioSettings();
         audio.validate();
-        if (visualQuality == null) visualQuality = new VisualQuality();
+        if (visualQuality == null) visualQuality = defaultVisualQuality();
         visualQuality.validate();
         if (repeat == null) repeat = com.darkmusic.client.audio.PlaybackController.Repeat.OFF;
         if (!java.util.Set.of("TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT").contains(hudPosition == null ? "" : hudPosition))
             hudPosition = "TOP_LEFT";
         speed = com.darkmusic.client.audio.PcmRateConverter.clamp(speed);
-        if (spectrumColors == null) spectrumColors = new VisualColors();
-        if (progressColors == null) progressColors = new VisualColors();
+        if (spectrumColors == null) spectrumColors = defaultVisualColors();
+        if (progressColors == null) progressColors = defaultVisualColors();
         spectrumColors.validate();
         progressColors.validate();
         visualizerBars = Math.clamp(visualizerBars, 8, 64);
@@ -92,20 +109,39 @@ public final class Settings {
         visualizerSmoothing = Double.isFinite(visualizerSmoothing) ? Math.clamp(visualizerSmoothing, 0, .95) : .6;
         if (hudStyle == null) hudStyle = HudStyle.CLASSIC;
         if (spectrumStyle == null) spectrumStyle = SpectrumStyle.BARS;
-        if (spectrumFinish == null) spectrumFinish = SurfaceFinish.FLAT;
-        if (progressFinish == null) progressFinish = SurfaceFinish.FLAT;
+        if (spectrumFinish == null) spectrumFinish = SurfaceFinish.BEVELED;
+        if (progressFinish == null) progressFinish = SurfaceFinish.BEVELED;
         if (circularSpectrumStyle != SpectrumStyle.BARS && circularSpectrumStyle != SpectrumStyle.FILLED_WAVE && circularSpectrumStyle != SpectrumStyle.FILLED_SPIKE)
             circularSpectrumStyle = SpectrumStyle.BARS;
         if (hudShape == null) hudShape = HudShape.RECTANGLE;
         if (spectrumPosition == null) spectrumPosition = SpectrumPosition.BELOW;
         if (spectrumDirection == null) spectrumDirection = SpectrumDirection.UPWARD;
-        hudBackgroundTransparency = Double.isFinite(hudBackgroundTransparency) ? Math.clamp(hudBackgroundTransparency, 0, 1) : 0;
+        hudBackgroundTransparency = Double.isFinite(hudBackgroundTransparency) ? Math.clamp(hudBackgroundTransparency, 0, 1) : 1;
         hudScale = com.darkmusic.client.hud.HudScale.clamp(hudScale);
         hudX = hudX == null || !Double.isFinite(hudX) ? (hudPosition.endsWith("RIGHT") ? 1.0 : 0.0) : Math.clamp(hudX, 0, 1);
         hudY = hudY == null || !Double.isFinite(hudY) ? (hudPosition.startsWith("BOTTOM") ? 1.0 : 0.0) : Math.clamp(hudY, 0, 1);
     }
 
-    public enum HudStyle {CLASSIC, CIRCULAR}
+    private static VisualColors backgroundColors() {
+        var colors = new VisualColors();
+        colors.preset = VisualColors.Preset.CUSTOM;
+        colors.start = colors.end = 0x111420;
+        return colors;
+    }
+
+    private static VisualColors defaultVisualColors() {
+        var colors = new VisualColors();
+        colors.preset = VisualColors.Preset.OCEAN_DRIVE;
+        return colors;
+    }
+
+    private static VisualQuality defaultVisualQuality() {
+        var quality = new VisualQuality();
+        quality.select(VisualQuality.Preset.ENHANCED);
+        return quality;
+    }
+
+    public enum HudStyle {CLASSIC, CIRCULAR, ARTWORK}
 
     public enum SurfaceFinish {FLAT, BEVELED}
 
@@ -114,6 +150,8 @@ public final class Settings {
     public enum HudShape {RECTANGLE, ROUNDED, CHAMFERED}
 
     public enum SpectrumPosition {ABOVE, BELOW}
+
+    public enum ArtworkSpectrumPosition {ABOVE, BELOW, LEFT, RIGHT}
 
     public enum SpectrumDirection {UPWARD, DOWNWARD}
 }

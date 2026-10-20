@@ -35,7 +35,11 @@ Inspect the smoke entrypoint and Gradle flags before choosing an optional captur
 
 Review library navigation, search-independent playback queues, playlists and selection/reordering, download paging/cancellation/retries, settings persistence, lyrics, and HUD input/layout at multiple GUI scales. Performance-sensitive spectrum changes should preserve detail/effects and compare measurements on the same local fixture.
 
-For imports, use real files from the private collection and an isolated destination. Check root/subfolder/playlist routing, filename collisions, history persistence, and byte-for-byte preservation of imported copies. On Windows, check an external file drag before and after the target gains focus, leaving the window, cancellation, and a completed drop. Normal mouse clicks in the mod must not display the import overlay. Check these interactions in both the player and playlist manager.
+For imports, use real files from the private collection and an isolated destination. Check root/subfolder/playlist routing, filename collisions, history persistence, and byte-for-byte preservation of imported copies. Verify that ordinary clicks, focus changes, fullscreen/windowed transitions, and recording do not trigger an import overlay. A real file drop must still import and show progress in both the player and playlist manager.
+
+Check missing-entry cleanup only after complete scans, including Favorite Music, startup/autoplay, unavailable roots, and existing files temporarily absent from an index. Check saved audio-profile deletion with both cancellation and confirmation, persistence, and preservation of the active sound settings. Reset must preserve installed tool files and executable paths.
+
+For the Artwork HUD, use actual embedded images with different aspect ratios. Verify proportional fitting, the flush progress bar, all four spectrum positions, outward side growth, shared background transparency/gradients, and combined preview/editor bounds. Exercise Color Spectrum/RGB switching, palette and hex editing, concrete defaults, all preset pages, and narrow-window controls. Check ordered caption-language preferences independently of local timed-lyric indicators; analysis results must not perform caption checks for an availability field.
 
 For metadata edits, work on temporary copies. Cover active and paused playback, position restoration, filename changes, playlist/favorite references, matching lyric sidecars, embedded artwork preservation, and supported tag containers. Delete temporary audio copies after the run.
 

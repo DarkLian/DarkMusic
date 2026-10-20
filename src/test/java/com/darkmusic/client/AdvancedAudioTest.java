@@ -124,7 +124,7 @@ class AdvancedAudioTest {
         assertTrue(s.audio.neutral);
         assertTrue(s.audio.gapless);
         assertEquals(0, s.audio.crossfade);
-        assertEquals(VisualQuality.Preset.STANDARD, s.visualQuality.preset());
+        assertEquals(VisualQuality.Preset.ENHANCED, s.visualQuality.preset());
         var a = s.audio;
         a.bands = new double[]{Double.NaN};
         a.width = Double.NaN;

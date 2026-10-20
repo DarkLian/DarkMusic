@@ -12,10 +12,38 @@ import org.joml.Matrix3x2f;
  * Menu surfaces only. HUD geometry and spectrum colors remain independent.
  */
 public final class UiTheme {
-    public static final int BACKGROUND = 0xFF111420, SURFACE = 0xFF191D2C, RAISED = 0xFF252A3D;
-    public static final int HOVER = 0xFF303750, SELECTED = 0xFF48446D, BORDER = 0xFF3A4059;
-    public static final int ACCENT = 0xFFB8A8FA, TEXT = 0xFFF0EFF9, SECONDARY = 0xFFB0B5CE;
-    public static final int MUTED = 0xFF868DA7, SUCCESS = 0xFF66DDB8, WARNING = 0xFFEBC37C, ERROR = 0xFFEF8798;
+    public static int BACKGROUND = 0xFF111420, SURFACE = 0xFF191D2C, RAISED = 0xFF252A3D;
+    public static int HOVER = 0xFF303750, SELECTED = 0xFF48446D, BORDER = 0xFF3A4059;
+    public static int ACCENT = 0xFFB8A8FA, TEXT = 0xFFF0EFF9, SECONDARY = 0xFFB0B5CE;
+    public static int MUTED = 0xFF868DA7;
+    public static final int SUCCESS = 0xFF66DDB8, WARNING = 0xFFEBC37C, ERROR = 0xFFEF8798;
+
+    public static void apply(com.darkmusic.client.config.Settings settings) {
+        int base = settings.menuBackgroundColor | 0xFF000000;
+        ACCENT = settings.menuAccentColor | 0xFF000000;
+        BACKGROUND = base;
+        if (settings.menuBackgroundColor == 0x111420) {
+            SURFACE = 0xFF191D2C;
+            RAISED = 0xFF252A3D;
+            HOVER = 0xFF303750;
+            BORDER = 0xFF3A4059;
+            TEXT = 0xFFF0EFF9;
+            SECONDARY = 0xFFB0B5CE;
+            MUTED = 0xFF868DA7;
+        } else {
+            boolean light = ((base >> 16 & 255) * .2126 + (base >> 8 & 255) * .7152 + (base & 255) * .0722) > 160;
+            int ink = light ? 0xFF111420 : 0xFFF0EFF9;
+            SURFACE = mix(base, ink, .05f);
+            RAISED = mix(base, ink, .10f);
+            HOVER = mix(base, ACCENT, .22f);
+            BORDER = mix(base, ink, .24f);
+            TEXT = ink;
+            SECONDARY = mix(base, ink, .75f);
+            MUTED = mix(base, ink, .55f);
+        }
+        SELECTED = settings.menuBackgroundColor == 0x111420 && settings.menuAccentColor == 0xB8A8FA
+            ? 0xFF48446D : mix(SURFACE, ACCENT, .30f);
+    }
 
     private UiTheme() {
     }

@@ -35,8 +35,9 @@ public final class UiInput extends EditBox {
 
     public UiInput(Font font, int x, int y, int width, int height, Component label) {
         super(font, x, y, width, height, label);
-        setTextColor(UiTheme.TEXT);
-        setTextColorUneditable(UiTheme.MUTED);
+        // Minecraft owns the native editor's dark input surface, including caret and selection.
+        setTextColor(0xFFF0EFF9);
+        setTextColorUneditable(0xFF868DA7);
     }
 
     public void invalid(boolean value) {

@@ -158,6 +158,9 @@ public class DarkMusicClient implements ClientModInitializer {
     private volatile long warningUntil;
     private long conflictWarning;
     private boolean autoplayPending;
+    public final com.darkmusic.client.library.SourceLinks sourceLinks = new com.darkmusic.client.library.SourceLinks(browsing);
+    private boolean playlistCleanupPending;
+    private long cleanedScan = -1, cleanedPlaylists = -1;
     private volatile boolean closed;
     private boolean resetting;
     private long directoryGeneration;
@@ -211,6 +214,7 @@ public class DarkMusicClient implements ClientModInitializer {
 
     public void configureVisualizer() {
         if (settings != null) {
+            com.darkmusic.client.gui.UiTheme.apply(settings);
             com.darkmusic.client.audio.ExternalAudio.configure(() -> new com.darkmusic.client.audio.ExternalAudio.Paths(config.directory(), settings.ffmpegPath, settings.ffprobePath));
             if (downloads != null) downloads.format(settings.downloadFormat);
             if (downloads != null)
@@ -404,6 +408,55 @@ public class DarkMusicClient implements ClientModInitializer {
         });
     }
 
+    public void resetMusicFolder() {
+        browse(() -> {
+            try {
+                java.nio.file.Files.createDirectories(config.defaultMusic());
+                Minecraft.getInstance().execute(() -> {
+                    if (closed || resetting) return;
+                    chooseDirectory(config.defaultMusic(), () -> {
+                        settings.musicDirectory = "";
+                        save();
+                    });
+                });
+            } catch (Exception e) {
+                warn("Cannot open the default music folder: " + e.getMessage());
+            }
+        });
+    }
+
+    private boolean cleanMissingPlaylistEntries() {
+        if (mediaBusy || !playlistsReady || library == null || playlistCleanupPending) return false;
+        var snapshot = library.snapshot();
+        if (snapshot.scanning() || !snapshot.complete()) return false;
+        if (cleanedScan == snapshot.revision() && cleanedPlaylists == playlists.revision()) return true;
+        var store = playlists;
+        var entries = store.all();
+        long revision = store.revision();
+        var root = library.root();
+        String rootId = library.rootId();
+        playlistCleanupPending = true;
+        io.execute(() -> {
+            java.util.Set<com.darkmusic.client.playlist.PlaylistStore.Entry> missing;
+            try {
+                missing = com.darkmusic.client.playlist.PlaylistStore.missing(root, rootId, entries, snapshot.tracks());
+            } catch (Exception e) {
+                missing = java.util.Set.of();
+                warn("Could not check missing playlist files: " + e.getMessage());
+            }
+            var result = missing;
+            Minecraft.getInstance().execute(() -> {
+                playlistCleanupPending = false;
+                if (closed || resetting || mediaBusy || playlists != store || store.revision() != revision
+                    || library.snapshot().revision() != snapshot.revision() || !rootId.equals(library.rootId())) return;
+                store.removeMissing(result);
+                cleanedScan = snapshot.revision();
+                cleanedPlaylists = store.revision();
+            });
+        });
+        return false;
+    }
+
     public void openFolder() {
         java.nio.file.Path directory = library.root();
         browse(() -> {
@@ -439,7 +492,8 @@ public class DarkMusicClient implements ClientModInitializer {
         while (mute.consumeClick())
             if (allowed && playback != null && !conflicts(mute)) toggleMute();
         if (resetting || settings == null || playback == null) return;
-        if (autoplayPending && !mediaBusy && !library.snapshot().scanning()) {
+        boolean playlistsClean = cleanMissingPlaylistEntries();
+        if (autoplayPending && !mediaBusy && playlistsClean) {
             autoplayPending = false;
             if (!library.snapshot().tracks().isEmpty())
                 playback.play(library.snapshot().tracks(), library.snapshot().tracks().getFirst());

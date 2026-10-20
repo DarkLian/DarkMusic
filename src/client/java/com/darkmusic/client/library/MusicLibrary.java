@@ -188,7 +188,7 @@ public final class MusicLibrary implements AutoCloseable {
             }
         }
         if (!directories.isEmpty()) replaceWatcher(directories);
-        publish(ticket, new Snapshot(revisions.incrementAndGet(), List.copyOf(tracks), false, message, directories.stream().map(directory::relativize).map(p -> p.toString().replace('\\', '/')).filter(p -> !p.isEmpty()).toList()));
+        publish(ticket, new Snapshot(revisions.incrementAndGet(), List.copyOf(tracks), false, message, directories.stream().map(directory::relativize).map(p -> p.toString().replace('\\', '/')).filter(p -> !p.isEmpty()).toList(), complete));
     }
 
     private synchronized void publish(long ticket, Snapshot value) {
@@ -263,7 +263,8 @@ public final class MusicLibrary implements AutoCloseable {
         return scanner.awaitTermination(seconds, TimeUnit.SECONDS) && monitor.awaitTermination(seconds, TimeUnit.SECONDS);
     }
 
-    public record Snapshot(long revision, List<Track> tracks, boolean scanning, String message, List<String> folders) {
+    public record Snapshot(long revision, List<Track> tracks, boolean scanning, String message, List<String> folders,
+                           boolean complete) {
         public Snapshot {
             tracks = List.copyOf(tracks);
             folders = List.copyOf(folders);
@@ -271,6 +272,10 @@ public final class MusicLibrary implements AutoCloseable {
 
         public Snapshot(long revision, List<Track> tracks, boolean scanning, String message) {
             this(revision, tracks, scanning, message, List.of());
+        }
+
+        public Snapshot(long revision, List<Track> tracks, boolean scanning, String message, List<String> folders) {
+            this(revision, tracks, scanning, message, folders, false);
         }
     }
 

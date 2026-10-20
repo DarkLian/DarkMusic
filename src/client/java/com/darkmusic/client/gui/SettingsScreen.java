@@ -154,24 +154,36 @@ public final class SettingsScreen extends LocalScreen {
         folderPath = app.library.root().toString();
         folderLines = font.split(net.minecraft.network.chat.Component.literal(folderPath), formWidth - 14);
         cursor += folderLines.size() * 10 + 4;
+        action("settings.darkmusic.default_folder", app::resetMusicFolder, "settings.darkmusic.default_folder_help");
+        action("settings.darkmusic.menu_background", () -> show(new ColorPickerScreen(this, s.menuBackgroundColor, 0x111420, color -> {
+            s.menuBackgroundColor = color;
+            app.save();
+        })), "settings.darkmusic.menu_colors_help");
+        action("settings.darkmusic.menu_accent", () -> show(new ColorPickerScreen(this, s.menuAccentColor, 0xB8A8FA, color -> {
+            s.menuAccentColor = color;
+            app.save();
+        })), "settings.darkmusic.menu_colors_help");
         section("text.darkmusic.hud_settings");
         toggle("text.darkmusic.now_playing_hud", () -> s.hudEnabled, v -> s.hudEnabled = v, "hud.darkmusic.master_help");
-        if (s.lyricsEnabled) {
+        if (s.lyricsEnabled && s.hudStyle != Settings.HudStyle.ARTWORK) {
             toggle("lyrics.darkmusic.hud", () -> s.lyricsHud, v -> s.lyricsHud = v, "lyrics.darkmusic.hud_help");
             toggle("lyrics.darkmusic.next", () -> s.lyricsNextLine, v -> s.lyricsNextLine = v, "lyrics.darkmusic.next_help");
         }
         action("circle.darkmusic.style", () -> {
-            s.hudStyle = s.hudStyle == Settings.HudStyle.CLASSIC ? Settings.HudStyle.CIRCULAR : Settings.HudStyle.CLASSIC;
+            s.hudStyle = Settings.HudStyle.values()[(s.hudStyle.ordinal() + 1) % Settings.HudStyle.values().length];
             app.save();
             rebuildWidgets();
         }, "circle.darkmusic.style_help");
         controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("circle.darkmusic.style") + ": " + Text.get("circle.darkmusic.style." + s.hudStyle.name().toLowerCase(Locale.ROOT))));
         boolean classic = s.hudStyle == Settings.HudStyle.CLASSIC;
+        boolean artwork = s.hudStyle == Settings.HudStyle.ARTWORK;
+        boolean linear = classic || artwork;
         if (classic)
             toggle("text.darkmusic.hud_artwork", () -> s.hudArtwork, v -> s.hudArtwork = v, "hud.darkmusic.artwork_help");
-        toggle("text.darkmusic.hud_progress", () -> s.hudProgress, v -> s.hudProgress = v, classic ? "text.darkmusic.show_the_current_track_s_progress_below_the_title_and_artist" : "circle.darkmusic.progress_help");
+        toggle("text.darkmusic.hud_progress", () -> s.hudProgress, v -> s.hudProgress = v,
+            artwork ? "hud.darkmusic.artwork_progress_help" : classic ? "text.darkmusic.show_the_current_track_s_progress_below_the_title_and_artist" : "circle.darkmusic.progress_help");
         toggle("hud.darkmusic.spectrum", () -> s.hudVisualizer, v -> s.hudVisualizer = v, "hud.darkmusic.spectrum_help");
-        if (!classic) {
+        if (!linear) {
             toggle("circle.darkmusic.text", () -> s.circularText, v -> s.circularText = v, "circle.darkmusic.text_help");
             action("circle.darkmusic.pulse", () -> {
                 if (!s.circularIconPulse) {
@@ -196,7 +208,7 @@ public final class SettingsScreen extends LocalScreen {
         }
         section("hud.darkmusic.section_spectrum");
         action("style.darkmusic.spectrum", () -> {
-            if (classic)
+            if (linear)
                 s.spectrumStyle = Settings.SpectrumStyle.values()[(s.spectrumStyle.ordinal() + 1) % Settings.SpectrumStyle.values().length];
             else s.circularSpectrumStyle = switch (s.circularSpectrumStyle) {
                 case BARS -> Settings.SpectrumStyle.FILLED_WAVE;
@@ -205,33 +217,49 @@ public final class SettingsScreen extends LocalScreen {
             };
             app.save();
             rebuildWidgets();
-        }, classic ? "style.darkmusic.spectrum_help" : "circle.darkmusic.spectrum_help");
-        var chosenStyle = classic ? s.spectrumStyle : s.circularSpectrumStyle;
-        controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("style.darkmusic.spectrum") + ": " + Text.get((classic ? "style.darkmusic.spectrum." : "circle.darkmusic.spectrum.") + chosenStyle.name().toLowerCase(Locale.ROOT))));
-        if (classic) {
+        }, linear ? "style.darkmusic.spectrum_help" : "circle.darkmusic.spectrum_help");
+        var chosenStyle = linear ? s.spectrumStyle : s.circularSpectrumStyle;
+        controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("style.darkmusic.spectrum") + ": " + Text.get((linear ? "style.darkmusic.spectrum." : "circle.darkmusic.spectrum.") + chosenStyle.name().toLowerCase(Locale.ROOT))));
+        if (linear) {
             action("hud.darkmusic.position", () -> {
-                s.spectrumPosition = s.spectrumPosition == Settings.SpectrumPosition.ABOVE ? Settings.SpectrumPosition.BELOW : Settings.SpectrumPosition.ABOVE;
+                if (artwork)
+                    s.artworkSpectrumPosition = Settings.ArtworkSpectrumPosition.values()[(s.artworkSpectrumPosition.ordinal() + 1) % Settings.ArtworkSpectrumPosition.values().length];
+                else
+                    s.spectrumPosition = s.spectrumPosition == Settings.SpectrumPosition.ABOVE ? Settings.SpectrumPosition.BELOW : Settings.SpectrumPosition.ABOVE;
                 app.save();
                 rebuildWidgets();
-            }, "hud.darkmusic.position_help");
-            controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("hud.darkmusic.position") + ": " + Text.get("hud.darkmusic.position." + s.spectrumPosition.name().toLowerCase(Locale.ROOT))));
-            action("hud.darkmusic.direction", () -> {
-                s.spectrumDirection = s.spectrumDirection == Settings.SpectrumDirection.UPWARD ? Settings.SpectrumDirection.DOWNWARD : Settings.SpectrumDirection.UPWARD;
-                app.save();
-                rebuildWidgets();
-            }, "hud.darkmusic.direction_help");
-            controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("hud.darkmusic.direction") + ": " + Text.get("hud.darkmusic.direction." + s.spectrumDirection.name().toLowerCase(Locale.ROOT))));
+            }, artwork ? "hud.darkmusic.artwork_position_help" : "hud.darkmusic.position_help");
+            controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("hud.darkmusic.position") + ": " + Text.get("hud.darkmusic.position." + (artwork ? s.artworkSpectrumPosition.name() : s.spectrumPosition.name()).toLowerCase(Locale.ROOT))));
+            if (!artwork || s.artworkSpectrumPosition == Settings.ArtworkSpectrumPosition.ABOVE
+                || s.artworkSpectrumPosition == Settings.ArtworkSpectrumPosition.BELOW) {
+                action("hud.darkmusic.direction", () -> {
+                    s.spectrumDirection = s.spectrumDirection == Settings.SpectrumDirection.UPWARD ? Settings.SpectrumDirection.DOWNWARD : Settings.SpectrumDirection.UPWARD;
+                    app.save();
+                    rebuildWidgets();
+                }, "hud.darkmusic.direction_help");
+                controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("hud.darkmusic.direction") + ": " + Text.get("hud.darkmusic.direction." + s.spectrumDirection.name().toLowerCase(Locale.ROOT))));
+            }
         }
         slider(s.visualizerSmoothing / .95, v -> Text.get("format.darkmusic.smoothing", Math.round(s.visualizerSmoothing * 100)), v -> s.visualizerSmoothing = v * .95, 19, "text.darkmusic.higher_values_give_slower_attack_and_decay_pausing_freezes_the_actual_spectrum_sto");
         slider((s.visualizerSensitivity - .25) / 3.75, v -> Text.get("format.darkmusic.sensitivity", String.format(Locale.ROOT, "%.2f", s.visualizerSensitivity)), v -> s.visualizerSensitivity = .25 + v * 3.75, 15, "text.darkmusic.boost_quiet_spectra_or_reduce_strong_levels_samples_follow_playback_speed_and_dark");
         slider((s.visualizerBars - 8) / 56.0, v -> Text.get("format.darkmusic.bars", s.visualizerBars), v -> s.visualizerBars = 8 + (int) Math.round(v * 56), 14, "text.darkmusic.8_64_logarithmic_frequency_bands_from_bass_to_treble_narrow_areas_combine_bars_to");
+        slider(linear ? ((artwork ? s.artworkSpectrumHeight : s.classicSpectrumHeight) - 8) / 92.0 : (s.circularSpectrumHeight - 4) / 56.0,
+            v -> Text.get("hud.darkmusic.spectrum_height", artwork ? s.artworkSpectrumHeight : classic ? s.classicSpectrumHeight : s.circularSpectrumHeight),
+            v -> {
+                if (artwork) s.artworkSpectrumHeight = 8 + (int) Math.round(v * 92);
+                else if (classic) s.classicSpectrumHeight = 8 + (int) Math.round(v * 92);
+                else s.circularSpectrumHeight = 4 + (int) Math.round(v * 56);
+            }, linear ? 92 : 56, "hud.darkmusic.spectrum_height_help");
         section("hud.darkmusic.section_appearance");
         finish("finish.darkmusic.spectrum", () -> s.spectrumFinish, v -> s.spectrumFinish = v);
         finish("finish.darkmusic.progress", () -> s.progressFinish, v -> s.progressFinish = v);
         action("colors.darkmusic.spectrum", () -> show(new ColorsScreen(app, this, true)), "colors.darkmusic.help");
         action("colors.darkmusic.progress", () -> show(new ColorsScreen(app, this, false)), "colors.darkmusic.help");
-        if (classic)
+        if (linear) {
             slider(s.hudBackgroundTransparency, v -> Text.get("hud.darkmusic.transparency", Math.round(s.hudBackgroundTransparency * 100)), v -> s.hudBackgroundTransparency = v, 100, "hud.darkmusic.transparency_help");
+            toggle("hud.darkmusic.background_gradient", () -> s.hudBackgroundGradient, v -> s.hudBackgroundGradient = v, "hud.darkmusic.background_gradient_help");
+            action("hud.darkmusic.background_colors", () -> show(new ColorsScreen(app, this, s.hudBackgroundColors, "hud.darkmusic.background_colors")), "colors.darkmusic.help");
+        }
         section("hud.darkmusic.section_effects");
         action("quality.darkmusic.preset", () -> {
             s.visualQuality.next();
@@ -295,7 +323,7 @@ public final class SettingsScreen extends LocalScreen {
     }
 
     private void fitPreview() {
-        var layout = com.darkmusic.client.hud.HudLayout.content(app.settings, Integer.MAX_VALUE);
+        var layout = NowPlayingHud.content(app);
         double fit = Math.min((previewWidth - 16.0) / layout.width(), (previewHeight - 30.0) / layout.height());
         previewScale = Math.min(previewScale, Math.max(.1, Math.floor(fit * 10) / 10));
     }
@@ -310,9 +338,6 @@ public final class SettingsScreen extends LocalScreen {
             UiTheme.panel(g, previewX, previewY, previewWidth, previewHeight);
             g.text(font, Text.get("hud.darkmusic.live_preview"), previewX + 6, previewY + 6, UiTheme.ACCENT);
             g.enableScissor(previewX + 2, previewY + 20, previewX + previewWidth - 2, previewY + previewHeight - 2);
-            for (int cy = previewY + 20; cy < previewY + previewHeight - 2; cy += 16)
-                for (int cx = previewX + 2; cx < previewX + previewWidth - 2; cx += 16)
-                    g.fill(cx, cy, Math.min(cx + 16, previewX + previewWidth - 2), Math.min(cy + 16, previewY + previewHeight - 2), ((cx - previewX) / 16 + (cy - previewY) / 16) % 2 == 0 ? 0xFF20283A : 0xFF293246);
             fitPreview();
             NowPlayingHud.renderPreview(app, g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30, previewScale, longText);
             g.disableScissor();

@@ -150,6 +150,47 @@ class MediaFilesTest {
     }
 
     @Test
+    void sourceUrlCanBeReadFromExistingEmbeddedMetadataOffThread() throws Exception {
+        String ff = System.getProperty("darkmusic.test.ffmpeg", "");
+        Assumptions.assumeFalse(ff.isBlank(), "Real FFmpeg integration is opt-in");
+        ExternalAudio.configure(() -> new ExternalAudio.Paths(temp, ff, Path.of(ff).resolveSibling("ffprobe.exe").toString()));
+        String url = "https://www.bilibili.com/video/BV1abc123456";
+        Path file = temp.resolve("source-url.m4a");
+        var result = new ProcessRunner().run(List.of(ff, "-v", "error", "-i", TestMusic.featured().toString(),
+                "-t", "2", "-map", "0:a:0", "-c:a", "aac", "-metadata", "comment=" + url, file.toString()),
+            temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 4096, line -> {
+            });
+        assertEquals(0, result.exit(), result.output());
+        try (var worker = Executors.newSingleThreadExecutor()) {
+            var links = new com.darkmusic.client.library.SourceLinks(worker);
+            var track = track(file);
+            assertEquals("", links.get(track));
+            worker.submit(() -> {
+            }).get();
+            assertEquals(url, links.get(track));
+        }
+        var unavailable = new com.darkmusic.client.library.SourceLinks(task -> {
+            throw new java.util.concurrent.RejectedExecutionException();
+        });
+        assertEquals("", unavailable.get(track(file)));
+    }
+
+    @Test
+    void sourceVideoFollowsImportedAndRenamedRealAudioWithoutChangingOriginal() throws Exception {
+        Path source = Files.copy(TestMusic.featured(), temp.resolve("source.mp3"));
+        byte[] original = Files.readAllBytes(source);
+        String url = "https://www.youtube.com/watch?v=abcdefghijk";
+        com.darkmusic.client.library.SourceLinks.record(source, url);
+        Path root = Files.createDirectory(temp.resolve("imported"));
+        var imported = files.importFiles(root, "root", "", List.of(source), new ProcessRunner.Token()).tracks().getFirst();
+        assertEquals(url, com.darkmusic.client.library.SourceLinks.read(imported.file()));
+        var fields = files.fields(imported);
+        var renamed = files.edit(imported, fields, new MediaFiles.Fields(fields.title(), fields.artist(), fields.album(), "renamed", fields.extension()), new ProcessRunner.Token());
+        assertEquals(url, com.darkmusic.client.library.SourceLinks.read(renamed.file()));
+        assertArrayEquals(original, Files.readAllBytes(source));
+    }
+
+    @Test
     void invalidNamesCollisionsAndChangedFilesLeaveOriginalUntouched() throws Exception {
         Path copy = Files.copy(TestMusic.featured(), temp.resolve("before.mp3"));
         Track before = track(copy);

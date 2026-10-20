@@ -20,26 +20,44 @@ public final class HudSurface {
     }
 
     public static void draw(GuiGraphicsExtractor g, Settings settings, int width, int height) {
-        int background = HudLayout.background(settings);
-        if (settings.hudShape == Settings.HudShape.RECTANGLE && !settings.hudRaised) {
-            g.fill(0, 0, width, height, background);
-            return;
-        }
-        for (int row = 0; row < height; row++) {
+        int alpha = HudLayout.background(settings) & 0xFF000000;
+        for (int row = 0; row < height; ) {
             int inset = inset(settings.hudShape, width, height, row);
-            int color = background;
-            // A quiet bevel, not an opaque overlay: transparency affects every surface equally.
-            if (settings.hudRaised)
-                color = (background & 0xFF000000) | (row < 2 ? 0x34394F : row >= height - 2 ? 0x080A12 : 0x111420);
-            boolean sideBevel = settings.hudRaised && row >= 2 && row < height - 2;
-            int side = sideBevel ? 1 : 0;
-            // Adjacent surfaces must not overlap: alpha blending twice would darken the bevel.
-            g.fill(inset + side, row, width - inset - side, row + 1, color);
-            if (sideBevel) {
-                g.fill(inset, row, inset + 1, row + 1, (background & 0xFF000000) | 0x292F44);
-                g.fill(width - inset - 1, row, width - inset, row + 1, (background & 0xFF000000) | 0x080A12);
+            int next = spanBottom(settings.hudShape, width, height, 0, width, row, height);
+            if (settings.hudRaised) {
+                if (row < 2) next = Math.min(next, 2);
+                else if (row < height - 2) next = Math.min(next, height - 2);
             }
+            boolean sides = settings.hudRaised && row >= 2 && row < height - 2;
+            int bevel = settings.hudRaised ? row < 2 ? 0x34394F : row >= height - 2 ? 0x080A12 : 0x111420 : 0x111420;
+            int side = sides ? 1 : 0;
+            surface(g, settings, inset + side, row, width - inset - side, next, width, alpha, bevel);
+            if (sides) {
+                surface(g, settings, inset, row, inset + 1, next, width, alpha, 0x292F44);
+                surface(g, settings, width - inset - 1, row, width - inset, next, width, alpha, 0x080A12);
+            }
+            row = next;
         }
+    }
+
+    private static void surface(GuiGraphicsExtractor g, Settings settings, int left, int top, int right, int bottom,
+                                int width, int alpha, int bevel) {
+        if (right <= left || bottom <= top) return;
+        int a = tint(settings.hudBackgroundColors.first(), bevel);
+        int b = settings.hudBackgroundGradient ? tint(settings.hudBackgroundColors.last(), bevel) : a;
+        if (a == b) g.fill(left, top, right, bottom, alpha | a);
+        else com.darkmusic.client.gui.UiTheme.gradient(g, left, top, right - left, bottom - top,
+            alpha | (com.darkmusic.client.gui.UiTheme.mix(a, b, left / (float) width) & 0xFFFFFF),
+            alpha | (com.darkmusic.client.gui.UiTheme.mix(a, b, right / (float) width) & 0xFFFFFF));
+    }
+
+    private static int tint(int color, int bevel) {
+        int result = 0;
+        for (int shift = 16; shift >= 0; shift -= 8) {
+            int value = (color >> shift & 255) + (bevel >> shift & 255) - (0x111420 >> shift & 255);
+            result |= Math.clamp(value, 0, 255) << shift;
+        }
+        return result;
     }
 
     /**
