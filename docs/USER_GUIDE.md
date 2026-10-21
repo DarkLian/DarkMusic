@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v2.3.3 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v2.3.4 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Interface language
 
@@ -43,9 +43,11 @@ Choose **All**, **Playlists**, **Artists**, or **Albums**. The left panel shows 
 
 Search filters the visible list. Select a song and press Play, or double-click it. The right panel shows the selected song's details and artwork. It can show a different song from the one currently playing.
 
+The player uses larger borderless playback and utility icons. Volume has a slim filled track and percentage readout; Speed has a matching unfilled track and multiplier. The player controls are centered independently of the song list. Speed and Volume sliders sit at the outer edges, with Reset Speed and Mute beside the playback buttons. All controls use equal horizontal spacing. In the three-column layout, the song list is also centered; the details panel keeps its usual width.
+
 The centered controls are:
 
-**Reset Speed · Speed · Shuffle · Jump to Playing · Previous · Play/Pause · Next · Stop · Repeat · Volume · Mute/Unmute**
+**Speed · Reset Speed · Shuffle · Jump to Playing · Previous · Play/Pause · Next · Stop · Repeat · Mute/Unmute · Volume**
 
 Drag the speed or volume marker, or focus the slider and use the arrow keys. Speed ranges from **0.5× to 3.0×** in 0.1× steps; speed changes also change pitch unless Preserve Pitch is enabled in Advanced Audio. Reset Speed returns to 1.0×. Mute/Unmute restores the last audible volume when unmuting. Supported controls show their current key bindings in hover help. Drag or click the filled progress track above the controls to seek.
 
@@ -65,7 +67,7 @@ Long labels can be scrolled horizontally with a horizontal wheel gesture or Shif
 
 ![Playlist manager](images/playlists.png)
 
-Open the Playlists view, then **Manage Playlists**. Create or rename a playlist, and use **Add Songs** to choose tracks. Songs already in the playlist are omitted from the picker.
+Open the Playlists view, then **Manage Playlists**, centered above the right details panel when that panel is visible. Create or rename a playlist, and use **Add Songs** to choose tracks. Songs already in the playlist are omitted from the picker.
 
 Use selection controls or Ctrl/Cmd-click to select individual songs. Shift-click extends a selection. Ctrl/Cmd+A selects the list. Connected selections can be dragged together to change their order; Move Up and Move Down provide button controls.
 
@@ -81,13 +83,11 @@ Favorite Music is a built-in playlist with a heart icon in both playlist views. 
 
 ### Edit song details
 
-![Song metadata editor](images/metadata.png)
-
 Select a song and click the pencil in its details panel to edit the title, artist, album, or filename. The filename field contains only the name; the file extension is kept automatically. Saving writes the metadata to the audio file and updates the library and playlist references.
 
 If that song is playing, saving briefly releases its playback handle and resumes at the previous position and playing/paused state. Renaming also keeps matching lyric sidecars with the song. Unsupported tag formats or failed writes show an error. Opus and WebM tagging requires FFmpeg. Back up important files before deliberately editing their tags.
 
-The details actions are Heart, Pencil, Open Source, and Copy Source Link. Source actions are available when DarkMusic knows the original video URL. Copy Source Link displays **Copied!** after successful copying. Downloads record source associations, which follow imported or renamed files. The actions are hidden when the panel has no selected song.
+The details actions are Heart, Pencil, Lyrics (when enabled), Open Source, and Copy Source Link. Source actions are available when DarkMusic knows the original video URL. Copy Source Link displays **Copied!** after successful copying. In narrow panels the confirmation appears as a brief tooltip. Downloads record source associations, which follow imported or renamed files. The actions are hidden when the panel has no selected song.
 
 ## Download music
 
@@ -126,8 +126,6 @@ Completed files go into the currently configured music folder and appear in the 
 
 Restricted, deleted, private, or unsupported content may fail. DarkMusic does not bypass authentication or DRM. Download only material you are authorized to save.
 
-The player controls are centered independently of the song list. Speed and Volume sliders sit at the outer edges, with Reset Speed and Mute beside the playback buttons. All controls use equal horizontal spacing. In the three-column layout, the song list is also centered; the details panel keeps its usual width.
-
 ## Mod updates
 
 **Settings → General → Update Notifications** checks GitHub when joining a world or server and notifies once per launch. Turning it off disables automatic checks and notices. **Check for Updates** checks manually regardless of that toggle and reports availability or errors. An available update requires a separate **Download Update** click; nothing downloads simply because a check found it.
@@ -153,13 +151,15 @@ Choose a spectrum style, bar count, sensitivity, smoothing, and height in every 
 
 Color editors offer **Color Spectrum** or **RGB** mode, one at a time. In Color Spectrum, choose a hue on the rainbow strip and saturation/brightness in the field above it. Palette colors, **#RRGGBB** input, and **Default** remain available. General settings also has menu background/accent colors. Gradient presets are paged so all choices remain reachable.
 
+![Spectrum color presets and custom gradient](images/colors.png)
+
 New installations and Reset to Defaults use 100% HUD background transparency, Enhanced visualizer quality, Beveled spectrum/progress finishes, and Ocean Drive colors. Lyrics start disabled. Existing saved choices are retained when upgrading.
 
 For Circular HUD, **Audio-Reactive Icon** selects **Off**, **Audio Level**, or **Beat**. Audio Level follows the music's energy; Beat pulses on detected onsets. Quality presets can also select the underlying beat-reactive mode. Settings sliders use a vertical handle without a filled horizontal track.
 
-![Classic HUD with default visuals during gameplay](images/classic-hud.png)
+![Customized Classic HUD during gameplay](images/classic-hud.png)
 
-![Spectrum controls](images/spectrum.png)
+![Spectrum settings with an Artwork HUD preview](images/spectrum.png)
 
 The spectrum analyzes decoded music samples. Pause freezes it; seeking, stopping, and track changes reset its analysis state.
 
@@ -217,7 +217,7 @@ Spectrum, waveform, and response panels can be switched off independently. Measu
 
 ## Lyrics
 
-**Enable Lyrics** controls lyric display and downloading source captions. **Lyrics in HUD** and **Show Next Lyric Line** control HUD lines. The Lyrics screen displays synchronized text for the current song.
+**Enable Lyrics** controls lyric display and downloading source captions. **Lyrics in HUD** and **Show Next Lyric Line** control HUD lines. The Lyrics screen displays synchronized text for the currently playing song. When lyrics are enabled, open it with the Lyrics icon between Pencil and Open Source in the song-details panel.
 
 For a local sidecar, place `Song.lrc` beside `Song.mp3` (or another supported audio file) with the same basename. Lyrics need timed lines, for example:
 

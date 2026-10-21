@@ -6,12 +6,12 @@ A client-side music player for Minecraft. Browse your own library, build playlis
 
 ## Install
 
-DarkMusic **v2.3.3** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v2.3.4** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-2.3.3.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-2.3.4.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
-4. Open **Settings → Choose Music Folder**, or add songs to `config/darkmusic/music` inside the instance.
+4. Open **Settings → General → Choose Music Folder**, or add songs to `config/darkmusic/music` inside the instance.
 
 Install DarkMusic on the client. Servers do not need it. Windows, Linux, and macOS are supported; external audio formats and downloading need compatible tools for the operating system.
 
@@ -35,11 +35,25 @@ Update notifications are enabled by default and appear once per launch after joi
 - **Audio Analyzer:** device-clock stage measurements, spectra, waveforms, EQ response, stereo and dynamics meters, plus temporary A/B comparison and level matching.
 - **Lyrics:** optional synchronized local `.lrc` files and supported embedded tags, plus matching manual source captions during downloads with ordered language preferences.
 
+## Build your playlists
+
+Create playlists, bulk-select songs, and drag connected selections to reorder them. Keep favorites one heart-click away.
+
+![Playlist manager with selection and ordering controls](docs/images/playlists.png)
+
 ## Your HUD in-game
 
-Classic HUD with default visuals, placed on the middle-left. Move and resize it in Edit HUD Layout.
+A customized Classic HUD, placed on the middle-left. Move and resize it in Edit HUD Layout.
 
 ![Classic Now-Playing HUD during gameplay](docs/images/classic-hud.png)
+
+## Customize your visuals
+
+Preview HUD layouts, choose a spectrum style, and pick a gradient or your own colors.
+
+![Spectrum settings and Artwork HUD preview](docs/images/spectrum.png)
+
+![Spectrum color presets and live preview](docs/images/colors.png)
 
 ## Shape your sound
 
