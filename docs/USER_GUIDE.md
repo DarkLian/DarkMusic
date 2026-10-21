@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v2.3.4 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v2.3.5 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Interface language
 
@@ -41,17 +41,19 @@ Open **Import History** beside Open Folder to review import times, filenames, de
 
 Choose **All**, **Playlists**, **Artists**, or **Albums**. The left panel shows collections and track counts. In All, folder disclosure symbols expand nested folders; folders start collapsed.
 
-Search filters the visible list. Select a song and press Play, or double-click it. The right panel shows the selected song's details and artwork. It can show a different song from the one currently playing.
+Search filters the visible list. Select a song and press Play, or double-click it. The right panel shows the selected song's details and artwork. It can show a different song from the one currently playing. Play starts that selection; Pause/Resume controls the current song only when both the song and its source collection match. The right-side spectrum follows that same rule. Track changes automatically reveal the playing song and its source collection.
 
-The player uses larger borderless playback and utility icons. Volume has a slim filled track and percentage readout; Speed has a matching unfilled track and multiplier. The player controls are centered independently of the song list. Speed and Volume sliders sit at the outer edges, with Reset Speed and Mute beside the playback buttons. All controls use equal horizontal spacing. In the three-column layout, the song list is also centered; the details panel keeps its usual width.
+The player uses larger borderless playback and utility icons. Volume has a slim filled track and percentage readout; Speed has a matching filled track and a multiplier on its left. The player controls are centered independently of the song list. Speed and Volume sliders sit at the outer edges, with Reset Speed and Mute beside the playback buttons. All controls use equal horizontal spacing. In the three-column layout, the song list is also centered; the details panel keeps its usual width.
 
 The centered controls are:
 
-**Speed · Reset Speed · Shuffle · Jump to Playing · Previous · Play/Pause · Next · Stop · Repeat · Mute/Unmute · Volume**
+**Speed · Reset Speed · Shuffle · Jump to Playing · Previous · Back 5 Seconds · Play/Pause · Forward 5 Seconds · Next · Stop · Repeat · Mute/Unmute · Volume**
 
 Drag the speed or volume marker, or focus the slider and use the arrow keys. Speed ranges from **0.5× to 3.0×** in 0.1× steps; speed changes also change pitch unless Preserve Pitch is enabled in Advanced Audio. Reset Speed returns to 1.0×. Mute/Unmute restores the last audible volume when unmuting. Supported controls show their current key bindings in hover help. Drag or click the filled progress track above the controls to seek.
 
-Repeat cycles between:
+Space toggles Play/Pause while the player is open. DarkMusic shortcuts also work there unless a text field is focused. Manual Previous and Next wrap through the playback collection regardless of repeat mode.
+
+Repeat controls what happens when a song finishes, cycling between:
 
 | Mode | Behavior |
 |---|---|
@@ -67,9 +69,9 @@ Long labels can be scrolled horizontally with a horizontal wheel gesture or Shif
 
 ![Playlist manager](images/playlists.png)
 
-Open the Playlists view, then **Manage Playlists**, centered above the right details panel when that panel is visible. Create or rename a playlist, and use **Add Songs** to choose tracks. Songs already in the playlist are omitted from the picker.
+Open **Manage Playlists** with the music-note button above the collection list. Playlist creation, rename, and delete actions sit above the left list; Add Songs and Remove Selected sit above the song list. Selection actions are below the songs. Create or rename a playlist, and use **Add Songs** to choose tracks. Songs already in the playlist are omitted from the picker.
 
-Use selection controls or Ctrl/Cmd-click to select individual songs. Shift-click extends a selection. Ctrl/Cmd+A selects the list. Connected selections can be dragged together to change their order; Move Up and Move Down provide button controls.
+Use selection controls or Ctrl/Cmd-click to select individual songs. Shift-click extends a selection. Ctrl/Cmd+A selects the list. Connected selections can be dragged together to change their order.
 
 Remove Selected removes playlist entries. Deleting a playlist opens a confirmation dialog. Neither action deletes your audio files. After a complete library scan, confirmed missing tracks are automatically removed from playlists and Favorite Music. Offline or inaccessible folders and incomplete scans do not trigger this cleanup.
 
@@ -91,7 +93,7 @@ The details actions are Heart, Pencil, Lyrics (when enabled), Open Source, and C
 
 ## Download music
 
-Open **Downloads** from the player.
+Open **Downloads** from the player. Wide windows use a source bar, a left navigation/selection panel, and a right preview or queue panel. Compact windows retain accessible stacked controls.
 
 ### Set up tools
 
@@ -130,32 +132,32 @@ Restricted, deleted, private, or unsupported content may fail. DarkMusic does no
 
 **Settings → General → Update Notifications** checks GitHub when joining a world or server and notifies once per launch. Turning it off disables automatic checks and notices. **Check for Updates** checks manually regardless of that toggle and reports availability or errors. An available update requires a separate **Download Update** click; nothing downloads simply because a check found it.
 
-A completed download is announced in client-side chat. Close Minecraft and wait a few seconds before restarting so the update can install. Settings, music, playlists, artwork, other assets, and other mods are preserved. New options receive their defaults. Updates require a compatible official release with a verified checksum; development source-set launches cannot install updates.
+A completed download is announced in client-side chat. Close Minecraft and wait a few seconds before restarting so the update can install. Settings, music, playlists, artwork, other assets, and other mods are preserved. New options receive their defaults. Updates require a compatible official release with a verified checksum; development source-set launches can check for releases but cannot install updates.
 
 ## Customize the HUD
 
 ![Settings and live preview](images/settings.png)
 
-Settings contains General, Audio, HUD, Spectrum, Appearance, Effects, and Reset sections. Most changes save immediately. The preview shows current playback data, or sample visualization when no song is playing.
+Settings contains General, Audio, HUD, Spectrum, and Reset sections. Most changes save immediately. The preview shows current playback data, or sample visualization when no song is playing.
 
 **Now-Playing HUD** enables the whole in-game component:
 
 - **Classic:** song information with optional artwork, progress, and spectrum.
-- **Circular:** the DarkMusic icon, circular progress, outward spectrum, and optional title/artist text.
+- **Circular:** the DarkMusic icon, optional circular progress, outward spectrum, and optional title/artist text. Disabling progress removes the ring rail and anchors the spectrum directly to the icon.
 - **Spectrum Only:** the audio-reactive spectrum without artwork, track text, progress, or a background. It uses the same spectrum colors, effects, direction, height, and layout editor.
-- **Artwork:** larger, aspect-preserving artwork and spectrum. An optional progress bar touches the bottom of the image. Position the spectrum above, below, left, or right; side spectra grow horizontally away from the image. The whole layout moves and scales as one HUD.
+- **Artwork:** larger, aspect-preserving artwork and spectrum. An optional progress bar touches the bottom of the image. Position the spectrum above, below, left, or right; side spectra grow horizontally away from the image. Audio-Reactive Artwork optionally pulses the image with the music without stretching it. The whole layout moves and scales as one HUD.
 
 ![Circular HUD preview](images/circular-hud.png)
 
-Choose a spectrum style, bar count, sensitivity, smoothing, and height in every layout. Above/below spectra support upward or downward growth. Appearance offers colors, background transparency, and flat or beveled finishes. Classic and Artwork share solid/gradient background controls; background transparency does not fade the artwork or other foreground content. Effects provides quality presets, frequency smoothing, peak hold, trails, and glow.
+Choose a spectrum style, bar count, sensitivity, smoothing, and height in every layout. Above/below spectra support upward or downward growth. HUD contains background transparency, progress appearance, and other layout options. Spectrum contains its style, direction, finish, effects, colors, and sliders. Classic and Artwork share solid/gradient background controls; background transparency does not fade the artwork or other foreground content. Frequency smoothing, peak hold, trails, and glow have individual switches in Spectrum.
 
 Color editors offer **Color Spectrum** or **RGB** mode, one at a time. In Color Spectrum, choose a hue on the rainbow strip and saturation/brightness in the field above it. Palette colors, **#RRGGBB** input, and **Default** remain available. General settings also has menu background/accent colors. Gradient presets are paged so all choices remain reachable.
 
 ![Spectrum color presets and custom gradient](images/colors.png)
 
-New installations and Reset to Defaults use 100% HUD background transparency, Enhanced visualizer quality, Beveled spectrum/progress finishes, and Ocean Drive colors. Lyrics start disabled. Existing saved choices are retained when upgrading.
+New installations and Reset to Defaults use 100% HUD background transparency, all four spectrum effects enabled, Beveled spectrum/progress finishes, and Ocean Drive colors. Lyrics start disabled. Existing saved choices are retained when upgrading.
 
-For Circular HUD, **Audio-Reactive Icon** selects **Off**, **Audio Level**, or **Beat**. Audio Level follows the music's energy; Beat pulses on detected onsets. Quality presets can also select the underlying beat-reactive mode. Settings sliders use a vertical handle without a filled horizontal track.
+For Circular HUD, **Audio-Reactive Icon** selects **Off**, **Audio Level**, or **Beat**. Audio Level follows the music's energy; Beat pulses on detected onsets. Settings sliders use a vertical handle without a filled horizontal track.
 
 ![Customized Classic HUD during gameplay](images/classic-hud.png)
 
@@ -240,7 +242,10 @@ Local-library indicators distinguish validated timed lyrics, no supported lyrics
 | Play / pause | Backslash |
 | Previous / next track | [ / ] |
 | Volume down / up | Down / Up arrow |
-| Speed down / up | Left / Right arrow |
+| Speed down / up | − / + (minus / equals key) |
+| Back / forward five seconds | Left / Right arrow |
+| Stop | P |
+| Jump to Playing | O |
 | Reset speed | Numpad 0 |
 | Mute / unmute | M |
 

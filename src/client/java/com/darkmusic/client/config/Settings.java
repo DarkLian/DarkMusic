@@ -30,6 +30,7 @@ public final class Settings {
     public HudStyle hudStyle = HudStyle.CLASSIC;
     public SpectrumStyle circularSpectrumStyle = SpectrumStyle.BARS;
     public boolean circularText = true, circularIconPulse = true;
+    public boolean artworkReactive;
     public SpectrumStyle spectrumStyle = SpectrumStyle.BARS;
     public SurfaceFinish spectrumFinish = SurfaceFinish.BEVELED, progressFinish = SurfaceFinish.BEVELED;
     public HudShape hudShape = HudShape.RECTANGLE;
@@ -142,6 +143,7 @@ public final class Settings {
     private static VisualQuality defaultVisualQuality() {
         var quality = new VisualQuality();
         quality.select(VisualQuality.Preset.ENHANCED);
+        quality.trails = quality.glow = true;
         return quality;
     }
 

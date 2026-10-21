@@ -16,7 +16,8 @@ final class UpdateScreen extends AudioPage {
     protected void populate() {
         section("update.check");
         info(() -> status.equals("update.found") ? Text.get(status, app.updates.availableVersion()) : Text.get(status));
-        if (status.equals("update.found")) {
+        if (!app.updates.canInstall()) info("update.development");
+        if (status.equals("update.found") && app.updates.canInstall()) {
             action("update.download", () -> {
                 app.updates.download();
                 status = "update.downloading";

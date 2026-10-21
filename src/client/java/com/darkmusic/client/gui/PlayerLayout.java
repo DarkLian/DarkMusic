@@ -53,16 +53,16 @@ public record PlayerLayout(int width, int height, Rect navigation, Rect tracks, 
     }
 
     public int transportButtonWidth() {
-        return width < 400 ? 20 : 24;
+        return Math.clamp((dock.width() - 64 - 8 - 12 * CONTROL_GAP) / 11, 16, 24);
     }
 
     private static int fixedControlsWidth(int buttonWidth) {
-        // Nine icon buttons, the wider Play button, and ten equal gaps.
-        return 9 * buttonWidth + 8 + 10 * CONTROL_GAP;
+        // Eleven icon buttons, the wider Play button, and twelve equal gaps.
+        return 11 * buttonWidth + 8 + 12 * CONTROL_GAP;
     }
 
     public int controlWidth() {
-        return Math.clamp((dock.width() - 9 * transportButtonWidth() - 56) / 2, 32, 104);
+        return Math.clamp((dock.width() - fixedControlsWidth(transportButtonWidth())) / 2, 32, 104);
     }
 
     public int controlsWidth() {

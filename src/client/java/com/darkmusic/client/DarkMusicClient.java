@@ -31,7 +31,7 @@ public class DarkMusicClient implements ClientModInitializer {
     public final com.darkmusic.client.hud.VolumeFeedback volumeFeedback = new com.darkmusic.client.hud.VolumeFeedback();
     public volatile Settings settings;
     public volatile String warning = "";
-    public KeyMapping open, toggle, next, previous, faster, slower, normalSpeed, volumeUp, volumeDown, mute;
+    public KeyMapping open, toggle, next, previous, faster, slower, normalSpeed, volumeUp, volumeDown, mute, seekBack, seekForward, stop, jump;
     public com.darkmusic.client.library.MusicLibrary library;
     public com.darkmusic.client.audio.PlaybackController playback;
     public com.darkmusic.client.library.ArtworkCache artwork;
@@ -175,7 +175,35 @@ public class DarkMusicClient implements ClientModInitializer {
     }
 
     public KeyMapping[] bindings() {
-        return new KeyMapping[]{open, toggle, next, previous, faster, slower, normalSpeed, volumeUp, volumeDown, mute};
+        return new KeyMapping[]{open, toggle, next, previous, faster, slower, normalSpeed, volumeUp, volumeDown, mute, seekBack, seekForward, stop, jump};
+    }
+
+    public void seekRelative(double seconds) {
+        if (!resetting && !mediaBusy && playback != null) playback.seekRelative(seconds);
+    }
+
+    public void playbackShortcut(KeyMapping key) {
+        if (resetting || mediaBusy || settings == null || playback == null || conflicts(key)) return;
+        if (key == toggle) {
+            if (playback.state().track() == null && !library.snapshot().tracks().isEmpty())
+                playback.play(library.snapshot().tracks(), library.snapshot().tracks().getFirst());
+            else playback.toggle();
+        } else if (key == next) playback.next();
+        else if (key == previous) playback.previous();
+        else if (key == faster) shortcutSpeed(settings.speed + .1);
+        else if (key == slower) shortcutSpeed(settings.speed - .1);
+        else if (key == normalSpeed) shortcutSpeed(1);
+        else if (key == volumeUp) shortcutVolume(settings.volume + .05);
+        else if (key == volumeDown) shortcutVolume(settings.volume - .05);
+        else if (key == mute) toggleMute();
+        else if (key == seekBack) seekRelative(-5);
+        else if (key == seekForward) seekRelative(5);
+        else if (key == stop) playback.stop();
+        else if (key == jump) {
+            open();
+            if (Minecraft.getInstance().gui.screen() instanceof com.darkmusic.client.gui.MusicScreen screen)
+                screen.jumpToPlaying();
+        }
     }
 
     public void speed(double value) {
@@ -265,6 +293,8 @@ public class DarkMusicClient implements ClientModInitializer {
         if (key.isUnbound()) return false;
         for (KeyMapping other : Minecraft.getInstance().options.keyMappings)
             if (other != key && key.same(other)) {
+                if (Minecraft.getInstance().gui.screen() instanceof com.darkmusic.client.gui.MusicScreen
+                    && !other.getName().startsWith("key.darkmusic.")) continue;
                 if (System.nanoTime() - conflictWarning > TimeUnit.SECONDS.toNanos(2)) {
                     conflictWarning = System.nanoTime();
                     warn(com.darkmusic.client.text.Text.get("error.shortcut_conflict"));
@@ -288,8 +318,12 @@ public class DarkMusicClient implements ClientModInitializer {
         toggle = binding("toggle", org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSLASH, category);
         next = binding("next", org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_BRACKET, category);
         previous = binding("previous", org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_BRACKET, category);
-        faster = binding("faster", org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT, category);
-        slower = binding("slower", org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT, category);
+        faster = binding("faster", org.lwjgl.glfw.GLFW.GLFW_KEY_EQUAL, category);
+        slower = binding("slower", org.lwjgl.glfw.GLFW.GLFW_KEY_MINUS, category);
+        seekBack = binding("seek_back", org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT, category);
+        seekForward = binding("seek_forward", org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT, category);
+        stop = binding("stop", org.lwjgl.glfw.GLFW.GLFW_KEY_P, category);
+        jump = binding("jump", org.lwjgl.glfw.GLFW.GLFW_KEY_O, category);
         normalSpeed = binding("normal_speed", org.lwjgl.glfw.GLFW.GLFW_KEY_KP_0, category);
         volumeUp = binding("volume_up", org.lwjgl.glfw.GLFW.GLFW_KEY_UP, category);
         volumeDown = binding("volume_down", org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN, category);
@@ -340,6 +374,7 @@ public class DarkMusicClient implements ClientModInitializer {
                 warn(com.darkmusic.client.text.Text.get("error.shortcut_invalid"));
             }
         }
+        migrateSpeedBindings();
         if (settings.nativeShortcutNames.containsAll(java.util.Arrays.stream(bindings()).map(KeyMapping::getName).toList()))
             settings.shortcuts.clear();
         KeyMapping.resetMapping();
@@ -369,6 +404,26 @@ public class DarkMusicClient implements ClientModInitializer {
             warn(com.darkmusic.client.text.Text.failure(e, "error.saved_folder"));
             activateDirectory(config.defaultMusic());
         }
+    }
+
+    private void migrateSpeedBindings() {
+        if (settings.nativeShortcutNames.contains(seekBack.getName()) || settings.nativeShortcutNames.contains(seekForward.getName())
+            || settings.shortcuts.containsKey(seekBack.getName()) || settings.shortcuts.containsKey(seekForward.getName())
+            || !faster.saveString().equals("key.keyboard.right") || !slower.saveString().equals("key.keyboard.left"))
+            return;
+        faster.setKey(faster.getDefaultKey());
+        slower.setKey(slower.getDefaultKey());
+        settings.shortcuts.put(faster.getName(), faster.saveString());
+        settings.shortcuts.put(slower.getName(), slower.saveString());
+        var updated = java.util.Map.of("key_" + faster.getName(), faster.saveString(), "key_" + slower.getName(), slower.saveString());
+        io.execute(() -> {
+            try {
+                config.resetShortcuts(updated);
+            } catch (Exception failure) {
+                org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Cannot migrate default speed bindings", failure);
+                Minecraft.getInstance().execute(() -> warn(com.darkmusic.client.text.Text.get("error.shortcut_migrate")));
+            }
+        });
     }
 
     private void activateDirectory(java.nio.file.Path path) {
@@ -477,24 +532,19 @@ public class DarkMusicClient implements ClientModInitializer {
     protected void tick(Minecraft client, boolean allowed) {
         allowed &= !mediaBusy;
         if (!warning.isEmpty() && System.nanoTime() >= warningUntil) warning = "";
-        while (toggle.consumeClick()) if (allowed && playback != null && !conflicts(toggle)) {
-            if (playback.state().track() == null && !library.snapshot().tracks().isEmpty())
-                playback.play(library.snapshot().tracks(), library.snapshot().tracks().getFirst());
-            else playback.toggle();
-        }
-        while (next.consumeClick()) if (allowed && playback != null && !conflicts(next)) playback.next();
-        while (previous.consumeClick()) if (allowed && playback != null && !conflicts(previous)) playback.previous();
-        while (faster.consumeClick())
-            if (allowed && playback != null && !conflicts(faster)) shortcutSpeed(settings.speed + .1);
-        while (slower.consumeClick())
-            if (allowed && playback != null && !conflicts(slower)) shortcutSpeed(settings.speed - .1);
-        while (normalSpeed.consumeClick()) if (allowed && playback != null && !conflicts(normalSpeed)) shortcutSpeed(1);
-        while (volumeUp.consumeClick())
-            if (allowed && playback != null && !conflicts(volumeUp)) shortcutVolume(settings.volume + .05);
-        while (volumeDown.consumeClick())
-            if (allowed && playback != null && !conflicts(volumeDown)) shortcutVolume(settings.volume - .05);
-        while (mute.consumeClick())
-            if (allowed && playback != null && !conflicts(mute)) toggleMute();
+        while (toggle.consumeClick()) if (allowed) playbackShortcut(toggle);
+        while (next.consumeClick()) if (allowed) playbackShortcut(next);
+        while (previous.consumeClick()) if (allowed) playbackShortcut(previous);
+        while (faster.consumeClick()) if (allowed) playbackShortcut(faster);
+        while (slower.consumeClick()) if (allowed) playbackShortcut(slower);
+        while (normalSpeed.consumeClick()) if (allowed) playbackShortcut(normalSpeed);
+        while (volumeUp.consumeClick()) if (allowed) playbackShortcut(volumeUp);
+        while (volumeDown.consumeClick()) if (allowed) playbackShortcut(volumeDown);
+        while (mute.consumeClick()) if (allowed) playbackShortcut(mute);
+        while (seekBack.consumeClick()) if (allowed) playbackShortcut(seekBack);
+        while (seekForward.consumeClick()) if (allowed) playbackShortcut(seekForward);
+        while (stop.consumeClick()) if (allowed) playbackShortcut(stop);
+        while (jump.consumeClick()) if (allowed) playbackShortcut(jump);
         if (resetting || settings == null || playback == null) return;
         boolean playlistsClean = cleanMissingPlaylistEntries();
         if (autoplayPending && !mediaBusy && playlistsClean) {

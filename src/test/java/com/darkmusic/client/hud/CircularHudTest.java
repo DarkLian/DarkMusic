@@ -17,6 +17,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CircularHudTest {
     @Test
+    void disabledProgressHasNoRailAndSpectrumStartsAtTheIconEdge() {
+        float[] levels = new float[64];
+        var points = new ArrayList<Point>();
+        VertexConsumer consumer = (VertexConsumer) Proxy.newProxyInstance(VertexConsumer.class.getClassLoader(), new Class<?>[]{VertexConsumer.class}, (proxy, method, args) -> {
+            if (method.getName().equals("addVertex")) points.add(new Point((float) args[0], (float) args[1]));
+            return proxy;
+        });
+        for (var style : new Settings.SpectrumStyle[]{Settings.SpectrumStyle.BARS, Settings.SpectrumStyle.FILLED_WAVE, Settings.SpectrumStyle.FILLED_SPIKE}) {
+            points.clear();
+            Arrays.fill(levels, 0);
+            var mesh = new CircularHudMesh.Rings(new Matrix3x2f(), null, null, 100, 100, -3,
+                levels, 36, style, 0, 0, 0xff123456, 0xffabcdef, Settings.SurfaceFinish.BEVELED,
+                Settings.SurfaceFinish.BEVELED, 384, true, 18, CircularHudLayout.ICON_RADIUS);
+            mesh.buildVertices(consumer);
+            assertTrue(points.isEmpty(), "No progress rail or inactive spectrum geometry");
+            Arrays.fill(levels, 1);
+            mesh.buildVertices(consumer);
+            assertTrue(!points.isEmpty());
+            double minimum = points.stream().mapToDouble(p -> Math.hypot(p.x() - 100, p.y() - 100)).min().orElseThrow();
+            assertTrue(minimum >= CircularHudLayout.ICON_RADIUS - CircularHudLayout.FEATHER - .001);
+            assertTrue(minimum <= CircularHudLayout.ICON_RADIUS + .001, "Spectrum must connect directly to the icon");
+        }
+    }
+
+    @Test
     void glowTracksBothSlopeEndpointsAndPeakHoldIsOnlyAnOuterCap() {
         var layout = CircularHudLayout.of(true);
         float[] levels = new float[64];

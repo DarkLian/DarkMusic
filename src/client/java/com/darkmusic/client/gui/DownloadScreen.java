@@ -214,6 +214,10 @@ public final class DownloadScreen extends LocalScreen {
 
     private void layout() {
         boolean wide = width >= 640 && height >= 360;
+        if (wide) {
+            layoutWide();
+            return;
+        }
         boolean source = wide || sourceExpanded;
         sourceY = 38;
         tabsY = source ? 68 : 38;
@@ -250,6 +254,48 @@ public final class DownloadScreen extends LocalScreen {
         place(cancelSelected, 12, height - 30, third, queueView);
         place(cancelAll, 16 + third, height - 30, third, queueView);
         place(clearFinished, 20 + third * 2, height - 30, third, queueView);
+        rows.setY(resultTop);
+        rows.setX(12);
+        rows.setWidth(width - 24);
+        rows.setHeight(height - (queueView ? 66 : 12) - resultTop);
+    }
+
+    private void layoutWide() {
+        sourceY = 42;
+        tabsY = 80;
+        modeY = 140;
+        searchY = 80;
+        pageY = 108;
+        resultTop = queueView ? 122 : 150;
+        sourceToggle.visible = false;
+        int side = 156, rightX = 184, rightWidth = width - rightX - 12;
+        place(url, 16, sourceY, width - 124, true);
+        place(analyze, width - 104, sourceY, 88, true);
+        place(entriesTab, 16, tabsY, side, true);
+        place(queueToggle, 16, tabsY + 26, side, true);
+        place(modeButton, 16, modeY, side, !queueView);
+        place(first, 16, modeY + 26, 76, !queueView && mode == Mode.RANGE);
+        place(last, 96, modeY + 26, 76, !queueView && mode == Mode.RANGE);
+        place(download, 16, modeY + (mode == Mode.RANGE ? 56 : 30), side, !queueView);
+        place(search, rightX, searchY, rightWidth - (queueView ? 0 : 56), true);
+        place(listen, width - 64, searchY, 24, !queueView);
+        place(stopListening, width - 36, searchY, 24, !queueView);
+        place(previous, rightX, pageY, 24, !queueView);
+        place(next, rightX + 28, pageY, 24, !queueView);
+        place(pageNumber, rightX + 56, pageY, 40, !queueView);
+        place(goToPage, rightX + 100, pageY, 28, !queueView);
+        int choice = (rightWidth - 140) / 2;
+        place(selectAll, rightX + 136, pageY, choice, !queueView && mode == Mode.SELECTED);
+        place(deselect, rightX + 140 + choice, pageY, choice, !queueView && mode == Mode.SELECTED);
+        int third = (rightWidth - 8) / 3;
+        place(retrySelected, rightX, height - 56, third, queueView);
+        place(retryFailed, rightX + third + 4, height - 56, third, queueView);
+        place(clearFailed, rightX + 2 * (third + 4), height - 56, third, queueView);
+        place(cancelSelected, rightX, height - 30, third, queueView);
+        place(cancelAll, rightX + third + 4, height - 30, third, queueView);
+        place(clearFinished, rightX + 2 * (third + 4), height - 30, third, queueView);
+        rows.setX(rightX);
+        rows.setWidth(rightWidth);
         rows.setY(resultTop);
         rows.setHeight(height - (queueView ? 66 : 12) - resultTop);
     }
@@ -497,8 +543,13 @@ public final class DownloadScreen extends LocalScreen {
         longText.begin();
         UiTheme.background(g, width, height);
         UiTheme.header(g, font, title, UiIcon.DOWNLOAD);
-        if (url.visible) UiTheme.panel(g, 10, sourceY - 2, width - 20, 24);
-        if (queueView) UiTheme.panel(g, 10, height - 60, width - 20, 54);
+        boolean wide = width >= 640 && height >= 360;
+        if (url.visible) UiTheme.panel(g, 10, sourceY - 4, width - 20, 28);
+        if (wide) {
+            UiTheme.panel(g, 10, tabsY - 6, 168, height - tabsY - 4);
+            UiTheme.panel(g, 180, searchY - 6, width - 190, height - searchY - 4);
+        }
+        if (queueView) UiTheme.panel(g, wide ? 180 : 10, height - 60, width - (wide ? 190 : 20), 54);
         var s = app.downloads.snapshot();
         String detail = notice.isBlank() ? s.message() : notice;
         if (audition != null && !queueView) {
@@ -511,7 +562,7 @@ public final class DownloadScreen extends LocalScreen {
         long done = s.items().stream().filter(i -> i.status().finished()).count(), failed = s.items().stream().filter(i -> i.status() == Status.FAILED).count();
         String summary = queueView ? Text.get("format.darkmusic.queue_summary", done, s.items().size(), failed) : s.preview() == null ? "" : Text.get("format.darkmusic.preview_summary", s.preview().source(), s.preview().first(), s.preview().first() + s.preview().entries().size() - 1, s.preview().total() >= 0 ? Text.get("format.darkmusic.total", s.preview().total()) : Text.get("format.darkmusic.unknown_total"));
         summary = Text.get(queueView ? "ui.darkmusic.queue" : "ui.darkmusic.preview_entries") + (summary.isBlank() ? "" : ": " + summary);
-        longText.draw(g, font, "detail", detail.isBlank() ? summary : detail + " | " + summary, 12, resultTop - 13, width - 24, detail.isBlank() ? UiTheme.SECONDARY : UiTheme.WARNING);
+        longText.draw(g, font, "detail", detail.isBlank() ? summary : detail + " | " + summary, rows.getX(), resultTop - 13, rows.getWidth(), detail.isBlank() ? UiTheme.SECONDARY : UiTheme.WARNING);
         super.extractRenderState(g, x, y, delta);
     }
 

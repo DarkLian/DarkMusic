@@ -81,7 +81,15 @@ final class CircularHudMesh {
                  int progressEnd, int spectrumStart,
                  int spectrumEnd, Settings.SurfaceFinish spectrumFinish,
                  Settings.SurfaceFinish progressFinish, int detail, boolean glow,
-                 float spectrumHeight) implements GuiElementRenderState {
+                 float spectrumHeight, float baseRadius) implements GuiElementRenderState {
+        Rings(Matrix3x2fc pose, ScreenRectangle scissorArea, ScreenRectangle bounds, float cx, float cy,
+              double progress, float[] levels, int bands, Settings.SpectrumStyle style, int progressStart,
+              int progressEnd, int spectrumStart, int spectrumEnd, Settings.SurfaceFinish spectrumFinish,
+              Settings.SurfaceFinish progressFinish, int detail, boolean glow, float spectrumHeight) {
+            this(pose, scissorArea, bounds, cx, cy, progress, levels, bands, style, progressStart, progressEnd,
+                spectrumStart, spectrumEnd, spectrumFinish, progressFinish, detail, glow, spectrumHeight, CircularHudLayout.RING_OUTER);
+        }
+
         private boolean peakOnly() {
             return progress == -2;
         }
@@ -128,7 +136,7 @@ final class CircularHudMesh {
                     if (Math.max(h0, h1) < .01f) continue;
                     int first = mix(spectrumStart, spectrumEnd, 1 - Math.abs(2 * a - 1));
                     int last = mix(spectrumStart, spectrumEnd, 1 - Math.abs(2 * b - 1));
-                    float base = CircularHudLayout.RING_OUTER, feather = CircularHudLayout.FEATHER;
+                    float base = baseRadius, feather = CircularHudLayout.FEATHER;
                     boolean beveled = spectrumFinish == Settings.SurfaceFinish.BEVELED;
                     boolean trail = progress == -1;
                     int outer0 = trail ? (first & 0xffffff) | 0x10000000 : beveled ? Bevel.shade(first, Bevel.circularLight(a) * .34) : first;
@@ -166,15 +174,15 @@ final class CircularHudMesh {
                 int slices = Math.max(1, (int) Math.ceil(SEGMENTS * half * 2));
                 for (int slice = 0; slice < slices; slice++)
                     if (progress == -1)
-                        strip(v, pose, cx, cy, CircularHudLayout.RING_OUTER, CircularHudLayout.RING_OUTER + height,
+                        strip(v, pose, cx, cy, baseRadius, baseRadius + height,
                             turn - half + 2 * half * slice / slices, turn - half + 2 * half * (slice + 1) / slices,
                             (color & 0xffffff) | 0x58000000, (color & 0xffffff) | 0x10000000,
                             (color & 0xffffff) | 0x58000000, (color & 0xffffff) | 0x10000000);
                     else
-                        surfaceArc(v, pose, cx, cy, peakOnly() ? CircularHudLayout.RING_OUTER + Math.max(0, height - .75f) : CircularHudLayout.RING_OUTER, CircularHudLayout.RING_OUTER + height,
+                        surfaceArc(v, pose, cx, cy, peakOnly() ? baseRadius + Math.max(0, height - .75f) : baseRadius, baseRadius + height,
                             turn - half + 2 * half * slice / slices, turn - half + 2 * half * (slice + 1) / slices, color, color, spectrumFinish, false);
                 if (glow)
-                    strip(v, pose, cx, cy, CircularHudLayout.RING_OUTER + height, CircularHudLayout.RING_OUTER + height + 1.6f, turn - half, turn + half, (color & 0xffffff) | 0x33000000, color & 0xffffff, (color & 0xffffff) | 0x33000000, color & 0xffffff);
+                    strip(v, pose, cx, cy, baseRadius + height, baseRadius + height + 1.6f, turn - half, turn + half, (color & 0xffffff) | 0x33000000, color & 0xffffff, (color & 0xffffff) | 0x33000000, color & 0xffffff);
             }
         }
     }

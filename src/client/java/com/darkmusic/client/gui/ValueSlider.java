@@ -27,7 +27,7 @@ public final class ValueSlider extends AbstractSliderButton {
     private long adjusted;
     private boolean dragging;
     private boolean trackOnly, plain, simpleProgress;
-    private boolean media, mediaFill;
+    private boolean media, mediaFill, mediaLabelLeft;
     private DoubleFunction<String> mediaLabel;
     private String mediaText = "";
     private Runnable exactEditor;
@@ -56,12 +56,16 @@ public final class ValueSlider extends AbstractSliderButton {
         mediaText = valueLabel.apply(value);
     }
 
+    public void mediaLabelLeft(boolean value) {
+        mediaLabelLeft = value;
+    }
+
     private int mediaTrackStart() {
-        return getX() + 4;
+        return getX() + (mediaLabelLeft && getWidth() >= 72 ? net.minecraft.client.Minecraft.getInstance().font.width("3.0×") + 10 : 4);
     }
 
     private int mediaTrackWidth() {
-        int labelWidth = net.minecraft.client.Minecraft.getInstance().font.width(mediaFill ? "100%" : "3.0×");
+        int labelWidth = net.minecraft.client.Minecraft.getInstance().font.width(mediaLabelLeft ? "3.0×" : "100%");
         return Math.max(1, getWidth() - (getWidth() < 72 ? 8 : labelWidth + 14));
     }
 
@@ -111,12 +115,12 @@ public final class ValueSlider extends AbstractSliderButton {
             int centerY = getY() + (compact ? 16 : 10);
             int marker = start + (int) Math.round(value * length);
             int color = active ? UiTheme.ACCENT : UiTheme.MUTED;
-            g.fill(start, centerY - 1, start + length, centerY + 1, isFocused() ? color : UiTheme.BORDER);
+            g.fill(start, centerY - 1, start + length, centerY + 1, UiTheme.BORDER);
             if (mediaFill) g.fill(start, centerY - 1, marker, centerY + 1, color);
             int halfHeight = compact ? 4 : 6;
             g.fill(marker - 2, centerY - halfHeight, marker + 2, centerY + halfHeight, active && isHoveredOrFocused() ? UiTheme.TEXT : color);
             String text = mediaText;
-            int textX = compact ? getX() + (getWidth() - font.width(text)) / 2 : getRight() - font.width(text);
+            int textX = compact ? getX() + (getWidth() - font.width(text)) / 2 : mediaLabelLeft ? getX() : getRight() - font.width(text);
             g.text(font, text, textX, getY() + (compact ? 1 : 6), active ? UiTheme.SECONDARY : UiTheme.MUTED);
             return;
         }
@@ -126,6 +130,7 @@ public final class ValueSlider extends AbstractSliderButton {
             g.outline(getX(), getY(), getWidth(), getHeight(), isFocused() ? UiTheme.ACCENT : UiTheme.BORDER);
         if (simpleProgress) {
             g.fill(getX(), getY(), getRight(), getBottom(), UiTheme.BACKGROUND);
+            g.fill(getX(), getY() + 8, getRight(), getY() + 12, UiTheme.SURFACE);
             ColorStrip.draw(g, colors.get(), getX(), getY() + 8, getWidth(), 4,
                 (int) Math.round(getWidth() * value), com.darkmusic.client.config.Settings.SurfaceFinish.FLAT);
             return;
@@ -192,7 +197,8 @@ public final class ValueSlider extends AbstractSliderButton {
 
     @Override
     public void onClick(MouseButtonEvent event, boolean twice) {
-        if (media && getWidth() >= 72 && event.x() > mediaTrackStart() + mediaTrackWidth() + 3) return;
+        if (media && getWidth() >= 72 && (event.x() < mediaTrackStart() - 3 || event.x() > mediaTrackStart() + mediaTrackWidth() + 3))
+            return;
         dragging = true;
         if (media) applyMediaPosition(event.x());
         else super.onClick(event, twice);

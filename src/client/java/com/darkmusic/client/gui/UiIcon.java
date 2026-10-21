@@ -10,7 +10,7 @@ import net.minecraft.resources.Identifier;
 public enum UiIcon {
     MUSIC, PLAY, PAUSE, PREVIOUS, NEXT, STOP, SHUFFLE, REPEAT, REPEAT_ONE,
     VOLUME, SPEED, LOCATE, FOLDER, REFRESH, DOWNLOAD, SETTINGS, LYRICS, PLAYLIST,
-    ARTIST, ALBUM, SEARCH, MORE, BACK, ADD, DELETE, EDIT, CHECK, WARNING, TOOLS, PREVIEW, REPEAT_ALL, HEART, HEART_FILLED, LINK, CHAIN, MUTED;
+    ARTIST, ALBUM, SEARCH, MORE, BACK, ADD, DELETE, EDIT, CHECK, WARNING, TOOLS, PREVIEW, REPEAT_ALL, HEART, HEART_FILLED, LINK, CHAIN, MUTED, SEEK_BACK, SEEK_FORWARD;
 
     private static final Identifier ATLAS = Identifier.fromNamespaceAndPath("darkmusic", "textures/gui/icons.png");
     public static final int CELL = 64, ATLAS_WIDTH = CELL * values().length;
@@ -34,6 +34,16 @@ public enum UiIcon {
         int enlarged = Math.max(size + 1, Math.round(size * 1.15f));
         x -= (enlarged - size) / 2;
         y -= (enlarged - size) / 2;
+        if (this == PAUSE) {
+            // Keep the atlas glyph's original envelope; widen the strokes inward only.
+            int left = x + Math.round(enlarged * 21 / 64f), right = x + Math.round(enlarged * 43 / 64f);
+            int top = y + Math.round(enlarged * 15 / 64f), bottom = y + Math.round(enlarged * 49 / 64f);
+            // Small controls must retain a gap when stroke widths round to whole pixels.
+            int bar = Math.max(1, Math.min(Math.round(enlarged * 7 / 64f), (right - left - 1) / 2));
+            g.fill(left, top, left + bar, bottom, color);
+            g.fill(right - bar, top, right, bottom, color);
+            return;
+        }
         g.blit(RenderPipelines.GUI_TEXTURED, ATLAS, x, y, ordinal() * CELL, 0,
             enlarged, enlarged, CELL, CELL, ATLAS_WIDTH, CELL, color);
     }

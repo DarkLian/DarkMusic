@@ -1,4 +1,9 @@
 {
+"key.darkmusic.stop": "停止音樂",
+"key.darkmusic.jump": "跳至播放中的歌曲",
+"hud.darkmusic.artwork_reactive": "音訊反應封面",
+"hud.darkmusic.artwork_reactive_help": "讓封面隨音樂輕微縮放。",
+
   "quality.darkmusic.trails_help": "顯示頻譜後方逐漸淡出的峰值。",
   "quality.darkmusic.glow_help": "在頻譜周圍加上柔和光暈。",
   "lyrics.darkmusic.availability.available": "有同步歌詞",
@@ -1021,9 +1026,12 @@
   "update.check_failed": "無法檢查更新，請稍後再試。",
   "update.check_help": "立即檢查 GitHub，即使已關閉更新通知也能使用。",
   "update.checking": "正在檢查更新…",
-  "update.development": "只有已安裝的模組 JAR 才能使用更新功能。",
+  "update.development": "此開發版本可以檢查更新。請使用已安裝的模組 JAR 安裝更新。",
   "update.download": "下載更新",
   "update.found": "DarkMusic %s 已推出。",
   "update.install_help": "下載完成後，關閉 Minecraft 即可安裝更新。",
-  "update.latest": "你正在使用最新的可用版本。"
+  "update.latest": "你正在使用最新的可用版本。",
+  "error.shortcut_migrate": "無法更新預設的播放速度快捷鍵，請在控制設定中重新設定。",
+  "key.darkmusic.seek_back": "倒轉 5 秒",
+  "key.darkmusic.seek_forward": "快轉 5 秒"
 }

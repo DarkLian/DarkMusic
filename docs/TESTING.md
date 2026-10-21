@@ -49,7 +49,7 @@ Cover Neutral and Preserve Pitch independently, mono/stereo tempo and duration, 
 
 Exercise profile/environment create, load, rename, delete, duplicate replacement and cancellation, name limits, the 32-environment limit, and persistence. Saving or deleting stored entries must preserve active audio settings. Verify all 20 environment choices, logarithmic frequency mapping, exact numeric input and rejected nonfinite/out-of-range values, dependent control ranges, and hidden analyzer panel costs.
 
-Use Audio Options for the analyzer and General Settings for Sound Environment. Check both languages and small-window keyboard navigation. Compare worker timings on the same real excerpt and block size; gameplay FPS is a separate measurement.
+Use Settings → Audio for Audio Options and Sound Environment; open the analyzer from Audio Options. Check both languages and small-window keyboard navigation. Compare worker timings on the same real excerpt and block size; gameplay FPS is a separate measurement.
 
 ## Screenshots
 

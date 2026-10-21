@@ -17,6 +17,59 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PlaybackTest {
     @Test
+    void manualNavigationWrapsTheCollectionRegardlessOfRepeatOrExhaustedHistory() {
+        for (var repeat : PlaybackController.Repeat.values()) {
+            var audio = new Fake();
+            var controller = new PlaybackController(audio, message -> fail(message));
+            var tracks = tracks();
+            controller.repeat(repeat);
+            controller.play(tracks, tracks.getFirst());
+            controller.previous();
+            assertEquals(tracks.getLast(), audio.state.track());
+            controller.next();
+            assertEquals(tracks.getFirst(), audio.state.track());
+            for (int i = 0; i < tracks.size() * 3; i++) controller.next();
+            for (int i = 1; i <= tracks.size() * 5; i++) {
+                controller.previous();
+                assertEquals(tracks.get(Math.floorMod(-i, tracks.size())), audio.state.track());
+            }
+            controller.play(tracks, tracks.get(2));
+            controller.previous();
+            assertEquals(tracks.get(1), audio.state.track());
+        }
+    }
+
+    @Test
+    void relativeSeekingClampsToTheCurrentTrackWithoutChangingPauseOrQueue() {
+        var audio = new Fake();
+        var controller = new PlaybackController(audio, message -> fail(message));
+        var track = tracks().getFirst();
+        for (var status : List.of(AudioBackend.Status.PLAYING, AudioBackend.Status.PAUSED)) {
+            audio.state = new AudioBackend.State(track, status, 2, 20, "");
+            controller.seekRelative(-5);
+            assertEquals(0, audio.lastSeek);
+            assertEquals(status, audio.state.status());
+            audio.state = new AudioBackend.State(track, status, 10, 20, "");
+            controller.seekRelative(5);
+            assertEquals(15, audio.lastSeek);
+            audio.state = new AudioBackend.State(track, status, 18, 20, "");
+            controller.seekRelative(5);
+            assertEquals(20, audio.lastSeek);
+        }
+        audio.lastSeek = -1;
+        controller.seekRelative(Double.NaN);
+        assertEquals(-1, audio.lastSeek);
+        for (var status : List.of(AudioBackend.Status.STOPPED, AudioBackend.Status.ERROR)) {
+            audio.state = new AudioBackend.State(track, status, 10, 20, "");
+            controller.seekRelative(5);
+            assertEquals(-1, audio.lastSeek);
+        }
+        audio.state = new AudioBackend.State(track, AudioBackend.Status.PLAYING, 0, 0, "");
+        controller.seekRelative(5);
+        assertEquals(-1, audio.lastSeek);
+    }
+
+    @Test
     void metadataEditPreservesQueueOriginPauseAndSelectionAndDoesNotUndoUserStop() {
         var audio = new Fake();
         var controller = new PlaybackController(audio, message -> fail(message));
@@ -141,6 +194,7 @@ class PlaybackTest {
     }
 
     static final class Fake implements AudioBackend {
+        double lastSeek = -1;
         State state = new State(null, Status.STOPPED, 0, 0, "");
         Runnable ended;
         Consumer<String> failed;
@@ -168,6 +222,7 @@ class PlaybackTest {
         }
 
         public void seek(double s) {
+            lastSeek = s;
         }
 
         public void volume(double v) {

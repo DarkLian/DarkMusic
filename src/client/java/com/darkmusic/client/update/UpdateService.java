@@ -63,10 +63,6 @@ public final class UpdateService implements AutoCloseable {
             result.accept("update.check_failed");
             return;
         }
-        if (installed == null) {
-            result.accept("update.development");
-            return;
-        }
         if (pending != null) {
             result.accept("update.ready");
             return;
@@ -77,6 +73,10 @@ public final class UpdateService implements AutoCloseable {
 
     public String availableVersion() {
         return release == null ? "" : release.version();
+    }
+
+    public boolean canInstall() {
+        return installed != null;
     }
 
     public String downloadStatus() {
@@ -90,7 +90,7 @@ public final class UpdateService implements AutoCloseable {
         CompletableFuture.supplyAsync(() -> {
             try {
                 // Recover a previously approved download after an interrupted shutdown.
-                if (Files.isDirectory(directory)) try (var jobs = Files.list(directory)) {
+                if (installed != null && Files.isDirectory(directory)) try (var jobs = Files.list(directory)) {
                     for (var job : jobs.toList()) {
                         Path manifest = job.resolve("install.properties");
                         if (!Files.isRegularFile(manifest)) continue;

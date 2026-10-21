@@ -31,6 +31,7 @@ public final class UiButton extends Button {
     private IntSupplier first, last;
     private UiIcon icon;
     private boolean iconOnly;
+    private boolean playOutline;
     private boolean automaticTooltip;
     private net.minecraft.client.KeyMapping[] shortcuts = new net.minecraft.client.KeyMapping[0];
     private long transitionAt = System.nanoTime();
@@ -75,6 +76,10 @@ public final class UiButton extends Button {
         return button;
     }
 
+    public static void playOutline(Button button) {
+        if (button instanceof UiButton themed) themed.playOutline = true;
+    }
+
     public static Button selected(Button button, BooleanSupplier selected) {
         if (button instanceof UiButton themed) themed.selected = selected;
         return button;
@@ -96,11 +101,29 @@ public final class UiButton extends Button {
         transitionAt = now;
         emphasis += Math.clamp((highlighted ? 1 : 0) - emphasis, -step, step);
         if (style == Style.TRANSPORT) {
+            g.pose().pushMatrix();
+            // Balance the visible seek glyphs, including their rasterized edge coverage.
+            if (playOutline) g.pose().translate(5f / 6, 0);
+            if (playOutline) {
+                int side = Math.min(width - 8, height - 4);
+                TransportOutline.draw(g, getX() + (width - side) / 2, getY() + (height - side) / 2, side, side,
+                    active ? UiTheme.mix(UiTheme.SECONDARY, UiTheme.TEXT, emphasis) : UiTheme.MUTED);
+            }
             int size = Math.min(Math.min(width - 4, height - 2), height > 20 ? 22 : 18);
             int color = !active ? UiTheme.MUTED : chosen ? UiTheme.ACCENT : UiTheme.mix(UiTheme.SECONDARY, UiTheme.TEXT, emphasis);
-            if (icon != null) icon.draw(g, getX() + (width - size) / 2, getY() + (height - size) / 2, size, color);
+            if (icon != null) {
+                g.pose().pushMatrix();
+                try {
+                    // Balance the visible glyph rather than its transparent atlas cell.
+                    if (playOutline) g.pose().translate(icon == UiIcon.PLAY ? -1.5f : -.5f, -.5f);
+                    icon.draw(g, getX() + (width - size) / 2, getY() + (height - size) / 2, size, color);
+                } finally {
+                    g.pose().popMatrix();
+                }
+            }
             if (isFocused())
                 g.fill(getX() + (width - size) / 2, getBottom() - 1, getX() + (width + size) / 2, getBottom(), UiTheme.ACCENT);
+            g.pose().popMatrix();
             return;
         }
         if (active && style == Style.SECONDARY && !chosen) fill = UiTheme.mix(UiTheme.RAISED, UiTheme.HOVER, emphasis);

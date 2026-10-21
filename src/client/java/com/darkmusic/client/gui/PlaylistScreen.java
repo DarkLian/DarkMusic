@@ -25,7 +25,7 @@ public final class PlaylistScreen extends LocalScreen {
 
     private String selectedId = "";
     private RowList lists, entries;
-    private Button remove, up, down, add, rename, delete;
+    private Button remove, add, rename, delete, selectAll, deselect, invert;
     private long revision = -1, libraryRevision = -1;
     private boolean browsing = true;
     private List<Track> entryTracks = List.of();
@@ -65,16 +65,19 @@ public final class PlaylistScreen extends LocalScreen {
                 browsing = true;
                 rebuildWidgets();
             }, Text.get("phase2.back")), UiIcon.BACK, false);
-        button(Text.get("text.darkmusic.new"), 12, 32, 60, () -> show(new TextPromptScreen(this, Text.get("text.darkmusic.create_playlist"), "", text -> {
+        int sidebar = compact ? width - 24 : Math.clamp(width / 5, 128, 184);
+        int entryX = compact ? 12 : 20 + sidebar;
+        int entryWidth = compact ? width - 24 : width - 32 - sidebar;
+        var create = UiButton.icon(button(Text.get("text.darkmusic.new"), 12, 38, sidebar - 56, () -> show(new TextPromptScreen(this, Text.get("text.darkmusic.create_playlist"), "", text -> {
             selectedId = app.playlists.create(text);
             selection.clear();
-        })), Text.get("text.darkmusic.create_a_local_playlist"));
-        rename = button(Text.get("text.darkmusic.rename"), 76, 32, 72, () -> {
+        })), Text.get("text.darkmusic.create_a_local_playlist")), UiIcon.ADD, false);
+        rename = UiButton.icon(button(Text.get("text.darkmusic.rename"), 16 + sidebar - 56, 38, 24, () -> {
             var p = selected();
             if (p != null)
                 show(new TextPromptScreen(this, Text.get("text.darkmusic.rename_playlist"), p.name(), text -> app.playlists.rename(p.id(), text)));
-        }, Text.get("text.darkmusic.rename_the_selected_playlist"));
-        delete = button(Text.get("text.darkmusic.delete"), 152, 32, 100, () -> {
+        }, Text.get("text.darkmusic.rename_the_selected_playlist")), UiIcon.EDIT, true);
+        delete = UiButton.icon(button(Text.get("text.darkmusic.delete"), 12 + sidebar - 24, 38, 24, () -> {
             var playlist = selected();
             if (playlist == null) return;
             show(new ConfirmationScreen(this, Text.component("confirm.darkmusic.delete_title"),
@@ -84,9 +87,9 @@ public final class PlaylistScreen extends LocalScreen {
                 selection.clear();
                 return java.util.concurrent.CompletableFuture.completedFuture(null);
             }));
-        }, Text.get("confirm.darkmusic.delete_help"));
-        int sidebar = compact ? width - 24 : Math.clamp(width / 5, 128, 184);
-        lists = addRenderableWidget(new RowList(12, 78, sidebar, height - (compact && browsing ? 92 : 168), 28, Text.get("view.darkmusic.playlists"), (i, activated) -> {
+        }, Text.get("confirm.darkmusic.delete_help")), UiIcon.DELETE, true);
+        create.visible = rename.visible = delete.visible = !compact || browsing;
+        lists = addRenderableWidget(new RowList(12, 86, sidebar, height - 98, 28, Text.get("view.darkmusic.playlists"), (i, activated) -> {
             selectedId = app.playlists.all().get(i).id();
             selection.clear();
             refreshEntries();
@@ -95,7 +98,7 @@ public final class PlaylistScreen extends LocalScreen {
                 rebuildWidgets();
             }
         }));
-        entries = addRenderableWidget(new RowList(compact ? 12 : 20 + sidebar, 78, compact ? width - 24 : width - 32 - sidebar, height - 168, 36, Text.get("text.darkmusic.playlist_songs_space_selects"), (i, activated) -> {
+        entries = addRenderableWidget(new RowList(entryX, 86, entryWidth, height - 128, 36, Text.get("text.darkmusic.playlist_songs_space_selects"), (i, activated) -> {
         }));
         entries.multiple(selection);
         entries.artwork(app.artwork, i -> i < entryTracks.size() ? entryTracks.get(i) : null);
@@ -108,26 +111,25 @@ public final class PlaylistScreen extends LocalScreen {
             refreshEntries();
         });
         int footerStart = children().size();
-        int w = (width - 32) / 3;
-        int half = (width - 28) / 2;
-        add = button(Text.get("text.darkmusic.add_songs"), 12, height - 76, half, () -> {
+        int actionWidth = Math.min(164, (entryWidth - 4) / 2);
+        add = button(Text.get("text.darkmusic.add_songs"), entryX, 38, actionWidth, () -> {
             if (selected() != null) {
                 String id = selectedId;
                 show(new TrackPickerScreen(app, this, id, tracks -> app.playlists.addAll(id, tracks)));
             }
         }, Text.get("text.darkmusic.select_library_songs_not_already_added_to_this_playlist"));
-        remove = button(Text.get("text.darkmusic.remove_selected"), 16 + half, height - 76, half, () -> {
+        remove = button(Text.get("text.darkmusic.remove_selected"), entryX + entryWidth - actionWidth, 38, actionWidth, () -> {
             app.playlists.removeAll(selectedId, selection.selected());
             selection.clear();
             refreshEntries();
         }, Text.get("text.darkmusic.remove_all_checked_entries_from_this_playlist"));
-        button(Text.get("text.darkmusic.select_all"), 12, height - 52, w, selection::all, Text.get("text.darkmusic.select_every_entry_including_missing_songs_ctrl_cmd_a_works_with_list_focus"));
-        button(Text.get("text.darkmusic.deselect_all"), 16 + w, height - 52, w, selection::clear, Text.get("text.darkmusic.clear_every_selected_entry"));
-        button(Text.get("text.darkmusic.invert_selection"), 20 + 2 * w, height - 52, w, selection::invert, Text.get("text.darkmusic.toggle_selection_of_every_entry"));
-        up = button(Text.get("text.darkmusic.move_up"), 12, height - 28, (width - 28) / 2, () -> move(-1), Text.get("text.darkmusic.move_selected_songs_up_while_preserving_their_relative_order"));
-        down = button(Text.get("text.darkmusic.move_down"), 16 + (width - 28) / 2, height - 28, (width - 28) / 2, () -> move(1), Text.get("text.darkmusic.move_selected_songs_down_while_preserving_their_relative_order"));
+        int w = (entryWidth - 8) / 3;
+        selectAll = button(Text.get("text.darkmusic.select_all"), entryX, height - 32, w, selection::all, Text.get("text.darkmusic.select_every_entry_including_missing_songs_ctrl_cmd_a_works_with_list_focus"));
+        deselect = button(Text.get("text.darkmusic.deselect_all"), entryX + w + 4, height - 32, w, selection::clear, Text.get("text.darkmusic.clear_every_selected_entry"));
+        invert = button(Text.get("text.darkmusic.invert_selection"), entryX + (w + 4) * 2, height - 32, entryWidth - (w + 4) * 2, selection::invert, Text.get("text.darkmusic.toggle_selection_of_every_entry"));
         UiButton.style(add, UiButton.Style.PRIMARY);
         UiButton.style(delete, UiButton.Style.DESTRUCTIVE);
+        UiButton.style(remove, UiButton.Style.DESTRUCTIVE);
         lists.emptyMessage(Text.get("ui.darkmusic.no_playlists"));
         if (compact && browsing)
             for (int i = footerStart; i < children().size(); i++)
@@ -136,11 +138,6 @@ public final class PlaylistScreen extends LocalScreen {
         refresh();
         lists.scrollOffset(listScroll);
         entries.scrollOffset(entryScroll);
-    }
-
-    private void move(int delta) {
-        app.playlists.moveAll(selectedId, selection.selected(), delta);
-        refreshEntries();
     }
 
     private void refresh() {
@@ -183,7 +180,9 @@ public final class PlaylistScreen extends LocalScreen {
         entries.tickDrag();
         add.active = selected() != null && !app.mediaBusy;
         rename.active = delete.active = selected() != null && !PlaylistStore.FAVORITES.equals(selectedId) && !app.mediaBusy;
-        remove.active = up.active = down.active = !selection.isEmpty();
+        remove.active = deselect.active = !selection.isEmpty() && !app.mediaBusy;
+        selectAll.active = invert.active = selected() != null && !entryTracks.isEmpty() && !app.mediaBusy;
+        entries.active = lists.active = !app.mediaBusy;
     }
 
     @Override
@@ -202,9 +201,9 @@ public final class PlaylistScreen extends LocalScreen {
         longText.begin();
         UiTheme.background(g, width, height);
         UiTheme.header(g, font, title, UiIcon.PLAYLIST);
-        if (lists.visible) g.text(font, Text.get("view.darkmusic.playlists"), 14, 64, UiTheme.ACCENT);
+        if (lists.visible) g.text(font, Text.get("view.darkmusic.playlists"), 14, 72, UiTheme.ACCENT);
         if (entries.visible)
-            longText.draw(g, font, "selection", (selected() == null ? "" : app.playlists.displayName(selected()) + " | ") + Text.get("format.darkmusic.selected", selection.size()), entries.getX() + 2, 64, entries.getWidth() - 4, UiTheme.SECONDARY);
+            longText.draw(g, font, "selection", (selected() == null ? "" : app.playlists.displayName(selected()) + " | ") + Text.get("format.darkmusic.selected", selection.size()), entries.getX() + 2, 72, entries.getWidth() - 4, UiTheme.SECONDARY);
         super.extractRenderState(g, x, y, d);
         importOverlay.render(app, g, width, height);
     }

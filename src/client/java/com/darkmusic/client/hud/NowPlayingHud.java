@@ -14,6 +14,7 @@ public final class NowPlayingHud {
     private static final CircularHudRenderer LIVE_CIRCLE = new CircularHudRenderer(), PREVIEW_CIRCLE = new CircularHudRenderer();
 
     private static final TitleMarquee LIVE_TITLE = new TitleMarquee(), PREVIEW_TITLE = new TitleMarquee();
+    private static final float[] LIVE_ART_LEVELS = new float[64], PREVIEW_ART_LEVELS = new float[64];
 
     private NowPlayingHud() {
     }
@@ -82,11 +83,26 @@ public final class NowPlayingHud {
             if (app.settings.hudStyle == com.darkmusic.client.config.Settings.HudStyle.ARTWORK) {
                 HudSurface.draw(g, app.settings, w, h);
                 var artworkLayout = ArtworkHudLayout.of(app.settings, art == null ? 1 : art.contentWidth() - 2 * art.menuInset(), art == null ? 1 : art.contentHeight());
+                g.pose().pushMatrix();
+                g.enableScissor(artworkLayout.artworkX(), artworkLayout.artworkY(),
+                    artworkLayout.artworkX() + artworkLayout.artworkWidth(), artworkLayout.artworkY() + artworkLayout.artworkHeight());
+                if (app.settings.artworkReactive) {
+                    var levels = settingsPreview ? PREVIEW_ART_LEVELS : LIVE_ART_LEVELS;
+                    boolean analyzed = (settingsPreview ? PREVIEW : LIVE).copyLevels(app, levels, settingsPreview);
+                    float zoom = analyzed ? CircularHudLayout.iconZoom(levels, app.settings.visualizerBars) : 1;
+                    float cx = artworkLayout.artworkX() + artworkLayout.artworkWidth() / 2f;
+                    float cy = artworkLayout.artworkY() + artworkLayout.artworkHeight() / 2f;
+                    g.pose().translate(cx, cy);
+                    g.pose().scale(zoom);
+                    g.pose().translate(-cx, -cy);
+                }
                 if (art != null) com.darkmusic.client.library.ArtworkCache.drawMenu(g, art,
                     artworkLayout.artworkX(), artworkLayout.artworkY(), artworkLayout.artworkWidth(), artworkLayout.artworkHeight());
                 else g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED,
                     Identifier.fromNamespaceAndPath("darkmusic", "textures/gui/hud-icon.png"), artworkLayout.artworkX(), artworkLayout.artworkY(), 0, 0,
                     artworkLayout.artworkWidth(), artworkLayout.artworkHeight(), 512, 512, 512, 512);
+                g.pose().popMatrix();
+                g.disableScissor();
                 if (app.settings.hudProgress) {
                     double progress = CircularHudLayout.progress(state.position(), state.duration(), preview);
                     com.darkmusic.client.gui.ColorStrip.track(g, artworkLayout.artworkX(), artworkLayout.progressY(), artworkLayout.artworkWidth(), 3, app.settings.progressFinish);

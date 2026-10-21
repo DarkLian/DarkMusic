@@ -199,7 +199,7 @@ public final class PlaybackController implements AutoCloseable {
         if (order.isEmpty() || cursor < 0) return;
         int old = order.get(cursor);
         if (cursor + 1 >= order.size()) {
-            if (repeat != Repeat.ALL) {
+            if (!manual && repeat != Repeat.ALL) {
                 stop();
                 return;
             }
@@ -218,7 +218,10 @@ public final class PlaybackController implements AutoCloseable {
             int index = history.removeLast();
             cursor = order.indexOf(index);
             start(index);
-        } else if (cursor >= 0) start(order.get(cursor));
+        } else if (cursor >= 0 && !order.isEmpty()) {
+            cursor = (cursor + order.size() - 1) % order.size();
+            start(order.get(cursor));
+        }
     }
 
     public void toggle() {
@@ -261,6 +264,14 @@ public final class PlaybackController implements AutoCloseable {
     public void seek(double seconds) {
         audio.seek(seconds);
         refreshNext();
+    }
+
+    public void seekRelative(double seconds) {
+        var state = audio.state();
+        if (!Double.isFinite(seconds) || state.track() == null || !Double.isFinite(state.duration()) || state.duration() <= 0
+            || state.status() == AudioBackend.Status.STOPPED || state.status() == AudioBackend.Status.ERROR) return;
+        double position = Double.isFinite(state.position()) ? state.position() : 0;
+        seek(Math.clamp(position + seconds, 0, state.duration()));
     }
 
     public record EditResume(long sequence, double position, AudioBackend.Status status) {

@@ -33,7 +33,7 @@ public final class SettingsScreen extends LocalScreen {
     private List<net.minecraft.util.FormattedCharSequence> folderLines = List.of();
     private int scroll, top, bottom, formWidth, cursor, previewX, previewY, previewWidth, previewHeight;
     private int formX, selectedSection, buildingSection;
-    private static final String[] SECTION_KEYS = {"phase2.section.0", "settings.audio_section", "phase2.section.1", "phase2.section.2", "phase2.section.3", "phase2.section.4", "phase2.section.5"};
+    private static final String[] SECTION_KEYS = {"phase2.section.0", "settings.audio_section", "phase2.section.1", "phase2.section.2", "phase2.section.5"};
     private final int[] sectionScroll = new int[SECTION_KEYS.length];
     private boolean previewOnly, previewVisible;
 
@@ -170,10 +170,6 @@ public final class SettingsScreen extends LocalScreen {
         action("environment.title", () -> show(new SoundEnvironmentScreen(app, this)), "environment.scope");
         section("text.darkmusic.hud_settings");
         toggle("text.darkmusic.now_playing_hud", () -> s.hudEnabled, v -> s.hudEnabled = v, "hud.darkmusic.master_help");
-        if (s.lyricsEnabled && s.hudStyle != Settings.HudStyle.ARTWORK && s.hudStyle != Settings.HudStyle.SPECTRUM) {
-            toggle("lyrics.darkmusic.hud", () -> s.lyricsHud, v -> s.lyricsHud = v, "lyrics.darkmusic.hud_help");
-            toggle("lyrics.darkmusic.next", () -> s.lyricsNextLine, v -> s.lyricsNextLine = v, "lyrics.darkmusic.next_help");
-        }
         action("circle.darkmusic.style", () -> {
             s.hudStyle = Settings.HudStyle.values()[(s.hudStyle.ordinal() + 1) % Settings.HudStyle.values().length];
             app.save();
@@ -212,6 +208,20 @@ public final class SettingsScreen extends LocalScreen {
             controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("style.darkmusic.shape") + ": " + Text.get("style.darkmusic.shape." + s.hudShape.name().toLowerCase(Locale.ROOT))));
             toggle("style.darkmusic.raised", () -> s.hudRaised, v -> s.hudRaised = v, "style.darkmusic.raised_help");
         }
+        if (artwork)
+            toggle("hud.darkmusic.artwork_reactive", () -> s.artworkReactive, v -> s.artworkReactive = v, "hud.darkmusic.artwork_reactive_help");
+        if (!spectrumOnly) finish("finish.darkmusic.progress", () -> s.progressFinish, v -> s.progressFinish = v);
+        if (!spectrumOnly)
+            action("colors.darkmusic.progress", () -> show(new ColorsScreen(app, this, false)), "colors.darkmusic.help");
+        if (linear && !spectrumOnly) {
+            slider(s.hudBackgroundTransparency, v -> Text.get("hud.darkmusic.transparency", Math.round(s.hudBackgroundTransparency * 100)), v -> s.hudBackgroundTransparency = v, 100, "hud.darkmusic.transparency_help");
+            toggle("hud.darkmusic.background_gradient", () -> s.hudBackgroundGradient, v -> s.hudBackgroundGradient = v, "hud.darkmusic.background_gradient_help");
+            action("hud.darkmusic.background_colors", () -> show(new ColorsScreen(app, this, s.hudBackgroundColors, "hud.darkmusic.background_colors")), "colors.darkmusic.help");
+        }
+        if (s.lyricsEnabled && s.hudStyle != Settings.HudStyle.ARTWORK && s.hudStyle != Settings.HudStyle.SPECTRUM) {
+            toggle("lyrics.darkmusic.hud", () -> s.lyricsHud, v -> s.lyricsHud = v, "lyrics.darkmusic.hud_help");
+            toggle("lyrics.darkmusic.next", () -> s.lyricsNextLine, v -> s.lyricsNextLine = v, "lyrics.darkmusic.next_help");
+        }
         section("hud.darkmusic.section_spectrum");
         action("style.darkmusic.spectrum", () -> {
             if (linear)
@@ -248,6 +258,12 @@ public final class SettingsScreen extends LocalScreen {
                 controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("hud.darkmusic.direction") + ": " + Text.get("hud.darkmusic.direction." + s.spectrumDirection.name().toLowerCase(Locale.ROOT))));
             }
         }
+        finish("finish.darkmusic.spectrum", () -> s.spectrumFinish, v -> s.spectrumFinish = v);
+        toggle("quality.darkmusic.frequency", () -> s.visualQuality.frequencySmoothing, v -> s.visualQuality.frequencySmoothing = v, "quality.darkmusic.frequency_help");
+        toggle("quality.darkmusic.peaks", () -> s.visualQuality.peakHold, v -> s.visualQuality.peakHold = v, "quality.darkmusic.peaks_help");
+        toggle("quality.darkmusic.trails", () -> s.visualQuality.trails, v -> s.visualQuality.trails = v, "quality.darkmusic.trails_help");
+        toggle("quality.darkmusic.glow", () -> s.visualQuality.glow, v -> s.visualQuality.glow = v, "quality.darkmusic.glow_help");
+        action("colors.darkmusic.spectrum", () -> show(new ColorsScreen(app, this, true)), "colors.darkmusic.help");
         slider(s.visualizerSmoothing / .95, v -> Text.get("format.darkmusic.smoothing", Math.round(s.visualizerSmoothing * 100)), v -> s.visualizerSmoothing = v * .95, 19, "text.darkmusic.higher_values_give_slower_attack_and_decay_pausing_freezes_the_actual_spectrum_sto");
         slider((s.visualizerSensitivity - .25) / 3.75, v -> Text.get("format.darkmusic.sensitivity", String.format(Locale.ROOT, "%.2f", s.visualizerSensitivity)), v -> s.visualizerSensitivity = .25 + v * 3.75, 15, "text.darkmusic.boost_quiet_spectra_or_reduce_strong_levels_samples_follow_playback_speed_and_dark");
         slider((s.visualizerBars - 8) / 56.0, v -> Text.get("format.darkmusic.bars", s.visualizerBars), v -> s.visualizerBars = 8 + (int) Math.round(v * 56), 14, "text.darkmusic.8_64_logarithmic_frequency_bands_from_bass_to_treble_narrow_areas_combine_bars_to");
@@ -258,28 +274,6 @@ public final class SettingsScreen extends LocalScreen {
                 else if (linear) s.classicSpectrumHeight = 8 + (int) Math.round(v * 92);
                 else s.circularSpectrumHeight = 4 + (int) Math.round(v * 56);
             }, linear ? 92 : 56, "hud.darkmusic.spectrum_height_help");
-        section("hud.darkmusic.section_appearance");
-        finish("finish.darkmusic.spectrum", () -> s.spectrumFinish, v -> s.spectrumFinish = v);
-        if (!spectrumOnly) finish("finish.darkmusic.progress", () -> s.progressFinish, v -> s.progressFinish = v);
-        action("colors.darkmusic.spectrum", () -> show(new ColorsScreen(app, this, true)), "colors.darkmusic.help");
-        if (!spectrumOnly)
-            action("colors.darkmusic.progress", () -> show(new ColorsScreen(app, this, false)), "colors.darkmusic.help");
-        if (linear && !spectrumOnly) {
-            slider(s.hudBackgroundTransparency, v -> Text.get("hud.darkmusic.transparency", Math.round(s.hudBackgroundTransparency * 100)), v -> s.hudBackgroundTransparency = v, 100, "hud.darkmusic.transparency_help");
-            toggle("hud.darkmusic.background_gradient", () -> s.hudBackgroundGradient, v -> s.hudBackgroundGradient = v, "hud.darkmusic.background_gradient_help");
-            action("hud.darkmusic.background_colors", () -> show(new ColorsScreen(app, this, s.hudBackgroundColors, "hud.darkmusic.background_colors")), "colors.darkmusic.help");
-        }
-        section("hud.darkmusic.section_effects");
-        action("quality.darkmusic.preset", () -> {
-            s.visualQuality.next();
-            app.save();
-            rebuildWidgets();
-        }, "quality.darkmusic.help");
-        controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("quality.darkmusic.preset") + ": " + Text.get("quality.darkmusic." + s.visualQuality.preset().name().toLowerCase(Locale.ROOT))));
-        toggle("quality.darkmusic.frequency", () -> s.visualQuality.frequencySmoothing, v -> s.visualQuality.frequencySmoothing = v, "quality.darkmusic.frequency_help");
-        toggle("quality.darkmusic.peaks", () -> s.visualQuality.peakHold, v -> s.visualQuality.peakHold = v, "quality.darkmusic.peaks_help");
-        toggle("quality.darkmusic.trails", () -> s.visualQuality.trails, v -> s.visualQuality.trails = v, "quality.darkmusic.trails_help");
-        toggle("quality.darkmusic.glow", () -> s.visualQuality.glow, v -> s.visualQuality.glow = v, "quality.darkmusic.glow_help");
         section("reset.darkmusic.section");
         action("reset.darkmusic.button", () -> show(new ConfirmationScreen(this, Text.component("reset.darkmusic.title"),
             Text.component("reset.darkmusic.body"), Text.component("reset.darkmusic.confirm"), app::resetDefaults)), "reset.darkmusic.help");

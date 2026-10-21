@@ -6,9 +6,9 @@ A client-side music player for Minecraft. Browse your own library, build playlis
 
 ## Install
 
-DarkMusic **v2.3.4** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v2.3.5** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-2.3.4.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-2.3.5.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Open **Settings → General → Choose Music Folder**, or add songs to `config/darkmusic/music` inside the instance.
@@ -25,11 +25,11 @@ Update notifications are enabled by default and appear once per launch after joi
 - **Import:** drag audio files into the player or playlist manager to copy them into your library. Import into the selected folder or playlist, and review results through Import History beside Open Folder.
 - **Favorites:** mark songs with the heart button and find them in the built-in Favorite Music playlist.
 - **Metadata:** edit the selected song's title, artist, album, and filename using the pencil button. Open or copy its source link when available. Tags are saved to the file, and the filename extension stays protected.
-- **Playback:** seek, shuffle, repeat, mute, and change speed from 0.5× to 3.0×. Jump to Playing returns to the collection where playback started. Search does not narrow the playback queue.
+- **Playback:** seek in five-second steps, shuffle, repeat, mute, and change speed from 0.5× to 3.0×. The player follows track changes automatically. Jump to Playing returns to the collection where playback started. Search does not narrow the playback queue.
 - **Playlists:** bulk-select songs and reorder connected selections by dragging. Complete library scans clean up confirmed missing entries, including favorites, without deleting audio.
 - **Downloads:** analyze a video or collection URL, select entries or a range, preview audio, jump between available preview pages, and manage parallel downloads and retries.
 - **HUD:** Classic, Circular, Artwork, and Spectrum Only layouts with optional progress and a spectrum driven by decoded audio. Artwork mode preserves image proportions and supports outward horizontal spectra beside the image.
-- **Visuals:** bars, waves, spikes, gradient presets, beveled finishes, glow, trails, peak markers, and quality presets. Customize menu colors and HUD backgrounds using a visual color spectrum, RGB sliders, or hex values.
+- **Visuals:** bars, waves, spikes, gradient presets, beveled finishes, glow, trails, peak markers, and frequency smoothing. Customize menu colors and HUD backgrounds using a visual color spectrum, RGB sliders, or hex values.
 - **Audio Options:** profiles, loudness normalization, graphic or parametric EQ, dynamic EQ, de-essing, tone controls, crossfeed, compression, algorithmic or convolution reverb, and optional true-peak protection. Pitch-preserving speed, gapless playback, crossfade, and game-audio balance remain available.
 - **Sound Environment:** 20 choices, including Off, with independent intensity, room/tone controls, optional textures and ambience, and saved custom presets. Combine environments with Audio Options.
 - **Audio Analyzer:** device-clock stage measurements, spectra, waveforms, EQ response, stereo and dynamics meters, plus temporary A/B comparison and level matching.
@@ -81,9 +81,14 @@ Tools are installed separately from the mod. The managed installer supports Wind
 | Play / pause | Backslash |
 | Previous / next song | [ / ] |
 | Decrease / increase volume | Down / Up arrow |
-| Decrease / increase speed | Left / Right arrow |
+| Decrease / increase speed | − / + (minus / equals key) |
+| Back / forward five seconds | Left / Right arrow |
+| Stop | P |
+| Jump to Playing | O |
 | Reset speed to 1.0× | Numpad 0 |
 | Mute / unmute | M |
+
+Space toggles Play/Pause inside the player. Shortcuts leave text fields available for typing.
 
 Change shortcuts in **Options → Controls → Key Binds → DarkMusic**.
 

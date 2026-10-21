@@ -1,4 +1,9 @@
 {
+"key.darkmusic.stop": "Stop Music",
+"key.darkmusic.jump": "Jump to Playing",
+"hud.darkmusic.artwork_reactive": "Audio-Reactive Artwork",
+"hud.darkmusic.artwork_reactive_help": "Gently pulse the artwork with the music.",
+
   "quality.darkmusic.trails_help": "Show fading peaks behind the spectrum.",
   "quality.darkmusic.glow_help": "Add a soft glow around the spectrum.",
   "lyrics.darkmusic.availability.available": "Timed lyrics available",
@@ -1021,9 +1026,12 @@
   "update.check_failed": "Could not check for updates. Try again later.",
   "update.check_help": "Check GitHub now, even when update notifications are off.",
   "update.checking": "Checking for updates…",
-  "update.development": "Updates are available only when running an installed mod JAR.",
+  "update.development": "This development build can check for releases. Install updates from an installed mod JAR.",
   "update.download": "Download Update",
   "update.found": "DarkMusic %s is available.",
   "update.install_help": "Close Minecraft after downloading to install the update.",
-  "update.latest": "You are using the latest available release."
+  "update.latest": "You are using the latest available release.",
+  "error.shortcut_migrate": "Could not update the default speed shortcuts. Rebind them in Controls.",
+  "key.darkmusic.seek_back": "Back 5 Seconds",
+  "key.darkmusic.seek_forward": "Forward 5 Seconds"
 }

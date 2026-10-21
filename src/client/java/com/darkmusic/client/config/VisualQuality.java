@@ -4,7 +4,7 @@ package com.darkmusic.client.config;
  * Rendering/analysis quality only: never enables audio coloration or changes playback gain.
  */
 public final class VisualQuality {
-    public boolean frequencySmoothing, peakHold, trails, glow, beatReactive;
+    public boolean frequencySmoothing = true, peakHold = true, trails = true, glow = true, beatReactive;
     public int detail = 192;
 
     public enum Preset {STANDARD, ENHANCED, EXTREME, CUSTOM}

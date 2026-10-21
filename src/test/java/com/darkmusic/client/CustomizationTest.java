@@ -41,7 +41,8 @@ class CustomizationTest {
         assertFalse(settings.lyricsEnabled);
         assertEquals(Settings.SurfaceFinish.BEVELED, settings.spectrumFinish);
         assertEquals(Settings.SurfaceFinish.BEVELED, settings.progressFinish);
-        assertEquals(com.darkmusic.client.config.VisualQuality.Preset.ENHANCED, settings.visualQuality.preset());
+        assertTrue(settings.visualQuality.frequencySmoothing && settings.visualQuality.peakHold && settings.visualQuality.trails && settings.visualQuality.glow);
+        assertEquals(256, settings.visualQuality.detail);
         assertEquals(com.darkmusic.client.config.VisualColors.Preset.OCEAN_DRIVE, settings.spectrumColors.preset);
         for (int height : new int[]{8, 32, 100})
             for (var position : Settings.SpectrumPosition.values()) {
