@@ -90,11 +90,11 @@ public final class ConfigStore {
                 } catch (Exception e) {
                     preserveInvalid = true;
                     settings = new Settings();
-                    warning.accept("Configuration could not be loaded; original preserved. " + e.getMessage());
+                    warning.accept(com.darkmusic.client.text.Text.failure(e, "error.config_load"));
                 }
             }
         } catch (IOException e) {
-            warning.accept("Cannot create the music folder: " + e.getMessage());
+            warning.accept(com.darkmusic.client.text.Text.failure(e, "error.music_folder_create"));
         }
         settings.validate();
         Path game = directory.toAbsolutePath().getParent().getParent();
@@ -103,7 +103,7 @@ public final class ConfigStore {
             settings.nativeShortcutNames = lines.filter(s -> s.startsWith("key_key.darkmusic.") && s.indexOf(':') > 4)
                 .map(s -> s.substring(4, s.indexOf(':'))).collect(java.util.stream.Collectors.toUnmodifiableSet());
         } catch (IOException e) {
-            warning.accept("Could not read native shortcut migration state: " + e.getMessage());
+            warning.accept(com.darkmusic.client.text.Text.failure(e, "error.shortcut_load"));
         }
         return settings;
     }
@@ -159,7 +159,7 @@ public final class ConfigStore {
                 }
                 atomicWrite(directory.resolve("config.json"), json);
             } catch (IOException e) {
-                warning.accept("Could not save settings: " + e.getMessage());
+                warning.accept(com.darkmusic.client.text.Text.failure(e, "error.save_settings"));
             }
         }
     }

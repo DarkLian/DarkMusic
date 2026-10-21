@@ -19,10 +19,10 @@ public enum UiIcon {
         String[] keys = {"text.darkmusic.new", "text.darkmusic.delete", "text.darkmusic.rename", "text.darkmusic.add_songs",
             "text.darkmusic.save", "text.darkmusic.cancel", "text.darkmusic.tools", "text.darkmusic.analyze",
             "text.darkmusic.download", "download.darkmusic.listen", "download.darkmusic.stop_listening",
-            "audio.darkmusic.title", "lyrics.darkmusic.title", "text.darkmusic.choose_music_folder",
+            "audio.darkmusic.title", "environment.title", "lyrics.darkmusic.title", "text.darkmusic.choose_music_folder",
             "text.darkmusic.edit_hud_layout", "reset.darkmusic.button"};
         UiIcon[] icons = {ADD, DELETE, EDIT, ADD, CHECK, BACK, TOOLS, SEARCH, DOWNLOAD, PLAY, STOP,
-            VOLUME, LYRICS, FOLDER, EDIT, WARNING};
+            VOLUME, VOLUME, LYRICS, FOLDER, EDIT, WARNING};
         for (int i = 0; i < keys.length; i++) {
             String text = com.darkmusic.client.text.Text.get(keys[i]);
             if (label.equals(text) || label.startsWith(text + ":")) return icons[i];

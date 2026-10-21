@@ -61,6 +61,36 @@ abstract class AudioPage extends LocalScreen {
         place(new SettingRow(formX, 0, formWidth, Text.get(key), null, run));
     }
 
+    protected final void labeledAction(String label, String help, Runnable run) {
+        var row = new SettingRow(formX, 0, formWidth, label, null, run);
+        place(row);
+        Help.tip(row, help);
+    }
+
+    protected final int rowCount() {
+        return rows.size();
+    }
+
+    protected final void enableSince(int start, boolean enabled) {
+        for (int i = start; i < rows.size(); i++) rows.get(i).active = enabled;
+    }
+
+    @Override
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int page = Math.max(24, height - 72);
+        switch (event.key()) {
+            case 266 -> scroll -= page;
+            case 267 -> scroll += page;
+            case 268 -> scroll = 0;
+            case 269 -> scroll = cursor;
+            default -> {
+                return super.keyPressed(event);
+            }
+        }
+        position();
+        return true;
+    }
+
     protected final void numberedAction(String key, int number, Runnable run) {
         place(new SettingRow(formX, 0, formWidth, Text.get(key) + " " + number, null, run));
     }
@@ -85,15 +115,28 @@ abstract class AudioPage extends LocalScreen {
     }
 
     protected final void slider(String key, double value, double low, double high, int steps, DoubleConsumer write, String unit) {
-        var slider = new ValueSlider(formX, 0, formWidth, (value - low) / (high - low), v -> Text.get(key) + ": " + String.format(Locale.ROOT, "%.2f", low + v * (high - low)) + unit,
+        var parameter = new AudioParameter(low, high, unit.equals(" Hz") && low >= 20, unit);
+        double[] current = {value};
+        var slider = new ValueSlider(formX, 0, formWidth, parameter.position(value), v -> Text.get(key) + ": " + parameter.format(parameter.value(v)),
             v -> {
-                write.accept(low + v * (high - low));
+                current[0] = parameter.value(v);
+                write.accept(current[0]);
                 adjusted();
                 app.configureVisualizer();
-            }, app::save, steps);
+            }, () -> {
+            app.save();
+            rebuildWidgets();
+        }, parameter.logarithmic() ? 2048 : steps);
+        slider.exactEditor(() -> show(TextPromptScreen.validated(this,
+            Text.get("audio.parameter.title", Text.get(key), low, high, unit.strip()), Double.toString(current[0]), 64, input -> {
+                write.accept(parameter.parse(input));
+                adjusted();
+                app.save();
+                return true;
+            })));
         slider.plain(true);
         place(slider);
-        Help.tip(slider, Text.get(key + ".help"));
+        Help.tip(slider, Text.get(key + ".help") + " " + Text.get("audio.parameter.help"));
     }
 
     @Override

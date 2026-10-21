@@ -28,9 +28,11 @@ public final class AudioSettingsScreen extends LocalScreen {
     private final List<AbstractWidget> rows = new ArrayList<>();
     private final List<Integer> positions = new ArrayList<>();
     private final List<Section> sections = new ArrayList<>();
+    private final List<Detail> details = new ArrayList<>();
     private int scroll, cursor;
     private int formX, formWidth;
     private int normalizationY = -1;
+    private String notice = "";
 
     private void place(AbstractWidget widget) {
         rows.add(addRenderableWidget(widget));
@@ -41,6 +43,11 @@ public final class AudioSettingsScreen extends LocalScreen {
     private void section(String key) {
         sections.add(new Section(Text.get(key), cursor));
         cursor += 22;
+    }
+
+    private void info(java.util.function.Supplier<String> text) {
+        details.add(new Detail(text, cursor));
+        cursor += 20;
     }
 
     public AudioSettingsScreen(DarkMusicClient app, Screen parent) {
@@ -74,13 +81,32 @@ public final class AudioSettingsScreen extends LocalScreen {
     }
 
     private void slider(double value, String key, DoubleFunction<String> label, DoubleConsumer change, int steps, String help) {
+        double[] current = {value};
         var slider = new ValueSlider(formX, 0, formWidth, value, v -> Text.get(key) + ": " + label.apply(v), v -> {
+            current[0] = v;
             change.accept(v);
             app.settings.audio.profile = "CUSTOM";
             app.configureVisualizer();
         }, app::save, steps);
         slider.plain(true);
-        place(Help.tip(slider, Text.get(help)));
+        var parameter = switch (key) {
+            case "audio.darkmusic.target" -> new AudioParameter(-24, -9, false, " LUFS");
+            case "audio.darkmusic.band" -> new AudioParameter(-12, 12, false, " dB");
+            case "audio.darkmusic.bass" -> new AudioParameter(0, 6, false, " dB");
+            case "audio.darkmusic.width" -> new AudioParameter(0, 150, false, "%");
+            case "audio.darkmusic.crossfade" -> new AudioParameter(0, 10, false, " s");
+            case "audio.darkmusic.duck_attack" -> new AudioParameter(.01, .2, false, " s");
+            case "audio.darkmusic.duck_hold", "audio.darkmusic.duck_release" -> new AudioParameter(.1, 2, false, " s");
+            default -> new AudioParameter(0, 100, false, "%");
+        };
+        slider.exactEditor(() -> show(TextPromptScreen.validated(this, Text.get("audio.parameter.title", Text.get(key), parameter.low(), parameter.high(), parameter.unit().strip()),
+            Double.toString(parameter.value(current[0])), 64, input -> {
+                change.accept(parameter.position(parameter.parse(input)));
+                app.settings.audio.profile = "CUSTOM";
+                app.save();
+                return true;
+            })));
+        place(Help.tip(slider, Text.get(help) + " " + Text.get("audio.parameter.help")));
     }
 
     @Override
@@ -90,6 +116,7 @@ public final class AudioSettingsScreen extends LocalScreen {
         rows.clear();
         positions.clear();
         sections.clear();
+        details.clear();
         cursor = 0;
         normalizationY = -1;
         var a = app.settings.audio;
@@ -97,40 +124,13 @@ public final class AudioSettingsScreen extends LocalScreen {
         row("analyzer.title", null, () -> show(new AudioAnalyzerScreen(app, this, com.darkmusic.client.audio.AudioComparison.Mode.AUDIO_OPTIONS)), "analyzer.help");
         row("dsp.advanced", null, () -> show(new AudioAdvancedScreen(app, this)), "dsp.advanced.help");
         toggle("audio.darkmusic.neutral", () -> a.neutral, v -> a.neutral = v, "audio.darkmusic.neutral_help");
+        info(() -> Text.get(a.neutral ? "dsp.neutral_scope" : "audio.basic_hint"));
         choice("audio.darkmusic.download", app.settings.downloadFormat, DownloadEncoding.Format.values(), v -> app.settings.downloadFormat = v, "audio.darkmusic.download_help");
         String[] profiles = {"DEFAULT", "MUSIC", "GAMING", "VOCAL", "NIGHT"};
         row("audio.darkmusic.profile", null, () -> a.selectProfile(profiles[(Arrays.asList(profiles).indexOf(a.profile) + 1) % profiles.length]), "audio.darkmusic.profile_help");
         rows.getLast().setMessage(Component.literal(Text.get("audio.darkmusic.profile") + ": " + Text.get("audio.darkmusic.value." + a.profile.toLowerCase(Locale.ROOT))));
-        row("audio.darkmusic.save_profile", null, () -> show(new TextPromptScreen(this, Text.get("audio.darkmusic.save_profile"), "Custom", name -> {
-            var copy = ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(a), AudioSettings.class);
-            copy.savedProfiles.clear();
-            a.savedProfiles.put(name, ConfigStore.JSON.toJson(copy));
-            app.save();
-        })), "audio.darkmusic.save_profile_help");
-        for (String name : List.copyOf(a.savedProfiles.keySet())) {
-            row("audio.darkmusic.load_profile", null, () -> {
-                try {
-                    var loaded = ConfigStore.JSON.fromJson(a.savedProfiles.get(name), AudioSettings.class);
-                    loaded.validate();
-                    loaded.savedProfiles = a.savedProfiles;
-                    app.settings.audio = loaded;
-                } catch (RuntimeException e) {
-                    app.warn(Text.get("audio.darkmusic.invalid_profile"));
-                }
-            }, "audio.darkmusic.load_profile_help");
-            rows.getLast().setMessage(Component.literal(Text.get("audio.darkmusic.load_profile") + ": " + name));
-            rows.getLast().setWidth(formWidth - 28);
-            var delete = UiButton.icon(UiButton.builder(Text.component("audio.darkmusic.delete_profile", name), b ->
-                show(new ConfirmationScreen(this, Text.component("audio.darkmusic.delete_profile_title"),
-                    Text.component("audio.darkmusic.delete_profile_body", name), Text.component("text.darkmusic.delete"), () -> {
-                    app.settings.audio.savedProfiles.remove(name);
-                    app.save();
-                    return java.util.concurrent.CompletableFuture.completedFuture(null);
-                }))).bounds(formX + formWidth - 24, 0, 24, 20).build(), UiIcon.DELETE, true);
-            UiButton.style(delete, UiButton.Style.DESTRUCTIVE);
-            rows.add(addRenderableWidget(delete));
-            positions.add(cursor - 24);
-        }
+        info(() -> Text.get("audio.profile_description." + a.profile.toLowerCase(Locale.ROOT)));
+        choice("audio.darkmusic.listening", a.listening, AudioSettings.Listening.values(), v -> a.listening = v, "audio.darkmusic.listening_help");
         int effectsStart = rows.size();
         section("audio.darkmusic.section_loudness");
         toggle("audio.darkmusic.normalization", () -> a.normalization, v -> a.normalization = v, "audio.darkmusic.normalization_help");
@@ -170,7 +170,6 @@ public final class AudioSettingsScreen extends LocalScreen {
         toggle("audio.darkmusic.gapless", () -> a.gapless, v -> a.gapless = v, "audio.darkmusic.transition_help");
         slider(a.crossfade / 10, "audio.darkmusic.crossfade", v -> String.format(Locale.ROOT, "%.1f s", a.crossfade), v -> a.crossfade = v * 10, 20, "audio.darkmusic.crossfade_help");
         section("audio.darkmusic.section_game_audio");
-        choice("audio.darkmusic.listening", a.listening, AudioSettings.Listening.values(), v -> a.listening = v, "audio.darkmusic.listening_help");
         if (a.listening == AudioSettings.Listening.AMBIENT)
             slider(a.ambientGain, "audio.darkmusic.ambient", v -> Math.round(a.ambientGain * 100) + "%", v -> a.ambientGain = v, 100, "audio.darkmusic.ambient_help");
         if (a.listening == AudioSettings.Listening.FOCUS)
@@ -181,6 +180,47 @@ public final class AudioSettingsScreen extends LocalScreen {
             slider((a.duckAttack - .01) / .19, "audio.darkmusic.duck_attack", v -> Math.round(a.duckAttack * 1000) + " ms", v -> a.duckAttack = .01 + v * .19, 19, "audio.darkmusic.duck_attack_help");
             slider((a.duckHold - .1) / 1.9, "audio.darkmusic.duck_hold", v -> String.format(Locale.ROOT, "%.1f s", a.duckHold), v -> a.duckHold = .1 + v * 1.9, 19, "audio.darkmusic.duck_hold_help");
             slider((a.duckRelease - .1) / 1.9, "audio.darkmusic.duck_release", v -> String.format(Locale.ROOT, "%.1f s", a.duckRelease), v -> a.duckRelease = .1 + v * 1.9, 19, "audio.darkmusic.duck_release_help");
+        }
+        section("audio.saved_profiles");
+        info(() -> app.warning.equals(Text.get("error.save_settings")) ? app.warning : notice);
+        row("audio.darkmusic.save_profile", null, () -> show(PresetDialogs.save(this, "audio.darkmusic.save_profile", a.savedProfiles, Integer.MAX_VALUE, 100, (name, replace) -> {
+            var copy = ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(a), AudioSettings.class);
+            copy.savedProfiles.clear();
+            com.darkmusic.client.config.PresetNames.save(a.savedProfiles, name, ConfigStore.JSON.toJson(copy), Integer.MAX_VALUE, replace, 100);
+            notice = Text.get("preset.saved");
+            app.save();
+        })), "audio.darkmusic.save_profile_help");
+        for (String name : List.copyOf(a.savedProfiles.keySet())) {
+            row("audio.darkmusic.load_profile", null, () -> {
+                try {
+                    var loaded = ConfigStore.JSON.fromJson(a.savedProfiles.get(name), AudioSettings.class);
+                    loaded.validate();
+                    loaded.enhancements.preservePitch = a.enhancements.preservePitch;
+                    loaded.savedProfiles = a.savedProfiles;
+                    app.settings.audio = loaded;
+                } catch (RuntimeException e) {
+                    app.warn(Text.get("audio.darkmusic.invalid_profile"));
+                }
+            }, "audio.darkmusic.load_profile_help");
+            rows.getLast().setMessage(Component.literal(Text.get("audio.darkmusic.load_profile") + ": " + name));
+            row("preset.rename", null, () -> show(TextPromptScreen.validated(this, Text.get("preset.rename"), name, 256, renamed -> {
+                com.darkmusic.client.config.PresetNames.rename(a.savedProfiles, name, renamed, 100);
+                notice = Text.get("preset.renamed");
+                app.save();
+                return true;
+            })), "preset.rename_help");
+            rows.getLast().setWidth(formWidth - 28);
+            var delete = UiButton.icon(UiButton.builder(Text.component("audio.darkmusic.delete_profile", name), b ->
+                show(new ConfirmationScreen(this, Text.component("audio.darkmusic.delete_profile_title"),
+                    Text.component("audio.darkmusic.delete_profile_body", name), Text.component("text.darkmusic.delete"), () -> {
+                    app.settings.audio.savedProfiles.remove(name);
+                    notice = Text.get("preset.deleted");
+                    app.save();
+                    return java.util.concurrent.CompletableFuture.completedFuture(null);
+                }))).bounds(formX + formWidth - 24, 0, 24, 20).build(), UiIcon.DELETE, true);
+            UiButton.style(delete, UiButton.Style.DESTRUCTIVE);
+            rows.add(addRenderableWidget(delete));
+            positions.add(cursor - 24);
         }
         scrollbar = addRenderableWidget(new ScrollBar(() -> scroll, value -> {
             scroll = value;
@@ -199,6 +239,22 @@ public final class AudioSettingsScreen extends LocalScreen {
             row.visible = y >= 36 && y + 20 <= height - 12;
             if (!row.visible && getFocused() == row) setFocused(null);
         }
+    }
+
+    @Override
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int page = Math.max(24, height - 72);
+        switch (event.key()) {
+            case 266 -> scroll -= page;
+            case 267 -> scroll += page;
+            case 268 -> scroll = 0;
+            case 269 -> scroll = cursor;
+            default -> {
+                return super.keyPressed(event);
+            }
+        }
+        position();
+        return true;
     }
 
     @Override
@@ -223,10 +279,13 @@ public final class AudioSettingsScreen extends LocalScreen {
             g.text(font, section.title, formX + 2, sectionY + 3, UiTheme.ACCENT);
         }
         longText.begin();
+        for (var detail : details) {
+            int detailY = 40 + detail.y - scroll;
+            if (detailY >= 28 && detailY < height - 12)
+                longText.draw(g, font, "detail" + detail.y, detail.text.get(), formX + 4, detailY, formWidth - 8, UiTheme.SECONDARY);
+        }
         if (normalizationY >= 0) {
-            var status = app.playback.normalization();
-            String label = Text.get("analyzer.normalization." + status.state().name().toLowerCase(Locale.ROOT)) + " · "
-                + Text.get("analyzer.applied_gain", String.format(Locale.ROOT, "%.1f", status.appliedDb()));
+            String label = LoudnessStatusText.describe(app.playback.normalization());
             longText.draw(g, font, "normalization", label, formX + 4, 40 + normalizationY - scroll, formWidth - 8, UiTheme.SECONDARY);
         }
         g.disableScissor();
@@ -234,5 +293,8 @@ public final class AudioSettingsScreen extends LocalScreen {
     }
 
     private record Section(String title, int y) {
+    }
+
+    private record Detail(java.util.function.Supplier<String> text, int y) {
     }
 }

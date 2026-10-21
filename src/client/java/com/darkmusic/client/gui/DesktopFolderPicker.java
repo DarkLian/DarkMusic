@@ -79,7 +79,7 @@ public final class DesktopFolderPicker {
         choose(app.library.root(), Text.get("text.darkmusic.choose_music_folder")).whenComplete((path, error) -> mc.execute(() -> {
             if (fullscreen && !mc.getWindow().isFullscreen()) mc.getWindow().toggleFullScreen();
             if (!current.getAsBoolean()) return;
-            if (error != null) app.warn(Text.get("folder.darkmusic.failed", error.getMessage()));
+            if (error != null) app.warn(Text.get("folder.darkmusic.failed", Text.failure(error, "error.folder")));
             else if (path != null) app.chooseDirectory(path, () -> {
             });
         }));

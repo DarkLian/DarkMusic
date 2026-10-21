@@ -25,10 +25,24 @@ public final class AudioAnalyzerScreen extends AudioPage {
     }
 
     private void configure() {
-        var d = app.playback.diagnostics();
-        if (d != null)
-            d.panels(enabled ? (spectrum ? AudioDiagnostics.SPECTRUM : 0) | (waveform ? AudioDiagnostics.WAVEFORM : 0) | (response ? AudioDiagnostics.RESPONSE : 0) | 8 : 0);
+        updatePanels();
         app.playback.comparison(new AudioComparison(mode, bypass, matched));
+    }
+
+    private void updatePanels() {
+        int mask = enabled ? AudioDiagnostics.METERS : 0;
+        if (enabled && (before || after)) for (var graph : graphs) {
+            int y = contentY(graph.y);
+            if (y + 80 < 36 || y > height - 12) continue;
+            mask |= switch (graph.kind) {
+                case 0, 4 -> response ? AudioDiagnostics.RESPONSE : 0;
+                case 1 -> spectrum ? AudioDiagnostics.SPECTRUM : 0;
+                case 2 -> waveform ? AudioDiagnostics.WAVEFORM : 0;
+                default -> 0;
+            };
+        }
+        var diagnostics = app.playback.diagnostics();
+        if (diagnostics != null) diagnostics.panels(mask);
     }
 
     @Override
@@ -58,7 +72,7 @@ public final class AudioAnalyzerScreen extends AudioPage {
         info(() -> Text.get(app.settings.audio.neutral ? "analyzer.ao_bypassed" : "analyzer.ao_active") + " | " + Text.get(app.settings.environment.active() ? "analyzer.env_active" : "analyzer.env_bypassed"));
         section("analyzer.normalization");
         info(this::normalization);
-        info(() -> Text.get(app.playback.normalization().albumFallback() ? "analyzer.album_fallback" : "analyzer.album_scope"));
+        info("analyzer.album_scope");
         section("analyzer.meters");
         info(() -> meter(0));
         info(() -> meter(1));
@@ -115,9 +129,7 @@ public final class AudioAnalyzerScreen extends AudioPage {
     }
 
     private String normalization() {
-        var n = app.playback.normalization();
-        String source = n.source() == null ? "" : Text.get("analyzer.source." + n.source().name().toLowerCase(Locale.ROOT));
-        return Text.get("analyzer.normalization_status", Text.get("analyzer.normalization." + n.state().name().toLowerCase(Locale.ROOT)), source, String.format(Locale.ROOT, "%.1f", n.target()), db(n.appliedDb())) + (n.peakLimited() ? " | " + Text.get("analyzer.peak_limited") : "");
+        return LoudnessStatusText.describe(app.playback.normalization());
     }
 
     private String meter(int stage) {
@@ -128,15 +140,18 @@ public final class AudioAnalyzerScreen extends AudioPage {
     }
 
     private static String db(double value) {
+        if (Double.isNaN(value)) return Text.get("analyzer.na");
         return Double.isFinite(value) ? String.format(Locale.ROOT, "%.1f", Math.abs(value) < .05 ? 0 : value) : "−∞";
     }
 
     private static double amplitudeDb(double value) {
+        if (Double.isNaN(value)) return Double.NaN;
         return value > 1e-12 ? 20 * Math.log10(value) : Double.NEGATIVE_INFINITY;
     }
 
     @Override
     protected void renderContent(GuiGraphicsExtractor g, int mx, int my, float delta) {
+        updatePanels();
         var s = snapshot();
         for (var graph : graphs) {
             int x = formX + 6, y = contentY(graph.y), w = formWidth - 12, h = 80;

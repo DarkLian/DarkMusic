@@ -27,6 +27,20 @@ public final class ValueSlider extends AbstractSliderButton {
     private long adjusted;
     private boolean dragging;
     private boolean trackOnly, plain, simpleProgress;
+    private Runnable exactEditor;
+
+    public void exactEditor(Runnable editor) {
+        exactEditor = editor;
+    }
+
+    @Override
+    public boolean mouseClicked(MouseButtonEvent event, boolean twice) {
+        if (active && visible && exactEditor != null && event.button() == 1 && isMouseOver(event.x(), event.y())) {
+            exactEditor.run();
+            return true;
+        }
+        return super.mouseClicked(event, twice);
+    }
 
     public void plain(boolean value) {
         plain = value;
@@ -150,6 +164,10 @@ public final class ValueSlider extends AbstractSliderButton {
 
     @Override
     public boolean keyPressed(KeyEvent event) {
+        if (active && exactEditor != null && event.isConfirmation()) {
+            exactEditor.run();
+            return true;
+        }
         if (steps > 0 && (event.isLeft() || event.isRight())) {
             value = Math.clamp(value + (event.isLeft() ? -1 : 1) / (double) steps, 0, 1);
             applyValue();

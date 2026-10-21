@@ -39,17 +39,18 @@ public final class DownloadEncoding {
             case "pcm_s64be" -> new Plan("wav", "pcm_s64le", "");
             case "pcm_f32be" -> new Plan("wav", "pcm_f32le", "");
             case "pcm_f64be" -> new Plan("wav", "pcm_f64le", "");
-            default ->
-                new Plan("flac", "flac", "Source codec is not directly supported; saved decoded audio as FLAC. This does not restore lost quality.");
+            default -> new Plan("flac", "flac", com.darkmusic.client.text.Text.get("download.codec_fallback"));
         };
     }
 
     public static String codec(ProcessRunner runner, Toolchain tools, Path source, Path work, ProcessRunner.Token token) throws Exception {
         var r = runner.run(List.of(tools.ffprobe().toString(), "-v", "error", "-protocol_whitelist", "file,pipe", "-select_streams", "a:0", "-show_entries", "stream=codec_name", "-of", "json", source.toString()), work, token, Duration.ofSeconds(30), 32_000, s -> {
         });
-        if (r.exit() != 0) throw new java.io.IOException("Downloaded audio could not be inspected: " + r.output());
+        if (r.exit() != 0)
+            throw new java.io.IOException(com.darkmusic.client.text.Text.get("download.validation_failed"), new java.io.IOException(r.output()));
         var array = JsonParser.parseString(r.output()).getAsJsonObject().getAsJsonArray("streams");
-        if (array == null || array.isEmpty()) throw new java.io.IOException("Downloaded file has no audio stream");
+        if (array == null || array.isEmpty())
+            throw new java.io.IOException(com.darkmusic.client.text.Text.get("download.media_missing"));
         return array.get(0).getAsJsonObject().get("codec_name").getAsString();
     }
 
@@ -89,10 +90,11 @@ public final class DownloadEncoding {
         var converted = runner.run(List.of(tools.ffmpeg().toString(), "-nostdin", "-v", "error", "-y", "-protocol_whitelist", "file,pipe", "-i", cover.toString(), "-frames:v", "1", "-vf", "scale=1024:1024:force_original_aspect_ratio=decrease", jpeg.toString()), work, token, Duration.ofSeconds(30), 16_000, s -> {
         });
         if (converted.exit() != 0 || !java.nio.file.Files.isRegularFile(jpeg) || java.nio.file.Files.size(jpeg) > 8 * 1024 * 1024)
-            throw new java.io.IOException("Thumbnail conversion failed");
+            throw new java.io.IOException(com.darkmusic.client.text.Text.get("download.thumbnail_failed"));
         byte[] bytes = java.nio.file.Files.readAllBytes(jpeg);
         var image = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(bytes));
-        if (image == null) throw new java.io.IOException("Thumbnail is not a readable image");
+        if (image == null)
+            throw new java.io.IOException(com.darkmusic.client.text.Text.get("download.thumbnail_failed"));
         Path tags = work.resolve("artwork.ffmetadata");
         java.nio.file.Files.writeString(tags, ";FFMETADATA1\nMETADATA_BLOCK_PICTURE=" + com.darkmusic.client.library.OggArtwork.picture(bytes, image.getWidth(), image.getHeight()) + "\n");
         return tags;

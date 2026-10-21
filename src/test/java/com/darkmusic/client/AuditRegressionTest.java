@@ -27,7 +27,10 @@ class AuditRegressionTest {
 
     @Test
     void validationAndUnrelatedNumbersAreNotAuthenticationOrHttpErrors() throws Exception {
-        assertEquals("Track 429 is private network music", DownloadJson.friendly("Track 429 is private network music"));
+        String unrelated = DownloadJson.friendly("Track 429 is private network music");
+        assertEquals(com.darkmusic.client.text.Text.get("download.error.unknown"), unrelated);
+        assertFalse(unrelated.contains("HTTP 429"));
+        assertFalse(unrelated.contains("authentication"));
         assertTrue(DownloadJson.friendly("HTTP Error 429: Too Many Requests").contains("HTTP 429"));
         assertTrue(DownloadJson.friendly("HTTP Error 403: Forbidden").contains("403"));
         try (var service = new DownloadService(temp, () -> {

@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v2.3.0 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v2.3.1 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Interface language
 
@@ -47,7 +47,7 @@ The centered controls are:
 
 **Reset Speed · Speed · Shuffle · Jump to Playing · Previous · Play/Pause · Next · Stop · Repeat · Volume · Mute/Unmute**
 
-Drag the speed or volume marker, or focus the slider and use the arrow keys. Speed ranges from **0.5× to 3.0×** in 0.1× steps; speed changes also change pitch. Reset Speed returns to 1.0×. Mute/Unmute restores the last audible volume when unmuting. Supported controls show their current key bindings in hover help. Drag or click the filled progress track above the controls to seek.
+Drag the speed or volume marker, or focus the slider and use the arrow keys. Speed ranges from **0.5× to 3.0×** in 0.1× steps; speed changes also change pitch unless Preserve Pitch is enabled in Advanced Audio. Reset Speed returns to 1.0×. Mute/Unmute restores the last audible volume when unmuting. Supported controls show their current key bindings in hover help. Drag or click the filled progress track above the controls to seek.
 
 Repeat cycles between:
 
@@ -148,6 +148,8 @@ New installations and Reset to Defaults use 100% HUD background transparency, En
 
 For Circular HUD, **Audio-Reactive Icon** selects **Off**, **Audio Level**, or **Beat**. Audio Level follows the music's energy; Beat pulses on detected onsets. Quality presets can also select the underlying beat-reactive mode. Settings sliders use a vertical handle without a filled horizontal track.
 
+![Classic HUD with default visuals during gameplay](images/classic-hud.png)
+
 ![Spectrum controls](images/spectrum.png)
 
 The spectrum analyzes decoded music samples. Pause freezes it; seeking, stopping, and track changes reset its analysis state.
@@ -160,7 +162,7 @@ Use **Edit HUD Layout** beneath the preview, or `/da gui`, to position the actua
 
 ![Audio options](images/audio.png)
 
-**Original / Neutral** bypasses Audio Options coloration. Turn it off to adjust normalization, equalizer, bass, stereo width, compression, reverb, or limiting. Sound Environment remains independent. Volume, speed, and listening mode have their own controls.
+**Original / Neutral** bypasses Audio Options coloration. Turn it off to adjust normalization, equalizer, bass, stereo width, compression, reverb, or limiting. Sound Environment remains independent. Volume, speed, Preserve Pitch, and listening mode have their own controls. Preserve Pitch also works with Neutral enabled.
 
 Profiles provide presets, plus named saved configurations. A trash button beside each saved profile opens a deletion confirmation. Deleting a saved profile leaves the current sound settings active; built-in profiles remain available. The 10-band equalizer supports presets and individual adjustments. Loudness normalization uses available tags; Analyze Untagged Loudness can measure missing loudness information with FFmpeg. Album mode uses album loudness tags when available.
 
@@ -174,19 +176,33 @@ The limiter offers the existing soft protection and optional **True Peak** prote
 
 Reverb supports the existing algorithmic rooms or partitioned convolution with three original modeled impulse responses: Short Room, Hall, and Dark Cave. These are generated room models, not recordings of physical venues. Impulses prepare in the background, with algorithmic reverb while preparation is pending or fails. Convolution supports device rates from 8–192 kHz; the analyzer reports preparation, readiness, or fallback.
 
-Normalization reports whether gain comes from track/album tags or analysis, whether analysis is pending, and whether a measurement is unavailable or failed. Album mode reports track fallback when album tags are absent. Music and Night profiles enable analysis for untagged tracks when newly selected; previously saved preferences remain unchanged.
+Normalization reports whether gain comes from track/album tags or analysis, whether analysis is pending, and whether a measurement is unavailable or failed. Album mode reports track fallback only when valid track metadata or file analysis is actually used. Music and Night profiles enable analysis for untagged tracks when newly selected; previously saved preferences remain unchanged.
+
+Frequency sliders use logarithmic spacing for finer low-frequency control. Right-click a numeric slider, or focus it and press Enter, to type an exact value. Enter applies a valid value; Escape cancels.
+
+![Advanced Audio controls](images/advanced-audio.png)
 
 ### Sound Environment
 
 Open **Settings → Sound Environment** independently of Audio Options. Choose Off or one of 19 active environments: Old Radio, Telephone, Walkie-Talkie, Vinyl, Cassette, Bedroom, Bathroom, Concert Hall, Cathedral, Deep Cave, Tunnel, Warehouse, Stadium, Open Meadow, Forest Clearing, Next Room, Distant Speakers, Underwater, and Dreamscape.
 
-Enable the environment and adjust intensity. At 0%, the environment is bypassed. Relevant tone, reflection, distance, and room controls depend on the selected recipe. Texture and ambience are optional. Save, load, rename, or delete custom environment presets without altering Audio Options profiles.
+Select Environment to open a categorized list, then choose a treatment directly. Enable the environment and adjust intensity. At 0%, the environment is bypassed. Relevant tone, reflection, distance, and room controls depend on the selected recipe. Texture and ambience are optional. Save, load, rename, or delete custom environment presets without altering Audio Options profiles.
 
 Acoustic environments take ownership of the shared reverb slot while active. Audio Options reverb is restored when the environment is switched off. Non-acoustic treatments such as Vinyl allow Audio Options reverb to continue.
 
+Save up to 32 environments with names of up to 80 characters. A matching name opens Replace / Cancel confirmation.
+
+![Sound Environment controls](images/sound-environment.png)
+
+![Direct environment selection](images/environment-picker.png)
+
 ### Audio Analyzer
 
-Open the analyzer from either audio screen. Choose Audio Options, Environment, or Full Chain comparison. Measurements follow the PCM actually submitted to the audio device and include stage RMS/peak, stereo correlation, dynamics reduction, measured spectra, waveforms, and applicable filter-response curves. Response curves describe filters; they do not claim to represent nonlinear processing, modulation, or reverb.
+Open **Audio Options → Audio Analyzer**. Choose Audio Options, Environment, or Full Chain comparison. Measurements follow the PCM actually submitted to the audio device and include stage RMS/peak, stereo correlation, dynamics reduction, measured spectra, waveforms, and applicable filter-response curves. Response curves describe filters; they do not claim to represent nonlinear processing, modulation, or reverb.
+
+![Audio Analyzer status and comparison controls](images/analyzer.png)
+
+![Audio Analyzer graphs](images/analyzer-graphs.png)
 
 Spectrum, waveform, and response panels can be switched off independently. Measurements freeze on pause and clear on seek/stop. A/B bypass and optional level matching are temporary and are cleared when leaving the analyzer; they do not overwrite profiles. Normalization, tempo, master/listening gain, and output protection remain active during coloration comparisons.
 

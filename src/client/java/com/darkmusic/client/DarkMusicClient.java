@@ -89,7 +89,7 @@ public class DarkMusicClient implements ClientModInitializer {
                 Minecraft.getInstance().execute(() -> {
                     importing = false;
                     mediaBusy = false;
-                    warn(com.darkmusic.client.text.Text.get("library.darkmusic.import_failed") + ": " + failure.getMessage());
+                    warn(com.darkmusic.client.text.Text.failure(failure, "library.darkmusic.import_failed"));
                 });
             }
         });
@@ -266,7 +266,7 @@ public class DarkMusicClient implements ClientModInitializer {
             if (other != key && key.same(other)) {
                 if (System.nanoTime() - conflictWarning > TimeUnit.SECONDS.toNanos(2)) {
                     conflictWarning = System.nanoTime();
-                    warn("Shortcut conflict. Change the overlapping bindings in Options > Controls > Key Binds.");
+                    warn(com.darkmusic.client.text.Text.get("error.shortcut_conflict"));
                 }
                 return true;
             }
@@ -333,7 +333,7 @@ public class DarkMusicClient implements ClientModInitializer {
                 key.setKey(InputConstants.getKey(saved));
             } catch (IllegalArgumentException e) {
                 key.setKey(InputConstants.UNKNOWN);
-                warn("Invalid shortcut was unbound: " + key.getName());
+                warn(com.darkmusic.client.text.Text.get("error.shortcut_invalid"));
             }
         }
         if (settings.nativeShortcutNames.containsAll(java.util.Arrays.stream(bindings()).map(KeyMapping::getName).toList()))
@@ -362,7 +362,7 @@ public class DarkMusicClient implements ClientModInitializer {
         try {
             activateDirectory(settings.musicDirectory.isBlank() ? config.defaultMusic() : java.nio.file.Path.of(settings.musicDirectory));
         } catch (Exception e) {
-            warn("The saved music folder is invalid; choose another folder. " + e.getMessage());
+            warn(com.darkmusic.client.text.Text.failure(e, "error.saved_folder"));
             activateDirectory(config.defaultMusic());
         }
     }
@@ -379,7 +379,7 @@ public class DarkMusicClient implements ClientModInitializer {
             ((java.util.concurrent.ThreadPoolExecutor) browsing).purge();
             return browsing.submit(task);
         } catch (java.util.concurrent.RejectedExecutionException e) {
-            if (!closed) warn("A folder operation is running. Wait for it to finish and try again.");
+            if (!closed) warn(com.darkmusic.client.text.Text.get("error.folder_busy"));
             return null;
         }
     }
@@ -403,7 +403,7 @@ public class DarkMusicClient implements ClientModInitializer {
                     }
                 });
             } catch (Exception e) {
-                warn("Cannot choose music folder: " + e.getMessage());
+                warn(com.darkmusic.client.text.Text.failure(e, "error.folder"));
             }
         });
     }
@@ -420,7 +420,7 @@ public class DarkMusicClient implements ClientModInitializer {
                     });
                 });
             } catch (Exception e) {
-                warn("Cannot open the default music folder: " + e.getMessage());
+                warn(com.darkmusic.client.text.Text.failure(e, "error.folder"));
             }
         });
     }
@@ -442,7 +442,7 @@ public class DarkMusicClient implements ClientModInitializer {
                 missing = com.darkmusic.client.playlist.PlaylistStore.missing(root, rootId, entries, snapshot.tracks());
             } catch (Exception e) {
                 missing = java.util.Set.of();
-                warn("Could not check missing playlist files: " + e.getMessage());
+                warn(com.darkmusic.client.text.Text.failure(e, "error.playlist_scan"));
             }
             var result = missing;
             Minecraft.getInstance().execute(() -> {
@@ -465,7 +465,7 @@ public class DarkMusicClient implements ClientModInitializer {
                     throw new java.io.IOException("The configured music directory is unavailable");
                 net.minecraft.util.Util.getPlatform().openPath(directory);
             } catch (Exception e) {
-                warn("Cannot open music folder: " + e.getMessage());
+                warn(com.darkmusic.client.text.Text.failure(e, "error.folder"));
             }
         });
     }

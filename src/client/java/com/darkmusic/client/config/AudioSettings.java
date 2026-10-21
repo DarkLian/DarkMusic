@@ -124,7 +124,9 @@ public final class AudioSettings {
         reverb = Reverb.DRY;
         listening = Listening.NORMAL;
         ducking = false;
+        boolean preservePitch = enhancements != null && enhancements.preservePitch;
         enhancements = new AudioEnhancements();
+        enhancements.preservePitch = preservePitch;
         if (name.equals("MUSIC")) {
             normalization = true;
             analyzeLoudness = true;

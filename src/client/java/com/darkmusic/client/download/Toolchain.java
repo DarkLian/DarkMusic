@@ -66,7 +66,8 @@ public record Toolchain(Path ytDlp, Path ffmpeg, Path ffprobe, String runtime, S
         command.addAll(arguments);
         var result = runner.run(command, config, token, Duration.ofSeconds(15), 32_000, s -> {
         });
-        if (result.exit() != 0) throw new IOException("Cannot run " + path.getFileName() + ": " + result.output());
+        if (result.exit() != 0)
+            throw new IOException(com.darkmusic.client.text.Text.get("tools.error.run", path.getFileName()), new IOException(result.output()));
         return result.output().lines().findFirst().orElse("Unknown version");
     }
 
@@ -94,14 +95,14 @@ public record Toolchain(Path ytDlp, Path ffmpeg, Path ffprobe, String runtime, S
                 if (Files.isRegularFile(dir.resolve(binary))) return checked(dir.resolve(binary));
             } catch (IOException | SecurityException ignored) {
             }
-        throw new IOException("Missing " + name + ". Set its executable path in Download Tools or install it on PATH.");
+        throw new IOException(com.darkmusic.client.text.Text.get("tools.error.missing", name));
     }
 
     private static Path checked(Path value) throws IOException {
         Path path = value.toAbsolutePath().normalize();
         String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
         if (!Files.isRegularFile(path) || !Files.isExecutable(path) || name.endsWith(".cmd") || name.endsWith(".bat") || name.endsWith(".ps1"))
-            throw new IOException("Choose a runnable executable, not a shell script: " + path.getFileName());
+            throw new IOException(com.darkmusic.client.text.Text.get("tools.error.script", path.getFileName()));
         return path;
     }
 

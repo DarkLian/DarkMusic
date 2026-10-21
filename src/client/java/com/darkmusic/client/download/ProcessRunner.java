@@ -64,7 +64,7 @@ public class ProcessRunner {
             return new Result(process.exitValue(), captured);
         } catch (ExecutionException | TimeoutException | CompletionException e) {
             Throwable cause = e.getCause() == null ? e : e.getCause();
-            throw new IOException("Could not read tool output: " + cause.getMessage(), e);
+            throw new IOException(com.darkmusic.client.text.Text.get("download.error.unknown"), e);
         } finally {
             token.kill();
             try {

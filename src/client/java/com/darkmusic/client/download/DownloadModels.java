@@ -40,7 +40,7 @@ public final class DownloadModels {
 
     public static List<Integer> range(int first, int last) {
         if (first < 1 || last < first || (long) last - first + 1 > MAX_BATCH)
-            throw new IllegalArgumentException("Choose 1–" + MAX_BATCH + " entries per batch, using positive entry numbers.");
+            throw new IllegalArgumentException(com.darkmusic.client.text.Text.get("download.range_invalid", MAX_BATCH));
         return java.util.stream.IntStream.rangeClosed(first, last).boxed().toList();
     }
 

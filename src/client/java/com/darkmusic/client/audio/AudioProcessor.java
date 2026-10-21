@@ -259,7 +259,7 @@ public final class AudioProcessor {
     }
 
     public double detectorDb() {
-        return !settings.neutral && settings.compressor ? compressor.detectorDb : Double.NEGATIVE_INFINITY;
+        return !settings.neutral && settings.compressor ? compressor.detectorDb : Double.NaN;
     }
 
     public double reductionDb() {
@@ -271,7 +271,7 @@ public final class AudioProcessor {
     }
 
     public double truePeak() {
-        return estimatedPeak;
+        return !settings.neutral && settings.limiter && settings.enhancements.protection == com.darkmusic.client.config.AudioEnhancements.Protection.TRUE_PEAK ? estimatedPeak : Double.NaN;
     }
 
     public int latencyFrames() {

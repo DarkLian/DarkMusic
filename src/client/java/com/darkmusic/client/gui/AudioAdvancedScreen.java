@@ -26,7 +26,6 @@ final class AudioAdvancedScreen extends AudioPage {
         var e = a.enhancements;
         section("dsp.advanced");
         info("dsp.neutral_scope");
-        action("analyzer.title", () -> show(new AudioAnalyzerScreen(app, this, com.darkmusic.client.audio.AudioComparison.Mode.AUDIO_OPTIONS)));
         section("dsp.tones");
         choice("dsp.eq_mode", e.eqMode, AudioEnhancements.EqMode.values(), v -> e.eqMode = v);
         if (e.eqMode == AudioEnhancements.EqMode.PARAMETRIC) {
@@ -78,6 +77,7 @@ final class AudioAdvancedScreen extends AudioPage {
             info("dsp.modelled_ir");
         }
         slider("dsp.reverb_amount", e.reverbAmount, 0, 1, 100, v -> e.reverbAmount = v, "");
+        if (a.reverb == AudioSettings.Reverb.DRY) info("audio.reverb_disabled");
         info(() -> com.darkmusic.client.text.Text.get(app.settings.environment.ownsReverb() ? "environment.owns_reverb" : "environment.allows_reverb"));
         section("dsp.tempo");
         toggle("dsp.preserve_pitch", () -> e.preservePitch, v -> e.preservePitch = v);

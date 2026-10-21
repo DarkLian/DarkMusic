@@ -216,7 +216,7 @@ public final class MediaFiles {
         var result = new ProcessRunner().run(args, work, token, Duration.ofMinutes(10), 64000, line -> {
         });
         if (result.exit() != 0)
-            throw new IOException(Text.get("library.darkmusic.edit_failed") + ": " + result.output());
+            throw new IOException(Text.get("library.darkmusic.edit_failed"), new IOException(result.output()));
         if (artwork != null && !Arrays.equals(artwork, metadata.artwork(staged)))
             throw new IOException(Text.get("library.darkmusic.cover_not_preserved"));
     }

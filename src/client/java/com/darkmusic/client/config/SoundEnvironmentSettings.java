@@ -146,15 +146,17 @@ public final class SoundEnvironmentSettings {
     }
 
     public void savePreset(String name) {
-        if (name == null || name.isBlank() || name.length() > 80 || userPresets.size() >= 32 && !userPresets.containsKey(name))
-            return;
+        savePreset(name, false);
+    }
+
+    public void savePreset(String name, boolean replace) {
         var s = new Saved();
         s.preset = preset;
         s.intensity = intensity;
         s.parameters = parameters.copy();
         s.texture = texture;
         s.ambience = ambience;
-        userPresets.put(name, s);
+        PresetNames.save(userPresets, name, s, PresetNames.ENVIRONMENT_LIMIT, replace);
     }
 
     public void loadPreset(String name) {

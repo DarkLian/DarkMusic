@@ -212,6 +212,6 @@ class DownloadIntegrationTest {
         });
         var json = JsonParser.parseString(tags.output()).getAsJsonObject().getAsJsonObject("format").getAsJsonObject("tags");
         for (String key : List.of("artist", "album", "track")) assertFalse(json.has(key), tags.output());
-        assertTrue(untagged.warning().contains("No thumbnail"));
+        assertEquals(com.darkmusic.client.text.Text.get("download.no_thumbnail"), untagged.warning());
     }
 }

@@ -36,4 +36,26 @@ public final class Text {
     public static String get(String key, Object... args) {
         return component(key, args).getString();
     }
+
+    /**
+     * Recognize our own already-localized failure text, never arbitrary tool output.
+     */
+    public static boolean isMessage(String message) {
+        if (message == null || message.isBlank()) return false;
+        for (String key : ENGLISH.keySet()) {
+            String template = get(key);
+            String[] parts = template.split("%s|%d", -1);
+            if (parts.length == 1 && template.equals(message)) return true;
+            if (parts.length > 1 && parts[0].length() >= 4 && message.startsWith(parts[0]) && message.endsWith(parts[parts.length - 1]))
+                return true;
+        }
+        return false;
+    }
+
+    public static String failure(Throwable failure, String fallback) {
+        org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Operation failed", failure);
+        for (Throwable cause = failure; cause != null; cause = cause.getCause())
+            if (isMessage(cause.getMessage())) return cause.getMessage();
+        return get(fallback);
+    }
 }

@@ -42,7 +42,7 @@ public final class DownloadPipeline {
         try (var reader = Files.newBufferedReader(history)) {
             return JsonParser.parseReader(reader).getAsJsonObject();
         } catch (RuntimeException e) {
-            throw new IOException("Download history could not be read; the original has been preserved.", e);
+            throw new IOException(com.darkmusic.client.text.Text.get("download.history_read"), e);
         }
     }
 
@@ -143,7 +143,8 @@ public final class DownloadPipeline {
         String identity = entry.key() + (format == DownloadEncoding.Format.ORIGINAL ? ":original" : "");
         synchronized (historyLock) {
             Path prior = previous(readArchive(history), identity, destination);
-            if (prior != null) return new Saved(prior, true, "Already downloaded");
+            if (prior != null)
+                return new Saved(prior, true, com.darkmusic.client.text.Text.get("download.already_saved"));
         }
         Path scratchRoot = data.resolve("downloads/work");
         Files.createDirectories(scratchRoot);
@@ -160,7 +161,7 @@ public final class DownloadPipeline {
             if (result.exit() != 0) throw new IOException(friendly(result.output()));
             Path source;
             try (var files = Files.list(work)) {
-                source = files.filter(Files::isRegularFile).filter(p -> p.getFileName().toString().startsWith("source.")).filter(p -> !p.toString().matches("(?i).*\\.(json|jpg|jpeg|png|webp|avif|gif|part|ytdl)$")).findFirst().orElseThrow(() -> new IOException("yt-dlp did not produce a complete media file."));
+                source = files.filter(Files::isRegularFile).filter(p -> p.getFileName().toString().startsWith("source.")).filter(p -> !p.toString().matches("(?i).*\\.(json|jpg|jpeg|png|webp|avif|gif|part|ytdl)$")).findFirst().orElseThrow(() -> new IOException(com.darkmusic.client.text.Text.get("download.media_missing")));
             }
             JsonObject metadata = new JsonObject();
             Path info = work.resolve("source.info.json");
@@ -177,7 +178,7 @@ public final class DownloadPipeline {
             var plan = format == DownloadEncoding.Format.MP3 ? new DownloadEncoding.Plan("mp3", "libmp3lame", "") : DownloadEncoding.plan(sourceCodec);
             Path converted = work.resolve("converted." + plan.extension());
             progress.accept(Status.CONVERTING, com.darkmusic.client.text.Text.get("download.darkmusic.converting"));
-            String warning = cover == null ? "No thumbnail was available" : "";
+            String warning = cover == null ? com.darkmusic.client.text.Text.get("download.no_thumbnail") : "";
             Path pictureTags = null;
             if (cover != null && java.util.Set.of("opus", "ogg").contains(plan.extension())) {
                 try {
@@ -185,14 +186,14 @@ public final class DownloadPipeline {
                 } catch (Exception unavailable) {
                     token.check();
                     org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Cannot prepare embedded artwork", unavailable);
-                    warning = "Saved without artwork: thumbnail conversion failed";
+                    warning = com.darkmusic.client.text.Text.get("download.thumbnail_failed");
                 }
                 cover = null;
             }
             boolean coverSupported = java.util.Set.of("mp3", "m4a", "flac").contains(plan.extension());
             if (!coverSupported && cover != null) {
                 cover = null;
-                warning = "Saved without artwork: this container's embedded artwork is not supported";
+                warning = com.darkmusic.client.text.Text.get("download.artwork_unsupported");
             }
             var conversion = format == DownloadEncoding.Format.MP3 ? convert(tools, source, converted, cover, metadata, entry) : DownloadEncoding.remux(tools, source, converted, cover, metadata, entry, plan);
             if (pictureTags != null) conversion = DownloadEncoding.withPictureComment(conversion, pictureTags);
@@ -200,18 +201,19 @@ public final class DownloadPipeline {
             });
             if (result.exit() != 0 && (cover != null || pictureTags != null)) {
                 token.check();
-                warning = "Saved without artwork: thumbnail embedding failed";
+                warning = com.darkmusic.client.text.Text.get("download.thumbnail_failed");
                 result = runner.run(format == DownloadEncoding.Format.MP3 ? convert(tools, source, converted, null, metadata, entry) : DownloadEncoding.remux(tools, source, converted, null, metadata, entry, plan), work, token, Duration.ofMinutes(20), 64_000, s -> {
                 });
             }
-            if (result.exit() != 0) throw new IOException("Audio processing failed: " + friendly(result.output()));
+            if (result.exit() != 0)
+                throw new IOException(com.darkmusic.client.text.Text.get("download.processing_failed"), new IOException(result.output()));
             String expectedCodec = plan.codec().equals("copy") ? sourceCodec : plan.codec().equals("libmp3lame") ? "mp3" : plan.codec();
             if (!DownloadEncoding.codec(runner, tools, converted, work, token).equals(expectedCodec))
-                throw new IOException("Completed audio failed codec validation");
+                throw new IOException(com.darkmusic.client.text.Text.get("download.validation_failed"));
             var validation = runner.run(List.of(tools.ffmpeg().toString(), "-nostdin", "-v", "error", "-xerror", "-protocol_whitelist", "file,pipe", "-i", converted.toString(), "-map", "0:a:0", "-vn", "-f", "null", "-"), work, token, Duration.ofMinutes(20), 16_000, s -> {
             });
             if (validation.exit() != 0)
-                throw new IOException("Completed audio failed decoding validation: " + friendly(validation.output()));
+                throw new IOException(com.darkmusic.client.text.Text.get("download.validation_failed"), new IOException(validation.output()));
             if (!plan.warning().isBlank()) warning = plan.warning() + " " + warning;
             DownloadLyrics.Result lyrics = new DownloadLyrics.Result("", "");
             if (lyricsEnabled.getAsBoolean()) {
@@ -237,7 +239,8 @@ public final class DownloadPipeline {
                 // Merge the latest history only after conversion; other workers may have committed.
                 JsonObject archive = readArchive(history);
                 Path prior = previous(archive, identity, destination);
-                if (prior != null) return new Saved(prior, true, "Already downloaded");
+                if (prior != null)
+                    return new Saved(prior, true, com.darkmusic.client.text.Text.get("download.already_saved"));
                 Path target = destination.resolve(name);
                 for (int suffix = 2; Files.exists(target) || Files.exists(DownloadLyrics.sidecar(target)); suffix++)
                     target = destination.resolve(name.substring(0, name.lastIndexOf('.')) + " (" + suffix + ")." + plan.extension());
@@ -265,7 +268,8 @@ public final class DownloadPipeline {
                 try {
                     ConfigStore.atomicWrite(history, ConfigStore.JSON.toJson(archive));
                 } catch (IOException e) {
-                    warning = "Saved, but duplicate history could not be updated";
+                    org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not save download history {}", history, e);
+                    warning = com.darkmusic.client.text.Text.get("download.history_write");
                 }
                 return new Saved(target, false, warning);
             }

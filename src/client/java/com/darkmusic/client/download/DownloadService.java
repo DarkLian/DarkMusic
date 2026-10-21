@@ -122,7 +122,7 @@ public final class DownloadService implements AutoCloseable {
             } catch (Exception e) {
                 synchronized (this) {
                     cache = null;
-                    toolStatus = Text.get("download.darkmusic.tool_check_failed", e.getMessage());
+                    toolStatus = Text.get("download.darkmusic.tool_check_failed", DownloadJson.friendly(String.valueOf(e.getMessage())));
                     published = null;
                 }
                 throw e;
@@ -209,7 +209,7 @@ public final class DownloadService implements AutoCloseable {
                 if (ticket != previewRevision) return;
                 preview = result;
                 published = null;
-                message = result.source() + (result.collection() ? " collection. Choose an explicit selection." : " single video.");
+                message = Text.get(result.collection() ? "download.analysis_collection" : "download.analysis_video", result.source());
             }
         });
         previewToken = analysisToken;
@@ -286,7 +286,7 @@ public final class DownloadService implements AutoCloseable {
         if (entries.isEmpty())
             throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.there_are_no_entries_in_that_selection"));
         if (entries.size() > MAX_BATCH || work.size() + entries.size() > MAX_BATCH)
-            throw new IOException("The queue holds up to " + MAX_BATCH + " entries. Clear finished items or use a smaller range.");
+            throw new IOException(Text.get("download.queue_capacity", MAX_BATCH));
         Path target = destination.toAbsolutePath().normalize();
         int added = 0;
         for (Entry entry : entries) {
@@ -298,11 +298,11 @@ public final class DownloadService implements AutoCloseable {
             if (!entry.available()) {
                 item.status = Status.FAILED;
                 activeKeys.remove(key);
-                item.message = "Unavailable, private, or deleted entry";
+                item.message = Text.get("download.entry_unavailable");
             } else pending.add(item);
             added++;
         }
-        message = added + " entries queued for " + target;
+        message = Text.get("download.queued_count", added, target);
         published = null;
     }
 
@@ -314,8 +314,8 @@ public final class DownloadService implements AutoCloseable {
                     pending.remove(item);
                     item.status = Status.CANCELLED;
                     activeKeys.remove(new ActiveKey(item.destination, item.entry.key()));
-                    item.message = "Cancelled";
-                } else item.message = "Cancelling…";
+                    item.message = Text.get("download.darkmusic.cancelled");
+                } else item.message = Text.get("download.cancelling");
             }
         published = null;
     }
@@ -478,7 +478,7 @@ public final class DownloadService implements AutoCloseable {
                     LOG.warn("Saved download could not trigger a library refresh", e);
                 }
             } catch (CancellationException | InterruptedException e) {
-                update(item, Status.CANCELLED, -1, "Cancelled");
+                update(item, Status.CANCELLED, -1, Text.get("download.darkmusic.cancelled"));
             } catch (Exception e) {
                 LOG.warn("Download failed for entry {}", item.entry.mediaId(), e);
                 update(item, Status.FAILED, -1, DownloadJson.friendly(String.valueOf(e.getMessage())));
@@ -529,7 +529,7 @@ public final class DownloadService implements AutoCloseable {
         boolean retryAllowed = true;
         Status status = Status.QUEUED;
         double progress = -1;
-        String message = "Waiting";
+        String message = Text.get("download.waiting");
 
         Work(long id, Entry entry, Path destination, Tools tools) {
             this.id = id;

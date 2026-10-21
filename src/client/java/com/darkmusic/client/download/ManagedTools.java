@@ -1,6 +1,7 @@
 package com.darkmusic.client.download;
 
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.text.Text;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -60,15 +61,15 @@ public final class ManagedTools {
             String digest = a.has("digest") && !a.get("digest").isJsonNull() ? a.get("digest").getAsString() : "";
             long size = a.get("size").getAsLong();
             if (!digest.matches("sha256:[a-fA-F0-9]{64}") || size <= 0 || size > MAX_ASSET)
-                throw new IOException("Publisher did not provide an acceptable checksum/size for " + name);
+                throw new IOException(Text.get("tools.error.checksum", name));
             trusted(URI.create(a.get("browser_download_url").getAsString()));
             return a;
         }
-        throw new IOException("Publisher has no compatible asset: " + name + ". Use Advanced Paths for a system installation.");
+        throw new IOException(Text.get("tools.error.asset", name));
     }
 
     static void verify(Path file, String expected, long size) throws Exception {
-        if (Files.size(file) != size) throw new IOException("Tool download was incomplete");
+        if (Files.size(file) != size) throw new IOException(Text.get("tools.error.incomplete"));
         var digest = MessageDigest.getInstance("SHA-256");
         try (var in = Files.newInputStream(file)) {
             byte[] buffer = new byte[65536];
@@ -76,7 +77,7 @@ public final class ManagedTools {
             while ((count = in.read(buffer)) != -1) digest.update(buffer, 0, count);
         }
         if (!expected.equalsIgnoreCase("sha256:" + HexFormat.of().formatHex(digest.digest())))
-            throw new IOException("Tool checksum mismatch. The downloaded file will not be used.");
+            throw new IOException(Text.get("tools.error.integrity"));
     }
 
     static void extractZip(Path archive, String name, Path output, ProcessRunner.Token token) throws IOException {
@@ -87,13 +88,13 @@ public final class ManagedTools {
                 token.check();
                 // Only the expected root executable is copied. No archive path is ever resolved on disk.
                 if (!entry.isDirectory() && entry.getName().equals(name)) {
-                    if (found) throw new IOException("Duplicate executable in tool archive");
+                    if (found) throw new IOException(Text.get("tools.error.archive"));
                     unpack(zip, output, token);
                     found = true;
                 }
             }
         }
-        if (!found) throw new IOException("Executable missing from tool archive: " + name);
+        if (!found) throw new IOException(Text.get("tools.error.archive"));
     }
 
     private static void unpack(InputStream input, Path output, ProcessRunner.Token token) throws IOException {
@@ -104,7 +105,7 @@ public final class ManagedTools {
             while ((count = input.read(buffer)) != -1) {
                 token.check();
                 size += count;
-                if (size > MAX_EXPANDED) throw new IOException("Expanded tool exceeded the size limit");
+                if (size > MAX_EXPANDED) throw new IOException(Text.get("tools.error.size"));
                 out.write(buffer, 0, count);
             }
         }
@@ -112,12 +113,12 @@ public final class ManagedTools {
 
     private static void executable(Path path) throws IOException {
         if (!System.getProperty("os.name").startsWith("Windows") && !path.toFile().setExecutable(true, true))
-            throw new IOException("Cannot mark tool executable: " + path.getFileName());
+            throw new IOException(Text.get("tools.error.executable", path.getFileName()));
     }
 
     static void trusted(URI uri) throws IOException {
         if (!"https".equals(uri.getScheme()) || !HOSTS.contains(uri.getHost()) || uri.getUserInfo() != null)
-            throw new IOException("Untrusted tool download address");
+            throw new IOException(Text.get("tools.error.address"));
     }
 
     private static void download(URI address, Path output, long limit, ProcessRunner.Token token, Consumer<Long> progress) throws Exception {
@@ -135,14 +136,14 @@ public final class ManagedTools {
                 if (Set.of(301, 302, 303, 307, 308).contains(code)) {
                     String location = connection.getHeaderField("Location");
                     if (location == null || location.isBlank())
-                        throw new IOException("Tool download redirect has no Location header");
+                        throw new IOException(Text.get("tools.error.address"));
                     uri = uri.resolve(location);
                     continue;
                 }
                 if (code != 200)
-                    throw new IOException("Tool server returned HTTP " + code + (code == 403 || code == 429 ? ". GitHub may be rate-limiting; try later." : ""));
+                    throw new IOException(Text.get("tools.error.http", code));
                 if (connection.getContentLengthLong() > limit)
-                    throw new IOException("Tool response exceeded its declared size");
+                    throw new IOException(Text.get("tools.error.size"));
                 long deadline = System.nanoTime() + java.time.Duration.ofMinutes(10).toNanos();
                 try (var input = connection.getInputStream(); var out = Files.newOutputStream(output)) {
                     byte[] buffer = new byte[65536];
@@ -151,8 +152,8 @@ public final class ManagedTools {
                     while ((count = input.read(buffer)) != -1) {
                         token.check();
                         size += count;
-                        if (size > limit) throw new IOException("Tool response exceeded its declared size");
-                        if (System.nanoTime() > deadline) throw new IOException("Tool download timed out");
+                        if (size > limit) throw new IOException(Text.get("tools.error.size"));
+                        if (System.nanoTime() > deadline) throw new IOException(Text.get("tools.error.timeout"));
                         out.write(buffer, 0, count);
                         long now = System.nanoTime();
                         if (now - notified > 100_000_000L) {
@@ -168,23 +169,23 @@ public final class ManagedTools {
                 connection.disconnect();
             }
         }
-        throw new IOException("Too many tool download redirects");
+        throw new IOException(Text.get("tools.error.address"));
     }
 
     public Toolchain install(ProcessRunner runner, ProcessRunner.Token token, Consumer<String> status) throws Exception {
         Platform platform = Platform.detect(System.getProperty("os.name"), System.getProperty("os.arch"));
         Path tools = data.resolve("tools"), root = tools.resolve("managed");
         Files.createDirectories(tools);
-        if (Files.isSymbolicLink(tools)) throw new IOException("Tool directories must not be symbolic links");
+        if (Files.isSymbolicLink(tools)) throw new IOException(Text.get("tools.error.symlink"));
         Files.createDirectories(root);
-        if (Files.isSymbolicLink(root)) throw new IOException("Tool directories must not be symbolic links");
+        if (Files.isSymbolicLink(root)) throw new IOException(Text.get("tools.error.symlink"));
         try (var channel = FileChannel.open(tools.resolve("install.lock"), StandardOpenOption.CREATE, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
              var lock = channel.tryLock()) {
-            if (lock == null) throw new IOException("Another client is installing tools. Try again when it finishes.");
+            if (lock == null) throw new IOException(Text.get("tools.error.busy"));
             Path stage = Files.createTempDirectory(root, "staging-");
             try {
                 token.check();
-                status.accept("Checking published tool releases...");
+                status.accept(Text.get("tools.check_releases"));
                 var yt = release("yt-dlp/yt-dlp", stage, token);
                 var ff = release("eugeneware/ffmpeg-static", stage, token);
                 var deno = release("denoland/deno", stage, token);
@@ -197,7 +198,7 @@ public final class ManagedTools {
                 assets.put("FFmpeg.README", asset(ff, platform.os + "-" + platform.arch + ".README"));
                 long bytes = assets.values().stream().mapToLong(a -> a.get("size").getAsLong()).sum();
                 if (Files.getFileStore(root).getUsableSpace() < bytes + 800_000_000L)
-                    throw new IOException("Not enough disk space to install tools (about 1 GB of temporary free space is required).");
+                    throw new IOException(Text.get("tools.error.disk"));
                 JsonObject manifest = new JsonObject();
                 manifest.addProperty("platform", platform.os + "-" + platform.arch);
                 manifest.addProperty("ytDlpRelease", yt.get("tag_name").getAsString());
@@ -210,11 +211,11 @@ public final class ManagedTools {
                 if (previous != null && Files.isRegularFile(previous.resolve("manifest.json"))) {
                     var old = JsonParser.parseString(Files.readString(previous.resolve("manifest.json"))).getAsJsonObject();
                     if (hashes.equals(old.get("digests"))) {
-                        status.accept("Checking installed tools...");
+                        status.accept(Text.get("tools.check_installed"));
                         try {
                             return validate(previous, platform, runner, token);
                         } catch (IOException e) {
-                            status.accept("Repairing installed tools...");
+                            status.accept(Text.get("tools.repair"));
                         }
                     }
                 }
@@ -240,7 +241,7 @@ public final class ManagedTools {
                     Files.deleteIfExists(packed);
                     if (!name.startsWith("FFmpeg.")) executable(output);
                 }
-                status.accept("Verifying executable versions and MP3 support...");
+                status.accept(Text.get("tools.verify"));
                 Toolchain checked = validate(stage, platform, runner, token);
                 manifest.addProperty("sources", "https://github.com/yt-dlp/yt-dlp | https://github.com/eugeneware/ffmpeg-static | https://github.com/denoland/deno");
                 Files.writeString(stage.resolve("manifest.json"), new GsonBuilder().setPrettyPrinting().create().toJson(manifest));
@@ -259,7 +260,7 @@ public final class ManagedTools {
                 if (Files.exists(stage)) DownloadWorkspace.remove(stage);
             }
         } catch (java.nio.channels.OverlappingFileLockException e) {
-            throw new IOException("Another client is installing tools. Try again when it finishes.", e);
+            throw new IOException(Text.get("tools.error.busy"), e);
         }
     }
 
@@ -275,7 +276,7 @@ public final class ManagedTools {
         var result = JsonParser.parseString(Files.readString(metadata)).getAsJsonObject();
         Files.delete(metadata);
         if (result.get("draft").getAsBoolean() || result.get("prerelease").getAsBoolean())
-            throw new IOException("Publisher returned a draft or prerelease");
+            throw new IOException(Text.get("tools.error.release"));
         return result;
     }
 
@@ -295,7 +296,7 @@ public final class ManagedTools {
             };
             // FFmpeg's selected publisher has no Windows ARM64 executable. Never silently use another architecture.
             if (platform.isEmpty() || cpu.isEmpty() || platform.equals("win32") && cpu.equals("arm64"))
-                throw new IOException("Automatic tools are unavailable for " + os + " / " + arch + ". Use Advanced Paths with tools built for your platform.");
+                throw new IOException(Text.get("tools.error.platform", os, arch));
             return new Platform(platform, cpu);
         }
 

@@ -28,7 +28,7 @@ public final class DownloadJson {
     }
 
     public static JsonObject object(String output) {
-        String line = output.lines().filter(s -> s.startsWith("{")).reduce((a, b) -> b).orElseThrow(() -> new IllegalArgumentException("The tool returned no video information. See the log for details."));
+        String line = output.lines().filter(s -> s.startsWith("{")).reduce((a, b) -> b).orElseThrow(() -> new IllegalArgumentException(com.darkmusic.client.text.Text.get("download.no_info")));
         return JsonParser.parseString(line).getAsJsonObject();
     }
 
@@ -84,6 +84,7 @@ public final class DownloadJson {
     }
 
     public static String friendly(String details) {
+        if (com.darkmusic.client.text.Text.isMessage(details)) return details;
         String s = details.toLowerCase(Locale.ROOT);
         if (s.matches("(?s).*\\bhttp(?: error| status| status code)?[ :]+429\\b.*") || s.contains("too many requests"))
             return com.darkmusic.client.text.Text.get("text.darkmusic.the_site_is_rate_limiting_downloads_429_wait_before_retrying");
@@ -99,7 +100,7 @@ public final class DownloadJson {
             return com.darkmusic.client.text.Text.get("text.darkmusic.youtube_needs_a_compatible_deno_node_runtime_and_current_yt_dlp_check_download_too");
         if (s.contains("timed out") || s.contains("timeout") || s.contains("network is unreachable") || s.contains("connection refused") || s.contains("unable to resolve") || s.contains("name resolution"))
             return com.darkmusic.client.text.Text.get("text.darkmusic.network_request_timed_out_or_failed_check_your_connection_and_retry");
-        String last = details.lines().filter(v -> !v.isBlank()).reduce((a, b) -> b).orElse("Unknown tool error");
-        return last.length() > 240 ? last.substring(0, 240) + "…" : last;
+        org.slf4j.LoggerFactory.getLogger("darkmusic-download").debug("Tool failure details: {}", details);
+        return com.darkmusic.client.text.Text.get("download.error.unknown");
     }
 }

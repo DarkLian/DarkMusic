@@ -6,9 +6,9 @@ A client-side music player for Minecraft. Browse your own library, build playlis
 
 ## Install
 
-DarkMusic **v2.3.0** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v2.3.1** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-2.3.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-2.3.1.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Open **Settings → Choose Music Folder**, or add songs to `config/darkmusic/music` inside the instance.
@@ -30,6 +30,22 @@ Install DarkMusic on the client. Servers do not need it. Windows, Linux, and mac
 - **Sound Environment:** 20 choices, including Off, with independent intensity, room/tone controls, optional textures and ambience, and saved custom presets. Combine environments with Audio Options.
 - **Audio Analyzer:** device-clock stage measurements, spectra, waveforms, EQ response, stereo and dynamics meters, plus temporary A/B comparison and level matching.
 - **Lyrics:** optional synchronized local `.lrc` files and supported embedded tags, plus matching manual source captions during downloads with ordered language preferences.
+
+## Your HUD in-game
+
+Classic HUD with default visuals, placed on the middle-left. Move and resize it in Edit HUD Layout.
+
+![Classic Now-Playing HUD during gameplay](docs/images/classic-hud.png)
+
+## Shape your sound
+
+Open Sound Environment from General Settings. Pick an environment directly and adjust its intensity independently of Audio Options.
+
+![Sound Environment selection](docs/images/environment-picker.png)
+
+Open the Audio Analyzer from Audio Options to inspect live playback and compare processing modes.
+
+![Live Audio Analyzer](docs/images/analyzer.png)
 
 See the [User Guide](docs/USER_GUIDE.md) for controls, setup, and limitations.
 

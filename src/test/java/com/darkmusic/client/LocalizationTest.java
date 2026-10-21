@@ -18,6 +18,43 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LocalizationTest {
+    @Test
+    void playerFacingFailuresAreLocalizedWithoutRawExceptionNames() throws Exception {
+        Language original = Language.getInstance();
+        try {
+            for (String locale : List.of("en_us", "zh_tw")) {
+                var messages = catalog(locale);
+                Language.inject(new Language() {
+                    public String getOrDefault(String key, String fallback) {
+                        return messages.getOrDefault(key, fallback);
+                    }
+
+                    public boolean has(String key) {
+                        return messages.containsKey(key);
+                    }
+
+                    public boolean isDefaultRightToLeft() {
+                        return false;
+                    }
+
+                    public FormattedCharSequence getVisualOrder(FormattedText text) {
+                        return original.getVisualOrder(text);
+                    }
+                });
+                for (String key : List.of("download.queue_capacity", "download.history_read", "download.processing_failed", "tools.error.integrity", "audio.error.device", "preset.name_too_long")) {
+                    String value = Text.get(key, 32);
+                    assertTrue(Text.isMessage(value), key);
+                    assertEquals(value, com.darkmusic.client.download.DownloadJson.friendly(value));
+                }
+                String unknown = com.darkmusic.client.download.DownloadJson.friendly("java.io.IOException: internal object failure");
+                assertEquals(Text.get("download.error.unknown"), unknown);
+                assertFalse(unknown.contains("IOException"));
+            }
+        } finally {
+            Language.inject(original);
+        }
+    }
+
     private Map<String, String> catalog(String locale) throws Exception {
         try (var input = Text.class.getResourceAsStream("/assets/darkmusic/lang/" + locale + ".json")) {
             assertNotNull(input);

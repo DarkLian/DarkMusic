@@ -80,8 +80,7 @@ public final class MetadataScreen extends LocalScreen {
     }
 
     private static String message(Throwable failure) {
-        while (failure.getCause() != null) failure = failure.getCause();
-        return failure.getMessage() == null ? failure.toString() : failure.getMessage();
+        return Text.failure(failure, "library.darkmusic.edit_failed");
     }
 
     private void save() {

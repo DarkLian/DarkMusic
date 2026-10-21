@@ -9,6 +9,7 @@ import java.util.List;
 
 public final class SoundEnvironmentScreen extends AudioPage {
     private boolean advanced;
+    private String notice = "";
 
     public SoundEnvironmentScreen(DarkMusicClient app, Screen parent) {
         super(app, parent, "environment.title");
@@ -36,30 +37,36 @@ public final class SoundEnvironmentScreen extends AudioPage {
             if (v && e.preset == SoundEnvironmentSettings.Preset.OFF) e.select(SoundEnvironmentSettings.Preset.BEDROOM);
             e.enabled = v;
         });
-        choice("environment.preset", e.preset, SoundEnvironmentSettings.Preset.values(), e::select);
+        labeledAction(Text.get("environment.preset") + ": " + Text.get("dsp.value." + e.preset.name().toLowerCase(java.util.Locale.ROOT)),
+            Text.get("environment.preset.help"), () -> show(new EnvironmentPickerScreen(app, this)));
         info(() -> Text.get("environment.description." + e.preset.name().toLowerCase(java.util.Locale.ROOT)));
         if (e.custom) info("environment.custom_recipe");
         slider("environment.intensity", e.intensity * 100, 0, 100, 100, v -> e.intensity = v / 100, "%");
         info(() -> Text.get(e.ownsReverb() ? "environment.owns_reverb" : "environment.allows_reverb"));
-        action("analyzer.title", () -> show(new AudioAnalyzerScreen(app, this, com.darkmusic.client.audio.AudioComparison.Mode.ENVIRONMENT)));
         section("environment.parameters");
+        if (!e.active()) info("environment.inactive");
+        int parametersStart = rowCount();
+        var recipe = SoundEnvironmentSettings.recipe(e.preset);
         boolean device = e.preset.ordinal() >= SoundEnvironmentSettings.Preset.OLD_RADIO.ordinal() && e.preset.ordinal() <= SoundEnvironmentSettings.Preset.CASSETTE.ordinal();
         boolean outdoors = e.preset == SoundEnvironmentSettings.Preset.OPEN_MEADOW || e.preset == SoundEnvironmentSettings.Preset.FOREST_CLEARING || e.preset == SoundEnvironmentSettings.Preset.UNDERWATER;
         if (device || advanced) toggle("environment.texture", () -> e.texture, v -> e.texture = v);
         if (outdoors || advanced) toggle("environment.ambience", () -> e.ambience, v -> e.ambience = v);
         if (p.acoustic) slider("environment.distance", p.distance, 0, 1, 100, v -> p.distance = v, "");
-        if (p.acoustic && p.wet > 0) {
+        if (p.acoustic && (recipe.wet > 0 || advanced)) {
             if (p.reverbEngine == AudioEnhancements.ReverbEngine.ALGORITHMIC)
                 slider("environment.room_size", p.roomSize, .3, 2.5, 44, v -> p.roomSize = v, "");
             slider("environment.wet", p.wet, 0, .55, 55, v -> p.wet = v, "");
         }
-        if (p.echoGain > 0) slider("environment.echo_gain", p.echoGain, 0, .55, 55, v -> p.echoGain = v, "");
-        if (p.modulationMs > 0)
+        if (recipe.echoGain > 0 || advanced)
+            slider("environment.echo_gain", p.echoGain, 0, .55, 55, v -> p.echoGain = v, "");
+        if (recipe.modulationMs > 0 || advanced)
             slider("environment.modulation", p.modulationMs, 0, 3, 60, v -> p.modulationMs = v, " ms");
-        toggle("environment.advanced", () -> advanced, v -> advanced = v);
         if (advanced && e.preset != SoundEnvironmentSettings.Preset.OFF) {
-            slider("dsp.high_pass", p.highPass, 20, 2000, 198, v -> p.highPass = v, " Hz");
-            slider("dsp.low_pass", p.lowPass, 100, 20000, 199, v -> p.lowPass = v, " Hz");
+            slider("dsp.high_pass", p.highPass, 20, 2000, 198, v -> {
+                p.highPass = v;
+                p.lowPass = Math.max(p.lowPass, v * 1.2);
+            }, " Hz");
+            slider("dsp.low_pass", p.lowPass, Math.max(100, p.highPass * 1.2), 20000, 199, v -> p.lowPass = v, " Hz");
             slider("environment.presence", p.presenceGain, -6, 6, 48, v -> p.presenceGain = v, " dB");
             slider("environment.presence_frequency", p.presenceFrequency, 100, 12000, 119, v -> p.presenceFrequency = v, " Hz");
             slider("environment.drive", p.drive, 0, 3, 60, v -> p.drive = v, "");
@@ -73,17 +80,12 @@ public final class SoundEnvironmentScreen extends AudioPage {
                     choice("dsp.impulse", p.impulse, AudioEnhancements.Impulse.values(), v -> p.impulse = v);
                     info("dsp.modelled_ir");
                 } else {
-                    if (p.wet == 0) slider("environment.room_size", p.roomSize, .3, 2.5, 44, v -> p.roomSize = v, "");
                     slider("environment.decay", p.decay, .1, 8, 79, v -> p.decay = v, " s");
                     slider("environment.predelay", p.predelay, 0, .25, 50, v -> p.predelay = v, " s");
                 }
-                if (p.wet == 0) slider("environment.wet", p.wet, 0, .55, 55, v -> p.wet = v, "");
                 slider("environment.damping", p.damping, .05, .95, 45, v -> p.damping = v, "");
             }
             slider("environment.echo_time", p.echoTime, .03, 1, 97, v -> p.echoTime = v, " s");
-            if (p.echoGain == 0) slider("environment.echo_gain", p.echoGain, 0, .55, 55, v -> p.echoGain = v, "");
-            if (p.modulationMs == 0)
-                slider("environment.modulation", p.modulationMs, 0, 3, 60, v -> p.modulationMs = v, " ms");
             slider("environment.modulation_rate", p.modulationHz, .1, 6, 59, v -> p.modulationHz = v, " Hz");
             if (e.texture || e.ambience)
                 slider("environment.noise", p.noiseDb, -72, -30, 42, v -> p.noiseDb = v, " dBFS");
@@ -94,9 +96,15 @@ public final class SoundEnvironmentScreen extends AudioPage {
                 slider("environment.reflection_gain", p.reflectionGains[n], -.35, .35, 70, v -> p.reflectionGains[n] = v, "");
             }
         }
+        enableSince(parametersStart, e.enabled && e.preset != SoundEnvironmentSettings.Preset.OFF);
+        info("environment.dependencies");
+        toggle("environment.advanced", () -> advanced, v -> advanced = v);
         section("environment.saved");
-        action("environment.save", () -> show(new TextPromptScreen(this, Text.get("environment.save"), "", name -> {
-            e.savePreset(name);
+        info(() -> Text.get("environment.saved_count", e.userPresets.size(), PresetNames.ENVIRONMENT_LIMIT));
+        info(() -> app.warning.equals(Text.get("error.save_settings")) ? app.warning : notice);
+        action("environment.save", () -> show(PresetDialogs.save(this, "environment.save", e.userPresets, PresetNames.ENVIRONMENT_LIMIT, (name, replace) -> {
+            e.savePreset(name, replace);
+            notice = Text.get("preset.saved");
             app.save();
         })));
         for (String name : List.copyOf(e.userPresets.keySet())) {
@@ -106,15 +114,15 @@ public final class SoundEnvironmentScreen extends AudioPage {
                 app.save();
                 rebuildWidgets();
             });
-            action("environment.rename", () -> show(new TextPromptScreen(this, Text.get("environment.rename"), name, renamed -> {
-                if (!renamed.isBlank() && renamed.length() <= 80 && !e.userPresets.containsKey(renamed)) {
-                    var old = e.userPresets.remove(name);
-                    e.userPresets.put(renamed, old);
-                    app.save();
-                }
+            action("environment.rename", () -> show(TextPromptScreen.validated(this, Text.get("environment.rename"), name, 256, renamed -> {
+                PresetNames.rename(e.userPresets, name, renamed);
+                notice = Text.get("preset.renamed");
+                app.save();
+                return true;
             })));
             action("environment.delete", () -> show(new ConfirmationScreen(this, Text.component("environment.delete"), Text.component("environment.delete_confirm", name), Text.component("text.darkmusic.delete"), () -> {
                 e.userPresets.remove(name);
+                notice = Text.get("preset.deleted");
                 app.save();
                 return java.util.concurrent.CompletableFuture.completedFuture(null);
             })));

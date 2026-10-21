@@ -185,7 +185,8 @@ class AudioWorkerTest {
             StorageTest.await(() -> failure.get() != null);
             assertTrue(streamClosed.get());
             assertEquals(AudioBackend.Status.ERROR, backend.state().status());
-            assertTrue(failure.get().contains("No output device"));
+            assertEquals(com.darkmusic.client.text.Text.get("audio.error.device"), failure.get());
+            assertFalse(failure.get().contains("LineUnavailableException"));
         }
     }
 

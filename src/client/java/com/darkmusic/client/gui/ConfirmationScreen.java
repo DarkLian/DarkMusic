@@ -15,6 +15,7 @@ import java.util.function.Supplier;
  */
 public final class ConfirmationScreen extends LocalScreen {
     private final Screen parent;
+    private final Screen completionScreen;
     private final Component explanation, confirmLabel;
     private final Supplier<CompletableFuture<Void>> action;
     private List<net.minecraft.util.FormattedCharSequence> lines;
@@ -25,8 +26,13 @@ public final class ConfirmationScreen extends LocalScreen {
     private String error = "";
 
     public ConfirmationScreen(Screen parent, Component title, Component explanation, Component confirmLabel, Supplier<CompletableFuture<Void>> action) {
+        this(parent, title, explanation, confirmLabel, action, parent);
+    }
+
+    public ConfirmationScreen(Screen parent, Component title, Component explanation, Component confirmLabel, Supplier<CompletableFuture<Void>> action, Screen completionScreen) {
         super(title, parent);
         this.parent = parent;
+        this.completionScreen = completionScreen;
         this.explanation = explanation;
         this.confirmLabel = confirmLabel;
         this.action = action;
@@ -58,19 +64,19 @@ public final class ConfirmationScreen extends LocalScreen {
         try {
             action.get().whenComplete((unused, failure) -> minecraft.execute(() -> {
                 busy = false;
-                if (failure == null) show(parent);
+                if (failure == null) show(completionScreen);
                 else {
                     Throwable cause = failure;
                     while (cause instanceof java.util.concurrent.CompletionException && cause.getCause() != null)
                         cause = cause.getCause();
-                    error = Text.get("reset.darkmusic.failed", String.valueOf(cause.getMessage()));
+                    error = Text.get("reset.darkmusic.failed", Text.failure(cause, "error.operation"));
                     confirm.active = cancel.active = true;
                     org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Confirmed action failed", failure);
                 }
             }));
         } catch (Exception e) {
             busy = false;
-            error = Text.get("reset.darkmusic.failed", String.valueOf(e.getMessage()));
+            error = Text.get("reset.darkmusic.failed", Text.failure(e, "error.operation"));
             confirm.active = cancel.active = true;
         }
     }

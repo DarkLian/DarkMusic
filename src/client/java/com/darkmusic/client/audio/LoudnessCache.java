@@ -53,7 +53,7 @@ public final class LoudnessCache implements AutoCloseable {
         Source source = reading == null ? null : reading.source == null ? Source.LEGACY : reading.source;
         boolean limited = reading != null && Math.clamp(settings.targetLufs - reading.lufs, -24, 12) > -1 - reading.peakDb;
         return new Status(state, source, settings.targetLufs, AudioDynamics.db(actualGain), limited,
-            settings.gainMode == AudioSettings.Normalization.ALBUM && source != Source.ALBUM_TAGS);
+            settings.gainMode == AudioSettings.Normalization.ALBUM && (source == Source.TRACK_TAGS || source == Source.ANALYSIS));
     }
 
     public LoudnessCache() {

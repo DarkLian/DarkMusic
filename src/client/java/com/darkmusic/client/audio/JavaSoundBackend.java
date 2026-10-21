@@ -316,7 +316,7 @@ public final class JavaSoundBackend implements AudioBackend {
                         // Decoder/disk starvation is not a stalled output device.
                         progressedAt = System.nanoTime();
                     } else if (System.nanoTime() - progressedAt > stallNanos)
-                        throw new java.io.IOException("Audio output stopped making progress. Check or reconnect the audio device.");
+                        throw new java.io.IOException(com.darkmusic.client.text.Text.get("audio.error.stalled"));
                     int bytesPerSample = line.getFormat().getSampleSizeInBits() / 8;
                     int frame = line.getFormat().getChannels() * bytesPerSample;
                     int amount = Math.min(buffer.length, line.available()) / frame * frame;
@@ -330,7 +330,7 @@ public final class JavaSoundBackend implements AudioBackend {
                     int inputChannels = stream.getFormat().getChannels(), outputChannels = line.getFormat().getChannels();
                     processor.diagnostics().sourceChannels(inputChannels);
                     int frames = Math.min(amount / frame, pcm.length / inputChannels);
-                    int samples = converter.read(pcm, frames * inputChannels, rate, deviceRate, !options.neutral && options.enhancements.preservePitch);
+                    int samples = converter.read(pcm, frames * inputChannels, rate, deviceRate, options.enhancements.preservePitch);
                     // Time spent decoding must not consume the output device's stall budget.
                     progressedAt = System.nanoTime();
                     if (samples > 0 && inputChannels != outputChannels) {
@@ -405,7 +405,7 @@ public final class JavaSoundBackend implements AudioBackend {
                             int nextChannels = ready.stream().getFormat().getChannels();
                             int n;
                             try {
-                                n = ready.converter().read(nextPcm, outputFrames * nextChannels, rate, deviceRate, !selected.neutral && selected.enhancements.preservePitch);
+                                n = ready.converter().read(nextPcm, outputFrames * nextChannels, rate, deviceRate, selected.enhancements.preservePitch);
                             } catch (Exception failure) {
                                 n = -1;
                                 org.slf4j.LoggerFactory.getLogger("darkmusic-audio").debug("Prepared track became unavailable", failure);
@@ -443,12 +443,12 @@ public final class JavaSoundBackend implements AudioBackend {
                             int sent = capacity > 0 ? line.write(buffer, written, capacity) : 0;
                             if (sent <= 0) {
                                 if (System.nanoTime() - progressedAt > stallNanos)
-                                    throw new java.io.IOException("Audio device accepted no samples. Check or reconnect the audio device.");
+                                    throw new java.io.IOException(com.darkmusic.client.text.Text.get("audio.error.stalled"));
                                 java.util.concurrent.locks.LockSupport.parkNanos(5_000_000);
                                 continue;
                             }
                             if (sent % frame != 0)
-                                throw new java.io.IOException("Audio device returned an incomplete PCM frame");
+                                throw new java.io.IOException(com.darkmusic.client.text.Text.get("audio.error.device"));
                             spectrum.accept(buffer, written, sent, submittedFrames, bytesPerSample);
                             processor.diagnostics().submitted(buffer, written, sent, submittedFrames, bytesPerSample, processor);
                             written += sent;
@@ -530,7 +530,9 @@ public final class JavaSoundBackend implements AudioBackend {
         release();
         active = null;
         if (!current(request)) return;
-        String message = exception.getClass().getSimpleName() + ": " + exception.getMessage();
+        org.slf4j.LoggerFactory.getLogger("darkmusic-audio").warn("Playback failed for {}", request.track.file(), exception);
+        String message = com.darkmusic.client.text.Text.isMessage(exception.getMessage()) ? exception.getMessage()
+            : com.darkmusic.client.text.Text.get(exception instanceof javax.sound.sampled.LineUnavailableException ? "audio.error.device" : "audio.error.playback");
         state = new State(request.track, Status.ERROR, 0, request.track.duration(), message);
         callbacks.execute(() -> {
             if (current(request)) request.failed.accept(message);
