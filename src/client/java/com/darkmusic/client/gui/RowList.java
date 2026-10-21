@@ -275,7 +275,7 @@ public final class RowList extends AbstractWidget {
             hoveredRow = hover;
             hoveredLyrics = lyric;
             var row = hover >= 0 && hover < rows.size() ? rows.get(hover) : null;
-            setTooltip(row == null ? null : net.minecraft.client.gui.components.Tooltip.create(Component.literal(row.title() + "\n" + row.subtitle() + (row.details().isBlank() ? "" : "\n" + row.details()) + (lyric == null || row.subtitle().contains(Text.get(lyric.key())) ? "" : "\n" + Text.get(lyric.key())))));
+            setTooltip(row == null ? null : net.minecraft.client.gui.components.Tooltip.create(Component.literal(row.text("\n") + (lyric == null || row.subtitle().contains(Text.get(lyric.key())) ? "" : "\n" + Text.get(lyric.key())))));
         }
         UiTheme.panel(g, getX(), getY(), width, height);
         g.enableScissor(getX(), getY(), getRight(), getBottom());
@@ -324,6 +324,8 @@ public final class RowList extends AbstractWidget {
         }
         if (current) playingIcon.get().draw(g, getRight() - 26, y + (rowHeight - 14) / 2, 14, UiTheme.ACCENT);
         Row row = rows.get(i);
+        boolean twoLines = rowHeight >= 28 && !row.subtitle().isBlank();
+        int titleY = twoLines ? y + 4 : y + (rowHeight - font.lineHeight) / 2;
         int inset = selection == null ? 5 : 25;
         if (selection != null) g.text(font, selection.checked(i) ? "[x]" : "[ ]", getX() + 4, y + 4, UiTheme.ACCENT);
         if (favorite.test(i)) {
@@ -341,14 +343,15 @@ public final class RowList extends AbstractWidget {
             inset += indent.applyAsInt(i);
             if (disclosureInset != null) {
                 if (disclosureInset.applyAsInt(i) >= 0)
-                    g.text(font, expanded.test(i) ? "v" : ">", getX() + inset + 1, y + 5, UiTheme.ACCENT);
+                    g.text(font, expanded.test(i) ? "v" : ">", getX() + inset + 1, titleY, UiTheme.ACCENT);
                 inset += 12;
             }
-            icons.apply(i).draw(g, getX() + inset, y + 4, 12, UiTheme.ACCENT);
+            int iconY = twoLines ? titleY + (font.lineHeight - 12) / 2 : y + (rowHeight - 12) / 2;
+            icons.apply(i).draw(g, getX() + inset, iconY, 12, UiTheme.ACCENT);
             inset += 18;
         }
-        horizontal.draw(g, font, "title" + i, row.title(), getX() + inset, y + 4, Math.max(1, width - inset - rightInset), UiTheme.TEXT);
-        if (rowHeight >= 28)
+        horizontal.draw(g, font, "title" + i, row.title(), getX() + inset, titleY, Math.max(1, width - inset - rightInset), UiTheme.TEXT);
+        if (twoLines)
             horizontal.draw(g, font, "subtitle" + i, row.subtitle(), getX() + inset, y + 16, Math.max(1, width - inset - rightInset), tint.applyAsInt(i));
         if (progress != null) {
             double value = progress.applyAsDouble(i);
@@ -490,12 +493,17 @@ public final class RowList extends AbstractWidget {
     protected void updateWidgetNarration(NarrationElementOutput output) {
         if (selected >= 0 && selected < rows.size()) {
             var info = lyricInfo(selected);
-            setMessage(Component.literal(rows.get(selected).title() + ", " + rows.get(selected).subtitle() + ", " + rows.get(selected).details() + (info == null || rows.get(selected).subtitle().contains(Text.get(info.key())) ? "" : ", " + Text.get(info.key()))));
+            setMessage(Component.literal(rows.get(selected).text(", ") + (info == null || rows.get(selected).subtitle().contains(Text.get(info.key())) ? "" : ", " + Text.get(info.key()))));
         }
         defaultButtonNarrationText(output);
     }
 
     public record Row(String title, String subtitle, String details) {
+        public String text(String separator) {
+            return java.util.stream.Stream.of(title, subtitle, details).filter(value -> !value.isBlank())
+                .collect(java.util.stream.Collectors.joining(separator));
+        }
+
         public Row(String title, String subtitle) {
             this(title, subtitle, "");
         }

@@ -51,12 +51,11 @@ final class FavoriteButton extends AbstractWidget {
         float step = Math.min(1, (now - transitionAt) / 120_000_000f);
         transitionAt = now;
         emphasis += Math.clamp((highlighted ? 1 : 0) - emphasis, -step, step);
-        g.fill(getX(), getY(), getRight(), getBottom(), active ? UiTheme.mix(UiTheme.RAISED, UiTheme.HOVER, emphasis) : UiTheme.SURFACE);
-        g.outline(getX(), getY(), width, height, !active ? UiTheme.RAISED : highlighted ? UiTheme.ACCENT : UiTheme.BORDER);
+        if (isFocused()) g.fill(getX() + 2, getBottom() - 1, getRight() - 2, getBottom(), UiTheme.ACCENT);
         double t = (System.nanoTime() - likedAt) / 320_000_000.0;
-        int size = 14 + (favorite && t >= 0 && t < 1 ? (int) Math.round(4 * Math.sin(Math.PI * t)) : 0);
-        (favorite ? UiIcon.HEART_FILLED : UiIcon.HEART).draw(g, getX() + (width - size) / 2, getY() + (height - size) / 2, size, active ? (favorite ? UiTheme.ACCENT : UiTheme.SECONDARY) : UiTheme.MUTED);
-        if (!active) g.fill(getX() + 1, getY() + 1, getRight() - 1, getBottom() - 1, 0x55111420);
+        int size = 18 + (favorite && t >= 0 && t < 1 ? (int) Math.round(2 * Math.sin(Math.PI * t)) : 0);
+        int color = !active ? UiTheme.MUTED : favorite ? UiTheme.ACCENT : UiTheme.mix(UiTheme.SECONDARY, UiTheme.TEXT, emphasis);
+        (favorite ? UiIcon.HEART_FILLED : UiIcon.HEART).draw(g, getX() + (width - size) / 2, getY() + (height - size) / 2, size, color);
     }
 
     @Override

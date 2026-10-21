@@ -24,7 +24,7 @@ public final class UiButton extends Button {
         Help.extract(this, g, x, y);
     }
 
-    public enum Style {SECONDARY, PRIMARY, SUBTLE, DESTRUCTIVE}
+    public enum Style {SECONDARY, PRIMARY, SUBTLE, DESTRUCTIVE, TRANSPORT}
 
     private Style style = Style.SECONDARY;
     private BooleanSupplier selected = () -> false;
@@ -95,6 +95,14 @@ public final class UiButton extends Button {
         float step = Math.min(1, (now - transitionAt) / 120_000_000f);
         transitionAt = now;
         emphasis += Math.clamp((highlighted ? 1 : 0) - emphasis, -step, step);
+        if (style == Style.TRANSPORT) {
+            int size = Math.min(Math.min(width - 4, height - 2), height > 20 ? 22 : 18);
+            int color = !active ? UiTheme.MUTED : chosen ? UiTheme.ACCENT : UiTheme.mix(UiTheme.SECONDARY, UiTheme.TEXT, emphasis);
+            if (icon != null) icon.draw(g, getX() + (width - size) / 2, getY() + (height - size) / 2, size, color);
+            if (isFocused())
+                g.fill(getX() + (width - size) / 2, getBottom() - 1, getX() + (width + size) / 2, getBottom(), UiTheme.ACCENT);
+            return;
+        }
         if (active && style == Style.SECONDARY && !chosen) fill = UiTheme.mix(UiTheme.RAISED, UiTheme.HOVER, emphasis);
         g.fill(getX(), getY(), getRight(), getBottom(), fill);
         int border = !active ? UiTheme.RAISED : isFocused() ? UiTheme.ACCENT

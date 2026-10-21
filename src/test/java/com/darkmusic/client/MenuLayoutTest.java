@@ -17,6 +17,17 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MenuLayoutTest {
     @Test
+    void collectionDescriptionsOmitEmptyLinesAndNarrationSeparators() {
+        var collection = new com.darkmusic.client.gui.RowList.Row("All Tracks (30)", "");
+        assertEquals("All Tracks (30)", collection.text("\n"));
+        assertEquals("All Tracks (30)", collection.text(", "));
+        var detailOnly = new com.darkmusic.client.gui.RowList.Row("Favorite Music", "  ", "30 tracks");
+        assertEquals("Favorite Music\n30 tracks", detailOnly.text("\n"));
+        var full = new com.darkmusic.client.gui.RowList.Row("Title", "Artist", "Album");
+        assertEquals("Title\nArtist\nAlbum", full.text("\n"));
+    }
+
+    @Test
     void threeColumnListAndControlsAreCenteredIndependently() {
         for (int width : new int[]{640, 641, 799, 800, 801, 854, 1024, 1280, 1720}) {
             var layout = PlayerLayout.of(width, 480);

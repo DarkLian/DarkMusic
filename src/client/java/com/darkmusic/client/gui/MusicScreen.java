@@ -53,7 +53,7 @@ public final class MusicScreen extends LocalScreen {
     private String playlistNotice = "";
     private Button play, shuffle, repeat, jump;
     private FavoriteButton favorite;
-    private Button edit, sourceLink, copySource;
+    private Button edit, sourceLink, copySource, lyricsButton;
     private long copiedUntil;
     private String copiedTrack = "";
     private Button mute;
@@ -97,6 +97,7 @@ public final class MusicScreen extends LocalScreen {
 
     private Button icon(String key, UiIcon icon, int x, int y, int w, boolean only, Runnable action) {
         var button = UiButton.icon(button(Text.get(key), x, y, w, action), icon, only);
+        if (only) UiButton.style(button, UiButton.Style.TRANSPORT);
         var binding = switch (icon) {
             case PLAY -> app.toggle;
             case PREVIOUS -> app.previous;
@@ -109,6 +110,10 @@ public final class MusicScreen extends LocalScreen {
     private void pane(Pane next) {
         pane = next;
         rebuildWidgets();
+    }
+
+    private Button transportIcon(String key, UiIcon icon, int x, int y, int width, Runnable action) {
+        return UiButton.style(icon(key, icon, x, y, width, true, action), UiButton.Style.TRANSPORT);
     }
 
     private void shuffle() {
@@ -142,8 +147,6 @@ public final class MusicScreen extends LocalScreen {
         int contextY = height < 300 ? 64 : 70;
         icon("text.darkmusic.downloads", UiIcon.DOWNLOAD, width - 180, 6, 96, false, () -> show(new DownloadScreen(app, this)));
         icon("text.darkmusic.settings", UiIcon.SETTINGS, width - 80, 6, 68, false, () -> show(new SettingsScreen(app, this)));
-        if (width >= 480 && app.settings.lyricsEnabled)
-            icon("lyrics.darkmusic.title", UiIcon.LYRICS, width - 208, 6, 24, true, () -> show(new LyricsScreen(app, this)));
         String[] modes = {"All", "Playlists", "Artists", "Albums"};
         int searchX;
         if (width >= 800) {
@@ -179,7 +182,11 @@ public final class MusicScreen extends LocalScreen {
             icon("text.darkmusic.refresh_library", UiIcon.REFRESH, 68, contextY, 24, true, () -> app.library.rescan());
         }
         if (mode.equals("Playlists")) {
-            var manage = icon("text.darkmusic.manage_playlists", UiIcon.PLAYLIST, width - (drawer ? 132 : 160), contextY, 120, false, () -> {
+            int manageWidth = 120;
+            int manageX = library && layout.inspector().width() > 0
+                ? layout.inspector().x() + (layout.inspector().width() - manageWidth) / 2
+                : width - (drawer ? 12 : 40) - manageWidth;
+            var manage = icon("text.darkmusic.manage_playlists", UiIcon.PLAYLIST, manageX, contextY, manageWidth, false, () -> {
                 if (app.playlistsReady) show(new PlaylistScreen(app, this));
                 else app.warn(Text.get("text.darkmusic.playlists_are_still_loading"));
             });
@@ -232,11 +239,14 @@ public final class MusicScreen extends LocalScreen {
                 }));
             }
         });
-        sourceLink = icon("library.darkmusic.open_source", UiIcon.LINK, inspector.x() + 58, inspector.y() + 4, 22, true, () -> {
+        lyricsButton = app.settings.lyricsEnabled
+            ? icon("lyrics.darkmusic.title", UiIcon.LYRICS, inspector.x() + 58, inspector.y() + 4, 22, true, () -> show(new LyricsScreen(app, this))) : null;
+        int sourceX = inspector.x() + (lyricsButton == null ? 58 : 84);
+        sourceLink = icon("library.darkmusic.open_source", UiIcon.LINK, sourceX, inspector.y() + 4, 22, true, () -> {
             String url = app.sourceLinks.get(selected);
             if (!url.isEmpty()) net.minecraft.util.Util.getPlatform().openUri(java.net.URI.create(url));
         });
-        copySource = icon("library.darkmusic.copy_source", UiIcon.CHAIN, inspector.x() + 84, inspector.y() + 4, 22, true, () -> {
+        copySource = icon("library.darkmusic.copy_source", UiIcon.CHAIN, sourceX + 26, inspector.y() + 4, 22, true, () -> {
             String url = app.sourceLinks.get(selected);
             if (url.isEmpty()) return;
             minecraft.keyboardHandler.setClipboard(url);
@@ -246,6 +256,7 @@ public final class MusicScreen extends LocalScreen {
             } else app.warn(Text.get("library.darkmusic.copy_failed"));
         });
         favorite.visible = edit.visible = sourceLink.visible = copySource.visible = selected != null && (pane == Pane.DETAILS || library && inspector.width() > 0);
+        if (lyricsButton != null) lyricsButton.visible = copySource.visible;
         int transportY = layout.transportY();
         int x = layout.transportX();
         int sliderWidth = layout.controlWidth();
@@ -255,36 +266,36 @@ public final class MusicScreen extends LocalScreen {
                 v -> Text.get("format.darkmusic.speed", String.format(Locale.ROOT, "%.1f", app.settings.speed)),
                 v -> app.speed(.5 + v * 2.5), app::save, 25),
             Help.withKeys(Text.get("text.darkmusic.playback_speed_0_5x_to_3_0x_in_0_1x_steps_faster_raises_pitch_slower_lowers_it"), app.slower, app.faster)));
-        speed.plain(true);
+        speed.media(false, v -> String.format(Locale.ROOT, "%.1f×", .5 + v * 2.5));
         x += sliderWidth + gap;
-        UiButton.shortcuts(icon("key.darkmusic.normal_speed", UiIcon.REFRESH, x, transportY, buttonWidth, true, () -> app.speed(1)), app.normalSpeed);
+        UiButton.shortcuts(transportIcon("key.darkmusic.normal_speed", UiIcon.REFRESH, x, transportY, buttonWidth, () -> app.speed(1)), app.normalSpeed);
         x += buttonWidth + gap;
-        shuffle = icon("text.darkmusic.shuffle", UiIcon.SHUFFLE, x, transportY, buttonWidth, true, this::shuffle);
+        shuffle = transportIcon("text.darkmusic.shuffle", UiIcon.SHUFFLE, x, transportY, buttonWidth, this::shuffle);
         x += buttonWidth + gap;
-        jump = icon("player.darkmusic.jump", UiIcon.LOCATE, x, transportY, buttonWidth, true, this::jumpToPlaying);
+        jump = transportIcon("player.darkmusic.jump", UiIcon.LOCATE, x, transportY, buttonWidth, this::jumpToPlaying);
         x += buttonWidth + gap;
-        icon("text.darkmusic.previous", UiIcon.PREVIOUS, x, transportY, buttonWidth, true, () -> {
+        transportIcon("text.darkmusic.previous", UiIcon.PREVIOUS, x, transportY, buttonWidth, () -> {
             if (!app.mediaBusy) app.playback.previous();
         });
         x += buttonWidth + gap;
-        play = icon("text.darkmusic.play", UiIcon.PLAY, x, transportY - 4, buttonWidth + 8, true, this::playPause);
+        play = transportIcon("text.darkmusic.play", UiIcon.PLAY, x, transportY - 4, buttonWidth + 8, this::playPause);
         play.setHeight(28);
         x += buttonWidth + 8 + gap;
-        icon("text.darkmusic.next", UiIcon.NEXT, x, transportY, buttonWidth, true, () -> {
+        transportIcon("text.darkmusic.next", UiIcon.NEXT, x, transportY, buttonWidth, () -> {
             if (!app.mediaBusy) app.playback.next();
         });
         x += buttonWidth + gap;
-        icon("text.darkmusic.stop", UiIcon.STOP, x, transportY, buttonWidth, true, () -> app.playback.stop());
+        transportIcon("text.darkmusic.stop", UiIcon.STOP, x, transportY, buttonWidth, () -> app.playback.stop());
         x += buttonWidth + gap;
-        repeat = icon("text.darkmusic.repeat", UiIcon.REPEAT, x, transportY, buttonWidth, true, this::repeat);
+        repeat = transportIcon("text.darkmusic.repeat", UiIcon.REPEAT, x, transportY, buttonWidth, this::repeat);
         x += buttonWidth + gap;
-        mute = UiButton.shortcuts(icon("key.darkmusic.mute", app.settings.volume == 0 ? UiIcon.MUTED : UiIcon.VOLUME, x, transportY, buttonWidth, true, app::toggleMute), app.mute);
+        mute = UiButton.shortcuts(transportIcon("key.darkmusic.mute", app.settings.volume == 0 ? UiIcon.MUTED : UiIcon.VOLUME, x, transportY, buttonWidth, app::toggleMute), app.mute);
         UiButton.selected(mute, () -> app.settings.volume == 0);
         x += buttonWidth + gap;
         volume = addRenderableWidget(Help.tip(new ValueSlider(x, transportY, sliderWidth, app.settings.volume,
                 v -> Text.get("format.darkmusic.volume", Math.round(v * 100)), app::volume, app::save),
             Help.withKeys(Text.get("text.darkmusic.darkmusic_volume_independent_of_minecraft_sound_sliders"), app.volumeDown, app.volumeUp)));
-        volume.plain(true);
+        volume.media(true, v -> Math.round(v * 100) + "%");
         progress = addRenderableWidget(new ValueSlider(layout.dock().x() + 4, layout.seekY(), layout.dock().width() - 8, 0,
             v -> time(progress != null && progress.editing() ? v * app.playback.state().duration() : app.playback.state().position()) + " / " + time(app.playback.state().duration()),
             v -> {
@@ -299,7 +310,6 @@ public final class MusicScreen extends LocalScreen {
             icon("import.darkmusic.history", UiIcon.PLAYLIST, 112, contextY, 24, true, () -> show(new ImportHistoryScreen(app, this)));
             icon("text.darkmusic.refresh_library", UiIcon.REFRESH, 140, contextY, 24, true, () -> app.library.rescan());
         }
-        UiButton.style(play, UiButton.Style.PRIMARY);
         if (shuffle != null) UiButton.selected(shuffle, () -> app.playback.shuffle());
         if (repeat != null) UiButton.selected(repeat, () -> app.playback.repeat() != PlaybackController.Repeat.OFF);
         refresh();
@@ -522,9 +532,6 @@ public final class MusicScreen extends LocalScreen {
 
     private void details(GuiGraphicsExtractor g, PlayerLayout.Rect area, boolean standalone) {
         UiTheme.panel(g, area.x(), area.y(), area.width(), area.height());
-        if (selected != null && copiedTrack.equals(selected.id()) && System.nanoTime() < copiedUntil)
-            g.text(font, font.plainSubstrByWidth(Text.get("library.darkmusic.copied"), Math.max(1, area.right() - copySource.getRight() - 12)),
-                copySource.getRight() + 6, copySource.getY() + 6, UiTheme.SUCCESS);
         int size = standalone ? Math.min(area.height() - 36, Math.min(180, area.width() / 3)) : layout.artworkSize() - 20;
         size = Math.max(16, size);
         int artX = area.x() + (standalone ? 8 : (area.width() - size) / 2), artY = area.y() + 28;
@@ -571,6 +578,7 @@ public final class MusicScreen extends LocalScreen {
         var audio = app.playback.state();
         boolean library = pane == Pane.LIBRARY;
         favorite.visible = edit.visible = sourceLink.visible = copySource.visible = selected != null && (pane == Pane.DETAILS || library && layout.inspector().width() > 0);
+        if (lyricsButton != null) lyricsButton.visible = copySource.visible;
         if (library) {
             String collection = mode.equals("All") ? group.isEmpty() ? Text.get("text.darkmusic.all_tracks") : group : mode.equals("Playlists") && app.playlists.get(group) != null ? app.playlists.displayName(app.playlists.get(group)) : group;
 
@@ -593,6 +601,14 @@ public final class MusicScreen extends LocalScreen {
             }
         }
         super.extractRenderState(g, mx, my, delta);
+        if (copySource.visible && selected != null && copiedTrack.equals(selected.id()) && System.nanoTime() < copiedUntil) {
+            var message = Text.component("library.darkmusic.copied");
+            int right = pane == Pane.DETAILS ? width - 12 : layout.inspector().right();
+            if (font.width(message) <= right - copySource.getRight() - 12)
+                g.text(font, message, copySource.getRight() + 6, copySource.getY() + 6, UiTheme.SUCCESS);
+            else
+                g.setTooltipForNextFrame(font, List.of(message.getVisualOrderText()), Help::position, copySource.getX(), copySource.getBottom(), true);
+        }
         importOverlay.render(app, g, width, height);
     }
 }
