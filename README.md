@@ -51,7 +51,7 @@ A customized Classic HUD, placed on the middle-left. Move and resize it in Edit 
 
 Preview HUD layouts, choose a spectrum style, and pick a gradient or your own colors.
 
-![HUD and spectrum settings with circular live preview](docs/images/settings.png)
+![HUD and spectrum settings with circular live preview](docs/images/settings-2.3.5.png)
 
 ## Shape your sound
 
