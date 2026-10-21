@@ -31,21 +31,54 @@ public final class UiTheme {
             SECONDARY = 0xFFB0B5CE;
             MUTED = 0xFF868DA7;
         } else {
-            boolean light = ((base >> 16 & 255) * .2126 + (base >> 8 & 255) * .7152 + (base & 255) * .0722) > 160;
-            int ink = light ? 0xFF111420 : 0xFFF0EFF9;
+            boolean light = contrast(base, 0xFF000000) >= contrast(base, 0xFFFFFFFF);
+            int ink = light ? 0xFF000000 : 0xFFFFFFFF;
             SURFACE = mix(base, ink, .05f);
             RAISED = mix(base, ink, .10f);
             HOVER = mix(base, ACCENT, .22f);
+            int opposite = light ? 0xFFFFFFFF : 0xFF000000;
+            SURFACE = readableAccent(SURFACE, ink, opposite);
+            RAISED = readableAccent(RAISED, ink, opposite);
+            HOVER = readableAccent(HOVER, ink, opposite);
             BORDER = mix(base, ink, .24f);
             TEXT = ink;
             SECONDARY = mix(base, ink, .75f);
+            int worst = SURFACE;
+            if (light && luminance(RAISED) < luminance(SURFACE) || !light && luminance(RAISED) > luminance(SURFACE))
+                worst = RAISED;
+            SECONDARY = readableAccent(SECONDARY, worst, ink);
             MUTED = mix(base, ink, .55f);
         }
         SELECTED = settings.menuBackgroundColor == 0x111420 && settings.menuAccentColor == 0xB8A8FA
             ? 0xFF48446D : mix(SURFACE, ACCENT, .30f);
+        ACCENT = readableAccent(ACCENT, SURFACE, TEXT);
     }
 
     private UiTheme() {
+    }
+
+    public static double contrast(int first, int second) {
+        double a = luminance(first), b = luminance(second);
+        return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+    }
+
+    private static double luminance(int color) {
+        double value = 0;
+        double[] weights = {.2126, .7152, .0722};
+        for (int i = 0; i < 3; i++) {
+            double channel = (color >> (16 - 8 * i) & 255) / 255d;
+            value += weights[i] * (channel <= .04045 ? channel / 12.92 : Math.pow((channel + .055) / 1.055, 2.4));
+        }
+        return value;
+    }
+
+    public static int readableAccent(int accent, int background, int text) {
+        if (contrast(accent, background) >= 4.5) return accent;
+        for (int step = 1; step <= 16; step++) {
+            int candidate = mix(accent, text, step / 16f);
+            if (contrast(candidate, background) >= 4.5) return candidate;
+        }
+        return text;
     }
 
     public static int mix(int from, int to, float fraction) {

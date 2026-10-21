@@ -121,6 +121,7 @@ public final class AudioSettingsScreen extends LocalScreen {
         normalizationY = -1;
         var a = app.settings.audio;
         section("audio.darkmusic.section_playback");
+        row("device.title", null, () -> show(new OutputDeviceScreen(app, this)), "device.help");
         row("analyzer.title", null, () -> show(new AudioAnalyzerScreen(app, this, com.darkmusic.client.audio.AudioComparison.Mode.AUDIO_OPTIONS)), "analyzer.help");
         row("dsp.advanced", null, () -> show(new AudioAdvancedScreen(app, this)), "dsp.advanced.help");
         toggle("audio.darkmusic.neutral", () -> a.neutral, v -> a.neutral = v, "audio.darkmusic.neutral_help");
@@ -243,6 +244,16 @@ public final class AudioSettingsScreen extends LocalScreen {
 
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        if (event.key() == 258 && (getFocused() == null || rows.contains(getFocused()))) {
+            int index = FocusRows.next(rows.stream().map(w -> w.active).toList(), rows.indexOf(getFocused()), event.hasShiftDown(), true);
+            if (index >= 0) {
+                int y = positions.get(index);
+                if (y < scroll || y + 24 > scroll + height - 50) scroll = Math.max(0, y - (height - 74) / 2);
+                position();
+                setFocused(rows.get(index));
+                return true;
+            }
+        }
         int page = Math.max(24, height - 72);
         switch (event.key()) {
             case 266 -> scroll -= page;

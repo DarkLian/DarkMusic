@@ -17,6 +17,18 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MenuLayoutTest {
     @Test
+    void collectionUtilitiesHaveRoomForHistoryBesideManagePlaylists() {
+        for (int width : new int[]{320, 426, 480, 639, 640, 854}) {
+            var layout = PlayerLayout.of(width, 480);
+            int manage = layout.singleColumn() ? width - 64 : layout.navigation().right() - 24;
+            int history = manage - 28;
+            assertTrue(history >= (layout.singleColumn() ? 126 : 96));
+            assertEquals(4, manage - (history + 24));
+            assertTrue(manage + 24 <= (layout.singleColumn() ? width - 40 : layout.navigation().right()));
+        }
+    }
+
+    @Test
     void collectionDescriptionsOmitEmptyLinesAndNarrationSeparators() {
         var collection = new com.darkmusic.client.gui.RowList.Row("All Tracks (30)", "");
         assertEquals("All Tracks (30)", collection.text("\n"));

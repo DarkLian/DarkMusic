@@ -9,6 +9,7 @@ import java.util.Map;
 public final class Settings {
     public int schemaVersion = 1;
     public String musicDirectory = "";
+    public String outputDevice = "";
     public Map<String, String> roots = new LinkedHashMap<>();
     public Map<String, String> shortcuts = new LinkedHashMap<>();
     public transient java.util.Set<String> nativeShortcutNames = java.util.Set.of();
@@ -88,6 +89,7 @@ public final class Settings {
         volume = Double.isFinite(volume) ? Math.clamp(volume, 0, 1) : 1;
         lastAudibleVolume = volume > 0 ? volume : Double.isFinite(lastAudibleVolume) && lastAudibleVolume > 0 ? Math.clamp(lastAudibleVolume, .01, 1) : 1;
         if (musicDirectory == null) musicDirectory = "";
+        if (outputDevice == null || !outputDevice.matches("[0-9a-f]{64}|")) outputDevice = "";
         if (roots == null) roots = new LinkedHashMap<>();
         if (shortcuts == null) shortcuts = new LinkedHashMap<>();
         if (ytDlpPath == null) ytDlpPath = "";

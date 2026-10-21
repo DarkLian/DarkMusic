@@ -23,10 +23,18 @@ public final class DesktopFolderDialog {
                     UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
                     var picker = new JFileChooser(args[0]);
                     picker.setDialogTitle(args[1]);
-                    picker.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+                    String mode = args.length > 4 ? args[4] : "folder";
+                    picker.setFileSelectionMode(mode.equals("folder") ? JFileChooser.DIRECTORIES_ONLY : JFileChooser.FILES_ONLY);
                     picker.setAcceptAllFileFilterUsed(false);
-                    if (picker.showOpenDialog(null) == JFileChooser.APPROVE_OPTION)
-                        Files.writeString(Path.of(args[2]), picker.getSelectedFile().toPath().toString());
+                    if (!mode.equals("folder"))
+                        picker.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("DarkMusic ZIP", "zip"));
+                    if ((mode.equals("save") ? picker.showSaveDialog(null) : picker.showOpenDialog(null)) == JFileChooser.APPROVE_OPTION) {
+                        Path selected = picker.getSelectedFile().toPath();
+                        if (mode.equals("save") && !selected.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".zip"))
+                            selected = selected.resolveSibling(selected.getFileName() + ".zip");
+                        if (!mode.equals("save") || !Files.exists(selected) || JOptionPane.showConfirmDialog(picker, (args.length > 5 ? args[5] : args[1]) + "\n" + selected.getFileName(), args[1], JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION)
+                            Files.writeString(Path.of(args[2]), selected.toString());
+                    }
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 } finally {

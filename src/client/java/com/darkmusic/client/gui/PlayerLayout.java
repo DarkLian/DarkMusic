@@ -21,7 +21,7 @@ public record PlayerLayout(int width, int height, Rect navigation, Rect tracks, 
         int dockHeight = 64;
         int top = height < 300 ? 88 : 96, dockY = height - dockHeight - 8;
         int available = Math.max(1, dockY - 16 - top);
-        int nav = width >= 480 && height >= 300 ? Math.clamp(width / 6, 104, 156) : 0;
+        int nav = width >= 480 && height >= 300 ? Math.clamp(width / 6, 136, 156) : 0;
         int panel = width >= 640 && height >= 400 ? Math.clamp(width / 4, 140, 220) : 0;
         if (panel > 0) {
             int listX = margin + panel + 8;

@@ -22,6 +22,12 @@ public final class PlaybackController implements AutoCloseable {
     private com.darkmusic.client.config.SoundEnvironmentSettings configuredEnvironment = new com.darkmusic.client.config.SoundEnvironmentSettings();
     private long sequence;
     private Source source = new Source("All", "", "", "");
+    private java.util.function.BiConsumer<Source, List<Track>> sourceChanged = (source, tracks) -> {
+    };
+
+    public void onSourceChanged(java.util.function.BiConsumer<Source, List<Track>> listener) {
+        sourceChanged = Objects.requireNonNull(listener);
+    }
 
     public PlaybackController(AudioBackend audio, Consumer<String> warning) {
         this.audio = audio;
@@ -122,6 +128,7 @@ public final class PlaybackController implements AutoCloseable {
         if (!queue.contains(selected)) return;
         source = Objects.requireNonNull(origin);
         tracks = List.copyOf(queue);
+        sourceChanged.accept(source, tracks);
         history.clear();
         failures = 0;
         int index = tracks.indexOf(selected);
@@ -135,8 +142,15 @@ public final class PlaybackController implements AutoCloseable {
     }
 
     private void start(int index, double position, boolean paused) {
+        start(index, position, paused, false);
+    }
+
+    private void start(int index, double position, boolean paused, boolean continuing) {
         long ticket = ++sequence;
-        audio.playFrom(tracks.get(index), position, paused, () -> finished(index, ticket), message -> failed(index, ticket, message));
+        if (continuing)
+            audio.resumeFrom(tracks.get(index), position, paused, () -> finished(index, ticket), message -> failed(index, ticket, message));
+        else
+            audio.playFrom(tracks.get(index), position, paused, () -> finished(index, ticket), message -> failed(index, ticket, message));
         refreshNext();
     }
 
@@ -193,6 +207,10 @@ public final class PlaybackController implements AutoCloseable {
     public void next() {
         failures = 0;
         advance(true);
+    }
+
+    public void outputChanged() {
+        refreshNext();
     }
 
     private void advance(boolean manual) {
@@ -292,7 +310,7 @@ public final class PlaybackController implements AutoCloseable {
         if (sequence != resume.sequence || cursor < 0 || cursor >= order.size()) return;
         if (resume.status == AudioBackend.Status.PLAYING || resume.status == AudioBackend.Status.PAUSED
             || resume.status == AudioBackend.Status.SEEKING || resume.status == AudioBackend.Status.LOADING) {
-            start(order.get(cursor), resume.position, resume.status == AudioBackend.Status.PAUSED);
+            start(order.get(cursor), resume.position, resume.status == AudioBackend.Status.PAUSED, true);
         }
     }
 

@@ -23,6 +23,35 @@ public final class PlaylistStore {
     private String pending;
     private boolean writing;
     private Set<Entry> favoriteEntries = Set.of();
+    private Set<Entry> retainedImports = Set.of();
+    private boolean retainedHealthy = true;
+
+    public Set<Entry> retainedImports() {
+        return retainedImports;
+    }
+
+    public void restore(List<Playlist> values, Set<Entry> retained) {
+        retainedHealthy = true;
+        retainedImports = Set.copyOf(retained);
+        update(values);
+    }
+
+    public void acknowledgeTracks(List<Track> tracks) {
+        if (retainedImports.isEmpty()) return;
+        var remaining = new HashSet<>(retainedImports);
+        tracks.forEach(t -> remaining.remove(Entry.of(t)));
+        if (!remaining.equals(retainedImports)) {
+            retainedImports = Set.copyOf(remaining);
+            String json = ConfigStore.JSON.toJson(retainedImports);
+            io.execute(() -> {
+                try {
+                    ConfigStore.atomicWrite(file.resolveSibling("playlist-retained.json"), json);
+                } catch (Exception e) {
+                    org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Cannot save imported playlist references", e);
+                }
+            });
+        }
+    }
 
     public PlaylistStore(Path directory, ExecutorService io, Consumer<String> warning) {
         file = directory.resolve("playlists.json");
@@ -31,6 +60,16 @@ public final class PlaylistStore {
     }
 
     public List<Playlist> read() {
+        try {
+            Path retained = file.resolveSibling("playlist-retained.json");
+            if (Files.exists(retained)) {
+                var values = ConfigStore.JSON.fromJson(Files.readString(retained), Entry[].class);
+                retainedImports = Set.copyOf(Arrays.asList(values));
+            }
+        } catch (Exception e) {
+            retainedHealthy = false;
+            org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Cannot load imported playlist references", e);
+        }
         try {
             if (Files.exists(file)) try (var reader = Files.newBufferedReader(file)) {
                 var json = com.google.gson.JsonParser.parseReader(reader);
@@ -106,6 +145,12 @@ public final class PlaylistStore {
 
     public void replaceTrack(Track before, Track after) {
         Entry old = Entry.of(before), replacement = Entry.of(after);
+        if (retainedImports.contains(old)) {
+            var retained = new HashSet<>(retainedImports);
+            retained.remove(old);
+            retained.add(replacement);
+            retainedImports = Set.copyOf(retained);
+        }
         var next = playlists.stream().map(p -> new Playlist(p.id, p.name,
             p.entries.stream().map(e -> e.equals(old) ? replacement : e).distinct().toList())).toList();
         if (!next.equals(playlists)) update(next);
@@ -138,9 +183,9 @@ public final class PlaylistStore {
     }
 
     public void removeMissing(Set<Entry> missing) {
-        if (missing.isEmpty()) return;
+        if (missing.isEmpty() || !retainedHealthy) return;
         var next = playlists.stream().map(p -> new Playlist(p.id, p.name,
-            p.entries.stream().filter(e -> !missing.contains(e)).toList())).toList();
+            p.entries.stream().filter(e -> !missing.contains(e) || retainedImports.contains(e)).toList())).toList();
         if (!next.equals(playlists)) update(next);
     }
 
@@ -257,6 +302,19 @@ public final class PlaylistStore {
 
     private void update(List<Playlist> next) {
         playlists = List.copyOf(next);
+        var referenced = new HashSet<Entry>();
+        next.forEach(p -> referenced.addAll(p.entries));
+        var retained = new HashSet<>(retainedImports);
+        retained.retainAll(referenced);
+        retainedImports = Set.copyOf(retained);
+        String retainedJson = ConfigStore.JSON.toJson(retainedImports);
+        if (retainedHealthy) io.execute(() -> {
+            try {
+                ConfigStore.atomicWrite(file.resolveSibling("playlist-retained.json"), retainedJson);
+            } catch (Exception e) {
+                org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Cannot save imported playlist references", e);
+            }
+        });
         refreshFavorites();
         revision++;
         String json = ConfigStore.JSON.toJson(playlists);

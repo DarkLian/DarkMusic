@@ -27,6 +27,10 @@ public final class DesktopFolderPicker {
     }
 
     public static CompletableFuture<Path> choose(Path initial, String title) {
+        return choose(initial, title, "folder");
+    }
+
+    public static CompletableFuture<Path> choose(Path initial, String title, String mode) {
         if (!OPEN.compareAndSet(false, true)) return CompletableFuture.completedFuture(null);
         CANCELLED.set(false);
         return CompletableFuture.supplyAsync(() -> {
@@ -37,7 +41,7 @@ public final class DesktopFolderPicker {
                 String binary = System.getProperty("os.name").startsWith("Windows") ? "javaw.exe" : "java";
                 Path java = Path.of(System.getProperty("java.home"), "bin", binary);
                 Path classes = Path.of(DesktopFolderDialog.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-                active = new ProcessBuilder(List.of(java.toString(), "-Djava.awt.headless=false", "-cp", classes.toString(), DesktopFolderDialog.class.getName(), initial.toString(), title, result.toString(), Long.toString(ProcessHandle.current().pid())))
+                active = new ProcessBuilder(List.of(java.toString(), "-Djava.awt.headless=false", "-cp", classes.toString(), DesktopFolderDialog.class.getName(), initial.toString(), title, result.toString(), Long.toString(ProcessHandle.current().pid()), mode, Text.get("backup.overwrite")))
                     .redirectErrorStream(true).redirectOutput(log.toFile()).start();
                 active.getOutputStream().close();
                 while (!active.waitFor(100, TimeUnit.MILLISECONDS)) {

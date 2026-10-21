@@ -493,7 +493,9 @@ public final class RowList extends AbstractWidget {
     protected void updateWidgetNarration(NarrationElementOutput output) {
         if (selected >= 0 && selected < rows.size()) {
             var info = lyricInfo(selected);
-            setMessage(Component.literal(rows.get(selected).text(", ") + (info == null || rows.get(selected).subtitle().contains(Text.get(info.key())) ? "" : ", " + Text.get(info.key()))));
+            setMessage(Component.literal(rows.get(selected).text(", ") + (info == null || rows.get(selected).subtitle().contains(Text.get(info.key())) ? "" : ", " + Text.get(info.key()))
+                + ". " + Text.get("accessibility.position", selected + 1, rows.size())
+                + (selection == null ? "" : ". " + Text.get(selection.checked(selected) ? "accessibility.selected" : "accessibility.not_selected"))));
         }
         defaultButtonNarrationText(output);
     }

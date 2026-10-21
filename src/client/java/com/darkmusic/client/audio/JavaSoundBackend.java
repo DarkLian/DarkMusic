@@ -34,7 +34,41 @@ public final class JavaSoundBackend implements AudioBackend {
     private Announcement announcement;
     private final Executor callbacks;
     private final Decoder decoder;
-    private final Output output;
+    private volatile Output output;
+    private final AtomicReference<OutputChange> outputChange = new AtomicReference<>();
+    private static final AtomicLong SESSIONS = new AtomicLong();
+    private long hearingFrame;
+    private volatile long playbackSession;
+    private volatile HearingListener hearing = (track, session, seconds) -> {
+    };
+
+    @FunctionalInterface
+    public interface HearingListener {
+        void heard(Track track, long session, double seconds);
+    }
+
+    public void listening(HearingListener listener) {
+        hearing = listener;
+    }
+
+    public String outputDeviceId() {
+        return output instanceof OutputDevices devices ? devices.actual() : "";
+    }
+
+    public java.util.concurrent.CompletableFuture<Boolean> output(Output selected) {
+        var result = new java.util.concurrent.CompletableFuture<Boolean>();
+        if (closed) {
+            result.complete(false);
+            return result;
+        }
+        var change = new OutputChange(selected, result);
+        var old = outputChange.getAndSet(change);
+        if (old != null) old.result.complete(false);
+        if (closed && outputChange.compareAndSet(change, null)) result.complete(false);
+        java.util.concurrent.locks.LockSupport.unpark(worker);
+        return result;
+    }
+
     private final Thread worker;
     private final java.util.ArrayDeque<Segment> timeline = new java.util.ArrayDeque<>();
     private final long stallNanos;
@@ -103,15 +137,24 @@ public final class JavaSoundBackend implements AudioBackend {
     @Override
     public void playFrom(Track track, double position, boolean paused, Runnable ended, Consumer<String> failed) {
         this.paused = paused;
-        submit(track, Double.isFinite(position) ? Math.max(0, position) : 0, ended, failed);
+        long session = SESSIONS.incrementAndGet();
+        playbackSession = session;
+        submit(track, Double.isFinite(position) ? Math.max(0, position) : 0, ended, failed, session);
     }
 
-    private void submit(Track track, double seconds, Runnable ended, Consumer<String> failed) {
+    @Override
+    public void resumeFrom(Track track, double position, boolean paused, Runnable ended, Consumer<String> failed) {
+        this.paused = paused;
+        if (playbackSession == 0) playbackSession = SESSIONS.incrementAndGet();
+        submit(track, Double.isFinite(position) ? Math.max(0, position) : 0, ended, failed, playbackSession);
+    }
+
+    private void submit(Track track, double seconds, Runnable ended, Consumer<String> failed, long session) {
         if (closed) return;
         cancelUpcoming();
         ExternalAudio.abort(stream);
         long ticket = generation.incrementAndGet();
-        pending.set(new Request(ticket, track, seconds, ended, failed));
+        pending.set(new Request(ticket, track, seconds, ended, failed, session));
         state = new State(track, seconds > 0 ? Status.SEEKING : Status.LOADING, seconds, track.duration(), "");
         java.util.concurrent.locks.LockSupport.unpark(worker);
     }
@@ -209,7 +252,7 @@ public final class JavaSoundBackend implements AudioBackend {
         Request request = pending.get();
         if (request == null) request = active;
         if (request == null || request.track == null || !Double.isFinite(seconds)) return;
-        submit(request.track, Math.max(0, seconds), request.ended, request.failed);
+        submit(request.track, Math.max(0, seconds), request.ended, request.failed, request.session);
     }
 
     @Override
@@ -219,7 +262,7 @@ public final class JavaSoundBackend implements AudioBackend {
         long ticket = generation.incrementAndGet();
         pending.set(new Request(ticket, null, 0, () -> {
         }, s -> {
-        }));
+        }, 0));
         state = new State(state.track(), Status.STOPPED, 0, state.duration(), "");
         java.util.concurrent.locks.LockSupport.unpark(worker);
     }
@@ -277,6 +320,7 @@ public final class JavaSoundBackend implements AudioBackend {
                             offset = skipped / (double) format.getFrameRate();
                             converter = new PcmRateConverter(stream);
                             submittedFrames = 0;
+                            hearingFrame = 0;
                             timeline.clear();
                             timeline.add(new Segment(0, offset, speed));
                             Exception unavailable = null;
@@ -307,17 +351,25 @@ public final class JavaSoundBackend implements AudioBackend {
                         }
                     }
                 }
+                var route = outputChange.get();
+                // A prepared next track is not an active crossfade.
+                if (route != null && (paused || overlap <= 0 && announcement == null) && outputChange.compareAndSet(route, null))
+                    changeOutput(route);
                 request = active;
                 if (stream == null || line == null || request == null || !current(request)) {
                     java.util.concurrent.locks.LockSupport.park();
                     continue;
                 }
                 try {
+                    if (output instanceof OutputDevices && !line.isOpen())
+                        throw new javax.sound.sampled.LineUnavailableException("Audio output disconnected");
                     if (paused) {
                         line.stop();
                         update(request, Status.PAUSED);
                         progressedAt = System.nanoTime();
-                        java.util.concurrent.locks.LockSupport.park();
+                        if (output instanceof OutputDevices devices && devices.isExplicit())
+                            java.util.concurrent.locks.LockSupport.parkNanos(100_000_000);
+                        else java.util.concurrent.locks.LockSupport.park();
                         progressedAt = System.nanoTime();
                         continue;
                     }
@@ -451,6 +503,7 @@ public final class JavaSoundBackend implements AudioBackend {
                                 update(request, Status.PAUSED);
                                 java.util.concurrent.locks.LockSupport.park();
                                 progressedAt = System.nanoTime();
+                                if (outputChange.get() != null) break;
                                 if (!paused && current(request)) line.start();
                                 continue;
                             }
@@ -471,6 +524,17 @@ public final class JavaSoundBackend implements AudioBackend {
                         }
                     }
                 } catch (Exception e) {
+                    if (output instanceof OutputDevices selected && selected.isExplicit() &&
+                        (!line.isOpen() || e instanceof javax.sound.sampled.LineUnavailableException ||
+                            com.darkmusic.client.text.Text.get("audio.error.stalled").equals(e.getMessage()) || com.darkmusic.client.text.Text.get("audio.error.device").equals(e.getMessage()))) {
+                        var recovery = new java.util.concurrent.CompletableFuture<Boolean>();
+                        changeOutput(new OutputChange(new OutputDevices("", false, s -> {
+                        }), recovery));
+                        if (recovery.getNow(false)) {
+                            callbacks.execute(selected::reportFallback);
+                            continue;
+                        }
+                    }
                     fail(request, e);
                 }
             }
@@ -499,7 +563,7 @@ public final class JavaSoundBackend implements AudioBackend {
         timeline.clear();
         double start = converter.positionFrames() / stream.getFormat().getFrameRate();
         timeline.add(new Segment(submittedFrames, start, speed));
-        active = new Request(previous.generation, next.track, 0, next.ended, next.failed);
+        active = new Request(previous.generation, next.track, 0, next.ended, next.failed, SESSIONS.incrementAndGet());
         normalizationGain = incomingNormalization;
         incomingNormalization = 1;
         mixing = null;
@@ -518,10 +582,12 @@ public final class JavaSoundBackend implements AudioBackend {
             played = Math.max(0, played - processor.latencyFrames());
             if (announcement != null) {
                 if (played < announcement.boundary) {
+                    heard(announcement.previous, played, status);
                     state = new State(announcement.previous.track, status, Math.max(0, announcement.oldPosition - (announcement.boundary - played) / deviceRate * speed), announcement.previous.track.duration(), "");
                     return;
                 }
                 var notice = announcement;
+                heard(notice.previous, notice.boundary, status);
                 announcement = null;
                 callbacks.execute(() -> {
                     if (current(r)) notice.next.started.run();
@@ -535,6 +601,7 @@ public final class JavaSoundBackend implements AudioBackend {
                 }
             }
             var segment = timeline.getFirst();
+            heard(r, played, status);
             double position = segment.sourceSeconds + Math.max(0, played - segment.outputFrame) / (double) line.getFormat().getFrameRate() * segment.speed;
             double duration = status == Status.STOPPED ? position : Math.max(r.track.duration(), position);
             state = new State(r.track, status, position, duration, "");
@@ -552,6 +619,90 @@ public final class JavaSoundBackend implements AudioBackend {
         callbacks.execute(() -> {
             if (current(request)) request.failed.accept(message);
         });
+    }
+
+    private void heard(Request request, long played, Status status) {
+        playbackSession = request.session;
+        long advanced = Math.max(0, played - hearingFrame);
+        hearingFrame = played;
+        if (advanced > 0 && gain > 0 && (status == Status.PLAYING || status == Status.PAUSED || status == Status.STOPPED))
+            hearing.heard(request.track, request.session, advanced / deviceRate);
+    }
+
+    /**
+     * Prepare a compatible line and decoder before releasing the working route.
+     */
+    private void changeOutput(OutputChange change) {
+        SourceDataLine candidate = null;
+        AudioInputStream replacement = null;
+        try {
+            if (line == null || stream == null || active == null || active.track == null) {
+                candidate = openRoute(change.output, new AudioFormat(48_000, 16, 2, true, false));
+                candidate.close();
+                candidate = null;
+                output = change.output;
+                change.result.complete(true);
+                return;
+            }
+            try {
+                update(active, paused ? Status.PAUSED : Status.PLAYING);
+            } catch (RuntimeException lostDevice) { /* Retain the last device-clock position for recovery. */ }
+            Request request = announcement != null ? announcement.previous : active;
+            double position = state.position();
+            candidate = openRoute(change.output, line.getFormat());
+            replacement = decoder.open(request.track.file());
+            long frames = (long) (position * replacement.getFormat().getFrameRate());
+            long skipped = discardFrames(replacement, frames, new byte[4096], () -> current(request));
+            if (!current(request) || closed) throw new java.io.IOException("Playback changed during output switch");
+            release();
+            cancelUpcoming();
+            mixing = null;
+            announcement = null;
+            overlap = 0;
+            active = request;
+            line = candidate;
+            candidate = null;
+            stream = replacement;
+            replacement = null;
+            output = change.output;
+            converter = new PcmRateConverter(stream);
+            offset = skipped / (double) stream.getFormat().getFrameRate();
+            submittedFrames = hearingFrame = 0;
+            timeline.add(new Segment(0, offset, speed));
+            deviceRate = line.getFormat().getFrameRate();
+            processor.begin(deviceRate, line.getFormat().getChannels());
+            processor.initialVolume(gain);
+            protectionFlushed = false;
+            spectrum.begin(deviceRate, line.getFormat().getChannels());
+            progressedAt = System.nanoTime();
+            lastPlayed = line.getLongFramePosition();
+            if (!paused) line.start();
+            change.result.complete(true);
+        } catch (Exception failure) {
+            org.slf4j.LoggerFactory.getLogger("darkmusic-audio").warn("Cannot switch audio output", failure);
+            change.result.complete(false);
+        } finally {
+            if (candidate != null) candidate.close();
+            if (replacement != null) try {
+                replacement.close();
+            } catch (java.io.IOException ignored) {
+            }
+        }
+    }
+
+    private static SourceDataLine openRoute(Output output, AudioFormat preferred) throws Exception {
+        Exception unavailable = null;
+        for (float rate : new float[]{preferred.getSampleRate(), 48_000, 44_100})
+            for (int channels : new int[]{preferred.getChannels(), preferred.getChannels() == 1 ? 2 : 1})
+                for (int bits : preferred.getSampleSizeInBits() > 16 ? new int[]{24, 16} : new int[]{16}) {
+                    try {
+                        return output.open(new AudioFormat(rate, bits, channels, true, false));
+                    } catch (Exception failure) {
+                        if (unavailable == null) unavailable = failure;
+                        else unavailable.addSuppressed(failure);
+                    }
+                }
+        throw unavailable;
     }
 
     private void release() {
@@ -608,6 +759,8 @@ public final class JavaSoundBackend implements AudioBackend {
     @Override
     public void close() {
         closed = true;
+        var route = outputChange.getAndSet(null);
+        if (route != null) route.result.complete(false);
         cancelUpcoming();
         ExternalAudio.abort(stream);
         preloader.shutdownNow();
@@ -631,7 +784,11 @@ public final class JavaSoundBackend implements AudioBackend {
         SourceDataLine open(AudioFormat format) throws Exception;
     }
 
-    private record Request(long generation, Track track, double position, Runnable ended, Consumer<String> failed) {
+    private record Request(long generation, Track track, double position, Runnable ended, Consumer<String> failed,
+                           long session) {
+    }
+
+    private record OutputChange(Output output, java.util.concurrent.CompletableFuture<Boolean> result) {
     }
 
     private record Segment(long outputFrame, double sourceSeconds, double speed) {

@@ -138,6 +138,12 @@ public final class SettingsScreen extends LocalScreen {
         toggle("ui.darkmusic.show_hover_info", () -> s.showHoverInfo, v -> s.showHoverInfo = v, "ui.darkmusic.show_hover_info_help");
         toggle("update.enabled", () -> s.updateNotifications, v -> s.updateNotifications = v, "update.enabled_help");
         action("update.check", () -> show(new UpdateScreen(app, this)), "update.check_help");
+        action("backup.title", () -> show(new BackupScreen(app, this)), "backup.scope");
+        action("history.clear", () -> show(new ConfirmationScreen(this, Text.component("history.clear"), Text.component("history.clear_help"), Text.component("history.clear"), () -> {
+            app.listeningHistory.replace(java.util.Map.of());
+            app.listeningHistory.flush(true);
+            return java.util.concurrent.CompletableFuture.completedFuture(null);
+        })), "history.clear_help");
         toggle("lyrics.darkmusic.enabled", () -> s.lyricsEnabled, v -> {
             s.lyricsEnabled = v;
             rebuildWidgets();
@@ -301,6 +307,24 @@ public final class SettingsScreen extends LocalScreen {
             p.widget().visible = !previewOnly && p.section() == selectedSection && y >= top && y + 20 <= bottom;
             if (!p.widget().visible && getFocused() == p.widget()) setFocused(null);
         }
+    }
+
+    @Override
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        var rows = controls.stream().filter(p -> p.section() == selectedSection).toList();
+        int current = java.util.stream.IntStream.range(0, rows.size()).filter(i -> rows.get(i).widget() == getFocused()).findFirst().orElse(-1);
+        if (!previewOnly && event.key() == 258 && current >= 0) {
+            int next = FocusRows.next(rows.stream().map(p -> p.widget().active).toList(), current, event.hasShiftDown(), false);
+            if (next >= 0) {
+                var row = rows.get(next);
+                int y = row.y() - sections.get(selectedSection).y();
+                if (y < scroll || y + 20 > scroll + bottom - top) scroll = Math.max(0, y - (bottom - top - 24) / 2);
+                position();
+                setFocused(row.widget());
+                return true;
+            }
+        }
+        return super.keyPressed(event);
     }
 
     @Override

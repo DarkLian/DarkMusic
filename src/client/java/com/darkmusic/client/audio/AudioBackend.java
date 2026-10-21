@@ -19,6 +19,13 @@ public interface AudioBackend extends AutoCloseable {
         if (paused) pause();
     }
 
+    /**
+     * Continue the same listening session after an edit that temporarily closes its file.
+     */
+    default void resumeFrom(Track track, double position, boolean paused, Runnable ended, Consumer<String> failed) {
+        playFrom(track, position, paused, ended, failed);
+    }
+
     void pause();
 
     void resume();

@@ -122,7 +122,7 @@ public final class UiButton extends Button {
                 }
             }
             if (isFocused())
-                g.fill(getX() + (width - size) / 2, getBottom() - 1, getX() + (width + size) / 2, getBottom(), UiTheme.ACCENT);
+                g.fill(getX() + (width - size) / 2, getBottom() - 2, getX() + (width + size) / 2, getBottom(), UiTheme.TEXT);
             g.pose().popMatrix();
             return;
         }

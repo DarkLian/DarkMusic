@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Locale;
 
 public final class MusicScreen extends LocalScreen {
+    private static final java.time.format.DateTimeFormatter HISTORY_DATE = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(java.time.ZoneId.systemDefault());
     private final DarkMusicClient app;
     private final SpectrumRenderer spectrum = new SpectrumRenderer();
     private final ImportOverlay importOverlay = new ImportOverlay();
@@ -49,11 +50,12 @@ public final class MusicScreen extends LocalScreen {
     private Track selected, seekTrack;
     private boolean awaitingEditedTrack;
     private boolean seekDragging;
-    private long revision = -1, playlistRevision = -1, refreshed;
+    private long revision = -1, playlistRevision = -1, historyRevision = -1, refreshed;
     private String playlistNotice = "";
     private Button play, shuffle, repeat, jump;
     private Button seekBack, seekForward;
     private boolean spaceDown;
+    private boolean keyboardNavigation;
     private FavoriteButton favorite;
     private Button edit, sourceLink, copySource, lyricsButton;
     private long copiedUntil;
@@ -191,7 +193,9 @@ public final class MusicScreen extends LocalScreen {
             icon("text.darkmusic.refresh_library", UiIcon.REFRESH, 68, contextY, 24, true, () -> app.library.rescan());
         }
         if (library || drawer) {
-            int manageX = drawer ? width - 40 : layout.navigation().width() > 0 ? layout.navigation().right() - 24 : 96;
+            int manageX = drawer ? width - 40 : layout.singleColumn() ? width - 64 : layout.navigation().right() - 24;
+            UiButton.selected(icon("view.darkmusic.history", UiIcon.HISTORY, manageX - 28, contextY, 24, true,
+                () -> mode("History")), () -> mode.equals("History"));
             var manage = icon("text.darkmusic.manage_playlists", UiIcon.MUSIC, manageX, contextY, 24, true, () -> {
                 if (app.playlistsReady) show(new PlaylistScreen(app, this));
                 else app.warn(Text.get("text.darkmusic.playlists_are_still_loading"));
@@ -213,7 +217,7 @@ public final class MusicScreen extends LocalScreen {
         }));
         navigation.visible = drawer || library && !layout.singleColumn();
         navigation.disclosure(i -> mode.equals("All") && i > 0 && i <= folderRows.size() && folderRows.get(i - 1).children() ? 5 + folderRows.get(i - 1).depth() * 8 : -1, this::toggleFolder);
-        navigation.icons(i -> mode.equals("All") ? i == 0 ? UiIcon.MUSIC : UiIcon.FOLDER : mode.equals("Artists") ? UiIcon.ARTIST : mode.equals("Albums") ? UiIcon.ALBUM : PlaylistStore.FAVORITES.equals(groups.get(i)) ? UiIcon.HEART_FILLED : UiIcon.PLAYLIST);
+        navigation.icons(i -> mode.equals("All") ? i == 0 ? UiIcon.MUSIC : UiIcon.FOLDER : mode.equals("Artists") ? UiIcon.ARTIST : mode.equals("Albums") ? UiIcon.ALBUM : mode.equals("History") ? UiIcon.MUSIC : PlaylistStore.FAVORITES.equals(groups.get(i)) ? UiIcon.HEART_FILLED : UiIcon.PLAYLIST);
         navigation.indent(i -> mode.equals("All") && i > 0 && i <= folderRows.size() ? folderRows.get(i - 1).depth() * 8 : 0);
         navigation.expanded(i -> mode.equals("All") && i > 0 && i <= folderRows.size() && folderRows.get(i - 1).expanded());
         songs = addRenderableWidget(new RowList(list.x(), list.y(), list.width(), list.height(), 36,
@@ -346,6 +350,7 @@ public final class MusicScreen extends LocalScreen {
         }
         folderRows = folders.visible(expandedFolders);
         groups = switch (mode) {
+            case "History" -> List.of("recent", "most");
             case "Playlists" -> app.playlists.all().stream().map(p -> p.id()).toList();
             case "Artists" ->
                 tracks.stream().map(Track::artist).distinct().sorted(String.CASE_INSENSITIVE_ORDER).toList();
@@ -370,8 +375,8 @@ public final class MusicScreen extends LocalScreen {
         }
         navigation.rows(java.util.stream.IntStream.range(0, groups.size()).mapToObj(i -> {
             String key = groups.get(i);
-            String label = mode.equals("All") ? i == 0 ? Text.get("text.darkmusic.all_tracks") : folderRows.get(i - 1).name() : mode.equals("Playlists") ? app.playlists.displayName(app.playlists.get(key)) : key;
-            int count = mode.equals("Playlists") ? app.playlists.resolve(key, tracks).size() : counts.getOrDefault(key, 0);
+            String label = mode.equals("All") ? i == 0 ? Text.get("text.darkmusic.all_tracks") : folderRows.get(i - 1).name() : mode.equals("History") ? Text.get("history." + key) : mode.equals("Playlists") ? app.playlists.displayName(app.playlists.get(key)) : key;
+            int count = mode.equals("History") ? app.listeningHistory.collection(tracks, key.equals("most")).size() : mode.equals("Playlists") ? app.playlists.resolve(key, tracks).size() : counts.getOrDefault(key, 0);
             return new RowList.Row(label + " (" + count + ")", "");
         }).toList());
         navigation.select(groups.indexOf(group));
@@ -380,6 +385,7 @@ public final class MusicScreen extends LocalScreen {
 
     private List<Track> collectionTracks() {
         var tracks = app.library.snapshot().tracks();
+        if (mode.equals("History")) return app.listeningHistory.collection(tracks, group.equals("most"));
         var source = mode.equals("Playlists") ? app.playlists.resolve(group, tracks) : tracks;
         return source.stream().filter(t -> switch (mode) {
             case "All" -> FolderTree.includes(group, t);
@@ -393,7 +399,7 @@ public final class MusicScreen extends LocalScreen {
         String needle = query.toLowerCase(Locale.ROOT).strip();
         var library = app.library.snapshot().tracks();
         boolean playlists = mode.equals("Playlists");
-        var source = playlists ? app.playlists.resolve(group, library) : library;
+        var source = mode.equals("History") ? collectionTracks() : playlists ? app.playlists.resolve(group, library) : library;
         playlistNotice = "";
         if (playlists) {
             var playlist = app.playlists.get(group);
@@ -412,13 +418,21 @@ public final class MusicScreen extends LocalScreen {
             default -> true;
         }).toList();
         songs.emptyMessage(app.library.snapshot().tracks().isEmpty() ? Text.get("ui.darkmusic.library_empty") : playlists && source.isEmpty() ? Text.get("text.darkmusic.no_playable_songs") : Text.get("text.darkmusic.no_matching_songs"));
-        songs.rows(visible.stream().map(t -> new RowList.Row(t.title(), t.artist() + " | " + time(t.duration()) + " | " + t.album(), t.relativePath())).toList());
+        var stats = mode.equals("History") ? app.listeningHistory.snapshot() : java.util.Map.<String, com.darkmusic.client.library.ListeningHistory.Entry>of();
+        songs.rows(visible.stream().map(t -> new RowList.Row(t.title(), mode.equals("History") ? historyDetails(t, stats) : t.artist() + " | " + time(t.duration()) + " | " + t.album(), t.relativePath())).toList());
         if (selected != null && (!awaitingEditedTrack || library.stream().anyMatch(t -> t.id().equals(selected.id())))) {
             selected = visible.stream().filter(t -> t.id().equals(selected.id())).findFirst().orElse(null);
             awaitingEditedTrack = false;
         }
         if (selected == null) selected = visible.isEmpty() ? null : visible.getFirst();
         songs.select(visible.indexOf(selected));
+    }
+
+    private String historyDetails(Track track, java.util.Map<String, com.darkmusic.client.library.ListeningHistory.Entry> values) {
+        var stats = values.get(track.id());
+        if (stats == null) return "";
+        String date = HISTORY_DATE.format(java.time.Instant.ofEpochMilli(stats.lastPlayed()));
+        return Text.get("history.stats", stats.plays(), (long) (stats.seconds() / 60), date);
     }
 
     private void toggleFolder(int index) {
@@ -498,10 +512,11 @@ public final class MusicScreen extends LocalScreen {
     public void tick() {
         if (width < 320 || height < 240) return;
         var state = app.library.snapshot();
-        if (playlistRevision != app.playlists.revision() || revision != state.revision() && (!state.scanning() || System.nanoTime() - refreshed > 250_000_000L)) {
+        if (historyRevision != app.listeningHistory.revision() || playlistRevision != app.playlists.revision() || revision != state.revision() && (!state.scanning() || System.nanoTime() - refreshed > 250_000_000L)) {
             refreshed = System.nanoTime();
             revision = state.revision();
             playlistRevision = app.playlists.revision();
+            historyRevision = app.listeningHistory.revision();
             refresh();
         }
         var audio = app.playback.state();
@@ -551,14 +566,27 @@ public final class MusicScreen extends LocalScreen {
     }
 
     @Override
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean twice) {
+        keyboardNavigation = false;
+        boolean handled = super.mouseClicked(event, twice);
+        if (!handled) setFocused(null);
+        return handled;
+    }
+
+    @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
         if (event.key() == 256 && pane != Pane.LIBRARY) {
             pane(Pane.LIBRARY);
             return true;
         }
         var focused = getFocused();
+        if (event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_TAB) {
+            keyboardNavigation = true;
+            return super.keyPressed(event);
+        }
         if (focused instanceof EditBox) return super.keyPressed(event);
-        if (focused instanceof net.minecraft.client.gui.components.AbstractWidget widget && widget.visible && widget.active) {
+        // Mouse selection must not capture playback keys until the user navigates with Tab.
+        if (keyboardNavigation && focused instanceof net.minecraft.client.gui.components.AbstractWidget widget && widget.visible && widget.active) {
             boolean navigation = event.isLeft() || event.isRight() || event.key() == 264 || event.key() == 265
                 || event.key() >= 266 && event.key() <= 269;
             boolean activation = event.isSelection() && (focused instanceof Button || focused instanceof ValueSlider);
@@ -653,7 +681,7 @@ public final class MusicScreen extends LocalScreen {
         favorite.visible = edit.visible = sourceLink.visible = copySource.visible = selected != null && (pane == Pane.DETAILS || library && layout.inspector().width() > 0);
         if (lyricsButton != null) lyricsButton.visible = copySource.visible;
         if (library) {
-            String collection = mode.equals("All") ? group.isEmpty() ? Text.get("text.darkmusic.all_tracks") : group : mode.equals("Playlists") && app.playlists.get(group) != null ? app.playlists.displayName(app.playlists.get(group)) : group;
+            String collection = mode.equals("History") ? Text.get("history." + group) : mode.equals("All") ? group.isEmpty() ? Text.get("text.darkmusic.all_tracks") : group : mode.equals("Playlists") && app.playlists.get(group) != null ? app.playlists.displayName(app.playlists.get(group)) : group;
 
             longText.draw(g, font, "collection_title", collection + " (" + visible.size() + ")", layout.tracks().x() + (layout.singleColumn() ? 116 : 0), height < 300 ? 70 : 76,
                 Math.max(1, layout.tracks().width() - (layout.singleColumn() ? 150 : mode.equals("Playlists") ? 150 : 32)), UiTheme.ACCENT);
