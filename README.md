@@ -6,9 +6,9 @@ A client-side music player for Minecraft. Browse your own library, build playlis
 
 ## Install
 
-DarkMusic **v2.2.1** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v2.3.0** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-2.2.1.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-2.3.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Open **Settings → Choose Music Folder**, or add songs to `config/darkmusic/music` inside the instance.
@@ -26,7 +26,9 @@ Install DarkMusic on the client. Servers do not need it. Windows, Linux, and mac
 - **Downloads:** analyze a video or collection URL, select entries or a range, preview audio, jump between available preview pages, and manage parallel downloads and retries.
 - **HUD:** Classic, Circular, and Artwork layouts with optional progress and a spectrum driven by decoded audio. Artwork mode preserves image proportions and supports outward horizontal spectra beside the image.
 - **Visuals:** bars, waves, spikes, gradient presets, beveled finishes, glow, trails, peak markers, and quality presets. Customize menu colors and HUD backgrounds using a visual color spectrum, RGB sliders, or hex values.
-- **Audio:** profiles, loudness normalization, a 10-band equalizer, bass, stereo width, compression, reverb, limiting, gapless playback, crossfade, and game-audio balance.
+- **Audio Options:** profiles, loudness normalization, graphic or parametric EQ, dynamic EQ, de-essing, tone controls, crossfeed, compression, algorithmic or convolution reverb, and optional true-peak protection. Pitch-preserving speed, gapless playback, crossfade, and game-audio balance remain available.
+- **Sound Environment:** 20 choices, including Off, with independent intensity, room/tone controls, optional textures and ambience, and saved custom presets. Combine environments with Audio Options.
+- **Audio Analyzer:** device-clock stage measurements, spectra, waveforms, EQ response, stereo and dynamics meters, plus temporary A/B comparison and level matching.
 - **Lyrics:** optional synchronized local `.lrc` files and supported embedded tags, plus matching manual source captions during downloads with ordered language preferences.
 
 See the [User Guide](docs/USER_GUIDE.md) for controls, setup, and limitations.

@@ -23,7 +23,7 @@ public final class LoudnessCache implements AutoCloseable {
     private final Set<String> attempted = ConcurrentHashMap.newKeySet();
     private final Map<String, Long> retryAfter = new ConcurrentHashMap<>();
     private final java.util.function.LongSupplier clock;
-    private final ExecutorService executor = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-loudness").factory());
+    private final ExecutorService executor = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new ArrayBlockingQueue<>(2), Thread.ofPlatform().daemon().name("darkmusic-loudness").factory());
     private final ProcessRunner.Token token = new ProcessRunner.Token();
     private final Path cache;
     private static final long MAX_CACHE_BYTES = 64_000_000;
@@ -33,6 +33,28 @@ public final class LoudnessCache implements AutoCloseable {
     private boolean preserveOriginal;
     private Lookup recent, previous;
     private volatile boolean closed;
+    private CompletableFuture<Void> closing;
+
+    public enum Source {TRACK_TAGS, ALBUM_TAGS, ANALYSIS, LEGACY}
+
+    public enum State {OFF, PENDING, READY, NO_MEASUREMENT, FAILED}
+
+    public record Status(State state, Source source, double target, double appliedDb, boolean peakLimited,
+                         boolean albumFallback) {
+        public static final Status OFF = new Status(State.OFF, null, -18, 0, false, false);
+    }
+
+    public Status status(Track track, AudioSettings settings, double actualGain) {
+        if (track == null || settings.neutral || !settings.normalization) return Status.OFF;
+        var lookup = lookup(track, settings);
+        var reading = results.get(lookup.key);
+        State state = reading != null ? State.READY : pending.contains(lookup.attempt) ? State.PENDING
+            : retryAfter.containsKey(lookup.attempt) ? State.FAILED : State.NO_MEASUREMENT;
+        Source source = reading == null ? null : reading.source == null ? Source.LEGACY : reading.source;
+        boolean limited = reading != null && Math.clamp(settings.targetLufs - reading.lufs, -24, 12) > -1 - reading.peakDb;
+        return new Status(state, source, settings.targetLufs, AudioDynamics.db(actualGain), limited,
+            settings.gainMode == AudioSettings.Normalization.ALBUM && source != Source.ALBUM_TAGS);
+    }
 
     public LoudnessCache() {
         this(System::nanoTime);
@@ -51,6 +73,7 @@ public final class LoudnessCache implements AutoCloseable {
                     }
                     synchronized (persistence) {
                         for (var entry : json.entrySet()) {
+                            if (results.size() >= 65536) break;
                             Reading r = ConfigStore.JSON.fromJson(entry.getValue(), Reading.class);
                             String path = pathOfKey(entry.getKey());
                             if (r != null && path != null && Double.isFinite(r.lufs) && Double.isFinite(r.peakDb)) {
@@ -76,6 +99,8 @@ public final class LoudnessCache implements AutoCloseable {
     }
 
     public double gain(Track track, AudioSettings settings) {
+        if (attempted.size() > 4096) attempted.clear();
+        if (retryAfter.size() > 4096) retryAfter.clear();
         Lookup lookup = lookup(track, settings);
         String key = lookup.key;
         Reading r = results.get(key);
@@ -118,6 +143,7 @@ public final class LoudnessCache implements AutoCloseable {
     void remember(Track track, String key, Reading reading) {
         synchronized (persistence) {
             if (closed) return;
+            if (results.size() >= 65536 && !results.containsKey(key)) return;
             // Retire changed versions only for this observed file, never missing/offline libraries.
             String path = track.file().toAbsolutePath().toString();
             String prefix = path + ":";
@@ -153,22 +179,17 @@ public final class LoudnessCache implements AutoCloseable {
         String attempt = key + ":" + analyze;
         boolean completed = false;
         try {
-            var info = ExternalAudio.probe(track.file());
+            var info = ExternalAudio.probe(track.file(), true, token);
             var tags = new JsonObject();
             if (info.has("format") && info.getAsJsonObject("format").has("tags"))
                 tags = info.getAsJsonObject("format").getAsJsonObject("tags");
-            var stream = info.getAsJsonArray("streams").get(0).getAsJsonObject();
+            var streams = info.getAsJsonArray("streams");
+            var stream = streams != null && !streams.isEmpty() ? streams.get(0).getAsJsonObject() : new JsonObject();
             if (stream.has("tags"))
                 for (var e : stream.getAsJsonObject("tags").entrySet()) tags.add(e.getKey(), e.getValue());
             Map<String, String> values = new HashMap<>();
             for (var e : tags.entrySet()) values.put(e.getKey().toLowerCase(Locale.ROOT), e.getValue().getAsString());
-            String prefix = mode == AudioSettings.Normalization.ALBUM && values.containsKey("replaygain_album_gain") && values.containsKey("replaygain_album_peak") ? "replaygain_album_" : "replaygain_track_";
-            Reading result = null;
-            if (values.containsKey(prefix + "gain") && values.containsKey(prefix + "peak")) {
-                double db = Double.parseDouble(values.get(prefix + "gain").replaceAll("(?i)\\s*dB", "").strip());
-                double peak = Double.parseDouble(values.get(prefix + "peak"));
-                if (peak > 0) result = new Reading(-18 - db, 20 * Math.log10(peak));
-            }
+            Reading result = tags(values, mode);
             if (result == null && analyze) {
                 var r = new ProcessRunner().run(List.of(ExternalAudio.tool(false).toString(), "-nostdin", "-hide_banner", "-protocol_whitelist", "file,pipe", "-i", track.file().toAbsolutePath().toString(), "-vn", "-af", "loudnorm=I=-18:TP=-1:LRA=11:print_format=json", "-f", "null", "-"), track.file().toAbsolutePath().getParent(), token, Duration.ofMinutes(30), 16_000, s -> {
                 });
@@ -176,7 +197,7 @@ public final class LoudnessCache implements AutoCloseable {
                 int at = r.output().lastIndexOf('{'), end = r.output().lastIndexOf('}');
                 if (r.exit() == 0 && at >= 0 && end > at) {
                     var json = JsonParser.parseString(r.output().substring(at, end + 1)).getAsJsonObject();
-                    result = new Reading(json.get("input_i").getAsDouble(), json.get("input_tp").getAsDouble());
+                    result = new Reading(json.get("input_i").getAsDouble(), json.get("input_tp").getAsDouble(), Source.ANALYSIS);
                 }
             }
             if (result != null && Double.isFinite(result.lufs) && Double.isFinite(result.peakDb) && !closed) {
@@ -197,16 +218,45 @@ public final class LoudnessCache implements AutoCloseable {
 
     @Override
     public void close() {
+        try {
+            closeAsync().get(5, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException | TimeoutException e) {
+            org.slf4j.LoggerFactory.getLogger("darkmusic-audio").warn("Loudness cache final write did not finish", e);
+        }
+    }
+
+    public synchronized CompletableFuture<Void> closeAsync() {
+        if (closing != null) return closing;
         closed = true;
         token.cancel();
         executor.shutdownNow();
-        writer.shutdownNow();
-        flush();
+        pending.clear();
+        closing = CompletableFuture.runAsync(this::flush, writer);
+        writer.shutdown();
+        return closing;
     }
 
     private record Lookup(Track track, AudioSettings.Normalization mode, boolean analyze, String key, String attempt) {
     }
 
-    record Reading(double lufs, double peakDb) {
+    static Reading tags(Map<String, String> values, AudioSettings.Normalization mode) {
+        String[] prefixes = mode == AudioSettings.Normalization.ALBUM ? new String[]{"replaygain_album_", "replaygain_track_"} : new String[]{"replaygain_track_"};
+        for (String prefix : prefixes)
+            try {
+                double db = Double.parseDouble(values.getOrDefault(prefix + "gain", "").replaceAll("(?i)\\s*dB", "").strip());
+                double peak = Double.parseDouble(values.getOrDefault(prefix + "peak", ""));
+                if (Double.isFinite(db) && Double.isFinite(peak) && peak > 0 && peak < 100)
+                    return new Reading(-18 - db, 20 * Math.log10(peak), prefix.equals("replaygain_album_") ? Source.ALBUM_TAGS : Source.TRACK_TAGS);
+            } catch (NumberFormatException ignored) {
+            }
+        return null;
+    }
+
+    record Reading(double lufs, double peakDb, Source source) {
+        Reading(double lufs, double peakDb) {
+            this(lufs, peakDb, Source.LEGACY);
+        }
     }
 }

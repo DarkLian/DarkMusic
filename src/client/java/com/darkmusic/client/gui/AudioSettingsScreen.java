@@ -30,6 +30,7 @@ public final class AudioSettingsScreen extends LocalScreen {
     private final List<Section> sections = new ArrayList<>();
     private int scroll, cursor;
     private int formX, formWidth;
+    private int normalizationY = -1;
 
     private void place(AbstractWidget widget) {
         rows.add(addRenderableWidget(widget));
@@ -90,8 +91,11 @@ public final class AudioSettingsScreen extends LocalScreen {
         positions.clear();
         sections.clear();
         cursor = 0;
+        normalizationY = -1;
         var a = app.settings.audio;
         section("audio.darkmusic.section_playback");
+        row("analyzer.title", null, () -> show(new AudioAnalyzerScreen(app, this, com.darkmusic.client.audio.AudioComparison.Mode.AUDIO_OPTIONS)), "analyzer.help");
+        row("dsp.advanced", null, () -> show(new AudioAdvancedScreen(app, this)), "dsp.advanced.help");
         toggle("audio.darkmusic.neutral", () -> a.neutral, v -> a.neutral = v, "audio.darkmusic.neutral_help");
         choice("audio.darkmusic.download", app.settings.downloadFormat, DownloadEncoding.Format.values(), v -> app.settings.downloadFormat = v, "audio.darkmusic.download_help");
         String[] profiles = {"DEFAULT", "MUSIC", "GAMING", "VOCAL", "NIGHT"};
@@ -134,6 +138,8 @@ public final class AudioSettingsScreen extends LocalScreen {
             choice("audio.darkmusic.gain_mode", a.gainMode, AudioSettings.Normalization.values(), v -> a.gainMode = v, "audio.darkmusic.gain_mode_help");
             toggle("audio.darkmusic.analyze", () -> a.analyzeLoudness, v -> a.analyzeLoudness = v, "audio.darkmusic.analyze_help");
             slider((a.targetLufs + 24) / 15, "audio.darkmusic.target", v -> String.format(Locale.ROOT, "%.0f LUFS", a.targetLufs), v -> a.targetLufs = -24 + v * 15, 15, "audio.darkmusic.target_help");
+            normalizationY = cursor;
+            cursor += 20;
         }
         section("audio.darkmusic.section_equalizer");
         toggle("audio.darkmusic.eq", () -> a.equalizer, v -> a.equalizer = v, "audio.darkmusic.eq_help");
@@ -144,7 +150,7 @@ public final class AudioSettingsScreen extends LocalScreen {
             } catch (IllegalArgumentException ignored) {
             }
             choice("audio.darkmusic.eq_preset", preset, AudioSettings.Equalizer.values(), a::equalizer, "audio.darkmusic.eq_preset_help");
-            for (int i = 0; i < 10; i++) {
+            for (int i = 0; i < 10 && a.enhancements.eqMode == com.darkmusic.client.config.AudioEnhancements.EqMode.GRAPHIC; i++) {
                 int b = i;
                 double hz = com.darkmusic.client.audio.AudioProcessor.FREQUENCIES[i];
                 slider((a.bands[i] + 12) / 24, "audio.darkmusic.band", v -> String.format(Locale.ROOT, "%.0f Hz: %+.1f dB", hz, a.bands[b]), v -> {
@@ -215,6 +221,13 @@ public final class AudioSettingsScreen extends LocalScreen {
             int end = i + 1 < sections.size() ? sections.get(i + 1).y : cursor;
             UiTheme.panel(g, formX - 2, sectionY, formWidth + 4, end - section.y - 4);
             g.text(font, section.title, formX + 2, sectionY + 3, UiTheme.ACCENT);
+        }
+        longText.begin();
+        if (normalizationY >= 0) {
+            var status = app.playback.normalization();
+            String label = Text.get("analyzer.normalization." + status.state().name().toLowerCase(Locale.ROOT)) + " · "
+                + Text.get("analyzer.applied_gain", String.format(Locale.ROOT, "%.1f", status.appliedDb()));
+            longText.draw(g, font, "normalization", label, formX + 4, 40 + normalizationY - scroll, formWidth - 8, UiTheme.SECONDARY);
         }
         g.disableScissor();
         super.extractRenderState(g, x, y, delta);

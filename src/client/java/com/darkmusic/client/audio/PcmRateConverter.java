@@ -13,12 +13,14 @@ public final class PcmRateConverter {
     private final boolean floating;
     private final float[] scratch = new float[2048];
     private final byte[] buffer = new byte[4096];
-    private final double[][] ring;
+    private double[][] ring;
     private final double[][] weights = new double[PHASES][TAPS];
     private int cursor, limit;
     private long loaded;
     private boolean ended;
     private double position, prepared = -1;
+    private PitchPreservingTempo tempo;
+    private double tempoRatio, tempoRate;
 
     public PcmRateConverter(AudioInputStream input) {
         this.input = input;
@@ -36,7 +38,38 @@ public final class PcmRateConverter {
     }
 
     public double positionFrames() {
+        return tempo == null ? position : tempo.position();
+    }
+
+    double rawPosition() {
         return position;
+    }
+
+    public int read(float[] out, int length, double speed, double deviceRate, boolean preservePitch) throws IOException {
+        speed = Double.isFinite(speed) ? Math.clamp(speed, .5, 3) : 1;
+        if (!Double.isFinite(deviceRate) || deviceRate <= 0)
+            throw new IllegalArgumentException("Invalid device sample rate");
+        double ratio = input.getFormat().getSampleRate() / deviceRate;
+        if (preservePitch && (speed != 1 || tempo != null)) {
+            if (ring.length == 64) {
+                var expanded = new double[65536][channels];
+                for (long i = Math.max(0, loaded - 64); i < loaded; i++)
+                    System.arraycopy(ring[(int) (i & 63)], 0, expanded[(int) (i & 65535)], 0, channels);
+                ring = expanded;
+            }
+            if (tempo == null || tempoRatio != ratio || tempoRate != deviceRate) {
+                if (tempo != null) position = Math.max(0, tempo.position());
+                tempo = new PitchPreservingTempo(this, channels, deviceRate, ratio);
+                tempoRatio = ratio;
+                tempoRate = deviceRate;
+            }
+            return tempo.read(out, length, speed);
+        }
+        if (tempo != null) {
+            position = Math.max(0, tempo.position());
+            tempo = null;
+        }
+        return read(out, length, speed * ratio);
     }
 
     private void prepare(double speed) {
@@ -71,7 +104,7 @@ public final class PcmRateConverter {
             int bits = 0;
             for (int i = 0; i < sampleBytes; i++) bits |= (buffer[at + i] & 255) << (i * 8);
             double value = floating ? Float.intBitsToFloat(bits) : (bits << (32 - sampleBytes * 8) >> (32 - sampleBytes * 8)) / Math.scalb(1.0, sampleBytes * 8 - 1);
-            ring[(int) (loaded & 63)][c] = Double.isFinite(value) ? value : 0;
+            ring[(int) (loaded & (ring.length - 1))][c] = Double.isFinite(value) ? value : 0;
         }
         cursor += frameSize;
         loaded++;
@@ -104,7 +137,8 @@ public final class PcmRateConverter {
                 double sample = 0;
                 for (int i = 0; i < TAPS; i++) {
                     long frame = base + i - 15;
-                    if (frame >= 0 && frame < loaded) sample += ring[(int) (frame & 63)][c] * weights[phase][i];
+                    if (frame >= Math.max(0, loaded - ring.length) && frame < loaded)
+                        sample += ring[(int) (frame & (ring.length - 1))][c] * weights[phase][i];
                 }
                 out[written++] = (float) sample;
             }

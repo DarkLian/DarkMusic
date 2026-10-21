@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v2.2.1 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v2.3.0 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Interface language
 
@@ -160,11 +160,35 @@ Use **Edit HUD Layout** beneath the preview, or `/da gui`, to position the actua
 
 ![Audio options](images/audio.png)
 
-**Original / Neutral** bypasses optional audio processing. Turn it off to adjust normalization, equalizer, bass, stereo width, compression, reverb, or limiting. Volume, speed, and listening mode have their own controls.
+**Original / Neutral** bypasses Audio Options coloration. Turn it off to adjust normalization, equalizer, bass, stereo width, compression, reverb, or limiting. Sound Environment remains independent. Volume, speed, and listening mode have their own controls.
 
 Profiles provide presets, plus named saved configurations. A trash button beside each saved profile opens a deletion confirmation. Deleting a saved profile leaves the current sound settings active; built-in profiles remain available. The 10-band equalizer supports presets and individual adjustments. Loudness normalization uses available tags; Analyze Untagged Loudness can measure missing loudness information with FFmpeg. Album mode uses album loudness tags when available.
 
 Gapless playback preloads consecutive songs. Crossfade sets overlap duration. Listening Mode offers Normal, Focus (quieter game sounds), and Ambient (quieter music). Duck on Priority Sounds briefly reduces music for important game sounds, with level and timing controls.
+
+### Advanced audio
+
+Open **Advanced Audio** from Audio Options for graphic/parametric EQ selection, five parametric nodes, bass/treble shelves, two dynamic EQ bands, a de-esser, headphone crossfeed, compressor parameters, and pitch-preserving tempo. Controls start disabled where appropriate, so existing profiles retain their saved choices.
+
+The limiter offers the existing soft protection and optional **True Peak** protection. True Peak uses an 8× intersample detector, a −1 dBTP target, and 64 frames of lookahead. Its latency is reported in the analyzer. Pitch-preserving tempo changes speed while retaining pitch; ordinary speed playback remains available.
+
+Reverb supports the existing algorithmic rooms or partitioned convolution with three original modeled impulse responses: Short Room, Hall, and Dark Cave. These are generated room models, not recordings of physical venues. Impulses prepare in the background, with algorithmic reverb while preparation is pending or fails. Convolution supports device rates from 8–192 kHz; the analyzer reports preparation, readiness, or fallback.
+
+Normalization reports whether gain comes from track/album tags or analysis, whether analysis is pending, and whether a measurement is unavailable or failed. Album mode reports track fallback when album tags are absent. Music and Night profiles enable analysis for untagged tracks when newly selected; previously saved preferences remain unchanged.
+
+### Sound Environment
+
+Open **Settings → Sound Environment** independently of Audio Options. Choose Off or one of 19 active environments: Old Radio, Telephone, Walkie-Talkie, Vinyl, Cassette, Bedroom, Bathroom, Concert Hall, Cathedral, Deep Cave, Tunnel, Warehouse, Stadium, Open Meadow, Forest Clearing, Next Room, Distant Speakers, Underwater, and Dreamscape.
+
+Enable the environment and adjust intensity. At 0%, the environment is bypassed. Relevant tone, reflection, distance, and room controls depend on the selected recipe. Texture and ambience are optional. Save, load, rename, or delete custom environment presets without altering Audio Options profiles.
+
+Acoustic environments take ownership of the shared reverb slot while active. Audio Options reverb is restored when the environment is switched off. Non-acoustic treatments such as Vinyl allow Audio Options reverb to continue.
+
+### Audio Analyzer
+
+Open the analyzer from either audio screen. Choose Audio Options, Environment, or Full Chain comparison. Measurements follow the PCM actually submitted to the audio device and include stage RMS/peak, stereo correlation, dynamics reduction, measured spectra, waveforms, and applicable filter-response curves. Response curves describe filters; they do not claim to represent nonlinear processing, modulation, or reverb.
+
+Spectrum, waveform, and response panels can be switched off independently. Measurements freeze on pause and clear on seek/stop. A/B bypass and optional level matching are temporary and are cleared when leaving the analyzer; they do not overwrite profiles. Normalization, tempo, master/listening gain, and output protection remain active during coloration comparisons.
 
 ## Lyrics
 
@@ -221,7 +245,7 @@ Settings, playlists, and import history are stored in the instance's `config/dar
 | Lyrics missing | Check Enable Lyrics, timed data, matching `.lrc` basename, and source caption availability |
 | HTTP 403 or 429 | Check public access, update tools, or wait before retrying |
 | HUD missing | Enable Now-Playing HUD and start music; check HUD layout |
-| Effects unavailable | Turn Original / Neutral off |
+| Audio Options effects unavailable | Turn Original / Neutral off; Sound Environment has its own master switch |
 | Shortcut conflict | Rebind it in Minecraft's Key Binds menu |
 
 For a reproducible issue, share the mod/Minecraft versions, operating system, steps, and relevant logs in [GitHub Issues](https://github.com/DarkLian/DarkMusic/issues). Remove private details before posting.

@@ -34,6 +34,21 @@ public interface AudioBackend extends AutoCloseable {
     default void configure(com.darkmusic.client.config.AudioSettings settings) {
     }
 
+    default void configure(com.darkmusic.client.config.AudioSettings settings, com.darkmusic.client.config.SoundEnvironmentSettings environment) {
+        configure(settings);
+    }
+
+    default AudioDiagnostics diagnostics() {
+        return null;
+    }
+
+    default void comparison(AudioComparison comparison) {
+    }
+
+    default LoudnessCache.Status normalization() {
+        return LoudnessCache.Status.OFF;
+    }
+
     default void nextTrack(Track track, Runnable started, Runnable ended, Consumer<String> failed) {
     }
 

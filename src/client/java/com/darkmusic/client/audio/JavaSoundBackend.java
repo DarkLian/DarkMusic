@@ -19,6 +19,10 @@ public final class JavaSoundBackend implements AudioBackend {
     private final AtomicLong generation = new AtomicLong();
     private final SpectrumAnalyzer spectrum = new SpectrumAnalyzer();
     private final AudioProcessor processor = new AudioProcessor();
+    private volatile com.darkmusic.client.config.SoundEnvironmentSettings environment = new com.darkmusic.client.config.SoundEnvironmentSettings();
+    private volatile AudioComparison comparison = AudioComparison.OFF;
+    private boolean protectionFlushed;
+    private volatile LoudnessCache.Status normalizationStatus = LoudnessCache.Status.OFF;
     private volatile com.darkmusic.client.config.AudioSettings options = new com.darkmusic.client.config.AudioSettings();
     private LoudnessCache loudness;
     private final AtomicReference<NextAudio> upcoming = new AtomicReference<>();
@@ -141,6 +145,27 @@ public final class JavaSoundBackend implements AudioBackend {
     }
 
     @Override
+    public void configure(com.darkmusic.client.config.AudioSettings value, com.darkmusic.client.config.SoundEnvironmentSettings space) {
+        environment = space.playbackCopy();
+        configure(value);
+    }
+
+    @Override
+    public AudioDiagnostics diagnostics() {
+        return processor.diagnostics();
+    }
+
+    @Override
+    public void comparison(AudioComparison value) {
+        comparison = value;
+    }
+
+    @Override
+    public LoudnessCache.Status normalization() {
+        return normalizationStatus;
+    }
+
+    @Override
     public void nextTrack(Track track, Runnable started, Runnable ended, Consumer<String> failed) {
         var selected = options;
         if (closed || track == null || !selected.gapless && selected.crossfade <= 0) {
@@ -255,11 +280,12 @@ public final class JavaSoundBackend implements AudioBackend {
                             }
                             if (line == null) throw unavailable;
                             deviceRate = line.getFormat().getFrameRate();
-                            processor.begin(deviceRate, format.getChannels());
+                            processor.begin(deviceRate, line.getFormat().getChannels());
+                            protectionFlushed = false;
                             processor.initialVolume(gain);
                             progressedAt = System.nanoTime();
                             lastPlayed = line.getLongFramePosition();
-                            spectrum.begin(deviceRate, format.getChannels());
+                            spectrum.begin(deviceRate, line.getFormat().getChannels());
                             if (!paused) line.start();
                         } catch (Exception e) {
                             fail(request, e);
@@ -302,8 +328,9 @@ public final class JavaSoundBackend implements AudioBackend {
                     if (timeline.getLast().speed != rate)
                         timeline.add(new Segment(submittedFrames, offset + converter.positionFrames() / stream.getFormat().getFrameRate(), rate));
                     int inputChannels = stream.getFormat().getChannels(), outputChannels = line.getFormat().getChannels();
+                    processor.diagnostics().sourceChannels(inputChannels);
                     int frames = Math.min(amount / frame, pcm.length / inputChannels);
-                    int samples = converter.read(pcm, frames * inputChannels, rate * stream.getFormat().getFrameRate() / deviceRate);
+                    int samples = converter.read(pcm, frames * inputChannels, rate, deviceRate, !options.neutral && options.enhancements.preservePitch);
                     // Time spent decoding must not consume the output device's stall budget.
                     progressedAt = System.nanoTime();
                     if (samples > 0 && inputChannels != outputChannels) {
@@ -319,6 +346,15 @@ public final class JavaSoundBackend implements AudioBackend {
                         }
                     }
                     int count = samples < 0 ? -1 : samples * bytesPerSample;
+                    boolean flushing = false;
+                    var preparedNext = upcoming.get();
+                    if (count < 0 && !protectionFlushed && processor.latencyFrames() > 0
+                        && (preparedNext == null || preparedNext.peek() == null || !options.gapless && options.crossfade <= 0)) {
+                        samples = processor.latencyFrames() * outputChannels;
+                        java.util.Arrays.fill(pcm, 0, samples, 0);
+                        count = samples * bytesPerSample;
+                        protectionFlushed = flushing = true;
+                    }
                     if (count < 0) {
                         if (handoff(request)) continue;
                         // Drain with short polls so stop/seek never waits on a blocking drain().
@@ -338,14 +374,15 @@ public final class JavaSoundBackend implements AudioBackend {
                         java.util.concurrent.locks.LockSupport.parkNanos(5_000_000);
                     } else if (current(request)) {
                         var selected = options;
-                        processor.configure(selected);
+                        processor.configure(selected, environment);
+                        processor.comparison(comparison);
                         double normalized = 1;
                         boolean normalize = !selected.neutral && selected.normalization;
-                        if (normalize) {
+                        if (normalize && !flushing) {
                             if (loudness == null) loudness = new LoudnessCache();
                             normalized = loudness.gain(request.track, selected);
                         } else if (loudness != null) {
-                            loudness.close();
+                            loudness.closeAsync();
                             loudness = null;
                         }
                         double gainSmoothing = 1 - Math.exp(-1 / (deviceRate * .05));
@@ -354,6 +391,7 @@ public final class JavaSoundBackend implements AudioBackend {
                             for (int c = 0; c < outputChannels; c++)
                                 pcm[f * outputChannels + c] *= (float) normalizationGain;
                         }
+                        normalizationStatus = loudness == null ? LoudnessCache.Status.OFF : loudness.status(request.track, selected, normalizationGain);
                         var next = upcoming.get();
                         if (next != mixing) {
                             mixing = next;
@@ -367,7 +405,7 @@ public final class JavaSoundBackend implements AudioBackend {
                             int nextChannels = ready.stream().getFormat().getChannels();
                             int n;
                             try {
-                                n = ready.converter().read(nextPcm, outputFrames * nextChannels, rate * ready.stream().getFormat().getFrameRate() / deviceRate);
+                                n = ready.converter().read(nextPcm, outputFrames * nextChannels, rate, deviceRate, !selected.neutral && selected.enhancements.preservePitch);
                             } catch (Exception failure) {
                                 n = -1;
                                 org.slf4j.LoggerFactory.getLogger("darkmusic-audio").debug("Prepared track became unavailable", failure);
@@ -412,6 +450,7 @@ public final class JavaSoundBackend implements AudioBackend {
                             if (sent % frame != 0)
                                 throw new java.io.IOException("Audio device returned an incomplete PCM frame");
                             spectrum.accept(buffer, written, sent, submittedFrames, bytesPerSample);
+                            processor.diagnostics().submitted(buffer, written, sent, submittedFrames, bytesPerSample, processor);
                             written += sent;
                             submittedFrames += sent / frame;
                         }
@@ -422,7 +461,7 @@ public final class JavaSoundBackend implements AudioBackend {
             }
         } finally {
             release();
-            if (loudness != null) loudness.close();
+            if (loudness != null) loudness.closeAsync();
         }
     }
 
@@ -451,13 +490,17 @@ public final class JavaSoundBackend implements AudioBackend {
         mixing = null;
         announcement = new Announcement(previous, next, submittedFrames, oldPosition);
         overlap = 0;
-        processor.begin(deviceRate, line.getFormat().getChannels());
+        processor.begin(deviceRate, line.getFormat().getChannels(), true);
+        protectionFlushed = false;
         return true;
     }
 
     private void update(Request r, Status status) {
         if (current(r)) {
             long played = line.getLongFramePosition();
+            spectrum.advance(played, status == Status.PLAYING);
+            processor.diagnostics().advance(played);
+            played = Math.max(0, played - processor.latencyFrames());
             if (announcement != null) {
                 if (played < announcement.boundary) {
                     state = new State(announcement.previous.track, status, Math.max(0, announcement.oldPosition - (announcement.boundary - played) / deviceRate * speed), announcement.previous.track.duration(), "");
@@ -469,7 +512,6 @@ public final class JavaSoundBackend implements AudioBackend {
                     if (current(r)) notice.next.started.run();
                 });
             }
-            spectrum.advance(played, status == Status.PLAYING);
             while (timeline.size() > 1) {
                 var first = timeline.removeFirst();
                 if (timeline.getFirst().outputFrame > played) {
@@ -497,6 +539,8 @@ public final class JavaSoundBackend implements AudioBackend {
 
     private void release() {
         spectrum.clear();
+        processor.diagnostics().clear();
+        normalizationStatus = LoudnessCache.Status.OFF;
         converter = null;
         timeline.clear();
         if (line != null) {

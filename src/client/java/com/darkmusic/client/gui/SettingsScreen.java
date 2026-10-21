@@ -136,6 +136,7 @@ public final class SettingsScreen extends LocalScreen {
         section("text.darkmusic.general_settings");
         toggle("ui.darkmusic.show_hover_info", () -> s.showHoverInfo, v -> s.showHoverInfo = v, "ui.darkmusic.show_hover_info_help");
         action("audio.darkmusic.title", () -> show(new AudioSettingsScreen(app, this)), "audio.darkmusic.options_help");
+        action("environment.title", () -> show(new SoundEnvironmentScreen(app, this)), "environment.scope");
         toggle("lyrics.darkmusic.enabled", () -> s.lyricsEnabled, v -> {
             s.lyricsEnabled = v;
             rebuildWidgets();

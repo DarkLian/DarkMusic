@@ -47,6 +47,7 @@ public final class Settings {
     public String ytDlpPath = "", ffmpegPath = "", ffprobePath = "", javascriptPath = "";
     public com.darkmusic.client.download.DownloadEncoding.Format downloadFormat = com.darkmusic.client.download.DownloadEncoding.Format.ORIGINAL;
     public AudioSettings audio = new AudioSettings();
+    public SoundEnvironmentSettings environment = new SoundEnvironmentSettings();
     public boolean lyricsEnabled;
     public String lyricsLanguages = "auto";
     public boolean lyricsHud, lyricsNextLine;
@@ -94,6 +95,8 @@ public final class Settings {
         if (downloadFormat == null) downloadFormat = com.darkmusic.client.download.DownloadEncoding.Format.ORIGINAL;
         if (audio == null) audio = new AudioSettings();
         audio.validate();
+        if (environment == null) environment = new SoundEnvironmentSettings();
+        environment.validate();
         if (visualQuality == null) visualQuality = defaultVisualQuality();
         visualQuality.validate();
         if (repeat == null) repeat = com.darkmusic.client.audio.PlaybackController.Repeat.OFF;

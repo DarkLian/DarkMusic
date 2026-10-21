@@ -16,6 +16,7 @@ public final class AudioSettings {
     public double[] bands = new double[10];
     public String eqPreset = "FLAT", profile = "DEFAULT";
     public java.util.Map<String, String> savedProfiles = new java.util.LinkedHashMap<>();
+    public AudioEnhancements enhancements = new AudioEnhancements();
 
     public enum Reverb {DRY, STUDIO, SMALL_ROOM, CONCERT_HALL}
 
@@ -52,6 +53,7 @@ public final class AudioSettings {
         copy.duckHold = duckHold;
         copy.duckRelease = duckRelease;
         copy.bands = bands == null ? null : bands.clone();
+        copy.enhancements = enhancements == null ? new AudioEnhancements() : enhancements.copy();
         copy.validate();
         return copy;
     }
@@ -64,7 +66,8 @@ public final class AudioSettings {
             && reverb == other.reverb && gainMode == other.gainMode && listening == other.listening
             && ambientGain == other.ambientGain && focusGain == other.focusGain && ducking == other.ducking
             && duckGain == other.duckGain && duckAttack == other.duckAttack && duckHold == other.duckHold
-            && duckRelease == other.duckRelease && java.util.Arrays.equals(bands, other.bands);
+            && duckRelease == other.duckRelease && java.util.Arrays.equals(bands, other.bands)
+            && enhancements.same(other.enhancements);
     }
 
     public void validate() {
@@ -86,6 +89,8 @@ public final class AudioSettings {
         if (savedProfiles == null) savedProfiles = new java.util.LinkedHashMap<>();
         if (eqPreset == null) eqPreset = "CUSTOM";
         if (profile == null) profile = "CUSTOM";
+        if (enhancements == null) enhancements = new AudioEnhancements();
+        enhancements.validate();
     }
 
     private static double finite(double v, double min, double max, double fallback) {
@@ -119,8 +124,10 @@ public final class AudioSettings {
         reverb = Reverb.DRY;
         listening = Listening.NORMAL;
         ducking = false;
+        enhancements = new AudioEnhancements();
         if (name.equals("MUSIC")) {
             normalization = true;
+            analyzeLoudness = true;
         }
         if (name.equals("GAMING")) {
             listening = Listening.AMBIENT;
@@ -132,6 +139,7 @@ public final class AudioSettings {
         if (name.equals("NIGHT")) {
             compressor = true;
             normalization = true;
+            analyzeLoudness = true;
         }
         profile = name;
     }

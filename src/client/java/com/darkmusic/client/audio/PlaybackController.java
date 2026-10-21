@@ -19,6 +19,7 @@ public final class PlaybackController implements AutoCloseable {
     private double speed = 1;
     private Repeat repeat = Repeat.OFF;
     private com.darkmusic.client.config.AudioSettings configuredAudio;
+    private com.darkmusic.client.config.SoundEnvironmentSettings configuredEnvironment = new com.darkmusic.client.config.SoundEnvironmentSettings();
     private long sequence;
     private Source source = new Source("All", "", "", "");
 
@@ -57,12 +58,31 @@ public final class PlaybackController implements AutoCloseable {
     }
 
     public void configure(com.darkmusic.client.config.AudioSettings settings) {
-        if (configuredAudio != null && configuredAudio.samePlayback(settings)) return;
+        configure(settings, configuredEnvironment);
+    }
+
+    public AudioDiagnostics diagnostics() {
+        return audio.diagnostics();
+    }
+
+    public void comparison(AudioComparison comparison) {
+        audio.comparison(comparison);
+    }
+
+    public LoudnessCache.Status normalization() {
+        return audio.normalization();
+    }
+
+    public void configure(com.darkmusic.client.config.AudioSettings settings, com.darkmusic.client.config.SoundEnvironmentSettings environment) {
+        if (configuredAudio != null && configuredAudio.samePlayback(settings) && configuredEnvironment.samePlayback(environment))
+            return;
         var snapshot = settings.playbackCopy();
         boolean transitionsChanged = configuredAudio == null || configuredAudio.gapless != snapshot.gapless
             || configuredAudio.crossfade != snapshot.crossfade;
-        audio.configure(snapshot);
+        var space = environment.playbackCopy();
+        audio.configure(snapshot, space);
         configuredAudio = snapshot;
+        configuredEnvironment = space;
         if (transitionsChanged) refreshNext();
     }
 

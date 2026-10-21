@@ -1,120 +1,224 @@
 package com.darkmusic.client.audio;
 
+import com.darkmusic.client.config.AudioEnhancements;
 import com.darkmusic.client.config.AudioSettings;
+import com.darkmusic.client.config.SoundEnvironmentSettings;
 
 /**
- * Worker-owned, allocation-free sample processing. All optional coloration bypasses in Neutral.
+ * Worker-owned staged DSP. Configuration and buffer preparation happen between PCM blocks.
  */
 public final class AudioProcessor {
     public static final double[] FREQUENCIES = {31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000};
-    private final double[][] x1 = new double[10][2], x2 = new double[10][2], y1 = new double[10][2], y2 = new double[10][2];
-    private final double[][] coefficients = new double[10][5];
-    private final double[] smoothed = new double[10];
-    private final double[] filterCos = new double[10], filterAlpha = new double[10];
-    private final double[] responseCos = new double[96], responseCos2 = new double[96];
-    private double response;
-    private boolean coefficientsReady;
-    private RoomReverb room;
+    private final FilterRack filters = new FilterRack();
+    private final DynamicBand[] dynamic = {new DynamicBand(), new DynamicBand()};
+    private final DynamicBand deEsser = new DynamicBand();
+    private final AudioDynamics compressor = new AudioDynamics();
+    private final HeadphoneCrossfeed crossfeed = new HeadphoneCrossfeed();
+    private final SoundEnvironmentProcessor environment = new SoundEnvironmentProcessor();
+    private final TruePeakLimiter protection = new TruePeakLimiter();
+    private final AudioDiagnostics diagnostics = new AudioDiagnostics();
+    private AudioSettings settings = new AudioSettings(), applied;
+    private SoundEnvironmentSettings surroundings = new SoundEnvironmentSettings();
+    private AudioComparison comparison = AudioComparison.OFF;
+    private final MusicReverb reverb = new MusicReverb();
     private int channels;
-    private double rate, gain = 1, envelope, compressorGain = 1, duck = 1;
-    private AudioSettings settings = new AudioSettings();
+    private double rate, gain = 1, duck = 1, headroom = 1, width = 1, aoWet, protectedWet, smoothing, slowSmoothing;
+    private double dryEnergy, wetEnergy, levelGain = 1, limiterReduction, estimatedPeak;
+    private double feed, compressionWet;
 
     public void configure(AudioSettings value) {
         settings = value;
     }
 
+    public void configure(AudioSettings value, SoundEnvironmentSettings space) {
+        settings = value;
+        surroundings = space;
+    }
+
+    public void comparison(AudioComparison value) {
+        comparison = value;
+    }
+
+    public AudioDiagnostics diagnostics() {
+        return diagnostics;
+    }
+
     public void begin(double sampleRate, int channelCount) {
+        begin(sampleRate, channelCount, false);
+    }
+
+    void begin(double sampleRate, int channelCount, boolean handoff) {
+        boolean retainProtection = handoff && rate == sampleRate && channels == channelCount;
         rate = sampleRate;
         channels = channelCount;
-        envelope = 0;
-        compressorGain = 1;
-        room = null;
-        coefficientsReady = false;
-        for (int i = 0; i < responseCos.length; i++) {
-            double w = 2 * Math.PI * (20 * Math.pow(Math.min(20000, rate * .45) / 20, i / 95.0)) / rate;
-            responseCos[i] = Math.cos(w);
-            responseCos2[i] = Math.cos(2 * w);
+        applied = null;
+        reverb.begin(rate);
+        filters.begin(rate);
+        for (var band : dynamic) band.begin(rate);
+        deEsser.begin(rate);
+        compressor.begin();
+        crossfeed.begin(rate);
+        environment.begin(rate);
+        if (!retainProtection) {
+            protection.begin(rate);
+            protectedWet = 0;
+            diagnostics.begin(rate, channels);
         }
-        for (int i = 0; i < 10; i++) {
-            double w = 2 * Math.PI * Math.min(FREQUENCIES[i], rate * .43) / rate;
-            filterCos[i] = Math.cos(w);
-            filterAlpha[i] = Math.sin(w) / (2 * 1.4);
-            java.util.Arrays.fill(x1[i], 0);
-            java.util.Arrays.fill(x2[i], 0);
-            java.util.Arrays.fill(y1[i], 0);
-            java.util.Arrays.fill(y2[i], 0);
-            smoothed[i] = 0;
+        smoothing = 1 - Math.exp(-1 / (rate * .012));
+        slowSmoothing = 1 - Math.exp(-1 / (rate * .1));
+        aoWet = settings.neutral ? 0 : 1;
+        dryEnergy = wetEnergy = feed = compressionWet = 0;
+        levelGain = 1;
+        width = 1;
+    }
+
+    private void prepare() {
+        if (applied != settings) {
+            boolean first = applied == null;
+            filters.configure(settings, first);
+            compressor.configure(settings.enhancements, rate);
+            for (int i = 0; i < dynamic.length; i++) dynamic[i].configure(settings.enhancements.dynamic[i]);
+            var e = settings.enhancements;
+            var d = new AudioEnhancements.Node();
+            d.enabled = e.deEsser;
+            d.frequency = e.deEsserFrequency;
+            d.q = 1;
+            d.threshold = e.deEsserThreshold;
+            d.range = -12 * e.deEsserStrength;
+            d.attack = .002;
+            d.release = .08;
+            deEsser.configure(d);
+            if (first) {
+                headroom = filters.headroom();
+                aoWet = settings.neutral ? 0 : 1;
+                protectedWet = !settings.neutral && settings.limiter && e.protection == AudioEnhancements.Protection.TRUE_PEAK ? 1 : 0;
+                compressionWet = settings.compressor ? 1 : 0;
+                feed = e.crossfeed ? e.crossfeedAmount : 0;
+            }
+            applied = settings;
         }
+        reverb.prepare(settings, surroundings.ownsReverb());
+        for (var band : dynamic) band.block();
+        deEsser.block();
+        environment.configure(surroundings);
+        environment.prepare();
     }
 
     public void process(float[] pcm, int count, double volume, double normalization) {
+        if (rate <= 0 || channels < 1 || count < 0 || count > pcm.length || count % channels != 0)
+            throw new IllegalArgumentException("PCM block");
+        prepare();
         var s = settings;
+        var e = s.enhancements;
+        var audition = comparison;
+        boolean bypassAo = audition.bypassed() && audition.mode() != AudioComparison.Mode.ENVIRONMENT;
+        boolean bypassEnvironment = audition.bypassed() && audition.mode() != AudioComparison.Mode.AUDIO_OPTIONS;
         boolean effects = !s.neutral;
         double target = volume * (effects && s.normalization ? normalization : 1);
         if (s.listening == AudioSettings.Listening.AMBIENT) target *= s.ambientGain;
-        boolean eq = effects && (s.equalizer || s.bass > 0);
-        double maxBoost = 0;
-        boolean changed = !coefficientsReady;
-        double eqSmoothing = 1 - Math.exp(-count / (channels * rate * .04));
-        if (eq) for (int b = 0; b < 10; b++) {
-            double desired = (s.equalizer ? s.bands[b] : 0) + (b < 3 ? s.bass * (3 - b) / 3 : 0);
-            double previous = smoothed[b];
-            smoothed[b] += (desired - smoothed[b]) * eqSmoothing;
-            maxBoost = Math.max(maxBoost, Math.max(desired, smoothed[b]));
-            if (!coefficientsReady || previous != smoothed[b]) {
-                peak(b, smoothed[b]);
-                changed = true;
-            }
-        }
-        if (eq && changed) {
-            response = responsePeak();
-            coefficientsReady = true;
-        }
-        // Reserve headroom before the filter cascade; do not normalize back into clipping.
-        double headroom = eq ? Math.pow(10, -Math.max(maxBoost, response) / 20) : 1;
-        if (effects && s.reverb != AudioSettings.Reverb.DRY && (room == null || room.mode != s.reverb))
-            room = new RoomReverb(rate, s.reverb);
-        if (!effects || s.reverb == AudioSettings.Reverb.DRY) room = null;
-        double smooth = 1 - Math.exp(-1 / (rate * .02));
         double duckTarget = s.ducking && ListeningMix.ducking() ? s.duckGain : 1;
         double duckSmoothing = 1 - Math.exp(-1 / (rate * (duckTarget < duck ? s.duckAttack : s.duckRelease)));
+        double gainSmoothing = 1 - Math.exp(-1 / (rate * .02));
+        if (s.neutral && aoWet == 0 && protectedWet == 0 && environment.isDry()
+            && diagnostics.panels() == 0 && !audition.levelMatched()) {
+            for (int i = 0; i < count; i += channels) {
+                gain += (target - gain) * gainSmoothing;
+                duck += (duckTarget - duck) * duckSmoothing;
+                for (int c = 0; c < channels; c++) {
+                    double value = pcm[i + c] * gain * duck;
+                    pcm[i + c] = (float) (Double.isFinite(value) ? value : 0);
+                }
+            }
+            return;
+        }
+        boolean truePeak = effects && s.limiter && e.protection == AudioEnhancements.Protection.TRUE_PEAK;
         for (int i = 0; i < count; i += channels) {
-            gain += (target - gain) * smooth;
+            gain += (target - gain) * gainSmoothing;
             duck += (duckTarget - duck) * duckSmoothing;
-            double left = pcm[i] * headroom, right = channels == 2 ? pcm[i + 1] * headroom : left;
-            if (eq) {
-                left = equalize(left, 0);
-                if (channels == 2) right = equalize(right, 1);
-                else right = left;
+            double originalL = pcm[i], originalR = channels == 2 ? pcm[i + 1] : originalL;
+            diagnostics.capture(0, i, originalL, originalR);
+            double l = originalL, r = originalR;
+            headroom += (filters.headroom() - headroom) * smoothing;
+            width += (s.width - width) * smoothing;
+            feed += ((e.crossfeed ? e.crossfeedAmount : 0) - feed) * smoothing;
+            compressionWet += ((s.compressor ? 1 : 0) - compressionWet) * smoothing;
+            if (effects || aoWet > 1e-8) {
+                l = filters.sample(l * headroom, 0);
+                r = filters.sample(r * headroom, 1);
+                for (var band : dynamic) {
+                    l = band.sample(l, 0, true);
+                    r = band.sample(r, 1, true);
+                }
+                l = deEsser.sample(l, 0, true);
+                r = deEsser.sample(r, 1, true);
+                if (channels == 2) {
+                    double mid = (l + r) * .5, side = (l - r) * .5 * width, trim = 1 / Math.max(1, width);
+                    l = (mid + side) * trim;
+                    r = (mid - side) * trim;
+                    if (feed > 1e-8) {
+                        crossfeed.process(l, r, feed);
+                        l = crossfeed.left;
+                        r = crossfeed.right;
+                    }
+                }
+                reverb.process(l, r);
+                l = reverb.left;
+                r = reverb.right;
+                if (compressionWet > 1e-8) {
+                    // Preserve the legacy detector's master/mix reference while applying
+                    // its linked gain before Environment and the common master stage.
+                    double amount = 1 + (compressor.apply(l * gain * duck, r * gain * duck) - 1) * compressionWet;
+                    l *= amount;
+                    r *= amount;
+                }
             }
-            if (effects && channels == 2 && s.width != 1) {
-                double mid = (left + right) * .5, side = (left - right) * .5 * s.width;
-                double trim = 1 / Math.max(1, s.width);
-                left = (mid + side) * trim;
-                right = (mid - side) * trim;
+            aoWet += ((effects && !bypassAo ? 1 : 0) - aoWet) * smoothing;
+            if (aoWet < 1e-8) aoWet = 0;
+            l = originalL + (l - originalL) * aoWet;
+            r = originalR + (r - originalR) * aoWet;
+            if (audition.mode() == AudioComparison.Mode.AUDIO_OPTIONS) {
+                double match = match(originalL, originalR, l, r, audition.levelMatched(), audition.bypassed());
+                l *= match;
+                r *= match;
             }
-            if (room != null) {
-                left = room.sample(left, 0);
-                right = channels == 2 ? room.sample(right, 1) : left;
+            diagnostics.capture(1, i, l, r);
+            double environmentInputL = l, environmentInputR = r;
+            environment.process(l, r, bypassEnvironment);
+            l = environment.left;
+            r = environment.right;
+            if (audition.mode() != AudioComparison.Mode.AUDIO_OPTIONS) {
+                double match = match(audition.mode() == AudioComparison.Mode.ENVIRONMENT ? environmentInputL : originalL,
+                    audition.mode() == AudioComparison.Mode.ENVIRONMENT ? environmentInputR : originalR, l, r, audition.levelMatched(), audition.bypassed());
+                l *= match;
+                r *= match;
             }
-            left *= gain * duck;
-            right *= gain * duck;
-            if (effects && s.compressor) {
-                double peak = Math.max(Math.abs(left), Math.abs(right));
-                double alpha = 1 - Math.exp(-1 / (rate * (peak > envelope ? .01 : .2)));
-                envelope += (peak - envelope) * alpha;
-                double db = 20 * Math.log10(Math.max(1e-9, envelope));
-                double desired = db > -18 ? Math.pow(10, (-18 + (db + 18) / 4 - db) / 20) : 1;
-                compressorGain += (desired - compressorGain) * (1 - Math.exp(-1 / (rate * .01)));
-                left *= compressorGain;
-                right *= compressorGain;
+            diagnostics.capture(2, i, l, r);
+            l *= gain * duck;
+            r *= gain * duck;
+            if (truePeak || protectedWet > 1e-8) {
+                protection.frame(l, r);
+                protectedWet += ((truePeak ? 1 : 0) - protectedWet) * smoothing;
+                if (protectedWet < 1e-8) protectedWet = 0;
+                l += (protection.left - l) * protectedWet;
+                r += (protection.right - r) * protectedWet;
+                limiterReduction = protection.reductionDb;
+                estimatedPeak = protection.estimatedPeak;
+            } else {
+                limiterReduction = 0;
+                estimatedPeak = Math.max(Math.abs(l), Math.abs(r));
             }
-            if (effects && s.limiter) {
-                left = limit(left);
-                right = limit(right);
+            if (effects && s.limiter && !truePeak) {
+                double before = Math.max(Math.abs(l), Math.abs(r));
+                l = limit(l);
+                r = limit(r);
+                double after = Math.max(Math.abs(l), Math.abs(r));
+                limiterReduction = before > 0 ? -AudioDynamics.db(after / before) : 0;
             }
-            pcm[i] = (float) (Double.isFinite(left) ? left : 0);
-            if (channels == 2) pcm[i + 1] = (float) (Double.isFinite(right) ? right : 0);
+            if (!Double.isFinite(l)) l = 0;
+            if (!Double.isFinite(r)) r = 0;
+            diagnostics.capture(3, i, l, r);
+            pcm[i] = (float) l;
+            if (channels == 2) pcm[i + 1] = (float) r;
         }
     }
 
@@ -123,45 +227,66 @@ public final class AudioProcessor {
         return a <= .95 ? x : Math.copySign(.95 + .04 * Math.tanh((a - .95) / .04), x);
     }
 
+    private double match(double inputL, double inputR, double outputL, double outputR, boolean enabled, boolean bypassed) {
+        double desired = 1;
+        if (enabled) {
+            dryEnergy += ((inputL * inputL + inputR * inputR) * .5 - dryEnergy) * slowSmoothing;
+            if (!bypassed) wetEnergy += ((outputL * outputL + outputR * outputR) * .5 - wetEnergy) * slowSmoothing;
+            if (dryEnergy > 1e-12 && wetEnergy > 1e-12)
+                desired = Math.clamp(Math.sqrt(bypassed ? wetEnergy / dryEnergy : dryEnergy / wetEnergy), .25, 1);
+        }
+        levelGain += (desired - levelGain) * smoothing;
+        return levelGain;
+    }
+
     public void initialVolume(double value) {
         gain = Math.clamp(value, 0, 1);
     }
 
-    private double responsePeak() {
-        double peak = 0;
-        for (int i = 0; i < 96; i++) {
-            double c = responseCos[i], c2 = responseCos2[i], db = 0;
-            for (double[] q : coefficients) {
-                double numerator = q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + 2 * (q[0] * q[1] + q[1] * q[2]) * c + 2 * q[0] * q[2] * c2;
-                double denominator = 1 + q[3] * q[3] + q[4] * q[4] + 2 * (q[3] + q[3] * q[4]) * c + 2 * q[4] * c2;
-                db += 10 * Math.log10(Math.max(1e-12, numerator) / Math.max(1e-12, denominator));
-            }
-            peak = Math.max(peak, db);
-        }
-        return peak > .01 ? peak + .5 : 0;
+    public double response(double hz, boolean staticOnly) {
+        if (settings.neutral) return 0;
+        double result = filters.response(hz, false);
+        for (var band : dynamic) result += band.response(hz, staticOnly);
+        return result + deEsser.response(hz, staticOnly);
     }
 
-    private double equalize(double x, int c) {
-        for (int b = 0; b < 10; b++) {
-            double[] q = coefficients[b];
-            double y = q[0] * x + q[1] * x1[b][c] + q[2] * x2[b][c] - q[3] * y1[b][c] - q[4] * y2[b][c];
-            x2[b][c] = x1[b][c];
-            x1[b][c] = x;
-            y2[b][c] = y1[b][c];
-            y1[b][c] = y;
-            x = y;
-        }
-        return x;
+    public double headroom() {
+        return settings.neutral ? 1 : headroom;
     }
 
-    private void peak(int b, double db) {
-        double a = Math.pow(10, db / 40), alpha = filterAlpha[b], c = filterCos[b], d = 1 + alpha / a;
-        double[] q = coefficients[b];
-        q[0] = (1 + alpha * a) / d;
-        q[1] = -2 * c / d;
-        q[2] = (1 - alpha * a) / d;
-        q[3] = -2 * c / d;
-        q[4] = (1 - alpha / a) / d;
+    public double environmentResponse(double frequency) {
+        return surroundings.active() ? environment.toneResponse(frequency) : 0;
+    }
+
+    public double detectorDb() {
+        return !settings.neutral && settings.compressor ? compressor.detectorDb : Double.NEGATIVE_INFINITY;
+    }
+
+    public double reductionDb() {
+        return !settings.neutral && settings.compressor ? compressor.reductionDb : 0;
+    }
+
+    public double limiterReduction() {
+        return limiterReduction;
+    }
+
+    public double truePeak() {
+        return estimatedPeak;
+    }
+
+    public int latencyFrames() {
+        return protectedWet > .999 ? TruePeakLimiter.LATENCY : 0;
+    }
+
+    public boolean convolutionReady() {
+        return convolutionState() == 2;
+    }
+
+    public int convolutionState() {
+        if (surroundings.ownsReverb()) return environment.convolutionState();
+        if (settings.neutral || settings.reverb == AudioSettings.Reverb.DRY || settings.enhancements.reverbAmount == 0
+            || settings.enhancements.reverbEngine != AudioEnhancements.ReverbEngine.CONVOLUTION) return 0;
+        return reverb.convolutionState();
     }
 
     public static void quantize(float[] input, byte[] out, int count) {

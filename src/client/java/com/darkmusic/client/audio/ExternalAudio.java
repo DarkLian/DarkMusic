@@ -65,6 +65,10 @@ public final class ExternalAudio {
     }
 
     private static JsonObject probe(Path file, boolean metadata) throws Exception {
+        return probe(file, metadata, new ProcessRunner.Token());
+    }
+
+    static JsonObject probe(Path file, boolean metadata, ProcessRunner.Token token) throws Exception {
         Path absolute = file.toAbsolutePath();
         var args = new ArrayList<>(List.of(tool(true).toString(), "-v", "error", "-protocol_whitelist", "file,pipe", "-select_streams", "a:0"));
         if (metadata)
@@ -72,7 +76,7 @@ public final class ExternalAudio {
         else
             args.addAll(List.of("-show_entries", "stream=codec_name,sample_rate,channels,bits_per_raw_sample:format=duration"));
         args.addAll(List.of("-of", "json", absolute.toString()));
-        var result = new ProcessRunner().run(args, absolute.getParent(), new ProcessRunner.Token(), Duration.ofSeconds(15), 128_000, s -> {
+        var result = new ProcessRunner().run(args, absolute.getParent(), token, Duration.ofSeconds(15), 128_000, s -> {
         });
         if (result.exit() != 0) throw new IOException("Audio inspection failed: " + result.output());
         return JsonParser.parseString(result.output()).getAsJsonObject();

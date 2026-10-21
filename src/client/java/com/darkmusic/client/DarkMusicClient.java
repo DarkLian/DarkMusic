@@ -220,7 +220,7 @@ public class DarkMusicClient implements ClientModInitializer {
             if (downloads != null)
                 downloads.lyrics(settings.lyricsEnabled, settings.lyricsLanguages, Minecraft.getInstance().options.languageCode);
             lyrics.enabled(settings.lyricsEnabled);
-            if (playback != null) playback.configure(settings.audio);
+            if (playback != null) playback.configure(settings.audio, settings.environment);
         }
         if (playback != null && playback.spectrum() != null) {
             playback.spectrum().configure(settings.hudVisualizer || settings.hudStyle == com.darkmusic.client.config.Settings.HudStyle.CIRCULAR && settings.circularIconPulse, settings.visualizerBars, settings.visualizerSensitivity, settings.visualizerSmoothing);

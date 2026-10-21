@@ -76,7 +76,7 @@ class LocalizationTest {
             assertEquals("速度：1.5x", Text.get("format.darkmusic.speed", "1.5"));
             assertEquals("[遺失] 私人歌曲.mp3", Text.get("format.darkmusic.missing_song", "私人歌曲.mp3"));
             chinese.forEach((key, value) -> {
-                String rendered = Text.get(key, "1", "2", "3", "4");
+                String rendered = Text.get(key, "1", "2", "3", "4", "5", "6", "7", "8");
                 assertNotEquals(key, rendered, key);
                 assertFalse(rendered.contains("%s"), key);
             });
@@ -124,7 +124,7 @@ class LocalizationTest {
             String filename = "歌曲 音楽.mp3";
             assertTrue(Text.get("format.darkmusic.missing_song", filename).endsWith(filename));
             for (var key : catalog("en_us").keySet()) {
-                String rendered = Text.get(key, "1", "2", "3", "4");
+                String rendered = Text.get(key, "1", "2", "3", "4", "5", "6", "7", "8");
                 assertNotEquals(key, rendered, key);
                 assertFalse(rendered.contains("%s"), key);
             }
