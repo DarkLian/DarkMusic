@@ -250,40 +250,41 @@ public final class MusicScreen extends LocalScreen {
         int x = layout.transportX();
         int sliderWidth = layout.controlWidth();
         int buttonWidth = layout.transportButtonWidth();
-        UiButton.shortcuts(icon("key.darkmusic.normal_speed", UiIcon.REFRESH, x, transportY, buttonWidth, true, () -> app.speed(1)), app.normalSpeed);
-        x += buttonWidth + 4;
+        int gap = PlayerLayout.CONTROL_GAP;
         speed = addRenderableWidget(Help.tip(new ValueSlider(x, transportY, sliderWidth, (app.settings.speed - .5) / 2.5,
                 v -> Text.get("format.darkmusic.speed", String.format(Locale.ROOT, "%.1f", app.settings.speed)),
                 v -> app.speed(.5 + v * 2.5), app::save, 25),
             Help.withKeys(Text.get("text.darkmusic.playback_speed_0_5x_to_3_0x_in_0_1x_steps_faster_raises_pitch_slower_lowers_it"), app.slower, app.faster)));
         speed.plain(true);
-        x += sliderWidth + 8;
+        x += sliderWidth + gap;
+        UiButton.shortcuts(icon("key.darkmusic.normal_speed", UiIcon.REFRESH, x, transportY, buttonWidth, true, () -> app.speed(1)), app.normalSpeed);
+        x += buttonWidth + gap;
         shuffle = icon("text.darkmusic.shuffle", UiIcon.SHUFFLE, x, transportY, buttonWidth, true, this::shuffle);
-        x += buttonWidth + 4;
+        x += buttonWidth + gap;
         jump = icon("player.darkmusic.jump", UiIcon.LOCATE, x, transportY, buttonWidth, true, this::jumpToPlaying);
-        x += buttonWidth + 4;
+        x += buttonWidth + gap;
         icon("text.darkmusic.previous", UiIcon.PREVIOUS, x, transportY, buttonWidth, true, () -> {
             if (!app.mediaBusy) app.playback.previous();
         });
-        x += buttonWidth + 4;
+        x += buttonWidth + gap;
         play = icon("text.darkmusic.play", UiIcon.PLAY, x, transportY - 4, buttonWidth + 8, true, this::playPause);
         play.setHeight(28);
-        x += buttonWidth + 12;
+        x += buttonWidth + 8 + gap;
         icon("text.darkmusic.next", UiIcon.NEXT, x, transportY, buttonWidth, true, () -> {
             if (!app.mediaBusy) app.playback.next();
         });
-        x += buttonWidth + 4;
+        x += buttonWidth + gap;
         icon("text.darkmusic.stop", UiIcon.STOP, x, transportY, buttonWidth, true, () -> app.playback.stop());
-        x += buttonWidth + 4;
+        x += buttonWidth + gap;
         repeat = icon("text.darkmusic.repeat", UiIcon.REPEAT, x, transportY, buttonWidth, true, this::repeat);
-        x += buttonWidth + 8;
+        x += buttonWidth + gap;
+        mute = UiButton.shortcuts(icon("key.darkmusic.mute", app.settings.volume == 0 ? UiIcon.MUTED : UiIcon.VOLUME, x, transportY, buttonWidth, true, app::toggleMute), app.mute);
+        UiButton.selected(mute, () -> app.settings.volume == 0);
+        x += buttonWidth + gap;
         volume = addRenderableWidget(Help.tip(new ValueSlider(x, transportY, sliderWidth, app.settings.volume,
                 v -> Text.get("format.darkmusic.volume", Math.round(v * 100)), app::volume, app::save),
             Help.withKeys(Text.get("text.darkmusic.darkmusic_volume_independent_of_minecraft_sound_sliders"), app.volumeDown, app.volumeUp)));
         volume.plain(true);
-        x += sliderWidth + 4;
-        mute = UiButton.shortcuts(icon("key.darkmusic.mute", app.settings.volume == 0 ? UiIcon.MUTED : UiIcon.VOLUME, x, transportY, buttonWidth, true, app::toggleMute), app.mute);
-        UiButton.selected(mute, () -> app.settings.volume == 0);
         progress = addRenderableWidget(new ValueSlider(layout.dock().x() + 4, layout.seekY(), layout.dock().width() - 8, 0,
             v -> time(progress != null && progress.editing() ? v * app.playback.state().duration() : app.playback.state().position()) + " / " + time(app.playback.state().duration()),
             v -> {

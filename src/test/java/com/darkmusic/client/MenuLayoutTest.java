@@ -17,6 +17,23 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MenuLayoutTest {
     @Test
+    void threeColumnListAndControlsAreCenteredIndependently() {
+        for (int width : new int[]{640, 641, 799, 800, 801, 854, 1024, 1280, 1720}) {
+            var layout = PlayerLayout.of(width, 480);
+            assertTrue(layout.inspector().width() > 0);
+            assertEquals(width, layout.tracks().x() * 2 + layout.tracks().width());
+            assertTrue(Math.abs(width - layout.transportX() * 2 - layout.controlsWidth()) <= 1);
+            assertEquals(8, layout.tracks().x() - layout.navigation().right());
+            assertEquals(8, layout.inspector().x() - layout.tracks().right());
+            assertEquals(104, layout.controlWidth());
+            assertEquals(Math.clamp(width / 4, 140, 220), layout.inspector().width());
+        }
+        var standard = PlayerLayout.of(854, 480);
+        assertEquals(854 - 12 - 854 / 4, standard.inspector().x());
+        assertEquals(854 / 4, standard.inspector().width());
+    }
+
+    @Test
     void centeredTransportFitsAtEverySupportedBreakpointWithSeekAboveControls() {
         for (int width : new int[]{320, 399, 400, 479, 480, 639, 640, 799, 800, 854, 1280})
             for (int height : new int[]{240, 299, 300, 399, 400, 480, 720}) {

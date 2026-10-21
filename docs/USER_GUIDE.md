@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v2.3.2 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v2.3.3 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Interface language
 
@@ -125,6 +125,8 @@ Queue search covers titles, status, errors, and destination folders. **Retry Sel
 Completed files go into the currently configured music folder and appear in the library. **Audio Options → Download Audio Format** chooses Original / Best Available or Convert to MP3. Available title, uploader/artist, album, track number, and artwork are embedded where supported. Duplicate tracking reduces repeat downloads.
 
 Restricted, deleted, private, or unsupported content may fail. DarkMusic does not bypass authentication or DRM. Download only material you are authorized to save.
+
+The player controls are centered independently of the song list. Speed and Volume sliders sit at the outer edges, with Reset Speed and Mute beside the playback buttons. All controls use equal horizontal spacing. In the three-column layout, the song list is also centered; the details panel keeps its usual width.
 
 ## Mod updates
 
