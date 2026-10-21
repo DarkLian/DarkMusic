@@ -18,6 +18,7 @@ public final class Settings {
     public com.darkmusic.client.audio.PlaybackController.Repeat repeat = com.darkmusic.client.audio.PlaybackController.Repeat.OFF;
     public boolean autoplay;
     public boolean showHoverInfo = true;
+    public boolean updateNotifications = true;
     public double speed = 1;
     public boolean hudEnabled = true;
     public String hudPosition = "TOP_LEFT";
@@ -144,7 +145,7 @@ public final class Settings {
         return quality;
     }
 
-    public enum HudStyle {CLASSIC, CIRCULAR, ARTWORK}
+    public enum HudStyle {CLASSIC, CIRCULAR, ARTWORK, SPECTRUM}
 
     public enum SurfaceFinish {FLAT, BEVELED}
 

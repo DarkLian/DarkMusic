@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v2.3.1 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v2.3.2 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Interface language
 
@@ -126,16 +126,23 @@ Completed files go into the currently configured music folder and appear in the 
 
 Restricted, deleted, private, or unsupported content may fail. DarkMusic does not bypass authentication or DRM. Download only material you are authorized to save.
 
+## Mod updates
+
+**Settings → General → Update Notifications** checks GitHub when joining a world or server and notifies once per launch. Turning it off disables automatic checks and notices. **Check for Updates** checks manually regardless of that toggle and reports availability or errors. An available update requires a separate **Download Update** click; nothing downloads simply because a check found it.
+
+A completed download is announced in client-side chat. Close Minecraft and wait a few seconds before restarting so the update can install. Settings, music, playlists, artwork, other assets, and other mods are preserved. New options receive their defaults. Updates require a compatible official release with a verified checksum; development source-set launches cannot install updates.
+
 ## Customize the HUD
 
 ![Settings and live preview](images/settings.png)
 
-Settings contains General, HUD, Spectrum, Appearance, Effects, and Reset sections. Most changes save immediately. The preview shows current playback data, or sample visualization when no song is playing.
+Settings contains General, Audio, HUD, Spectrum, Appearance, Effects, and Reset sections. Most changes save immediately. The preview shows current playback data, or sample visualization when no song is playing.
 
 **Now-Playing HUD** enables the whole in-game component:
 
 - **Classic:** song information with optional artwork, progress, and spectrum.
 - **Circular:** the DarkMusic icon, circular progress, outward spectrum, and optional title/artist text.
+- **Spectrum Only:** the audio-reactive spectrum without artwork, track text, progress, or a background. It uses the same spectrum colors, effects, direction, height, and layout editor.
 - **Artwork:** larger, aspect-preserving artwork and spectrum. An optional progress bar touches the bottom of the image. Position the spectrum above, below, left, or right; side spectra grow horizontally away from the image. The whole layout moves and scales as one HUD.
 
 ![Circular HUD preview](images/circular-hud.png)
@@ -156,7 +163,7 @@ The spectrum analyzes decoded music samples. Pause freezes it; seeking, stopping
 
 Scroll over the settings preview to resize that preview. Its scale is independent of the saved in-game HUD scale.
 
-Use **Edit HUD Layout** beneath the preview, or `/da gui`, to position the actual HUD. Drag it to move; scroll over it to change its scale in 10% steps from 50% to 300%. A scale indication appears while resizing. Escape saves and returns. The HUD and its spectrum move as one component.
+Use **Edit HUD Layout** beneath the preview, or `/da gui`, to position the actual HUD. Drag it to move; scroll over it to change its scale in 10% steps from 50% to 300%. A scale indication appears while resizing. Escape saves and returns. The HUD and its spectrum move as one component. Horizontal and vertical center guides brighten when aligned. Drag near the center to snap; hold Shift for free placement without snapping.
 
 ## Audio options
 
@@ -184,7 +191,7 @@ Frequency sliders use logarithmic spacing for finer low-frequency control. Right
 
 ### Sound Environment
 
-Open **Settings → Sound Environment** independently of Audio Options. Choose Off or one of 19 active environments: Old Radio, Telephone, Walkie-Talkie, Vinyl, Cassette, Bedroom, Bathroom, Concert Hall, Cathedral, Deep Cave, Tunnel, Warehouse, Stadium, Open Meadow, Forest Clearing, Next Room, Distant Speakers, Underwater, and Dreamscape.
+Open **Settings → Audio → Sound Environment** independently of Audio Options. Choose Off or one of 19 active environments: Old Radio, Telephone, Walkie-Talkie, Vinyl, Cassette, Bedroom, Bathroom, Concert Hall, Cathedral, Deep Cave, Tunnel, Warehouse, Stadium, Open Meadow, Forest Clearing, Next Room, Distant Speakers, Underwater, and Dreamscape.
 
 Select Environment to open a categorized list, then choose a treatment directly. Enable the environment and adjust intensity. At 0%, the environment is bypassed. Relevant tone, reflection, distance, and room controls depend on the selected recipe. Texture and ambience are optional. Save, load, rename, or delete custom environment presets without altering Audio Options profiles.
 

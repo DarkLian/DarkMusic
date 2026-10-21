@@ -6,14 +6,18 @@ A client-side music player for Minecraft. Browse your own library, build playlis
 
 ## Install
 
-DarkMusic **v2.3.1** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v2.3.2** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-2.3.1.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-2.3.2.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Open **Settings → Choose Music Folder**, or add songs to `config/darkmusic/music` inside the instance.
 
 Install DarkMusic on the client. Servers do not need it. Windows, Linux, and macOS are supported; external audio formats and downloading need compatible tools for the operating system.
+
+## Updates
+
+Update notifications are enabled by default and appear once per launch after joining a world or server. Click **Update** to approve a download. **Settings → General → Check for Updates** also checks manually, including when notifications are off. Close Minecraft after the download finishes to install it; your settings, library, playlists, and assets are preserved.
 
 ## Features
 
@@ -24,7 +28,7 @@ Install DarkMusic on the client. Servers do not need it. Windows, Linux, and mac
 - **Playback:** seek, shuffle, repeat, mute, and change speed from 0.5× to 3.0×. Jump to Playing returns to the collection where playback started. Search does not narrow the playback queue.
 - **Playlists:** bulk-select songs and reorder connected selections by dragging. Complete library scans clean up confirmed missing entries, including favorites, without deleting audio.
 - **Downloads:** analyze a video or collection URL, select entries or a range, preview audio, jump between available preview pages, and manage parallel downloads and retries.
-- **HUD:** Classic, Circular, and Artwork layouts with optional progress and a spectrum driven by decoded audio. Artwork mode preserves image proportions and supports outward horizontal spectra beside the image.
+- **HUD:** Classic, Circular, Artwork, and Spectrum Only layouts with optional progress and a spectrum driven by decoded audio. Artwork mode preserves image proportions and supports outward horizontal spectra beside the image.
 - **Visuals:** bars, waves, spikes, gradient presets, beveled finishes, glow, trails, peak markers, and quality presets. Customize menu colors and HUD backgrounds using a visual color spectrum, RGB sliders, or hex values.
 - **Audio Options:** profiles, loudness normalization, graphic or parametric EQ, dynamic EQ, de-essing, tone controls, crossfeed, compression, algorithmic or convolution reverb, and optional true-peak protection. Pitch-preserving speed, gapless playback, crossfade, and game-audio balance remain available.
 - **Sound Environment:** 20 choices, including Off, with independent intensity, room/tone controls, optional textures and ambience, and saved custom presets. Combine environments with Audio Options.
@@ -39,7 +43,7 @@ Classic HUD with default visuals, placed on the middle-left. Move and resize it 
 
 ## Shape your sound
 
-Open Sound Environment from General Settings. Pick an environment directly and adjust its intensity independently of Audio Options.
+Open Sound Environment from Settings → Audio. Pick an environment directly and adjust its intensity independently of Audio Options.
 
 ![Sound Environment selection](docs/images/environment-picker.png)
 

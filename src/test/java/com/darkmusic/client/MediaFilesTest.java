@@ -121,9 +121,14 @@ class MediaFilesTest {
         byte[] original = Files.readAllBytes(source), pcm = pcm(copy), cover = metadata.artwork(copy);
         Track before = track(copy);
         var tags = files.fields(before);
+        Path history = temp.resolve(".darkmusic-downloads.json");
+        Files.writeString(history, "{\"youtube:downloaded\":\"before.mp3\",\"youtube:downloaded:original\":\"before.mp3\"}");
         Files.writeString(DownloadLyrics.sidecar(copy), "[00:00.00]Real track lyric sidecar");
         var edited = files.edit(before, tags, new MediaFiles.Fields("新しい曲名", "演出者", "專輯", "更新後", ".exe"), new ProcessRunner.Token());
         assertEquals("更新後.mp3", edited.file().getFileName().toString());
+        var archive = com.google.gson.JsonParser.parseString(Files.readString(history)).getAsJsonObject();
+        assertEquals("更新後.mp3", archive.get("youtube:downloaded").getAsString());
+        assertEquals("更新後.mp3", archive.get("youtube:downloaded:original").getAsString());
         assertFalse(Files.exists(copy));
         assertFalse(Files.exists(DownloadLyrics.sidecar(copy)));
         assertEquals("[00:00.00]Real track lyric sidecar", Files.readString(DownloadLyrics.sidecar(edited.file())));
@@ -139,7 +144,7 @@ class MediaFilesTest {
         assertArrayEquals(cover, metadata.artwork(cleared.file()));
         assertArrayEquals(original, Files.readAllBytes(source));
         try (var paths = Files.list(temp)) {
-            assertTrue(paths.noneMatch(p -> p.getFileName().toString().startsWith(".darkmusic-")));
+            assertTrue(paths.noneMatch(p -> p.getFileName().toString().startsWith(".darkmusic-") && !p.equals(history)));
         }
     }
 

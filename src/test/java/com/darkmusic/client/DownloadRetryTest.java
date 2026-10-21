@@ -23,6 +23,32 @@ class DownloadRetryTest {
     Path temp;
 
     @Test
+    void privateEntriesDoNotRetryAutomaticallyButManualRetryStillWorks() throws Exception {
+        var attempts = new AtomicInteger();
+        var runner = new DownloadTest.FakeRunner() {
+            @Override
+            public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) throws java.io.IOException, InterruptedException {
+                if (args.contains("--write-info-json")) {
+                    attempts.incrementAndGet();
+                    return new Result(1, "Private video");
+                }
+                return super.run(args, dir, token, timeout, max, line);
+            }
+        };
+        try (var service = new DownloadService(temp, () -> {
+        }, runner)) {
+            service.configure(new DownloadTest().tools());
+            var entry = new Entry(1, "Private", "https://example.com/private", "Test", "private", true);
+            service.enqueueSelected(List.of(entry), temp.resolve("music"));
+            DownloadTest.await(() -> service.snapshot().items().size() == 1 && service.snapshot().items().getFirst().status() == Status.FAILED);
+            assertEquals(1, attempts.get());
+            service.retryEntry(entry, temp.resolve("music"));
+            DownloadTest.await(() -> attempts.get() == 2 && service.snapshot().items().getFirst().status() == Status.FAILED);
+            assertEquals(2, attempts.get());
+        }
+    }
+
+    @Test
     void retriesWaitForQueueThenStopAfterThreeAndFailedRowsAreRetained() throws Exception {
         var release = new CountDownLatch(1);
         var blocked = new CountDownLatch(1);
@@ -37,7 +63,7 @@ class DownloadRetryTest {
                     if (id.endsWith("/slow")) {
                         blocked.countDown();
                         while (!release.await(10, TimeUnit.MILLISECONDS)) token.check();
-                    } else if (!repaired.get()) return new Result(1, "HTTP Error 403");
+                    } else if (!repaired.get()) return new Result(1, "HTTP Error 503");
                 }
                 return super.run(args, dir, token, timeout, max, line);
             }

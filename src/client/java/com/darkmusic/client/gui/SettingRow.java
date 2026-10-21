@@ -32,6 +32,12 @@ public final class SettingRow extends AbstractWidget {
     private final BooleanSupplier checked;
     private final UiIcon icon;
     private String cachedMessage = "", optionLabel = "", optionValue = "";
+    private String description = "";
+
+    public SettingRow description(String text) {
+        description = text;
+        return this;
+    }
 
     public SettingRow(int x, int y, int width, String label, BooleanSupplier checked, Runnable action) {
         super(x, y, width, 20, Component.literal(label));
@@ -48,7 +54,7 @@ public final class SettingRow extends AbstractWidget {
     @Override
     public boolean keyPressed(KeyEvent event) {
         if (isFocused() && (event.key() == 262 || event.key() == 263))
-            return horizontal.pan("label", event.key() == 262 ? 24 : -24) | horizontal.pan("value", event.key() == 262 ? 24 : -24);
+            return horizontal.pan("label", event.key() == 262 ? 24 : -24) | horizontal.pan("value", event.key() == 262 ? 24 : -24) | horizontal.pan("description", event.key() == 262 ? 24 : -24);
         if (isFocused() && active && (event.key() == 32 || event.isConfirmation())) {
             action.run();
             return true;
@@ -73,7 +79,20 @@ public final class SettingRow extends AbstractWidget {
             optionValue = choice ? message.substring(separator + 1).strip() : "";
         }
         int left = getX() + (icon == null ? 7 : 24);
-        if (!optionValue.isEmpty()) {
+        if (!description.isEmpty()) {
+            int measured = optionValue.isEmpty() ? font.width(message) : font.width(optionLabel) + 4 + font.width(optionValue);
+            int labelWidth = Math.min(measured, Math.max(1, width / 2 - 18));
+            if (optionValue.isEmpty())
+                horizontal.draw(g, font, "label", message, left, getY() + 6, labelWidth, active ? UiTheme.ACCENT : UiTheme.MUTED);
+            else {
+                int prefixWidth = Math.min(font.width(optionLabel), Math.max(1, labelWidth - 16));
+                horizontal.draw(g, font, "label", optionLabel, left, getY() + 6, prefixWidth, active ? UiTheme.TEXT : UiTheme.MUTED);
+                int valueX = left + prefixWidth + 4;
+                horizontal.draw(g, font, "value", optionValue, valueX, getY() + 6, Math.max(1, labelWidth - prefixWidth - 4), active ? UiTheme.ACCENT : UiTheme.MUTED);
+            }
+            int detailX = left + labelWidth + 12;
+            horizontal.draw(g, font, "description", description, detailX, getY() + 6, Math.max(1, getRight() - 27 - detailX), active ? UiTheme.SECONDARY : UiTheme.MUTED);
+        } else if (!optionValue.isEmpty()) {
             int valueWidth = Math.min(font.width(optionValue), Math.max(1, width / 2 - 10));
             int valueX = getRight() - 8 - valueWidth;
             horizontal.draw(g, font, "label", optionLabel, left, getY() + 6, Math.max(1, valueX - left - 12), active ? UiTheme.TEXT : UiTheme.MUTED);
@@ -96,7 +115,7 @@ public final class SettingRow extends AbstractWidget {
 
     @Override
     protected net.minecraft.network.chat.MutableComponent createNarrationMessage() {
-        return wrapDefaultNarrationMessage(checked == null ? getMessage() : Text.component(checked.getAsBoolean() ? "format.darkmusic.setting_on" : "format.darkmusic.setting_off", getMessage()));
+        return wrapDefaultNarrationMessage(checked == null ? description.isEmpty() ? getMessage() : getMessage().copy().append(". " + description) : Text.component(checked.getAsBoolean() ? "format.darkmusic.setting_on" : "format.darkmusic.setting_off", getMessage()));
     }
 
     @Override

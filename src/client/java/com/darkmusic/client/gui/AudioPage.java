@@ -29,6 +29,10 @@ abstract class AudioPage extends LocalScreen {
 
     protected abstract void populate();
 
+    protected int sectionColor() {
+        return UiTheme.ACCENT;
+    }
+
     protected void changed() {
         app.save();
         rebuildWidgets();
@@ -61,10 +65,15 @@ abstract class AudioPage extends LocalScreen {
         place(new SettingRow(formX, 0, formWidth, Text.get(key), null, run));
     }
 
-    protected final void labeledAction(String label, String help, Runnable run) {
+    protected final SettingRow labeledAction(String label, String help, Runnable run) {
         var row = new SettingRow(formX, 0, formWidth, label, null, run);
         place(row);
         Help.tip(row, help);
+        return row;
+    }
+
+    protected final void revealRow(int index) {
+        scroll = Math.max(0, positions.get(index) - Math.max(0, height - 72) / 2);
     }
 
     protected final int rowCount() {
@@ -191,7 +200,7 @@ abstract class AudioPage extends LocalScreen {
             var h = headings.get(i);
             int end = i + 1 < headings.size() ? headings.get(i + 1).y : cursor;
             UiTheme.panel(g, formX - 2, contentY(h.y), formWidth + 4, end - h.y - 4);
-            g.text(font, Text.get(h.key), formX + 4, contentY(h.y) + 4, UiTheme.ACCENT);
+            g.text(font, Text.get(h.key), formX + 4, contentY(h.y) + 4, sectionColor());
         }
         for (var d : details)
             if (contentY(d.y) > 20 && contentY(d.y) < height)

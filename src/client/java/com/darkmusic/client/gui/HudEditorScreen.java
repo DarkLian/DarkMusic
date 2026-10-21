@@ -91,8 +91,13 @@ public class HudEditorScreen extends LocalScreen {
     public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
         if (!dragging) return super.mouseDragged(event, dx, dy);
         var b = bounds();
-        double x = HudLayout.normalized(event.x() - dragX, width, b.width());
-        double y = HudLayout.normalized(event.y() - dragY, height, b.height());
+        double left = event.x() - dragX;
+        double top = event.y() - dragY;
+        boolean snap = !HorizontalText.shiftDown();
+        double x = snap && Math.abs(left + b.width() / 2.0 - width / 2.0) <= 4
+            ? .5 : HudLayout.normalized(left, width, b.width());
+        double y = snap && Math.abs(top + b.height() / 2.0 - height / 2.0) <= 4
+            ? .5 : HudLayout.normalized(top, height, b.height());
         app.settings.hudX = x;
         app.settings.hudY = y;
         return true;
@@ -110,9 +115,13 @@ public class HudEditorScreen extends LocalScreen {
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
         longText.begin();
         g.fill(0, 0, width, height, 0xCC111420);
-        UiTheme.panel(g, reset.getX() - 4, reset.getY() - 2, 140, 24);
-        NowPlayingHud.render(app, g, longText);
         var b = bounds();
+        boolean centeredX = Math.abs(b.x() + b.width() / 2.0 - width / 2.0) <= .5;
+        boolean centeredY = Math.abs(b.y() + b.height() / 2.0 - height / 2.0) <= .5;
+        int subdued = (UiTheme.ACCENT & 0x00FFFFFF) | 0x35000000;
+        g.fill(width / 2, 0, width / 2 + 1, height, centeredX ? UiTheme.ACCENT : subdued);
+        g.fill(0, height / 2, width, height / 2 + 1, centeredY ? UiTheme.ACCENT : subdued);
+        NowPlayingHud.render(app, g, longText);
         g.outline(b.x(), b.y(), b.width(), b.height(), UiTheme.ACCENT);
         if (System.nanoTime() - scaleChanged < 2_000_000_000L)
             g.centeredText(font, Text.get("hud.darkmusic.scale", Math.round(app.settings.hudScale * 100)), width / 2, 36, UiTheme.ACCENT);

@@ -228,6 +228,27 @@ public final class JavaSoundBackend implements AudioBackend {
         return !closed && request.generation == generation.get();
     }
 
+    static long discardFrames(AudioInputStream input, long frames, byte[] buffer, java.util.function.BooleanSupplier current) throws java.io.IOException, InterruptedException {
+        int frame = input.getFormat().getFrameSize();
+        if (frame <= 0 || frame > buffer.length) throw new java.io.IOException("Invalid PCM frame size");
+        long skipped = 0;
+        int emptyReads = 0;
+        while (skipped < frames && current.getAsBoolean()) {
+            int wanted = (int) Math.min(buffer.length / frame, frames - skipped) * frame;
+            int read = input.read(buffer, 0, wanted);
+            if (read < 0) break;
+            if (read == 0) {
+                if (++emptyReads >= 8)
+                    throw new java.io.IOException(com.darkmusic.client.text.Text.get("audio.error.decoder_stalled"));
+                Thread.sleep(2);
+                continue;
+            }
+            emptyReads = 0;
+            skipped += read / frame;
+        }
+        return skipped;
+    }
+
     private void run() {
         byte[] buffer = new byte[4096];
         float[] pcm = new float[2048];
@@ -246,15 +267,9 @@ public final class JavaSoundBackend implements AudioBackend {
                         try {
                             stream = decoder.open(request.track.file());
                             AudioFormat format = stream.getFormat();
-                            int frame = format.getFrameSize();
                             long framesToSkip = (long) (request.position * format.getFrameRate());
-                            long skipped = 0;
-                            while (skipped < framesToSkip && current(request)) {
-                                int wanted = (int) Math.min(buffer.length / frame, framesToSkip - skipped) * frame;
-                                int read = stream.read(buffer, 0, wanted);
-                                if (read < 0) break;
-                                skipped += read / frame;
-                            }
+                            Request seeking = request;
+                            long skipped = discardFrames(stream, framesToSkip, buffer, () -> current(seeking));
                             if (!current(request)) {
                                 release();
                                 continue;

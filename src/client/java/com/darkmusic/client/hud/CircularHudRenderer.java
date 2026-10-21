@@ -18,7 +18,7 @@ import java.util.function.ToIntFunction;
  * A single HUD: original icon, clockwise progress, outward audio bands, and two text lines.
  */
 public final class CircularHudRenderer {
-    private static final Identifier ICON = Identifier.fromNamespaceAndPath("darkmusic", "icon.png");
+    private static final Identifier ICON = Identifier.fromNamespaceAndPath("darkmusic", "textures/gui/hud-icon.png");
     private final SpectrumRenderer spectrum = new SpectrumRenderer();
     private final float[] levels = new float[64];
     private final float[] peaks = new float[64];

@@ -87,7 +87,8 @@ class PackagedJarTest {
                     }
                 }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
                 for (String forbidden : List.of("net/minecraft/network/protocol/", "net/minecraft/network/Connection", "net/fabricmc/fabric/api/client/networking/", "java/net/Socket", "java/net/http/", "net/minecraft/server/", "net/minecraft/client/multiplayer/MultiPlayerGameMode"))
-                    assertFalse(constants.contains(forbidden) && !(entry.getName().startsWith("com/darkmusic/client/download/ManagedTools") && java.util.Set.of("java/net/URL", "java/net/http/").contains(forbidden)), entry.getName() + " references " + forbidden);
+                    assertFalse(constants.contains(forbidden) && !(entry.getName().startsWith("com/darkmusic/client/download/ManagedTools") && java.util.Set.of("java/net/URL", "java/net/http/").contains(forbidden))
+                        && !(entry.getName().startsWith("com/darkmusic/client/update/UpdateService") && forbidden.equals("java/net/http/")), entry.getName() + " references " + forbidden);
             }
             var depends = metadata.getAsJsonObject("depends");
             assertFalse(depends.has("fabric-networking-api-v1"));

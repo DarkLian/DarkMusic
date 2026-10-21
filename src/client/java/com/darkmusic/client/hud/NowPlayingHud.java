@@ -73,13 +73,19 @@ public final class NowPlayingHud {
         try {
             g.pose().translate((float) x, (float) y);
             g.pose().scale((float) scale);
+            if (app.settings.hudStyle == com.darkmusic.client.config.Settings.HudStyle.SPECTRUM) {
+                if (layout.spectrum())
+                    (settingsPreview ? PREVIEW : LIVE).bars(app, g, 0, 0, w, layout.spectrumHeight(),
+                        app.settings.spectrumDirection == com.darkmusic.client.config.Settings.SpectrumDirection.DOWNWARD, settingsPreview);
+                return;
+            }
             if (app.settings.hudStyle == com.darkmusic.client.config.Settings.HudStyle.ARTWORK) {
                 HudSurface.draw(g, app.settings, w, h);
                 var artworkLayout = ArtworkHudLayout.of(app.settings, art == null ? 1 : art.contentWidth() - 2 * art.menuInset(), art == null ? 1 : art.contentHeight());
                 if (art != null) com.darkmusic.client.library.ArtworkCache.drawMenu(g, art,
                     artworkLayout.artworkX(), artworkLayout.artworkY(), artworkLayout.artworkWidth(), artworkLayout.artworkHeight());
                 else g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED,
-                    Identifier.fromNamespaceAndPath("darkmusic", "icon.png"), artworkLayout.artworkX(), artworkLayout.artworkY(), 0, 0,
+                    Identifier.fromNamespaceAndPath("darkmusic", "textures/gui/hud-icon.png"), artworkLayout.artworkX(), artworkLayout.artworkY(), 0, 0,
                     artworkLayout.artworkWidth(), artworkLayout.artworkHeight(), 512, 512, 512, 512);
                 if (app.settings.hudProgress) {
                     double progress = CircularHudLayout.progress(state.position(), state.duration(), preview);

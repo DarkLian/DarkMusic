@@ -38,8 +38,8 @@ public final class SoundEnvironmentScreen extends AudioPage {
             e.enabled = v;
         });
         labeledAction(Text.get("environment.preset") + ": " + Text.get("dsp.value." + e.preset.name().toLowerCase(java.util.Locale.ROOT)),
-            Text.get("environment.preset.help"), () -> show(new EnvironmentPickerScreen(app, this)));
-        info(() -> Text.get("environment.description." + e.preset.name().toLowerCase(java.util.Locale.ROOT)));
+            Text.get("environment.preset.help"), () -> show(new EnvironmentPickerScreen(app, this)))
+            .description(Text.get("environment.description." + e.preset.name().toLowerCase(java.util.Locale.ROOT)));
         if (e.custom) info("environment.custom_recipe");
         slider("environment.intensity", e.intensity * 100, 0, 100, 100, v -> e.intensity = v / 100, "%");
         info(() -> Text.get(e.ownsReverb() ? "environment.owns_reverb" : "environment.allows_reverb"));

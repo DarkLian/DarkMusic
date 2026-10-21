@@ -87,6 +87,13 @@ public final class MusicScreen extends LocalScreen {
     private Pane pane = Pane.LIBRARY;
     private PlayerLayout layout;
     private int songScroll, collectionScroll;
+    private boolean revealOnEntry = true;
+
+    @Override
+    public void removed() {
+        revealOnEntry = true;
+        super.removed();
+    }
 
     private Button icon(String key, UiIcon icon, int x, int y, int w, boolean only, Runnable action) {
         var button = UiButton.icon(button(Text.get(key), x, y, w, action), icon, only);
@@ -275,7 +282,7 @@ public final class MusicScreen extends LocalScreen {
             Help.withKeys(Text.get("text.darkmusic.darkmusic_volume_independent_of_minecraft_sound_sliders"), app.volumeDown, app.volumeUp)));
         volume.plain(true);
         x += sliderWidth + 4;
-        mute = UiButton.shortcuts(icon("key.darkmusic.mute", UiIcon.VOLUME, x, transportY, buttonWidth, true, app::toggleMute), app.mute);
+        mute = UiButton.shortcuts(icon("key.darkmusic.mute", app.settings.volume == 0 ? UiIcon.MUTED : UiIcon.VOLUME, x, transportY, buttonWidth, true, app::toggleMute), app.mute);
         UiButton.selected(mute, () -> app.settings.volume == 0);
         progress = addRenderableWidget(new ValueSlider(layout.dock().x() + 4, layout.seekY(), layout.dock().width() - 8, 0,
             v -> time(progress != null && progress.editing() ? v * app.playback.state().duration() : app.playback.state().position()) + " / " + time(app.playback.state().duration()),
@@ -297,6 +304,10 @@ public final class MusicScreen extends LocalScreen {
         refresh();
         songs.scrollOffset(songScroll);
         navigation.scrollOffset(collectionScroll);
+        if (revealOnEntry) {
+            revealOnEntry = false;
+            if (app.playback.state().track() != null) jumpToPlaying();
+        }
     }
 
     private void refresh() {
@@ -477,6 +488,7 @@ public final class MusicScreen extends LocalScreen {
             songs.inspectVisibleLyrics();
         }
         volume.sync(app.settings.volume);
+        UiButton.icon(mute, app.settings.volume == 0 ? UiIcon.MUTED : UiIcon.VOLUME, true);
         speed.sync((app.settings.speed - .5) / 2.5);
         play.active = !app.mediaBusy;
         progress.active = !app.mediaBusy && audio.track() != null && audio.duration() > 0 && audio.status() != AudioBackend.Status.STOPPED && audio.status() != AudioBackend.Status.ERROR;

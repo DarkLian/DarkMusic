@@ -26,7 +26,7 @@ import static com.darkmusic.client.download.DownloadModels.*;
 public final class DownloadPipeline {
     private final ProcessRunner runner;
     private final Path data;
-    private final Object historyLock = new Object();
+    private static final Object historyLock = new Object();
     private DownloadWorkspace workspace;
     private int workspaceUsers;
 
@@ -43,6 +43,38 @@ public final class DownloadPipeline {
             return JsonParser.parseReader(reader).getAsJsonObject();
         } catch (RuntimeException e) {
             throw new IOException(com.darkmusic.client.text.Text.get("download.history_read"), e);
+        }
+    }
+
+    @FunctionalInterface
+    public interface RenameOperation {
+        void run() throws IOException;
+    }
+
+    /**
+     * Keep duplicate detection and the file rename in one serialized transaction.
+     */
+    public static void renameRecorded(Path source, Path target, RenameOperation rename) throws IOException {
+        synchronized (historyLock) {
+            Path history = source.getParent().resolve(".darkmusic-downloads.json");
+            JsonObject original = readArchive(history), updated = original.deepCopy();
+            boolean changed = false;
+            for (var entry : original.entrySet())
+                if (entry.getValue().isJsonPrimitive() && entry.getValue().getAsString().equals(source.getFileName().toString())) {
+                    updated.addProperty(entry.getKey(), target.getFileName().toString());
+                    changed = true;
+                }
+            if (changed) ConfigStore.atomicWrite(history, ConfigStore.JSON.toJson(updated));
+            try {
+                rename.run();
+            } catch (IOException failure) {
+                if (changed) try {
+                    ConfigStore.atomicWrite(history, ConfigStore.JSON.toJson(original));
+                } catch (IOException rollback) {
+                    failure.addSuppressed(rollback);
+                }
+                throw failure;
+            }
         }
     }
 
@@ -158,7 +190,7 @@ public final class DownloadPipeline {
                 if (s.startsWith("DM_PROGRESS:")) progress.accept(Status.DOWNLOADING, s.substring(12).strip());
                 else if (!s.isBlank()) org.slf4j.LoggerFactory.getLogger("darkmusic-download").debug("yt-dlp: {}", s);
             });
-            if (result.exit() != 0) throw new IOException(friendly(result.output()));
+            if (result.exit() != 0) throw new IOException(friendly(result.output()), new IOException(result.output()));
             Path source;
             try (var files = Files.list(work)) {
                 source = files.filter(Files::isRegularFile).filter(p -> p.getFileName().toString().startsWith("source.")).filter(p -> !p.toString().matches("(?i).*\\.(json|jpg|jpeg|png|webp|avif|gif|part|ytdl)$")).findFirst().orElseThrow(() -> new IOException(com.darkmusic.client.text.Text.get("download.media_missing")));

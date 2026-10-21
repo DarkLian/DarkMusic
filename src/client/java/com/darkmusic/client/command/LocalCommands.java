@@ -21,10 +21,15 @@ public final class LocalCommands {
 
     public static void register(DarkMusicClient app) {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, context) -> register(dispatcher,
-            () -> app.requestScreen(false), () -> app.requestScreen(true)));
+            () -> app.requestScreen(false), () -> app.requestScreen(true), () -> app.updates.download()));
     }
 
     public static void register(CommandDispatcher<FabricClientCommandSource> dispatcher, Runnable player, Runnable layout) {
+        register(dispatcher, player, layout, () -> {
+        });
+    }
+
+    public static void register(CommandDispatcher<FabricClientCommandSource> dispatcher, Runnable player, Runnable layout, Runnable update) {
         for (String name : new String[]{"da", "darkmusic"})
             dispatcher.register(ClientCommands.literal(name).requires(FabricClientCommandSource::attended)
                 .executes(context -> {
@@ -37,6 +42,10 @@ public final class LocalCommands {
                 }))
                 .then(ClientCommands.literal("help").executes(context -> {
                     help(context.getSource());
+                    return 1;
+                }))
+                .then(ClientCommands.literal("update").executes(context -> {
+                    update.run();
                     return 1;
                 })));
     }

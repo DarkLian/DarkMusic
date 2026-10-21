@@ -1,6 +1,7 @@
 package com.darkmusic.client.library;
 
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.text.Text;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -31,7 +32,7 @@ public final class MusicLibrary implements AutoCloseable {
     private volatile WatchService watcher;
     private volatile Set<Path> watchedDirectories = Set.of();
     private boolean cacheDirty;
-    private volatile Snapshot snapshot = new Snapshot(0, List.of(), false, "Waiting for library");
+    private volatile Snapshot snapshot = new Snapshot(0, List.of(), false, Text.get("library.status.waiting"));
 
     public MusicLibrary(Path data) {
         cacheFile = data.resolve("library-cache.json");
@@ -78,7 +79,7 @@ public final class MusicLibrary implements AutoCloseable {
         root = directory.toAbsolutePath().normalize();
         rootId = id;
         generation.incrementAndGet();
-        snapshot = new Snapshot(revisions.incrementAndGet(), List.of(), true, "Scanning library...");
+        snapshot = new Snapshot(revisions.incrementAndGet(), List.of(), true, Text.get("library.status.scanning"));
         rescan();
     }
 
@@ -125,10 +126,10 @@ public final class MusicLibrary implements AutoCloseable {
         String message = "";
         boolean complete = false;
         long[] partialAt = {System.nanoTime()};
-        publish(ticket, new Snapshot(revisions.incrementAndGet(), snapshot.tracks(), true, "Scanning library...", snapshot.folders()));
+        publish(ticket, new Snapshot(revisions.incrementAndGet(), snapshot.tracks(), true, Text.get("library.status.scanning"), snapshot.folders()));
         try {
             if (!Files.isDirectory(directory) || !Files.isReadable(directory))
-                throw new IOException("Music directory unavailable. Choose another folder in Settings.");
+                throw new IOException(Text.get("library.status.unavailable"));
             Files.walkFileTree(directory, new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
@@ -152,7 +153,7 @@ public final class MusicLibrary implements AutoCloseable {
                         tracks.add(t);
                         if (tracks.size() % 100 == 0 && System.nanoTime() - partialAt[0] >= 250_000_000L) {
                             partialAt[0] = System.nanoTime();
-                            publish(ticket, new Snapshot(revisions.incrementAndGet(), List.copyOf(tracks), true, "Scanning: " + tracks.size()));
+                            publish(ticket, new Snapshot(revisions.incrementAndGet(), List.copyOf(tracks), true, Text.get("library.status.scanned_count", tracks.size())));
                         }
                     }
                     return FileVisitResult.CONTINUE;
@@ -166,9 +167,9 @@ public final class MusicLibrary implements AutoCloseable {
             });
             tracks.sort(Comparator.comparing(Track::relativePath, String.CASE_INSENSITIVE_ORDER));
             complete = unreadable[0] == 0;
-            if (!complete) message = unreadable[0] + " unreadable library entries; inaccessible metadata retained";
+            if (!complete) message = Text.get("library.status.unreadable", unreadable[0]);
         } catch (Exception e) {
-            message = String.valueOf(e.getMessage());
+            message = Text.failure(e, "library.status.scan_failed");
         }
         if (closed || ticket != generation.get()) return;
         if (complete || !tracks.isEmpty()) {
@@ -183,7 +184,7 @@ public final class MusicLibrary implements AutoCloseable {
                     cacheDirty = false;
                 } catch (IOException e) {
                     cacheDirty = true;
-                    message = "Metadata cache could not be saved: " + e.getMessage();
+                    message = Text.failure(e, "library.status.cache_failed");
                 }
             }
         }
@@ -227,7 +228,7 @@ public final class MusicLibrary implements AutoCloseable {
                     String name = path.getFileName().toString();
                     if (path.startsWith(cacheFile.toAbsolutePath().getParent().resolve("downloads/work")) || name.startsWith(".darkmusic-") && (name.endsWith(".tmp") || name.equals(".darkmusic-downloads.json")))
                         continue;
-                    changed |= supported(path) || Files.isDirectory(path) || watchedDirectories.contains(path);
+                    changed |= event.kind() == StandardWatchEventKinds.ENTRY_DELETE || supported(path) || Files.isDirectory(path) || watchedDirectories.contains(path);
                 }
                 if (!key.reset()) {
                     watchedDirectories = Set.of();

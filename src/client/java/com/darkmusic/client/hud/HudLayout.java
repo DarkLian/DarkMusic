@@ -16,6 +16,9 @@ public final class HudLayout {
     }
 
     public static Content content(Settings settings, int maximumWidth, int imageWidth, int imageHeight) {
+        if (settings.hudStyle == Settings.HudStyle.SPECTRUM)
+            return new Content(Math.max(1, Math.min(220, maximumWidth)), settings.classicSpectrumHeight,
+                0, 0, 0, settings.hudVisualizer, settings.classicSpectrumHeight);
         if (settings.hudStyle == Settings.HudStyle.ARTWORK) {
             var art = ArtworkHudLayout.of(settings, imageWidth, imageHeight);
             return new Content(art.width(), art.height(), art.artworkY(), art.artworkHeight(), art.spectrumY(), settings.hudVisualizer, settings.artworkSpectrumHeight);
@@ -33,7 +36,7 @@ public final class HudLayout {
     }
 
     public static int lyricsHeight(Settings settings) {
-        if (settings.hudStyle == Settings.HudStyle.ARTWORK) return 0;
+        if (settings.hudStyle == Settings.HudStyle.ARTWORK || settings.hudStyle == Settings.HudStyle.SPECTRUM) return 0;
         return settings.lyricsEnabled && settings.lyricsHud ? settings.lyricsNextLine ? 28 : 16 : 0;
     }
 

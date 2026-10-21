@@ -63,13 +63,13 @@ public final class PlaylistStore {
                 }
                 if (skipped > 0) {
                     preserveInvalid = true;
-                    warning.accept("Recovered playlists; skipped " + skipped + " invalid or duplicate records. Original preserved before saving.");
+                    warning.accept(com.darkmusic.client.text.Text.get("playlist.status.recovered", skipped));
                 }
                 return List.copyOf(result);
             }
         } catch (Exception e) {
             preserveInvalid = true;
-            warning.accept("Playlists could not be loaded; original preserved: " + e.getMessage());
+            warning.accept(com.darkmusic.client.text.Text.failure(e, "playlist.status.load_failed"));
         }
         return List.of();
     }
@@ -286,7 +286,7 @@ public final class PlaylistStore {
                 }
                 ConfigStore.atomicWrite(file, json);
             } catch (Exception e) {
-                warning.accept("Could not save playlists: " + e.getMessage());
+                warning.accept(com.darkmusic.client.text.Text.failure(e, "playlist.status.save_failed"));
             }
         }
     }

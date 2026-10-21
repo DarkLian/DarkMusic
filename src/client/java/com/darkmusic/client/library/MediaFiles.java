@@ -124,6 +124,7 @@ public final class MediaFiles {
         Path work = Files.createTempDirectory(source.getParent(), ".darkmusic-work-");
         Path staged = work.resolve("edited" + extension);
         boolean lyricMoved = false;
+        boolean preserveWork = false;
         try {
             boolean tagsChanged = !original.title().equals(requested.title()) || !original.artist().equals(requested.artist()) || !original.album().equals(requested.album());
             copy(source, staged, token);
@@ -159,9 +160,14 @@ public final class MediaFiles {
                 lyricMoved = true;
             }
             try {
-                if (source.equals(target))
-                    Files.move(staged, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-                else {
+                if (source.equals(target)) {
+                    try {
+                        AudioReplacement.replace(staged, target, work.resolve("original" + extension));
+                    } catch (AudioReplacement.RecoveryRequired failure) {
+                        preserveWork = true;
+                        throw failure;
+                    }
+                } else com.darkmusic.client.download.DownloadPipeline.renameRecorded(source, target, () -> {
                     Files.move(staged, target); // A concurrent collision must fail, never overwrite.
                     try {
                         Files.delete(source);
@@ -169,7 +175,7 @@ public final class MediaFiles {
                         Files.delete(target);
                         throw failure;
                     }
-                }
+                });
             } catch (Exception failure) {
                 if (lyricMoved) Files.move(nextLyric, lyric);
                 throw failure;
@@ -180,14 +186,17 @@ public final class MediaFiles {
             relative = (slash < 0 ? "" : relative.substring(0, slash + 1)) + target.getFileName();
             return metadata.read(track.rootId(), relative, target, Files.size(target), Files.getLastModifiedTime(target).toMillis());
         } finally {
-            try {
-                try (var paths = Files.list(work)) {
-                    for (Path file : paths.toList()) Files.deleteIfExists(file);
+            if (preserveWork) {
+                org.slf4j.LoggerFactory.getLogger(MediaFiles.class).error("Original audio retained for recovery in {}", work);
+            } else
+                try {
+                    try (var paths = Files.list(work)) {
+                        for (Path file : paths.toList()) Files.deleteIfExists(file);
+                    }
+                    Files.deleteIfExists(work);
+                } catch (IOException cleanup) {
+                    org.slf4j.LoggerFactory.getLogger(MediaFiles.class).warn("Could not remove metadata staging directory {}", work, cleanup);
                 }
-                Files.deleteIfExists(work);
-            } catch (IOException cleanup) {
-                org.slf4j.LoggerFactory.getLogger(MediaFiles.class).warn("Could not remove metadata staging directory {}", work, cleanup);
-            }
         }
     }
 

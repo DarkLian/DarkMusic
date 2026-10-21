@@ -38,6 +38,7 @@ public class DarkMusicClient implements ClientModInitializer {
     public com.darkmusic.client.playlist.PlaylistStore playlists;
     public com.darkmusic.client.download.DownloadService downloads;
     public com.darkmusic.client.download.AuditionPlayer audition;
+    public com.darkmusic.client.update.UpdateService updates;
     public final com.darkmusic.client.lyrics.LyricsService lyrics = new com.darkmusic.client.lyrics.LyricsService();
     public boolean playlistsReady;
     public boolean mediaBusy;
@@ -276,6 +277,7 @@ public class DarkMusicClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         INSTANCE = this;
+        updates = new com.darkmusic.client.update.UpdateService(this);
         com.darkmusic.client.command.LocalCommands.register(this);
         com.darkmusic.client.hud.NowPlayingHud.register(this);
         com.darkmusic.client.hud.VolumeFeedback.register(this);
@@ -304,6 +306,7 @@ public class DarkMusicClient implements ClientModInitializer {
                 Screens.getWidgets(screen).add(Button.builder(com.darkmusic.client.text.Text.component("text.darkmusic.music"), b -> open()).bounds(6, 6, 64, 20).build());
         });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            updates.tick(client);
             boolean allowed = !resetting && settings != null && client.gui.screen() == null && client.gui.overlay() == null && client.player != null && client.player.isAlive();
             boolean pressed = false;
             while (open.consumeClick()) pressed = true;
@@ -312,6 +315,7 @@ public class DarkMusicClient implements ClientModInitializer {
             openRequestedScreen(client);
         });
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
+            updates.close();
             save();
             closed = true;
             shutdown();

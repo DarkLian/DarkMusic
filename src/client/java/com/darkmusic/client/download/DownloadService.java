@@ -481,6 +481,9 @@ public final class DownloadService implements AutoCloseable {
                 update(item, Status.CANCELLED, -1, Text.get("download.darkmusic.cancelled"));
             } catch (Exception e) {
                 LOG.warn("Download failed for entry {}", item.entry.mediaId(), e);
+                synchronized (this) {
+                    item.retryAllowed &= RetryPolicy.automatic(e);
+                }
                 update(item, Status.FAILED, -1, DownloadJson.friendly(String.valueOf(e.getMessage())));
             }
         }

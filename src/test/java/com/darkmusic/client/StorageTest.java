@@ -189,4 +189,17 @@ class StorageTest {
             assertEquals("other-root", library.snapshot().tracks().getFirst().rootId());
         }
     }
+
+    @Test
+    void deletingSignatureDetectedExtensionlessAudioTriggersWatcherRescan() throws Exception {
+        Path root = Files.createDirectories(temp.resolve("extensionless"));
+        Path file = Files.copy(TestMusic.featured(), root.resolve("song_without_extension"));
+        try (var library = new MusicLibrary(temp.resolve("extensionless-data"))) {
+            library.setRoot(root, "signature-root");
+            await(() -> !library.snapshot().scanning() && library.snapshot().tracks().size() == 1);
+            long revision = library.snapshot().revision();
+            Files.delete(file);
+            await(() -> library.snapshot().revision() > revision && !library.snapshot().scanning() && library.snapshot().tracks().isEmpty());
+        }
+    }
 }
