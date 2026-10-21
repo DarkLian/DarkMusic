@@ -39,7 +39,7 @@ Update notifications are enabled by default and appear once per launch after joi
 
 Create playlists, bulk-select songs, and drag connected selections to reorder them. Keep favorites one heart-click away.
 
-![Playlist manager with selection and ordering controls](docs/images/playlists.png)
+![Playlist manager with bulk selection and drag reordering](docs/images/playlists.png)
 
 ## Your HUD in-game
 
@@ -51,9 +51,7 @@ A customized Classic HUD, placed on the middle-left. Move and resize it in Edit 
 
 Preview HUD layouts, choose a spectrum style, and pick a gradient or your own colors.
 
-![Spectrum settings and Artwork HUD preview](docs/images/spectrum.png)
-
-![Spectrum color presets and live preview](docs/images/colors.png)
+![HUD and spectrum settings with circular live preview](docs/images/settings.png)
 
 ## Shape your sound
 
@@ -67,7 +65,11 @@ Open the Audio Analyzer from Audio Options to inspect live playback and compare 
 
 See the [User Guide](docs/USER_GUIDE.md) for controls, setup, and limitations.
 
-## Download tools
+## Download music
+
+Paste a video or collection URL, analyze it, and choose entries or a range to download. Preview songs before adding them to the queue.
+
+![Downloads with collection preview and page navigation](docs/images/downloads.png)
 
 In **Downloads → Tools**, choose **Install / Update Tools** for managed setup. DarkMusic uses yt-dlp, FFmpeg/FFprobe, and Deno. Existing installations can be selected under **Advanced Paths**.
 

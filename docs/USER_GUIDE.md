@@ -95,6 +95,8 @@ The details actions are Heart, Pencil, Lyrics (when enabled), Open Source, and C
 
 Open **Downloads** from the player. Wide windows use a source bar, a left navigation/selection panel, and a right preview or queue panel. Compact windows retain accessible stacked controls.
 
+![Downloads with collection preview and page navigation](images/downloads.png)
+
 ### Set up tools
 
 Open **Tools → Install / Update Tools**. Managed setup downloads compatible yt-dlp, FFmpeg/FFprobe, and Deno executables. Updates are requested from this menu. Allow up to 1 GB of temporary space.
@@ -136,7 +138,7 @@ A completed download is announced in client-side chat. Close Minecraft and wait 
 
 ## Customize the HUD
 
-![Settings and live preview](images/settings.png)
+![HUD and spectrum settings with circular live preview](images/settings.png)
 
 Settings contains General, Audio, HUD, Spectrum, and Reset sections. Most changes save immediately. The preview shows current playback data, or sample visualization when no song is playing.
 
@@ -147,21 +149,15 @@ Settings contains General, Audio, HUD, Spectrum, and Reset sections. Most change
 - **Spectrum Only:** the audio-reactive spectrum without artwork, track text, progress, or a background. It uses the same spectrum colors, effects, direction, height, and layout editor.
 - **Artwork:** larger, aspect-preserving artwork and spectrum. An optional progress bar touches the bottom of the image. Position the spectrum above, below, left, or right; side spectra grow horizontally away from the image. Audio-Reactive Artwork optionally pulses the image with the music without stretching it. The whole layout moves and scales as one HUD.
 
-![Circular HUD preview](images/circular-hud.png)
-
 Choose a spectrum style, bar count, sensitivity, smoothing, and height in every layout. Above/below spectra support upward or downward growth. HUD contains background transparency, progress appearance, and other layout options. Spectrum contains its style, direction, finish, effects, colors, and sliders. Classic and Artwork share solid/gradient background controls; background transparency does not fade the artwork or other foreground content. Frequency smoothing, peak hold, trails, and glow have individual switches in Spectrum.
 
 Color editors offer **Color Spectrum** or **RGB** mode, one at a time. In Color Spectrum, choose a hue on the rainbow strip and saturation/brightness in the field above it. Palette colors, **#RRGGBB** input, and **Default** remain available. General settings also has menu background/accent colors. Gradient presets are paged so all choices remain reachable.
-
-![Spectrum color presets and custom gradient](images/colors.png)
 
 New installations and Reset to Defaults use 100% HUD background transparency, all four spectrum effects enabled, Beveled spectrum/progress finishes, and Ocean Drive colors. Lyrics start disabled. Existing saved choices are retained when upgrading.
 
 For Circular HUD, **Audio-Reactive Icon** selects **Off**, **Audio Level**, or **Beat**. Audio Level follows the music's energy; Beat pulses on detected onsets. Settings sliders use a vertical handle without a filled horizontal track.
 
 ![Customized Classic HUD during gameplay](images/classic-hud.png)
-
-![Spectrum settings with an Artwork HUD preview](images/spectrum.png)
 
 The spectrum analyzes decoded music samples. Pause freezes it; seeking, stopping, and track changes reset its analysis state.
 
