@@ -34,6 +34,8 @@ public final class UpdateService implements AutoCloseable {
     private long checkedAt;
     private final java.util.ArrayList<java.util.function.Consumer<String>> checkListeners = new java.util.ArrayList<>();
     private volatile Path pending;
+    private Path installFailureLog;
+    private boolean recoveryReady, failureNotified;
 
     public UpdateService(DarkMusicClient app) {
         this.app = app;
@@ -42,13 +44,34 @@ public final class UpdateService implements AutoCloseable {
         var paths = mod.getOrigin().getPaths();
         installed = paths.size() == 1 && Files.isRegularFile(paths.getFirst()) ? paths.getFirst().toAbsolutePath().normalize() : null;
         directory = app.config.directory().resolve("updates");
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return UpdateRecovery.read(directory, installed);
+            } catch (Exception failure) {
+                LOG.warn("Cannot inspect previous update results", failure);
+                return new UpdateRecovery.Result(null, null);
+            }
+        }, worker).thenAccept(result -> Minecraft.getInstance().execute(() -> {
+            if (closed) return;
+            pending = result.pending();
+            installFailureLog = result.failureLog();
+            recoveryReady = true;
+            if (!checkListeners.isEmpty()) check();
+        }));
     }
 
     public void tick(Minecraft mc) {
-        if (closed || app.settings == null) return;
+        if (closed || app.settings == null || !recoveryReady) return;
         if (!app.settings.updateNotifications) return;
         if (mc.level == null || mc.player == null || mc.getConnection() == null) return;
         if (installed == null) return; // Development source sets are never replaced.
+        if (installFailureLog != null && !failureNotified) {
+            failureNotified = true;
+            var log = Text.component("update.open_log").withStyle(style -> style.withColor(ChatFormatting.AQUA).withUnderlined(true)
+                .withClickEvent(new ClickEvent.OpenFile(installFailureLog.toString())));
+            mc.gui.hud.getChat().addClientSystemMessage(Text.component("update.install_failed").withStyle(ChatFormatting.RED)
+                .append(Component.literal(" ")).append(log));
+        }
         if (!checking && (checkedAt == 0 || System.nanoTime() - checkedAt > TimeUnit.HOURS.toNanos(6))) check();
         if (release != null && !notified && pending == null) {
             notified = true;
@@ -68,7 +91,7 @@ public final class UpdateService implements AutoCloseable {
             return;
         }
         checkListeners.add(result);
-        if (!checking) check();
+        if (recoveryReady && !checking) check();
     }
 
     public String availableVersion() {
@@ -77,6 +100,23 @@ public final class UpdateService implements AutoCloseable {
 
     public boolean canInstall() {
         return installed != null;
+    }
+
+    public Path installFailureLog() {
+        return installFailureLog;
+    }
+
+    public void openInstallLog() {
+        Path log = installFailureLog;
+        if (log == null || closed) return;
+        CompletableFuture.runAsync(() -> {
+            try {
+                net.minecraft.util.Util.getPlatform().openPath(Files.isRegularFile(log) ? log : log.getParent());
+            } catch (Exception failure) {
+                LOG.warn("Cannot open update installation log", failure);
+                Minecraft.getInstance().execute(() -> app.warn(Text.get("update.log_failed")));
+            }
+        }, worker);
     }
 
     public String downloadStatus() {
@@ -89,16 +129,6 @@ public final class UpdateService implements AutoCloseable {
         boolean[] failed = {false};
         CompletableFuture.supplyAsync(() -> {
             try {
-                // Recover a previously approved download after an interrupted shutdown.
-                if (installed != null && Files.isDirectory(directory)) try (var jobs = Files.list(directory)) {
-                    for (var job : jobs.toList()) {
-                        Path manifest = job.resolve("install.properties");
-                        if (!Files.isRegularFile(manifest)) continue;
-                        Properties p = load(manifest);
-                        if (p.getProperty("result", "").isEmpty() && installed.toString().equals(p.getProperty("old")))
-                            pending = manifest;
-                    }
-                }
                 return GitHubRelease.parse(new String(fetch(URI.create(GitHubRelease.API), 2 * 1024 * 1024), java.nio.charset.StandardCharsets.UTF_8), current).orElse(null);
             } catch (Exception failure) {
                 LOG.warn("Update check failed", failure);
@@ -230,14 +260,6 @@ public final class UpdateService implements AutoCloseable {
                 delegate.onComplete();
             }
         };
-    }
-
-    private static Properties load(Path file) throws Exception {
-        var p = new Properties();
-        try (var input = Files.newInputStream(file)) {
-            p.load(input);
-        }
-        return p;
     }
 
     private void message(String key) {

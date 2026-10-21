@@ -509,7 +509,7 @@ public final class MusicScreen extends LocalScreen {
         if (!currentId.equals(followedId) || !app.playback.source().equals(followedSource)) {
             followedId = currentId;
             followedSource = app.playback.source();
-            if (audio.track() != null) jumpToPlaying();
+            if (audio.track() != null && canFollowPlayback(query, getFocused() instanceof EditBox)) jumpToPlaying();
         }
         favorite.active = selected != null && app.playlistsReady && !app.mediaBusy;
         edit.active = selected != null && !app.mediaBusy;
@@ -556,6 +556,14 @@ public final class MusicScreen extends LocalScreen {
             pane(Pane.LIBRARY);
             return true;
         }
+        var focused = getFocused();
+        if (focused instanceof EditBox) return super.keyPressed(event);
+        if (focused instanceof net.minecraft.client.gui.components.AbstractWidget widget && widget.visible && widget.active) {
+            boolean navigation = event.isLeft() || event.isRight() || event.key() == 264 || event.key() == 265
+                || event.key() >= 266 && event.key() <= 269;
+            boolean activation = event.isSelection() && (focused instanceof Button || focused instanceof ValueSlider);
+            if (navigation || activation) return super.keyPressed(event);
+        }
         if (!(getFocused() instanceof EditBox)
             && (event.modifiers() & (org.lwjgl.glfw.GLFW.GLFW_MOD_CONTROL | org.lwjgl.glfw.GLFW.GLFW_MOD_ALT | org.lwjgl.glfw.GLFW.GLFW_MOD_SUPER)) == 0) {
             if (event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE) {
@@ -580,6 +588,10 @@ public final class MusicScreen extends LocalScreen {
                 }
         }
         return super.keyPressed(event);
+    }
+
+    static boolean canFollowPlayback(String query, boolean editingText) {
+        return query.isEmpty() && !editingText;
     }
 
     @Override

@@ -1,4 +1,8 @@
 {
+"update.install_failed": "The previous update could not be installed. Your existing version is still active.",
+"update.open_log": "Open Installation Log",
+"update.log_failed": "Could not open the installation log. Check config/darkmusic/updates.",
+
 "key.darkmusic.stop": "Stop Music",
 "key.darkmusic.jump": "Jump to Playing",
 "hud.darkmusic.artwork_reactive": "Audio-Reactive Artwork",

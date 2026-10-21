@@ -18,14 +18,15 @@ public final class RetryPolicy {
                 failure instanceof java.net.UnknownHostException || failure instanceof java.util.concurrent.TimeoutException)
                 transientFailure = true;
             String text = String.valueOf(failure.getMessage()).toLowerCase(Locale.ROOT);
+            boolean temporaryHttp = text.matches("(?s).*\\bhttp(?: error| status| status code)?[ :]+(?:408|429|5[0-9]{2})\\b.*");
             if (text.contains("private video") || text.contains("video is private") || text.contains("deleted") ||
-                text.contains("not available") || text.contains("unavailable") || text.contains("sign in") ||
+                !temporaryHttp && (text.contains("not available") || text.contains("unavailable")) || text.contains("sign in") ||
                 text.contains("authentication") || text.contains("age-restricted") || text.contains("drm") ||
                 text.contains("unsupported url") || text.contains("no space") || text.contains("disk full") ||
                 text.contains("not enough space") || text.contains("permission denied") || text.contains("access denied") ||
                 text.matches("(?s).*\\bhttp(?: error| status| status code)?[ :]+(?:400|401|403|404|410)\\b.*"))
                 return false;
-            if (text.matches("(?s).*\\bhttp(?: error| status| status code)?[ :]+(?:408|429|5[0-9]{2})\\b.*") ||
+            if (temporaryHttp ||
                 text.contains("too many requests") || text.contains("timed out") || text.contains("timeout") ||
                 text.contains("connection reset") || text.contains("connection refused") || text.contains("network is unreachable") ||
                 text.contains("temporary failure in name resolution") || text.contains("remote end closed"))

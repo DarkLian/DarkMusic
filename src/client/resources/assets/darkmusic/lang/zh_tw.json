@@ -1,4 +1,8 @@
 {
+"update.install_failed": "上次更新安裝失敗，目前仍使用原版本。",
+"update.open_log": "開啟安裝記錄",
+"update.log_failed": "無法開啟安裝記錄。請查看 config/darkmusic/updates。",
+
 "key.darkmusic.stop": "停止音樂",
 "key.darkmusic.jump": "跳至播放中的歌曲",
 "hud.darkmusic.artwork_reactive": "音訊反應封面",

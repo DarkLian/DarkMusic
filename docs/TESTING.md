@@ -68,3 +68,9 @@ Test automatic update notices with notifications enabled and disabled, repeated 
 Use isolated installed-JAR fixtures for update installation tests. Verify consent cancellation, size/hash/compatibility checks, download-completion chat, pending-download recovery, waiting for game exit, collision protection, rollback, and byte-for-byte preservation of user settings/assets/music and other mods. Never replace the real development instance during tests. Development source sets must report that installation is unavailable.
 
 Check editor center guides at different window sizes, GUI scales, HUD scales, and HUD styles. Both axes snap independently near the center; Shift bypasses snapping. Centered bounds may differ by half a GUI pixel where integer dimensions have opposite parity. Guides belong only to the editor.
+
+## Player focus and update recovery
+
+Check Left/Right on focused sliders and horizontal song text, and Space on focused buttons before trying playback shortcuts with focus cleared. Keep search text, cursor, and focus intact across a natural end-of-track transition; playback must continue to the next song. Explicit Jump to Playing still clears search.
+
+Retry classification covers full HTTP error messages, including Service Unavailable, and nested permanent filesystem/authentication failures. Update recovery checks failed, pending, installed, malformed, and unrelated manifests without network access. Failed jobs must not be restaged. Verify localized failure information and the installation-log action in Check for Updates; automatic failure notices respect the notification toggle and appear once per launch.
