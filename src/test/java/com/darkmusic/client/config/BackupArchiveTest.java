@@ -148,4 +148,153 @@ class BackupArchiveTest {
             assertTrue(restarted.get("id").entries().isEmpty());
         }
     }
+
+    @Test
+    void largeRemappedImportsDeduplicateInOriginalOrder() {
+        var entries = new ArrayList<PlaylistStore.Entry>();
+        for (int i = 0; i < 50_000; i++) entries.add(new PlaylistStore.Entry("source", i + ".opus"));
+        for (int i = 0; i < 50_000; i++) entries.add(new PlaylistStore.Entry("local", i + ".opus"));
+        var input = new BackupArchive.Data(1, "source", data().settings(),
+            List.of(new PlaylistStore.Playlist("large", "Large", entries)), Map.of());
+        long started = System.nanoTime();
+        var restored = assertTimeout(java.time.Duration.ofSeconds(10), () -> BackupArchive.prepare(input,
+            new BackupArchive.Selection(false, true, false, false, true, true), new Settings(), "local", List.of(), List.of(), Map.of(), Set.of()));
+        System.out.println("BACKUP_100K_PREPARE_MS=" + (System.nanoTime() - started) / 1_000_000);
+        var result = restored.playlists().getFirst().entries();
+        assertEquals(50_000, result.size());
+        for (int i = 0; i < result.size(); i++)
+            assertEquals(new PlaylistStore.Entry("local", i + ".opus"), result.get(i));
+    }
+
+    @Test
+    void everyWriteFailureRestoresAllFilesIncludingNativeShortcuts() throws Exception {
+        for (int failAt = 1; failAt <= 5; failAt++) {
+            Path root = directory.resolve("case" + failAt + "/config/darkmusic");
+            Files.createDirectories(root);
+            Path options = root.getParent().getParent().resolve("options.txt");
+            var replacement = new LinkedHashMap<String, String>();
+            replacement.put("config.json", "new settings");
+            replacement.put("playlists.json", "new playlists");
+            replacement.put("playlist-retained.json", "new retained");
+            replacement.put("listening-history.json", "new history");
+            replacement.put("options.txt", "new shortcuts");
+            for (String name : replacement.keySet())
+                Files.writeString(name.equals("options.txt") ? options : root.resolve(name), "original " + name);
+            var count = new java.util.concurrent.atomic.AtomicInteger();
+            int selected = failAt;
+            assertThrows(java.io.IOException.class, () -> BackupArchive.install(root, replacement, (path, value) -> {
+                if (count.incrementAndGet() == selected) {
+                    if (selected % 2 == 0) throw new AccessDeniedException(path.toString());
+                    throw new FileSystemException(path.toString(), null, "No space left on device");
+                }
+                ConfigStore.atomicWrite(path, value);
+            }));
+            for (String name : replacement.keySet())
+                assertEquals("original " + name,
+                    Files.readString(name.equals("options.txt") ? options : root.resolve(name)));
+            assertFalse(BackupArchive.recoveryPending(root));
+        }
+    }
+
+    @Test
+    void interruptedRestoreRecoversBeforeConfigAndOtherStoresLoadAfterRestart() throws Exception {
+        Path root = directory.resolve("restart/config/darkmusic");
+        Files.createDirectories(root);
+        Path options = root.getParent().getParent().resolve("options.txt");
+        var original = new Settings();
+        original.volume = .37;
+        Files.writeString(root.resolve("config.json"), ConfigStore.JSON.toJson(original));
+        Files.writeString(root.resolve("playlists.json"), ConfigStore.JSON.toJson(List.of(new PlaylistStore.Playlist("kept", "Kept", List.of()))));
+        Files.writeString(options, "key_key.darkmusic.open:key.keyboard.k\n");
+        var update = new LinkedHashMap<String, String>();
+        update.put("config.json", ConfigStore.JSON.toJson(new Settings()));
+        update.put("playlists.json", "[]");
+        update.put("listening-history.json", "newly created");
+        update.put("options.txt", "changed");
+        var count = new java.util.concurrent.atomic.AtomicInteger();
+        assertThrows(AssertionError.class, () -> BackupArchive.install(root, update, (path, value) -> {
+            ConfigStore.atomicWrite(path, value);
+            if (count.incrementAndGet() == 4) throw new AssertionError("Simulated process termination");
+        }));
+        assertTrue(BackupArchive.recoveryPending(root));
+        try (var io = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            var warnings = new ArrayList<String>();
+            var config = new ConfigStore(root, io, warnings::add);
+            var loaded = config.load();
+            assertEquals(.37, loaded.volume);
+            assertEquals("key.keyboard.k", loaded.shortcuts.get("key.darkmusic.open"));
+            assertTrue(loaded.nativeShortcutNames.isEmpty(), "Recovered bindings must replace Minecraft's pre-recovery in-memory values");
+            var store = new PlaylistStore(root, io, warnings::add);
+            assertEquals("kept", store.read().getFirst().id());
+        }
+        assertEquals("key_key.darkmusic.open:key.keyboard.k\n", Files.readString(options));
+        assertFalse(Files.exists(root.resolve("listening-history.json")));
+        assertFalse(BackupArchive.recoveryPending(root));
+        assertFalse(BackupArchive.recover(root), "Recovery is idempotent");
+    }
+
+    @Test
+    void malformedArchivesAndRecoveryJournalsNeverModifyExistingData() throws Exception {
+        Path archive = directory.resolve("corrupt.zip");
+        try (var zip = new ZipOutputStream(Files.newOutputStream(archive))) {
+            zip.putNextEntry(new ZipEntry("setup.json"));
+            zip.write("{\"version\":".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        assertThrows(java.io.IOException.class, () -> BackupArchive.read(archive));
+        Files.write(archive, new byte[]{80, 75, 3, 4, 0});
+        assertThrows(java.io.IOException.class, () -> BackupArchive.read(archive));
+        Files.writeString(directory.resolve("config.json"), "keep");
+        Files.writeString(directory.resolve("restore-pending.json"),
+            "{\"version\":1,\"backup\":\"../../outside\",\"existed\":{\"config.json\":true}}");
+        assertThrows(java.io.IOException.class, () -> BackupArchive.recover(directory));
+        assertEquals("keep", Files.readString(directory.resolve("config.json")));
+        assertTrue(BackupArchive.recoveryPending(directory));
+    }
+
+    @Test
+    void failedRollbackKeepsItsJournalAndBlocksLoadingUntilRecoveryCanComplete() throws Exception {
+        Path root = directory.resolve("blocked/config/darkmusic");
+        Files.createDirectories(root);
+        var settings = new Settings();
+        settings.volume = .42;
+        String original = ConfigStore.JSON.toJson(settings);
+        Files.writeString(root.resolve("config.json"), original);
+        Files.writeString(root.resolve("playlists.json"), "[]");
+        var replacements = new LinkedHashMap<String, String>();
+        replacements.put("config.json", "changed");
+        replacements.put("playlists.json", "changed");
+        var failure = assertThrows(java.io.IOException.class, () -> BackupArchive.install(root, replacements, (path, value) -> {
+            if (path.getFileName().toString().equals("playlists.json")) {
+                Files.delete(path);
+                Files.createDirectory(path);
+                throw new AccessDeniedException(path.toString());
+            }
+            ConfigStore.atomicWrite(path, value);
+        }));
+        assertTrue(failure.getSuppressed().length > 0);
+        assertTrue(BackupArchive.recoveryPending(root));
+        try (var io = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            var store = new ConfigStore(root, io, message -> fail("Partial user data must not be loaded"));
+            assertThrows(java.util.concurrent.CompletionException.class, store::load);
+            Files.delete(root.resolve("playlists.json"));
+            assertTrue(BackupArchive.recover(root));
+            assertEquals(.42, store.load().volume);
+        }
+        assertEquals(original, Files.readString(root.resolve("config.json")));
+        assertEquals("[]", Files.readString(root.resolve("playlists.json")));
+        assertFalse(BackupArchive.recoveryPending(root));
+    }
+
+    @Test
+    void publishingCommittedPlaylistsDoesNotQueueAnotherDiskWrite() {
+        var io = java.util.concurrent.Executors.newSingleThreadExecutor();
+        io.shutdown(); // Any hidden serialization/write submission would fail this test.
+        var entry = new PlaylistStore.Entry("library", "favorite.opus");
+        var values = List.of(new PlaylistStore.Playlist(PlaylistStore.FAVORITES, "Favorite Music", List.of(entry)));
+        var store = new PlaylistStore(directory, io, message -> fail(message));
+        store.restoredFromDisk(values, Set.of(entry));
+        assertEquals(values, store.all());
+        assertEquals(Set.of(entry), store.retainedImports());
+        assertFalse(Files.exists(directory.resolve("playlists.json")));
+    }
 }

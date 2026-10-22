@@ -36,6 +36,37 @@ class AuditionPlayerTest {
     }
 
     @Test
+    void playingIsPublishedOnlyAfterTheBackendHasAcceptedItsCallbacks() throws Exception {
+        var excerpt = clip("initialization");
+        var entered = new CountDownLatch(1);
+        var accepted = new CountDownLatch(1);
+        var backend = new Audio() {
+            @Override
+            public void play(Track track, Runnable ended, Consumer<String> failed) {
+                entered.countDown();
+                try {
+                    assertTrue(accepted.await(5, TimeUnit.SECONDS));
+                } catch (InterruptedException e) {
+                    throw new AssertionError(e);
+                }
+                super.play(track, ended, failed);
+            }
+        };
+        try (var player = new AuditionPlayer((entry, tools, token) -> excerpt, () -> backend, Runnable::run, () -> {
+        })) {
+            player.play(entry("1"), new Tools("", "", "", ""), .2);
+            try {
+                assertTrue(entered.await(5, TimeUnit.SECONDS));
+                assertEquals(AuditionPlayer.Status.LOADING, player.snapshot().status());
+            } finally {
+                accepted.countDown();
+            }
+            DownloadTest.await(() -> player.snapshot().status() == AuditionPlayer.Status.PLAYING);
+            assertNotNull(backend.ended);
+        }
+    }
+
+    @Test
     void replacementIgnoresStaleCallbacksAndReleasesAudioBeforeDeletingTemporaryFiles() throws Exception {
         var first = clip("first");
         var second = clip("second");

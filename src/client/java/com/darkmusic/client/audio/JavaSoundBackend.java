@@ -30,8 +30,10 @@ public final class JavaSoundBackend implements AudioBackend {
     private final java.util.concurrent.ThreadPoolExecutor preloader = new java.util.concurrent.ThreadPoolExecutor(1, 1, 0, java.util.concurrent.TimeUnit.SECONDS, new java.util.concurrent.ArrayBlockingQueue<>(1), Thread.ofPlatform().daemon().name("darkmusic-preload").factory());
     private double overlap;
     private double normalizationGain = 1, incomingNormalization = 1;
+    private LoudnessCache.Session normalizationSession, incomingSession;
+    private long normalizationSessionId;
     private NextAudio mixing;
-    private Announcement announcement;
+    private volatile Announcement announcement;
     private final Executor callbacks;
     private final Decoder decoder;
     private volatile Output output;
@@ -251,6 +253,8 @@ public final class JavaSoundBackend implements AudioBackend {
     public void seek(double seconds) {
         Request request = pending.get();
         if (request == null) request = active;
+        var notice = announcement;
+        if (notice != null && request == active) request = notice.previous;
         if (request == null || request.track == null || !Double.isFinite(seconds)) return;
         submit(request.track, Math.max(0, seconds), request.ended, request.failed, request.session);
     }
@@ -300,8 +304,19 @@ public final class JavaSoundBackend implements AudioBackend {
             while (!closed) {
                 Request request = pending.getAndSet(null);
                 if (request != null) {
+                    if (announcement != null && request.session == announcement.previous.session) {
+                        normalizationSession = announcement.normalization;
+                        normalizationSessionId = request.session;
+                        normalizationGain = announcement.gain;
+                    }
                     release();
-                    normalizationGain = incomingNormalization = 1;
+                    if (normalizationSessionId != request.session) {
+                        normalizationSession = null;
+                        normalizationGain = 1;
+                        normalizationSessionId = request.session;
+                    }
+                    incomingSession = null;
+                    incomingNormalization = 1;
                     mixing = null;
                     overlap = 0;
                     announcement = null;
@@ -342,6 +357,10 @@ public final class JavaSoundBackend implements AudioBackend {
                             processor.begin(deviceRate, line.getFormat().getChannels());
                             protectionFlushed = false;
                             processor.initialVolume(gain);
+                            var selected = options;
+                            if (!selected.neutral && selected.normalization)
+                                normalizationGain = normalization(request.track, selected, false).gain(selected);
+                            normalizationStatus = normalizationSession == null ? LoudnessCache.Status.OFF : normalizationSession.status(selected, normalizationGain);
                             progressedAt = System.nanoTime();
                             lastPlayed = line.getLongFramePosition();
                             spectrum.begin(deviceRate, line.getFormat().getChannels());
@@ -446,11 +465,9 @@ public final class JavaSoundBackend implements AudioBackend {
                         double normalized = 1;
                         boolean normalize = !selected.neutral && selected.normalization;
                         if (normalize && !flushing) {
-                            if (loudness == null) loudness = new LoudnessCache();
-                            normalized = loudness.gain(request.track, selected);
-                        } else if (loudness != null) {
-                            loudness.closeAsync();
-                            loudness = null;
+                            normalized = normalization(request.track, selected, false).gain(selected);
+                        } else if (normalize && flushing) {
+                            normalized = normalizationGain;
                         }
                         double gainSmoothing = 1 - Math.exp(-1 / (deviceRate * .05));
                         for (int f = 0; f < samples / outputChannels; f++) {
@@ -458,12 +475,13 @@ public final class JavaSoundBackend implements AudioBackend {
                             for (int c = 0; c < outputChannels; c++)
                                 pcm[f * outputChannels + c] *= (float) normalizationGain;
                         }
-                        normalizationStatus = loudness == null ? LoudnessCache.Status.OFF : loudness.status(request.track, selected, normalizationGain);
+                        normalizationStatus = normalizationSession == null ? LoudnessCache.Status.OFF : normalizationSession.status(selected, normalizationGain);
                         var next = upcoming.get();
                         if (next != mixing) {
                             mixing = next;
                             overlap = 0;
                             incomingNormalization = 1;
+                            incomingSession = null;
                         }
                         var ready = next == null ? null : next.peek();
                         double remaining = request.track.duration() - (offset + converter.positionFrames() / stream.getFormat().getFrameRate());
@@ -478,7 +496,7 @@ public final class JavaSoundBackend implements AudioBackend {
                                 org.slf4j.LoggerFactory.getLogger("darkmusic-audio").debug("Prepared track became unavailable", failure);
                             }
                             if (n > 0) {
-                                double incomingTarget = normalize ? loudness.gain(next.track, selected) : 1;
+                                double incomingTarget = normalize ? normalization(next.track, selected, true).gain(selected) : 1;
                                 if (overlap == 0)
                                     overlap = Math.max(0, selected.crossfade - Math.max(0, remaining / rate));
                                 for (int f = 0; f < outputFrames; f++) {
@@ -544,6 +562,22 @@ public final class JavaSoundBackend implements AudioBackend {
         }
     }
 
+    private LoudnessCache.Session normalization(Track track, com.darkmusic.client.config.AudioSettings selected, boolean incoming) {
+        var session = incoming ? incomingSession : normalizationSession;
+        if (session == null || !session.matches(selected)) {
+            if (loudness == null) loudness = new LoudnessCache();
+            session = loudness.session(track, selected);
+            if (incoming) {
+                incomingSession = session;
+                incomingNormalization = session.gain(selected);
+            } else {
+                normalizationSession = session;
+                normalizationGain = session.gain(selected);
+            }
+        }
+        return session;
+    }
+
     private boolean handoff(Request previous) {
         var next = upcoming.get();
         var selected = options;
@@ -563,11 +597,17 @@ public final class JavaSoundBackend implements AudioBackend {
         timeline.clear();
         double start = converter.positionFrames() / stream.getFormat().getFrameRate();
         timeline.add(new Segment(submittedFrames, start, speed));
+        var previousNormalization = normalizationSession;
+        double previousGain = normalizationGain;
         active = new Request(previous.generation, next.track, 0, next.ended, next.failed, SESSIONS.incrementAndGet());
+        if (!selected.neutral && selected.normalization) normalization(next.track, selected, true);
+        normalizationSession = incomingSession;
+        normalizationSessionId = active.session;
         normalizationGain = incomingNormalization;
         incomingNormalization = 1;
+        incomingSession = null;
         mixing = null;
-        announcement = new Announcement(previous, next, submittedFrames, oldPosition);
+        announcement = new Announcement(previous, next, submittedFrames, oldPosition, previousNormalization, previousGain);
         overlap = 0;
         processor.begin(deviceRate, line.getFormat().getChannels(), true);
         protectionFlushed = false;
@@ -654,6 +694,11 @@ public final class JavaSoundBackend implements AudioBackend {
             long frames = (long) (position * replacement.getFormat().getFrameRate());
             long skipped = discardFrames(replacement, frames, new byte[4096], () -> current(request));
             if (!current(request) || closed) throw new java.io.IOException("Playback changed during output switch");
+            if (announcement != null && request == announcement.previous) {
+                normalizationSession = announcement.normalization;
+                normalizationSessionId = request.session;
+                normalizationGain = announcement.gain;
+            }
             release();
             cancelUpcoming();
             mixing = null;
@@ -672,6 +717,7 @@ public final class JavaSoundBackend implements AudioBackend {
             deviceRate = line.getFormat().getFrameRate();
             processor.begin(deviceRate, line.getFormat().getChannels());
             processor.initialVolume(gain);
+            normalizationStatus = normalizationSession == null ? LoudnessCache.Status.OFF : normalizationSession.status(options, normalizationGain);
             protectionFlushed = false;
             spectrum.begin(deviceRate, line.getFormat().getChannels());
             progressedAt = System.nanoTime();
@@ -794,6 +840,7 @@ public final class JavaSoundBackend implements AudioBackend {
     private record Segment(long outputFrame, double sourceSeconds, double speed) {
     }
 
-    private record Announcement(Request previous, NextAudio next, long boundary, double oldPosition) {
+    private record Announcement(Request previous, NextAudio next, long boundary, double oldPosition,
+                                LoudnessCache.Session normalization, double gain) {
     }
 }

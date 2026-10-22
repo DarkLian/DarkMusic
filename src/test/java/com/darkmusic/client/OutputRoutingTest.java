@@ -21,6 +21,7 @@ class OutputRoutingTest {
     private static class Line {
         final AtomicLong frames = new AtomicLong();
         volatile boolean running, closed;
+        volatile byte[] first;
         final SourceDataLine value;
 
         Line(AudioFormat format) {
@@ -46,6 +47,8 @@ class OutputRoutingTest {
                 case "flush", "drain" -> null;
                 case "write" -> {
                     int n = (int) args[2];
+                    if (first == null)
+                        first = java.util.Arrays.copyOfRange((byte[]) args[0], (int) args[1], (int) args[1] + n);
                     frames.addAndGet(n / format.getFrameSize());
                     Thread.sleep(2);
                     yield n;
@@ -192,6 +195,173 @@ class OutputRoutingTest {
             }, errors::set);
             StorageTest.await(() -> history.snapshot().get(track.id()).plays() == 2);
             assertNull(errors.get());
+        }
+    }
+
+    private void cacheReading(JavaSoundBackend backend, Track track, double lufs) throws Exception {
+        var field = JavaSoundBackend.class.getDeclaredField("loudness");
+        field.setAccessible(true);
+        var cache = field.get(backend);
+        var results = LoudnessCache.class.getDeclaredField("results");
+        results.setAccessible(true);
+        var type = Class.forName("com.darkmusic.client.audio.LoudnessCache$Reading");
+        Object reading = com.darkmusic.client.config.ConfigStore.JSON.fromJson(com.darkmusic.client.config.ConfigStore.JSON.toJson(java.util.Map.of("lufs", lufs, "peakDb", -6, "source", "ANALYSIS")), type);
+        ((java.util.Map<String, Object>) results.get(cache)).put(track.file().toAbsolutePath() + ":" + track.size() + ":" + track.modified() + ":TRACK", reading);
+    }
+
+    private Track realTrack() throws Exception {
+        var file = TestMusic.featured();
+        return new Track("real", file.getFileName().toString(), file, "", "", "", 300, Files.size(file), Files.getLastModifiedTime(file).toMillis(), "");
+    }
+
+    @Test
+    @Timeout(25)
+    void normalizationIsReadyAtFirstPcmAndSurvivesSeekOutputAndMetadataContinuation() throws Exception {
+        var clip = TestMusic.clip();
+        var track = realTrack();
+        String key = track.file().toAbsolutePath() + ":" + track.size() + ":" + track.modified() + ":TRACK";
+        Files.writeString(directory.resolve("loudness-cache.json"), com.darkmusic.client.config.ConfigStore.JSON.toJson(java.util.Map.of(key, java.util.Map.of("lufs", -8, "peakDb", -2, "source", "ANALYSIS"))));
+        ExternalAudio.configure(() -> new ExternalAudio.Paths(directory, "", ""));
+        var line = new AtomicReference<Line>();
+        var errors = new AtomicReference<String>();
+        var settings = new com.darkmusic.client.config.AudioSettings();
+        settings.neutral = false;
+        settings.normalization = true;
+        try (var backend = new JavaSoundBackend(Runnable::run, p -> loop(clip), f -> {
+            var opened = new Line(f);
+            line.set(opened);
+            return opened.value;
+        })) {
+            backend.volume(1);
+            backend.configure(settings, new com.darkmusic.client.config.SoundEnvironmentSettings());
+            backend.play(track, () -> {
+            }, errors::set);
+            StorageTest.await(() -> line.get() != null && line.get().first != null);
+            assertEquals(-10, backend.normalization().appliedDb(), .0001, "No startup normalization ramp");
+            byte[] normalized = line.get().first;
+            assertEquals(16, clip.format().getSampleSizeInBits());
+            for (int i = 0; i + 1 < normalized.length; i += 2) {
+                short input = (short) ((clip.bytes()[i] & 255) | clip.bytes()[i + 1] << 8);
+                short output = (short) ((normalized[i] & 255) | normalized[i + 1] << 8);
+                assertEquals(Math.round(input * Math.pow(10, -.5)), output, 2,
+                    "The very first submitted PCM block must already contain the cached attenuation");
+            }
+            cacheReading(backend, track, -20);
+            backend.seek(2);
+            StorageTest.await(() -> backend.state().status() == AudioBackend.Status.PLAYING && backend.state().position() >= 2);
+            assertEquals(-10, backend.normalization().appliedDb(), .0001);
+            backend.pause();
+            StorageTest.await(() -> backend.state().status() == AudioBackend.Status.PAUSED);
+            assertTrue(backend.output(f -> new Line(f).value).get(5, TimeUnit.SECONDS));
+            backend.resume();
+            StorageTest.await(() -> backend.state().status() == AudioBackend.Status.PLAYING);
+            assertEquals(-10, backend.normalization().appliedDb(), .0001);
+            backend.resumeFrom(track, 3, false, () -> {
+            }, errors::set);
+            StorageTest.await(() -> backend.state().status() == AudioBackend.Status.PLAYING && backend.state().position() >= 3);
+            assertEquals(-10, backend.normalization().appliedDb(), .0001);
+            // Replaying explicitly is a new session and can use the updated cached reading.
+            backend.play(track, () -> {
+            }, errors::set);
+            StorageTest.await(() -> backend.normalization().appliedDb() > 1.9);
+            assertEquals(2, backend.normalization().appliedDb(), .0001);
+            assertNull(errors.get());
+            assertTrue(normalized.length > 0);
+        } finally {
+            ExternalAudio.configure(null);
+        }
+    }
+
+    @Test
+    @Timeout(25)
+    void lateNormalizationIsDeferredAndRapidRouteChangesKeepSessionGainAndPauseState() throws Exception {
+        var clip = TestMusic.clip();
+        var track = realTrack();
+        ExternalAudio.configure(null);
+        var errors = new AtomicReference<String>();
+        var settings = new com.darkmusic.client.config.AudioSettings();
+        settings.neutral = false;
+        settings.normalization = true;
+        try (var backend = new JavaSoundBackend(Runnable::run, p -> loop(clip), f -> new Line(f).value)) {
+            backend.configure(settings, new com.darkmusic.client.config.SoundEnvironmentSettings());
+            backend.play(track, () -> {
+            }, errors::set);
+            StorageTest.await(() -> backend.state().status() == AudioBackend.Status.PLAYING && backend.state().position() > .1);
+            cacheReading(backend, track, -8);
+            var changes = new java.util.ArrayList<CompletableFuture<Boolean>>();
+            for (int i = 0; i < 24; i++) {
+                boolean reject = i % 3 == 0;
+                changes.add(backend.output(f -> {
+                    if (reject) throw new LineUnavailableException("Injected unavailable route");
+                    return new Line(f).value;
+                }));
+            }
+            for (var change : changes) change.get(5, TimeUnit.SECONDS);
+            backend.seek(1);
+            StorageTest.await(() -> backend.state().status() == AudioBackend.Status.PLAYING && backend.state().position() >= 1);
+            assertEquals(0, backend.normalization().appliedDb(), 1e-9);
+            assertEquals(LoudnessCache.State.NEXT_SESSION, backend.normalization().state());
+            backend.pause();
+            StorageTest.await(() -> backend.state().status() == AudioBackend.Status.PAUSED);
+            double position = backend.state().position();
+            for (int i = 0; i < 5; i++) assertTrue(backend.output(f -> new Line(f).value).get(5, TimeUnit.SECONDS));
+            assertEquals(AudioBackend.Status.PAUSED, backend.state().status());
+            assertEquals(position, backend.state().position(), .03);
+            backend.resume();
+            StorageTest.await(() -> backend.state().status() == AudioBackend.Status.PLAYING);
+            assertEquals(0, backend.normalization().appliedDb(), 1e-9);
+            assertNull(errors.get());
+        }
+    }
+
+    @Test
+    @Timeout(25)
+    void gaplessAndCrossfadeKeepTheIncomingDecisionAcrossQueuedOutputChanges() throws Exception {
+        var clip = TestMusic.clip();
+        for (double fade : new double[]{0, .5}) {
+            Path data = directory.resolve("fade-" + fade);
+            Files.createDirectories(data);
+            ExternalAudio.configure(() -> new ExternalAudio.Paths(data, "", ""));
+            var first = new Track("real", "first", data.resolve("first"), "", "", "", 4, 10, 20, "");
+            var second = new Track("real", "second", data.resolve("second"), "", "", "", 4, 10, 20, "");
+            String aKey = first.file().toAbsolutePath() + ":10:20:TRACK", bKey = second.file().toAbsolutePath() + ":10:20:TRACK";
+            Files.writeString(data.resolve("loudness-cache.json"), com.darkmusic.client.config.ConfigStore.JSON.toJson(
+                java.util.Map.of(aKey, java.util.Map.of("lufs", -8, "peakDb", -6), bKey, java.util.Map.of("lufs", -6, "peakDb", -6))));
+            var settings = new com.darkmusic.client.config.AudioSettings();
+            settings.neutral = false;
+            settings.normalization = true;
+            settings.crossfade = fade;
+            var started = new AtomicBoolean();
+            var errors = new AtomicReference<String>();
+            try (var backend = new JavaSoundBackend(Runnable::run, p -> clip.stream(), f -> new Line(f).value)) {
+                backend.configure(settings, new com.darkmusic.client.config.SoundEnvironmentSettings());
+                backend.play(first, () -> {
+                }, errors::set);
+                StorageTest.await(() -> backend.state().status() == AudioBackend.Status.PLAYING);
+                backend.nextTrack(second, () -> started.set(true), () -> {
+                }, errors::set);
+                if (fade > 0) {
+                    var overlap = JavaSoundBackend.class.getDeclaredField("overlap");
+                    overlap.setAccessible(true);
+                    StorageTest.await(() -> {
+                        try {
+                            return overlap.getDouble(backend) > 0;
+                        } catch (Exception e) {
+                            throw new AssertionError(e);
+                        }
+                    });
+                    cacheReading(backend, second, -20);
+                } else {
+                    StorageTest.await(started::get);
+                }
+                assertTrue(backend.output(f -> new Line(f).value).get(5, TimeUnit.SECONDS));
+                StorageTest.await(() -> backend.state().track().id().equals(second.id()) && backend.state().status() == AudioBackend.Status.PLAYING);
+                assertEquals(-12, backend.normalization().appliedDb(), .0001);
+                assertTrue(started.get());
+                assertNull(errors.get());
+            } finally {
+                ExternalAudio.configure(null);
+            }
         }
     }
 }

@@ -1,4 +1,8 @@
 {
+  "backup.preparing": "正在準備還原預覽…",
+  "backup.recovered": "已回復中斷的還原作業，並恢復先前的設定。",
+  "backup.recovery_failed": "DarkMusic 無法復原中斷的還原作業。復原備份已保留。請查看記錄，修復儲存空間或存取問題後重新啟動。",
+  "analyzer.normalization.next_session": "已快取音量資料，將於下次播放時套用",
   "backup.overwrite": "要取代現有的備份檔案嗎？",
   "backup.title": "備份 / 還原",
   "backup.scope": "移轉設定、播放清單、快捷鍵及聆聽紀錄。不包含音樂檔案及下載工具。",

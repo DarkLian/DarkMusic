@@ -80,9 +80,7 @@ public class DarkMusicClient implements ClientModInitializer {
         if (closed || mediaBusy || resetting || outputChanging || !playlistsReady || !listeningHistory.ready())
             return CompletableFuture.failedFuture(new IllegalStateException(com.darkmusic.client.text.Text.get("library.darkmusic.busy")));
         var keys = new java.util.LinkedHashMap<String, String>();
-        var priorKeys = new java.util.LinkedHashMap<String, String>();
         if (bindings) for (var key : bindings()) {
-            priorKeys.put(key.getName(), key.saveString());
             String value = restored.settings().shortcuts.getOrDefault(key.getName(), key.saveString());
             try {
                 InputConstants.getKey(value);
@@ -91,42 +89,24 @@ public class DarkMusicClient implements ClientModInitializer {
             }
             keys.put("key_" + key.getName(), value);
         }
-        var contents = new java.util.LinkedHashMap<String, String>();
-        if (restored.selection().settings() || bindings)
-            contents.put("config.json", ConfigStore.JSON.toJson(restored.settings()));
-        if (restored.selection().playlists()) {
-            contents.put("playlists.json", ConfigStore.JSON.toJson(restored.playlists()));
-            contents.put("playlist-retained.json", ConfigStore.JSON.toJson(restored.retained()));
-        }
-        if (restored.selection().history())
-            contents.put("listening-history.json", com.darkmusic.client.library.ListeningHistory.json(restored.history()));
-        mediaBusy = true;
+        mediaBusy = restoring = true;
         if (restored.selection().history()) listeningHistory.suspended(true);
         var finished = new CompletableFuture<Void>();
         CompletableFuture.runAsync(() -> {
-            var options = config.directory().toAbsolutePath().getParent().getParent().resolve("options.txt");
-            String before = null;
-            boolean existed = java.nio.file.Files.exists(options), touched = false;
             try {
-                if (bindings) {
-                    if (java.nio.file.Files.isSymbolicLink(options) || existed && (!java.nio.file.Files.isRegularFile(options) || java.nio.file.Files.size(options) > 16_000_000))
-                        throw new java.io.IOException("Unsafe options file");
-                    before = existed ? java.nio.file.Files.readString(options) : null;
-                    var backups = config.directory().resolve("backups");
-                    if (java.nio.file.Files.isSymbolicLink(backups))
-                        throw new java.io.IOException("Unsafe backup directory");
-                    ConfigStore.atomicWrite(backups.resolve("shortcuts-" + java.util.UUID.randomUUID() + ".json"), ConfigStore.JSON.toJson(priorKeys));
-                    touched = true;
-                    config.resetShortcuts(keys);
+                var contents = new java.util.LinkedHashMap<String, String>();
+                if (restored.selection().settings() || bindings)
+                    contents.put("config.json", ConfigStore.JSON.toJson(restored.settings()));
+                if (restored.selection().playlists()) {
+                    contents.put("playlists.json", ConfigStore.JSON.toJson(restored.playlists()));
+                    contents.put("playlist-retained.json", ConfigStore.JSON.toJson(restored.retained()));
                 }
+                if (restored.selection().history())
+                    contents.put("listening-history.json", com.darkmusic.client.library.ListeningHistory.json(restored.history()));
+
+                if (bindings) contents.put("options.txt", config.shortcutsContents(keys));
                 com.darkmusic.client.config.BackupArchive.install(config.directory(), contents);
             } catch (Exception failure) {
-                if (touched) try {
-                    if (existed) ConfigStore.atomicWrite(options, before);
-                    else java.nio.file.Files.deleteIfExists(options);
-                } catch (Exception rollback) {
-                    failure.addSuppressed(rollback);
-                }
                 throw new java.util.concurrent.CompletionException(failure);
             }
         }, io).whenComplete((unused, failure) -> Minecraft.getInstance().execute(() -> {
@@ -140,7 +120,8 @@ public class DarkMusicClient implements ClientModInitializer {
                     return;
                 }
                 if (restored.selection().settings() || bindings) settings = restored.settings();
-                if (restored.selection().playlists()) playlists.restore(restored.playlists(), restored.retained());
+                if (restored.selection().playlists())
+                    playlists.restoredFromDisk(restored.playlists(), restored.retained());
                 if (restored.selection().history()) listeningHistory.replace(restored.history());
                 if (bindings) {
                     for (var key : bindings()) key.setKey(InputConstants.getKey(keys.get("key_" + key.getName())));
@@ -154,8 +135,8 @@ public class DarkMusicClient implements ClientModInitializer {
                 save();
                 finished.complete(null);
             } finally {
-                mediaBusy = false;
-                listeningHistory.suspended(false);
+                mediaBusy = restoring = com.darkmusic.client.config.BackupArchive.recoveryPending(config.directory());
+                listeningHistory.suspended(restoring);
             }
         }));
         return finished;
@@ -169,6 +150,7 @@ public class DarkMusicClient implements ClientModInitializer {
     public final com.darkmusic.client.lyrics.LyricsService lyrics = new com.darkmusic.client.lyrics.LyricsService();
     public boolean playlistsReady;
     public boolean mediaBusy;
+    private boolean restoring;
     public boolean importing;
     public String importDestination = "";
     public com.darkmusic.client.library.ImportHistory importHistory;
@@ -372,7 +354,7 @@ public class DarkMusicClient implements ClientModInitializer {
     }
 
     public void save() {
-        if (!closed && !resetting && settings != null) {
+        if (!closed && !resetting && !restoring && settings != null) {
             configureVisualizer();
             config.save(settings);
         }
@@ -471,7 +453,11 @@ public class DarkMusicClient implements ClientModInitializer {
                 ready();
                 save();
             }
-        }));
+        })).exceptionally(failure -> {
+            org.slf4j.LoggerFactory.getLogger("darkmusic").error("Could not recover or load user data", failure);
+            Minecraft.getInstance().execute(() -> warn(com.darkmusic.client.text.Text.get("backup.recovery_failed")));
+            return null;
+        });
         ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
             if (screen instanceof TitleScreen)
                 Screens.getWidgets(screen).add(Button.builder(com.darkmusic.client.text.Text.component("text.darkmusic.music"), b -> open()).bounds(6, 6, 64, 20).build());

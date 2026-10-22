@@ -78,6 +78,15 @@ public final class ConfigStore {
     }
 
     public Settings load() {
+        boolean recovered;
+        try {
+            recovered = BackupArchive.recover(directory);
+            if (recovered)
+                warning.accept(com.darkmusic.client.text.Text.get("backup.recovered"));
+        } catch (IOException failure) {
+            // Never load or save partially restored data when recovery cannot finish.
+            throw new java.util.concurrent.CompletionException(failure);
+        }
         Settings settings = new Settings();
         try {
             Files.createDirectories(defaultMusic());
@@ -100,8 +109,14 @@ public final class ConfigStore {
         Path game = directory.toAbsolutePath().getParent().getParent();
         Path options = game.resolve("options.txt");
         if (Files.isRegularFile(options)) try (var lines = Files.lines(options)) {
-            settings.nativeShortcutNames = lines.filter(s -> s.startsWith("key_key.darkmusic.") && s.indexOf(':') > 4)
+            var bindings = lines.filter(s -> s.startsWith("key_key.darkmusic.") && s.indexOf(':') > 4).toList();
+            settings.nativeShortcutNames = recovered ? java.util.Set.of() : bindings.stream()
                 .map(s -> s.substring(4, s.indexOf(':'))).collect(java.util.stream.Collectors.toUnmodifiableSet());
+            // Minecraft loaded options before the mod recovered the file. Reapply recovered keys in ready().
+            if (recovered) for (String binding : bindings) {
+                int colon = binding.indexOf(':');
+                settings.shortcuts.put(binding.substring(4, colon), binding.substring(colon + 1));
+            }
         } catch (IOException e) {
             warning.accept(com.darkmusic.client.text.Text.failure(e, "error.shortcut_load"));
         }
@@ -116,6 +131,13 @@ public final class ConfigStore {
         if (Files.isSymbolicLink(options) || Files.exists(options, LinkOption.NOFOLLOW_LINKS)
             && (!Files.isRegularFile(options, LinkOption.NOFOLLOW_LINKS) || Files.size(options) > 16_000_000))
             throw new IOException(com.darkmusic.client.text.Text.get("reset.darkmusic.options_unsafe"));
+        atomicWrite(options, shortcutsContents(defaults));
+    }
+
+    public String shortcutsContents(java.util.Map<String, String> defaults) throws IOException {
+        Path options = directory.toAbsolutePath().getParent().getParent().resolve("options.txt");
+        if (Files.isSymbolicLink(options) || Files.exists(options) && (!Files.isRegularFile(options) || Files.size(options) > 16_000_000))
+            throw new IOException("Unsafe options file");
         var lines = Files.exists(options) ? Files.readAllLines(options, StandardCharsets.UTF_8) : java.util.List.<String>of();
         var remaining = new java.util.LinkedHashMap<>(defaults);
         var updated = new java.util.ArrayList<String>();
@@ -128,7 +150,7 @@ public final class ConfigStore {
             } else updated.add(line);
         }
         remaining.forEach((name, value) -> updated.add(name + ":" + value));
-        atomicWrite(options, String.join("\n", updated) + "\n");
+        return String.join("\n", updated) + "\n";
     }
 
     public void save(Settings settings) {

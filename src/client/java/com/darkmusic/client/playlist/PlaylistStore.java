@@ -36,6 +36,17 @@ public final class PlaylistStore {
         update(values);
     }
 
+    /**
+     * Publish the snapshot already committed by the backup transaction, without serializing it again on the UI thread.
+     */
+    public void restoredFromDisk(List<Playlist> values, Set<Entry> retained) {
+        playlists = List.copyOf(values);
+        retainedImports = Set.copyOf(retained);
+        retainedHealthy = true;
+        refreshFavorites();
+        revision++;
+    }
+
     public void acknowledgeTracks(List<Track> tracks) {
         if (retainedImports.isEmpty()) return;
         var remaining = new HashSet<>(retainedImports);

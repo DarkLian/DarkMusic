@@ -14,7 +14,11 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -26,9 +30,14 @@ jobs:
           java-version: '25'
           distribution: 'microsoft'
       - name: make gradle wrapper executable
+        if: runner.os != 'Windows'
         run: chmod +x ./gradlew
       - name: build
+        if: runner.os != 'Windows'
         run: ./gradlew build
         # Private music is never uploaded to hosted runners. Audio-dependent
         # checks explicitly skip when absent; release validation runs locally
         # with -PrequireMusic -PdownloadIntegration and the real collection.
+      - name: build on Windows
+        if: runner.os == 'Windows'
+        run: .\gradlew.bat build

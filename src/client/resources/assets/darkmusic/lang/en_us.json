@@ -1,4 +1,8 @@
 {
+  "backup.preparing": "Preparing restore preview…",
+  "backup.recovered": "An interrupted restore was rolled back. Your previous setup has been recovered.",
+  "backup.recovery_failed": "DarkMusic could not recover an interrupted restore. Your recovery copies are preserved. Check the log and restart after fixing storage access.",
+  "analyzer.normalization.next_session": "Loudness data cached for the next playback session",
   "backup.overwrite": "Replace this existing backup file?",
   "backup.title": "Backup / Restore",
   "backup.scope": "Transfer settings, playlists, shortcuts, and listening history. Music files and tools are not included.",

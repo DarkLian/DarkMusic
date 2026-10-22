@@ -118,14 +118,14 @@ public final class BackupArchive {
         if (!selected.playlists || !selected.replace) existing.forEach(p -> result.put(p.id(), p));
         int unresolved = 0;
         if (selected.playlists) for (var p : data.playlists) {
-            var imported = new ArrayList<PlaylistStore.Entry>();
+            var imported = new LinkedHashSet<PlaylistStore.Entry>();
             for (var e : p.entries()) {
                 var mapped = new PlaylistStore.Entry(selected.remap && e.rootId().equals(data.root) ? root : e.rootId(), e.path());
+                if (!imported.add(mapped)) continue;
                 if (!present.contains(mapped.key())) {
                     protectedEntries.add(mapped);
                     unresolved++;
                 }
-                if (!imported.contains(mapped)) imported.add(mapped);
             }
             var old = result.get(p.id());
             // In merge mode, identify the same named collection without duplicating its contents.
@@ -137,7 +137,7 @@ public final class BackupArchive {
                 var combined = new LinkedHashSet<>(old.entries());
                 combined.addAll(imported);
                 result.put(old.id(), new PlaylistStore.Playlist(old.id(), old.name(), List.copyOf(combined)));
-            } else result.put(p.id(), new PlaylistStore.Playlist(p.id(), p.name(), imported));
+            } else result.put(p.id(), new PlaylistStore.Playlist(p.id(), p.name(), List.copyOf(imported)));
         }
         var stats = new LinkedHashMap<String, com.darkmusic.client.library.ListeningHistory.Entry>();
         if (!selected.history || !selected.replace) stats.putAll(history);
@@ -145,6 +145,9 @@ public final class BackupArchive {
             String mapped = selected.remap && key.startsWith(data.root + ":") ? root + key.substring(data.root.length()) : key;
             stats.merge(mapped, value, (a, b) -> new com.darkmusic.client.library.ListeningHistory.Entry(Math.max(a.plays(), b.plays()), Math.max(a.lastPlayed(), b.lastPlayed()), Math.max(a.seconds(), b.seconds())));
         });
+        var referenced = new HashSet<PlaylistStore.Entry>();
+        result.values().forEach(p -> referenced.addAll(p.entries()));
+        protectedEntries.retainAll(referenced);
         return new Restore(values, List.copyOf(result.values()), Set.copyOf(protectedEntries), Map.copyOf(stats), unresolved, selected);
     }
 
@@ -160,31 +163,97 @@ public final class BackupArchive {
         void write(Path path, String value) throws IOException;
     }
 
+    private static final Set<String> TARGETS = Set.of("config.json", "playlists.json", "playlist-retained.json", "listening-history.json", "options.txt");
+    private static final String JOURNAL = "restore-pending.json";
+
+    private record Recovery(int version, String backup, Map<String, Boolean> existed) {
+    }
+
+    private static Path target(Path directory, String name) throws IOException {
+        if (!TARGETS.contains(name)) throw new IOException("Invalid restore target");
+        Path path = name.equals("options.txt") ? directory.toAbsolutePath().getParent().getParent().resolve(name) : directory.resolve(name);
+        if (Files.isSymbolicLink(path) || Files.exists(path, LinkOption.NOFOLLOW_LINKS)
+            && (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) || Files.size(path) > 32_000_000))
+            throw new IOException("Unsafe restore target");
+        return path;
+    }
+
     static void install(Path directory, Map<String, String> contents, Writer writer) throws IOException {
-        Set<String> allowed = Set.of("config.json", "playlists.json", "playlist-retained.json", "listening-history.json");
-        if (!allowed.containsAll(contents.keySet())) throw new IOException("Invalid restore target");
-        Path rollback = directory.resolve("backups").resolve(UUID.randomUUID().toString());
-        if (Files.isSymbolicLink(directory.resolve("backups"))) throw new IOException("Symbolic backup directory");
+        if (!TARGETS.containsAll(contents.keySet())) throw new IOException("Invalid restore target");
+        recover(directory);
+        if (contents.isEmpty()) return;
+        Path backups = directory.resolve("backups");
+        if (Files.isSymbolicLink(directory) || Files.isSymbolicLink(backups))
+            throw new IOException("Symbolic backup directory");
+        Path rollback = backups.resolve(UUID.randomUUID().toString());
         Files.createDirectories(rollback);
-        var old = new LinkedHashMap<Path, String>();
+        var existed = new LinkedHashMap<String, Boolean>();
         for (var e : contents.entrySet()) {
-            Path file = directory.resolve(e.getKey());
-            if (Files.isSymbolicLink(file)) throw new IOException("Symbolic restore target");
-            String before = Files.exists(file) ? Files.readString(file) : null;
-            old.put(file, before);
-            if (before != null) ConfigStore.atomicWrite(rollback.resolve(e.getKey()), before);
+            Path file = target(directory, e.getKey());
+            boolean present = Files.exists(file);
+            existed.put(e.getKey(), present);
+            if (present) ConfigStore.atomicWrite(rollback.resolve(e.getKey()), Files.readString(file));
         }
+        Path journal = directory.resolve(JOURNAL);
+        if (Files.isSymbolicLink(journal)) throw new IOException("Symbolic recovery journal");
+        ConfigStore.atomicWrite(journal, ConfigStore.JSON.toJson(new Recovery(1, rollback.getFileName().toString(), existed)));
         try {
-            for (var e : contents.entrySet()) writer.write(directory.resolve(e.getKey()), e.getValue());
-        } catch (IOException failure) {
-            for (var e : old.entrySet())
-                try {
-                    if (e.getValue() == null) Files.deleteIfExists(e.getKey());
-                    else ConfigStore.atomicWrite(e.getKey(), e.getValue());
-                } catch (IOException restore) {
-                    failure.addSuppressed(restore);
-                }
+            for (var e : contents.entrySet()) writer.write(target(directory, e.getKey()), e.getValue());
+            Files.delete(journal);
+        } catch (IOException | RuntimeException failure) {
+            try {
+                recover(directory);
+            } catch (IOException restore) {
+                failure.addSuppressed(restore);
+            }
             throw failure;
         }
+    }
+
+    /**
+     * Run on the serial I/O executor before loading any user data after an interrupted restore.
+     */
+    public static boolean recover(Path directory) throws IOException {
+        Path journal = directory.resolve(JOURNAL);
+        if (!Files.exists(journal, LinkOption.NOFOLLOW_LINKS)) return false;
+        if (Files.isSymbolicLink(directory) || Files.isSymbolicLink(journal) || !Files.isRegularFile(journal)
+            || Files.size(journal) > 16_384) throw new IOException("Unsafe recovery journal");
+        Recovery recovery;
+        try {
+            recovery = ConfigStore.JSON.fromJson(Files.readString(journal), Recovery.class);
+            if (recovery == null || recovery.version != 1 || recovery.existed == null || recovery.existed.isEmpty()
+                || !TARGETS.containsAll(recovery.existed.keySet()) || recovery.existed.values().stream().anyMatch(Objects::isNull)
+                || recovery.backup == null || !UUID.fromString(recovery.backup).toString().equals(recovery.backup))
+                throw new IllegalArgumentException();
+        } catch (RuntimeException invalid) {
+            throw new IOException("Invalid restore recovery journal", invalid);
+        }
+        Path backups = directory.resolve("backups"), originals = backups.resolve(recovery.backup);
+        if (Files.isSymbolicLink(backups) || Files.isSymbolicLink(originals))
+            throw new IOException("Unsafe recovery directory");
+        // Validate and read every original before replacing anything. Re-running recovery is idempotent.
+        var before = new LinkedHashMap<Path, String>();
+        for (var e : recovery.existed.entrySet()) {
+            Path destination = target(directory, e.getKey()), source = originals.resolve(e.getKey());
+            if (e.getValue() && (Files.isSymbolicLink(source) || !Files.isRegularFile(source) || Files.size(source) > 32_000_000))
+                throw new IOException("Missing or invalid recovery copy");
+            before.put(destination, e.getValue() ? Files.readString(source) : null);
+        }
+        IOException failure = null;
+        for (var e : before.entrySet())
+            try {
+                if (e.getValue() == null) Files.deleteIfExists(e.getKey());
+                else ConfigStore.atomicWrite(e.getKey(), e.getValue());
+            } catch (IOException restore) {
+                if (failure == null) failure = restore;
+                else failure.addSuppressed(restore);
+            }
+        if (failure != null) throw failure;
+        Files.delete(journal);
+        return true;
+    }
+
+    public static boolean recoveryPending(Path directory) {
+        return Files.exists(directory.resolve(JOURNAL), LinkOption.NOFOLLOW_LINKS);
     }
 }

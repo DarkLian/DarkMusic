@@ -16,6 +16,18 @@ public final class BackupScreen extends AudioPage {
     private boolean settings = true, playlists = true, shortcuts = true, history = true, replace, remap = true, busy;
     private String status = "";
     private boolean available;
+    private BackupArchive.Restore prepared;
+    private long previewVersion;
+    private boolean preparing, previewFailed;
+
+    @Override
+    protected void changed() {
+        prepared = null;
+        previewVersion++;
+        preparing = false;
+        previewFailed = false;
+        rebuildWidgets();
+    }
 
     private boolean available() {
         return !app.mediaBusy && app.playlistsReady && app.listeningHistory.ready() && !app.library.snapshot().scanning();
@@ -50,22 +62,55 @@ public final class BackupScreen extends AudioPage {
             toggle("backup.history", () -> history, v -> history = v);
             toggle("backup.replace", () -> replace, v -> replace = v);
             toggle("backup.remap", () -> remap, v -> remap = v);
-            var prepared = prepare();
-            info(() -> Text.get("backup.unresolved", prepared.unresolved()));
-            action("backup.apply", () -> {
-                var latest = prepare();
-                show(new ConfirmationScreen(this, Text.component("backup.apply"),
-                    Text.component("backup.confirm", latest.unresolved()), Text.component("backup.apply"),
-                    () -> app.restoreBackup(prepare(), shortcuts), this));
-            });
+            info(() -> prepared == null ? Text.get("backup.preparing") : Text.get("backup.unresolved", prepared.unresolved()));
+            action("backup.apply", this::confirmRestore);
+            if (prepared == null && !preparing && !previewFailed) {
+                preparing = true;
+                long version = previewVersion;
+                prepare().whenComplete((preview, error) -> minecraft.execute(() -> {
+                    if (version != previewVersion) return;
+                    preparing = false;
+                    if (error == null) prepared = preview;
+                    else {
+                        previewFailed = true;
+                        status = Text.get("backup.failed");
+                        org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Backup preview failed", error);
+                    }
+                    if (isCurrent()) rebuildWidgets();
+                }));
+            }
         }
         available = available();
         enableSince(0, !busy && available);
     }
 
-    private BackupArchive.Restore prepare() {
-        return BackupArchive.prepare(data, new BackupArchive.Selection(settings, playlists, shortcuts, history, replace, remap),
-            app.settings, app.library.rootId(), app.library.snapshot().tracks(), app.playlists.all(), app.listeningHistory.snapshot(), app.playlists.retainedImports());
+    private CompletableFuture<BackupArchive.Restore> prepare() {
+        var input = data;
+        var selected = new BackupArchive.Selection(settings, playlists, shortcuts, history, replace, remap);
+        var current = com.darkmusic.client.config.ConfigStore.JSON.fromJson(com.darkmusic.client.config.ConfigStore.JSON.toJson(app.settings), com.darkmusic.client.config.Settings.class);
+        current.nativeShortcutNames = app.settings.nativeShortcutNames;
+        var root = app.library.rootId();
+        var tracks = app.library.snapshot().tracks();
+        var existing = app.playlists.all();
+        var retained = app.playlists.retainedImports();
+        return CompletableFuture.supplyAsync(() -> BackupArchive.prepare(input, selected, current, root, tracks, existing,
+            app.listeningHistory.snapshot(), retained), app.io);
+    }
+
+    private void confirmRestore() {
+        if (busy || !available()) return;
+        busy = true;
+        rebuildWidgets();
+        prepare().whenComplete((latest, error) -> minecraft.execute(() -> {
+            busy = false;
+            if (!isCurrent()) return;
+            if (error != null) {
+                finish(error);
+                return;
+            }
+            show(new ConfirmationScreen(this, Text.component("backup.apply"), Text.component("backup.confirm", latest.unresolved()),
+                Text.component("backup.apply"), () -> app.restoreBackup(latest, latest.selection().shortcuts()), this));
+        }));
     }
 
     private void choose(boolean export) {
@@ -106,7 +151,13 @@ public final class BackupScreen extends AudioPage {
             }
         }, app.io).whenComplete((loaded, error) -> minecraft.execute(() -> {
             if (error == null) {
-                if (!export) data = loaded;
+                if (!export) {
+                    data = loaded;
+                    prepared = null;
+                    previewVersion++;
+                    preparing = false;
+                    previewFailed = false;
+                }
                 status = Text.get(export ? "backup.exported" : "backup.loaded");
             }
             if (error == null) app.announce(status);

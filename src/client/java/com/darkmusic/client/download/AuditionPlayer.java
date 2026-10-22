@@ -56,8 +56,8 @@ public final class AuditionPlayer implements AutoCloseable {
                     }
                     audio = factory.get();
                     audio.volume(volume);
-                    state = new Snapshot(Status.PLAYING, entry.title(), "");
                     audio.play(clip.track(), () -> complete(ticket, ""), error -> complete(ticket, error));
+                    if (ticket == generation) state = new Snapshot(Status.PLAYING, entry.title(), "");
                 }
             } catch (CancellationException e) {
                 release();

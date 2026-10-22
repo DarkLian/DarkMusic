@@ -34,10 +34,51 @@ public final class LoudnessCache implements AutoCloseable {
     private Lookup recent, previous;
     private volatile boolean closed;
     private CompletableFuture<Void> closing;
+    private final CompletableFuture<Void> loaded = new CompletableFuture<>();
 
     public enum Source {TRACK_TAGS, ALBUM_TAGS, ANALYSIS, LEGACY}
 
-    public enum State {OFF, PENDING, READY, NO_MEASUREMENT, FAILED}
+    public enum State {OFF, PENDING, READY, NO_MEASUREMENT, FAILED, NEXT_SESSION}
+
+    /**
+     * A measurement is selected once, before this track contributes any audible PCM.
+     */
+    public final class Session {
+        private final Reading reading;
+        private final Lookup lookup;
+
+        private Session(Reading reading, Lookup lookup) {
+            this.reading = reading;
+            this.lookup = lookup;
+        }
+
+        public boolean matches(AudioSettings settings) {
+            return lookup.mode == settings.gainMode && lookup.analyze == settings.analyzeLoudness;
+        }
+
+        public double gain(AudioSettings settings) {
+            return reading == null ? 1 : gainFor(reading, settings.targetLufs);
+        }
+
+        public Status status(AudioSettings settings, double actualGain) {
+            if (settings.neutral || !settings.normalization) return Status.OFF;
+            var status = LoudnessCache.this.status(lookup.track, settings, actualGain);
+            if (reading == null) return new Status(status.state == State.READY ? State.NEXT_SESSION : status.state,
+                null, settings.targetLufs, AudioDynamics.db(actualGain), false, false);
+            return readingStatus(reading, settings, actualGain);
+        }
+    }
+
+    /**
+     * Audio/preload worker only: disk-cache loading must finish before the first gain decision.
+     */
+    public Session session(Track track, AudioSettings settings) {
+        loaded.join();
+        var lookup = lookup(track, settings);
+        Reading reading = results.get(lookup.key);
+        gain(track, settings); // Queue missing metadata/analysis for the next session, without waiting for it.
+        return new Session(reading, lookup);
+    }
 
     public record Status(State state, Source source, double target, double appliedDb, boolean peakLimited,
                          boolean albumFallback) {
@@ -50,9 +91,14 @@ public final class LoudnessCache implements AutoCloseable {
         var reading = results.get(lookup.key);
         State state = reading != null ? State.READY : pending.contains(lookup.attempt) ? State.PENDING
             : retryAfter.containsKey(lookup.attempt) ? State.FAILED : State.NO_MEASUREMENT;
-        Source source = reading == null ? null : reading.source == null ? Source.LEGACY : reading.source;
+        if (reading != null) return readingStatus(reading, settings, actualGain);
+        return new Status(state, null, settings.targetLufs, AudioDynamics.db(actualGain), false, false);
+    }
+
+    private static Status readingStatus(Reading reading, AudioSettings settings, double actualGain) {
+        Source source = reading.source == null ? Source.LEGACY : reading.source;
         boolean limited = reading != null && Math.clamp(settings.targetLufs - reading.lufs, -24, 12) > -1 - reading.peakDb;
-        return new Status(state, source, settings.targetLufs, AudioDynamics.db(actualGain), limited,
+        return new Status(State.READY, source, settings.targetLufs, AudioDynamics.db(actualGain), limited,
             settings.gainMode == AudioSettings.Normalization.ALBUM && (source == Source.TRACK_TAGS || source == Source.ANALYSIS));
     }
 
@@ -93,6 +139,8 @@ public final class LoudnessCache implements AutoCloseable {
                     preserveOriginal = true;
                 }
                 org.slf4j.LoggerFactory.getLogger("darkmusic-audio").warn("Could not load loudness cache {}", cache, e);
+            } finally {
+                loaded.complete(null);
             }
         });
         writer.scheduleWithFixedDelay(this::flush, 1, 1, TimeUnit.SECONDS);
@@ -115,7 +163,11 @@ public final class LoudnessCache implements AutoCloseable {
             }
         }
         if (r == null) return 1;
-        double db = Math.clamp(settings.targetLufs - r.lufs, -24, 12);
+        return gainFor(r, settings.targetLufs);
+    }
+
+    private static double gainFor(Reading r, double target) {
+        double db = Math.clamp(target - r.lufs, -24, 12);
         db = Math.min(db, -1 - r.peakDb);
         return Math.pow(10, db / 20);
     }
