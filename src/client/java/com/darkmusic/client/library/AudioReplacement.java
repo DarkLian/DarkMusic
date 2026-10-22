@@ -16,6 +16,21 @@ final class AudioReplacement {
         replace(staged, target, backup, Files::move);
     }
 
+    static void renameCase(Path staged, Path source, Path target, Path backup) throws IOException {
+        Files.move(source, backup);
+        try {
+            Files.move(staged, target);
+        } catch (IOException failure) {
+            try {
+                Files.move(backup, source);
+            } catch (IOException rollback) {
+                failure.addSuppressed(rollback);
+                throw new RecoveryRequired(backup, failure);
+            }
+            throw failure;
+        }
+    }
+
     static void replace(Path staged, Path target, Path backup, Move move) throws IOException {
         try {
             move.run(staged, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);

@@ -52,7 +52,7 @@ public final class ExternalAudio {
     public static Path tool(boolean probe) throws IOException {
         var supplier = configuration;
         if (supplier == null)
-            throw new IOException("This format needs FFmpeg/FFprobe. Install tools in Downloads > Tools.");
+            throw new IOException(com.darkmusic.client.text.Text.get("audio.error.tools"));
         Paths p = supplier.get();
         Path managed = ManagedTools.current(p.data());
         Path directory = managed == null ? p.data().resolve("tools") : managed;
@@ -78,100 +78,132 @@ public final class ExternalAudio {
         args.addAll(List.of("-of", "json", absolute.toString()));
         var result = new ProcessRunner().run(args, absolute.getParent(), token, Duration.ofSeconds(15), 128_000, s -> {
         });
-        if (result.exit() != 0) throw new IOException("Audio inspection failed: " + result.output());
+        if (result.exit() != 0)
+            throw new IOException(com.darkmusic.client.text.Text.get("audio.error.inspection"), new IOException(result.output()));
         return JsonParser.parseString(result.output()).getAsJsonObject();
     }
 
     public static AudioInputStream open(Path file) throws Exception {
+        return openAt(file, 0).stream();
+    }
+
+    public static PcmDecoder.Opened openAt(Path file, double seconds) throws Exception {
+        if (!Double.isFinite(seconds) || seconds < 0) throw new IllegalArgumentException("Invalid seek position");
         JsonObject info = probe(file, false);
         var streams = info.getAsJsonArray("streams");
-        if (streams == null || streams.isEmpty()) throw new IOException("No playable audio stream");
+        if (streams == null || streams.isEmpty())
+            throw new IOException(com.darkmusic.client.text.Text.get("audio.error.stream"));
         var audio = streams.get(0).getAsJsonObject();
         int rate = audio.get("sample_rate").getAsInt(), originalChannels = audio.get("channels").getAsInt();
         if (rate < 8000 || rate > 384000 || originalChannels < 1 || originalChannels > 32)
-            throw new IOException("Unsupported audio layout or sample rate");
+            throw new IOException(com.darkmusic.client.text.Text.get("audio.error.layout"));
         int channels = Math.min(2, originalChannels);
         var command = new ArrayList<>(List.of(tool(false).toString(), "-nostdin", "-v", "error", "-protocol_whitelist", "file,pipe", "-i", file.toAbsolutePath().toString(), "-map", "0:a:0", "-vn", "-sn", "-dn", "-ac", Integer.toString(channels), "-c:a", "pcm_f32le", "-f", "f32le", "pipe:1"));
+        double offset = Math.floor(seconds * rate) / rate;
+        if (offset > 0) {
+            int input = command.indexOf("-i");
+            command.addAll(input, List.of("-ss", Double.toString(offset)));
+        }
         Process process = new ProcessBuilder(command).start();
-        process.getOutputStream().close();
-        var errors = new StringBuilder();
-        Thread.ofVirtual().name("darkmusic-codec-errors").start(() -> {
-            try (var reader = new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8)) {
-                int c;
-                while ((c = reader.read()) >= 0) synchronized (errors) {
-                    if (errors.length() == 4096) errors.delete(0, 2048);
-                    errors.append((char) c);
-                }
-            } catch (IOException ignored) {
-            }
-        });
-        InputStream pipe = new FilterInputStream(process.getInputStream()) {
-            private volatile boolean closed, reading;
-            private volatile long started;
-            private final Thread watchdog = Thread.ofVirtual().name("darkmusic-codec-watch").start(() -> {
-                try {
-                    while (!closed) {
-                        Thread.sleep(500);
-                        if (reading && System.nanoTime() - started > TimeUnit.SECONDS.toNanos(15)) {
-                            process.destroyForcibly();
-                            break;
-                        }
+        boolean registered = false;
+        try {
+            process.getOutputStream().close();
+            var errors = new StringBuilder();
+            Thread drain = Thread.ofVirtual().name("darkmusic-codec-errors").start(() -> {
+                try (var reader = new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8)) {
+                    int c;
+                    while ((c = reader.read()) >= 0) synchronized (errors) {
+                        if (errors.length() == 4096) errors.delete(0, 2048);
+                        errors.append((char) c);
                     }
-                } catch (InterruptedException ignored) {
+                } catch (IOException ignored) {
                 }
             });
-
-            @Override
-            public int read(byte[] b, int off, int len) throws IOException {
-                started = System.nanoTime();
-                reading = true;
-                try {
-                    int n = in.read(b, off, len);
-                    if (n < 0) {
-                        try {
-                            if (!process.waitFor(2, TimeUnit.SECONDS) || process.exitValue() != 0) {
-                                synchronized (errors) {
-                                    throw new IOException("Audio decoder failed: " + errors);
-                                }
+            InputStream pipe = new FilterInputStream(process.getInputStream()) {
+                private volatile boolean closed, reading;
+                private volatile long started;
+                private final Thread watchdog = Thread.ofVirtual().name("darkmusic-codec-watch").start(() -> {
+                    try {
+                        while (!closed) {
+                            Thread.sleep(500);
+                            if (reading && System.nanoTime() - started > TimeUnit.SECONDS.toNanos(15)) {
+                                process.destroyForcibly();
+                                break;
                             }
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                            throw new IOException(e);
                         }
+                    } catch (InterruptedException ignored) {
                     }
-                    return n;
-                } finally {
-                    reading = false;
-                }
-            }
+                });
 
-            @Override
-            public void close() throws IOException {
-                closed = true;
-                watchdog.interrupt();
+                @Override
+                public int read(byte[] b, int off, int len) throws IOException {
+                    started = System.nanoTime();
+                    reading = true;
+                    try {
+                        int n = in.read(b, off, len);
+                        if (n < 0) {
+                            try {
+                                boolean exited = process.waitFor(2, TimeUnit.SECONDS);
+                                if (exited) drain.join(500);
+                                if (!exited || process.exitValue() != 0) {
+                                    synchronized (errors) {
+                                        throw new IOException(com.darkmusic.client.text.Text.get("audio.error.decode"), new IOException(errors.toString()));
+                                    }
+                                }
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                throw new IOException(e);
+                            }
+                        }
+                        return n;
+                    } finally {
+                        reading = false;
+                    }
+                }
+
+                @Override
+                public void close() throws IOException {
+                    closed = true;
+                    watchdog.interrupt();
+                    process.descendants().forEach(ProcessHandle::destroyForcibly);
+                    process.destroy();
+                    try {
+                        if (!process.waitFor(500, TimeUnit.MILLISECONDS)) process.destroyForcibly();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        process.destroyForcibly();
+                    } finally {
+                        super.close();
+                    }
+                }
+            };
+            var result = new AudioInputStream(pipe, new AudioFormat(AudioFormat.Encoding.PCM_FLOAT, rate, 32, channels, channels * 4, rate, false), -1) {
+                @Override
+                public void close() throws IOException {
+                    try {
+                        super.close();
+                    } finally {
+                        active.remove(this);
+                    }
+                }
+            };
+            active.put(result, process);
+            registered = true;
+            return new PcmDecoder.Opened(result, offset);
+        } finally {
+            if (!registered) {
                 process.descendants().forEach(ProcessHandle::destroyForcibly);
-                process.destroy();
+                process.destroyForcibly();
                 try {
-                    if (!process.waitFor(500, TimeUnit.MILLISECONDS)) process.destroyForcibly();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    process.destroyForcibly();
-                } finally {
-                    super.close();
+                    process.getInputStream().close();
+                } catch (IOException ignored) {
                 }
-            }
-        };
-        var result = new AudioInputStream(pipe, new AudioFormat(AudioFormat.Encoding.PCM_FLOAT, rate, 32, channels, channels * 4, rate, false), -1) {
-            @Override
-            public void close() throws IOException {
                 try {
-                    super.close();
-                } finally {
-                    active.remove(this);
+                    process.getErrorStream().close();
+                } catch (IOException ignored) {
                 }
+                process.waitFor(1, TimeUnit.SECONDS);
             }
-        };
-        active.put(result, process);
-        return result;
+        }
     }
 }

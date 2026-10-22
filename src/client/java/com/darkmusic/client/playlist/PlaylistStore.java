@@ -333,7 +333,12 @@ public final class PlaylistStore {
             pending = json;
             if (writing) return;
             writing = true;
-            io.execute(this::drainWrites);
+            try {
+                io.execute(this::drainWrites);
+            } catch (RuntimeException failure) {
+                writing = false;
+                throw failure;
+            }
         }
     }
 

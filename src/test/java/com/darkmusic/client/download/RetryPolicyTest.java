@@ -10,6 +10,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class RetryPolicyTest {
     @Test
     void temporaryNetworkFailuresRetryButPermanentFailuresRequireManualRetry() {
+        assertFalse(RetryPolicy.automatic(new IOException("HTTP Error 501: Not Implemented")));
+        assertFalse(RetryPolicy.automatic(new IOException("HTTP Error 505: HTTP Version Not Supported")));
         for (String message : List.of("HTTP Error 408", "HTTP Error 429", "HTTP Error 503", "HTTP Error 503: Service Unavailable",
             "HTTP status code 502: Bad Gateway", "HTTP Error 504: Gateway Timeout", "connection reset", "timed out"))
             assertTrue(RetryPolicy.automatic(new IOException("localized message", new IOException(message))), message);

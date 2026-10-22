@@ -225,7 +225,7 @@ public final class UpdateService implements AutoCloseable {
     }
 
     static boolean trusted(URI url) {
-        return "https".equals(url.getScheme()) && url.getUserInfo() == null && (url.getPort() == -1 || url.getPort() == 443) &&
+        return "https".equals(url.getScheme()) && url.getHost() != null && url.getUserInfo() == null && (url.getPort() == -1 || url.getPort() == 443) &&
             java.util.Set.of("api.github.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com").contains(url.getHost());
     }
 

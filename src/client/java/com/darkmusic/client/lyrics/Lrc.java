@@ -11,6 +11,7 @@ import java.util.regex.Pattern;
 public record Lrc(List<Line> lines) {
     private static final Pattern TIME = Pattern.compile("\\[(\\d{1,3}):(\\d{2})(?:[.:](\\d{1,3}))?]");
     private static final Pattern OFFSET = Pattern.compile("(?im)\\[offset:([+-]?\\d+)]");
+    private static final Pattern WORD_TIME = Pattern.compile("<\\d{1,3}:\\d{2}(?:[.:]\\d{1,3})?>");
 
     public Lrc {
         lines = List.copyOf(lines);
@@ -40,7 +41,7 @@ public record Lrc(List<Line> lines) {
                 times.add(Long.parseLong(matcher.group(1)) * 60_000 + seconds * 1000L + ms - offset);
                 end = matcher.end();
             }
-            String words = raw.substring(end).strip();
+            String words = WORD_TIME.matcher(raw.substring(end)).replaceAll("").strip();
             for (long time : times) result.add(new Line(time, words));
         }
         result.sort(Comparator.comparingLong(Line::millis));

@@ -225,7 +225,7 @@ public final class MusicScreen extends LocalScreen {
             selected = visible.get(i);
             awaitingEditedTrack = false;
             if (activated && !app.mediaBusy)
-                app.playback.play(collectionTracks(), selected, new PlaybackController.Source(mode, group, "", app.library.rootId()));
+                app.playback.play(collectionTracks(), selected, new PlaybackController.Source(mode, group, "", ""));
         }));
         songs.visible = library;
         songs.artwork(app.artwork, i -> i < visible.size() ? visible.get(i) : null);
@@ -345,7 +345,7 @@ public final class MusicScreen extends LocalScreen {
         if (folderRevision != snapshot.revision() || !root.equals(folderRoot)) {
             folderRevision = snapshot.revision();
             folderRoot = root;
-            folders = new FolderTree(tracks, snapshot.folders());
+            folders = new FolderTree(tracks, snapshot.folders(), app.library.roots());
             expandedFolders.removeIf(path -> !folders.contains(path));
         }
         folderRows = folders.visible(expandedFolders);
@@ -368,7 +368,7 @@ public final class MusicScreen extends LocalScreen {
             else if (mode.equals("Albums")) counts.merge(track.album(), 1, Integer::sum);
             else if (mode.equals("All")) {
                 counts.merge("", 1, Integer::sum);
-                String path = track.relativePath().replace('\\', '/');
+                String path = "@" + track.rootId() + "/" + track.relativePath().replace('\\', '/');
                 for (int slash = path.indexOf('/'); slash >= 0; slash = path.indexOf('/', slash + 1))
                     counts.merge(path.substring(0, slash), 1, Integer::sum);
             }
@@ -447,7 +447,7 @@ public final class MusicScreen extends LocalScreen {
         var current = app.playback.state().track();
         if (current == null) return;
         var source = app.playback.source();
-        if (!source.rootId().isEmpty() && !source.rootId().equals(app.library.rootId())) {
+        if (!source.rootId().isEmpty() && app.library.directory(source.rootId()) == null) {
             app.warn(Text.get("player.darkmusic.outside_library"));
             return;
         }
@@ -459,6 +459,8 @@ public final class MusicScreen extends LocalScreen {
         mode = source.mode();
         pane = Pane.LIBRARY;
         group = source.group();
+        if (mode.equals("All") && !group.isEmpty() && !group.startsWith("@") && !source.rootId().isEmpty())
+            group = "@" + source.rootId() + "/" + group;
         query = "";
         if (mode.equals("All")) {
             for (int slash = group.indexOf('/'); slash >= 0; slash = group.indexOf('/', slash + 1))
@@ -496,7 +498,7 @@ public final class MusicScreen extends LocalScreen {
         var status = app.playback.state().status();
         if (!selectionIsPlaying() || status == AudioBackend.Status.STOPPED || status == AudioBackend.Status.ERROR) {
             if (selected != null)
-                app.playback.play(collectionTracks(), selected, new PlaybackController.Source(mode, group, "", app.library.rootId()));
+                app.playback.play(collectionTracks(), selected, new PlaybackController.Source(mode, group, "", ""));
         } else app.playback.toggle();
     }
 
@@ -505,7 +507,7 @@ public final class MusicScreen extends LocalScreen {
         var source = app.playback.source();
         return selected != null && current != null && selected.id().equals(current.id())
             && mode.equals(source.mode()) && group.equals(source.group())
-            && (source.rootId().isEmpty() || source.rootId().equals(app.library.rootId()));
+            && (source.rootId().isEmpty() || app.library.directory(source.rootId()) != null);
     }
 
     @Override
@@ -587,13 +589,12 @@ public final class MusicScreen extends LocalScreen {
         if (focused instanceof EditBox) return super.keyPressed(event);
         // Mouse selection must not capture playback keys until the user navigates with Tab.
         if (keyboardNavigation && focused instanceof net.minecraft.client.gui.components.AbstractWidget widget && widget.visible && widget.active) {
-            boolean navigation = event.isLeft() || event.isRight() || event.key() == 264 || event.key() == 265
-                || event.key() >= 266 && event.key() <= 269;
+            boolean navigation = event.isLeft() || event.isRight() || event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN || event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_UP
+                || event.key() >= org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_UP && event.key() <= org.lwjgl.glfw.GLFW.GLFW_KEY_END;
             boolean activation = event.isSelection() && (focused instanceof Button || focused instanceof ValueSlider);
             if (navigation || activation) return super.keyPressed(event);
         }
-        if (!(getFocused() instanceof EditBox)
-            && (event.modifiers() & (org.lwjgl.glfw.GLFW.GLFW_MOD_CONTROL | org.lwjgl.glfw.GLFW.GLFW_MOD_ALT | org.lwjgl.glfw.GLFW.GLFW_MOD_SUPER)) == 0) {
+        if ((event.modifiers() & (org.lwjgl.glfw.GLFW.GLFW_MOD_CONTROL | org.lwjgl.glfw.GLFW.GLFW_MOD_ALT | org.lwjgl.glfw.GLFW.GLFW_MOD_SUPER)) == 0) {
             if (event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE) {
                 if (!spaceDown && !app.mediaBusy) {
                     spaceDown = true;
@@ -681,7 +682,7 @@ public final class MusicScreen extends LocalScreen {
         favorite.visible = edit.visible = sourceLink.visible = copySource.visible = selected != null && (pane == Pane.DETAILS || library && layout.inspector().width() > 0);
         if (lyricsButton != null) lyricsButton.visible = copySource.visible;
         if (library) {
-            String collection = mode.equals("History") ? Text.get("history." + group) : mode.equals("All") ? group.isEmpty() ? Text.get("text.darkmusic.all_tracks") : group : mode.equals("Playlists") && app.playlists.get(group) != null ? app.playlists.displayName(app.playlists.get(group)) : group;
+            String collection = mode.equals("History") ? Text.get("history." + group) : mode.equals("All") ? group.isEmpty() ? Text.get("text.darkmusic.all_tracks") : folders.display(group) : mode.equals("Playlists") && app.playlists.get(group) != null ? app.playlists.displayName(app.playlists.get(group)) : group;
 
             longText.draw(g, font, "collection_title", collection + " (" + visible.size() + ")", layout.tracks().x() + (layout.singleColumn() ? 116 : 0), height < 300 ? 70 : 76,
                 Math.max(1, layout.tracks().width() - (layout.singleColumn() ? 150 : mode.equals("Playlists") ? 150 : 32)), UiTheme.ACCENT);

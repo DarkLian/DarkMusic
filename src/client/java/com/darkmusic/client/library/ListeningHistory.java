@@ -31,7 +31,14 @@ public final class ListeningHistory {
     private boolean counted, dirty, ready;
     private boolean suspended;
     private boolean writable = true;
+    private long lastWriteWarning;
+    private boolean capacityReported;
     private volatile Rankings rankings;
+    private Views views;
+    private boolean ranking;
+
+    private record Views(List<Track> library, Rankings frozen, long revision, List<Track> recent, List<Track> most) {
+    }
 
     private record Rankings(String root, List<String> recent, List<String> most) {
     }
@@ -51,9 +58,8 @@ public final class ListeningHistory {
         }
         var current = rankings;
         if (current != null && current.root.equals(root)) return;
-        var values = snapshot();
-        List<String> recent = rank(library, values, false).stream().map(Track::id).toList();
-        List<String> most = rank(library, values, true).stream().map(Track::id).toList();
+        List<String> recent = collection(library, false).stream().map(Track::id).toList();
+        List<String> most = collection(library, true).stream().map(Track::id).toList();
         var playingOrder = queue.stream().map(Track::id).toList();
         rankings = new Rankings(root, collection.equals("recent") ? playingOrder : recent, collection.equals("most") ? playingOrder : most);
         synchronized (this) {
@@ -75,6 +81,7 @@ public final class ListeningHistory {
         try {
             Map<String, Entry> loaded = Map.of();
             if (Files.exists(file)) {
+                if (Files.size(file) > 32_000_000) throw new java.io.IOException("Listening history exceeds 32 MB");
                 var json = com.google.gson.JsonParser.parseString(Files.readString(file)).getAsJsonObject();
                 if (json.has("version")) {
                     var data = ConfigStore.JSON.fromJson(json, Data.class);
@@ -118,7 +125,12 @@ public final class ListeningHistory {
             counted = false;
         }
         String key = track.id();
-        if (!entries.containsKey(key) && entries.size() >= 100_000) return;
+        if (!entries.containsKey(key) && entries.size() >= 100_000) {
+            if (!capacityReported)
+                org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Listening history reached its 100,000-track limit; existing history retained");
+            capacityReported = true;
+            return;
+        }
         var old = entries.getOrDefault(key, new Entry(0, 0, 0));
         heard += seconds;
         double threshold = track.duration() > 0 ? Math.min(30, track.duration() / 2) : 30;
@@ -187,23 +199,58 @@ public final class ListeningHistory {
             try {
                 ConfigStore.atomicWrite(file, json(Map.copyOf(snapshot)));
             } catch (Exception e) {
+                boolean notify;
                 synchronized (this) {
                     dirty = true;
+                    long failedAt = System.nanoTime();
+                    notify = lastWriteWarning == 0 || failedAt - lastWriteWarning >= java.util.concurrent.TimeUnit.MINUTES.toNanos(5);
+                    if (notify) lastWriteWarning = failedAt;
                 }
                 org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Cannot save listening history", e);
-                warning.accept(com.darkmusic.client.text.Text.get("history.save_failed"));
+                if (notify) warning.accept(com.darkmusic.client.text.Text.get("history.save_failed"));
             }
         });
     }
 
-    public List<Track> collection(List<Track> library, boolean mostPlayed) {
+    public synchronized List<Track> collection(List<Track> library, boolean mostPlayed) {
         var frozen = rankings;
-        if (frozen != null && !library.isEmpty() && library.getFirst().rootId().equals(frozen.root)) {
-            var files = new HashMap<String, Track>();
-            library.forEach(track -> files.put(track.id(), track));
-            return (mostPlayed ? frozen.most : frozen.recent).stream().map(files::get).filter(Objects::nonNull).toList();
+        if (views != null && views.library == library && views.frozen == frozen && views.revision == revision)
+            return mostPlayed ? views.most : views.recent;
+        if (!ranking) {
+            ranking = true;
+            long ticket = revision;
+            var source = entries;
+            try {
+                io.execute(() -> {
+                    try {
+                        List<Track> recent, most;
+                        if (frozen != null && !library.isEmpty() && (frozen.root.isEmpty() || library.getFirst().rootId().equals(frozen.root))) {
+                            var files = new HashMap<String, Track>();
+                            library.forEach(track -> files.put(track.id(), track));
+                            recent = frozen.recent.stream().map(files::get).filter(Objects::nonNull).toList();
+                            most = frozen.most.stream().map(files::get).filter(Objects::nonNull).toList();
+                        } else {
+                            var data = Map.copyOf(source);
+                            recent = rank(library, data, false);
+                            most = rank(library, data, true);
+                        }
+                        synchronized (ListeningHistory.this) {
+                            if (revision == ticket && entries == source && rankings == frozen)
+                                views = new Views(library, frozen, ++revision, recent, most);
+                            else revision++; // Wake the UI to request the newer generation after a stale job finishes.
+                        }
+                    } finally {
+                        synchronized (ListeningHistory.this) {
+                            ranking = false;
+                        }
+                    }
+                });
+            } catch (RuntimeException failure) {
+                ranking = false;
+                throw failure;
+            }
         }
-        return rank(library, snapshot(), mostPlayed);
+        return views != null && views.library == library && views.frozen == frozen ? mostPlayed ? views.most : views.recent : List.of();
     }
 
     private static List<Track> rank(List<Track> library, Map<String, Entry> values, boolean mostPlayed) {

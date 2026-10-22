@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v2.4.2 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v2.4.3 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Interface language
 
@@ -8,11 +8,11 @@ DarkMusic includes English and Traditional Chinese (Taiwan). Choose **繁體中�
 
 ## Add your music
 
-Press **B**, open **Settings**, and choose **Choose Music Folder**. A native folder picker opens. The selected path appears below the setting. DarkMusic scans that folder and its subfolders.
+Press **B**, open **Settings → General → Music Folders**, and choose **Add Music Folder**. A native folder picker opens. Register multiple folders to scan them and their subfolders together. The checked **Default Save Folder** receives downloads and imports without a selected folder. Selecting a save destination preserves folder order. Removing a scan folder leaves its files on disk.
 
 The default folder is `config/darkmusic/music` inside your Minecraft instance. Copying music there also works. Library changes are discovered automatically; use Refresh Library if a change has not appeared.
 
-**Use Default Music Folder** in General settings restores that path. It leaves audio in its existing location. Refresh Library sits beside Import History in the player; narrow layouts place these actions in Collections.
+**Use Built-In Save Folder** in Music Folders restores that save destination while retaining other registered scan folders. It leaves audio in its existing location. Refresh Library sits beside Import History in the player; narrow layouts place these actions in Collections.
 
 MP3, FLAC, WAV, Ogg Vorbis, and AIFF use the bundled audio readers. Opus, AAC, MP4/M4A, and WebM playback uses FFmpeg. These formats require a compatible FFmpeg installation, available through **Downloads → Tools**. Actual playback depends on the codec in the file.
 
@@ -210,6 +210,8 @@ Normalization reports whether gain comes from track/album tags or analysis, whet
 Frequency sliders use logarithmic spacing for finer low-frequency control. Right-click a numeric slider, or focus it and press Enter, to type an exact value. Enter applies a valid value; Escape cancels.
 
 ![Advanced Audio controls](images/advanced-audio.png)
+
+**Parallel Loudness Analysis** under Audio Options → Loudness is off by default. Enable it for up to three simultaneous jobs, depending on CPU capacity; higher CPU use may reduce game performance. **Analyze Library Loudness** prepares measurements for the scanned library and shows progress. **Stop Library Analysis** cancels that batch and retains completed measurements. Cached measurements are reused, and newly measured gains apply on the next playback session.
 
 ### Sound Environment
 

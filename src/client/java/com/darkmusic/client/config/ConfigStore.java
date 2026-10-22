@@ -173,7 +173,12 @@ public final class ConfigStore {
             pending = json;
             if (writing) return;
             writing = true;
-            io.execute(this::drainWrites);
+            try {
+                io.execute(this::drainWrites);
+            } catch (RuntimeException failure) {
+                writing = false;
+                throw failure;
+            }
         }
     }
 
@@ -194,7 +199,7 @@ public final class ConfigStore {
                     preserveInvalid = false;
                 }
                 atomicWrite(directory.resolve("config.json"), json);
-            } catch (IOException e) {
+            } catch (Exception e) {
                 warning.accept(com.darkmusic.client.text.Text.failure(e, "error.save_settings"));
             }
         }

@@ -40,6 +40,24 @@ class MediaFilesTest {
     }
 
     @Test
+    void caseOnlyRenamesPreserveAudioLyricsAndDownloadReferences() throws Exception {
+        Path original = Files.copy(TestMusic.featured(), temp.resolve("Original.mp3"));
+        Files.writeString(DownloadLyrics.sidecar(original), "[00:01.00]Real collection lyric sidecar");
+        Files.writeString(temp.resolve(".darkmusic-downloads.json"), "{\"source:id\":\"Original.mp3\"}");
+        byte[] bytes = Files.readAllBytes(original);
+        var before = track(original);
+        var fields = files.fields(before);
+        var edited = files.edit(before, fields, new MediaFiles.Fields(fields.title(), fields.artist(), fields.album(), "original", fields.extension()), new ProcessRunner.Token());
+        assertEquals("original.mp3", edited.file().getFileName().toString());
+        assertArrayEquals(bytes, Files.readAllBytes(edited.file()));
+        assertTrue(Files.isRegularFile(DownloadLyrics.sidecar(edited.file())));
+        assertEquals("original.mp3", com.google.gson.JsonParser.parseString(Files.readString(temp.resolve(".darkmusic-downloads.json"))).getAsJsonObject().get("source:id").getAsString());
+        try (var entries = Files.list(temp)) {
+            assertTrue(entries.anyMatch(p -> p.getFileName().toString().equals("original.mp3")));
+        }
+    }
+
+    @Test
     void defaultFavoritesPersistProtectTheirIdentityAndFollowRenamesAcrossPlaylists() throws Exception {
         var io = Executors.newSingleThreadExecutor();
         try {

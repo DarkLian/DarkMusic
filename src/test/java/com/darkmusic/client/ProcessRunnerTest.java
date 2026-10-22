@@ -17,6 +17,13 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ProcessRunnerTest {
+    @Test
+    void invalidOutputLimitsAreRejectedBeforeStartingAnyExecutable() {
+        assertThrows(IllegalArgumentException.class, () -> new ProcessRunner().run(List.of("nonexistent-darkmusic-test-executable"), Path.of("."),
+            new ProcessRunner.Token(), Duration.ofSeconds(1), 0, line -> {
+            }));
+    }
+
     @TempDir
     Path temp;
 

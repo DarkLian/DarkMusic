@@ -12,6 +12,19 @@ import java.util.concurrent.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LoudnessPrefetchTest {
+    @Test
+    void immediateShutdownDoesNotDiscardTheInitialLoadCompletion() throws Exception {
+        org.slf4j.LoggerFactory.getLogger(getClass());
+        ExternalAudio.configure(null);
+        try (var caller = Executors.newSingleThreadExecutor()) {
+            for (int i = 0; i < 25; i++) {
+                var cache = new LoudnessCache();
+                cache.close();
+                caller.submit(() -> cache.session(track("closed"), settings())).get(2, TimeUnit.SECONDS);
+            }
+        }
+    }
+
     @TempDir
     Path directory;
 

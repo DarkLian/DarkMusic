@@ -118,68 +118,83 @@ public final class ArtworkCache implements AutoCloseable {
         if (cache.containsKey(key)) return cache.get(key);
         if (pending.size() >= 8) return null;
         if (pending.add(key)) worker.execute(() -> {
-            int[] pixels = null;
-            int dimension = 0, contentWidth = 0, contentHeight = 0, inset = 0;
+            NativeImage owned = null;
             try {
-                byte[] bytes = new MetadataReader().artwork(track.file());
-                if (bytes != null) try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {
-                    var readers = ImageIO.getImageReaders(input);
-                    if (readers.hasNext()) {
-                        var reader = readers.next();
-                        try {
-                            reader.setInput(input);
-                            int w = reader.getWidth(0), h = reader.getHeight(0);
-                            if (w > 0 && h > 0 && w <= 32_768 && h <= 32_768 && (long) w * h <= 268_435_456) {
-                                var parameters = reader.getDefaultReadParam();
-                                int step = Math.max(1, (Math.max(w, h) + limit - 1) / limit);
-                                parameters.setSourceSubsampling(step, step, 0, 0);
-                                var original = reader.read(0, parameters);
-                                var fit = fit(original.getWidth(), original.getHeight());
-                                contentWidth = fit.width();
-                                contentHeight = fit.height();
-                                inset = (int) Math.round(menuInset(original) * (double) fit.width() / original.getWidth());
-                                var image = fitArtwork(original);
-                                dimension = image.getWidth();
-                                pixels = image.getRGB(0, 0, dimension, dimension, null, 0, dimension);
+                int[] pixels = null;
+                int dimension = 0, contentWidth = 0, contentHeight = 0, inset = 0;
+                try {
+                    byte[] bytes = new MetadataReader().artwork(track.file());
+                    if (bytes != null)
+                        try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {
+                            var readers = ImageIO.getImageReaders(input);
+                            if (readers.hasNext()) {
+                                var reader = readers.next();
+                                try {
+                                    reader.setInput(input);
+                                    int w = reader.getWidth(0), h = reader.getHeight(0);
+                                    if (w > 0 && h > 0 && w <= 32_768 && h <= 32_768 && (long) w * h <= 268_435_456) {
+                                        var parameters = reader.getDefaultReadParam();
+                                        int step = Math.max(1, (Math.max(w, h) + limit - 1) / limit);
+                                        parameters.setSourceSubsampling(step, step, 0, 0);
+                                        var original = reader.read(0, parameters);
+                                        var fit = fit(original.getWidth(), original.getHeight());
+                                        contentWidth = fit.width();
+                                        contentHeight = fit.height();
+                                        inset = (int) Math.round(menuInset(original) * (double) fit.width() / original.getWidth());
+                                        var image = fitArtwork(original);
+                                        dimension = image.getWidth();
+                                        pixels = image.getRGB(0, 0, dimension, dimension, null, 0, dimension);
+                                    }
+                                } finally {
+                                    reader.dispose();
+                                }
                             }
-                        } finally {
-                            reader.dispose();
                         }
-                    }
+                } catch (Exception ignored) {
                 }
-            } catch (Exception ignored) {
-            }
-            int size = dimension;
-            int imageWidth = contentWidth, imageHeight = contentHeight, menuInset = inset;
-            NativeImage prepared = pixels == null ? null : new NativeImage(size, size, false);
-            if (prepared != null) for (int y = 0; y < size; y++)
-                for (int x = 0; x < size; x++) prepared.setPixel(x, y, pixels[y * size + x]);
-            if (closed) {
-                if (prepared != null) prepared.close();
-                return;
-            }
-            Minecraft.getInstance().execute(() -> {
-                pending.remove(key);
+                int size = dimension;
+                int imageWidth = contentWidth, imageHeight = contentHeight, menuInset = inset;
+                NativeImage prepared = pixels == null ? null : new NativeImage(size, size, false);
+                owned = prepared;
+                if (prepared != null) for (int y = 0; y < size; y++)
+                    for (int x = 0; x < size; x++) prepared.setPixel(x, y, pixels[y * size + x]);
                 if (closed) {
-                    if (prepared != null) prepared.close();
                     return;
                 }
-                Identifier id = null;
-                if (prepared != null) {
-                    id = Identifier.fromNamespaceAndPath("darkmusic", "artwork/" + serial++);
-                    Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(() -> "DarkMusic artwork", prepared));
-                }
-                cache.put(key, id == null ? null : new Cover(id, size, imageWidth, imageHeight, menuInset));
-                if (id != null) cachedBytes += size * size * 4;
-                while (cache.size() > 32 || cachedBytes > 32 * 1024 * 1024) {
-                    var entry = cache.entrySet().iterator().next();
-                    if (entry.getValue() != null) {
-                        cachedBytes -= entry.getValue().size() * entry.getValue().size() * 4;
-                        Minecraft.getInstance().getTextureManager().release(entry.getValue().id());
+                Minecraft.getInstance().execute(() -> {
+                    pending.remove(key);
+                    if (closed) {
+                        if (prepared != null) prepared.close();
+                        return;
                     }
-                    cache.remove(entry.getKey());
-                }
-            });
+                    Identifier id = null;
+                    if (prepared != null) {
+                        id = Identifier.fromNamespaceAndPath("darkmusic", "artwork/" + serial++);
+                        try {
+                            Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(() -> "DarkMusic artwork", prepared));
+                        } catch (RuntimeException failure) {
+                            prepared.close();
+                            org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Artwork texture registration failed", failure);
+                            cache.put(key, null);
+                            return;
+                        }
+                    }
+                    cache.put(key, id == null ? null : new Cover(id, size, imageWidth, imageHeight, menuInset));
+                    if (id != null) cachedBytes += size * size * 4;
+                    while (cache.size() > 32 || cachedBytes > 32 * 1024 * 1024) {
+                        var entry = cache.entrySet().iterator().next();
+                        if (entry.getValue() != null) {
+                            cachedBytes -= entry.getValue().size() * entry.getValue().size() * 4;
+                            Minecraft.getInstance().getTextureManager().release(entry.getValue().id());
+                        }
+                        cache.remove(entry.getKey());
+                    }
+                });
+                owned = null; // The render-thread callback now owns the native image.
+            } finally {
+                if (owned != null) owned.close();
+                Minecraft.getInstance().execute(() -> pending.remove(key));
+            }
         });
         return null;
     }

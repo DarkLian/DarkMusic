@@ -14,7 +14,12 @@ import java.util.zip.*;
  */
 public final class BackupArchive {
     public record Data(int version, String root, JsonObject settings, List<PlaylistStore.Playlist> playlists,
-                       Map<String, com.darkmusic.client.library.ListeningHistory.Entry> history) {
+                       Map<String, com.darkmusic.client.library.ListeningHistory.Entry> history,
+                       Map<String, String> rootNames) {
+        public Data(int version, String root, JsonObject settings, List<PlaylistStore.Playlist> playlists,
+                    Map<String, com.darkmusic.client.library.ListeningHistory.Entry> history) {
+            this(version, root, settings, playlists, history, Map.of());
+        }
     }
 
     public record Selection(boolean settings, boolean playlists, boolean shortcuts, boolean history, boolean replace,
@@ -54,9 +59,15 @@ public final class BackupArchive {
     public static Data snapshot(Settings settings, String root, List<PlaylistStore.Playlist> playlists,
                                 Map<String, com.darkmusic.client.library.ListeningHistory.Entry> history) {
         JsonObject values = ConfigStore.JSON.toJsonTree(settings).getAsJsonObject();
-        for (String name : List.of("musicDirectory", "roots", "ytDlpPath", "ffmpegPath", "ffprobePath", "javascriptPath", "outputDevice"))
+        for (String name : List.of("musicDirectory", "musicFolders", "roots", "ytDlpPath", "ffmpegPath", "ffprobePath", "javascriptPath", "outputDevice"))
             values.remove(name);
-        return new Data(1, root, values, List.copyOf(playlists), Map.copyOf(history));
+        var names = new LinkedHashMap<String, String>();
+        if (settings.musicFolders != null) for (String folder : settings.musicFolders) {
+            var path = Path.of(folder);
+            String id = settings.roots.get(folder);
+            if (id != null) names.put(id, path.getFileName() == null ? path.toString() : path.getFileName().toString());
+        }
+        return new Data(1, root, values, List.copyOf(playlists), Map.copyOf(history), Map.copyOf(names));
     }
 
     public static void write(Path destination, Data data) throws IOException {
@@ -99,6 +110,8 @@ public final class BackupArchive {
                 Settings values = ConfigStore.JSON.fromJson(data.settings, Settings.class);
                 if (values == null || values.schemaVersion != 1) throw new IllegalArgumentException();
                 values.validate();
+                if (data.rootNames != null && (data.rootNames.size() > 1000 || data.rootNames.entrySet().stream().anyMatch(e -> e.getKey() == null || e.getKey().isBlank() || e.getKey().length() > 256 || e.getValue() == null || e.getValue().length() > 256)))
+                    throw new IllegalArgumentException();
                 var ids = new HashSet<String>();
                 int entries = 0;
                 for (var p : data.playlists) {
@@ -120,6 +133,7 @@ public final class BackupArchive {
         var values = selected.settings ? ConfigStore.JSON.fromJson(data.settings, Settings.class)
             : ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(current), Settings.class);
         values.musicDirectory = current.musicDirectory;
+        values.musicFolders = current.musicFolders == null ? null : List.copyOf(current.musicFolders);
         values.roots = new LinkedHashMap<>(current.roots);
         values.ytDlpPath = current.ytDlpPath;
         values.ffmpegPath = current.ffmpegPath;
@@ -131,6 +145,18 @@ public final class BackupArchive {
         values.shortcuts = selected.shortcuts ? importedSettings.shortcuts : new LinkedHashMap<>(current.shortcuts);
         values.nativeShortcutNames = current.nativeShortcutNames;
         values.validate();
+        var remappedRoots = new HashMap<String, String>();
+        if (selected.remap) {
+            remappedRoots.put(data.root, current.roots.containsValue(data.root) ? data.root : root);
+            if (data.rootNames != null && current.musicFolders != null) data.rootNames.forEach((id, name) -> {
+                if (current.roots.containsValue(id) || id.equals(data.root)) return;
+                var matches = current.musicFolders.stream().filter(p -> {
+                    Path path = Path.of(p);
+                    return path.getFileName() != null && path.getFileName().toString().equalsIgnoreCase(name);
+                }).map(current.roots::get).filter(Objects::nonNull).distinct().toList();
+                if (matches.size() == 1) remappedRoots.put(id, matches.getFirst());
+            });
+        }
         var present = new HashSet<String>();
         tracks.forEach(t -> present.add(t.id()));
         var protectedEntries = new HashSet<>(retained);
@@ -140,7 +166,7 @@ public final class BackupArchive {
         if (selected.playlists) for (var p : data.playlists) {
             var imported = new LinkedHashSet<PlaylistStore.Entry>();
             for (var e : p.entries()) {
-                var mapped = new PlaylistStore.Entry(selected.remap && e.rootId().equals(data.root) ? root : e.rootId(), e.path());
+                var mapped = new PlaylistStore.Entry(remappedRoots.getOrDefault(e.rootId(), e.rootId()), e.path());
                 if (!imported.add(mapped)) continue;
                 if (!present.contains(mapped.key())) {
                     protectedEntries.add(mapped);
@@ -162,7 +188,8 @@ public final class BackupArchive {
         var stats = new LinkedHashMap<String, com.darkmusic.client.library.ListeningHistory.Entry>();
         if (!selected.history || !selected.replace) stats.putAll(history);
         if (selected.history) data.history.forEach((key, value) -> {
-            String mapped = selected.remap && key.startsWith(data.root + ":") ? root + key.substring(data.root.length()) : key;
+            int colon = key.indexOf(':');
+            String mapped = remappedRoots.getOrDefault(key.substring(0, colon), key.substring(0, colon)) + key.substring(colon);
             stats.merge(mapped, value, (a, b) -> new com.darkmusic.client.library.ListeningHistory.Entry(Math.max(a.plays(), b.plays()), Math.max(a.lastPlayed(), b.lastPlayed()), Math.max(a.seconds(), b.seconds())));
         });
         var referenced = new HashSet<PlaylistStore.Entry>();
@@ -220,6 +247,7 @@ public final class BackupArchive {
         try {
             for (var e : contents.entrySet()) writer.write(target(directory, e.getKey()), e.getValue());
             Files.delete(journal);
+            pruneBackups(directory);
         } catch (IOException | RuntimeException failure) {
             try {
                 recover(directory);
@@ -270,7 +298,39 @@ public final class BackupArchive {
             }
         if (failure != null) throw failure;
         Files.delete(journal);
+        pruneBackups(directory);
         return true;
+    }
+
+    /**
+     * Keep recent recovery copies; never prune while a transaction still needs them.
+     */
+    static void pruneBackups(Path directory) {
+        Path root = directory.resolve("backups");
+        if (recoveryPending(directory) || Files.isSymbolicLink(root) || !Files.isDirectory(root)) return;
+        try (var files = Files.list(root)) {
+            var copies = files.filter(p -> !Files.isSymbolicLink(p) && Files.isDirectory(p, LinkOption.NOFOLLOW_LINKS)
+                    && p.getFileName().toString().matches("[a-f0-9-]{36}"))
+                .sorted(Comparator.comparingLong((Path p) -> {
+                    try {
+                        return Files.getLastModifiedTime(p).toMillis();
+                    } catch (IOException e) {
+                        return Long.MAX_VALUE;
+                    }
+                }).reversed()).toList();
+            for (Path path : copies.stream().skip(5).toList()) {
+                if (System.currentTimeMillis() - Files.getLastModifiedTime(path).toMillis() < 7 * 86_400_000L) continue;
+                try (var children = Files.list(path)) {
+                    var entries = children.toList();
+                    if (entries.stream().anyMatch(p -> !TARGETS.contains(p.getFileName().toString()) || Files.isSymbolicLink(p) || !Files.isRegularFile(p, LinkOption.NOFOLLOW_LINKS)))
+                        continue;
+                    for (Path entry : entries) Files.delete(entry);
+                }
+                Files.delete(path);
+            }
+        } catch (IOException failure) {
+            org.slf4j.LoggerFactory.getLogger("darkmusic").debug("Deferred old recovery-copy cleanup", failure);
+        }
     }
 
     public static boolean recoveryPending(Path directory) {

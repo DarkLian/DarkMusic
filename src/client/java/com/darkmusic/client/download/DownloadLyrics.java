@@ -29,12 +29,13 @@ public final class DownloadLyrics {
 
     public static Result fetch(ProcessRunner runner, Toolchain tools, DownloadModels.Entry entry, JsonObject metadata, Path work, ProcessRunner.Token token, List<String> preferences) throws Exception {
         token.check();
+        String link = DownloadModels.url(entry.url());
         String language = LyricsLanguages.select(metadata, preferences);
         if (language.isEmpty())
             return new Result("", com.darkmusic.client.text.Text.get("lyrics.darkmusic.no_preferred_captions"));
         try {
             var args = tools.base();
-            args.addAll(List.of("--skip-download", "--no-playlist", "--playlist-items", "1", "--write-subs", "--no-write-auto-subs", "--extractor-args", "youtube:skip=translated_subs", "--sub-langs", "^" + language + "$", "--sub-format", "lrc/vtt/srt/best", "--convert-subs", "lrc", "--paths", work.toString(), "--output", "lyrics.%(ext)s", "--", entry.url()));
+            args.addAll(List.of("--skip-download", "--no-playlist", "--playlist-items", "1", "--write-subs", "--no-write-auto-subs", "--extractor-args", "youtube:skip=translated_subs", "--sub-langs", "^" + language + "$", "--sub-format", "lrc/vtt/srt/best", "--convert-subs", "lrc", "--paths", work.toString(), "--output", "lyrics.%(ext)s", "--", link));
             var result = runner.run(args, work, token, Duration.ofSeconds(90), 32_000, s -> {
             });
             if (result.exit() != 0) throw new java.io.IOException(DownloadJson.friendly(result.output()));

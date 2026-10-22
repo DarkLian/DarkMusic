@@ -21,6 +21,7 @@ public final class PlaybackController implements AutoCloseable {
     private com.darkmusic.client.config.AudioSettings configuredAudio;
     private com.darkmusic.client.config.SoundEnvironmentSettings configuredEnvironment = new com.darkmusic.client.config.SoundEnvironmentSettings();
     private long sequence;
+    private long orderVersion;
     private Source source = new Source("All", "", "", "");
     private java.util.function.BiConsumer<Source, List<Track>> sourceChanged = (source, tracks) -> {
     };
@@ -94,6 +95,7 @@ public final class PlaybackController implements AutoCloseable {
 
     public void repeat(Repeat value) {
         repeat = Objects.requireNonNullElse(value, Repeat.OFF);
+        orderVersion++;
         refreshNext();
     }
 
@@ -105,6 +107,7 @@ public final class PlaybackController implements AutoCloseable {
     }
 
     private void rebuildOrder(int current) {
+        orderVersion++;
         order.clear();
         for (int i = 0; i < tracks.size(); i++) if (i != current) order.add(i);
         if (shuffle) Collections.shuffle(order);
@@ -163,7 +166,7 @@ public final class PlaybackController implements AutoCloseable {
 
     private void failed(int index, long ticket, String message) {
         if (ticket != sequence) return;
-        warning.accept("Cannot play " + tracks.get(index).title() + ": " + message);
+        warning.accept(com.darkmusic.client.text.Text.get("audio.error.track", tracks.get(index).title(), message));
         if (++failures >= tracks.size()) stop();
         else advance(false);
     }
@@ -171,8 +174,9 @@ public final class PlaybackController implements AutoCloseable {
     private void refreshNext() {
         if (cursor < 0 || cursor >= order.size()) return;
         long ticket = sequence;
+        long plannedVersion = orderVersion;
         int old = order.get(cursor);
-        List<Integer> nextOrder = new ArrayList<>(order);
+        List<Integer> nextOrder = order;
         int nextCursor = cursor + 1;
         if (repeat == Repeat.ONE) nextCursor = cursor;
         else if (nextCursor >= order.size()) {
@@ -185,20 +189,26 @@ public final class PlaybackController implements AutoCloseable {
             }
             nextCursor = 0;
             if (shuffle) {
+                nextOrder = new ArrayList<>(order);
                 Collections.shuffle(nextOrder);
                 if (nextOrder.size() > 1 && nextOrder.getFirst() == old) Collections.swap(nextOrder, 0, 1);
             }
         }
         int destination = nextCursor, index = nextOrder.get(destination);
+        List<Integer> plannedOrder = nextOrder;
         audio.nextTrack(tracks.get(index), () -> {
             if (ticket != sequence) return;
-            if (repeat != Repeat.ONE) {
+            if (index != old) {
                 history.addLast(old);
                 if (history.size() > 1000) history.removeFirst();
             }
-            order.clear();
-            order.addAll(nextOrder);
-            cursor = destination;
+            if (plannedVersion == orderVersion) {
+                if (plannedOrder != order) {
+                    order.clear();
+                    order.addAll(plannedOrder);
+                }
+                cursor = destination;
+            } else cursor = order.indexOf(index);
             failures = 0;
             refreshNext();
         }, () -> finished(index, ticket), message -> failed(index, ticket, message));

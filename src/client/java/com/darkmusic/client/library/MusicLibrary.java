@@ -26,6 +26,7 @@ public final class MusicLibrary implements AutoCloseable {
     private final Path cacheFile;
     private final Map<String, Cached> cache = new HashMap<>();
     private final AtomicBoolean delayed = new AtomicBoolean();
+    private volatile Map<Path, String> roots = Map.of();
     private volatile Path root;
     private volatile String rootId;
     private volatile boolean closed;
@@ -75,9 +76,23 @@ public final class MusicLibrary implements AutoCloseable {
         return rootId;
     }
 
+    public Map<Path, String> roots() {
+        return roots;
+    }
+
+    public Path directory(String id) {
+        return roots.entrySet().stream().filter(e -> e.getValue().equals(id)).map(Map.Entry::getKey).findFirst().orElse(null);
+    }
+
     public synchronized void setRoot(Path directory, String id) {
-        root = directory.toAbsolutePath().normalize();
-        rootId = id;
+        setRoots(Map.of(directory.toAbsolutePath().normalize(), id), directory);
+    }
+
+    public synchronized void setRoots(Map<Path, String> values, Path destination) {
+        roots = Collections.unmodifiableMap(new LinkedHashMap<>(values));
+        root = destination.toAbsolutePath().normalize();
+        rootId = roots.get(root);
+        if (rootId == null) throw new IllegalArgumentException("Write destination must be a registered music folder");
         generation.incrementAndGet();
         snapshot = new Snapshot(revisions.incrementAndGet(), List.of(), true, Text.get("library.status.scanning"));
         rescan();
@@ -112,84 +127,87 @@ public final class MusicLibrary implements AutoCloseable {
     }
 
     private void scan() {
-        Path directory;
-        String id;
+        Map<Path, String> selected;
         long ticket;
         synchronized (this) {
-            directory = root;
-            id = rootId;
+            selected = roots;
             ticket = generation.get();
         }
         List<Track> tracks = new ArrayList<>();
         List<Path> directories = new ArrayList<>();
-        int[] unreadable = {0};
-        String message = "";
-        boolean complete = false;
+        List<String> folders = new ArrayList<>();
+        Set<String> completeRoots = new HashSet<>();
+        List<String> failures = new ArrayList<>();
         long[] partialAt = {System.nanoTime()};
         publish(ticket, new Snapshot(revisions.incrementAndGet(), snapshot.tracks(), true, Text.get("library.status.scanning"), snapshot.folders()));
-        try {
-            if (!Files.isDirectory(directory) || !Files.isReadable(directory))
-                throw new IOException(Text.get("library.status.unavailable"));
-            Files.walkFileTree(directory, new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
-                    if (closed || ticket != generation.get()) return FileVisitResult.TERMINATE;
-                    if (!dir.equals(directory) && dir.getFileName().toString().startsWith(".darkmusic-work-"))
-                        return FileVisitResult.SKIP_SUBTREE;
-                    if (dir.toAbsolutePath().normalize().equals(cacheFile.toAbsolutePath().getParent().resolve("downloads/work")))
-                        return FileVisitResult.SKIP_SUBTREE;
-                    directories.add(dir);
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                    if (closed || ticket != generation.get()) return FileVisitResult.TERMINATE;
-                    if (attrs.isRegularFile() && supported(file)) {
-                        String relative = directory.relativize(file).toString().replace('\\', '/');
-                        Cached old = cache.get(id + ":" + relative);
-                        Track t = old != null && old.size == attrs.size() && old.modified == attrs.lastModifiedTime().toMillis()
-                            ? old.track(file) : metadata.read(id, relative, file, attrs.size(), attrs.lastModifiedTime().toMillis());
-                        tracks.add(t);
-                        if (tracks.size() % 100 == 0 && System.nanoTime() - partialAt[0] >= 250_000_000L) {
-                            partialAt[0] = System.nanoTime();
-                            publish(ticket, new Snapshot(revisions.incrementAndGet(), List.copyOf(tracks), true, Text.get("library.status.scanned_count", tracks.size())));
-                        }
+        for (var entry : selected.entrySet()) {
+            Path directory = entry.getKey();
+            String id = entry.getValue();
+            int[] unreadable = {0};
+            folders.add("@" + id);
+            try {
+                if (!Files.isDirectory(directory) || !Files.isReadable(directory))
+                    throw new IOException(Text.get("library.status.unavailable"));
+                Files.walkFileTree(directory, new SimpleFileVisitor<>() {
+                    @Override
+                    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                        if (closed || ticket != generation.get()) return FileVisitResult.TERMINATE;
+                        if (!dir.equals(directory) && dir.getFileName().toString().startsWith(".darkmusic-work-"))
+                            return FileVisitResult.SKIP_SUBTREE;
+                        if (dir.toAbsolutePath().normalize().equals(cacheFile.toAbsolutePath().getParent().resolve("downloads/work")))
+                            return FileVisitResult.SKIP_SUBTREE;
+                        directories.add(dir);
+                        String relative = directory.relativize(dir).toString().replace('\\', '/');
+                        if (!relative.isEmpty()) folders.add("@" + id + "/" + relative);
+                        return FileVisitResult.CONTINUE;
                     }
-                    return FileVisitResult.CONTINUE;
-                }
 
-                @Override
-                public FileVisitResult visitFileFailed(Path file, IOException e) {
-                    unreadable[0]++;
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-            tracks.sort(Comparator.comparing(Track::relativePath, String.CASE_INSENSITIVE_ORDER));
-            complete = unreadable[0] == 0;
-            if (!complete) message = Text.get("library.status.unreadable", unreadable[0]);
-        } catch (Exception e) {
-            message = Text.failure(e, "library.status.scan_failed");
-        }
-        if (closed || ticket != generation.get()) return;
-        if (complete || !tracks.isEmpty()) {
-            var next = new HashMap<>(cache);
-            if (complete) next.entrySet().removeIf(e -> e.getValue().root.equals(id));
-            for (Track t : tracks) next.put(t.id(), Cached.of(t));
-            if (!next.equals(cache) || cacheDirty) {
-                cache.clear();
-                cache.putAll(next);
-                try {
-                    ConfigStore.atomicWrite(cacheFile, ConfigStore.JSON.toJson(cache.values()));
-                    cacheDirty = false;
-                } catch (IOException e) {
-                    cacheDirty = true;
-                    message = Text.failure(e, "library.status.cache_failed");
-                }
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                        if (closed || ticket != generation.get()) return FileVisitResult.TERMINATE;
+                        if (attrs.isRegularFile() && supported(file)) {
+                            String relative = directory.relativize(file).toString().replace('\\', '/');
+                            Cached old = cache.get(id + ":" + relative);
+                            tracks.add(old != null && old.size == attrs.size() && old.modified == attrs.lastModifiedTime().toMillis()
+                                ? old.track(file) : metadata.read(id, relative, file, attrs.size(), attrs.lastModifiedTime().toMillis()));
+                            if (tracks.size() % 100 == 0 && System.nanoTime() - partialAt[0] >= 250_000_000L) {
+                                partialAt[0] = System.nanoTime();
+                                publish(ticket, new Snapshot(revisions.incrementAndGet(), List.copyOf(tracks), true, Text.get("library.status.scanned_count", tracks.size()), folders));
+                            }
+                        }
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult visitFileFailed(Path file, IOException e) {
+                        unreadable[0]++;
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+                if (unreadable[0] == 0) completeRoots.add(id);
+                else failures.add(directory + ": " + Text.get("library.status.unreadable", unreadable[0]));
+            } catch (Exception e) {
+                failures.add(directory + ": " + Text.failure(e, "library.status.scan_failed"));
             }
         }
-        if (!directories.isEmpty()) replaceWatcher(directories);
-        publish(ticket, new Snapshot(revisions.incrementAndGet(), List.copyOf(tracks), false, message, directories.stream().map(directory::relativize).map(p -> p.toString().replace('\\', '/')).filter(p -> !p.isEmpty()).toList(), complete));
+        if (closed || ticket != generation.get()) return;
+        tracks.sort(Comparator.comparing(Track::relativePath, String.CASE_INSENSITIVE_ORDER).thenComparing(Track::rootId));
+        var next = new HashMap<>(cache);
+        next.entrySet().removeIf(e -> completeRoots.contains(e.getValue().root));
+        for (Track t : tracks) next.put(t.id(), Cached.of(t));
+        if (!next.equals(cache) || cacheDirty) {
+            cache.clear();
+            cache.putAll(next);
+            try {
+                ConfigStore.atomicWrite(cacheFile, ConfigStore.JSON.toJson(cache.values()));
+                cacheDirty = false;
+            } catch (IOException e) {
+                cacheDirty = true;
+                failures.add(Text.failure(e, "library.status.cache_failed"));
+            }
+        }
+        replaceWatcher(directories);
+        publish(ticket, new Snapshot(revisions.incrementAndGet(), tracks, false, String.join(" | ", failures), folders, completeRoots.size() == selected.size(), completeRoots));
     }
 
     private synchronized void publish(long ticket, Snapshot value) {
@@ -265,10 +283,15 @@ public final class MusicLibrary implements AutoCloseable {
     }
 
     public record Snapshot(long revision, List<Track> tracks, boolean scanning, String message, List<String> folders,
-                           boolean complete) {
+                           boolean complete, Set<String> completeRoots) {
         public Snapshot {
             tracks = List.copyOf(tracks);
             folders = List.copyOf(folders);
+            completeRoots = Set.copyOf(completeRoots);
+        }
+
+        public Snapshot(long revision, List<Track> tracks, boolean scanning, String message, List<String> folders, boolean complete) {
+            this(revision, tracks, scanning, message, folders, complete, Set.of());
         }
 
         public Snapshot(long revision, List<Track> tracks, boolean scanning, String message) {

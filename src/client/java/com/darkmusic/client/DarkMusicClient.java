@@ -55,6 +55,16 @@ public class DarkMusicClient implements ClientModInitializer {
         return backend == null ? "" : backend.outputDeviceId();
     }
 
+    public com.darkmusic.client.audio.LoudnessCache.AnalysisProgress loudnessAnalysis() {
+        return backend == null ? com.darkmusic.client.audio.LoudnessCache.AnalysisProgress.IDLE : backend.analysisProgress();
+    }
+
+    public void analyzeLibraryLoudness() {
+        if (backend == null || library == null || closed || resetting) return;
+        if (backend.analysisProgress().running()) backend.cancelAnalysis();
+        else backend.analyzeLibrary(library.snapshot().tracks(), settings.audio);
+    }
+
     public CompletableFuture<Boolean> selectOutputDevice(String id) {
         var result = new CompletableFuture<Boolean>();
         if (backend == null || mediaBusy || resetting || outputChanging) {
@@ -164,6 +174,19 @@ public class DarkMusicClient implements ClientModInitializer {
         }
         var root = library.root();
         String rootId = library.rootId();
+        if (folder.startsWith("@")) {
+            int slash = folder.indexOf('/');
+            rootId = folder.substring(1, slash < 0 ? folder.length() : slash);
+            root = library.directory(rootId);
+            folder = slash < 0 ? "" : folder.substring(slash + 1);
+            if (root == null) {
+                warn(com.darkmusic.client.text.Text.get("library.status.unavailable"));
+                return;
+            }
+        }
+        final var destinationRoot = root;
+        final var destinationId = rootId;
+        final var destinationFolder = folder;
         var store = playlists;
         var scanned = library;
         String target = store.get(playlistId) != null ? store.displayName(store.get(playlistId)) : folder.isBlank() ? com.darkmusic.client.text.Text.get("text.darkmusic.all_tracks") : folder;
@@ -181,7 +204,7 @@ public class DarkMusicClient implements ClientModInitializer {
         importDestination = target;
         var task = browse(() -> {
             try {
-                var imported = new com.darkmusic.client.library.MediaFiles().importFiles(root, rootId, folder, accepted, token);
+                var imported = new com.darkmusic.client.library.MediaFiles().importFiles(destinationRoot, destinationId, destinationFolder, accepted, token);
                 if (importHistory != null)
                     importHistory.record(new com.darkmusic.client.library.ImportHistory.Batch(started, destination, accepted.size(), imported.entries(), ""));
                 Minecraft.getInstance().execute(() -> {
@@ -528,6 +551,7 @@ public class DarkMusicClient implements ClientModInitializer {
             activateDirectory(settings.musicDirectory.isBlank() ? config.defaultMusic() : java.nio.file.Path.of(settings.musicDirectory));
         } catch (Exception e) {
             warn(com.darkmusic.client.text.Text.failure(e, "error.saved_folder"));
+            settings.musicDirectory = "";
             activateDirectory(config.defaultMusic());
         }
     }
@@ -553,9 +577,9 @@ public class DarkMusicClient implements ClientModInitializer {
     }
 
     private void activateDirectory(java.nio.file.Path path) {
-        String normalized = path.toAbsolutePath().normalize().toString();
-        String id = settings.roots.computeIfAbsent(normalized, key -> java.util.UUID.randomUUID().toString());
-        library.setRoot(java.nio.file.Path.of(normalized), id);
+        var roots = com.darkmusic.client.library.MusicFolders.resolve(settings, path);
+        var destination = settings.musicDirectory.isBlank() ? config.defaultMusic() : java.nio.file.Path.of(settings.musicDirectory);
+        library.setRoots(roots, destination);
         save();
     }
 
@@ -582,6 +606,13 @@ public class DarkMusicClient implements ClientModInitializer {
                 java.nio.file.Path canonical = directory.toRealPath();
                 Minecraft.getInstance().execute(() -> {
                     if (!closed && !resetting && !mediaBusy && generation == directoryGeneration) {
+                        if (!library.roots().containsKey(canonical) && com.darkmusic.client.library.MusicFolders.overlaps(library.roots().keySet(), canonical)) {
+                            warn(com.darkmusic.client.text.Text.get("folders.overlap"));
+                            return;
+                        }
+                        var folders = new java.util.ArrayList<>(settings.musicFolders);
+                        if (!folders.contains(canonical.toString())) folders.add(canonical.toString());
+                        settings.musicFolders = java.util.List.copyOf(folders);
                         settings.musicDirectory = canonical.toString();
                         activateDirectory(canonical);
                         success.run();
@@ -610,21 +641,54 @@ public class DarkMusicClient implements ClientModInitializer {
         });
     }
 
+    public void addMusicFolder(java.nio.file.Path directory) {
+        long ticket = directoryGeneration;
+        browse(() -> {
+            try {
+                var canonical = directory.toRealPath();
+                if (!java.nio.file.Files.isDirectory(canonical) || !java.nio.file.Files.isReadable(canonical))
+                    throw new java.io.IOException("Unreadable music folder");
+                Minecraft.getInstance().execute(() -> {
+                    if (closed || resetting || mediaBusy || ticket != directoryGeneration) return;
+                    if (com.darkmusic.client.library.MusicFolders.overlaps(library.roots().keySet(), canonical)) {
+                        warn(com.darkmusic.client.text.Text.get("folders.overlap"));
+                        return;
+                    }
+                    var folders = new java.util.ArrayList<>(settings.musicFolders);
+                    folders.add(canonical.toString());
+                    settings.musicFolders = java.util.List.copyOf(folders);
+                    activateDirectory(library.root());
+                });
+            } catch (Exception e) {
+                warn(com.darkmusic.client.text.Text.failure(e, "error.folder"));
+            }
+        });
+    }
+
+    public void removeMusicFolder(java.nio.file.Path directory) {
+        if (mediaBusy || resetting || directory.equals(library.root())) return;
+        settings.musicFolders = settings.musicFolders.stream().filter(p -> !java.nio.file.Path.of(p).equals(directory)).toList();
+        activateDirectory(library.root());
+    }
+
     private boolean cleanMissingPlaylistEntries() {
         if (mediaBusy || !playlistsReady || library == null || playlistCleanupPending) return false;
         var snapshot = library.snapshot();
-        if (snapshot.scanning() || !snapshot.complete()) return false;
+        if (snapshot.scanning() || snapshot.completeRoots().isEmpty()) return false;
         if (cleanedScan == snapshot.revision() && cleanedPlaylists == playlists.revision()) return true;
         var store = playlists;
         var entries = store.all();
         long revision = store.revision();
-        var root = library.root();
-        String rootId = library.rootId();
+        var roots = library.roots();
         playlistCleanupPending = true;
         io.execute(() -> {
             java.util.Set<com.darkmusic.client.playlist.PlaylistStore.Entry> missing;
             try {
-                missing = com.darkmusic.client.playlist.PlaylistStore.missing(root, rootId, entries, snapshot.tracks());
+                var all = new java.util.HashSet<com.darkmusic.client.playlist.PlaylistStore.Entry>();
+                for (var entry : roots.entrySet())
+                    if (snapshot.completeRoots().contains(entry.getValue()))
+                        all.addAll(com.darkmusic.client.playlist.PlaylistStore.missing(entry.getKey(), entry.getValue(), entries, snapshot.tracks()));
+                missing = all;
             } catch (Exception e) {
                 missing = java.util.Set.of();
                 warn(com.darkmusic.client.text.Text.failure(e, "error.playlist_scan"));
@@ -633,7 +697,7 @@ public class DarkMusicClient implements ClientModInitializer {
             Minecraft.getInstance().execute(() -> {
                 playlistCleanupPending = false;
                 if (closed || resetting || mediaBusy || playlists != store || store.revision() != revision
-                    || library.snapshot().revision() != snapshot.revision() || !rootId.equals(library.rootId())) return;
+                    || library.snapshot().revision() != snapshot.revision() || !roots.equals(library.roots())) return;
                 store.removeMissing(result);
                 store.acknowledgeTracks(snapshot.tracks());
                 cleanedScan = snapshot.revision();

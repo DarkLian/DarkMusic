@@ -181,6 +181,6 @@ publishing {
 def distributionVersion = project.version.toString()
 tasks.withType(AbstractCopyTask).configureEach {
     filesMatching(['THIRD-PARTY-NOTICES.md', '**/THIRD-PARTY-NOTICES.md']) {
-        filter { line -> line.replaceAll(/darkmusic-[0-9]+(?:\.[0-9]+)*-third-party-sources\.zip/, "darkmusic-${distributionVersion}-third-party-sources.zip") }
+        filter { line -> line.replace('@DARKMUSIC_VERSION@', distributionVersion).replaceAll(/darkmusic-[0-9]+(?:\.[0-9]+)*-third-party-sources\.zip/, "darkmusic-${distributionVersion}-third-party-sources.zip") }
     }
 }

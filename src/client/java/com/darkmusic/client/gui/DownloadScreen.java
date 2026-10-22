@@ -490,7 +490,7 @@ public final class DownloadScreen extends LocalScreen {
         if (queueView) {
             String filter = query.strip().toLowerCase(Locale.ROOT);
             visibleJobs = snapshot.items().stream().filter(i -> filter.isEmpty() || (i.title() + " " + Text.get("state.darkmusic." + i.status().name().toLowerCase(Locale.ROOT)) + " " + i.message() + " " + i.directory()).toLowerCase(Locale.ROOT).contains(filter)).toList();
-            rows.rows(visibleJobs.stream().map(i -> new RowList.Row(i.title(), Text.get("state.darkmusic." + i.status().name().toLowerCase(Locale.ROOT)) + (i.progress() >= 0 ? " " + Math.round(i.progress() * 100) + "%" : "") + " | " + i.message())).toList());
+            rows.rows(visibleJobs.stream().map(i -> new RowList.Row(i.title(), Text.get("state.darkmusic." + i.status().name().toLowerCase(Locale.ROOT)) + (i.progress() >= 0 ? " " + Math.round(i.progress() * 100) + "%" : "") + " | " + i.message() + " | " + i.directory())).toList());
             rows.select(java.util.stream.IntStream.range(0, visibleJobs.size()).filter(i -> visibleJobs.get(i).id() == selectedJob).findFirst().orElse(-1));
             rows.emptyMessage(Text.get(snapshot.items().isEmpty() ? "text.darkmusic.no_downloads_queued" : "download.darkmusic.no_queue_matches"));
         } else {
@@ -562,6 +562,7 @@ public final class DownloadScreen extends LocalScreen {
         long done = s.items().stream().filter(i -> i.status().finished()).count(), failed = s.items().stream().filter(i -> i.status() == Status.FAILED).count();
         String summary = queueView ? Text.get("format.darkmusic.queue_summary", done, s.items().size(), failed) : s.preview() == null ? "" : Text.get("format.darkmusic.preview_summary", s.preview().source(), s.preview().first(), s.preview().first() + s.preview().entries().size() - 1, s.preview().total() >= 0 ? Text.get("format.darkmusic.total", s.preview().total()) : Text.get("format.darkmusic.unknown_total"));
         summary = Text.get(queueView ? "ui.darkmusic.queue" : "ui.darkmusic.preview_entries") + (summary.isBlank() ? "" : ": " + summary);
+        if (!queueView) summary = Text.get("folders.destination", app.library.root()) + " | " + summary;
         longText.draw(g, font, "detail", detail.isBlank() ? summary : detail + " | " + summary, rows.getX(), resultTop - 13, rows.getWidth(), detail.isBlank() ? UiTheme.SECONDARY : UiTheme.WARNING);
         super.extractRenderState(g, x, y, delta);
     }

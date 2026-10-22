@@ -123,16 +123,32 @@ public final class LyricsService implements AutoCloseable {
         if (fingerprint.sidecar.size >= 0) {
             if (fingerprint.sidecar.size > 1_000_000)
                 return new Cached(fingerprint, EMPTY, LyricsInfo.UNKNOWN, System.nanoTime());
-            text = Files.readString(sidecar);
+            text = decode(Files.readAllBytes(sidecar));
         } else {
             if (fingerprint.audio.size < 0)
                 return new Cached(fingerprint, EMPTY, LyricsInfo.UNKNOWN, System.nanoTime());
             var tag = org.jaudiotagger.audio.AudioFileIO.read(audio.toFile()).getTag();
             text = tag == null ? "" : tag.getFirst(org.jaudiotagger.tag.FieldKey.LYRICS);
         }
+        if (text.length() > 1_000_000) return new Cached(fingerprint, EMPTY, LyricsInfo.UNKNOWN, System.nanoTime());
         Lrc data = Lrc.parse(text);
         LyricsInfo info = data.lines().stream().anyMatch(line -> !line.text().isBlank()) ? LyricsInfo.AVAILABLE : text.isBlank() ? LyricsInfo.UNAVAILABLE : LyricsInfo.UNKNOWN;
         return new Cached(fingerprint, data, info, System.nanoTime());
+    }
+
+    static String decode(byte[] bytes) throws java.nio.charset.CharacterCodingException {
+        int skip = 0;
+        java.nio.charset.Charset charset = java.nio.charset.StandardCharsets.UTF_8;
+        if (bytes.length >= 3 && bytes[0] == (byte) 0xef && bytes[1] == (byte) 0xbb && bytes[2] == (byte) 0xbf)
+            skip = 3;
+        else if (bytes.length >= 2 && bytes[0] == (byte) 0xff && bytes[1] == (byte) 0xfe) {
+            charset = java.nio.charset.StandardCharsets.UTF_16LE;
+            skip = 2;
+        } else if (bytes.length >= 2 && bytes[0] == (byte) 0xfe && bytes[1] == (byte) 0xff) {
+            charset = java.nio.charset.StandardCharsets.UTF_16BE;
+            skip = 2;
+        }
+        return charset.newDecoder().decode(java.nio.ByteBuffer.wrap(bytes, skip, bytes.length - skip)).toString();
     }
 
     public Lrc get(Track track) {

@@ -33,6 +33,12 @@ public final class SettingRow extends AbstractWidget {
     private final UiIcon icon;
     private String cachedMessage = "", optionLabel = "", optionValue = "";
     private String description = "";
+    private boolean accentedLabel;
+
+    public SettingRow accentLabel() {
+        accentedLabel = true;
+        return this;
+    }
 
     public SettingRow description(String text) {
         description = text;
@@ -79,6 +85,7 @@ public final class SettingRow extends AbstractWidget {
             optionValue = choice ? message.substring(separator + 1).strip() : "";
         }
         int left = getX() + (icon == null ? 7 : 24);
+        int labelColor = accentedLabel ? UiTheme.ACCENT : active ? UiTheme.TEXT : UiTheme.MUTED;
         if (!description.isEmpty()) {
             int measured = optionValue.isEmpty() ? font.width(message) : font.width(optionLabel) + 4 + font.width(optionValue);
             int labelWidth = Math.min(measured, Math.max(1, width / 2 - 18));
@@ -86,7 +93,7 @@ public final class SettingRow extends AbstractWidget {
                 horizontal.draw(g, font, "label", message, left, getY() + 6, labelWidth, active ? UiTheme.ACCENT : UiTheme.MUTED);
             else {
                 int prefixWidth = Math.min(font.width(optionLabel), Math.max(1, labelWidth - 16));
-                horizontal.draw(g, font, "label", optionLabel, left, getY() + 6, prefixWidth, active ? UiTheme.TEXT : UiTheme.MUTED);
+                horizontal.draw(g, font, "label", optionLabel, left, getY() + 6, prefixWidth, labelColor);
                 int valueX = left + prefixWidth + 4;
                 horizontal.draw(g, font, "value", optionValue, valueX, getY() + 6, Math.max(1, labelWidth - prefixWidth - 4), active ? UiTheme.ACCENT : UiTheme.MUTED);
             }
@@ -95,10 +102,10 @@ public final class SettingRow extends AbstractWidget {
         } else if (!optionValue.isEmpty()) {
             int valueWidth = Math.min(font.width(optionValue), Math.max(1, width / 2 - 10));
             int valueX = getRight() - 8 - valueWidth;
-            horizontal.draw(g, font, "label", optionLabel, left, getY() + 6, Math.max(1, valueX - left - 12), active ? UiTheme.TEXT : UiTheme.MUTED);
+            horizontal.draw(g, font, "label", optionLabel, left, getY() + 6, Math.max(1, valueX - left - 12), labelColor);
             horizontal.draw(g, font, "value", optionValue, valueX, getY() + 6, valueWidth, active ? UiTheme.ACCENT : UiTheme.MUTED);
         } else
-            horizontal.draw(g, font, "label", message, left, getY() + 6, width - (icon == null ? 36 : 53), active ? UiTheme.TEXT : UiTheme.MUTED);
+            horizontal.draw(g, font, "label", message, left, getY() + 6, width - (icon == null ? 36 : 53), labelColor);
         int right = getRight() - 19, top = getY() + 4;
         if (checked != null) {
             g.outline(right, top, 12, 12, active ? UiTheme.ACCENT : UiTheme.MUTED);

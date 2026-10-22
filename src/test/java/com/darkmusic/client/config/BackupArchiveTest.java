@@ -12,6 +12,26 @@ import java.util.zip.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BackupArchiveTest {
+    @Test
+    void recordConstructorsRejectMalformedPlaylistFieldsDuringRead() throws Exception {
+        var entry = new PlaylistStore.Entry("library", "song.opus");
+        var valid = BackupArchive.snapshot(new Settings(), "library", List.of(new PlaylistStore.Playlist("p", "List", List.of(entry))), Map.of());
+        for (String field : List.of("id", "name", "entries", "rootId", "path")) {
+            var json = ConfigStore.JSON.toJsonTree(valid).getAsJsonObject();
+            var playlist = json.getAsJsonArray("playlists").get(0).getAsJsonObject();
+            if (field.equals("rootId") || field.equals("path"))
+                playlist.getAsJsonArray("entries").get(0).getAsJsonObject().add(field, com.google.gson.JsonNull.INSTANCE);
+            else playlist.add(field, com.google.gson.JsonNull.INSTANCE);
+            Path file = directory.resolve("malformed-" + field + ".zip");
+            try (var zip = new java.util.zip.ZipOutputStream(Files.newOutputStream(file))) {
+                zip.putNextEntry(new java.util.zip.ZipEntry("setup.json"));
+                zip.write(json.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+            assertThrows(java.io.IOException.class, () -> BackupArchive.read(file), field);
+        }
+    }
+
     @TempDir
     Path directory;
 

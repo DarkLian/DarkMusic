@@ -17,15 +17,14 @@ import java.util.function.Consumer;
 public class ProcessRunner {
     public Result run(List<String> command, Path directory, Token token, Duration timeout, int maxOutput, Consumer<String> line) throws IOException, InterruptedException {
         token.check();
+        if (maxOutput < 1)
+            throw new IllegalArgumentException(com.darkmusic.client.text.Text.get("text.darkmusic.output_limit_must_be_positive"));
+        if (timeout.isNegative() || timeout.isZero()) throw new IllegalArgumentException("Timeout must be positive");
         ProcessBuilder builder = new ProcessBuilder(List.copyOf(command)).directory(directory.toFile()).redirectErrorStream(true);
         builder.environment().put("PYTHONIOENCODING", "utf-8");
         builder.environment().put("PYTHONUTF8", "1");
         Process process = builder.start();
         token.process = process;
-        if (maxOutput < 1) {
-            process.destroyForcibly();
-            throw new IllegalArgumentException(com.darkmusic.client.text.Text.get("text.darkmusic.output_limit_must_be_positive"));
-        }
         var output = new OutputTail(maxOutput);
         var reader = CompletableFuture.runAsync(() -> {
             try (var input = new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8)) {
@@ -64,7 +63,7 @@ public class ProcessRunner {
             return new Result(process.exitValue(), captured);
         } catch (ExecutionException | TimeoutException | CompletionException e) {
             Throwable cause = e.getCause() == null ? e : e.getCause();
-            throw new IOException(com.darkmusic.client.text.Text.get("download.error.unknown"), e);
+            throw new IOException(com.darkmusic.client.text.Text.get("download.error.unknown"), cause);
         } finally {
             token.kill();
             try {

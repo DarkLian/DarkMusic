@@ -30,7 +30,7 @@ final class DownloadWorkspace implements AutoCloseable {
                 throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.another_minecraft_instance_is_using_these_download_tools_close_it_before_downloadi"));
         } catch (IOException | OverlappingFileLockException e) {
             channel.close();
-            throw new IOException("Download workspace is already in use or cannot be locked", e);
+            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.another_minecraft_instance_is_using_these_download_tools_close_it_before_downloadi"), e);
         }
         try {
             Path root = directory.resolve("work");

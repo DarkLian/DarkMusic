@@ -33,6 +33,10 @@ abstract class AudioPage extends LocalScreen {
         return UiTheme.ACCENT;
     }
 
+    protected UiIcon pageIcon() {
+        return UiIcon.VOLUME;
+    }
+
     protected void changed() {
         app.save();
         rebuildWidgets();
@@ -203,7 +207,7 @@ abstract class AudioPage extends LocalScreen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
         UiTheme.background(g, width, height);
-        UiTheme.header(g, font, title, UiIcon.VOLUME);
+        UiTheme.header(g, font, title, pageIcon());
         longText.begin();
         g.enableScissor(formX - 2, 36, formX + formWidth + 2, height - 12);
         for (int i = 0; i < headings.size(); i++) {

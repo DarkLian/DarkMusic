@@ -6,12 +6,12 @@ A client-side music player for Minecraft. Browse your own library, build playlis
 
 ## Install
 
-DarkMusic **v2.4.2** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v2.4.3** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-2.4.2.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-2.4.3.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
-4. Open **Settings → General → Choose Music Folder**, or add songs to `config/darkmusic/music` inside the instance.
+4. Open **Settings → General → Music Folders**, or add songs to `config/darkmusic/music` inside the instance.
 
 Install DarkMusic on the client. Servers do not need it. Windows, Linux, and macOS are supported; external audio formats and downloading need compatible tools for the operating system.
 
@@ -21,7 +21,7 @@ Update notifications are enabled by default and appear once per launch after joi
 
 ## Features
 
-- **Library:** browse All Tracks, nested folders, playlists, artists, and albums. Search titles, artists, albums, and paths.
+- **Library:** scan multiple music folders, choose a default save folder, and browse All Tracks, nested folders, playlists, artists, and albums. Search titles, artists, albums, and paths.
 - **Import:** drag audio files into the player or playlist manager to copy them into your library. Import into the selected folder or playlist, and review results through Import History beside Open Folder.
 - **Listening history:** open the clock icon beside Manage Playlists for Recently Played, Most Played, play counts, and listening time. History stays in order while you play from it.
 - **Backup and restore:** export settings, playlists, key bindings, and listening history to a portable ZIP. Preview and choose what to restore; audio files are never included or changed.

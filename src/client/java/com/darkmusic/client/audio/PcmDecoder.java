@@ -18,6 +18,19 @@ import java.util.Locale;
  * No URL overloads or network sources are exposed.
  */
 public final class PcmDecoder {
+    public record Opened(AudioInputStream stream, double offset) {
+    }
+
+    public static Opened openAt(Path file, double seconds) throws Exception {
+        try {
+            ExternalAudio.tool(false);
+            ExternalAudio.tool(true);
+        } catch (java.io.IOException unavailable) {
+            return new Opened(openPrecise(file), 0);
+        }
+        return ExternalAudio.openAt(file, seconds);
+    }
+
     private PcmDecoder() {
     }
 

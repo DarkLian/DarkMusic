@@ -5,6 +5,7 @@ package com.darkmusic.client.config;
  */
 public final class AudioSettings {
     public boolean neutral = true, equalizer, normalization, analyzeLoudness, limiter, compressor;
+    public boolean parallelLoudnessAnalysis;
     public double targetLufs = -18, width = 1, bass = 0, crossfade = 0;
     public boolean gapless = true;
     public Reverb reverb = Reverb.DRY;
@@ -35,6 +36,7 @@ public final class AudioSettings {
         copy.equalizer = equalizer;
         copy.normalization = normalization;
         copy.analyzeLoudness = analyzeLoudness;
+        copy.parallelLoudnessAnalysis = parallelLoudnessAnalysis;
         copy.limiter = limiter;
         copy.compressor = compressor;
         copy.targetLufs = targetLufs;
@@ -61,6 +63,7 @@ public final class AudioSettings {
     public boolean samePlayback(AudioSettings other) {
         return other != null && neutral == other.neutral && equalizer == other.equalizer
             && normalization == other.normalization && analyzeLoudness == other.analyzeLoudness
+            && parallelLoudnessAnalysis == other.parallelLoudnessAnalysis
             && limiter == other.limiter && compressor == other.compressor && targetLufs == other.targetLufs
             && width == other.width && bass == other.bass && crossfade == other.crossfade && gapless == other.gapless
             && reverb == other.reverb && gainMode == other.gainMode && listening == other.listening

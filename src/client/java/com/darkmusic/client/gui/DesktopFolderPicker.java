@@ -6,6 +6,7 @@ import net.minecraft.client.Minecraft;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -51,8 +52,14 @@ public final class DesktopFolderPicker {
                     }
                 }
                 if (CANCELLED.get()) return null;
-                if (active.exitValue() != 0)
-                    throw new java.io.IOException("Desktop dialog failed: " + Files.readString(log));
+                if (active.exitValue() != 0) {
+                    String details;
+                    try (var input = Files.newInputStream(log)) {
+                        details = new String(input.readNBytes(8192), StandardCharsets.UTF_8);
+                    }
+                    org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Desktop dialog failed: {}", details);
+                    throw new java.io.IOException(Text.get("error.folder"));
+                }
                 String selected = Files.readString(result);
                 return selected.isBlank() ? null : Path.of(selected);
             } catch (Exception e) {

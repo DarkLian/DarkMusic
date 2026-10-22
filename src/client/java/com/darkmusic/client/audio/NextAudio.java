@@ -10,7 +10,7 @@ import java.util.function.Consumer;
  * One pre-opened decoder; synchronized ownership prevents cancellation from closing a transferred stream.
  */
 final class NextAudio {
-    final long generation;
+    volatile long generation;
     final Track track;
     volatile Runnable started, ended;
     volatile Consumer<String> failed;
@@ -41,6 +41,10 @@ final class NextAudio {
 
     synchronized Ready peek() {
         return ready;
+    }
+
+    synchronized boolean untouched() {
+        return ready == null || ready.converter.positionFrames() == 0;
     }
 
     synchronized Ready claim() {

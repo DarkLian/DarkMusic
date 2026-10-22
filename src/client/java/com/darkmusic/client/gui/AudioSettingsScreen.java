@@ -33,6 +33,7 @@ public final class AudioSettingsScreen extends LocalScreen {
     private int formX, formWidth;
     private int normalizationY = -1;
     private String notice = "";
+    private AbstractWidget analysisButton;
 
     private void place(AbstractWidget widget) {
         rows.add(addRenderableWidget(widget));
@@ -119,6 +120,7 @@ public final class AudioSettingsScreen extends LocalScreen {
         details.clear();
         cursor = 0;
         normalizationY = -1;
+        analysisButton = null;
         var a = app.settings.audio;
         section("audio.darkmusic.section_playback");
         row("device.title", null, () -> show(new OutputDeviceScreen(app, this)), "device.help");
@@ -138,6 +140,16 @@ public final class AudioSettingsScreen extends LocalScreen {
         if (a.normalization) {
             choice("audio.darkmusic.gain_mode", a.gainMode, AudioSettings.Normalization.values(), v -> a.gainMode = v, "audio.darkmusic.gain_mode_help");
             toggle("audio.darkmusic.analyze", () -> a.analyzeLoudness, v -> a.analyzeLoudness = v, "audio.darkmusic.analyze_help");
+            if (a.analyzeLoudness) {
+                toggle("audio.darkmusic.parallel_analysis", () -> a.parallelLoudnessAnalysis, v -> a.parallelLoudnessAnalysis = v, "audio.darkmusic.parallel_analysis_help");
+                if (a.parallelLoudnessAnalysis) info(() -> Text.get("audio.darkmusic.parallel_analysis_warning"));
+                row("audio.darkmusic.analyze_library", null, app::analyzeLibraryLoudness, "audio.darkmusic.analyze_library_help");
+                analysisButton = rows.getLast();
+                info(() -> {
+                    var progress = app.loudnessAnalysis();
+                    return progress.total() == 0 ? "" : Text.get(!progress.running() && progress.processed() < progress.total() ? "audio.darkmusic.analysis_stopped" : "audio.darkmusic.analysis_progress", progress.processed(), progress.total(), progress.available(), progress.processed() - progress.available());
+                });
+            }
             slider((a.targetLufs + 24) / 15, "audio.darkmusic.target", v -> String.format(Locale.ROOT, "%.0f LUFS", a.targetLufs), v -> a.targetLufs = -24 + v * 15, 15, "audio.darkmusic.target_help");
             normalizationY = cursor;
             cursor += 20;
@@ -240,6 +252,12 @@ public final class AudioSettingsScreen extends LocalScreen {
             row.visible = y >= 36 && y + 20 <= height - 12;
             if (!row.visible && getFocused() == row) setFocused(null);
         }
+    }
+
+    @Override
+    public void tick() {
+        if (analysisButton != null)
+            analysisButton.setMessage(Text.component(app.loudnessAnalysis().running() ? "audio.darkmusic.cancel_analysis" : "audio.darkmusic.analyze_library"));
     }
 
     @Override

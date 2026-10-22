@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.HashMap;
@@ -37,6 +38,40 @@ class ManagedToolsTest {
     };
     @TempDir
     Path temp;
+
+    @Test
+    void malformedHostsAndUnexpectedPortsAreRejectedCleanly() {
+        assertThrows(IOException.class, () -> ManagedTools.trusted(URI.create("https:/missing-host")));
+        assertThrows(IOException.class, () -> ManagedTools.trusted(URI.create("https://github.com:8443/file")));
+        assertDoesNotThrow(() -> ManagedTools.trusted(URI.create("https://github.com:443/file")));
+    }
+
+    @Test
+    void cleanupPreservesCurrentPreviousLeasedAndUnknownDirectories() throws Exception {
+        Path root = Files.createDirectories(temp.resolve("managed"));
+        var copies = new java.util.ArrayList<Path>();
+        for (int i = 0; i < 4; i++) {
+            Path p = Files.createDirectory(root.resolve("bundle-" + java.util.UUID.randomUUID()));
+            Files.writeString(p.resolve("ffmpeg"), "metadata fixture");
+            copies.add(p);
+            Files.writeString(p.resolve("manifest.json"), "{}");
+            Files.setLastModifiedTime(p.resolve("manifest.json"), java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis() - (10 - i) * 86_400_000L));
+            Files.setLastModifiedTime(p, java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis() - (10 - i) * 86_400_000L));
+        }
+        Path unknown = Files.createDirectory(root.resolve("personal-files"));
+        Path stage = Files.createDirectory(root.resolve("staging-123456"));
+        Files.setLastModifiedTime(stage, java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis() - 3 * 86_400_000L));
+        try (var channel = java.nio.channels.FileChannel.open(copies.get(1).resolve("usage.lock"), StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
+             var lock = channel.lock(0, Long.MAX_VALUE, true)) {
+            ManagedTools.prune(root, copies.get(3));
+            assertFalse(Files.exists(copies.get(0)));
+            assertTrue(Files.exists(copies.get(1)));
+            assertTrue(Files.exists(copies.get(2)));
+            assertTrue(Files.exists(copies.get(3)));
+            assertTrue(Files.exists(unknown));
+            assertFalse(Files.exists(stage));
+        }
+    }
 
     @Test
     void platformAssetsMatchSupportedArchitecturesAndRejectUnsupportedOnes() throws Exception {

@@ -26,6 +26,66 @@ public final class ManagedTools {
     private static final Set<String> HOSTS = Set.of("api.github.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com");
     private final Path data;
     private final Fetch fetch;
+    private static final Map<Path, FileChannel> PINS = new HashMap<>();
+    private static final Set<String> OWNED_FILES = Set.of("yt-dlp", "yt-dlp.exe", "ffmpeg", "ffmpeg.exe", "ffprobe", "ffprobe.exe", "deno", "deno.exe",
+        "FFmpeg.LICENSE", "FFmpeg.README", "manifest.json", "usage.lock", "release.json", "asset.download");
+
+    private static synchronized void pin(Path directory) throws IOException {
+        if (PINS.containsKey(directory)) return;
+        var channel = FileChannel.open(directory.resolve("usage.lock"), StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
+        try {
+            channel.lock(0, Long.MAX_VALUE, true);
+            PINS.put(directory, channel);
+        } catch (IOException | RuntimeException failure) {
+            channel.close();
+            throw failure;
+        }
+    }
+
+    private static long installedAt(Path directory) {
+        try {
+            Path manifest = directory.resolve("manifest.json");
+            return Files.getLastModifiedTime(Files.isRegularFile(manifest, LinkOption.NOFOLLOW_LINKS) ? manifest : directory).toMillis();
+        } catch (IOException failure) {
+            return Long.MAX_VALUE;
+        }
+    }
+
+    /**
+     * Install lock held. Preserve current/previous bundles and every bundle leased by a running client.
+     */
+    static void prune(Path root, Path current) {
+        if (current == null || Files.isSymbolicLink(root)) return;
+        try (var files = Files.list(root)) {
+            var candidates = files.filter(p -> !Files.isSymbolicLink(p) && Files.isDirectory(p, LinkOption.NOFOLLOW_LINKS))
+                .filter(p -> p.getFileName().toString().matches("bundle-[a-f0-9-]{36}|staging-[0-9]+"))
+                .sorted(Comparator.comparingLong(ManagedTools::installedAt).reversed()).toList();
+            Path previous = candidates.stream().filter(p -> !p.equals(current) && p.getFileName().toString().startsWith("bundle-")).findFirst().orElse(null);
+            for (Path path : candidates) {
+                if (path.equals(current) || path.equals(previous) || System.currentTimeMillis() - installedAt(path) < 86_400_000L)
+                    continue;
+                if (ProcessHandle.allProcesses().anyMatch(p -> p.info().command().map(c -> Path.of(c).toAbsolutePath().normalize().startsWith(path)).orElse(false)))
+                    continue;
+                Path lease = path.resolve("usage.lock");
+                try (var channel = FileChannel.open(lease, StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
+                     var lock = channel.tryLock()) {
+                    if (lock == null) continue;
+                    try (var children = Files.list(path)) {
+                        var entries = children.toList();
+                        if (entries.stream().anyMatch(p -> !OWNED_FILES.contains(p.getFileName().toString()) || Files.isDirectory(p, LinkOption.NOFOLLOW_LINKS)))
+                            continue;
+                        for (Path child : entries) if (!child.equals(lease)) Files.delete(child);
+                    }
+                } catch (java.nio.channels.OverlappingFileLockException busy) {
+                    continue;
+                }
+                Files.deleteIfExists(lease);
+                Files.delete(path);
+            }
+        } catch (Exception failure) {
+            org.slf4j.LoggerFactory.getLogger("darkmusic-download").debug("Deferred managed-tool cleanup", failure);
+        }
+    }
 
     public ManagedTools(Path data) {
         this(data, ManagedTools::download);
@@ -48,7 +108,13 @@ public final class ManagedTools {
             String directory = JsonParser.parseString(Files.readString(pointer)).getAsJsonObject().get("directory").getAsString();
             if (!directory.matches("bundle-[a-f0-9-]{36}")) return null;
             Path value = root.resolve(directory);
-            return !Files.isSymbolicLink(value) && Files.isDirectory(value) ? value : null;
+            if (Files.isSymbolicLink(value) || !Files.isDirectory(value)) return null;
+            try {
+                pin(value);
+            } catch (IOException failure) {
+                org.slf4j.LoggerFactory.getLogger("darkmusic-download").debug("Could not lease read-only managed tools", failure);
+            }
+            return value;
         } catch (Exception e) {
             return null;
         }
@@ -117,7 +183,7 @@ public final class ManagedTools {
     }
 
     static void trusted(URI uri) throws IOException {
-        if (!"https".equals(uri.getScheme()) || !HOSTS.contains(uri.getHost()) || uri.getUserInfo() != null)
+        if (!"https".equals(uri.getScheme()) || uri.getHost() == null || !HOSTS.contains(uri.getHost()) || uri.getUserInfo() != null || uri.getPort() != -1 && uri.getPort() != 443)
             throw new IOException(Text.get("tools.error.address"));
     }
 
@@ -182,6 +248,7 @@ public final class ManagedTools {
         try (var channel = FileChannel.open(tools.resolve("install.lock"), StandardOpenOption.CREATE, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
              var lock = channel.tryLock()) {
             if (lock == null) throw new IOException(Text.get("tools.error.busy"));
+            prune(root, current(data));
             Path stage = Files.createTempDirectory(root, "staging-");
             try {
                 token.check();

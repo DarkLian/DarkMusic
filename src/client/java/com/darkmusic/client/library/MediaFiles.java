@@ -116,11 +116,14 @@ public final class MediaFiles {
         String extension = dot > 0 ? sourceName.substring(dot) : "";
         Path target = source.resolveSibling(filename + extension);
         checkSource(track);
-        if (!source.equals(target) && Files.exists(target))
+        boolean rename = !source.getFileName().toString().equals(target.getFileName().toString());
+        boolean caseAlias = rename && source.getFileName().toString().equalsIgnoreCase(target.getFileName().toString()) && Files.exists(target) && Files.isSameFile(source, target);
+        if (rename && Files.exists(target) && !caseAlias)
             throw new IOException(Text.get("library.darkmusic.name_collision"));
         Path lyric = com.darkmusic.client.download.DownloadLyrics.sidecar(source), nextLyric = com.darkmusic.client.download.DownloadLyrics.sidecar(target);
-        boolean moveLyric = !source.equals(target) && Files.isRegularFile(lyric, LinkOption.NOFOLLOW_LINKS);
-        if (moveLyric && Files.exists(nextLyric)) throw new IOException(Text.get("library.darkmusic.lyric_collision"));
+        boolean moveLyric = rename && Files.isRegularFile(lyric, LinkOption.NOFOLLOW_LINKS);
+        if (moveLyric && Files.exists(nextLyric) && !Files.isSameFile(lyric, nextLyric))
+            throw new IOException(Text.get("library.darkmusic.lyric_collision"));
         Path work = Files.createTempDirectory(source.getParent(), ".darkmusic-work-");
         Path staged = work.resolve("edited" + extension);
         boolean lyricMoved = false;
@@ -156,11 +159,19 @@ public final class MediaFiles {
             token.check();
             checkSource(track);
             if (moveLyric) {
-                Files.move(lyric, nextLyric);
+                moveCaseAware(lyric, nextLyric, work.resolve("lyrics.lrc"));
                 lyricMoved = true;
             }
             try {
-                if (source.equals(target)) {
+                if (caseAlias) {
+                    try {
+                        com.darkmusic.client.download.DownloadPipeline.renameRecorded(source, target,
+                            () -> AudioReplacement.renameCase(staged, source, target, work.resolve("original" + extension)));
+                    } catch (AudioReplacement.RecoveryRequired failure) {
+                        preserveWork = true;
+                        throw failure;
+                    }
+                } else if (!rename) {
                     try {
                         AudioReplacement.replace(staged, target, work.resolve("original" + extension));
                     } catch (AudioReplacement.RecoveryRequired failure) {
@@ -177,7 +188,7 @@ public final class MediaFiles {
                     }
                 });
             } catch (Exception failure) {
-                if (lyricMoved) Files.move(nextLyric, lyric);
+                if (lyricMoved) moveCaseAware(nextLyric, lyric, work.resolve("lyrics-rollback.lrc"));
                 throw failure;
             }
             SourceLinks.record(target, SourceLinks.read(source));
@@ -185,6 +196,9 @@ public final class MediaFiles {
             int slash = relative.lastIndexOf('/');
             relative = (slash < 0 ? "" : relative.substring(0, slash + 1)) + target.getFileName();
             return metadata.read(track.rootId(), relative, target, Files.size(target), Files.getLastModifiedTime(target).toMillis());
+        } catch (AudioReplacement.RecoveryRequired failure) {
+            preserveWork = true;
+            throw failure;
         } finally {
             if (preserveWork) {
                 org.slf4j.LoggerFactory.getLogger(MediaFiles.class).error("Original audio retained for recovery in {}", work);
@@ -200,6 +214,25 @@ public final class MediaFiles {
         }
     }
 
+    private static void moveCaseAware(Path source, Path target, Path temporary) throws IOException {
+        if (!Files.exists(target) || !Files.isSameFile(source, target)) {
+            Files.move(source, target);
+            return;
+        }
+        Files.move(source, temporary);
+        try {
+            Files.move(temporary, target);
+        } catch (IOException failure) {
+            try {
+                Files.move(temporary, source);
+            } catch (IOException rollback) {
+                failure.addSuppressed(rollback);
+                throw new AudioReplacement.RecoveryRequired(temporary, failure);
+            }
+            throw failure;
+        }
+    }
+
     private static void writeTags(org.jaudiotagger.tag.Tag tag, Fields fields) throws Exception {
         tag.setField(FieldKey.TITLE, fields.title());
         tag.setField(FieldKey.ARTIST, fields.artist());
@@ -210,11 +243,24 @@ public final class MediaFiles {
         var args = new ArrayList<>(List.of(ExternalAudio.tool(false).toString(), "-nostdin", "-v", "error", "-y", "-protocol_whitelist", "file,pipe", "-i", source.toString()));
         byte[] artwork = container == AudioFormats.Container.OPUS ? metadata.artwork(source) : null;
         if (artwork != null) {
-            var image = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(artwork));
-            if (image == null) throw new IOException(Text.get("library.darkmusic.cover_unreadable"));
+            int width, height;
+            try (var input = new javax.imageio.stream.MemoryCacheImageInputStream(new java.io.ByteArrayInputStream(artwork))) {
+                var readers = javax.imageio.ImageIO.getImageReaders(input);
+                if (!readers.hasNext()) throw new IOException(Text.get("library.darkmusic.cover_unreadable"));
+                var reader = readers.next();
+                try {
+                    reader.setInput(input);
+                    width = reader.getWidth(0);
+                    height = reader.getHeight(0);
+                    if (width <= 0 || height <= 0 || width > 32768 || height > 32768 || (long) width * height > 268435456)
+                        throw new IOException(Text.get("library.darkmusic.cover_unreadable"));
+                } finally {
+                    reader.dispose();
+                }
+            }
             String mime = artwork.length > 3 && artwork[0] == (byte) 0x89 && artwork[1] == 'P' ? "image/png" : "image/jpeg";
             Path picture = work.resolve("picture.txt");
-            Files.writeString(picture, ";FFMETADATA1\nMETADATA_BLOCK_PICTURE=" + OggArtwork.picture(artwork, image.getWidth(), image.getHeight(), mime) + "\n");
+            Files.writeString(picture, ";FFMETADATA1\nMETADATA_BLOCK_PICTURE=" + OggArtwork.picture(artwork, width, height, mime) + "\n");
             args.addAll(List.of("-f", "ffmetadata", "-i", picture.toString()));
         }
         args.addAll(List.of("-map", container == AudioFormats.Container.OPUS ? "0:a:0" : "0", "-c", "copy", "-map_metadata", "0", "-map_metadata:s:a:0", "0:s:a:0"));

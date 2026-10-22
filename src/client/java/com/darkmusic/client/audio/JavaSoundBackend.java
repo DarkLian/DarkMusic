@@ -15,6 +15,12 @@ import java.util.function.Consumer;
  * One worker owns every decoder and output resource. PCM is bounded to small buffers.
  */
 public final class JavaSoundBackend implements AudioBackend {
+    private static final class OutputFailure extends java.io.IOException {
+        OutputFailure(String key) {
+            super(com.darkmusic.client.text.Text.get(key));
+        }
+    }
+
     private final AtomicReference<Request> pending = new AtomicReference<>();
     private final AtomicLong generation = new AtomicLong();
     private final SpectrumAnalyzer spectrum = new SpectrumAnalyzer();
@@ -28,11 +34,11 @@ public final class JavaSoundBackend implements AudioBackend {
     private final AtomicReference<NextAudio> upcoming = new AtomicReference<>();
     private final java.util.concurrent.ConcurrentLinkedQueue<java.util.concurrent.CompletableFuture<Void>> closingDecoders = new java.util.concurrent.ConcurrentLinkedQueue<>();
     private final java.util.concurrent.ThreadPoolExecutor preloader = new java.util.concurrent.ThreadPoolExecutor(1, 1, 0, java.util.concurrent.TimeUnit.SECONDS, new java.util.concurrent.ArrayBlockingQueue<>(1), Thread.ofPlatform().daemon().name("darkmusic-preload").factory());
-    private double overlap;
+    private volatile double overlap;
     private double normalizationGain = 1, incomingNormalization = 1;
     private LoudnessCache.Session normalizationSession, incomingSession;
     private long normalizationSessionId;
-    private NextAudio mixing;
+    private volatile NextAudio mixing;
     private volatile Announcement announcement;
     private final Executor callbacks;
     private final Decoder decoder;
@@ -88,7 +94,15 @@ public final class JavaSoundBackend implements AudioBackend {
     private double offset;
 
     public JavaSoundBackend(Executor callbacks) {
-        this(callbacks, PcmDecoder::openPrecise, format -> {
+        this(callbacks, new Decoder() {
+            public AudioInputStream open(java.nio.file.Path path) throws Exception {
+                return PcmDecoder.openPrecise(path);
+            }
+
+            public PcmDecoder.Opened openAt(java.nio.file.Path path, double seconds) throws Exception {
+                return PcmDecoder.openAt(path, seconds);
+            }
+        }, format -> {
             SourceDataLine result = AudioSystem.getSourceDataLine(format);
             try {
                 result.open(format, Math.max(4096, ((int) (format.getFrameRate() / 5)) * format.getFrameSize()));
@@ -153,9 +167,14 @@ public final class JavaSoundBackend implements AudioBackend {
 
     private void submit(Track track, double seconds, Runnable ended, Consumer<String> failed, long session) {
         if (closed) return;
-        cancelUpcoming();
+        var request = active;
+        boolean preserveNext = request != null && request.session == session && request.track.equals(track)
+            && mixing == null && overlap <= 0 && announcement == null;
+        if (!preserveNext) cancelUpcoming();
         ExternalAudio.abort(stream);
         long ticket = generation.incrementAndGet();
+        var prepared = upcoming.get();
+        if (preserveNext && prepared != null) prepared.generation = ticket;
         pending.set(new Request(ticket, track, seconds, ended, failed, session));
         state = new State(track, seconds > 0 ? Status.SEEKING : Status.LOADING, seconds, track.duration(), "");
         java.util.concurrent.locks.LockSupport.unpark(worker);
@@ -186,8 +205,30 @@ public final class JavaSoundBackend implements AudioBackend {
 
     @Override
     public void configure(com.darkmusic.client.config.AudioSettings value) {
+        var previous = options;
         options = value.playbackCopy();
         if (!options.neutral && options.normalization) loudnessCache();
+        var cache = loudness;
+        if (cache != null) {
+            cache.parallel(options.parallelLoudnessAnalysis);
+            if (options.neutral || !options.normalization || !options.analyzeLoudness || options.gainMode != previous.gainMode)
+                cache.cancelAnalysis();
+        }
+    }
+
+    public void analyzeLibrary(java.util.List<Track> tracks, com.darkmusic.client.config.AudioSettings settings) {
+        var cache = loudnessCache();
+        if (cache != null) cache.analyzeLibrary(tracks, settings);
+    }
+
+    public LoudnessCache.AnalysisProgress analysisProgress() {
+        var cache = loudness;
+        return cache == null ? LoudnessCache.AnalysisProgress.IDLE : cache.analysisProgress();
+    }
+
+    public void cancelAnalysis() {
+        var cache = loudness;
+        if (cache != null) cache.cancelAnalysis();
     }
 
     private synchronized LoudnessCache loudnessCache() {
@@ -314,6 +355,12 @@ public final class JavaSoundBackend implements AudioBackend {
             while (!closed) {
                 Request request = pending.getAndSet(null);
                 if (request != null) {
+                    var prepared = upcoming.get();
+                    if (prepared != null && !prepared.untouched()) {
+                        cancelUpcoming();
+                        if (current(request))
+                            nextTrack(prepared.track, prepared.started, prepared.ended, prepared.failed);
+                    }
                     if (announcement != null && request.session == announcement.previous.session) {
                         normalizationSession = announcement.normalization;
                         normalizationSessionId = request.session;
@@ -333,16 +380,17 @@ public final class JavaSoundBackend implements AudioBackend {
                     active = request;
                     if (request.track != null) {
                         try {
-                            stream = decoder.open(request.track.file());
+                            var opened = decoder.openAt(request.track.file(), request.position);
+                            stream = opened.stream();
                             AudioFormat format = stream.getFormat();
-                            long framesToSkip = (long) (request.position * format.getFrameRate());
+                            long framesToSkip = Math.max(0, Math.round((request.position - opened.offset()) * format.getFrameRate()));
                             Request seeking = request;
-                            long skipped = discardFrames(stream, framesToSkip, buffer, () -> current(seeking));
+                            long skipped = discardFrames(stream, framesToSkip, new byte[65536], () -> current(seeking));
                             if (!current(request)) {
                                 release();
                                 continue;
                             }
-                            offset = skipped / (double) format.getFrameRate();
+                            offset = opened.offset() + skipped / (double) format.getFrameRate();
                             converter = new PcmRateConverter(stream);
                             submittedFrames = 0;
                             hearingFrame = 0;
@@ -412,7 +460,7 @@ public final class JavaSoundBackend implements AudioBackend {
                         // Decoder/disk starvation is not a stalled output device.
                         progressedAt = System.nanoTime();
                     } else if (System.nanoTime() - progressedAt > stallNanos)
-                        throw new java.io.IOException(com.darkmusic.client.text.Text.get("audio.error.stalled"));
+                        throw new OutputFailure("audio.error.stalled");
                     int bytesPerSample = line.getFormat().getSampleSizeInBits() / 8;
                     int frame = line.getFormat().getChannels() * bytesPerSample;
                     int amount = Math.min(buffer.length, line.available()) / frame * frame;
@@ -539,12 +587,12 @@ public final class JavaSoundBackend implements AudioBackend {
                             int sent = capacity > 0 ? line.write(buffer, written, capacity) : 0;
                             if (sent <= 0) {
                                 if (System.nanoTime() - progressedAt > stallNanos)
-                                    throw new java.io.IOException(com.darkmusic.client.text.Text.get("audio.error.stalled"));
+                                    throw new OutputFailure("audio.error.stalled");
                                 java.util.concurrent.locks.LockSupport.parkNanos(5_000_000);
                                 continue;
                             }
                             if (sent % frame != 0)
-                                throw new java.io.IOException(com.darkmusic.client.text.Text.get("audio.error.device"));
+                                throw new OutputFailure("audio.error.device");
                             spectrum.accept(buffer, written, sent, submittedFrames, bytesPerSample);
                             processor.diagnostics().submitted(buffer, written, sent, submittedFrames, bytesPerSample, processor);
                             written += sent;
@@ -554,7 +602,7 @@ public final class JavaSoundBackend implements AudioBackend {
                 } catch (Exception e) {
                     if (output instanceof OutputDevices selected && selected.isExplicit() &&
                         (!line.isOpen() || e instanceof javax.sound.sampled.LineUnavailableException ||
-                            com.darkmusic.client.text.Text.get("audio.error.stalled").equals(e.getMessage()) || com.darkmusic.client.text.Text.get("audio.error.device").equals(e.getMessage()))) {
+                            e instanceof OutputFailure)) {
                         var recovery = new java.util.concurrent.CompletableFuture<Boolean>();
                         changeOutput(new OutputChange(new OutputDevices("", false, s -> {
                         }), recovery));
@@ -703,9 +751,10 @@ public final class JavaSoundBackend implements AudioBackend {
             Request request = announcement != null ? announcement.previous : active;
             double position = state.position();
             candidate = openRoute(change.output, line.getFormat());
-            replacement = decoder.open(request.track.file());
-            long frames = (long) (position * replacement.getFormat().getFrameRate());
-            long skipped = discardFrames(replacement, frames, new byte[4096], () -> current(request));
+            var opened = decoder.openAt(request.track.file(), position);
+            replacement = opened.stream();
+            long frames = Math.max(0, Math.round((position - opened.offset()) * replacement.getFormat().getFrameRate()));
+            long skipped = discardFrames(replacement, frames, new byte[65536], () -> current(request));
             if (!current(request) || closed) throw new java.io.IOException("Playback changed during output switch");
             if (announcement != null && request == announcement.previous) {
                 normalizationSession = announcement.normalization;
@@ -724,7 +773,7 @@ public final class JavaSoundBackend implements AudioBackend {
             replacement = null;
             output = change.output;
             converter = new PcmRateConverter(stream);
-            offset = skipped / (double) stream.getFormat().getFrameRate();
+            offset = opened.offset() + skipped / (double) stream.getFormat().getFrameRate();
             submittedFrames = hearingFrame = 0;
             timeline.add(new Segment(0, offset, speed));
             deviceRate = line.getFormat().getFrameRate();
@@ -836,6 +885,10 @@ public final class JavaSoundBackend implements AudioBackend {
     @FunctionalInterface
     public interface Decoder {
         AudioInputStream open(java.nio.file.Path path) throws Exception;
+
+        default PcmDecoder.Opened openAt(java.nio.file.Path path, double seconds) throws Exception {
+            return new PcmDecoder.Opened(open(path), 0);
+        }
     }
 
     @FunctionalInterface

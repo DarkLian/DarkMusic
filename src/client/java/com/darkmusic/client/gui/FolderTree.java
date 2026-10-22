@@ -17,7 +17,11 @@ public final class FolderTree {
     }
 
     public FolderTree(List<Track> tracks, List<String> folders) {
-        folders.forEach(this::addFolder);
+        folders.stream().map(folder -> {
+            if (!folder.startsWith("@")) return folder;
+            int slash = folder.indexOf('/');
+            return slash < 0 ? "" : folder.substring(slash + 1);
+        }).filter(folder -> !folder.isEmpty()).forEach(this::addFolder);
         for (Track track : tracks) {
             String path = track.relativePath().replace('\\', '/');
             int end = path.lastIndexOf('/');
@@ -25,7 +29,25 @@ public final class FolderTree {
         }
     }
 
+    public FolderTree(List<Track> tracks, List<String> folders, Map<java.nio.file.Path, String> roots) {
+        for (var entry : roots.entrySet()) {
+            String path = "@" + entry.getValue();
+            String name = com.darkmusic.client.library.MusicFolders.label(entry.getKey(), roots.keySet());
+            root.children.put(path, new Node(path, name));
+            paths.add(path);
+        }
+        folders.forEach(this::addFolder);
+        for (Track track : tracks) {
+            int end = track.relativePath().lastIndexOf('/');
+            if (end > 0) addFolder("@" + track.rootId() + "/" + track.relativePath().substring(0, end));
+        }
+    }
+
     public static boolean includes(String folder, Track track) {
+        if (folder.startsWith("@")) {
+            String root = "@" + track.rootId();
+            return folder.equals(root) || (root + "/" + track.relativePath()).startsWith(folder + "/");
+        }
         return folder.isEmpty() || track.relativePath().replace('\\', '/').startsWith(folder + "/");
     }
 
@@ -47,6 +69,12 @@ public final class FolderTree {
 
     public boolean contains(String path) {
         return paths.contains(path);
+    }
+
+    public String display(String path) {
+        int slash = path.indexOf('/');
+        var folder = root.children.get(slash < 0 ? path : path.substring(0, slash));
+        return folder == null ? path : folder.name + (slash < 0 ? "" : path.substring(slash));
     }
 
     private void append(Node parent, Set<String> expanded, int depth, List<Entry> rows) {
