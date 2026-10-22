@@ -106,6 +106,7 @@ public class DarkMusicClient implements ClientModInitializer {
 
                 if (bindings) contents.put("options.txt", config.shortcutsContents(keys));
                 com.darkmusic.client.config.BackupArchive.install(config.directory(), contents);
+                if (contents.containsKey("config.json")) config.committedSnapshot(contents.get("config.json"));
             } catch (Exception failure) {
                 throw new java.util.concurrent.CompletionException(failure);
             }

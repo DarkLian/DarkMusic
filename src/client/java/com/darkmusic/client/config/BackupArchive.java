@@ -26,6 +26,26 @@ public final class BackupArchive {
                           Selection selection) {
     }
 
+    /**
+     * Capturing this job is cheap; preparation, history copying, and ZIP serialization belong on the storage executor.
+     */
+    public record Export(String settingsJson, String root, List<PlaylistStore.Playlist> playlists,
+                         Map<String, String> shortcuts,
+                         java.util.function.Supplier<Map<String, com.darkmusic.client.library.ListeningHistory.Entry>> history) {
+        public Export {
+            Objects.requireNonNull(settingsJson);
+            Objects.requireNonNull(history);
+            playlists = List.copyOf(playlists);
+            shortcuts = Map.copyOf(shortcuts);
+        }
+
+        public void write(Path destination) throws IOException {
+            var settings = ConfigStore.JSON.fromJson(settingsJson, Settings.class);
+            settings.shortcuts = new LinkedHashMap<>(shortcuts);
+            BackupArchive.write(destination, snapshot(settings, root, playlists, history.get()));
+        }
+    }
+
     private static final int LIMIT = 8 * 1024 * 1024;
 
     private BackupArchive() {

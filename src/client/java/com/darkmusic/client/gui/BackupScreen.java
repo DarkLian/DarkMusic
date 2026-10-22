@@ -135,14 +135,14 @@ public final class BackupScreen extends AudioPage {
     }
 
     private void transfer(Path path, boolean export) {
-        var copy = com.darkmusic.client.config.ConfigStore.JSON.fromJson(com.darkmusic.client.config.ConfigStore.JSON.toJson(app.settings), com.darkmusic.client.config.Settings.class);
-        copy.shortcuts.clear();
-        for (var key : app.bindings()) copy.shortcuts.put(key.getName(), key.saveString());
-        var snapshot = BackupArchive.snapshot(copy, app.library.rootId(), app.playlists.all(), app.listeningHistory.snapshot());
+        var bindings = new java.util.LinkedHashMap<String, String>();
+        if (export) for (var key : app.bindings()) bindings.put(key.getName(), key.saveString());
+        var job = export ? new BackupArchive.Export(app.config.snapshotJson(), app.library.rootId(), app.playlists.all(),
+            bindings, app.listeningHistory.snapshotSource()) : null;
         CompletableFuture.supplyAsync(() -> {
             try {
                 if (export) {
-                    BackupArchive.write(path, snapshot);
+                    job.write(path);
                     return null;
                 }
                 return BackupArchive.read(path);

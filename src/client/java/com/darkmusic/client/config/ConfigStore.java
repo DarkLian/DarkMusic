@@ -43,6 +43,18 @@ public final class ConfigStore {
     private boolean preserveInvalid;
     private String pending;
     private boolean writing;
+    private volatile String snapshotJson;
+
+    /**
+     * Immutable preferences already serialized by load/save; safe to capture without doing export work on the UI thread.
+     */
+    public String snapshotJson() {
+        return java.util.Objects.requireNonNull(snapshotJson, "Settings have not loaded");
+    }
+
+    public void committedSnapshot(String json) {
+        snapshotJson = java.util.Objects.requireNonNull(json);
+    }
 
     public ConfigStore(Path directory, ExecutorService io, Consumer<String> warning) {
         this.directory = directory;
@@ -120,6 +132,7 @@ public final class ConfigStore {
         } catch (IOException e) {
             warning.accept(com.darkmusic.client.text.Text.failure(e, "error.shortcut_load"));
         }
+        snapshotJson = JSON.toJson(settings);
         return settings;
     }
 
@@ -155,6 +168,7 @@ public final class ConfigStore {
 
     public void save(Settings settings) {
         String json = JSON.toJson(settings);
+        snapshotJson = json;
         synchronized (this) {
             pending = json;
             if (writing) return;

@@ -24,7 +24,7 @@ public final class JavaSoundBackend implements AudioBackend {
     private boolean protectionFlushed;
     private volatile LoudnessCache.Status normalizationStatus = LoudnessCache.Status.OFF;
     private volatile com.darkmusic.client.config.AudioSettings options = new com.darkmusic.client.config.AudioSettings();
-    private LoudnessCache loudness;
+    private volatile LoudnessCache loudness;
     private final AtomicReference<NextAudio> upcoming = new AtomicReference<>();
     private final java.util.concurrent.ConcurrentLinkedQueue<java.util.concurrent.CompletableFuture<Void>> closingDecoders = new java.util.concurrent.ConcurrentLinkedQueue<>();
     private final java.util.concurrent.ThreadPoolExecutor preloader = new java.util.concurrent.ThreadPoolExecutor(1, 1, 0, java.util.concurrent.TimeUnit.SECONDS, new java.util.concurrent.ArrayBlockingQueue<>(1), Thread.ofPlatform().daemon().name("darkmusic-preload").factory());
@@ -187,6 +187,12 @@ public final class JavaSoundBackend implements AudioBackend {
     @Override
     public void configure(com.darkmusic.client.config.AudioSettings value) {
         options = value.playbackCopy();
+        if (!options.neutral && options.normalization) loudnessCache();
+    }
+
+    private synchronized LoudnessCache loudnessCache() {
+        if (loudness == null && !closed) loudness = new LoudnessCache();
+        return loudness;
     }
 
     @Override
@@ -213,6 +219,10 @@ public final class JavaSoundBackend implements AudioBackend {
     @Override
     public void nextTrack(Track track, Runnable started, Runnable ended, Consumer<String> failed) {
         var selected = options;
+        if (!closed && track != null && !selected.neutral && selected.normalization) {
+            var cache = loudnessCache();
+            if (cache != null) cache.prefetch(track, selected);
+        }
         if (closed || track == null || !selected.gapless && selected.crossfade <= 0) {
             cancelUpcoming();
             return;
@@ -558,15 +568,18 @@ public final class JavaSoundBackend implements AudioBackend {
             }
         } finally {
             release();
-            if (loudness != null) loudness.closeAsync();
+            synchronized (this) {
+                if (loudness != null) loudness.closeAsync();
+            }
         }
     }
 
     private LoudnessCache.Session normalization(Track track, com.darkmusic.client.config.AudioSettings selected, boolean incoming) {
         var session = incoming ? incomingSession : normalizationSession;
         if (session == null || !session.matches(selected)) {
-            if (loudness == null) loudness = new LoudnessCache();
-            session = loudness.session(track, selected);
+            var cache = loudnessCache();
+            if (cache == null) throw new java.util.concurrent.CancellationException("Playback closed");
+            session = cache.session(track, selected);
             if (incoming) {
                 incomingSession = session;
                 incomingNormalization = session.gain(selected);

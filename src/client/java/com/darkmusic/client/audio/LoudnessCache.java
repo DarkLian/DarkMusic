@@ -23,7 +23,8 @@ public final class LoudnessCache implements AutoCloseable {
     private final Set<String> attempted = ConcurrentHashMap.newKeySet();
     private final Map<String, Long> retryAfter = new ConcurrentHashMap<>();
     private final java.util.function.LongSupplier clock;
-    private final ExecutorService executor = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new ArrayBlockingQueue<>(2), Thread.ofPlatform().daemon().name("darkmusic-loudness").factory());
+    private final LinkedBlockingDeque<Runnable> queue = new LinkedBlockingDeque<>(2);
+    private final ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, queue, Thread.ofPlatform().daemon().name("darkmusic-loudness").factory());
     private final ProcessRunner.Token token = new ProcessRunner.Token();
     private final Path cache;
     private static final long MAX_CACHE_BYTES = 64_000_000;
@@ -31,7 +32,7 @@ public final class LoudnessCache implements AutoCloseable {
     private final ScheduledExecutorService writer = Executors.newSingleThreadScheduledExecutor(Thread.ofPlatform().daemon().name("darkmusic-loudness-cache").factory());
     private boolean dirty;
     private boolean preserveOriginal;
-    private Lookup recent, previous;
+    private volatile Lookup recent, previous;
     private volatile boolean closed;
     private CompletableFuture<Void> closing;
     private final CompletableFuture<Void> loaded = new CompletableFuture<>();
@@ -113,20 +114,26 @@ public final class LoudnessCache implements AutoCloseable {
         executor.execute(() -> {
             try {
                 if (cache != null && Files.isRegularFile(cache) && Files.size(cache) <= MAX_CACHE_BYTES) {
-                    com.google.gson.JsonObject json;
-                    try (var reader = Files.newBufferedReader(cache)) {
-                        json = JsonParser.parseReader(reader).getAsJsonObject();
-                    }
-                    synchronized (persistence) {
-                        for (var entry : json.entrySet()) {
-                            if (results.size() >= 65536) break;
-                            Reading r = ConfigStore.JSON.fromJson(entry.getValue(), Reading.class);
-                            String path = pathOfKey(entry.getKey());
+                    try (var reader = new com.google.gson.stream.JsonReader(Files.newBufferedReader(cache))) {
+                        reader.beginObject();
+                        while (reader.hasNext()) {
+                            String key = reader.nextName();
+                            if (results.size() >= 65536) {
+                                reader.skipValue();
+                                continue;
+                            }
+                            Reading r = ConfigStore.JSON.fromJson(reader, Reading.class);
+                            String path = pathOfKey(key);
                             if (r != null && path != null && Double.isFinite(r.lufs) && Double.isFinite(r.peakDb)) {
-                                results.put(entry.getKey(), r);
-                                storedKeys.computeIfAbsent(path, ignored -> new HashSet<>()).add(entry.getKey());
+                                synchronized (persistence) {
+                                    results.put(key, r);
+                                    storedKeys.computeIfAbsent(path, ignored -> new HashSet<>()).add(key);
+                                }
                             }
                         }
+                        reader.endObject();
+                        if (reader.peek() != com.google.gson.stream.JsonToken.END_DOCUMENT)
+                            throw new java.io.IOException("Trailing loudness cache contents");
                     }
                 } else if (cache != null && Files.isRegularFile(cache)) {
                     synchronized (persistence) {
@@ -136,6 +143,8 @@ public final class LoudnessCache implements AutoCloseable {
                 }
             } catch (Exception e) {
                 synchronized (persistence) {
+                    results.clear();
+                    storedKeys.clear();
                     preserveOriginal = true;
                 }
                 org.slf4j.LoggerFactory.getLogger("darkmusic-audio").warn("Could not load loudness cache {}", cache, e);
@@ -147,23 +156,66 @@ public final class LoudnessCache implements AutoCloseable {
     }
 
     public double gain(Track track, AudioSettings settings) {
+        return request(track, settings, false);
+    }
+
+    /**
+     * Best effort only: never wait for cache loading, a probe, or analysis on the caller.
+     */
+    public void prefetch(Track track, AudioSettings settings) {
+        if (track != null && !settings.neutral && settings.normalization) request(track, settings, true);
+    }
+
+    private double request(Track track, AudioSettings settings, boolean priority) {
         if (attempted.size() > 4096) attempted.clear();
         if (retryAfter.size() > 4096) retryAfter.clear();
         Lookup lookup = lookup(track, settings);
         String key = lookup.key;
         Reading r = results.get(key);
         String attempt = lookup.attempt;
+        if (priority && pending.contains(attempt)) for (Runnable queued : queue)
+            if (queued instanceof Inspection task && task.lookup.attempt.equals(attempt)) {
+                promote(task);
+                break;
+            }
         if (r == null && !closed && !attempted.contains(attempt) && clock.getAsLong() >= retryAfter.getOrDefault(attempt, Long.MIN_VALUE) && pending.add(attempt)) {
-            boolean analyze = settings.analyzeLoudness;
-            var mode = settings.gainMode;
+            var task = new Inspection(lookup);
             try {
-                executor.execute(() -> inspect(track, key, analyze, mode));
+                try {
+                    executor.execute(task);
+                } catch (RejectedExecutionException full) {
+                    // A newly selected next song is more useful than an older queued inspection.
+                    Runnable old = queue.peekLast();
+                    if (!priority || executor.isShutdown() || !(old instanceof Inspection displaced) || !queue.remove(old))
+                        throw full;
+                    pending.remove(displaced.lookup.attempt);
+                    executor.execute(task);
+                }
+                if (priority) promote(task);
             } catch (RejectedExecutionException ignored) {
                 pending.remove(attempt);
             }
         }
         if (r == null) return 1;
         return gainFor(r, settings.targetLufs);
+    }
+
+    private void promote(Inspection task) {
+        if (queue.remove(task) && (closed || executor.isShutdown() || !queue.offerFirst(task)))
+            pending.remove(task.lookup.attempt);
+    }
+
+    private final class Inspection implements Runnable {
+        private final Lookup lookup;
+
+        private Inspection(Lookup lookup) {
+            this.lookup = lookup;
+        }
+
+        @Override
+        public void run() {
+            inspect(lookup.track, lookup.key, lookup.analyze, lookup.mode);
+        }
     }
 
     private static double gainFor(Reading r, double target) {
@@ -231,6 +283,11 @@ public final class LoudnessCache implements AutoCloseable {
         String attempt = key + ":" + analyze;
         boolean completed = false;
         try {
+            // Requests can be queued while the initial disk load is still in progress.
+            if (results.containsKey(key)) {
+                completed = true;
+                return;
+            }
             var info = ExternalAudio.probe(track.file(), true, token);
             var tags = new JsonObject();
             if (info.has("format") && info.getAsJsonObject("format").has("tags"))

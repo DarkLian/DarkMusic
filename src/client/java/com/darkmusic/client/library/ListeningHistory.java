@@ -135,6 +135,14 @@ public final class ListeningHistory {
         return Map.copyOf(entries);
     }
 
+    /**
+     * Retain this history generation; copying its immutable records is deferred to the storage worker.
+     */
+    public java.util.function.Supplier<Map<String, Entry>> snapshotSource() {
+        var source = entries;
+        return () -> Map.copyOf(source);
+    }
+
     public synchronized long revision() {
         return revision;
     }
