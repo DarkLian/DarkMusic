@@ -28,9 +28,17 @@ class ProcessRunnerTest {
 
     @Test
     void passesUnicodeAndShellMetacharactersAsOneLiteralArgument() throws Exception {
-        // The Java launcher uses the Windows native code page for argv; real-tool tests also cover Simplified Chinese.
         String value = "音樂 日本語 & $(touch SHOULD_NOT_EXIST) ; --exec=bad";
-        var r = new ProcessRunner().run(command("echo", value), temp, new ProcessRunner.Token(), Duration.ofSeconds(10), 32000, s -> {
+        List<String> echo = command("echo", value);
+        if (System.getProperty("os.name").startsWith("Windows")) {
+            // The Java launcher converts argv through the native code page. Use a wide-character
+            // Windows child so the same exact Unicode assertion is valid on Western CI images too.
+            Path script = temp.resolve("echo.ps1");
+            Files.writeString(script, "$bytes = [Text.Encoding]::UTF8.GetBytes($args[0]); [Console]::OpenStandardOutput().Write($bytes, 0, $bytes.Length)");
+            echo = List.of(Path.of(System.getenv("SystemRoot"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe").toString(),
+                "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script.toString(), value);
+        }
+        var r = new ProcessRunner().run(echo, temp, new ProcessRunner.Token(), Duration.ofSeconds(10), 32000, s -> {
         });
         assertEquals(0, r.exit());
         assertEquals(value, r.output().strip());
