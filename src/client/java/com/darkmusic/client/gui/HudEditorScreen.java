@@ -18,7 +18,7 @@ public class HudEditorScreen extends LocalScreen {
     private boolean dragging;
     private double dragX, dragY;
     private long scaleChanged;
-    private net.minecraft.client.gui.components.AbstractWidget reset, help;
+    private net.minecraft.client.gui.components.AbstractWidget reset, help, back;
 
     public HudEditorScreen(DarkMusicClient app, Screen parent) {
         super(Text.component("hud.darkmusic.layout"), parent);
@@ -35,19 +35,22 @@ public class HudEditorScreen extends LocalScreen {
             app.save();
         }).bounds(width - 144, 8, 106, 20).build(), Text.get("hud.darkmusic.reset_help")));
         help = addRenderableWidget(new InfoHint(width - 32, 8, Text.component("hud.darkmusic.help")));
+        back = backButton(width - 32, 8, 24);
         positionToolbar();
     }
 
     private void positionToolbar() {
         var b = bounds();
-        int[][] corners = {{width - 148, 8}, {8, 8}, {width - 148, height - 32}, {8, height - 32}};
+        int[][] corners = {{width - 176, 8}, {8, 8}, {width - 176, height - 32}, {8, height - 32}};
         for (var corner : corners) {
             int x = corner[0], y = corner[1];
-            if (x < b.x() + b.width() && x + 140 > b.x() && y < b.y() + b.height() && y + 24 > b.y()) continue;
+            if (x < b.x() + b.width() && x + 168 > b.x() && y < b.y() + b.height() && y + 24 > b.y()) continue;
             reset.setX(x + 4);
             reset.setY(y + 2);
             help.setX(x + 116);
             help.setY(y + 2);
+            back.setX(x + 144);
+            back.setY(y + 2);
             return;
         }
     }

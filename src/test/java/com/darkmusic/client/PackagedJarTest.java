@@ -73,6 +73,8 @@ class PackagedJarTest {
             for (var entry : jar.stream().filter(e -> e.getName().endsWith(".class")).toList()) {
                 assertFalse(entry.getName().contains("smoke") || entry.getName().contains("Test"));
                 String constants = new String(jar.getInputStream(entry).readAllBytes(), java.nio.charset.StandardCharsets.ISO_8859_1);
+                // Catching a timeout does not create a socket. Keep the real Socket prohibition intact.
+                constants = constants.replace("java/net/SocketTimeoutException", "");
                 new ClassReader(jar.getInputStream(entry).readAllBytes()).accept(new ClassVisitor(Opcodes.ASM9) {
                     @Override
                     public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {

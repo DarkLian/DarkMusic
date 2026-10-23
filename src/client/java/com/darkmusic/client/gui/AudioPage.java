@@ -21,6 +21,7 @@ abstract class AudioPage extends LocalScreen {
     private final List<Heading> headings = new ArrayList<>();
     private final List<Detail> details = new ArrayList<>();
     private ScrollBar scrollbar;
+    private net.minecraft.client.gui.components.Button back;
 
     AudioPage(DarkMusicClient app, Screen parent, String title) {
         super(Text.component(title), parent);
@@ -90,8 +91,14 @@ abstract class AudioPage extends LocalScreen {
 
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
-        if (event.key() == 258 && (getFocused() == null || rows.contains(getFocused()))) {
-            int index = FocusRows.next(rows.stream().map(w -> w.active).toList(), rows.indexOf(getFocused()), event.hasShiftDown(), true);
+        if (event.key() == 258 && (getFocused() == null || getFocused() == back || rows.contains(getFocused()))) {
+            var enabled = new ArrayList<>(rows.stream().map(w -> w.active).toList());
+            enabled.add(true);
+            int index = FocusRows.next(enabled, getFocused() == back ? rows.size() : rows.indexOf(getFocused()), event.hasShiftDown(), true);
+            if (index == rows.size()) {
+                setFocused(back);
+                return true;
+            }
             if (index >= 0) {
                 int y = positions.get(index);
                 if (y < scroll || y + 24 > scroll + height - 50) scroll = Math.max(0, y - (height - 74) / 2);
@@ -164,6 +171,7 @@ abstract class AudioPage extends LocalScreen {
 
     @Override
     protected final void init() {
+        back = backButton();
         formWidth = Math.min(720, width - 28);
         formX = (width - formWidth) / 2;
         cursor = 0;

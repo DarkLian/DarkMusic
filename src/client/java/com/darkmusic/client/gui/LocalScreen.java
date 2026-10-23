@@ -25,6 +25,17 @@ public abstract class LocalScreen extends Screen {
         if (isCurrent()) minecraft.gui.setScreen(next);
     }
 
+    protected final net.minecraft.client.gui.components.Button backButton() {
+        return backButton(width - 80, 4, 68);
+    }
+
+    protected final net.minecraft.client.gui.components.Button backButton(int x, int y, int width) {
+        var button = addRenderableWidget(UiButton.builder(com.darkmusic.client.text.Text.component("phase2.back"), b -> onClose())
+            .bounds(x, y, width, 20).build());
+        UiButton.icon(button, UiIcon.BACK, width < 40);
+        return button;
+    }
+
     /**
      * Preserve native editing state when a responsive rebuild retains the same draft.
      */

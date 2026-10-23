@@ -1,0 +1,63 @@
+package com.darkmusic.client.gui;
+
+import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.download.DownloadDiagnostics;
+import com.darkmusic.client.text.Text;
+import net.minecraft.client.gui.screens.Screen;
+
+/**
+ * A local, bounded report; no network, tool installation or log collection on open.
+ */
+public final class DownloadDiagnosticScreen extends AudioPage {
+    private final DownloadDiagnostics.Diagnostic diagnostic;
+    private final Runnable retry;
+    private String copyStatus = "";
+
+    public DownloadDiagnosticScreen(DarkMusicClient app, Screen parent, DownloadDiagnostics.Diagnostic diagnostic, Runnable retry) {
+        super(app, parent, "download.diag.title");
+        this.diagnostic = diagnostic;
+        this.retry = retry;
+    }
+
+    @Override
+    protected UiIcon pageIcon() {
+        return UiIcon.WARNING;
+    }
+
+    @Override
+    protected void populate() {
+        section("download.diag.what");
+        info(() -> Text.get("download.diag.stage." + diagnostic.stage().name().toLowerCase(java.util.Locale.ROOT)));
+        info(diagnostic::summary);
+        info(() -> Text.get("download.diag.source", Text.get("download.diag.source." + diagnostic.source().name().toLowerCase(java.util.Locale.ROOT))));
+        section("download.diag.meaning");
+        info(diagnostic::explanation);
+        section("download.diag.try");
+        info(diagnostic::action);
+        section("download.diag.technical");
+        info(() -> Text.get("download.diag.tool", diagnostic.tool().display(), diagnostic.toolVersion()));
+        info(() -> Text.get("download.diag.exit", diagnostic.exitCode() == null ? "—" : diagnostic.exitCode()));
+        if (!diagnostic.detail().isEmpty()) info(diagnostic::detail);
+        info("download.diag.privacy");
+        action("download.diag.copy", () -> {
+            try {
+                String version = net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("darkmusic").orElseThrow().getMetadata().getVersion().getFriendlyString();
+                minecraft.keyboardHandler.setClipboard(diagnostic.report(version));
+                copyStatus = Text.get("download.diag.copied");
+            } catch (Exception failure) {
+                copyStatus = Text.get("download.diag.copy_failed");
+            }
+        });
+        info(() -> copyStatus);
+        if (retry != null && diagnostic.canRetry()) {
+            int index = rowCount();
+            action("download.diag.retry", () -> {
+                retry.run();
+                onClose();
+            });
+            enableSince(index, !app.downloads.snapshot().analyzing());
+        }
+        if (diagnostic.toolsRelated())
+            action("text.darkmusic.download_tools", () -> show(new DownloadToolsScreen(app, this)));
+    }
+}

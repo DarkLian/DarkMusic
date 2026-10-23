@@ -29,6 +29,7 @@ public final class DownloadScreen extends LocalScreen {
     private EditBox url, first, last, search, pageNumber;
     private RowList rows;
     private Button queueToggle, analyze, download, modeButton, previous, next, goToPage, selectAll, deselect, listen, stopListening, retrySelected, retryFailed, clearFailed, cancelSelected, cancelAll, clearFinished;
+    private Button errorDetails;
     private Preview displayed;
     private int furthestPage = 1;
     private Snapshot rowsSnapshot;
@@ -102,10 +103,11 @@ public final class DownloadScreen extends LocalScreen {
 
     @Override
     protected void init() {
+        backButton(width - 36, 6, 24);
         rowsSnapshot = null;
-        UiButton.icon(button(Text.get("text.darkmusic.tools"), width - 100, 6, 88,
+        UiButton.icon(button(Text.get("text.darkmusic.tools"), width - 128, 6, 88,
             () -> show(new DownloadToolsScreen(app, this)), Text.get("text.darkmusic.set_executable_paths_and_check_yt_dlp_ffmpeg_ffprobe_and_optional_javascript_runti")), UiIcon.TOOLS, false);
-        sourceToggle = UiButton.icon(button(Text.get("phase2.source"), width - 192, 6, 88, () -> {
+        sourceToggle = UiButton.icon(button(Text.get("phase2.source"), width - 220, 6, 88, () -> {
             sourceExpanded = !sourceExpanded;
             updateButtons();
         }, Text.get("download.darkmusic.source_panel_help")), UiIcon.SEARCH, false);
@@ -176,6 +178,12 @@ public final class DownloadScreen extends LocalScreen {
         }, "text.darkmusic.cancel_the_selected_queued_or_active_item_other_downloads_continue");
         cancelAll = action("text.darkmusic.cancel_all", app.downloads::cancelAll, "text.darkmusic.cancel_url_analysis_active_work_and_queued_entries_completed_songs_are_kept");
         clearFinished = action("text.darkmusic.clear_finished", app.downloads::clearFinished, "download.darkmusic.clear_finished_help");
+        errorDetails = action("download.diag.title", () -> {
+            var diagnostic = queueView ? app.downloads.diagnostic(selectedJob) : app.downloads.analysisDiagnostic();
+            if (diagnostic != null) show(new DownloadDiagnosticScreen(app, this, diagnostic, queueView
+                ? () -> app.downloads.retry(selectedJob) : () -> app.downloads.analyze(app.downloads.inputUrl(), 0)));
+        }, "download.diag.help");
+        UiButton.icon(errorDetails, UiIcon.WARNING, true);
         UiButton.style(analyze, UiButton.Style.PRIMARY);
         UiButton.style(download, UiButton.Style.PRIMARY);
         UiButton.selected(entriesTab, () -> !queueView);
@@ -258,6 +266,7 @@ public final class DownloadScreen extends LocalScreen {
         rows.setX(12);
         rows.setWidth(width - 24);
         rows.setHeight(height - (queueView ? 66 : 12) - resultTop);
+        layoutDiagnostic();
     }
 
     private void layoutWide() {
@@ -298,6 +307,14 @@ public final class DownloadScreen extends LocalScreen {
         rows.setWidth(rightWidth);
         rows.setY(resultTop);
         rows.setHeight(height - (queueView ? 66 : 12) - resultTop);
+        layoutDiagnostic();
+    }
+
+    private void layoutDiagnostic() {
+        boolean available = (queueView ? app.downloads.diagnostic(selectedJob) : app.downloads.analysisDiagnostic()) != null;
+        place(errorDetails, width - (queueView ? 36 : 92), searchY, 24, available);
+        errorDetails.active = available;
+        if (available) search.setWidth(Math.max(24, search.getWidth() - 28));
     }
 
     private void cycleMode() {

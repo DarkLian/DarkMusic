@@ -59,6 +59,37 @@ public interface AudioBackend extends AutoCloseable {
     default void nextTrack(Track track, Runnable started, Runnable ended, Consumer<String> failed) {
     }
 
+    /**
+     * Atomic ownership of a prepared handoff, independent of delayed client callbacks.
+     */
+    final class Transition {
+        private final java.util.concurrent.atomic.AtomicInteger state = new java.util.concurrent.atomic.AtomicInteger();
+        private boolean legacy;
+
+        void observe(Track audible, Track from, Track target) {
+            if (legacy && !target.equals(from) && target.equals(audible)) claim();
+        }
+
+        public boolean claim() {
+            return state.compareAndSet(0, 1);
+        }
+
+        public boolean claimed() {
+            return state.get() == 1;
+        }
+
+        public boolean cancel() {
+            return state.compareAndSet(0, -1);
+        }
+    }
+
+    default void nextTrack(Track track, Runnable started, Runnable ended, Consumer<String> failed, Transition transition) {
+        transition.legacy = true;
+        nextTrack(track, () -> {
+            if (transition.claim()) started.run();
+        }, ended, failed);
+    }
+
     default boolean awaitStopped(long seconds) throws InterruptedException {
         return true;
     }

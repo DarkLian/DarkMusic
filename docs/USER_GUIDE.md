@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v2.5.1 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v2.6.0 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Interface language
 
@@ -67,7 +67,28 @@ Repeat controls what happens when a song finishes, cycling between:
 
 Shuffle randomizes that same collection. Starting a song from a search still uses the full folder, playlist, artist, album, or All Tracks collection. **Jump to Playing** returns to that source collection, clears search, and reveals the song.
 
-Long labels can be scrolled horizontally with a horizontal wheel gesture or Shift + wheel. Song rows do not display hover popups. **Show Hover Info** controls help on settings and other controls. Escape returns to the previous screen.
+Long labels can be scrolled horizontally with a horizontal wheel gesture or Shift + wheel. Song rows do not display hover popups. **Show Hover Info** controls help on settings and other controls. Use Back in secondary menus or press Escape to return to the previous screen.
+
+## Up Next
+
+Open **Song Actions** (the More icon at the top-right of the song details panel) for the selected library song. The menu shows its artwork, title, and artist:
+
+- **Play Next** places it before other manually queued songs. Repeated Play Next actions put the latest choice first.
+- **Add to Queue** appends it after other manually queued songs, before the remaining collection.
+
+Open **Up Next** beside Downloads in the player header; compact layouts use a playlist icon with hover help. The screen separates Now Playing, Queued by You, and Coming from Collection. Drag manually queued songs to reorder them, including connected selections. Select an occurrence and use Remove to take it out of the queue. Duplicate songs are separate occurrences. Clear Queued Songs removes pending manual entries without stopping playback.
+
+Drag a song from Coming from Collection into Queued by You to add a queued copy at the drop position. Its artwork, title, and artist follow the pointer; the original collection entry remains. The collection preview shows up to 25 tracks. Hover either section heading for a short explanation.
+
+![Up Next playback queue](images/up-next.png)
+
+The collection preview stops at an unprepared shuffled-cycle boundary rather than guessing the next order. Repeat This still shows the remaining collection separately; the screen explains that those songs and manual entries are waiting.
+
+The queue holds up to 1,000 pending songs. It stays available when screens close or worlds change, but resets when Minecraft exits. It is not a playlist, is not saved in backups, and never edits your playlists. Directly playing a new library selection starts a new session and clears pending entries. Stop, restarting the current selection after Stop, and Play/Pause keep them.
+
+Manual songs temporarily interrupt the original collection, which resumes at its next position afterward. Shuffle affects only the collection. Repeat All repeats the collection, not the manual queue. Repeat This holds queued songs while the current song repeats; Next still advances to a queued song. Previous revisits played songs without putting consumed entries back in the pending queue.
+
+Jump to Playing locates a manually queued song in its library folder when it is outside the original collection. This does not replace the collection used for subsequent playback. Successful deletion removes matching pending entries; failed or canceled deletion retains them. Metadata edits preserve queue positions. Unregistering a folder removes its pending entries, while incomplete scans retain them.
 
 ## Listening history
 
@@ -167,6 +188,20 @@ Queue search covers titles, status, errors, and destination folders. **Retry Sel
 Completed files go into the currently configured music folder and appear in the library. **Audio Options → Download Audio Format** chooses Original / Best Available or Convert to MP3. Available title, uploader/artist, album, track number, and artwork are embedded where supported. Duplicate tracking reduces repeat downloads.
 
 Restricted, deleted, private, or unsupported content may fail. DarkMusic does not bypass authentication or DRM. Download only material you are authorized to save.
+
+### Error details and safe reports
+
+When analysis fails, use the warning-icon **Error Details** action beside search. The entered URL remains available for another attempt. In Queue, select a failed job and use Error Details for that attempt. Clearing finished jobs keeps failed jobs; Clear Failed removes their diagnostics too. A successful retry clears the current failure presentation.
+
+The report identifies the stage (analysis, download, conversion, validation, or local saving), the tool, and a recognized error category. “What it may mean” is an interpretation, not a proven root cause. For example, HTTP 403 establishes that access was refused; it does not establish why. A Bilibili “Unable to extract initial state” error can indicate a changed website response or extractor, rather than a disconnected network.
+
+**Copy Diagnostic** copies the DarkMusic version, available relevant tool version, source category, stage, diagnostic category, operation/attempt ID, exit code, a short recognized error phrase, and suggested action. Full URLs, video identifiers, local paths, credentials, and arbitrary raw output are excluded. Unrecognized technical output is omitted. Copying does not upload anything.
+
+![Download error details](images/download-diagnostics.png)
+
+Use Retry when appropriate, or the existing queue retry controls. Automatic retries keep their existing limits; extractor and authentication failures do not repeatedly retry automatically. Wait before retrying rate-limited requests. Cancellation remains separate from failure.
+
+Tool-related reports link to **Download Tools**. Check Tools validates the chosen executables; Install / Update Tools retrieves managed releases only after your action. Advanced Paths may select executables instead of the managed ones. Updating tools may help with website changes, but does not guarantee that a source will work. A website can break a yt-dlp extractor without a DarkMusic change; not every website failure can be identified reliably. DarkMusic does not bypass authentication or DRM.
 
 ## Mod updates
 

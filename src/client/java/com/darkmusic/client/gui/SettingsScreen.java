@@ -85,6 +85,7 @@ public final class SettingsScreen extends LocalScreen {
 
     @Override
     protected void init() {
+        backButton();
         if (shownSettings != null && shownSettings != app.settings) {
             previewScale = 1;
             scaleChanged = 0;

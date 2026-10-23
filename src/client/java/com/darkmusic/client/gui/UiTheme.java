@@ -117,7 +117,12 @@ public final class UiTheme {
 
     public static void header(GuiGraphicsExtractor g, net.minecraft.client.gui.Font font, net.minecraft.network.chat.Component title, UiIcon icon) {
         icon.draw(g, 12, 10, 12, ACCENT);
-        g.text(font, title, 30, 12, TEXT);
+        var screen = net.minecraft.client.Minecraft.getInstance().gui.screen();
+        int right = screen == null ? 1000 : screen.width - 12;
+        if (screen != null) for (var child : screen.children())
+            if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget && widget.visible
+                && widget.getY() < 28 && widget.getX() >= 30) right = Math.min(right, widget.getX() - 6);
+        g.text(font, font.plainSubstrByWidth(title.getString(), Math.max(0, right - 30)), 30, 12, TEXT);
     }
 
     /**

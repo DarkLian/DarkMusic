@@ -124,8 +124,9 @@ public final class ColorsScreen extends LocalScreen {
             UiButton.icon(addRenderableWidget(UiButton.builder(Text.component(previewOnly ? "phase2.settings_form" : "phase2.preview"), b -> {
                 previewOnly = !previewOnly;
                 rebuildWidgets();
-            }).bounds(width - 116, 6, 104, 24).build()), UiIcon.PREVIEW, false);
+            }).bounds(width - 144, 6, 104, 24).build()), UiIcon.PREVIEW, false);
         }
+        backButton(width - (wide ? 80 : 36), 6, wide ? 68 : 24);
     }
 
     private void pick(boolean first) {

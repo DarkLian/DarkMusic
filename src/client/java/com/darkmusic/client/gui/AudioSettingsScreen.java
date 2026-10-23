@@ -112,6 +112,7 @@ public final class AudioSettingsScreen extends LocalScreen {
 
     @Override
     protected void init() {
+        backButton();
         formWidth = Math.min(720, width - 24);
         formX = (width - formWidth) / 2;
         rows.clear();
@@ -265,7 +266,7 @@ public final class AudioSettingsScreen extends LocalScreen {
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
         if (event.key() == 258 && (getFocused() == null || rows.contains(getFocused()))) {
-            int index = FocusRows.next(rows.stream().map(w -> w.active).toList(), rows.indexOf(getFocused()), event.hasShiftDown(), true);
+            int index = FocusRows.next(rows.stream().map(w -> w.active).toList(), rows.indexOf(getFocused()), event.hasShiftDown(), false);
             if (index >= 0) {
                 int y = positions.get(index);
                 if (y < scroll || y + 24 > scroll + height - 50) scroll = Math.max(0, y - (height - 74) / 2);

@@ -29,7 +29,8 @@ public final class SmokeClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        if (Boolean.getBoolean("darkmusic.advanced")) new AdvancedSmokeClient().start();
+        if (Boolean.getBoolean("darkmusic.queueSmoke")) new QueueSmokeClient().start();
+        else if (Boolean.getBoolean("darkmusic.advanced")) new AdvancedSmokeClient().start();
         else if (Boolean.getBoolean("darkmusic.resetSmoke")) new ResetSmokeClient().start();
         else if (Boolean.getBoolean("darkmusic.previewSmoke")) new DownloadPreviewClient().start();
         else if (Boolean.getBoolean("darkmusic.capture")) new MusicCaptureClient().start();

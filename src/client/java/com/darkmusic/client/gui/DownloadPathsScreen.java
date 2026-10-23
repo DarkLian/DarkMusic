@@ -26,6 +26,7 @@ public final class DownloadPathsScreen extends LocalScreen {
 
     @Override
     protected void init() {
+        backButton();
         formWidth = Math.min(680, width - 24);
         formX = (width - formWidth) / 2;
         for (int i = 0; i < values.length; i++) {

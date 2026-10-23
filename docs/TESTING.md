@@ -104,3 +104,19 @@ Retry classification covers full HTTP error messages, including Service Unavaila
 Check export capture against subsequent preference, shortcut, playlist, and history replacement. History copying, JSON preparation, and ZIP writing must run on the storage executor; failed exports must preserve an existing destination and leave no partial files.
 
 Benchmark fresh loudness-cache instances at small and large sizes, distinguishing warm filesystem caches from true cold-disk startup. Preserve cached first-sample gain, reject partially parsed corrupt caches, deduplicate prefetch requests, and keep the background queue bounded. Use real-collection audio to verify that upcoming-track analysis completes before playback when possible, without waiting for it or altering the active session's gain. Confirm next-track preparation also works with gapless disabled.
+
+## Up Next and download diagnostics
+
+`UpNextTest` covers queue priority, duplicates and stable identities, the 1,000-entry limit, 100,000-track source previews, repeat/shuffle, source continuation, Previous, stop/new-source behavior, failed songs, metadata/deletion reconciliation, incomplete roots, stale callbacks, and rapid skips. Controlled transition gates make callback-order checks deterministic. `UpNextPreloadTest` uses real-collection PCM and a controlled output clock through JavaSoundBackend: both gapless and crossfade must promote the prepared manual decoder, reject the obsolete plan, return to the collection, and retain one output device. This is not a hardware-disconnection test.
+
+`DownloadDiagnosticsTest` checks category/stage precedence and allowlisted reports using synthetic sensitive strings, multiline and oversized output, URLs, credentials, paths, cookies, headers, and control characters. `DownloadDiagnosticServiceTest` injects process results to cover analysis lifetime, independent parallel-job failures, retry association, and clearing. `DownloadTest` also covers successful retry and cancellation with real-collection media. No website request or tool update is needed for these checks.
+
+Run the focused native workflow with already installed tools:
+
+```sh
+./gradlew runSmokeClient -Psmoke -PqueueSmoke -PmusicDirectory=/path/to/real/music -PdownloadToolsDirectory=/path/to/tools
+```
+
+This uses the isolated `build/queue-run` directory, fullscreen GUI scale 2 and SmoothFont. It checks 320×240, 426×240, and 960×540 screen coordinates, keyboard actions, duplicate drag reorder/removal, collection-copy drops, diagnostic copying through the actual clipboard, Back navigation across secondary menus, artwork cards and drag previews, and real-device pause/seek/resume and queue-to-collection promotion. The font pack is required for this visual workflow; the music and tools must already exist. No personal audio is packaged or changed.
+
+Before release, also review both languages, the default font, compact-window rendering, queue entry deletion/rename during playback, live crossfade queue mutation, and device switching. Re-run native checks on supported operating systems where available; passing mock/device-clock tests or CI compilation does not establish hardware or desktop compatibility.

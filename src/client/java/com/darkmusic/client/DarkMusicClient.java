@@ -373,6 +373,12 @@ public class DarkMusicClient implements ClientModInitializer {
     public final com.darkmusic.client.library.SourceLinks sourceLinks = new com.darkmusic.client.library.SourceLinks(browsing);
     private boolean playlistCleanupPending;
     private long cleanedScan = -1, cleanedPlaylists = -1;
+    private long queuedLibraryRevision = -1;
+
+    public boolean canEditQueue() {
+        return !closed && !resetting && !mediaBusy && !outputChanging && playback != null;
+    }
+
     private volatile boolean closed;
     private boolean resetting;
     private long directoryGeneration;
@@ -824,6 +830,12 @@ public class DarkMusicClient implements ClientModInitializer {
         while (stop.consumeClick()) if (allowed) playbackShortcut(stop);
         while (jump.consumeClick()) if (allowed) playbackShortcut(jump);
         if (resetting || settings == null || playback == null) return;
+        var queuedLibrary = library.snapshot();
+        if (queuedLibraryRevision != queuedLibrary.revision()) {
+            queuedLibraryRevision = queuedLibrary.revision();
+            if (!mediaBusy) playback.reconcileQueued(playlists.index(queuedLibrary.tracks()),
+                new java.util.HashSet<>(library.roots().values()), queuedLibrary.completeRoots());
+        }
         if (listeningHistory != null && !mediaBusy) listeningHistory.flush(false);
         boolean playlistsClean = cleanMissingPlaylistEntries();
         if (autoplayPending && !mediaBusy && playlistsClean && !library.snapshot().scanning()) {

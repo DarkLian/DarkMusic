@@ -215,6 +215,32 @@ class DownloadTest {
         assertEquals("broken-original", Files.readString(history));
     }
 
+    @Test
+    void successfulRetryAndCancellationClearTheCurrentDiagnostic() throws Exception {
+        var fake = new FakeRunner();
+        fake.failConversion = true;
+        try (var service = new DownloadService(temp.resolve("diagnostic-service"), () -> {
+        }, fake)) {
+            service.configure(tools());
+            service.enqueueSelected(List.of(entry("retry")), temp.resolve("music"));
+            await(() -> service.snapshot().items().size() == 1 && service.snapshot().items().getFirst().status() == Status.FAILED);
+            long id = service.snapshot().items().getFirst().id();
+            assertEquals(DownloadDiagnostics.Category.PROCESSING_FAILURE, service.diagnostic(id).category());
+            assertEquals(DownloadDiagnostics.Stage.PROCESSING, service.diagnostic(id).stage());
+            fake.failConversion = false;
+            service.retry(id);
+            await(() -> service.snapshot().items().getFirst().status() == Status.SAVED);
+            assertNull(service.diagnostic(id));
+            fake.hang = true;
+            service.enqueueSelected(List.of(entry("cancel")), temp.resolve("music"));
+            await(() -> service.snapshot().items().size() == 2 && service.snapshot().items().getLast().status() == Status.DOWNLOADING);
+            long cancelled = service.snapshot().items().getLast().id();
+            service.cancel(cancelled);
+            await(() -> service.snapshot().items().getLast().status() == Status.CANCELLED);
+            assertNull(service.diagnostic(cancelled));
+        }
+    }
+
     static class FakeRunner extends ProcessRunner {
         final Path media = TestMusic.featured();
         final byte[] artwork = new com.darkmusic.client.library.MetadataReader().artwork(media);

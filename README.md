@@ -6,9 +6,9 @@ A client-side music player for Minecraft. Browse your own library, build playlis
 
 ## Install
 
-DarkMusic **v2.5.1** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v2.6.0** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-2.5.1.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-2.6.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Open **Settings → General → Music Folders**, or add songs to `config/darkmusic/music` inside the instance.
@@ -31,7 +31,10 @@ Update notifications are enabled by default and appear once per launch after joi
 - **Metadata:** edit the selected song's title, artist, album, and filename using the pencil button. Open or copy its source link when available. Tags are saved to the file, and the filename extension stays protected.
 - **Playback:** seek in five-second steps, shuffle, repeat, mute, and change speed from 0.5× to 3.0×. The player follows track changes automatically while you are not searching. Jump to Playing returns to the collection where playback started. Search does not narrow the playback queue.
 - **Playlists:** bulk-select songs and reorder connected selections by dragging. Completed folder scans clean up confirmed missing entries, including favorites. Unavailable folders retain their entries while other folders finish scanning independently.
+- **Up Next:** open Song Actions for the selected song to play it next or append it to a temporary queue. Reorder or remove individual occurrences in Up Next, then continue the original collection. Playlists stay unchanged.
 - **Downloads:** analyze a video or collection URL, select entries or a range, preview audio, jump between available preview pages, and manage parallel downloads and retries.
+- **Download diagnostics:** open Error Details after failed analysis or for a failed queue item. See the operation, tool, likely explanation, and relevant next steps; copy a bounded report without full URLs, local paths, or raw tool output.
+- **Navigation:** use visible Back buttons in secondary menus, or press Escape.
 - **HUD:** Classic, Circular, Artwork, and Spectrum Only layouts with optional progress and a spectrum driven by decoded audio. Artwork mode preserves image proportions and supports outward horizontal spectra beside the image.
 - **Visuals:** bars, waves, spikes, gradient presets, beveled finishes, glow, trails, peak markers, and frequency smoothing. Customize menu colors and HUD backgrounds using a visual color spectrum, RGB sliders, or hex values.
 - **Audio Options:** profiles, loudness normalization, graphic or parametric EQ, dynamic EQ, de-essing, tone controls, crossfeed, compression, algorithmic or convolution reverb, and optional true-peak protection. Pitch-preserving speed, gapless playback, crossfade, and game-audio balance remain available.

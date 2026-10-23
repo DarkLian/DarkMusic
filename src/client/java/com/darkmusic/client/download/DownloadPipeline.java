@@ -16,7 +16,6 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.function.BiConsumer;
 
-import static com.darkmusic.client.download.DownloadJson.friendly;
 import static com.darkmusic.client.download.DownloadJson.text;
 import static com.darkmusic.client.download.DownloadModels.*;
 
@@ -156,7 +155,10 @@ public final class DownloadPipeline {
 
     public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadEncoding.Format format, java.util.function.BooleanSupplier lyricsEnabled, java.util.function.Supplier<List<String>> lyricsLanguages) throws Exception {
         token.check();
-        prepare();
+        DownloadDiagnostics.at(DownloadDiagnostics.Stage.COMMIT, DownloadDiagnostics.Tool.NONE, () -> {
+            prepare();
+            return null;
+        });
         try {
             return download(entry, destination, tools, token, progress, format, lyricsEnabled, lyricsLanguages);
         } finally {
@@ -165,155 +167,182 @@ public final class DownloadPipeline {
     }
 
     private Saved download(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadEncoding.Format format, java.util.function.BooleanSupplier lyricsEnabled, java.util.function.Supplier<List<String>> lyricsLanguages) throws Exception {
-        token.check();
-        Files.createDirectories(destination);
-        if (!Files.isWritable(destination))
-            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.the_selected_music_folder_is_not_writable"));
-        if (Files.getFileStore(destination).getUsableSpace() < 16 * 1024 * 1024)
-            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.not_enough_disk_space_in_the_music_folder"));
-        Path history = destination.resolve(".darkmusic-downloads.json");
-        String identity = entry.key() + (format == DownloadEncoding.Format.ORIGINAL ? ":original" : "");
-        synchronized (historyLock) {
-            Path prior = previous(readArchive(history), identity, destination);
-            if (prior != null)
-                return new Saved(prior, true, com.darkmusic.client.text.Text.get("download.already_saved"));
-        }
-        Path scratchRoot = data.resolve("downloads/work");
-        Files.createDirectories(scratchRoot);
-        Path work = Files.createTempDirectory(scratchRoot, "item-");
-        Path incoming = null;
+        DownloadDiagnostics.Stage stage = DownloadDiagnostics.Stage.COMMIT;
+        DownloadDiagnostics.Tool tool = DownloadDiagnostics.Tool.NONE;
         try {
-            var command = tools.base();
-            command.addAll(List.of("--no-playlist", "--playlist-items", "1", "--no-overwrites", "--newline", "--progress", "--progress-delta", "1", "--progress-template", "download:DM_PROGRESS:%(progress._percent_str)s", "--format", "bestaudio/best", "--write-info-json", "--write-thumbnail", "--paths", work.toString(), "--output", "source.%(ext)s", "--", url(entry.url())));
-            progress.accept(Status.DOWNLOADING, com.darkmusic.client.text.Text.get("download.darkmusic.starting"));
-            var result = runner.run(command, work, token, Duration.ofMinutes(30), 128_000, s -> {
-                if (s.startsWith("DM_PROGRESS:")) progress.accept(Status.DOWNLOADING, s.substring(12).strip());
-                else if (!s.isBlank()) org.slf4j.LoggerFactory.getLogger("darkmusic-download").debug("yt-dlp: {}", s);
-            });
-            if (result.exit() != 0) throw new IOException(friendly(result.output()), new IOException(result.output()));
-            Path source;
-            try (var files = Files.list(work)) {
-                source = files.filter(Files::isRegularFile).filter(p -> p.getFileName().toString().startsWith("source.")).filter(p -> !p.toString().matches("(?i).*\\.(json|jpg|jpeg|png|webp|avif|gif|part|ytdl)$")).findFirst().orElseThrow(() -> new IOException(com.darkmusic.client.text.Text.get("download.media_missing")));
-            }
-            JsonObject metadata = new JsonObject();
-            Path info = work.resolve("source.info.json");
-            if (Files.isRegularFile(info) && Files.size(info) < 16_000_000) {
-                try (var reader = Files.newBufferedReader(info)) {
-                    metadata = JsonParser.parseReader(reader).getAsJsonObject();
-                } catch (RuntimeException ignored) { /* Audio can still be saved without optional metadata. */ }
-            }
-            Path cover;
-            try (var files = Files.list(work)) {
-                cover = files.filter(p -> p.toString().matches("(?i).*\\.(jpg|jpeg|png|webp|avif)$")).findFirst().orElse(null);
-            }
-            String sourceCodec = DownloadEncoding.codec(runner, tools, source, work, token);
-            var plan = format == DownloadEncoding.Format.MP3 ? new DownloadEncoding.Plan("mp3", "libmp3lame", "") : DownloadEncoding.plan(sourceCodec);
-            Path converted = work.resolve("converted." + plan.extension());
-            progress.accept(Status.CONVERTING, com.darkmusic.client.text.Text.get("download.darkmusic.converting"));
-            String warning = cover == null ? com.darkmusic.client.text.Text.get("download.no_thumbnail") : "";
-            Path pictureTags = null;
-            if (cover != null && java.util.Set.of("opus", "ogg").contains(plan.extension())) {
-                try {
-                    pictureTags = DownloadEncoding.pictureComment(runner, tools, cover, work, token);
-                } catch (Exception unavailable) {
-                    token.check();
-                    org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Cannot prepare embedded artwork", unavailable);
-                    warning = com.darkmusic.client.text.Text.get("download.thumbnail_failed");
-                }
-                cover = null;
-            }
-            boolean coverSupported = java.util.Set.of("mp3", "m4a", "flac").contains(plan.extension());
-            if (!coverSupported && cover != null) {
-                cover = null;
-                warning = com.darkmusic.client.text.Text.get("download.artwork_unsupported");
-            }
-            var conversion = format == DownloadEncoding.Format.MP3 ? convert(tools, source, converted, cover, metadata, entry) : DownloadEncoding.remux(tools, source, converted, cover, metadata, entry, plan);
-            if (pictureTags != null) conversion = DownloadEncoding.withPictureComment(conversion, pictureTags);
-            result = runner.run(conversion, work, token, Duration.ofMinutes(20), 64_000, s -> {
-            });
-            if (result.exit() != 0 && (cover != null || pictureTags != null)) {
-                token.check();
-                warning = com.darkmusic.client.text.Text.get("download.thumbnail_failed");
-                result = runner.run(format == DownloadEncoding.Format.MP3 ? convert(tools, source, converted, null, metadata, entry) : DownloadEncoding.remux(tools, source, converted, null, metadata, entry, plan), work, token, Duration.ofMinutes(20), 64_000, s -> {
-                });
-            }
-            if (result.exit() != 0)
-                throw new IOException(com.darkmusic.client.text.Text.get("download.processing_failed"), new IOException(result.output()));
-            String expectedCodec = plan.codec().equals("copy") ? sourceCodec : plan.codec().equals("libmp3lame") ? "mp3" : plan.codec();
-            if (!DownloadEncoding.codec(runner, tools, converted, work, token).equals(expectedCodec))
-                throw new IOException(com.darkmusic.client.text.Text.get("download.validation_failed"));
-            var validation = runner.run(List.of(tools.ffmpeg().toString(), "-nostdin", "-v", "error", "-xerror", "-protocol_whitelist", "file,pipe", "-i", converted.toString(), "-map", "0:a:0", "-vn", "-f", "null", "-"), work, token, Duration.ofMinutes(20), 16_000, s -> {
-            });
-            if (validation.exit() != 0)
-                throw new IOException(com.darkmusic.client.text.Text.get("download.validation_failed"), new IOException(validation.output()));
-            if (!plan.warning().isBlank()) warning = plan.warning() + " " + warning;
-            DownloadLyrics.Result lyrics = new DownloadLyrics.Result("", "");
-            if (lyricsEnabled.getAsBoolean()) {
-                progress.accept(Status.CONVERTING, com.darkmusic.client.text.Text.get("lyrics.darkmusic.downloading"));
-                lyrics = DownloadLyrics.fetch(runner, tools, entry, metadata, work, token, lyricsLanguages.get());
-                if (!lyrics.warning().isBlank()) warning = (warning + "; " + lyrics.warning()).replaceFirst("^; ", "");
-            }
             token.check();
-            String title = text(metadata, "title");
-            if (title.isBlank()) title = entry.title();
-            String name = filename(title, identity, plan.extension());
-            incoming = Files.createTempFile(destination, ".darkmusic-", ".tmp");
-            try (var input = Files.newInputStream(converted); var output = Files.newOutputStream(incoming)) {
-                byte[] buffer = new byte[32_768];
-                int read;
-                while ((read = input.read(buffer)) != -1) {
-                    token.check();
-                    output.write(buffer, 0, read);
-                }
-            }
+            Files.createDirectories(destination);
+            if (!Files.isWritable(destination))
+                throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.STORAGE_FAILURE, stage, tool, null, "Permission denied", null);
+            if (Files.getFileStore(destination).getUsableSpace() < 16 * 1024 * 1024)
+                throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.STORAGE_FAILURE, stage, tool, null, "Insufficient disk space", null);
+            Path history = destination.resolve(".darkmusic-downloads.json");
+            String identity = entry.key() + (format == DownloadEncoding.Format.ORIGINAL ? ":original" : "");
             synchronized (historyLock) {
-                token.check();
-                // Merge the latest history only after conversion; other workers may have committed.
-                JsonObject archive = readArchive(history);
-                Path prior = previous(archive, identity, destination);
+                Path prior = previous(readArchive(history), identity, destination);
                 if (prior != null)
                     return new Saved(prior, true, com.darkmusic.client.text.Text.get("download.already_saved"));
-                Path target = destination.resolve(name);
-                for (int suffix = 2; Files.exists(target) || Files.exists(DownloadLyrics.sidecar(target)); suffix++)
-                    target = destination.resolve(name.substring(0, name.lastIndexOf('.')) + " (" + suffix + ")." + plan.extension());
-                Files.move(incoming, target);
-                incoming = null;
-                com.darkmusic.client.library.SourceLinks.record(target, entry.url());
-                if (lyricsEnabled.getAsBoolean() && !lyrics.text().isBlank()) {
-                    Path temporaryLyrics = null;
+            }
+            Path scratchRoot = data.resolve("downloads/work");
+            Files.createDirectories(scratchRoot);
+            Path work = Files.createTempDirectory(scratchRoot, "item-");
+            Path incoming = null;
+            try {
+                stage = DownloadDiagnostics.Stage.DOWNLOAD;
+                tool = DownloadDiagnostics.Tool.YT_DLP;
+                var command = tools.base();
+                command.addAll(List.of("--no-playlist", "--playlist-items", "1", "--no-overwrites", "--newline", "--progress", "--progress-delta", "1", "--progress-template", "download:DM_PROGRESS:%(progress._percent_str)s", "--format", "bestaudio/best", "--write-info-json", "--write-thumbnail", "--paths", work.toString(), "--output", "source.%(ext)s", "--", url(entry.url())));
+                progress.accept(Status.DOWNLOADING, com.darkmusic.client.text.Text.get("download.darkmusic.starting"));
+                var result = runner.run(command, work, token, Duration.ofMinutes(30), 128_000, s -> {
+                    if (s.startsWith("DM_PROGRESS:")) progress.accept(Status.DOWNLOADING, s.substring(12).strip());
+                    else if (!s.isBlank())
+                        org.slf4j.LoggerFactory.getLogger("darkmusic-download").debug("yt-dlp: {}", s);
+                });
+                if (result.exit() != 0)
+                    throw new DownloadDiagnostics.Failure(stage, tool, result.exit(), result.output());
+                stage = DownloadDiagnostics.Stage.VALIDATION;
+                tool = DownloadDiagnostics.Tool.NONE;
+                Path source;
+                try (var files = Files.list(work)) {
+                    source = files.filter(Files::isRegularFile).filter(p -> p.getFileName().toString().startsWith("source.")).filter(p -> !p.toString().matches("(?i).*\\.(json|jpg|jpeg|png|webp|avif|gif|part|ytdl)$")).findFirst().orElseThrow(() -> new IOException(com.darkmusic.client.text.Text.get("download.media_missing")));
+                }
+                JsonObject metadata = new JsonObject();
+                Path info = work.resolve("source.info.json");
+                if (Files.isRegularFile(info) && Files.size(info) < 16_000_000) {
+                    try (var reader = Files.newBufferedReader(info)) {
+                        metadata = JsonParser.parseReader(reader).getAsJsonObject();
+                    } catch (RuntimeException ignored) { /* Audio can still be saved without optional metadata. */ }
+                }
+                Path cover;
+                try (var files = Files.list(work)) {
+                    cover = files.filter(p -> p.toString().matches("(?i).*\\.(jpg|jpeg|png|webp|avif)$")).findFirst().orElse(null);
+                }
+                stage = DownloadDiagnostics.Stage.VALIDATION;
+                tool = DownloadDiagnostics.Tool.FFPROBE;
+                String sourceCodec = DownloadEncoding.codec(runner, tools, source, work, token);
+                var plan = format == DownloadEncoding.Format.MP3 ? new DownloadEncoding.Plan("mp3", "libmp3lame", "") : DownloadEncoding.plan(sourceCodec);
+                Path converted = work.resolve("converted." + plan.extension());
+                progress.accept(Status.CONVERTING, com.darkmusic.client.text.Text.get("download.darkmusic.converting"));
+                String warning = cover == null ? com.darkmusic.client.text.Text.get("download.no_thumbnail") : "";
+                stage = DownloadDiagnostics.Stage.PROCESSING;
+                tool = DownloadDiagnostics.Tool.FFMPEG;
+                Path pictureTags = null;
+                if (cover != null && java.util.Set.of("opus", "ogg").contains(plan.extension())) {
                     try {
-                        temporaryLyrics = Files.createTempFile(destination, ".darkmusic-lyrics-", ".tmp");
-                        Files.writeString(temporaryLyrics, lyrics.text());
-                        Files.move(temporaryLyrics, DownloadLyrics.sidecar(target));
-                    } catch (IOException failure) {
-                        warning = (warning + "; " + com.darkmusic.client.text.Text.get("lyrics.darkmusic.save_failed")).replaceFirst("^; ", "");
-                        org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not save lyric sidecar", failure);
-                    } finally {
-                        if (temporaryLyrics != null) try {
-                            Files.deleteIfExists(temporaryLyrics);
-                        } catch (IOException cleanup) {
-                            org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not clean lyric scratch file", cleanup);
-                        }
+                        pictureTags = DownloadEncoding.pictureComment(runner, tools, cover, work, token);
+                    } catch (Exception unavailable) {
+                        token.check();
+                        org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Cannot prepare embedded artwork", unavailable);
+                        warning = com.darkmusic.client.text.Text.get("download.thumbnail_failed");
+                    }
+                    cover = null;
+                }
+                boolean coverSupported = java.util.Set.of("mp3", "m4a", "flac").contains(plan.extension());
+                if (!coverSupported && cover != null) {
+                    cover = null;
+                    warning = com.darkmusic.client.text.Text.get("download.artwork_unsupported");
+                }
+                var conversion = format == DownloadEncoding.Format.MP3 ? convert(tools, source, converted, cover, metadata, entry) : DownloadEncoding.remux(tools, source, converted, cover, metadata, entry, plan);
+                if (pictureTags != null) conversion = DownloadEncoding.withPictureComment(conversion, pictureTags);
+                result = runner.run(conversion, work, token, Duration.ofMinutes(20), 64_000, s -> {
+                });
+                if (result.exit() != 0 && (cover != null || pictureTags != null)) {
+                    token.check();
+                    warning = com.darkmusic.client.text.Text.get("download.thumbnail_failed");
+                    result = runner.run(format == DownloadEncoding.Format.MP3 ? convert(tools, source, converted, null, metadata, entry) : DownloadEncoding.remux(tools, source, converted, null, metadata, entry, plan), work, token, Duration.ofMinutes(20), 64_000, s -> {
+                    });
+                }
+                if (result.exit() != 0)
+                    throw new DownloadDiagnostics.Failure(stage, tool, result.exit(), result.output());
+                String expectedCodec = plan.codec().equals("copy") ? sourceCodec : plan.codec().equals("libmp3lame") ? "mp3" : plan.codec();
+                stage = DownloadDiagnostics.Stage.VALIDATION;
+                tool = DownloadDiagnostics.Tool.FFPROBE;
+                if (!DownloadEncoding.codec(runner, tools, converted, work, token).equals(expectedCodec))
+                    throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.OUTPUT_VALIDATION_FAILURE, stage, tool, null, "", null);
+                tool = DownloadDiagnostics.Tool.FFMPEG;
+                var validation = runner.run(List.of(tools.ffmpeg().toString(), "-nostdin", "-v", "error", "-xerror", "-protocol_whitelist", "file,pipe", "-i", converted.toString(), "-map", "0:a:0", "-vn", "-f", "null", "-"), work, token, Duration.ofMinutes(20), 16_000, s -> {
+                });
+                if (validation.exit() != 0)
+                    throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.OUTPUT_VALIDATION_FAILURE, stage, tool, validation.exit(), validation.output(), null);
+                if (!plan.warning().isBlank()) warning = plan.warning() + " " + warning;
+                DownloadLyrics.Result lyrics = new DownloadLyrics.Result("", "");
+                if (lyricsEnabled.getAsBoolean()) {
+                    stage = DownloadDiagnostics.Stage.OPTIONAL;
+                    tool = DownloadDiagnostics.Tool.YT_DLP;
+                    progress.accept(Status.CONVERTING, com.darkmusic.client.text.Text.get("lyrics.darkmusic.downloading"));
+                    lyrics = DownloadLyrics.fetch(runner, tools, entry, metadata, work, token, lyricsLanguages.get());
+                    if (!lyrics.warning().isBlank())
+                        warning = (warning + "; " + lyrics.warning()).replaceFirst("^; ", "");
+                }
+                token.check();
+                stage = DownloadDiagnostics.Stage.COMMIT;
+                tool = DownloadDiagnostics.Tool.NONE;
+                String title = text(metadata, "title");
+                if (title.isBlank()) title = entry.title();
+                String name = filename(title, identity, plan.extension());
+                incoming = Files.createTempFile(destination, ".darkmusic-", ".tmp");
+                try (var input = Files.newInputStream(converted); var output = Files.newOutputStream(incoming)) {
+                    byte[] buffer = new byte[32_768];
+                    int read;
+                    while ((read = input.read(buffer)) != -1) {
+                        token.check();
+                        output.write(buffer, 0, read);
                     }
                 }
-                archive.addProperty(identity, target.getFileName().toString());
+                synchronized (historyLock) {
+                    token.check();
+                    // Merge the latest history only after conversion; other workers may have committed.
+                    JsonObject archive = readArchive(history);
+                    Path prior = previous(archive, identity, destination);
+                    if (prior != null)
+                        return new Saved(prior, true, com.darkmusic.client.text.Text.get("download.already_saved"));
+                    Path target = destination.resolve(name);
+                    for (int suffix = 2; Files.exists(target) || Files.exists(DownloadLyrics.sidecar(target)); suffix++)
+                        target = destination.resolve(name.substring(0, name.lastIndexOf('.')) + " (" + suffix + ")." + plan.extension());
+                    Files.move(incoming, target);
+                    incoming = null;
+                    com.darkmusic.client.library.SourceLinks.record(target, entry.url());
+                    if (lyricsEnabled.getAsBoolean() && !lyrics.text().isBlank()) {
+                        Path temporaryLyrics = null;
+                        try {
+                            temporaryLyrics = Files.createTempFile(destination, ".darkmusic-lyrics-", ".tmp");
+                            Files.writeString(temporaryLyrics, lyrics.text());
+                            Files.move(temporaryLyrics, DownloadLyrics.sidecar(target));
+                        } catch (IOException failure) {
+                            warning = (warning + "; " + com.darkmusic.client.text.Text.get("lyrics.darkmusic.save_failed")).replaceFirst("^; ", "");
+                            org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not save lyric sidecar", failure);
+                        } finally {
+                            if (temporaryLyrics != null) try {
+                                Files.deleteIfExists(temporaryLyrics);
+                            } catch (IOException cleanup) {
+                                org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not clean lyric scratch file", cleanup);
+                            }
+                        }
+                    }
+                    archive.addProperty(identity, target.getFileName().toString());
+                    try {
+                        ConfigStore.atomicWrite(history, ConfigStore.JSON.toJson(archive));
+                    } catch (IOException e) {
+                        org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not save download history {}", history, e);
+                        warning = com.darkmusic.client.text.Text.get("download.history_write");
+                    }
+                    return new Saved(target, false, warning);
+                }
+            } finally {
                 try {
-                    ConfigStore.atomicWrite(history, ConfigStore.JSON.toJson(archive));
+                    if (incoming != null) Files.deleteIfExists(incoming);
+                    try (var files = Files.walk(work)) {
+                        for (Path file : files.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(file);
+                    }
                 } catch (IOException e) {
-                    org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not save download history {}", history, e);
-                    warning = com.darkmusic.client.text.Text.get("download.history_write");
+                    org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not clean download scratch files in {}", work, e);
                 }
-                return new Saved(target, false, warning);
             }
-        } finally {
-            try {
-                if (incoming != null) Files.deleteIfExists(incoming);
-                try (var files = Files.walk(work)) {
-                    for (Path file : files.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(file);
-                }
-            } catch (IOException e) {
-                org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not clean download scratch files in {}", work, e);
-            }
+        } catch (DownloadDiagnostics.Failure | java.util.concurrent.CancellationException |
+                 InterruptedException failure) {
+            throw failure;
+        } catch (Exception failure) {
+            throw new DownloadDiagnostics.Failure(null, stage, tool, null, failure.getMessage(), failure);
         }
     }
 

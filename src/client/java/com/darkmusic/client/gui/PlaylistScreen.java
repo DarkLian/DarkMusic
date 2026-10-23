@@ -51,6 +51,7 @@ public final class PlaylistScreen extends LocalScreen {
 
     @Override
     protected void init() {
+        backButton();
         boolean compact = width < 480;
         if (lists != null) listScroll = lists.scrollOffset();
         if (entries != null) {
@@ -60,7 +61,7 @@ public final class PlaylistScreen extends LocalScreen {
         if (compact && !wasCompact && selected() != null) browsing = false;
         wasCompact = compact;
         if (compact && !browsing)
-            UiButton.icon(button(Text.get("view.darkmusic.playlists"), width - 116, 6, 104, () -> {
+            UiButton.icon(button(Text.get("view.darkmusic.playlists"), width - 188, 6, 104, () -> {
                 browsing = true;
                 rebuildWidgets();
             }, Text.get("phase2.back")), UiIcon.BACK, false);

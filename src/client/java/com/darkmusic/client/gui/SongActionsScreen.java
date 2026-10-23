@@ -1,0 +1,60 @@
+package com.darkmusic.client.gui;
+
+import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.library.Track;
+import com.darkmusic.client.text.Text;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+
+/**
+ * Temporary playback actions, deliberately separate from playlist editing.
+ */
+public final class SongActionsScreen extends AudioPage {
+    private final Track track;
+    private String feedback = "";
+    private SettingRow next, add;
+
+    public SongActionsScreen(DarkMusicClient app, Screen parent, Track track) {
+        super(app, parent, "upnext.actions");
+        this.track = track;
+    }
+
+    @Override
+    protected UiIcon pageIcon() {
+        return UiIcon.PLAYLIST;
+    }
+
+    @Override
+    protected void populate() {
+        if (track != null) {
+            cursor += SongCard.HEIGHT + 8;
+            next = labeledAction(Text.get("upnext.play_next"), Text.get("upnext.play_next.help"), () -> queue(true));
+            add = labeledAction(Text.get("upnext.add"), Text.get("upnext.add.help"), () -> queue(false));
+            tick();
+        }
+        info(() -> feedback);
+        action("upnext.title", () -> show(new UpNextScreen(app, this)));
+    }
+
+    private void queue(boolean first) {
+        if (!app.canEditQueue()) return;
+        var resolved = app.playlists.index(app.library.snapshot().tracks()).get(track.id());
+        if (resolved == null) {
+            feedback = Text.get("player.darkmusic.outside_library");
+            return;
+        }
+        if (first ? app.playback.playNext(resolved) : app.playback.addToQueue(resolved))
+            feedback = Text.get(first ? "upnext.added_next" : "upnext.added", track.title());
+        else feedback = Text.get("upnext.full", com.darkmusic.client.audio.PlaybackController.QUEUE_LIMIT);
+    }
+
+    @Override
+    protected void renderContent(GuiGraphicsExtractor g, int x, int y, float delta) {
+        if (track != null) SongCard.draw(app, g, font, longText, track, "selected_song", formX, contentY(0), formWidth);
+    }
+
+    @Override
+    public void tick() {
+        if (next != null) next.active = add.active = app.canEditQueue();
+    }
+}

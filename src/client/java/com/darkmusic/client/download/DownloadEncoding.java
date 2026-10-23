@@ -47,11 +47,17 @@ public final class DownloadEncoding {
         var r = runner.run(List.of(tools.ffprobe().toString(), "-v", "error", "-protocol_whitelist", "file,pipe", "-select_streams", "a:0", "-show_entries", "stream=codec_name", "-of", "json", source.toString()), work, token, Duration.ofSeconds(30), 32_000, s -> {
         });
         if (r.exit() != 0)
-            throw new java.io.IOException(com.darkmusic.client.text.Text.get("download.validation_failed"), new java.io.IOException(r.output()));
-        var array = JsonParser.parseString(r.output()).getAsJsonObject().getAsJsonArray("streams");
-        if (array == null || array.isEmpty())
-            throw new java.io.IOException(com.darkmusic.client.text.Text.get("download.media_missing"));
-        return array.get(0).getAsJsonObject().get("codec_name").getAsString();
+            throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.OUTPUT_VALIDATION_FAILURE,
+                DownloadDiagnostics.Stage.VALIDATION, DownloadDiagnostics.Tool.FFPROBE, r.exit(), r.output(), null);
+        try {
+            var array = JsonParser.parseString(r.output()).getAsJsonObject().getAsJsonArray("streams");
+            if (array == null || array.isEmpty())
+                throw new java.io.IOException(com.darkmusic.client.text.Text.get("download.media_missing"));
+            return array.get(0).getAsJsonObject().get("codec_name").getAsString();
+        } catch (RuntimeException | java.io.IOException invalid) {
+            throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.OUTPUT_VALIDATION_FAILURE,
+                DownloadDiagnostics.Stage.VALIDATION, DownloadDiagnostics.Tool.FFPROBE, r.exit(), "", invalid);
+        }
     }
 
     static List<String> remux(Toolchain tools, Path source, Path target, Path cover, JsonObject metadata, DownloadModels.Entry entry, Plan plan) {

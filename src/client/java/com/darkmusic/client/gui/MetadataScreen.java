@@ -37,6 +37,7 @@ public final class MetadataScreen extends LocalScreen {
         panelWidth = Math.min(420, width - 24);
         left = (width - panelWidth) / 2;
         top = Math.max(4, (height - 232) / 2);
+        backButton(left + panelWidth - 36, top + 6, 24);
         song = input("text.darkmusic.song_title", top + 43);
         artist = input("text.darkmusic.artist", top + 79);
         album = input("library.darkmusic.album", top + 115);
@@ -118,7 +119,7 @@ public final class MetadataScreen extends LocalScreen {
         longText.begin();
         UiTheme.background(g, width, height);
         UiTheme.panel(g, left, top, panelWidth, 232);
-        g.text(font, title, left + 12, top + 12, UiTheme.TEXT);
+        g.text(font, font.plainSubstrByWidth(title.getString(), panelWidth - 56), left + 12, top + 12, UiTheme.TEXT);
         String[] keys = {"text.darkmusic.song_title", "text.darkmusic.artist", "library.darkmusic.album", "library.darkmusic.filename"};
         for (int i = 0; i < keys.length; i++)
             g.text(font, Text.get(keys[i]) + (i == 3 && original != null ? " (" + original.extension() + ")" : ""), left + 12, top + 30 + i * 36, UiTheme.SECONDARY);

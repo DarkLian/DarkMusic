@@ -31,6 +31,7 @@ public final class LibraryManagerScreen extends LocalScreen {
 
     @Override
     protected void init() {
+        backButton();
         search = addRenderableWidget(new UiInput(font, 12, 34, width - 24, 20, Text.component("text.darkmusic.search_songs")));
         search.setMaxLength(512);
         search.setHint(Text.component("text.darkmusic.search_title_artist_album_or_path"));

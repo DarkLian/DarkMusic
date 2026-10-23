@@ -15,21 +15,27 @@ public record Toolchain(Path ytDlp, Path ffmpeg, Path ffprobe, String runtime, S
         Path managed = ManagedTools.current(config);
         Path directory = managed == null ? config.resolve("tools") : managed;
         Files.createDirectories(directory);
-        Path yt = executable(settings.ytDlp(), "yt-dlp", directory, null);
-        Path ff = executable(settings.ffmpeg(), "ffmpeg", directory, null);
-        Path probe = executable(settings.ffprobe(), "ffprobe", directory, ff.getParent());
-        String yv = version(yt, List.of("--ignore-config", "--version"), runner, token, config);
-        String fv = version(ff, List.of("-version"), runner, token, config);
-        String pv = version(probe, List.of("-version"), runner, token, config);
-        String help = runner.run(List.of(yt.toString(), "--ignore-config", "--help"), config, token, Duration.ofSeconds(15), 250_000, s -> {
-        }).output();
+        Path yt = role(DownloadDiagnostics.Tool.YT_DLP, () -> executable(settings.ytDlp(), "yt-dlp", directory, null));
+        Path ff = role(DownloadDiagnostics.Tool.FFMPEG, () -> executable(settings.ffmpeg(), "ffmpeg", directory, null));
+        Path probe = role(DownloadDiagnostics.Tool.FFPROBE, () -> executable(settings.ffprobe(), "ffprobe", directory, ff.getParent()));
+        String yv = role(DownloadDiagnostics.Tool.YT_DLP, () -> version(yt, List.of("--ignore-config", "--version"), runner, token, config));
+        String fv = role(DownloadDiagnostics.Tool.FFMPEG, () -> version(ff, List.of("-version"), runner, token, config));
+        String pv = role(DownloadDiagnostics.Tool.FFPROBE, () -> version(probe, List.of("-version"), runner, token, config));
+        var helpResult = runner.run(List.of(yt.toString(), "--ignore-config", "--help"), config, token, Duration.ofSeconds(15), 250_000, s -> {
+        });
+        if (helpResult.exit() != 0)
+            throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.TOOL_INCOMPATIBLE, DownloadDiagnostics.Stage.TOOLS,
+                DownloadDiagnostics.Tool.YT_DLP, helpResult.exit(), helpResult.output(), null);
+        String help = helpResult.output();
         for (String flag : List.of("--dump-single-json", "--flat-playlist", "--progress-template", "--no-playlist", "--no-plugin-dirs"))
             if (!help.contains(flag))
-                throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.this_yt_dlp_is_incompatible_update_it_from_github_com_yt_dlp_yt_dlp_releases"));
+                throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.TOOL_INCOMPATIBLE, DownloadDiagnostics.Stage.TOOLS,
+                    DownloadDiagnostics.Tool.YT_DLP, null, "Unsupported option", null);
         var encoders = runner.run(List.of(ff.toString(), "-hide_banner", "-encoders"), config, token, Duration.ofSeconds(15), 250_000, s -> {
         });
         if (encoders.exit() != 0 || !encoders.output().contains("libmp3lame"))
-            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.ffmpeg_must_include_the_libmp3lame_mp3_encoder"));
+            throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.TOOL_INCOMPATIBLE, DownloadDiagnostics.Stage.TOOLS,
+                DownloadDiagnostics.Tool.FFMPEG, encoders.exit(), "Missing MP3 encoder", null);
         String runtime = "";
         if (!settings.javascript().isBlank()) {
             Path js = checked(Path.of(settings.javascript()));
@@ -49,15 +55,35 @@ public record Toolchain(Path ytDlp, Path ffmpeg, Path ffprobe, String runtime, S
         String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
         String kind = name.startsWith("deno") ? "deno" : name.startsWith("node") ? "node" : "";
         if (kind.isEmpty())
-            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.javascript_runtime_must_be_a_deno_or_node_executable"));
+            throw incompatibleRuntime();
         String value = version(path, List.of("--version"), runner, token, config);
         var match = java.util.regex.Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)").matcher(value);
         if (!match.find())
-            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.could_not_identify_the_javascript_runtime_version"));
+            throw incompatibleRuntime();
         int major = Integer.parseInt(match.group(1)), minor = Integer.parseInt(match.group(2));
         if (kind.equals("node") ? major < 22 : major < 2 || major == 2 && minor < 3)
-            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.youtube_needs_deno_2_3_or_node_22_update_the_selected_javascript_runtime"));
+            throw incompatibleRuntime();
         return kind + ":" + path;
+    }
+
+    private static DownloadDiagnostics.Failure incompatibleRuntime() {
+        return new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.TOOL_INCOMPATIBLE, DownloadDiagnostics.Stage.TOOLS,
+            DownloadDiagnostics.Tool.JAVASCRIPT, null, "Incompatible JavaScript runtime", null);
+    }
+
+    private static <T> T role(DownloadDiagnostics.Tool tool, DownloadDiagnostics.Checked<T> operation) throws Exception {
+        try {
+            return DownloadDiagnostics.at(DownloadDiagnostics.Stage.TOOLS, tool, operation);
+        } catch (DownloadDiagnostics.Failure failure) {
+            throw new DownloadDiagnostics.Failure(failure.category, failure.stage, tool, failure.exitCode, failure.excerpt, failure);
+        }
+    }
+
+    private static DownloadDiagnostics.Tool tool(String name) {
+        name = name.toLowerCase(Locale.ROOT);
+        return name.startsWith("yt-dlp") ? DownloadDiagnostics.Tool.YT_DLP : name.startsWith("ffmpeg") ? DownloadDiagnostics.Tool.FFMPEG
+            : name.startsWith("ffprobe") ? DownloadDiagnostics.Tool.FFPROBE : name.startsWith("deno") || name.startsWith("node")
+            ? DownloadDiagnostics.Tool.JAVASCRIPT : DownloadDiagnostics.Tool.TOOLS;
     }
 
     private static String version(Path path, List<String> arguments, ProcessRunner runner, ProcessRunner.Token token, Path config) throws Exception {
@@ -67,7 +93,8 @@ public record Toolchain(Path ytDlp, Path ffmpeg, Path ffprobe, String runtime, S
         var result = runner.run(command, config, token, Duration.ofSeconds(15), 32_000, s -> {
         });
         if (result.exit() != 0)
-            throw new IOException(com.darkmusic.client.text.Text.get("tools.error.run", path.getFileName()), new IOException(result.output()));
+            throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.TOOL_INCOMPATIBLE, DownloadDiagnostics.Stage.TOOLS,
+                tool(path.getFileName().toString()), result.exit(), result.output(), null);
         return result.output().lines().findFirst().orElse("Unknown version");
     }
 
@@ -95,14 +122,16 @@ public record Toolchain(Path ytDlp, Path ffmpeg, Path ffprobe, String runtime, S
                 if (Files.isRegularFile(dir.resolve(binary))) return checked(dir.resolve(binary));
             } catch (IOException | SecurityException ignored) {
             }
-        throw new IOException(com.darkmusic.client.text.Text.get("tools.error.missing", name));
+        throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.TOOL_MISSING, DownloadDiagnostics.Stage.TOOLS,
+            tool(name), null, "Missing executable", null);
     }
 
     private static Path checked(Path value) throws IOException {
         Path path = value.toAbsolutePath().normalize();
         String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
         if (!Files.isRegularFile(path) || !Files.isExecutable(path) || name.endsWith(".cmd") || name.endsWith(".bat") || name.endsWith(".ps1"))
-            throw new IOException(com.darkmusic.client.text.Text.get("tools.error.script", path.getFileName()));
+            throw new DownloadDiagnostics.Failure(Files.isRegularFile(path) ? DownloadDiagnostics.Category.TOOL_INCOMPATIBLE : DownloadDiagnostics.Category.TOOL_MISSING,
+                DownloadDiagnostics.Stage.TOOLS, tool(name), null, "Selected executable cannot run", null);
         return path;
     }
 

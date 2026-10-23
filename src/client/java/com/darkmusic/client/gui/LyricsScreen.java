@@ -14,6 +14,11 @@ public final class LyricsScreen extends LocalScreen {
     }
 
     @Override
+    protected void init() {
+        backButton();
+    }
+
+    @Override
     public void tick() {
         app.lyrics.request(app.playback.state().track());
     }

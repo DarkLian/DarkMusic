@@ -32,6 +32,7 @@ public final class ColorPickerScreen extends LocalScreen {
 
     @Override
     protected void init() {
+        backButton();
         int w = Math.min(360, width - 24), x = (width - w) / 2, y = 60;
         var visualMode = addRenderableWidget(UiButton.builder(Text.component("colors.darkmusic.visual_picker"), b -> {
             spectrum = true;

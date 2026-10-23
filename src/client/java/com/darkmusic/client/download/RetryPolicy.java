@@ -17,7 +17,10 @@ public final class RetryPolicy {
             if (failure instanceof java.io.InterruptedIOException || failure instanceof java.net.ConnectException ||
                 failure instanceof java.net.UnknownHostException || failure instanceof java.util.concurrent.TimeoutException)
                 transientFailure = true;
-            String text = String.valueOf(failure.getMessage()).toLowerCase(Locale.ROOT);
+            if (failure instanceof DownloadDiagnostics.Failure f && f.category != null &&
+                f.category != DownloadDiagnostics.Category.NETWORK_FAILURE && f.category != DownloadDiagnostics.Category.NETWORK_TIMEOUT &&
+                f.category != DownloadDiagnostics.Category.RATE_LIMITED) return false;
+            String text = (failure instanceof DownloadDiagnostics.Failure f ? f.excerpt : String.valueOf(failure.getMessage())).toLowerCase(Locale.ROOT);
             if (text.matches("(?s).*\\bhttp(?: error| status| status code)?[ :]+(?:501|505)\\b.*")) return false;
             boolean temporaryHttp = text.matches("(?s).*\\bhttp(?: error| status| status code)?[ :]+(?:408|429|5[0-9]{2})\\b.*");
             if (text.contains("private video") || text.contains("video is private") || text.contains("deleted") ||

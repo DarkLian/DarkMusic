@@ -23,6 +23,7 @@ public final class ImportHistoryScreen extends LocalScreen {
 
     @Override
     protected void init() {
+        backButton();
         rows = addRenderableWidget(new RowList(12, 42, Math.max(1, width - 24), Math.max(1, height - 54), 36, Text.get("import.darkmusic.history"), (i, activated) -> {
         }));
         rows.emptyMessage(Text.get("import.darkmusic.history_empty"));

@@ -12,6 +12,7 @@ import java.util.function.Consumer;
 final class NextAudio {
     volatile long generation;
     final Track track;
+    final AudioBackend.Transition transition;
     volatile Runnable started, ended;
     volatile Consumer<String> failed;
     volatile Future<?> future;
@@ -19,11 +20,16 @@ final class NextAudio {
     private boolean cancelled;
 
     NextAudio(long generation, Track track, Runnable started, Runnable ended, Consumer<String> failed) {
+        this(generation, track, started, ended, failed, new AudioBackend.Transition());
+    }
+
+    NextAudio(long generation, Track track, Runnable started, Runnable ended, Consumer<String> failed, AudioBackend.Transition transition) {
         this.generation = generation;
         this.track = track;
         this.started = started;
         this.ended = ended;
         this.failed = failed;
+        this.transition = transition;
     }
 
     synchronized void install(AudioInputStream stream) {
@@ -48,6 +54,7 @@ final class NextAudio {
     }
 
     synchronized Ready claim() {
+        if (cancelled || ready == null || !transition.claim()) return null;
         var result = ready;
         ready = null;
         cancelled = true;

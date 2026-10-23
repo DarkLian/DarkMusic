@@ -259,6 +259,13 @@ public final class JavaSoundBackend implements AudioBackend {
 
     @Override
     public void nextTrack(Track track, Runnable started, Runnable ended, Consumer<String> failed) {
+        var old = upcoming.get();
+        nextTrack(track, started, ended, failed, old != null && old.generation == generation.get()
+            && old.track.equals(track) ? old.transition : new AudioBackend.Transition());
+    }
+
+    @Override
+    public void nextTrack(Track track, Runnable started, Runnable ended, Consumer<String> failed, AudioBackend.Transition transition) {
         var selected = options;
         if (!closed && track != null && !selected.neutral && selected.normalization) {
             var cache = loudnessCache();
@@ -270,14 +277,14 @@ public final class JavaSoundBackend implements AudioBackend {
         }
         var old = upcoming.get();
         long ticket = generation.get();
-        if (old != null && old.generation == ticket && old.track.equals(track)) {
+        if (old != null && old.generation == ticket && old.track.equals(track) && old.transition == transition) {
             old.started = started;
             old.ended = ended;
             old.failed = failed;
             return;
         }
         cancelUpcoming();
-        var next = new NextAudio(ticket, track, started, ended, failed);
+        var next = new NextAudio(ticket, track, started, ended, failed, transition);
         upcoming.set(next);
         try {
             next.future = preloader.submit(() -> {
@@ -359,7 +366,7 @@ public final class JavaSoundBackend implements AudioBackend {
                     if (prepared != null && !prepared.untouched()) {
                         cancelUpcoming();
                         if (current(request))
-                            nextTrack(prepared.track, prepared.started, prepared.ended, prepared.failed);
+                            nextTrack(prepared.track, prepared.started, prepared.ended, prepared.failed, prepared.transition);
                     }
                     if (announcement != null && request.session == announcement.previous.session) {
                         normalizationSession = announcement.normalization;
@@ -649,7 +656,10 @@ public final class JavaSoundBackend implements AudioBackend {
         // Preserve one device and map mono/stereo only when its output layout is compatible.
         if (!upcoming.compareAndSet(next, null)) return false;
         ready = next.claim();
-        if (ready == null) return false;
+        if (ready == null) {
+            next.cancel();
+            return false;
+        }
         double oldPosition = offset + converter.positionFrames() / stream.getFormat().getFrameRate();
         NextAudio.close(stream);
         stream = ready.stream();
