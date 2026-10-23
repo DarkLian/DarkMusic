@@ -310,12 +310,20 @@ public class DarkMusicClient implements ClientModInitializer {
     public CompletableFuture<com.darkmusic.client.library.AudioDeletion.Result> deleteAudio(
         com.darkmusic.client.library.AudioDeletion.Plan plan, com.darkmusic.client.library.AudioDeletion.Mode mode,
         java.util.function.Consumer<com.darkmusic.client.library.AudioDeletion.Progress> progress) {
+        return deleteAudio(plan, mode, new com.darkmusic.client.download.ProcessRunner.Token(), progress);
+    }
+
+    public CompletableFuture<com.darkmusic.client.library.AudioDeletion.Result> deleteAudio(
+        com.darkmusic.client.library.AudioDeletion.Plan plan, com.darkmusic.client.library.AudioDeletion.Mode mode,
+        com.darkmusic.client.download.ProcessRunner.Token token,
+        java.util.function.Consumer<com.darkmusic.client.library.AudioDeletion.Progress> progress) {
         java.util.Objects.requireNonNull(mode);
+        java.util.Objects.requireNonNull(token);
         if (closed || mediaBusy || resetting || outputChanging || !playlistsReady || !plan.roots().equals(library.roots()))
             return CompletableFuture.failedFuture(new IllegalStateException(com.darkmusic.client.text.Text.get("library.darkmusic.busy")));
         mediaBusy = true;
         autoplayPending = false;
-        var token = mediaToken = new com.darkmusic.client.download.ProcessRunner.Token();
+        mediaToken = token;
         var player = playback;
         var store = playlists;
         var scanned = library;

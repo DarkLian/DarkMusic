@@ -55,7 +55,7 @@ public final class DesktopWindowSmoke {
             }
             case 4 -> {
                 if (++ticks < 8) return false;
-                SmokeUi.captureReady(client);
+                SmokeUi.displayReady(client);
                 require(!window.isIconified(), "Fullscreen window remained minimized");
                 phase++;
             }

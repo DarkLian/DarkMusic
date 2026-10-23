@@ -101,13 +101,29 @@ public final class MusicLibrary implements AutoCloseable {
     }
 
     public synchronized void setRoots(Map<Path, String> values, Path destination) {
-        roots = Collections.unmodifiableMap(new LinkedHashMap<>(values));
-        root = destination.toAbsolutePath().normalize();
-        rootId = roots.get(root);
-        if (rootId == null) throw new IllegalArgumentException("Write destination must be a registered music folder");
+        var selected = Collections.unmodifiableMap(new LinkedHashMap<>(values));
+        Path nextRoot = destination.toAbsolutePath().normalize();
+        String nextId = selected.get(nextRoot);
+        if (nextId == null) throw new IllegalArgumentException("Write destination must be a registered music folder");
+        var previousRoots = roots;
+        roots = selected;
+        root = nextRoot;
+        rootId = nextId;
+        if (previousRoots.equals(selected)) return;
+        var retainedIds = new HashSet<String>();
+        selected.forEach((path, id) -> {
+            if (id.equals(previousRoots.get(path))) retainedIds.add(id);
+        });
         generation.incrementAndGet();
-        snapshot = new Snapshot(revisions.incrementAndGet(), List.of(), true, Text.get("library.status.scanning"));
+        var retainedTracks = snapshot.tracks().stream().filter(t -> retainedIds.contains(t.rootId())).toList();
+        var retainedFolders = snapshot.folders().stream().filter(f -> retainedIds.contains(folderRoot(f))).toList();
+        snapshot = new Snapshot(revisions.incrementAndGet(), retainedTracks, true, Text.get("library.status.scanning"), retainedFolders);
         rescan();
+    }
+
+    private static String folderRoot(String folder) {
+        int slash = folder.indexOf('/');
+        return folder.startsWith("@") ? folder.substring(1, slash < 0 ? folder.length() : slash) : "";
     }
 
     public void requestRescan() {
@@ -219,28 +235,36 @@ public final class MusicLibrary implements AutoCloseable {
 
     private Snapshot combined(long ticket, Map<Path, String> selected, Map<Path, RootJob> jobs, Snapshot prior, boolean scanning) {
         var tracks = new ArrayList<Track>();
-        var folders = new ArrayList<String>();
+        var folders = new LinkedHashSet<String>();
+        var priorTracks = prior.tracks().stream().collect(java.util.stream.Collectors.groupingBy(Track::rootId));
+        var priorFolders = prior.folders().stream().collect(java.util.stream.Collectors.groupingBy(MusicLibrary::folderRoot));
         var complete = new HashSet<String>();
         var failures = new ArrayList<String>();
         for (var entry : selected.entrySet()) {
             var job = jobs.get(entry.getKey());
             RootResult result = job.ticket == ticket ? job.result.getNow(job.partial) : null;
             String prefix = "@" + entry.getValue();
-            if (result == null || result.tracks.isEmpty() && !result.complete) {
-                prior.tracks().stream().filter(t -> t.rootId().equals(entry.getValue())).forEach(tracks::add);
-                prior.folders().stream().filter(f -> f.equals(prefix) || f.startsWith(prefix + "/")).forEach(folders::add);
+            if (result == null || !result.complete) {
+                var retained = new LinkedHashMap<String, Track>();
+                for (var track : priorTracks.getOrDefault(entry.getValue(), List.of())) retained.put(track.id(), track);
+                folders.addAll(priorFolders.getOrDefault(entry.getValue(), List.of()));
+                if (result != null) {
+                    for (var track : result.tracks) retained.put(track.id(), track);
+                    folders.addAll(result.folders);
+                }
+                tracks.addAll(retained.values());
             } else {
                 tracks.addAll(result.tracks);
                 folders.addAll(result.folders);
             }
-            if (!folders.contains(prefix)) folders.add(prefix);
+            folders.add(prefix);
             if (result != null && result.complete) complete.add(entry.getValue());
             if (result != null && !result.message.isBlank()) failures.add(entry.getKey() + ": " + result.message);
             else if (job.timedOut && !job.result.isDone())
                 failures.add(entry.getKey() + ": " + Text.get("library.status.slow_root"));
         }
         tracks.sort(Comparator.comparing(Track::relativePath, String.CASE_INSENSITIVE_ORDER).thenComparing(Track::rootId));
-        return new Snapshot(revisions.incrementAndGet(), tracks, scanning, failures.isEmpty() && scanning ? Text.get("library.status.scanning") : String.join(" | ", failures), folders, complete.size() == selected.size(), complete);
+        return new Snapshot(revisions.incrementAndGet(), tracks, scanning, failures.isEmpty() && scanning ? Text.get("library.status.scanning") : String.join(" | ", failures), List.copyOf(folders), complete.size() == selected.size(), complete);
     }
 
     private record RootResult(List<Track> tracks, List<Path> directories, List<String> folders, boolean complete,

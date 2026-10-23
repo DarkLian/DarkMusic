@@ -22,6 +22,7 @@ public final class AudioDeletionScreen extends LocalScreen {
     private AudioDeletion.Result result;
     private volatile AudioDeletion.Progress progress;
     private boolean preparing, busy;
+    private com.darkmusic.client.download.ProcessRunner.Token cancellation;
     private String error = "";
     private RowList rows;
     private Button trash, permanent, back;
@@ -41,7 +42,12 @@ public final class AudioDeletionScreen extends LocalScreen {
         }));
         refreshRows();
         int w = (width - 32) / 3;
-        back = button("text.darkmusic.cancel", 12, height - 28, w, this::onClose);
+        back = button("text.darkmusic.cancel", 12, height - 28, w, () -> {
+            if (busy) {
+                cancellation.cancel();
+                updateButtons();
+            } else onClose();
+        });
         trash = button("delete_audio.trash", 16 + w, height - 28, w, () -> {
             if (result != null) {
                 var current = app.playlists.index(app.library.snapshot().tracks());
@@ -51,7 +57,10 @@ public final class AudioDeletionScreen extends LocalScreen {
         });
         permanent = button("delete_audio.permanent", 20 + w * 2, height - 28, w, () -> show(new ConfirmationScreen(this,
             Text.component("delete_audio.permanent"), Text.component("delete_audio.permanent_confirm", plan.items().size()),
-            Text.component("delete_audio.permanent_confirm_button"), () -> start(AudioDeletion.Mode.PERMANENT), this)));
+            Text.component("delete_audio.permanent_confirm_button"), () -> {
+            start(AudioDeletion.Mode.PERMANENT);
+            return CompletableFuture.completedFuture(null);
+        }, this)));
         UiButton.style(trash, UiButton.Style.DESTRUCTIVE);
         UiButton.style(permanent, UiButton.Style.DESTRUCTIVE);
         setInitialFocus(back);
@@ -78,9 +87,12 @@ public final class AudioDeletionScreen extends LocalScreen {
         var tracks = plan == null ? requested : plan.items().stream().map(AudioDeletion.Item::track).toList();
         var failures = result == null ? java.util.Map.<String, String>of() : result.failed().stream()
             .collect(java.util.stream.Collectors.toMap(f -> f.track().id(), AudioDeletion.Failure::message));
+        var cancelled = result == null ? java.util.Set.<String>of() : result.cancelled().stream()
+            .map(Track::id).collect(java.util.stream.Collectors.toSet());
         rows.rows(tracks.size(), i -> {
             var track = tracks.get(i);
-            String status = result == null ? "" : Text.get(failures.containsKey(track.id()) ? "delete_audio.item_failed" : "delete_audio.item_removed") + " | ";
+            String status = result == null ? "" : Text.get(cancelled.contains(track.id()) ? "delete_audio.item_cancelled"
+                : failures.containsKey(track.id()) ? "delete_audio.item_failed" : "delete_audio.item_removed") + " | ";
             return new RowList.Row(status + track.title(), track.file().toString() + (failures.containsKey(track.id()) ? " | " + failures.get(track.id()) : ""));
         });
     }
@@ -89,16 +101,16 @@ public final class AudioDeletionScreen extends LocalScreen {
         if (plan == null || busy || result != null)
             return CompletableFuture.failedFuture(new IllegalStateException(Text.get("library.darkmusic.busy")));
         busy = true;
+        cancellation = new com.darkmusic.client.download.ProcessRunner.Token();
         error = "";
         updateButtons();
         var finished = new CompletableFuture<Void>();
-        app.deleteAudio(plan, mode, value -> progress = value).whenComplete((deleted, failure) -> minecraft.execute(() -> {
+        app.deleteAudio(plan, mode, cancellation, value -> progress = value).whenComplete((deleted, failure) -> minecraft.execute(() -> {
             busy = false;
             if (failure != null) error = Text.failure(failure, "delete_audio.failed");
             else result = deleted;
             refreshRows();
             updateButtons();
-            // Return from permanent confirmation to the detailed result, including per-file failures.
             finished.complete(null);
         }));
         return finished;
@@ -108,7 +120,8 @@ public final class AudioDeletionScreen extends LocalScreen {
         boolean ready = plan != null && !busy && result == null && !app.mediaBusy;
         trash.active = ready && plan.trashSupported();
         permanent.active = ready;
-        back.active = !busy;
+        back.active = !busy || !cancellation.cancelled();
+        back.setMessage(Text.component(busy ? "delete_audio.cancel_pending" : result == null ? "text.darkmusic.cancel" : "phase2.back"));
         if (result != null) {
             back.setMessage(Text.component("phase2.back"));
             trash.setMessage(Text.component("delete_audio.retry"));
@@ -139,8 +152,9 @@ public final class AudioDeletionScreen extends LocalScreen {
         UiTheme.header(g, font, title, UiIcon.DELETE);
         longText.draw(g, font, "warning", Text.get("delete_audio.explanation"), 12, 34, width - 24, UiTheme.WARNING);
         longText.draw(g, font, "count", Text.get("delete_audio.count", plan == null ? requested.size() : plan.items().size()), 12, 49, width - 24, UiTheme.SECONDARY);
-        String status = !error.isEmpty() ? error : busy && progress != null ? Text.get("delete_audio.progress", progress.completed(), progress.total(), progress.filename())
-            : busy || preparing ? Text.get("reset.darkmusic.working") : result != null ? Text.get("delete_audio.result", result.removed().size(), result.failed().size())
+        String status = !error.isEmpty() ? error : busy && cancellation.cancelled() ? Text.get("delete_audio.cancelling")
+            : busy && progress != null ? Text.get("delete_audio.progress", progress.completed(), progress.total(), progress.filename())
+            : busy || preparing ? Text.get("reset.darkmusic.working") : result != null ? Text.get("delete_audio.result", result.removed().size(), result.failed().size(), result.cancelled().size())
             : plan != null && !plan.trashSupported() ? Text.get("delete_audio.no_trash") : Text.get("delete_audio.trash_help");
         longText.draw(g, font, "status", status, 12, height - 54, width - 24, UiTheme.SECONDARY);
         super.extractRenderState(g, x, y, delta);

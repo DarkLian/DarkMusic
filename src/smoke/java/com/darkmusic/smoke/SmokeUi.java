@@ -11,9 +11,19 @@ import net.minecraft.client.input.*;
  */
 final class SmokeUi {
     static void captureReady(Minecraft mc) {
+        displayReady(mc);
+        requireSmoothFont(mc);
+    }
+
+    static void displayReady(Minecraft mc) {
         if (!mc.getWindow().isFullscreen() || mc.options.guiScale().get() != 2 || mc.getWindow().getGuiScale() != 2
             || mc.getWindow().getWidth() != 1920 || mc.getWindow().getHeight() != 1080)
             throw new IllegalStateException("Captures require fullscreen 1920x1080 at GUI scale 2");
+        if (Boolean.getBoolean("darkmusic.visualSmoke") || Boolean.getBoolean("darkmusic.smoothFontAvailable"))
+            requireSmoothFont(mc);
+    }
+
+    private static void requireSmoothFont(Minecraft mc) {
         var font = mc.getResourceManager().getResource(net.minecraft.resources.Identifier.withDefaultNamespace("textures/font/ascii.png")).orElseThrow();
         if (!font.sourcePackId().equals("file/SmoothFont_1.21.zip"))
             throw new IllegalStateException("SmoothFont is not applied");

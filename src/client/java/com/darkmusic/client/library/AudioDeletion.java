@@ -32,10 +32,11 @@ public final class AudioDeletion {
     public record Progress(int completed, int total, String filename) {
     }
 
-    public record Result(List<Track> removed, List<Failure> failed) {
+    public record Result(List<Track> removed, List<Failure> failed, List<Track> cancelled) {
         public Result {
             removed = List.copyOf(removed);
             failed = List.copyOf(failed);
+            cancelled = List.copyOf(cancelled);
         }
     }
 
@@ -49,13 +50,24 @@ public final class AudioDeletion {
     }
 
     private final Trash trash;
+    private final AudioValidator audioValidator;
+
+    @FunctionalInterface
+    interface AudioValidator {
+        boolean isAudio(Path file) throws IOException;
+    }
 
     public AudioDeletion() {
         this(new DesktopTrash());
     }
 
     AudioDeletion(Trash trash) {
+        this(trash, file -> AudioFormats.detect(file) != AudioFormats.Container.UNKNOWN);
+    }
+
+    AudioDeletion(Trash trash, AudioValidator audioValidator) {
         this.trash = trash;
+        this.audioValidator = Objects.requireNonNull(audioValidator);
     }
 
     /**
@@ -80,6 +92,7 @@ public final class AudioDeletion {
         Objects.requireNonNull(mode);
         var removed = new ArrayList<Track>();
         var failed = new ArrayList<Failure>();
+        var cancelled = new ArrayList<Track>();
         int completed = 0;
         try {
             for (Item item : plan.items()) {
@@ -89,12 +102,17 @@ public final class AudioDeletion {
                     if (!Objects.equals(item.fileKey(), attributes.fileKey()))
                         throw new IOException(Text.get("library.darkmusic.file_changed"));
                     if (mode == Mode.TRASH) {
-                        if (!plan.trashSupported() || !trash.supported() || !trash.move(item))
+                        if (!plan.trashSupported() || !trash.supported())
+                            throw new IOException(Text.get("delete_audio.trash_failed"));
+                        token.check();
+                        if (!trash.move(item))
                             throw new IOException(Text.get("delete_audio.trash_failed"));
                     } else deletePermanently(plan, item, token);
                     if (!Files.notExists(item.file(), LinkOption.NOFOLLOW_LINKS))
                         throw new IOException(Text.get("delete_audio.failed"));
                     removed.add(item.track());
+                } catch (java.util.concurrent.CancellationException cancellation) {
+                    cancelled.add(item.track());
                 } catch (Exception failure) {
                     org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Could not delete selected audio {}", item.file(), failure);
                     failed.add(new Failure(item.track(), Text.failure(failure, "delete_audio.failed")));
@@ -104,10 +122,10 @@ public final class AudioDeletion {
         } finally {
             trash.close();
         }
-        return new Result(removed, failed);
+        return new Result(removed, failed, cancelled);
     }
 
-    private static BasicFileAttributes validate(Map<Path, String> roots, Track track) throws IOException {
+    private BasicFileAttributes validate(Map<Path, String> roots, Track track) throws IOException {
         Path root = roots.entrySet().stream().filter(e -> e.getValue().equals(track.rootId())).map(Map.Entry::getKey).findFirst()
             .orElseThrow(() -> new IOException(Text.get("delete_audio.outside_library")));
         Path base = root.toAbsolutePath().normalize(), file = track.file().toAbsolutePath().normalize();
@@ -117,12 +135,12 @@ public final class AudioDeletion {
         var attributes = Files.readAttributes(file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         if (!attributes.isRegularFile() || attributes.size() != track.size() || attributes.lastModifiedTime().toMillis() != track.modified())
             throw new IOException(Text.get("library.darkmusic.file_changed"));
-        if (AudioFormats.detect(file) == AudioFormats.Container.UNKNOWN)
+        if (!audioValidator.isAudio(file))
             throw new IOException(Text.get("library.darkmusic.not_audio"));
         return attributes;
     }
 
-    private static void deletePermanently(Plan plan, Item item, ProcessRunner.Token token) throws Exception {
+    private void deletePermanently(Plan plan, Item item, ProcessRunner.Token token) throws Exception {
         long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(3);
         while (true) {
             token.check();

@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v2.5.0 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v2.5.1 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Interface language
 
@@ -12,7 +12,7 @@ Press **B**, open **Settings → General → Music Folders**, and choose **Add M
 
 The default folder is `config/darkmusic/music` inside your Minecraft instance. Copying music there also works. Library changes are discovered automatically; use Refresh Library if a change has not appeared.
 
-Folders scan independently, so a slow or unavailable network folder does not hold back results from healthy folders. Unavailable folders retain their previous entries until they can be scanned successfully.
+Folders scan independently, so a slow or unavailable network folder does not hold back results from healthy folders. Partial or failed scans retain previously indexed songs while adding newly discovered entries; only successful scans remove missing entries. Adding or removing a scan folder preserves entries for still-registered folders. Changing only the Default Save Folder leaves the library and current scans in place.
 
 **Open Folder** opens the root or subfolder selected in the player's All view. All Tracks, playlists, artists, and albums use the Default Save Folder instead. Hover over the button to see its destination.
 
@@ -124,6 +124,8 @@ Open **Manage Audio Files** with the wrench above the player's collection list, 
 Use **Move to Trash** when the operating system supports it. **Delete Permanently…** requires a separate confirmation and cannot be undone through DarkMusic. A failed Trash operation never switches to permanent deletion automatically.
 
 Only the reviewed audio files are removed. Folders, lyric sidecars, and other accompanying files are kept. Successfully deleted tracks are removed from playlists and Favorite Music; failures remain available to review and retry. File changes detected after review require a fresh review.
+
+During deletion, **Cancel Remaining Files** stops pending work. An already-issued Trash operation finishes or reaches its timeout before its outcome is reported. Completed deletions remain completed, and untouched pending files are listed as canceled rather than failed. To delete canceled files later, select and review them again in Manage Audio Files.
 
 Deletion briefly releases playback handles. A surviving current song resumes at its previous position and playing/paused state; deleting the current song leaves playback stopped. File operations run in the background. On Windows, Trash operations preserve fullscreen, and F11 remains available to change window mode.
 

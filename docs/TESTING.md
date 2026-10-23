@@ -33,6 +33,8 @@ On the Windows development setup, `-PdownloadIntegration` uses local `Music/yt-d
 
 Inspect the smoke entrypoint and Gradle flags before choosing an optional capture, preview, HUD, reset, or advanced-audio scenario. Runtime checks require a graphical desktop and an audio device; they are separate from ordinary unit tests.
 
+Functional smoke runs use SmoothFont when it is installed and can fall back to the vanilla font when it is absent. **Visual verification and all captures require SmoothFont.** Use `-PvisualSmoke` to require it explicitly; capture, preview, and advanced-smoke modes require it automatically. `-PsmokeFont=/path/to/SmoothFont_1.21.zip` selects another local location without adding the pack to Git. `./gradlew prepareSmokeClient -Psmoke` checks run-directory preparation without launching Minecraft. A clean checkout still needs a real collection for audio-dependent runtime checks.
+
 Review library navigation, search-independent playback queues, playlists and selection/reordering, download paging/cancellation/retries, settings persistence, lyrics, and HUD input/layout at multiple GUI scales. Performance-sensitive spectrum changes should preserve detail/effects and compare measurements on the same local fixture.
 
 For imports, use real files from the private collection and an isolated destination. Check root/subfolder/playlist routing, filename collisions, history persistence, and byte-for-byte preservation of imported copies. Verify that ordinary clicks, focus changes, fullscreen/windowed transitions, and recording do not trigger an import overlay. A real file drop must still import and show progress in both the player and playlist manager.
@@ -58,6 +60,10 @@ Capture documentation fullscreen at 1920×1080 and configured and effective Mine
 ## File management and desktop integration
 
 Use disposable copies of real collection audio for deletion tests. Verify single/bulk selection, review paths, cancellation, changed-file rejection, partial failures, retry review, and playlist/Favorite Music cleanup only after successful deletion. Confirm sidecars and unrelated files remain untouched. Cover active/paused playback, deleting the current track, preserving a surviving track's queue/position, and newer user stop requests.
+
+`AudioDeletionFilesystemTest` runs on clean CI without music. It uses ordinary text documents with an explicitly injected audio validator to verify filesystem safety, orchestration, partial failures, and cancellation. It also checks that the production validator rejects those documents. These checks do not establish real-audio detection or native Trash support; `AudioDeletionTest` and desktop integration retain that separate role. Never generate dummy audio to satisfy these tests.
+
+Cancellation must retain completed results, distinguish untouched canceled entries from failures, and wait for an issued native Trash request to settle. The permanent-deletion confirmation must return immediately to the operation screen so Cancel Remaining Files is reachable. Check narrow-window controls as well as normal fullscreen.
 
 Exercise native Trash separately from permanent deletion, including unsupported Trash, rejected file identity, and Windows sharing violations. A Trash failure must never fall back to permanent deletion. Compare original collection hashes before and after testing.
 
