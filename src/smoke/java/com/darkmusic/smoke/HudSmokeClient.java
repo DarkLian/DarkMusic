@@ -75,10 +75,11 @@ final class HudSmokeClient {
     }
 
     private void capture(Minecraft mc, String name) throws Exception {
-        require(mc.getWindow().isFullscreen() && mc.options.guiScale().get() == 3 && mc.getWindow().getGuiScale() == 3, "Capture is not fullscreen at GUI scale 3");
+        SmokeUi.captureReady(mc);
+        require(mc.getWindow().isFullscreen() && mc.options.guiScale().get() == 2 && mc.getWindow().getGuiScale() == 2, "Capture is not fullscreen at GUI scale 2");
         Path root = Path.of(System.getProperty("darkmusic.privateImages"));
         Files.createDirectories(root.resolve("screenshots"));
-        Screenshot.grab(root.toFile(), "combined-hud-3x-" + name + ".png", mc.gameRenderer.mainRenderTarget(), 1, text -> captures++);
+        Screenshot.grab(root.toFile(), "combined-hud-2x-" + name + ".png", mc.gameRenderer.mainRenderTarget(), 1, text -> captures++);
     }
 
     private void tick(Minecraft mc) {
@@ -97,7 +98,7 @@ final class HudSmokeClient {
                     if (Boolean.getBoolean("darkmusic.verifyHudRestart"))
                         require(s.hudEnabled && s.hudArtwork && s.hudProgress && s.hudVisualizer && s.hudX > 0 && s.hudY > 0 && s.hudScale == 1.1 && s.hudBackgroundTransparency == .5 && s.spectrumPosition == Settings.SpectrumPosition.BELOW && s.spectrumDirection == Settings.SpectrumDirection.UPWARD, "HUD configuration did not survive restarting Minecraft");
                     s.hudEnabled = true;
-                    mc.options.guiScale().set(3);
+                    mc.options.guiScale().set(2);
                     mc.resizeGui();
                     screen = new SettingsScreen(app, mc.gui.screen());
                     mc.gui.setScreen(screen);
@@ -135,7 +136,7 @@ final class HudSmokeClient {
                     if (++combination == 96) state++;
                 }
                 case 2 -> {
-                    mc.options.guiScale().set(3);
+                    mc.options.guiScale().set(2);
                     mc.resizeGui();
                     s.hudArtwork = s.hudProgress = s.hudVisualizer = true;
                     s.hudEnabled = true;
@@ -372,7 +373,7 @@ final class HudSmokeClient {
                     s.hudProgress = s.hudVisualizer = true;
                     mc.gui.setScreen(new SettingsScreen(app, null));
                     if (++styleCombination == 180) {
-                        mc.options.guiScale().set(3);
+                        mc.options.guiScale().set(2);
                         mc.resizeGui();
                         state++;
                     }
@@ -461,7 +462,7 @@ final class HudSmokeClient {
                     if (++styleCombination == 24) state++;
                 }
                 case 45 -> {
-                    mc.options.guiScale().set(3);
+                    mc.options.guiScale().set(2);
                     mc.resizeGui();
                     s.hudProgress = s.hudVisualizer = true;
                     s.visualizerBars = 36;

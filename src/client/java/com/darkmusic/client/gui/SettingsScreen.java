@@ -45,13 +45,13 @@ public final class SettingsScreen extends LocalScreen {
     private void section(String key) {
         sections.add(new Section(Text.get(key), cursor));
         buildingSection++;
-        cursor += 22;
+        cursor += 24;
     }
 
     private void put(AbstractWidget widget, String help) {
         if (!help.isEmpty()) Help.tip(widget, help);
         controls.add(new Placed(addRenderableWidget(widget), cursor, buildingSection));
-        cursor += 24;
+        cursor += 26;
     }
 
     private void toggle(String key, BooleanSupplier get, Consumer<Boolean> set, String help) {

@@ -98,7 +98,21 @@ if (providers.gradleProperty('smoke').isPresent()) {
 	def smokeLog = layout.buildDirectory.file(providers.gradleProperty('advancedSmoke').isPresent() ? 'advanced-run/logs/latest.log' : providers.gradleProperty('resetSmoke').isPresent() ? 'reset-run/logs/latest.log' : providers.gradleProperty('previewSmoke').isPresent() ? 'preview-run/logs/latest.log' : providers.gradleProperty('captureMusic').isPresent() ? 'capture-run/logs/latest.log' : 'smoke-run/logs/latest.log')
 	def smokeRunId = layout.buildDirectory.file('smoke-run-id.txt')
 	tasks.named('runSmokeClient') {
-		doFirst { smokeRunId.get().asFile.text = UUID.randomUUID().toString() }
+		doFirst {
+			smokeRunId.get().asFile.text = UUID.randomUUID().toString()
+			def runFolder = file(loom.runs.smokeClient.runDir)
+			def font = file('run/resourcepacks/SmoothFont_1.21.zip')
+			if (!font.isFile()) throw new GradleException('Local visual checks require run/resourcepacks/SmoothFont_1.21.zip')
+			def packs = new File(runFolder, 'resourcepacks')
+			packs.mkdirs()
+			java.nio.file.Files.copy(font.toPath(), new File(packs, font.name).toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+			def options = new File(runFolder, 'options.txt')
+			def values = options.isFile() ? options.readLines('UTF-8') : []
+			def display = [guiScale: '2', overrideWidth: '1280', overrideHeight: '720', fullscreen: 'true', exclusiveFullscreen: 'true', fullscreenResolution: '1920x1080@60:24', resourcePacks: '["vanilla","file/SmoothFont_1.21.zip"]', incompatibleResourcePacks: '["file/SmoothFont_1.21.zip"]']
+			values = values.findAll { !display.containsKey(it.takeWhile { c -> c != ':' }) }
+			display.each { key, value -> values.add("$key:$value") }
+			options.setText(values.join('\n') + '\n', 'UTF-8')
+		}
 		doLast {
 			if (!smokeLog.get().asFile.text.contains('DARKMUSIC_SMOKE_PASS:' + smokeRunId.get().asFile.text.strip())) {
 				throw new GradleException('Client smoke checks failed; inspect the selected smoke/capture run logs')

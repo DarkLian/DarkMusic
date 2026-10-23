@@ -159,7 +159,7 @@ final class DownloadPreviewClient {
             if (!fullscreen) {
                 fullscreen = true;
                 if (!mc.getWindow().isFullscreen()) mc.getWindow().toggleFullScreen();
-                mc.options.guiScale().set(3);
+                mc.options.guiScale().set(2);
                 mc.resizeGui();
                 return;
             }

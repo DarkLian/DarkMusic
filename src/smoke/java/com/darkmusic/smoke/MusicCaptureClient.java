@@ -32,10 +32,11 @@ final class MusicCaptureClient {
     }
 
     private void capture(Minecraft mc, String name) throws Exception {
-        require(mc.getWindow().isFullscreen() && mc.options.guiScale().get() == 3 && mc.getWindow().getGuiScale() == 3, "Capture requires fullscreen GUI scale 3");
+        SmokeUi.captureReady(mc);
+        require(mc.getWindow().isFullscreen() && mc.options.guiScale().get() == 2 && mc.getWindow().getGuiScale() == 2, "Capture requires fullscreen GUI scale 2");
         Path root = Path.of(System.getProperty("darkmusic.privateImages"));
         Files.createDirectories(root.resolve("screenshots"));
-        Screenshot.grab(root.toFile(), name + "-" + net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("darkmusic").orElseThrow().getMetadata().getVersion().getFriendlyString() + "-3x.png", mc.gameRenderer.mainRenderTarget(), 1, text -> captures++);
+        Screenshot.grab(root.toFile(), name + "-" + net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("darkmusic").orElseThrow().getMetadata().getVersion().getFriendlyString() + "-2x.png", mc.gameRenderer.mainRenderTarget(), 1, text -> captures++);
     }
 
     private void click(Minecraft mc, String key) {
@@ -60,8 +61,8 @@ final class MusicCaptureClient {
                 if (!mc.getWindow().isFullscreen()) mc.getWindow().toggleFullScreen();
                 return;
             }
-            if (mc.options.guiScale().get() != 3) {
-                mc.options.guiScale().set(3);
+            if (mc.options.guiScale().get() != 2) {
+                mc.options.guiScale().set(2);
                 mc.resizeGui();
                 return;
             }
@@ -169,7 +170,7 @@ final class MusicCaptureClient {
                 }
                 default -> {
                     if (captures != 13) return;
-                    org.slf4j.LoggerFactory.getLogger("darkmusic-capture").info("DARKMUSIC_SMOKE_PASS:{} 13 original fullscreen GUI-scale-3 captures; real collection/artwork, Classic/Circular HUDs and beveled finishes, unified settings/defaults, playlists, downloads and four tool rows",
+                    org.slf4j.LoggerFactory.getLogger("darkmusic-capture").info("DARKMUSIC_SMOKE_PASS:{} 13 original fullscreen GUI-scale-2 captures; real collection/artwork, Classic/Circular HUDs and beveled finishes, unified settings/defaults, playlists, downloads and four tool rows",
                         Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip());
                     step = 999;
                     mc.stop();

@@ -10,6 +10,15 @@ import net.minecraft.client.input.*;
  * Test navigation follows the actual compact panels and section buttons, never service shortcuts.
  */
 final class SmokeUi {
+    static void captureReady(Minecraft mc) {
+        if (!mc.getWindow().isFullscreen() || mc.options.guiScale().get() != 2 || mc.getWindow().getGuiScale() != 2
+            || mc.getWindow().getWidth() != 1920 || mc.getWindow().getHeight() != 1080)
+            throw new IllegalStateException("Captures require fullscreen 1920x1080 at GUI scale 2");
+        var font = mc.getResourceManager().getResource(net.minecraft.resources.Identifier.withDefaultNamespace("textures/font/ascii.png")).orElseThrow();
+        if (!font.sourcePackId().equals("file/SmoothFont_1.21.zip"))
+            throw new IllegalStateException("SmoothFont is not applied");
+    }
+
     static Object field(Object owner, String name) {
         try {
             var f = owner.getClass().getDeclaredField(name);

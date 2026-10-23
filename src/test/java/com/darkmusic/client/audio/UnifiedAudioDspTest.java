@@ -44,7 +44,7 @@ class UnifiedAudioDspTest {
 
     @Test
     void truePeakProtectsIntersampleOvershootWithLinkedStereoAndFiniteLatency() {
-        for (double rate : new double[]{44100, 48000, 96000})
+        for (double rate : new double[]{44100, 48000, 96000, 192000})
             for (double fraction : new double[]{.02077, .20833, .35417, .4375, .48958}) {
                 double hz = rate * fraction;
                 var limiter = new TruePeakLimiter();
@@ -97,7 +97,7 @@ class UnifiedAudioDspTest {
 
     @Test
     void partitionedConvolutionMatchesItsActualStereoImpulseAndDecays() throws Exception {
-        for (double rate : new double[]{44100, 48000, 96000})
+        for (double rate : new double[]{44100, 48000, 96000, 192000})
             for (var mode : ConvolutionReverb.Impulse.values()) {
                 var reverb = new ConvolutionReverb(rate, mode);
                 long until = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
@@ -121,7 +121,7 @@ class UnifiedAudioDspTest {
     }
 
     @Test
-    void allTwentyEnvironmentChoicesAreDistinctAndIntensityZeroIsIdentity() {
+    void allEnvironmentChoicesAreDistinctAndIntensityZeroIsIdentity() {
         List<double[]> fingerprints = new ArrayList<>();
         for (var preset : SoundEnvironmentSettings.Preset.values()) {
             var s = new SoundEnvironmentSettings();
@@ -154,7 +154,7 @@ class UnifiedAudioDspTest {
                 assertEquals(-.3, dsp.right);
             }
         }
-        assertEquals(20, fingerprints.size());
+        assertEquals(SoundEnvironmentSettings.Preset.values().length, fingerprints.size());
     }
 
     @Test

@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v2.4.3 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v2.5.0 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Interface language
 
@@ -11,6 +11,10 @@ DarkMusic includes English and Traditional Chinese (Taiwan). Choose **繁體中�
 Press **B**, open **Settings → General → Music Folders**, and choose **Add Music Folder**. A native folder picker opens. Register multiple folders to scan them and their subfolders together. The checked **Default Save Folder** receives downloads and imports without a selected folder. Selecting a save destination preserves folder order. Removing a scan folder leaves its files on disk.
 
 The default folder is `config/darkmusic/music` inside your Minecraft instance. Copying music there also works. Library changes are discovered automatically; use Refresh Library if a change has not appeared.
+
+Folders scan independently, so a slow or unavailable network folder does not hold back results from healthy folders. Unavailable folders retain their previous entries until they can be scanned successfully.
+
+**Open Folder** opens the root or subfolder selected in the player's All view. All Tracks, playlists, artists, and albums use the Default Save Folder instead. Hover over the button to see its destination.
 
 **Use Built-In Save Folder** in Music Folders restores that save destination while retaining other registered scan folders. It leaves audio in its existing location. Refresh Library sits beside Import History in the player; narrow layouts place these actions in Collections.
 
@@ -95,7 +99,7 @@ Open **Manage Playlists** with the music-note button above the collection list. 
 
 Use selection controls or Ctrl/Cmd-click to select individual songs. Shift-click extends a selection. Ctrl/Cmd+A selects the list. Connected selections can be dragged together to change their order.
 
-Remove Selected removes playlist entries. Deleting a playlist opens a confirmation dialog. Neither action deletes your audio files. After a complete library scan, confirmed missing tracks are automatically removed from playlists and Favorite Music. Offline or inaccessible folders and incomplete scans do not trigger this cleanup.
+Remove Selected removes playlist entries; removing multiple entries asks for confirmation. Deleting a playlist also opens a confirmation dialog. Neither action deletes your audio files. Successfully completed folder scans remove confirmed missing tracks from playlists and Favorite Music. Offline or inaccessible folders and incomplete root scans do not trigger cleanup for those folders.
 
 Play playlists from the main player's Playlists view.
 
@@ -112,6 +116,16 @@ Select a song and click the pencil in its details panel to edit the title, artis
 If that song is playing, saving briefly releases its playback handle and resumes at the previous position and playing/paused state. Renaming also keeps matching lyric sidecars with the song. Unsupported tag formats or failed writes show an error. Opus and WebM tagging requires FFmpeg. Back up important files before deliberately editing their tags.
 
 The details actions are Heart, Pencil, Lyrics (when enabled), Open Source, and Copy Source Link. Source actions are available when DarkMusic knows the original video URL. Copy Source Link displays **Copied!** after successful copying. In narrow panels the confirmation appears as a brief tooltip. Downloads record source associations, which follow imported or renamed files. The actions are hidden when the panel has no selected song.
+
+### Delete audio files
+
+Open **Manage Audio Files** with the wrench above the player's collection list, or from **Settings → General → Music Folders**. Search the library, select one or more files, and choose **Review Selected Files**. The review shows full file paths before deletion. The song-details editor also offers **Delete Audio File…** for a single file.
+
+Use **Move to Trash** when the operating system supports it. **Delete Permanently…** requires a separate confirmation and cannot be undone through DarkMusic. A failed Trash operation never switches to permanent deletion automatically.
+
+Only the reviewed audio files are removed. Folders, lyric sidecars, and other accompanying files are kept. Successfully deleted tracks are removed from playlists and Favorite Music; failures remain available to review and retry. File changes detected after review require a fresh review.
+
+Deletion briefly releases playback handles. A surviving current song resumes at its previous position and playing/paused state; deleting the current song leaves playback stopped. File operations run in the background. On Windows, Trash operations preserve fullscreen, and F11 remains available to change window mode.
 
 ## Download music
 
@@ -160,7 +174,7 @@ A completed download is announced in client-side chat. Close Minecraft and wait 
 
 ## Customize the HUD
 
-![HUD and spectrum settings with circular live preview](images/settings-2.3.5.png)
+![HUD and spectrum settings with live artwork preview](images/settings-2.3.5.png)
 
 Settings contains General, Audio, HUD, Spectrum, and Reset sections. Most changes save immediately. The preview shows current playback data, or sample visualization when no song is playing.
 
@@ -215,9 +229,11 @@ Frequency sliders use logarithmic spacing for finer low-frequency control. Right
 
 ### Sound Environment
 
-Open **Settings → Audio → Sound Environment** independently of Audio Options. Choose Off or one of 19 active environments: Old Radio, Telephone, Walkie-Talkie, Vinyl, Cassette, Bedroom, Bathroom, Concert Hall, Cathedral, Deep Cave, Tunnel, Warehouse, Stadium, Open Meadow, Forest Clearing, Next Room, Distant Speakers, Underwater, and Dreamscape.
+Open **Settings → Audio → Sound Environment** independently of Audio Options. Choose Off or one of 22 active environments: Old Radio, Telephone, Walkie-Talkie, Vinyl, Cassette, Bedroom, Bathroom, Concert Hall, Cathedral, Deep Cave, Tunnel, Warehouse, Stadium, Open Meadow, Forest Clearing, Next Room, Distant Speakers, Underwater, Dreamscape, Car Cabin, Stairwell, and Orbital Echo.
 
-Select Environment to open a categorized list, then choose a treatment directly. Enable the environment and adjust intensity. At 0%, the environment is bypassed. Relevant tone, reflection, distance, and room controls depend on the selected recipe. Texture and ambience are optional. Save, load, rename, or delete custom environment presets without altering Audio Options profiles.
+Select Environment to open a categorized list, then choose a treatment directly. The list stays open for comparing environments; press Escape to return to its controls. Car Cabin gives warm low end and close reflections, Stairwell adds bright repeating reflections, and Orbital Echo creates spacious stereo echoes with slow modulation.
+
+Enable the environment and adjust intensity. At 0%, the environment is bypassed. Relevant tone, reflection, distance, and room controls depend on the selected recipe. Texture and ambience are optional. Enable **Advanced Parameters** to reveal additional controls directly below that toggle. Save, load, rename, or delete custom environment presets without altering Audio Options profiles.
 
 Acoustic environments take ownership of the shared reverb slot while active. Audio Options reverb is restored when the environment is switched off. Non-acoustic treatments such as Vinyl allow Audio Options reverb to continue.
 

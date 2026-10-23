@@ -29,8 +29,8 @@ class AudioUx231Test {
     @Test
     void directEnvironmentListContainsEveryPresetExactlyOnce() {
         var available = EnvironmentPickerScreen.GROUPS.stream().flatMap(List::stream).toList();
-        assertEquals(20, available.size());
-        assertEquals(20, new HashSet<>(available).size());
+        assertEquals(SoundEnvironmentSettings.Preset.values().length, available.size());
+        assertEquals(SoundEnvironmentSettings.Preset.values().length, new HashSet<>(available).size());
         assertEquals(EnumSet.allOf(SoundEnvironmentSettings.Preset.class), EnumSet.copyOf(available));
     }
 }

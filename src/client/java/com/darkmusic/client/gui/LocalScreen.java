@@ -73,6 +73,10 @@ public abstract class LocalScreen extends Screen {
 
     @Override
     public final void onClose() {
-        if (isCurrent()) minecraft.gui.setScreen(returnTo);
+        if (isCurrent()) minecraft.gui.setScreen(returnScreen());
+    }
+
+    protected Screen returnScreen() {
+        return returnTo;
     }
 }

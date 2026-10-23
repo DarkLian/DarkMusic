@@ -48,17 +48,17 @@ abstract class AudioPage extends LocalScreen {
     protected final void place(AbstractWidget widget) {
         rows.add(addRenderableWidget(widget));
         positions.add(cursor);
-        cursor += 24;
+        cursor += 26;
     }
 
     protected final void section(String key) {
         headings.add(new Heading(key, cursor));
-        cursor += 22;
+        cursor += 24;
     }
 
     protected final void info(Supplier<String> text) {
         details.add(new Detail(text, cursor));
-        cursor += 20;
+        cursor += 22;
     }
 
     protected final void info(String key) {

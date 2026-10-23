@@ -16,7 +16,8 @@ public final class SoundEnvironmentSettings {
     public enum Preset {
         OFF, OLD_RADIO, TELEPHONE, WALKIE_TALKIE, VINYL, CASSETTE, BEDROOM, BATHROOM,
         CONCERT_HALL, CATHEDRAL, DEEP_CAVE, TUNNEL, WAREHOUSE, STADIUM, OPEN_MEADOW,
-        FOREST_CLEARING, NEXT_ROOM, DISTANT_SPEAKERS, UNDERWATER, DREAMSCAPE
+        FOREST_CLEARING, NEXT_ROOM, DISTANT_SPEAKERS, UNDERWATER, DREAMSCAPE,
+        CAR_CABIN, STAIRWELL, ORBITAL_ECHO
     }
 
     public static final class Parameters implements Cloneable {
@@ -297,6 +298,29 @@ public final class SoundEnvironmentSettings {
                 p.modulationHz = .3;
                 p.echoGain = .16;
                 p.echoTime = .37;
+            }
+            case CAR_CABIN -> {
+                space(p, .45, .22, .78, .08, .003, new double[]{.004, .009, .016}, new double[]{.13, .08, .04});
+                p.highPass = 35;
+                p.lowPass = 8500;
+                p.presenceFrequency = 150;
+                p.presenceGain = 3.5;
+            }
+            case STAIRWELL -> {
+                space(p, 1.15, 2.1, .22, .17, .012, new double[]{.061, .127, .263, .521}, new double[]{.15, -.10, .075, -.035});
+                p.highPass = 80;
+                p.lowPass = 15500;
+                p.echoTime = .185;
+                p.echoGain = .21;
+            }
+            case ORBITAL_ECHO -> {
+                space(p, 1.8, 3.4, .42, .22, .075, new double[]{.173, .347, .691}, new double[]{.075, -.055, .035});
+                p.highPass = 100;
+                p.lowPass = 12500;
+                p.modulationMs = .8;
+                p.modulationHz = .12;
+                p.echoTime = .73;
+                p.echoGain = .32;
             }
             default -> {
             }

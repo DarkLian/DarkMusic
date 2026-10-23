@@ -19,6 +19,7 @@ import java.util.*;
  * Development-only checks in an isolated title-screen client; no server connections.
  */
 public final class SmokeClient implements ClientModInitializer {
+    private final DesktopWindowSmoke windowChecks = new DesktopWindowSmoke();
     private final Set<String> playing = new HashSet<>();
     private int ticks, stage = -1, frame;
     private boolean selecting, fullscreenRequested, failed;
@@ -335,10 +336,11 @@ public final class SmokeClient implements ClientModInitializer {
             if (!fullscreenRequested) {
                 fullscreenRequested = true;
                 if (!mc.getWindow().isFullscreen()) mc.getWindow().toggleFullScreen();
-                mc.options.guiScale().set(3);
+                mc.options.guiScale().set(2);
                 mc.resizeGui();
                 return;
             }
+            if (!windowChecks.tick(mc)) return;
             if (!selecting) {
                 selecting = true;
                 app.chooseDirectory(Path.of(System.getProperty("darkmusic.music")), () -> {
@@ -508,7 +510,7 @@ public final class SmokeClient implements ClientModInitializer {
                 }
                 case 9 -> {
                     checkPlaylistBrowsing(mc, app);
-                    mc.options.guiScale().set(3);
+                    mc.options.guiScale().set(2);
                     mc.resizeGui();
                 }
                 case 10 -> {
@@ -549,7 +551,7 @@ public final class SmokeClient implements ClientModInitializer {
                     require(mc.gui.screen() == title, "Stale screen restored itself");
                 }
                 case 13 -> {
-                    mc.options.guiScale().set(3);
+                    mc.options.guiScale().set(2);
                     mc.resizeGui();
                     var first = app.library.snapshot().tracks().getFirst();
                     app.playback.play(List.of(first), first);
@@ -633,7 +635,7 @@ public final class SmokeClient implements ClientModInitializer {
                     require(app.settings.hudX < .5 && app.settings.hudY < .5, "Combined HUD did not drag");
                     escape(mc);
                     escape(mc);
-                    mc.options.guiScale().set(3);
+                    mc.options.guiScale().set(2);
                     mc.resizeGui();
                 }
                 case 25 -> {

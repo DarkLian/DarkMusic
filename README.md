@@ -6,9 +6,9 @@ A client-side music player for Minecraft. Browse your own library, build playlis
 
 ## Install
 
-DarkMusic **v2.4.3** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v2.5.0** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-2.4.3.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-2.5.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Open **Settings → General → Music Folders**, or add songs to `config/darkmusic/music` inside the instance.
@@ -22,6 +22,7 @@ Update notifications are enabled by default and appear once per launch after joi
 ## Features
 
 - **Library:** scan multiple music folders, choose a default save folder, and browse All Tracks, nested folders, playlists, artists, and albums. Search titles, artists, albums, and paths.
+- **File management:** Open Folder follows the selected library folder. Use Manage Audio Files to review and delete selected files, individually or in bulk, with Move to Trash where supported and separate confirmation for permanent deletion.
 - **Import:** drag audio files into the player or playlist manager to copy them into your library. Import into the selected folder or playlist, and review results through Import History beside Open Folder.
 - **Listening history:** open the clock icon beside Manage Playlists for Recently Played, Most Played, play counts, and listening time. History stays in order while you play from it.
 - **Backup and restore:** export settings, playlists, key bindings, and listening history to a portable ZIP. Preview and choose what to restore; audio files are never included or changed.
@@ -29,12 +30,12 @@ Update notifications are enabled by default and appear once per launch after joi
 - **Favorites:** mark songs with the heart button and find them in the built-in Favorite Music playlist.
 - **Metadata:** edit the selected song's title, artist, album, and filename using the pencil button. Open or copy its source link when available. Tags are saved to the file, and the filename extension stays protected.
 - **Playback:** seek in five-second steps, shuffle, repeat, mute, and change speed from 0.5× to 3.0×. The player follows track changes automatically while you are not searching. Jump to Playing returns to the collection where playback started. Search does not narrow the playback queue.
-- **Playlists:** bulk-select songs and reorder connected selections by dragging. Complete library scans clean up confirmed missing entries, including favorites, without deleting audio.
+- **Playlists:** bulk-select songs and reorder connected selections by dragging. Completed folder scans clean up confirmed missing entries, including favorites. Unavailable folders retain their entries while other folders finish scanning independently.
 - **Downloads:** analyze a video or collection URL, select entries or a range, preview audio, jump between available preview pages, and manage parallel downloads and retries.
 - **HUD:** Classic, Circular, Artwork, and Spectrum Only layouts with optional progress and a spectrum driven by decoded audio. Artwork mode preserves image proportions and supports outward horizontal spectra beside the image.
 - **Visuals:** bars, waves, spikes, gradient presets, beveled finishes, glow, trails, peak markers, and frequency smoothing. Customize menu colors and HUD backgrounds using a visual color spectrum, RGB sliders, or hex values.
 - **Audio Options:** profiles, loudness normalization, graphic or parametric EQ, dynamic EQ, de-essing, tone controls, crossfeed, compression, algorithmic or convolution reverb, and optional true-peak protection. Pitch-preserving speed, gapless playback, crossfade, and game-audio balance remain available.
-- **Sound Environment:** 20 choices, including Off, with independent intensity, room/tone controls, optional textures and ambience, and saved custom presets. Combine environments with Audio Options.
+- **Sound Environment:** 23 choices, including Off, Car Cabin, Stairwell, and Orbital Echo, with independent intensity, room/tone controls, optional textures and ambience, and saved custom presets. Combine environments with Audio Options.
 - **Audio Analyzer:** device-clock stage measurements, spectra, waveforms, EQ response, stereo and dynamics meters, plus temporary A/B comparison and level matching.
 - **Lyrics:** optional synchronized local `.lrc` files and supported embedded tags, plus matching manual source captions during downloads with ordered language preferences.
 
@@ -54,11 +55,11 @@ A customized Classic HUD, placed on the middle-left. Move and resize it in Edit 
 
 Preview HUD layouts, choose a spectrum style, and pick a gradient or your own colors.
 
-![HUD and spectrum settings with circular live preview](docs/images/settings-2.3.5.png)
+![HUD and spectrum settings with live artwork preview](docs/images/settings-2.3.5.png)
 
 ## Shape your sound
 
-Open Sound Environment from Settings → Audio. Pick an environment directly and adjust its intensity independently of Audio Options.
+Open Sound Environment from Settings → Audio. Pick an environment directly and adjust its intensity independently of Audio Options. The picker stays open so you can compare different sounds.
 
 ![Sound Environment selection](docs/images/environment-picker.png)
 

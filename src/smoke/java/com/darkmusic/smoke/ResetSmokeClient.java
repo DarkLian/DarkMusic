@@ -56,12 +56,12 @@ final class ResetSmokeClient {
             if (!configured) {
                 configured = true;
                 if (!mc.getWindow().isFullscreen()) mc.getWindow().toggleFullScreen();
-                mc.options.guiScale().set(3);
+                mc.options.guiScale().set(2);
                 mc.resizeGui();
                 return;
             }
-            if (stage == 0 && mc.options.guiScale().get() != 3) {
-                mc.options.guiScale().set(3);
+            if (stage == 0 && mc.options.guiScale().get() != 2) {
+                mc.options.guiScale().set(2);
                 mc.resizeGui();
                 return;
             }
@@ -165,7 +165,7 @@ final class ResetSmokeClient {
                     stage++;
                 }
                 case 5 -> {
-                    require(mc.getWindow().isFullscreen() && mc.options.guiScale().get() == 3 && mc.getWindow().getGuiScale() == 3, "Confirmation capture is not fullscreen GUI scale 3: " + mc.getWindow().isFullscreen() + "/" + mc.options.guiScale().get() + "/" + mc.getWindow().getGuiScale());
+                    require(mc.getWindow().isFullscreen() && mc.options.guiScale().get() == 2 && mc.getWindow().getGuiScale() == 2, "Confirmation capture is not fullscreen GUI scale 2: " + mc.getWindow().isFullscreen() + "/" + mc.options.guiScale().get() + "/" + mc.getWindow().getGuiScale());
                     Path images = Path.of(System.getProperty("darkmusic.privateImages"));
                     Files.createDirectories(images.resolve("screenshots"));
                     net.minecraft.client.Screenshot.grab(images.toFile(), "reset-confirmation.png", mc.gameRenderer.mainRenderTarget(), 1, text -> {
@@ -185,7 +185,7 @@ final class ResetSmokeClient {
                     require(app.library.root().equals(app.config.defaultMusic().toAbsolutePath().normalize()), "Default music directory not restored");
                     for (var key : app.bindings()) require(key.isDefault(), "Shortcut not reset: " + key.getName());
                     require(mc.options.keyJump.saveString().equals(jumpKey), "Reset changed a Minecraft shortcut");
-                    require(mc.options.guiScale().get() == 3, "Reset changed Minecraft GUI scale");
+                    require(mc.options.guiScale().get() == 2, "Reset changed Minecraft GUI scale");
                     require(app.playback.state().track() == null, "Old track/queue survived reset");
                     require(app.downloads.snapshot().items().isEmpty() && app.downloads.snapshot().preview() == null && app.downloads.lastAnalyzedUrl().isEmpty(), "Download state survived reset");
                     require(app.playlists.get(retainedPlaylist) != null, "Reset removed user playlist");

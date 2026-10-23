@@ -38,17 +38,17 @@ public final class AudioSettingsScreen extends LocalScreen {
     private void place(AbstractWidget widget) {
         rows.add(addRenderableWidget(widget));
         positions.add(cursor);
-        cursor += 24;
+        cursor += 26;
     }
 
     private void section(String key) {
         sections.add(new Section(Text.get(key), cursor));
-        cursor += 22;
+        cursor += 24;
     }
 
     private void info(java.util.function.Supplier<String> text) {
         details.add(new Detail(text, cursor));
-        cursor += 20;
+        cursor += 22;
     }
 
     public AudioSettingsScreen(DarkMusicClient app, Screen parent) {
@@ -233,7 +233,7 @@ public final class AudioSettingsScreen extends LocalScreen {
                 }))).bounds(formX + formWidth - 24, 0, 24, 20).build(), UiIcon.DELETE, true);
             UiButton.style(delete, UiButton.Style.DESTRUCTIVE);
             rows.add(addRenderableWidget(delete));
-            positions.add(cursor - 24);
+            positions.add(cursor - 26);
         }
         scrollbar = addRenderableWidget(new ScrollBar(() -> scroll, value -> {
             scroll = value;
@@ -256,8 +256,10 @@ public final class AudioSettingsScreen extends LocalScreen {
 
     @Override
     public void tick() {
-        if (analysisButton != null)
+        if (analysisButton != null) {
             analysisButton.setMessage(Text.component(app.loudnessAnalysis().running() ? "audio.darkmusic.cancel_analysis" : "audio.darkmusic.analyze_library"));
+            analysisButton.active = !app.settings.audio.neutral && (app.loudnessAnalysis().running() || !app.library.snapshot().scanning() && !app.library.snapshot().tracks().isEmpty());
+        }
     }
 
     @Override

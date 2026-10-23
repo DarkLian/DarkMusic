@@ -111,10 +111,15 @@ final class ConvolutionReverb {
                 int h = (head - p + count) % count;
                 double[] ar = historyReal[c][h], ai = historyImaginary[c][h];
                 double[] br = kernel.real[c][p], bi = kernel.imaginary[c][p];
-                for (int i = 0; i < SIZE; i++) {
+                // Real input and impulse responses have conjugate-symmetric spectra.
+                for (int i = 0; i <= SIZE / 2; i++) {
                     sumReal[c][i] += ar[i] * br[i] - ai[i] * bi[i];
                     sumImaginary[c][i] += ar[i] * bi[i] + ai[i] * br[i];
                 }
+            }
+            for (int i = 1; i < SIZE / 2; i++) {
+                sumReal[c][SIZE - i] = sumReal[c][i];
+                sumImaginary[c][SIZE - i] = -sumImaginary[c][i];
             }
             FFT.transform(sumReal[c], sumImaginary[c], true);
             for (int i = 0; i < HOP; i++) {

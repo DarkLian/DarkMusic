@@ -49,19 +49,33 @@ public final class SoundEnvironmentScreen extends AudioPage {
         var recipe = SoundEnvironmentSettings.recipe(e.preset);
         boolean device = e.preset.ordinal() >= SoundEnvironmentSettings.Preset.OLD_RADIO.ordinal() && e.preset.ordinal() <= SoundEnvironmentSettings.Preset.CASSETTE.ordinal();
         boolean outdoors = e.preset == SoundEnvironmentSettings.Preset.OPEN_MEADOW || e.preset == SoundEnvironmentSettings.Preset.FOREST_CLEARING || e.preset == SoundEnvironmentSettings.Preset.UNDERWATER;
-        if (device || advanced) toggle("environment.texture", () -> e.texture, v -> e.texture = v);
-        if (outdoors || advanced) toggle("environment.ambience", () -> e.ambience, v -> e.ambience = v);
+        if (device) toggle("environment.texture", () -> e.texture, v -> e.texture = v);
+        if (outdoors) toggle("environment.ambience", () -> e.ambience, v -> e.ambience = v);
         if (p.acoustic) slider("environment.distance", p.distance, 0, 1, 100, v -> p.distance = v, "");
-        if (p.acoustic && (recipe.wet > 0 || advanced)) {
+        if (p.acoustic && recipe.wet > 0) {
             if (p.reverbEngine == AudioEnhancements.ReverbEngine.ALGORITHMIC)
                 slider("environment.room_size", p.roomSize, .3, 2.5, 44, v -> p.roomSize = v, "");
             slider("environment.wet", p.wet, 0, .55, 55, v -> p.wet = v, "");
         }
-        if (recipe.echoGain > 0 || advanced)
+        if (recipe.echoGain > 0)
             slider("environment.echo_gain", p.echoGain, 0, .55, 55, v -> p.echoGain = v, "");
-        if (recipe.modulationMs > 0 || advanced)
+        if (recipe.modulationMs > 0)
             slider("environment.modulation", p.modulationMs, 0, 3, 60, v -> p.modulationMs = v, " ms");
+        enableSince(parametersStart, e.enabled && e.preset != SoundEnvironmentSettings.Preset.OFF);
+        toggle("environment.advanced", () -> advanced, v -> advanced = v);
+        int advancedStart = rowCount();
         if (advanced && e.preset != SoundEnvironmentSettings.Preset.OFF) {
+            if (!device) toggle("environment.texture", () -> e.texture, v -> e.texture = v);
+            if (!outdoors) toggle("environment.ambience", () -> e.ambience, v -> e.ambience = v);
+            if (p.acoustic && recipe.wet <= 0) {
+                if (p.reverbEngine == AudioEnhancements.ReverbEngine.ALGORITHMIC)
+                    slider("environment.room_size", p.roomSize, .3, 2.5, 44, v -> p.roomSize = v, "");
+                slider("environment.wet", p.wet, 0, .55, 55, v -> p.wet = v, "");
+            }
+            if (recipe.echoGain <= 0)
+                slider("environment.echo_gain", p.echoGain, 0, .55, 55, v -> p.echoGain = v, "");
+            if (recipe.modulationMs <= 0)
+                slider("environment.modulation", p.modulationMs, 0, 3, 60, v -> p.modulationMs = v, " ms");
             slider("dsp.high_pass", p.highPass, 20, 2000, 198, v -> {
                 p.highPass = v;
                 p.lowPass = Math.max(p.lowPass, v * 1.2);
@@ -96,9 +110,8 @@ public final class SoundEnvironmentScreen extends AudioPage {
                 slider("environment.reflection_gain", p.reflectionGains[n], -.35, .35, 70, v -> p.reflectionGains[n] = v, "");
             }
         }
-        enableSince(parametersStart, e.enabled && e.preset != SoundEnvironmentSettings.Preset.OFF);
+        enableSince(advancedStart, e.enabled && e.preset != SoundEnvironmentSettings.Preset.OFF);
         info("environment.dependencies");
-        toggle("environment.advanced", () -> advanced, v -> advanced = v);
         section("environment.saved");
         info(() -> Text.get("environment.saved_count", e.userPresets.size(), PresetNames.ENVIRONMENT_LIMIT));
         info(() -> app.warning.equals(Text.get("error.save_settings")) ? app.warning : notice);

@@ -12,15 +12,13 @@ final class EnvironmentPickerScreen extends AudioPage {
     static final List<List<Preset>> GROUPS = List.of(
         List.of(Preset.OFF),
         List.of(Preset.OLD_RADIO, Preset.TELEPHONE, Preset.WALKIE_TALKIE, Preset.VINYL, Preset.CASSETTE),
-        List.of(Preset.BEDROOM, Preset.BATHROOM, Preset.CONCERT_HALL, Preset.CATHEDRAL, Preset.WAREHOUSE, Preset.STADIUM),
+        List.of(Preset.BEDROOM, Preset.BATHROOM, Preset.CONCERT_HALL, Preset.CATHEDRAL, Preset.WAREHOUSE, Preset.STADIUM, Preset.CAR_CABIN, Preset.STAIRWELL),
         List.of(Preset.OPEN_MEADOW, Preset.FOREST_CLEARING, Preset.DEEP_CAVE, Preset.TUNNEL, Preset.NEXT_ROOM, Preset.DISTANT_SPEAKERS),
-        List.of(Preset.UNDERWATER, Preset.DREAMSCAPE));
-    private final Screen parent;
+        List.of(Preset.UNDERWATER, Preset.DREAMSCAPE, Preset.ORBITAL_ECHO));
     private boolean revealSelection = true;
 
     EnvironmentPickerScreen(DarkMusicClient app, Screen parent) {
         super(app, parent, "environment.choose");
-        this.parent = parent;
     }
 
     @Override
@@ -40,7 +38,7 @@ final class EnvironmentPickerScreen extends AudioPage {
                 labeledAction(label, Text.get("environment.description." + id), () -> {
                     app.settings.environment.select(preset);
                     app.save();
-                    show(parent);
+                    rebuildWidgets();
                 }).description(Text.get("environment.description." + id));
                 if (revealSelection && app.settings.environment.preset == preset) revealRow(row);
             }

@@ -16,7 +16,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Native-resolution covers up to 1024px; at most 32 entries and 32 MiB of GPU image data.
+ * Native-resolution covers up to 1024px; viewport-aware entry count and at most 32 MiB of GPU image data.
  */
 public final class ArtworkCache implements AutoCloseable {
     public static final int MAX_SIZE = 1024;
@@ -26,6 +26,38 @@ public final class ArtworkCache implements AutoCloseable {
     private int cachedBytes;
     private volatile boolean closed;
     private int serial;
+    private int entryLimit = 32;
+
+    public void visibleRows(int rows) {
+        entryLimit = Math.max(32, rows + 4);
+    }
+
+    /**
+     * Omit only symmetric, uniformly black edge bands embedded in the source cover.
+     */
+    public static java.awt.image.BufferedImage trimLetterbox(java.awt.image.BufferedImage image) {
+        int width = image.getWidth(), height = image.getHeight();
+        int top = 0, bottom = 0, left = 0, right = 0;
+        while (top < height / 4 && blackLine(image, top, true)) top++;
+        while (bottom < height / 4 && blackLine(image, height - bottom - 1, true)) bottom++;
+        if (top == 0 || bottom == 0 || Math.abs(top - bottom) > 2 || top == height / 4 || bottom == height / 4)
+            top = bottom = 0;
+        while (left < width / 4 && blackLine(image, left, false)) left++;
+        while (right < width / 4 && blackLine(image, width - right - 1, false)) right++;
+        if (left == 0 || right == 0 || Math.abs(left - right) > 2 || left == width / 4 || right == width / 4)
+            left = right = 0;
+        return top + bottom + left + right == 0 ? image : image.getSubimage(left, top, width - left - right, height - top - bottom);
+    }
+
+    private static boolean blackLine(java.awt.image.BufferedImage image, int line, boolean horizontal) {
+        int count = horizontal ? image.getWidth() : image.getHeight();
+        for (int index = 0; index < count; index++) {
+            int pixel = image.getRGB(horizontal ? index : line, horizontal ? line : index);
+            if ((pixel >>> 24) != 255 || (pixel >> 16 & 255) > 12 || (pixel >> 8 & 255) > 12 || (pixel & 255) > 12)
+                return false;
+        }
+        return true;
+    }
 
     public static java.awt.image.BufferedImage fitArtwork(java.awt.image.BufferedImage original) {
         var fit = fit(original.getWidth(), original.getHeight());
@@ -136,7 +168,7 @@ public final class ArtworkCache implements AutoCloseable {
                                         var parameters = reader.getDefaultReadParam();
                                         int step = Math.max(1, (Math.max(w, h) + limit - 1) / limit);
                                         parameters.setSourceSubsampling(step, step, 0, 0);
-                                        var original = reader.read(0, parameters);
+                                        var original = trimLetterbox(reader.read(0, parameters));
                                         var fit = fit(original.getWidth(), original.getHeight());
                                         contentWidth = fit.width();
                                         contentHeight = fit.height();
@@ -181,7 +213,7 @@ public final class ArtworkCache implements AutoCloseable {
                     }
                     cache.put(key, id == null ? null : new Cover(id, size, imageWidth, imageHeight, menuInset));
                     if (id != null) cachedBytes += size * size * 4;
-                    while (cache.size() > 32 || cachedBytes > 32 * 1024 * 1024) {
+                    while (cache.size() > entryLimit || cachedBytes > 32 * 1024 * 1024) {
                         var entry = cache.entrySet().iterator().next();
                         if (entry.getValue() != null) {
                             cachedBytes -= entry.getValue().size() * entry.getValue().size() * 4;

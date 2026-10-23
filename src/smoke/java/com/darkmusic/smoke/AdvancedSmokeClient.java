@@ -34,13 +34,14 @@ final class AdvancedSmokeClient {
     }
 
     private boolean capture(Minecraft mc, String name) throws Exception {
-        if (!mc.getWindow().isFullscreen() || mc.options.guiScale().get() != 3 || mc.getWindow().getGuiScale() != 3) {
+        if (!mc.getWindow().isFullscreen() || mc.options.guiScale().get() != 2 || mc.getWindow().getGuiScale() != 2) {
             if (!mc.getWindow().isFullscreen()) mc.getWindow().toggleFullScreen();
-            mc.options.guiScale().set(3);
+            mc.options.guiScale().set(2);
             mc.resizeGui();
             return false;
         }
-        require(mc.getWindow().isFullscreen() && mc.options.guiScale().get() == 3 && mc.getWindow().getGuiScale() == 3, "Fullscreen GUI scale 3 required");
+        require(mc.getWindow().isFullscreen() && mc.options.guiScale().get() == 2 && mc.getWindow().getGuiScale() == 2, "Fullscreen GUI scale 2 required");
+        SmokeUi.captureReady(mc);
         Path root = Path.of(System.getProperty("darkmusic.privateImages"));
         Files.createDirectories(root.resolve("screenshots"));
         Screenshot.grab(root.toFile(), "v2-review-" + name + ".png", mc.gameRenderer.mainRenderTarget(), 1, s -> captures++);
@@ -70,7 +71,7 @@ final class AdvancedSmokeClient {
                     app.settings.visualQuality = new VisualQuality();
                     app.save();
                     if (!mc.getWindow().isFullscreen()) mc.getWindow().toggleFullScreen();
-                    mc.options.guiScale().set(3);
+                    mc.options.guiScale().set(2);
                     mc.resizeGui();
                     work = Path.of("native-audio").toAbsolutePath();
                     Files.createDirectories(work);
@@ -183,7 +184,7 @@ final class AdvancedSmokeClient {
                         Files.delete(file);
                     }
                     app.save();
-                    org.slf4j.LoggerFactory.getLogger("darkmusic-advanced-smoke").info("DARKMUSIC_SMOKE_PASS:{} real-device ALAC/AAC/Opus/FLAC transitions, sample-rate/channel adaptation, pause/seek, neutral and DSP, live Extreme Circular HUD and lyrics view, background loudness cache; three private fullscreen GUI-scale-3 captures", Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip());
+                    org.slf4j.LoggerFactory.getLogger("darkmusic-advanced-smoke").info("DARKMUSIC_SMOKE_PASS:{} real-device ALAC/AAC/Opus/FLAC transitions, sample-rate/channel adaptation, pause/seek, neutral and DSP, live Extreme Circular HUD and lyrics view, background loudness cache; three private fullscreen GUI-scale-2 captures", Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip());
                     stage = 999;
                     mc.stop();
                 }

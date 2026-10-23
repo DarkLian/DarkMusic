@@ -9,9 +9,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public final class PlaylistScreen extends LocalScreen {
     private final DarkMusicClient app;
@@ -29,6 +27,7 @@ public final class PlaylistScreen extends LocalScreen {
     private long revision = -1, libraryRevision = -1;
     private boolean browsing = true;
     private List<Track> entryTracks = List.of();
+    private List<String> playlistIds = List.of();
     private boolean wasCompact;
     private int listScroll, entryScroll;
 
@@ -90,7 +89,13 @@ public final class PlaylistScreen extends LocalScreen {
         }, Text.get("confirm.darkmusic.delete_help")), UiIcon.DELETE, true);
         create.visible = rename.visible = delete.visible = !compact || browsing;
         lists = addRenderableWidget(new RowList(12, 86, sidebar, height - 98, 28, Text.get("view.darkmusic.playlists"), (i, activated) -> {
-            selectedId = app.playlists.all().get(i).id();
+            if (i < 0 || i >= playlistIds.size()) return;
+            String id = playlistIds.get(i);
+            if (app.playlists.get(id) == null) {
+                refresh();
+                return;
+            }
+            selectedId = id;
             selection.clear();
             refreshEntries();
             if (compact) {
@@ -103,7 +108,7 @@ public final class PlaylistScreen extends LocalScreen {
         entries.multiple(selection);
         entries.artwork(app.artwork, i -> i < entryTracks.size() ? entryTracks.get(i) : null);
         entries.lyrics(app.lyrics, () -> app.settings.lyricsEnabled);
-        lists.icons(i -> PlaylistStore.FAVORITES.equals(app.playlists.all().get(i).id()) ? UiIcon.HEART_FILLED : UiIcon.PLAYLIST);
+        lists.icons(i -> i >= 0 && i < playlistIds.size() && PlaylistStore.FAVORITES.equals(playlistIds.get(i)) ? UiIcon.HEART_FILLED : UiIcon.PLAYLIST);
         lists.visible = !compact || browsing;
         entries.visible = !compact || !browsing;
         entries.reorder(move -> {
@@ -119,9 +124,19 @@ public final class PlaylistScreen extends LocalScreen {
             }
         }, Text.get("text.darkmusic.select_library_songs_not_already_added_to_this_playlist"));
         remove = button(Text.get("text.darkmusic.remove_selected"), entryX + entryWidth - actionWidth, 38, actionWidth, () -> {
-            app.playlists.removeAll(selectedId, selection.selected());
-            selection.clear();
-            refreshEntries();
+            String id = selectedId;
+            var keys = java.util.Set.copyOf(selection.selected());
+            Runnable removeEntries = () -> {
+                app.playlists.removeAll(id, keys);
+                selection.clear();
+                refreshEntries();
+            };
+            if (keys.size() > 1) show(new ConfirmationScreen(this, Text.component("text.darkmusic.remove_selected"),
+                Text.component("playlist.confirm_remove_entries", keys.size()), Text.component("text.darkmusic.remove_selected"), () -> {
+                removeEntries.run();
+                return java.util.concurrent.CompletableFuture.completedFuture(null);
+            }));
+            else removeEntries.run();
         }, Text.get("text.darkmusic.remove_all_checked_entries_from_this_playlist"));
         int w = (entryWidth - 8) / 3;
         selectAll = button(Text.get("text.darkmusic.select_all"), entryX, height - 32, w, selection::all, Text.get("text.darkmusic.select_every_entry_including_missing_songs_ctrl_cmd_a_works_with_list_focus"));
@@ -143,6 +158,7 @@ public final class PlaylistScreen extends LocalScreen {
     private void refresh() {
         if (lists == null) return;
         var all = app.playlists.all();
+        playlistIds = all.stream().map(PlaylistStore.Playlist::id).toList();
         if (selected() == null) {
             selectedId = all.isEmpty() ? "" : all.getFirst().id();
             selection.clear();
@@ -160,8 +176,7 @@ public final class PlaylistScreen extends LocalScreen {
         var keys = p == null ? List.<String>of() : p.entries().stream().map(PlaylistStore.Entry::key).toList();
         selection.retain(keys);
         selection.visible(keys);
-        Map<String, Track> index = new HashMap<>();
-        app.library.snapshot().tracks().forEach(t -> index.put(t.id(), t));
+        var index = app.playlists.index(app.library.snapshot().tracks());
         entryTracks = p == null ? List.of() : p.entries().stream().map(e -> index.get(e.key())).toList();
         entries.rows(p == null ? List.of() : p.entries().stream().map(e -> {
             Track t = index.get(e.key());

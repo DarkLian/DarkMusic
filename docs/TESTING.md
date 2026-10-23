@@ -37,7 +37,7 @@ Review library navigation, search-independent playback queues, playlists and sel
 
 For imports, use real files from the private collection and an isolated destination. Check root/subfolder/playlist routing, filename collisions, history persistence, and byte-for-byte preservation of imported copies. Verify that ordinary clicks, focus changes, fullscreen/windowed transitions, and recording do not trigger an import overlay. A real file drop must still import and show progress in both the player and playlist manager.
 
-Check missing-entry cleanup only after complete scans, including Favorite Music, startup/autoplay, unavailable roots, and existing files temporarily absent from an index. Check saved audio-profile deletion with both cancellation and confirmation, persistence, and preservation of the active sound settings. Reset must preserve installed tool files and executable paths.
+Check missing-entry cleanup only for successfully completed roots, including Favorite Music, startup/autoplay, unavailable roots, and existing files temporarily absent from an index. A blocked root must not delay healthy-root results or cause its own entries to be pruned. Check saved audio-profile deletion with both cancellation and confirmation, persistence, and preservation of the active sound settings. Reset must preserve installed tool files and executable paths.
 
 For the Artwork HUD, use actual embedded images with different aspect ratios. Verify proportional fitting, the flush progress bar, all four spectrum positions, outward side growth, shared background transparency/gradients, and combined preview/editor bounds. Exercise Color Spectrum/RGB switching, palette and hex editing, concrete defaults, all preset pages, and narrow-window controls. Check ordered caption-language preferences independently of local timed-lyric indicators; analysis results must not perform caption checks for an availability field.
 
@@ -47,13 +47,21 @@ For metadata edits, work on temporary copies. Cover active and paused playback, 
 
 Cover Neutral and Preserve Pitch independently, mono/stereo tempo and duration, crossfade, live switching, and pause/seek/resume. Check normalization provenance for missing, malformed, track, album, analyzed, legacy, pending, failed, and peak-limited data.
 
-Exercise profile/environment create, load, rename, delete, duplicate replacement and cancellation, name limits, the 32-environment limit, and persistence. Saving or deleting stored entries must preserve active audio settings. Verify all 20 environment choices, logarithmic frequency mapping, exact numeric input and rejected nonfinite/out-of-range values, dependent control ranges, and hidden analyzer panel costs.
+Exercise profile/environment create, load, rename, delete, duplicate replacement and cancellation, name limits, the 32-environment limit, and persistence. Saving or deleting stored entries must preserve active audio settings. Verify all 23 environment choices, logarithmic frequency mapping, exact numeric input and rejected nonfinite/out-of-range values, dependent control ranges, and hidden analyzer panel costs. Environment selection must keep the picker open, and advanced controls must appear below their toggle.
 
 Use Settings → Audio for Audio Options and Sound Environment; open the analyzer from Audio Options. Check both languages and small-window keyboard navigation. Compare worker timings on the same real excerpt and block size; gameplay FPS is a separate measurement.
 
 ## Screenshots
 
-Capture documentation fullscreen at configured and effective Minecraft GUI scale 3, with Enable Lyrics turned off. Disable forced Unicode-font scaling if it rounds the effective GUI scale up. Use the private real collection through temporary copies, and keep original captures without cropping or resizing. Store unpublished captures under ignored `docs/images_private`, and promote only reviewed public screenshots to `docs/images`.
+Capture documentation fullscreen at 1920×1080 and configured and effective Minecraft GUI scale 2, with Enable Lyrics turned off and `run/resourcepacks/SmoothFont_1.21.zip` applied. Disable forced Unicode-font scaling if it rounds the effective GUI scale up. Use the private real collection through temporary copies, and keep original captures without cropping or resizing. Store unpublished captures under ignored `docs/images_private`, and promote only reviewed public screenshots to `docs/images`.
+
+## File management and desktop integration
+
+Use disposable copies of real collection audio for deletion tests. Verify single/bulk selection, review paths, cancellation, changed-file rejection, partial failures, retry review, and playlist/Favorite Music cleanup only after successful deletion. Confirm sidecars and unrelated files remain untouched. Cover active/paused playback, deleting the current track, preserving a surviving track's queue/position, and newer user stop requests.
+
+Exercise native Trash separately from permanent deletion, including unsupported Trash, rejected file identity, and Windows sharing violations. A Trash failure must never fall back to permanent deletion. Compare original collection hashes before and after testing.
+
+The smoke client verifies overlapping desktop-window guards and native fullscreen transitions. Check actual Trash preparation and transfer for unwanted minimization, F11 during and after operations, and restoration of GLFW auto-iconify. The development client's windowed fallback is 1280×720; fullscreen capture remains 1920×1080 with GUI scale 2 and SmoothFont. Hardware and desktop behavior must be reported separately from mocked tests.
 
 ## Style and publication
 

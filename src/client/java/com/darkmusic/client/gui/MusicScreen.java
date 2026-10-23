@@ -52,7 +52,7 @@ public final class MusicScreen extends LocalScreen {
     private boolean seekDragging;
     private long revision = -1, playlistRevision = -1, historyRevision = -1, refreshed;
     private String playlistNotice = "";
-    private Button play, shuffle, repeat, jump;
+    private Button play, shuffle, repeat, jump, openFolder;
     private Button seekBack, seekForward;
     private boolean spaceDown;
     private boolean keyboardNavigation;
@@ -64,6 +64,7 @@ public final class MusicScreen extends LocalScreen {
     private ValueSlider progress;
     private ValueSlider speed, volume;
     private String playingId = "";
+    private String openFolderTarget = "";
     private String followedId = "";
     private PlaybackController.Source followedSource;
     private UiIcon playingIcon = UiIcon.PLAY;
@@ -123,6 +124,10 @@ public final class MusicScreen extends LocalScreen {
         rebuildWidgets();
     }
 
+    private java.nio.file.Path browseDirectory() {
+        return com.darkmusic.client.library.MusicFolders.browseDirectory(app.library.roots(), app.library.root(), mode, group);
+    }
+
     private Button transportIcon(String key, UiIcon icon, int x, int y, int width, Runnable action) {
         return UiButton.style(icon(key, icon, x, y, width, true, action), UiButton.Style.TRANSPORT);
     }
@@ -154,6 +159,8 @@ public final class MusicScreen extends LocalScreen {
             return;
         }
         layout = PlayerLayout.of(width, height);
+        openFolder = null;
+        openFolderTarget = "";
         shuffle = repeat = null;
         int contextY = height < 300 ? 64 : 70;
         icon("text.darkmusic.downloads", UiIcon.DOWNLOAD, width - 180, 6, 96, false, () -> show(new DownloadScreen(app, this)));
@@ -188,15 +195,18 @@ public final class MusicScreen extends LocalScreen {
         else if (layout.singleColumn())
             icon("ui.darkmusic.collections", UiIcon.FOLDER, 12, contextY, 110, false, () -> pane(Pane.COLLECTIONS));
         else {
-            icon("text.darkmusic.open_folder", UiIcon.FOLDER, 12, contextY, 24, true, app::openFolder);
-            icon("import.darkmusic.history", UiIcon.PLAYLIST, 40, contextY, 24, true, () -> show(new ImportHistoryScreen(app, this)));
-            icon("text.darkmusic.refresh_library", UiIcon.REFRESH, 68, contextY, 24, true, () -> app.library.rescan());
+            int utilityWidth = Math.min(24, (layout.navigation().width() - 20) / 6);
+            openFolder = icon("text.darkmusic.open_folder", UiIcon.FOLDER, 12, contextY, utilityWidth, true, () -> app.openFolder(browseDirectory()));
+            icon("import.darkmusic.history", UiIcon.PLAYLIST, 16 + utilityWidth, contextY, utilityWidth, true, () -> show(new ImportHistoryScreen(app, this)));
+            icon("text.darkmusic.refresh_library", UiIcon.REFRESH, 20 + utilityWidth * 2, contextY, utilityWidth, true, () -> app.library.rescan());
+            icon("delete_audio.manage", UiIcon.TOOLS, 24 + utilityWidth * 3, contextY, utilityWidth, true, () -> show(new LibraryManagerScreen(app, this)));
         }
         if (library || drawer) {
-            int manageX = drawer ? width - 40 : layout.singleColumn() ? width - 64 : layout.navigation().right() - 24;
-            UiButton.selected(icon("view.darkmusic.history", UiIcon.HISTORY, manageX - 28, contextY, 24, true,
+            int utilityWidth = drawer || layout.singleColumn() ? 24 : Math.min(24, (layout.navigation().width() - 20) / 6);
+            int manageX = drawer ? width - 40 : layout.singleColumn() ? width - 64 : layout.navigation().right() - utilityWidth;
+            UiButton.selected(icon("view.darkmusic.history", UiIcon.HISTORY, manageX - utilityWidth - 4, contextY, utilityWidth, true,
                 () -> mode("History")), () -> mode.equals("History"));
-            var manage = icon("text.darkmusic.manage_playlists", UiIcon.MUSIC, manageX, contextY, 24, true, () -> {
+            var manage = icon("text.darkmusic.manage_playlists", UiIcon.MUSIC, manageX, contextY, utilityWidth, true, () -> {
                 if (app.playlistsReady) show(new PlaylistScreen(app, this));
                 else app.warn(Text.get("text.darkmusic.playlists_are_still_loading"));
             });
@@ -419,8 +429,13 @@ public final class MusicScreen extends LocalScreen {
         }).toList();
         songs.emptyMessage(app.library.snapshot().tracks().isEmpty() ? Text.get("ui.darkmusic.library_empty") : playlists && source.isEmpty() ? Text.get("text.darkmusic.no_playable_songs") : Text.get("text.darkmusic.no_matching_songs"));
         var stats = mode.equals("History") ? app.listeningHistory.snapshot() : java.util.Map.<String, com.darkmusic.client.library.ListeningHistory.Entry>of();
-        songs.rows(visible.stream().map(t -> new RowList.Row(t.title(), mode.equals("History") ? historyDetails(t, stats) : t.artist() + " | " + time(t.duration()) + " | " + t.album(), t.relativePath())).toList());
-        if (selected != null && (!awaitingEditedTrack || library.stream().anyMatch(t -> t.id().equals(selected.id())))) {
+        var displayed = visible;
+        boolean history = mode.equals("History");
+        songs.rows(displayed.size(), i -> {
+            var t = displayed.get(i);
+            return new RowList.Row(t.title(), history ? historyDetails(t, stats) : t.artist() + " | " + time(t.duration()) + " | " + t.album(), t.relativePath());
+        });
+        if (selected != null && (!awaitingEditedTrack || app.playlists.index(library).containsKey(selected.id()))) {
             selected = visible.stream().filter(t -> t.id().equals(selected.id())).findFirst().orElse(null);
             awaitingEditedTrack = false;
         }
@@ -513,8 +528,15 @@ public final class MusicScreen extends LocalScreen {
     @Override
     public void tick() {
         if (width < 320 || height < 240) return;
+        if (openFolder != null) {
+            String target = browseDirectory().toString();
+            if (!target.equals(openFolderTarget)) {
+                openFolderTarget = target;
+                Help.tip(openFolder, Text.get("delete_audio.open_folder", target));
+            }
+        }
         var state = app.library.snapshot();
-        if (historyRevision != app.listeningHistory.revision() || playlistRevision != app.playlists.revision() || revision != state.revision() && (!state.scanning() || System.nanoTime() - refreshed > 250_000_000L)) {
+        if (mode.equals("History") && historyRevision != app.listeningHistory.revision() || playlistRevision != app.playlists.revision() || revision != state.revision() && (!state.scanning() || System.nanoTime() - refreshed > 250_000_000L)) {
             refreshed = System.nanoTime();
             revision = state.revision();
             playlistRevision = app.playlists.revision();

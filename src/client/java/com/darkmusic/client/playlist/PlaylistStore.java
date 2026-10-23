@@ -25,6 +25,21 @@ public final class PlaylistStore {
     private Set<Entry> favoriteEntries = Set.of();
     private Set<Entry> retainedImports = Set.of();
     private boolean retainedHealthy = true;
+    private List<Track> indexedLibrary;
+    private Map<String, Track> libraryIndex = Map.of();
+
+    /**
+     * Library snapshots are immutable; rebuild once when the snapshot list changes.
+     */
+    public synchronized Map<String, Track> index(List<Track> library) {
+        if (indexedLibrary != library) {
+            var next = new HashMap<String, Track>();
+            library.forEach(track -> next.put(track.id(), track));
+            libraryIndex = Collections.unmodifiableMap(next);
+            indexedLibrary = library;
+        }
+        return libraryIndex;
+    }
 
     public Set<Entry> retainedImports() {
         return retainedImports;
@@ -258,6 +273,16 @@ public final class PlaylistStore {
             replace(new Playlist(id, p.name, p.entries.stream().filter(e -> !keys.contains(e.key())).toList()));
     }
 
+    /**
+     * Explicitly deleted files are removed even from retained backup/import references.
+     */
+    public void removeTracks(Set<String> keys) {
+        if (keys.isEmpty()) return;
+        var next = playlists.stream().map(p -> new Playlist(p.id, p.name,
+            p.entries.stream().filter(e -> !keys.contains(e.key())).toList())).toList();
+        if (!next.equals(playlists)) update(next);
+    }
+
     public void moveAll(String id, Set<String> keys, int direction) {
         var p = get(id);
         if (p == null || Math.abs(direction) != 1) return;
@@ -302,8 +327,7 @@ public final class PlaylistStore {
     public List<Track> resolve(String id, List<Track> library) {
         var p = get(id);
         if (p == null) return List.of();
-        Map<String, Track> index = new HashMap<>();
-        library.forEach(t -> index.put(t.id(), t));
+        var index = index(library);
         return p.entries.stream().map(e -> index.get(e.key())).filter(Objects::nonNull).toList();
     }
 

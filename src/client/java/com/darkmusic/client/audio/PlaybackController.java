@@ -324,6 +324,35 @@ public final class PlaybackController implements AutoCloseable {
         }
     }
 
+    /**
+     * Retain queue/shuffle order and resume only if the current file survived deletion.
+     */
+    public void finishDeletion(EditResume resume, Set<String> removed) {
+        if (sequence != resume.sequence) return;
+        Track current = cursor >= 0 && cursor < order.size() ? tracks.get(order.get(cursor)) : null;
+        var retained = new ArrayList<Track>();
+        int[] mapping = new int[tracks.size()];
+        Arrays.fill(mapping, -1);
+        for (int i = 0; i < tracks.size(); i++)
+            if (!removed.contains(tracks.get(i).id())) {
+                mapping[i] = retained.size();
+                retained.add(tracks.get(i));
+            }
+        var nextOrder = order.stream().filter(i -> mapping[i] >= 0).map(i -> mapping[i]).toList();
+        var nextHistory = history.stream().filter(i -> mapping[i] >= 0).map(i -> mapping[i]).toList();
+        tracks = List.copyOf(retained);
+        order.clear();
+        order.addAll(nextOrder);
+        history.clear();
+        history.addAll(nextHistory);
+        int index = current == null ? -1 : tracks.indexOf(current);
+        cursor = index < 0 ? (order.isEmpty() ? -1 : 0) : order.indexOf(index);
+        orderVersion++;
+        if (index >= 0 && (resume.status == AudioBackend.Status.PLAYING || resume.status == AudioBackend.Status.PAUSED
+            || resume.status == AudioBackend.Status.SEEKING || resume.status == AudioBackend.Status.LOADING))
+            start(index, resume.position, resume.status == AudioBackend.Status.PAUSED, true);
+    }
+
     @Override
     public void close() {
         sequence++;

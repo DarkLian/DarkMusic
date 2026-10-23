@@ -404,6 +404,7 @@ public final class LoudnessCache implements AutoCloseable {
                     if (revision == captured) dirty = false;
                 }
             } catch (Exception e) {
+                nextFlush = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
                 LOG.warn("Could not save loudness cache {}; will retry", cache, e);
             }
         }

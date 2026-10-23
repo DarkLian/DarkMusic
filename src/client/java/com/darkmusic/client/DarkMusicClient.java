@@ -62,7 +62,7 @@ public class DarkMusicClient implements ClientModInitializer {
     public void analyzeLibraryLoudness() {
         if (backend == null || library == null || closed || resetting) return;
         if (backend.analysisProgress().running()) backend.cancelAnalysis();
-        else backend.analyzeLibrary(library.snapshot().tracks(), settings.audio);
+        else if (!library.snapshot().scanning()) backend.analyzeLibrary(library.snapshot().tracks(), settings.audio);
     }
 
     public CompletableFuture<Boolean> selectOutputDevice(String id) {
@@ -285,6 +285,75 @@ public class DarkMusicClient implements ClientModInitializer {
         if (task == null) {
             mediaBusy = false;
             player.finishEdit(resume, track, track);
+            result.completeExceptionally(new IllegalStateException(com.darkmusic.client.text.Text.get("library.darkmusic.busy")));
+        }
+        return result;
+    }
+
+    public CompletableFuture<com.darkmusic.client.library.AudioDeletion.Plan> prepareAudioDeletion(java.util.List<com.darkmusic.client.library.Track> tracks) {
+        var result = new CompletableFuture<com.darkmusic.client.library.AudioDeletion.Plan>();
+        var window = new com.darkmusic.client.gui.DesktopWindowGuard();
+        result.whenComplete((value, failure) -> Minecraft.getInstance().execute(window::close));
+        var roots = library.roots();
+        var selected = java.util.List.copyOf(tracks);
+        if (browse(() -> {
+            try {
+                result.complete(new com.darkmusic.client.library.AudioDeletion().prepare(roots, selected));
+            } catch (Exception failure) {
+                result.completeExceptionally(failure);
+            }
+        }) == null)
+            result.completeExceptionally(new IllegalStateException(com.darkmusic.client.text.Text.get("library.darkmusic.busy")));
+        return result;
+    }
+
+    public CompletableFuture<com.darkmusic.client.library.AudioDeletion.Result> deleteAudio(
+        com.darkmusic.client.library.AudioDeletion.Plan plan, com.darkmusic.client.library.AudioDeletion.Mode mode,
+        java.util.function.Consumer<com.darkmusic.client.library.AudioDeletion.Progress> progress) {
+        java.util.Objects.requireNonNull(mode);
+        if (closed || mediaBusy || resetting || outputChanging || !playlistsReady || !plan.roots().equals(library.roots()))
+            return CompletableFuture.failedFuture(new IllegalStateException(com.darkmusic.client.text.Text.get("library.darkmusic.busy")));
+        mediaBusy = true;
+        autoplayPending = false;
+        var token = mediaToken = new com.darkmusic.client.download.ProcessRunner.Token();
+        var player = playback;
+        var store = playlists;
+        var scanned = library;
+        var resume = player.suspendForEdit();
+        var result = new CompletableFuture<com.darkmusic.client.library.AudioDeletion.Result>();
+        var window = mode == com.darkmusic.client.library.AudioDeletion.Mode.TRASH ? new com.darkmusic.client.gui.DesktopWindowGuard() : null;
+        result.whenComplete((value, failure) -> {
+            if (window != null) Minecraft.getInstance().execute(window::close);
+        });
+        var task = browse(() -> {
+            com.darkmusic.client.library.AudioDeletion.Result deleted = null;
+            Exception problem = null;
+            try {
+                if (!player.awaitIdle(10))
+                    throw new java.io.IOException(com.darkmusic.client.text.Text.get("library.darkmusic.file_busy"));
+                deleted = new com.darkmusic.client.library.AudioDeletion().delete(plan, mode, token, progress);
+            } catch (Exception failure) {
+                problem = failure;
+            }
+            var completed = deleted;
+            var failure = problem;
+            Minecraft.getInstance().execute(() -> {
+                mediaBusy = false;
+                if (closed || resetting || playback != player) {
+                    result.completeExceptionally(new IllegalStateException(com.darkmusic.client.text.Text.get("library.darkmusic.busy")));
+                    return;
+                }
+                var removed = completed == null ? java.util.Set.<String>of() : completed.removed().stream().map(com.darkmusic.client.library.Track::id).collect(java.util.stream.Collectors.toSet());
+                store.removeTracks(removed);
+                player.finishDeletion(resume, removed);
+                if (!removed.isEmpty()) scanned.rescan();
+                if (failure == null) result.complete(completed);
+                else result.completeExceptionally(failure);
+            });
+        });
+        if (task == null) {
+            mediaBusy = false;
+            player.finishDeletion(resume, java.util.Set.of());
             result.completeExceptionally(new IllegalStateException(com.darkmusic.client.text.Text.get("library.darkmusic.busy")));
         }
         return result;
@@ -665,16 +734,21 @@ public class DarkMusicClient implements ClientModInitializer {
         });
     }
 
-    public void removeMusicFolder(java.nio.file.Path directory) {
-        if (mediaBusy || resetting || directory.equals(library.root())) return;
+    public boolean removeMusicFolder(java.nio.file.Path directory) {
+        if (mediaBusy || resetting) {
+            warn(com.darkmusic.client.text.Text.get("library.darkmusic.busy"));
+            return false;
+        }
+        if (directory.equals(library.root())) return false;
         settings.musicFolders = settings.musicFolders.stream().filter(p -> !java.nio.file.Path.of(p).equals(directory)).toList();
         activateDirectory(library.root());
+        return true;
     }
 
     private boolean cleanMissingPlaylistEntries() {
         if (mediaBusy || !playlistsReady || library == null || playlistCleanupPending) return false;
         var snapshot = library.snapshot();
-        if (snapshot.scanning() || snapshot.completeRoots().isEmpty()) return false;
+        if (snapshot.completeRoots().isEmpty()) return false;
         if (cleanedScan == snapshot.revision() && cleanedPlaylists == playlists.revision()) return true;
         var store = playlists;
         var entries = store.all();
@@ -697,9 +771,11 @@ public class DarkMusicClient implements ClientModInitializer {
             Minecraft.getInstance().execute(() -> {
                 playlistCleanupPending = false;
                 if (closed || resetting || mediaBusy || playlists != store || store.revision() != revision
-                    || library.snapshot().revision() != snapshot.revision() || !roots.equals(library.roots())) return;
-                store.removeMissing(result);
-                store.acknowledgeTracks(snapshot.tracks());
+                    || !roots.equals(library.roots())) return;
+                var current = library.snapshot();
+                var present = store.index(current.tracks());
+                store.removeMissing(result.stream().filter(entry -> current.completeRoots().contains(entry.rootId()) && !present.containsKey(entry.key())).collect(java.util.stream.Collectors.toSet()));
+                store.acknowledgeTracks(current.tracks());
                 cleanedScan = snapshot.revision();
                 cleanedPlaylists = store.revision();
             });
@@ -708,7 +784,10 @@ public class DarkMusicClient implements ClientModInitializer {
     }
 
     public void openFolder() {
-        java.nio.file.Path directory = library.root();
+        openFolder(library.root());
+    }
+
+    public void openFolder(java.nio.file.Path directory) {
         browse(() -> {
             try {
                 if (!java.nio.file.Files.isDirectory(directory))
@@ -739,7 +818,7 @@ public class DarkMusicClient implements ClientModInitializer {
         if (resetting || settings == null || playback == null) return;
         if (listeningHistory != null && !mediaBusy) listeningHistory.flush(false);
         boolean playlistsClean = cleanMissingPlaylistEntries();
-        if (autoplayPending && !mediaBusy && playlistsClean) {
+        if (autoplayPending && !mediaBusy && playlistsClean && !library.snapshot().scanning()) {
             autoplayPending = false;
             if (!library.snapshot().tracks().isEmpty())
                 playback.play(library.snapshot().tracks(), library.snapshot().tracks().getFirst());
