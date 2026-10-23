@@ -65,6 +65,7 @@ tasks.register('thirdPartySourceBundle', Zip) {
 assemble.dependsOn tasks.named('thirdPartySourceBundle')
 
 def realMusicDirectory = file(providers.gradleProperty('musicDirectory').orElse(providers.environmentVariable('DARKMUSIC_TEST_MUSIC')).getOrElse('run/config/darkmusic/music')).absolutePath
+def downloadToolsDirectory = file(providers.gradleProperty('downloadToolsDirectory').getOrElse('Music'))
 
 // A separate development-only mod exercises actual screens and audio devices.
 // It is never included in the release JAR or normal runClient classpath.
@@ -95,7 +96,7 @@ if (providers.gradleProperty('smoke').isPresent()) {
 				vmArg "-Ddarkmusic.advanced=${providers.gradleProperty('advancedSmoke').isPresent()}"
 				vmArg "-Ddarkmusic.testNativeBindings=${providers.gradleProperty('nativeBindingsSmoke').isPresent()}"
 				vmArg "-Ddarkmusic.privateImages=${file('docs/images_private').absolutePath}"
-				if (providers.gradleProperty('captureMusic').isPresent() || providers.gradleProperty('previewSmoke').isPresent() || providers.gradleProperty('advancedSmoke').isPresent()) vmArg "-Ddarkmusic.downloadTools=${file('Music').absolutePath}"
+				if (providers.gradleProperty('captureMusic').isPresent() || providers.gradleProperty('previewSmoke').isPresent() || providers.gradleProperty('advancedSmoke').isPresent()) vmArg "-Ddarkmusic.downloadTools=${downloadToolsDirectory.absolutePath}"
 			}
 		}
 	}
@@ -147,9 +148,10 @@ test {
 	testLogging { events 'failed', 'skipped' }
 	systemProperty 'darkmusic.jar', tasks.named('jar').get().archiveFile.get().asFile.absolutePath
 	if (providers.gradleProperty('downloadIntegration').isPresent()) {
-		systemProperty 'darkmusic.test.ytdlp', file('Music/yt-dlp.exe').absolutePath
-		systemProperty 'darkmusic.test.ffmpeg', file('Music/ffmpeg.exe').absolutePath
-		systemProperty 'darkmusic.test.ffprobe', file('Music/ffprobe.exe').absolutePath
+		def executableSuffix = System.getProperty('os.name').startsWith('Windows') ? '.exe' : ''
+		systemProperty 'darkmusic.test.ytdlp', new File(downloadToolsDirectory, "yt-dlp${executableSuffix}").absolutePath
+		systemProperty 'darkmusic.test.ffmpeg', new File(downloadToolsDirectory, "ffmpeg${executableSuffix}").absolutePath
+		systemProperty 'darkmusic.test.ffprobe', new File(downloadToolsDirectory, "ffprobe${executableSuffix}").absolutePath
 	}
 }
 

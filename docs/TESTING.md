@@ -22,7 +22,17 @@ For local audio validation:
 
 Choose formats supported by the test readers (MP3, FLAC, WAV, or Ogg Vorbis). Temporary format conversions must derive from the real collection, retain metadata/artwork when a check requires them, and be deleted afterward. Original files must remain untouched.
 
-On the Windows development setup, `-PdownloadIntegration` uses local `Music/yt-dlp.exe`, `Music/ffmpeg.exe`, and `Music/ffprobe.exe`. That ignored directory is a development resource, not a runtime installation path. Desktop chooser and managed-tool installation integration checks are opt-in through `-PdesktopIntegration` and `-PmanagedToolsIntegration`.
+`-PdownloadIntegration -PdownloadToolsDirectory=/path/to/tools` enables tests with existing yt-dlp, FFmpeg, and FFprobe executables. The platform's executable suffix is selected automatically. The default directory remains the ignored `Music/` folder; tools are never installed or downloaded by this flag. Desktop chooser and managed-tool installation integration checks are opt-in through `-PdesktopIntegration` and `-PmanagedToolsIntegration`.
+
+On Windows, the maintained local verification entry point is:
+
+```powershell
+./scripts/verify.ps1 -Clean -DesktopIntegration
+```
+
+If Windows blocks unsigned local scripts, run `powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify.ps1 -Clean -DesktopIntegration`. This applies only to that process; it does not change the system execution policy.
+
+It uses `run/config/darkmusic/music` and detects an existing managed tool bundle. Override with `-MusicDirectory` and `-ToolsDirectory`. Use JDK 25 in `JAVA_HOME` or on PATH. If the collection has no bundled-reader formats, the script prepares temporary MP3 excerpts from up to three real songs, keeping available metadata/artwork. Excerpts live outside `build/`, are removed on success or failure, and their source hashes are checked afterward. It requires the private collection, never generates dummy audio, and does not publish anything.
 
 ## Development client
 
