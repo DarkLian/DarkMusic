@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v2.6.0 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v2.7.0 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Interface language
 
@@ -150,6 +150,28 @@ During deletion, **Cancel Remaining Files** stops pending work. An already-issue
 
 Deletion briefly releases playback handles. A surviving current song resumes at its previous position and playing/paused state; deleting the current song leaves playback stopped. File operations run in the background. On Windows, Trash operations preserve fullscreen, and F11 remains available to change window mode.
 
+## Smart Cleanup
+
+Open **Manage Audio Files → Smart Cleanup**. Choose **Strict**, **Balanced** (default), or **Loose**, then **Start Scan**. Search filters the results. Scanning runs in the background; **Cancel Scan** stops pending analysis and keeps available results.
+
+![Expandable Smart Cleanup results](images/smart-cleanup.png)
+
+Related files appear in expandable groups. Open a group, select an individual match, and choose **Review Selected** or double-click it. Five fully matching files produce ten unique pairs inside one group. Each row retains its own evidence: a match between A and B and another between B and C do not imply that A matches C.
+
+Evidence may include exact file contents, the same source video, similar titles or filenames with supporting metadata/duration, similar audio fingerprints, or possible audio overlap. These are review suggestions. Loose includes weaker similarities and can match different songs with similar production; neither a label nor grouping proves that files are interchangeable. Live, remix, cover, and other version differences are highlighted where identifiable.
+
+**Compare Audio** uses existing FFmpeg tools for an offline spectral fingerprint of up to the first three minutes. It can find recordings with different tags, names, formats, or bitrates and some trimmed versions. It is optional and off by default; enable it to use acoustic evidence, including cached fingerprints. No online fingerprint lookup or additional executable download is performed. Very short overlap, edits beyond the analyzed excerpt, and pitch/tempo changes may be missed. This is DarkMusic's own spectral signature, not Chromaprint or AcoustID.
+
+The comparison shows artwork, song information, full paths, file sizes, duration, format, and available codec/source details. **Play A / Play B** starts that preview; the button changes to **Pause A / Pause B**, then resumes from the paused position. Choosing the other file switches the preview. Your normal playback is paused while auditioning and restored when leaving, with its original source and Up Next preserved. Preview playback does not add listening-history plays.
+
+- **Keep Both** dismisses that pair for the current scan.
+- **Ignore Match** suppresses that pair across launches while those file identities remain unchanged. Open **Ignored Matches** to restore one or all decisions.
+- **Delete A… / Delete B…** opens the existing exact-path deletion review for that file. Trash and permanent deletion retain their separate safety rules. No file is selected for deletion automatically, and there is no group-wide delete action.
+
+Successful deletions remove affected result pairs immediately and use the normal playlist, Favorite Music, and Up Next reconciliation. Failed or canceled deletions retain the files and matches. Sidecars and artwork files are kept. After metadata edits or external file changes, start a new scan to refresh evidence; cached analysis is reused only for unchanged files. Unavailable files are counted and skipped without aborting the scan.
+
+Analysis and ignored decisions are stored locally. Candidate retrieval is bounded for large libraries, with up to 100,000 tracks and 20,000 result pairs. A limit warning means some candidates were omitted; no sensitivity guarantees finding every duplicate.
+
 ## Download music
 
 Open **Downloads** from the player. Wide windows use a source bar, a left navigation/selection panel, and a right preview or queue panel. Compact windows retain accessible stacked controls.
@@ -186,6 +208,16 @@ Downloads run in the background, including when the menu is closed. Up to three 
 Queue search covers titles, status, errors, and destination folders. **Retry Selected** retries one failed job; **Retry Failed** retries all failed jobs. Automatic retries for temporary failures, including HTTP 503 Service Unavailable, run after pending work, up to three retries per job. Clear Finished keeps failed jobs; Clear Failed removes their queue records. Cancellation stops active/queued work; completed files remain.
 
 Completed files go into the currently configured music folder and appear in the library. **Audio Options → Download Audio Format** chooses Original / Best Available or Convert to MP3. Available title, uploader/artist, album, track number, and artwork are embedded where supported. Duplicate tracking reduces repeat downloads.
+
+### Music already in your library
+
+Analysis entries show **Already Downloaded**, **Possible Duplicate**, or **Not Detected**. Known source identities are indexed across all registered folders, using recorded download/source associations and available embedded source metadata. Inspect an entry's existing-copy information with the folder button beside the preview controls. An incomplete library check is shown explicitly; Not Detected is not proof that a recording is new.
+
+When preparing downloads finds confirmed source matches, a review lists the existing titles, formats, and locations. **Skip Already Downloaded** skips only copies matching the requested output format and rechecks the files first. **Download Anyway** permits another copy or format in the chosen destination. Back cancels that pending choice without starting it. Skipped jobs are reported as skipped, not newly saved.
+
+The existing destination-specific download history remains active. Renaming files through DarkMusic updates provenance; external renames or moves that lose source associations may not be recognized until metadata or a new scan supplies them. Offline or missing files are never silently treated as verified copies. Canonical YouTube/Bilibili URL forms and recorded extractor/media IDs provide source identity; support for other URL aliases depends on the recorded information.
+
+**Possible Duplicate** uses available Smart Cleanup evidence. It never silently skips a download and does not run acoustic analysis in the download pipeline. Different uploads of the same recording can still require Smart Cleanup review after downloading. The local index and retained evidence refresh as the library changes; no extra website requests are made for these checks.
 
 Restricted, deleted, private, or unsupported content may fail. DarkMusic does not bypass authentication or DRM. Download only material you are authorized to save.
 

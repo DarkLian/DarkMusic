@@ -3,12 +3,12 @@ package com.darkmusic.client.audio;
 /**
  * In-place radix-two transform. Plans are immutable and shared by worker-owned buffers.
  */
-final class AudioFft {
+public final class AudioFft {
     private final int n;
     private final int[] reverse;
     private final double[] cos, sin;
 
-    AudioFft(int size) {
+    public AudioFft(int size) {
         if (Integer.bitCount(size) != 1) throw new IllegalArgumentException("FFT size");
         n = size;
         reverse = new int[n];
@@ -22,7 +22,7 @@ final class AudioFft {
         }
     }
 
-    void transform(double[] real, double[] imaginary, boolean inverse) {
+    public void transform(double[] real, double[] imaginary, boolean inverse) {
         for (int i = 0; i < n; i++) {
             int j = reverse[i];
             if (j > i) {

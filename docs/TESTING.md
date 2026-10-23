@@ -120,3 +120,22 @@ Run the focused native workflow with already installed tools:
 This uses the isolated `build/queue-run` directory, fullscreen GUI scale 2 and SmoothFont. It checks 320×240, 426×240, and 960×540 screen coordinates, keyboard actions, duplicate drag reorder/removal, collection-copy drops, diagnostic copying through the actual clipboard, Back navigation across secondary menus, artwork cards and drag previews, and real-device pause/seek/resume and queue-to-collection promotion. The font pack is required for this visual workflow; the music and tools must already exist. No personal audio is packaged or changed.
 
 Before release, also review both languages, the default font, compact-window rendering, queue entry deletion/rename during playback, live crossfade queue mutation, and device switching. Re-run native checks on supported operating systems where available; passing mock/device-clock tests or CI compilation does not establish hardware or desktop compatibility.
+
+## Smart Cleanup and library-wide duplicate awareness
+
+`DuplicateMatcherTest` covers independent signals, Unicode normalization, version markers, source URL forms, acoustic retrieval with unrelated tags, offset matching, negative examples, cancellation, and bounded sparse retrieval for 100,000 synthetic metadata records. `DuplicateGroupsTest` verifies a five-file/ten-edge group, non-transitive evidence, stable grouping, and a 20,001-file chain without recursive traversal or invented pairs.
+
+`DuplicateStorageTest` uses disposable text documents for hash/cache invalidation, corruption recovery, source archives, known-deletion result updates, offline entries, cancellation, fingerprint-toggle behavior, and persistent ignored pairs. These are not generated audio assets. `LibrarySourceIndexTest` verifies registered roots, formats, renamed/deleted files, unregistered roots, incomplete checks, and the separation between confirmed source identity and fuzzy evidence.
+
+`DownloadAwarenessTest` injects tool results to verify explicit review, skip versus download-anyway decisions, disappearing copies, different output formats, repeated Mix entries, concurrent requests, and fallback when the shared index is unavailable. Existing download integration tests retain destination-specific archive and processing coverage.
+
+`CleanupAudioTest` converts temporary excerpts from real recordings into FLAC, MP3, and Opus and tests trimmed overlap, then removes the excerpts. It skips without private audio or existing FFmpeg on hosted runners. `ComparisonAuditionTest` verifies pause/resume at the retained preview position, switching files, initialization failure recovery, original pause state, and preservation of source/queue state.
+
+```sh
+./gradlew runSmokeClient -Psmoke -PcleanupSmoke -PsmokeLanguage=en_us -PdownloadToolsDirectory=/path/to/tools
+./gradlew runSmokeClient -Psmoke -PcleanupSmoke -PsmokeLanguage=zh_tw -PdownloadToolsDirectory=/path/to/tools
+```
+
+The isolated `build/cleanup-run` client uses the private real collection, existing tools, SmoothFont, fullscreen 1920×1080, and GUI scale 2. It checks group expansion against actual evidence counts, 320×240/426×240/960×540 logical widget bounds and nonoverlap, real-device preview playback/pause/resume, retained position, original-song restoration, and unchanged Up Next. It never deletes or retags private music and makes no download requests to media websites. Captures remain in `docs/images_private` until reviewed for public use.
+
+Before publication, run `scripts/verify.ps1 -Clean -DesktopIntegration`, inspect the packaged JAR, and review both languages. Real NAS failures, Linux/macOS desktop/device behavior, live website availability, and in-world frame-time stability require separate runtime verification; synthetic benchmarks and title-screen checks do not establish those results.

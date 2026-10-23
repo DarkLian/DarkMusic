@@ -70,7 +70,7 @@ def downloadToolsDirectory = file(providers.gradleProperty('downloadToolsDirecto
 // A separate development-only mod exercises actual screens and audio devices.
 // It is never included in the release JAR or normal runClient classpath.
 if (providers.gradleProperty('smoke').isPresent()) {
-	def visualSmoke = ['visualSmoke', 'captureMusic', 'previewSmoke', 'advancedSmoke', 'queueSmoke'].any { providers.gradleProperty(it).isPresent() }
+	def visualSmoke = ['visualSmoke', 'captureMusic', 'previewSmoke', 'advancedSmoke', 'queueSmoke', 'cleanupSmoke'].any { providers.gradleProperty(it).isPresent() }
 	def smokeFont = file(providers.gradleProperty('smokeFont').getOrElse('run/resourcepacks/SmoothFont_1.21.zip'))
 	sourceSets {
 		smoke {
@@ -84,7 +84,7 @@ if (providers.gradleProperty('smoke').isPresent()) {
 			smokeClient {
 				client()
 				source sourceSets.smoke
-				runDir providers.gradleProperty('queueSmoke').isPresent() ? 'build/queue-run' : providers.gradleProperty('advancedSmoke').isPresent() ? 'build/advanced-run' : providers.gradleProperty('resetSmoke').isPresent() ? 'build/reset-run' : providers.gradleProperty('previewSmoke').isPresent() ? 'build/preview-run' : providers.gradleProperty('captureMusic').isPresent() ? 'build/capture-run' : 'build/smoke-run'
+				runDir providers.gradleProperty('cleanupSmoke').isPresent() ? 'build/cleanup-run' : providers.gradleProperty('queueSmoke').isPresent() ? 'build/queue-run' : providers.gradleProperty('advancedSmoke').isPresent() ? 'build/advanced-run' : providers.gradleProperty('resetSmoke').isPresent() ? 'build/reset-run' : providers.gradleProperty('previewSmoke').isPresent() ? 'build/preview-run' : providers.gradleProperty('captureMusic').isPresent() ? 'build/capture-run' : 'build/smoke-run'
 				vmArg "-Ddarkmusic.music=${realMusicDirectory}"
 				vmArg "-Ddarkmusic.visualSmoke=${visualSmoke}"
 				vmArg "-Ddarkmusic.smoothFontAvailable=${smokeFont.isFile()}"
@@ -94,14 +94,15 @@ if (providers.gradleProperty('smoke').isPresent()) {
 				vmArg "-Ddarkmusic.previewSmoke=${providers.gradleProperty('previewSmoke').isPresent()}"
 				vmArg "-Ddarkmusic.capture=${providers.gradleProperty('captureMusic').isPresent()}"
 				vmArg "-Ddarkmusic.advanced=${providers.gradleProperty('advancedSmoke').isPresent()}"
+				vmArg "-Ddarkmusic.cleanupSmoke=${providers.gradleProperty('cleanupSmoke').isPresent()}"
 				vmArg "-Ddarkmusic.queueSmoke=${providers.gradleProperty('queueSmoke').isPresent()}"
 				vmArg "-Ddarkmusic.testNativeBindings=${providers.gradleProperty('nativeBindingsSmoke').isPresent()}"
 				vmArg "-Ddarkmusic.privateImages=${file('docs/images_private').absolutePath}"
-				if (providers.gradleProperty('queueSmoke').isPresent() || providers.gradleProperty('captureMusic').isPresent() || providers.gradleProperty('previewSmoke').isPresent() || providers.gradleProperty('advancedSmoke').isPresent()) vmArg "-Ddarkmusic.downloadTools=${downloadToolsDirectory.absolutePath}"
+				if (providers.gradleProperty('cleanupSmoke').isPresent() || providers.gradleProperty('queueSmoke').isPresent() || providers.gradleProperty('captureMusic').isPresent() || providers.gradleProperty('previewSmoke').isPresent() || providers.gradleProperty('advancedSmoke').isPresent()) vmArg "-Ddarkmusic.downloadTools=${downloadToolsDirectory.absolutePath}"
 			}
 		}
 	}
-	def smokeLog = layout.buildDirectory.file(providers.gradleProperty('queueSmoke').isPresent() ? 'queue-run/logs/latest.log' : providers.gradleProperty('advancedSmoke').isPresent() ? 'advanced-run/logs/latest.log' : providers.gradleProperty('resetSmoke').isPresent() ? 'reset-run/logs/latest.log' : providers.gradleProperty('previewSmoke').isPresent() ? 'preview-run/logs/latest.log' : providers.gradleProperty('captureMusic').isPresent() ? 'capture-run/logs/latest.log' : 'smoke-run/logs/latest.log')
+	def smokeLog = layout.buildDirectory.file(providers.gradleProperty('cleanupSmoke').isPresent() ? 'cleanup-run/logs/latest.log' : providers.gradleProperty('queueSmoke').isPresent() ? 'queue-run/logs/latest.log' : providers.gradleProperty('advancedSmoke').isPresent() ? 'advanced-run/logs/latest.log' : providers.gradleProperty('resetSmoke').isPresent() ? 'reset-run/logs/latest.log' : providers.gradleProperty('previewSmoke').isPresent() ? 'preview-run/logs/latest.log' : providers.gradleProperty('captureMusic').isPresent() ? 'capture-run/logs/latest.log' : 'smoke-run/logs/latest.log')
 	def smokeRunId = layout.buildDirectory.file('smoke-run-id.txt')
 	def smokeRunFolder = file(loom.runs.smokeClient.runDir)
 	tasks.register('prepareSmokeClient') {
@@ -119,6 +120,7 @@ if (providers.gradleProperty('smoke').isPresent()) {
 			def options = new File(runFolder, 'options.txt')
 			def values = options.isFile() ? options.readLines('UTF-8') : []
 			def display = [guiScale: '2', overrideWidth: '1280', overrideHeight: '720', fullscreen: 'true', exclusiveFullscreen: 'true', fullscreenResolution: '1920x1080@60:24', resourcePacks: font.isFile() ? '["vanilla","file/SmoothFont_1.21.zip"]' : '["vanilla"]', incompatibleResourcePacks: font.isFile() ? '["file/SmoothFont_1.21.zip"]' : '[]']
+			if (providers.gradleProperty('smokeLanguage').isPresent()) display.lang = providers.gradleProperty('smokeLanguage').get()
 			values = values.findAll { !display.containsKey(it.takeWhile { c -> c != ':' }) }
 			display.each { key, value -> values.add("$key:$value") }
 			options.setText(values.join('\n') + '\n', 'UTF-8')

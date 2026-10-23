@@ -30,6 +30,8 @@ public final class DownloadScreen extends LocalScreen {
     private RowList rows;
     private Button queueToggle, analyze, download, modeButton, previous, next, goToPage, selectAll, deselect, listen, stopListening, retrySelected, retryFailed, clearFailed, cancelSelected, cancelAll, clearFinished;
     private Button errorDetails;
+    private Button existingDetails;
+    private long sourceRevision = -1, shownChoice = -1;
     private Preview displayed;
     private int furthestPage = 1;
     private Snapshot rowsSnapshot;
@@ -103,6 +105,7 @@ public final class DownloadScreen extends LocalScreen {
 
     @Override
     protected void init() {
+        app.sourceIndex();
         backButton(width - 36, 6, 24);
         rowsSnapshot = null;
         UiButton.icon(button(Text.get("text.darkmusic.tools"), width - 128, 6, 88,
@@ -184,6 +187,12 @@ public final class DownloadScreen extends LocalScreen {
                 ? () -> app.downloads.retry(selectedJob) : () -> app.downloads.analyze(app.downloads.inputUrl(), 0)));
         }, "download.diag.help");
         UiButton.icon(errorDetails, UiIcon.WARNING, true);
+        existingDetails = action("download.library.existing", () -> {
+            var choice = app.downloads.duplicateChoice();
+            if (choice != null) show(new DownloadDuplicateScreen(app, this, choice));
+            else if (listeningEntry != null) show(new ExistingDownloadsScreen(app, this, listeningEntry));
+        }, "download.library.inspect_help");
+        UiButton.icon(existingDetails, UiIcon.FOLDER, true);
         UiButton.style(analyze, UiButton.Style.PRIMARY);
         UiButton.style(download, UiButton.Style.PRIMARY);
         UiButton.selected(entriesTab, () -> !queueView);
@@ -315,6 +324,9 @@ public final class DownloadScreen extends LocalScreen {
         place(errorDetails, width - (queueView ? 36 : 92), searchY, 24, available);
         errorDetails.active = available;
         if (available) search.setWidth(Math.max(24, search.getWidth() - 28));
+        boolean inspect = app.downloads.duplicateChoice() != null || !queueView && listeningEntry != null;
+        place(existingDetails, width - (queueView ? 36 : 92) - (available ? 28 : 0), searchY, 24, inspect);
+        if (inspect) search.setWidth(Math.max(24, search.getWidth() - 28));
     }
 
     private void cycleMode() {
@@ -499,7 +511,9 @@ public final class DownloadScreen extends LocalScreen {
     private void refreshRows() {
         if (rows == null) return;
         var snapshot = app.downloads.snapshot();
-        if (rowsSnapshot == snapshot && rowsQueue == queueView) return;
+        long source = app.sourceIndex().revision();
+        if (rowsSnapshot == snapshot && rowsQueue == queueView && sourceRevision == source) return;
+        sourceRevision = source;
         rowsSnapshot = snapshot;
         rowsQueue = queueView;
         var p = snapshot.preview();
@@ -515,13 +529,19 @@ public final class DownloadScreen extends LocalScreen {
             visible = p == null ? List.of() : p.entries().stream().filter(e -> filter.isEmpty() || (e.title() + " " + Math.max(1, e.index())).toLowerCase(Locale.ROOT).contains(filter)).toList();
             if (listeningEntry != null && !visible.contains(listeningEntry)) listeningEntry = null;
             selection.visible(visible.stream().map(DownloadScreen::key).toList());
-            rows.rows(visible.stream().map(e -> new RowList.Row(Math.max(1, e.index()) + ". " + e.title(), e.available() ? p.source() : Text.get("text.darkmusic.unavailable_private_deleted"))).toList());
+            rows.rows(visible.stream().map(e -> new RowList.Row(Math.max(1, e.index()) + ". " + e.title(), e.available() ? libraryStatus(e) : Text.get("text.darkmusic.unavailable_private_deleted"))).toList());
             rows.emptyMessage(p == null ? Text.get("text.darkmusic.analyze_a_url_to_preview_entries") : Text.get("download.darkmusic.no_matches"));
         }
     }
 
     @Override
     public void tick() {
+        var choice = app.downloads.duplicateChoice();
+        if (choice != null && choice.id() != shownChoice && !app.downloads.snapshot().analyzing()) {
+            shownChoice = choice.id();
+            show(new DownloadDuplicateScreen(app, this, choice));
+            return;
+        }
         var p = app.downloads.snapshot().preview();
         if (p != displayed) {
             if (p != null && displayed == null && (width < 640 || height < 360)) sourceExpanded = false;
@@ -542,6 +562,17 @@ public final class DownloadScreen extends LocalScreen {
         }
         refreshRows();
         updateButtons();
+    }
+
+    private String libraryStatus(Entry entry) {
+        var lookup = app.sourceIndex().lookup(entry);
+        if (!lookup.confirmed().isEmpty()) {
+            var f = lookup.confirmed().getFirst();
+            return Text.get("download.library.already") + " | " + f.track().title() + " | " + f.format() + " | " + f.track().file();
+        }
+        if (!lookup.possible().isEmpty())
+            return Text.get("download.library.possible") + " | " + lookup.possible().getFirst().title();
+        return Text.get(lookup.complete() ? "download.library.not_detected" : "download.library.incomplete");
     }
 
     @Override

@@ -44,6 +44,48 @@ public final class DownloadService implements AutoCloseable {
     private ProcessRunner.Token analysisToken = new ProcessRunner.Token();
     private Tools settings = new Tools("", "", "", "");
     private DownloadEncoding.Format format = DownloadEncoding.Format.ORIGINAL;
+    private volatile com.darkmusic.client.cleanup.LibrarySourceIndex awareness;
+
+    public record DuplicateChoice(long id, List<Entry> entries, Path destination, Tools tools,
+                                  DownloadEncoding.Format format,
+                                  java.util.Map<String, List<com.darkmusic.client.cleanup.LibrarySourceIndex.Existing>> matches) {
+    }
+
+    private DuplicateChoice duplicateChoice;
+    private long choiceIds;
+
+    public void awareness(com.darkmusic.client.cleanup.LibrarySourceIndex value) {
+        awareness = value;
+    }
+
+    public synchronized DuplicateChoice duplicateChoice() {
+        return duplicateChoice;
+    }
+
+    public synchronized void cancelDuplicateChoice(long id) {
+        if (duplicateChoice != null && duplicateChoice.id() == id) {
+            duplicateChoice = null;
+            message = Text.get("download.darkmusic.cancelled");
+            published = null;
+        }
+    }
+
+    public void resolveDuplicateChoice(long id, boolean skip) {
+        DuplicateChoice choice;
+        synchronized (this) {
+            choice = duplicateChoice;
+            if (closed || analyzing || choice == null || choice.id() != id) return;
+            duplicateChoice = null;
+        }
+        start(Text.get("download.darkmusic.preparing_selected"), token -> {
+            var skipped = new java.util.HashSet<String>();
+            var index = awareness;
+            if (skip && index != null) for (Entry e : choice.entries())
+                if (index.verified(e).stream().anyMatch(v -> v.sameFormat(choice.format()))) skipped.add(e.key());
+            commit(choice.entries(), choice.destination(), choice.tools(), token, choice.format(), skipped);
+        });
+    }
+
     private volatile boolean lyricsEnabled = true;
     private volatile List<String> lyricsLanguages = LyricsLanguages.resolve("auto", java.util.Locale.getDefault().toLanguageTag());
 
@@ -308,7 +350,33 @@ public final class DownloadService implements AutoCloseable {
         });
     }
 
-    private synchronized void add(List<Entry> entries, Path destination, Tools selected, ProcessRunner.Token token) throws IOException {
+    private void add(List<Entry> entries, Path destination, Tools selected, ProcessRunner.Token token) throws IOException {
+        if (entries.size() > MAX_BATCH) throw new IOException(Text.get("download.queue_capacity", MAX_BATCH));
+        var index = awareness;
+        DownloadEncoding.Format requested;
+        synchronized (this) {
+            requested = format;
+        }
+        if (index != null) {
+            var found = new java.util.LinkedHashMap<String, List<com.darkmusic.client.cleanup.LibrarySourceIndex.Existing>>();
+            for (Entry entry : entries) {
+                token.check();
+                var matches = index.verified(entry);
+                if (!matches.isEmpty()) found.put(entry.key(), matches);
+            }
+            if (!found.isEmpty()) synchronized (this) {
+                token.check();
+                if (duplicateChoice == null)
+                    duplicateChoice = new DuplicateChoice(++choiceIds, List.copyOf(entries), destination, selected, requested, java.util.Map.copyOf(found));
+                message = Text.get("download.library.review_needed", found.size());
+                published = null;
+                return;
+            }
+        }
+        commit(entries, destination, selected, token, requested, java.util.Set.of());
+    }
+
+    private synchronized void commit(List<Entry> entries, Path destination, Tools selected, ProcessRunner.Token token, DownloadEncoding.Format requested, java.util.Set<String> skipped) throws IOException {
         token.check();
         if (closed || token != analysisToken) throw new CancellationException();
         if (entries.isEmpty())
@@ -316,23 +384,29 @@ public final class DownloadService implements AutoCloseable {
         if (entries.size() > MAX_BATCH || work.size() + entries.size() > MAX_BATCH)
             throw new IOException(Text.get("download.queue_capacity", MAX_BATCH));
         Path target = destination.toAbsolutePath().normalize();
-        int added = 0;
+        int added = 0, skippedCount = 0;
         for (Entry entry : entries) {
-            var key = new ActiveKey(target, entry.key());
+            var key = new ActiveKey(target, entry.key(), requested);
             if (!activeKeys.add(key)) continue;
             Work item = new Work(++ids, entry, target, selected);
-            item.format = format;
+            item.format = requested;
             work.add(item);
-            if (!entry.available()) {
+            if (skipped.contains(entry.key())) {
+                item.status = Status.SKIPPED;
+                activeKeys.remove(key);
+                item.message = Text.get("download.library.skipped");
+                item.progress = 1;
+                skippedCount++;
+            } else if (!entry.available()) {
                 item.status = Status.FAILED;
                 activeKeys.remove(key);
                 item.message = Text.get("download.entry_unavailable");
                 item.diagnostic = DownloadDiagnostics.classify(new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.CONTENT_UNAVAILABLE,
                     DownloadDiagnostics.Stage.DOWNLOAD, DownloadDiagnostics.Tool.NONE, null, "", null), DownloadDiagnostics.Stage.DOWNLOAD, entry.url(), item.id, 0, "");
             } else pending.add(item);
-            added++;
+            if (item.status != Status.SKIPPED) added++;
         }
-        message = Text.get("download.queued_count", added, target);
+        message = skippedCount == 0 ? Text.get("download.queued_count", added, target) : Text.get("download.library.queued", added, skippedCount);
         published = null;
     }
 
@@ -343,7 +417,7 @@ public final class DownloadService implements AutoCloseable {
                 if (item.status == Status.QUEUED) {
                     pending.remove(item);
                     item.status = Status.CANCELLED;
-                    activeKeys.remove(new ActiveKey(item.destination, item.entry.key()));
+                    activeKeys.remove(new ActiveKey(item.destination, item.entry.key(), item.format));
                     item.message = Text.get("download.darkmusic.cancelled");
                 } else item.message = Text.get("download.cancelling");
             }
@@ -351,6 +425,7 @@ public final class DownloadService implements AutoCloseable {
     }
 
     public synchronized void cancelAll() {
+        duplicateChoice = null;
         work.forEach(w -> {
             w.retryAllowed = false;
             cancel(w.id);
@@ -401,7 +476,7 @@ public final class DownloadService implements AutoCloseable {
     }
 
     private void requeue(Work item) {
-        var key = new ActiveKey(item.destination, item.entry.key());
+        var key = new ActiveKey(item.destination, item.entry.key(), item.format);
         if (!activeKeys.add(key)) return;
         item.token = new ProcessRunner.Token();
         item.diagnostic = null;
@@ -513,6 +588,7 @@ public final class DownloadService implements AutoCloseable {
                     update(item, status, percent, detail);
                 }, item.format, () -> lyricsEnabled, () -> lyricsLanguages);
                 update(item, result.skipped() ? Status.SKIPPED : Status.SAVED, 1, result.file().getFileName() + (result.warning().isBlank() ? "" : " — " + result.warning()));
+                if (awareness != null) awareness.saved(item.entry, result.file(), item.format);
                 if (!result.skipped()) try {
                     refresh.run();
                 } catch (RuntimeException e) {
@@ -533,7 +609,7 @@ public final class DownloadService implements AutoCloseable {
     }
 
     private synchronized void update(Work item, Status status, double progress, String detail) {
-        if (status.finished()) activeKeys.remove(new ActiveKey(item.destination, item.entry.key()));
+        if (status.finished()) activeKeys.remove(new ActiveKey(item.destination, item.entry.key(), item.format));
         published = null;
         item.status = status;
         item.progress = progress;
@@ -591,7 +667,7 @@ public final class DownloadService implements AutoCloseable {
         }
     }
 
-    private record ActiveKey(Path directory, String media) {
+    private record ActiveKey(Path directory, String media, DownloadEncoding.Format format) {
     }
 
     private record Cache(Tools settings, Toolchain tools) {

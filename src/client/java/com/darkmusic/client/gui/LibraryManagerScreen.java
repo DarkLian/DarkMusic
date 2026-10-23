@@ -32,6 +32,8 @@ public final class LibraryManagerScreen extends LocalScreen {
     @Override
     protected void init() {
         backButton();
+        var cleanup = addRenderableWidget(UiButton.builder(Text.component("cleanup.title"), b -> show(new SmartCleanupScreen(app, this))).bounds(width - 216, 4, 132, 20).build());
+        UiButton.icon(cleanup, UiIcon.SEARCH, false);
         search = addRenderableWidget(new UiInput(font, 12, 34, width - 24, 20, Text.component("text.darkmusic.search_songs")));
         search.setMaxLength(512);
         search.setHint(Text.component("text.darkmusic.search_title_artist_album_or_path"));

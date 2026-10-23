@@ -37,6 +37,33 @@ public class DarkMusicClient implements ClientModInitializer {
     private com.darkmusic.client.audio.JavaSoundBackend backend;
     public com.darkmusic.client.library.ListeningHistory listeningHistory;
     private boolean outputChanging;
+    private com.darkmusic.client.cleanup.DuplicateScanner cleanupScanner;
+    private com.darkmusic.client.cleanup.DuplicateReviewStore cleanupReviews;
+    private com.darkmusic.client.cleanup.LibrarySourceIndex sourceIndex;
+    private long sourceEvidenceRevision = -1;
+    private java.util.List<com.darkmusic.client.cleanup.DuplicateResult> sourceEvidence = java.util.List.of();
+
+    public com.darkmusic.client.cleanup.LibrarySourceIndex sourceIndex() {
+        if (sourceIndex == null) {
+            sourceIndex = new com.darkmusic.client.cleanup.LibrarySourceIndex(config.directory());
+            var s = library.snapshot();
+            sourceIndex.update(s.tracks(), library.roots(), s.complete());
+            downloads.awareness(sourceIndex);
+        }
+        return sourceIndex;
+    }
+
+    public com.darkmusic.client.cleanup.DuplicateScanner cleanup() {
+        if (cleanupScanner == null)
+            cleanupScanner = new com.darkmusic.client.cleanup.DuplicateScanner(config.directory());
+        return cleanupScanner;
+    }
+
+    public com.darkmusic.client.cleanup.DuplicateReviewStore cleanupReviews() {
+        if (cleanupReviews == null)
+            cleanupReviews = new com.darkmusic.client.cleanup.DuplicateReviewStore(config.directory(), io);
+        return cleanupReviews;
+    }
 
     private com.darkmusic.client.audio.PlaybackController createPlayback() {
         backend = new com.darkmusic.client.audio.JavaSoundBackend(Minecraft.getInstance()::execute,
@@ -354,6 +381,8 @@ public class DarkMusicClient implements ClientModInitializer {
                 var removed = completed == null ? java.util.Set.<String>of() : completed.removed().stream().map(com.darkmusic.client.library.Track::id).collect(java.util.stream.Collectors.toSet());
                 store.removeTracks(removed);
                 player.finishDeletion(resume, removed);
+                if (cleanupScanner != null) cleanupScanner.deleted(removed);
+                if (sourceIndex != null) sourceIndex.deleted(removed);
                 if (!removed.isEmpty()) scanned.rescan();
                 if (failure == null) result.complete(completed);
                 else result.completeExceptionally(failure);
@@ -831,12 +860,23 @@ public class DarkMusicClient implements ClientModInitializer {
         while (jump.consumeClick()) if (allowed) playbackShortcut(jump);
         if (resetting || settings == null || playback == null) return;
         var queuedLibrary = library.snapshot();
-        if (queuedLibraryRevision != queuedLibrary.revision()) {
+        if (!mediaBusy && queuedLibraryRevision != queuedLibrary.revision()) {
             queuedLibraryRevision = queuedLibrary.revision();
+            if (sourceIndex != null && !mediaBusy)
+                sourceIndex.update(queuedLibrary.tracks(), library.roots(), queuedLibrary.complete());
             if (!mediaBusy) playback.reconcileQueued(playlists.index(queuedLibrary.tracks()),
                 new java.util.HashSet<>(library.roots().values()), queuedLibrary.completeRoots());
         }
         if (listeningHistory != null && !mediaBusy) listeningHistory.flush(false);
+        if (sourceIndex != null && cleanupScanner != null && sourceEvidenceRevision != cleanupScanner.snapshot().revision()) {
+            sourceEvidenceRevision = cleanupScanner.snapshot().revision();
+            var pairs = cleanupScanner.snapshot().pairs();
+            if (pairs != sourceEvidence) {
+                sourceEvidence = pairs;
+                var index = sourceIndex;
+                io.execute(() -> index.evidence(pairs));
+            }
+        }
         boolean playlistsClean = cleanMissingPlaylistEntries();
         if (autoplayPending && !mediaBusy && playlistsClean && !library.snapshot().scanning()) {
             autoplayPending = false;
@@ -852,6 +892,17 @@ public class DarkMusicClient implements ClientModInitializer {
         if (closed || resetting || mediaBusy)
             return CompletableFuture.failedFuture(new IllegalStateException(com.darkmusic.client.text.Text.get("reset.darkmusic.busy")));
         resetting = true;
+        if (cleanupScanner != null) {
+            cleanupScanner.close();
+            cleanupScanner = null;
+        }
+        if (sourceIndex != null) {
+            sourceIndex.close();
+            sourceIndex = null;
+        }
+        cleanupReviews = null;
+        sourceEvidenceRevision = -1;
+        sourceEvidence = java.util.List.of();
         requestedLayout = null;
         directoryGeneration++;
         autoplayPending = false;
@@ -953,6 +1004,8 @@ public class DarkMusicClient implements ClientModInitializer {
         com.darkmusic.client.gui.DesktopFolderPicker.cancel();
         if (mediaToken != null) mediaToken.cancel();
         browsing.shutdownNow();
+        if (cleanupScanner != null) cleanupScanner.close();
+        if (sourceIndex != null) sourceIndex.close();
         if (audition != null) audition.close();
         if (downloads != null) downloads.close();
         if (library != null) library.close();

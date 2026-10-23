@@ -72,7 +72,7 @@ public final class ExternalAudio {
         Path absolute = file.toAbsolutePath();
         var args = new ArrayList<>(List.of(tool(true).toString(), "-v", "error", "-protocol_whitelist", "file,pipe", "-select_streams", "a:0"));
         if (metadata)
-            args.addAll(List.of("-show_entries", "stream=codec_name,sample_rate,channels,bits_per_raw_sample,duration:stream_tags=title,artist,album,track,replaygain_track_gain,replaygain_album_gain,replaygain_track_peak,replaygain_album_peak,purl,webpage_url,source_url,url,comment:format=duration:format_tags=title,artist,album,track,replaygain_track_gain,replaygain_album_gain,replaygain_track_peak,replaygain_album_peak,purl,webpage_url,source_url,url,comment"));
+            args.addAll(List.of("-show_entries", "stream=codec_name,sample_rate,channels,bit_rate,bits_per_raw_sample,duration:stream_tags=title,artist,album,track,replaygain_track_gain,replaygain_album_gain,replaygain_track_peak,replaygain_album_peak,purl,webpage_url,source_url,url,comment:format=duration,bit_rate:format_tags=title,artist,album,track,replaygain_track_gain,replaygain_album_gain,replaygain_track_peak,replaygain_album_peak,purl,webpage_url,source_url,url,comment"));
         else
             args.addAll(List.of("-show_entries", "stream=codec_name,sample_rate,channels,bits_per_raw_sample:format=duration"));
         args.addAll(List.of("-of", "json", absolute.toString()));

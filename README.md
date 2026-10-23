@@ -6,9 +6,9 @@ A client-side music player for Minecraft. Browse your own library, build playlis
 
 ## Install
 
-DarkMusic **v2.6.0** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v2.7.0** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-2.6.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-2.7.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Open **Settings → General → Music Folders**, or add songs to `config/darkmusic/music` inside the instance.
@@ -23,6 +23,7 @@ Update notifications are enabled by default and appear once per launch after joi
 
 - **Library:** scan multiple music folders, choose a default save folder, and browse All Tracks, nested folders, playlists, artists, and albums. Search titles, artists, albums, and paths.
 - **File management:** Open Folder follows the selected library folder. Use Manage Audio Files to review and delete selected files, individually or in bulk, with Move to Trash where supported and separate confirmation for permanent deletion. Cancel Remaining Files keeps pending items on disk.
+- **Smart Cleanup:** discover possible duplicates across your library, expand related-file groups, compare artwork and file details, and listen with Play/Pause A and B. Keep both, ignore a match, or explicitly review one file for deletion.
 - **Import:** drag audio files into the player or playlist manager to copy them into your library. Import into the selected folder or playlist, and review results through Import History beside Open Folder.
 - **Listening history:** open the clock icon beside Manage Playlists for Recently Played, Most Played, play counts, and listening time. History stays in order while you play from it.
 - **Backup and restore:** export settings, playlists, key bindings, and listening history to a portable ZIP. Preview and choose what to restore; audio files are never included or changed.
@@ -33,6 +34,7 @@ Update notifications are enabled by default and appear once per launch after joi
 - **Playlists:** bulk-select songs and reorder connected selections by dragging. Completed folder scans clean up confirmed missing entries, including favorites. Unavailable folders retain their entries while other folders finish scanning independently.
 - **Up Next:** open Song Actions for the selected song to play it next or append it to a temporary queue. Reorder or remove individual occurrences in Up Next, then continue the original collection. Playlists stay unchanged.
 - **Downloads:** analyze a video or collection URL, select entries or a range, preview audio, jump between available preview pages, and manage parallel downloads and retries.
+- **Existing music awareness:** download previews identify known source videos across registered folders. Inspect existing copies, skip matching output formats, or choose Download Anyway.
 - **Download diagnostics:** open Error Details after failed analysis or for a failed queue item. See the operation, tool, likely explanation, and relevant next steps; copy a bounded report without full URLs, local paths, or raw tool output.
 - **Navigation:** use visible Back buttons in secondary menus, or press Escape.
 - **HUD:** Classic, Circular, Artwork, and Spectrum Only layouts with optional progress and a spectrum driven by decoded audio. Artwork mode preserves image proportions and supports outward horizontal spectra beside the image.
@@ -47,6 +49,12 @@ Update notifications are enabled by default and appear once per launch after joi
 Create playlists, bulk-select songs, and drag connected selections to reorder them. Keep favorites one heart-click away.
 
 ![Playlist manager with bulk selection and drag reordering](docs/images/playlists.png)
+
+## Review possible duplicates
+
+Open **Manage Audio Files → Smart Cleanup** to find related recordings and expand each group to review individual matches. Compare both files, pause and resume previews, and decide what to keep. Deletion always uses a separate file review.
+
+![Smart Cleanup groups related files for manual review](docs/images/smart-cleanup.png)
 
 ## Your HUD in-game
 

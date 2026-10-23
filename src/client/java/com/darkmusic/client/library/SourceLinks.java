@@ -106,6 +106,32 @@ public final class SourceLinks {
         }
     }
 
+    /**
+     * Background bulk readers load each directory's provenance once, rather than once per song.
+     */
+    public static Map<String, String> readDirectory(Path directory) {
+        synchronized (LOCK) {
+            var result = new HashMap<String, String>();
+            try {
+                for (var e : json(directory.resolve(".darkmusic-sources.json")).entrySet()) {
+                    String url = safe(e.getValue().getAsString());
+                    if (!url.isEmpty()) result.put(e.getKey(), url);
+                }
+                for (var e : json(directory.resolve(".darkmusic-downloads.json")).entrySet()) {
+                    String[] id = e.getKey().split(":");
+                    String url = "";
+                    if (id.length >= 2 && id[0].equalsIgnoreCase("youtube") && id[1].matches("[A-Za-z0-9_-]{11}"))
+                        url = "https://www.youtube.com/watch?v=" + id[1];
+                    else if (id.length >= 2 && id[0].toLowerCase(Locale.ROOT).startsWith("bilibili") && id[1].matches("BV[A-Za-z0-9]+|av[0-9]+"))
+                        url = "https://www.bilibili.com/video/" + id[1];
+                    if (!url.isEmpty()) result.putIfAbsent(e.getValue().getAsString(), url);
+                }
+            } catch (Exception ignored) {
+            }
+            return Map.copyOf(result);
+        }
+    }
+
     public static void record(Path audio, String url) {
         url = safe(url);
         if (url.isEmpty()) return;
