@@ -44,7 +44,7 @@ class UiPolishTest {
                 service.enabled(true);
                 service.request(track);
                 StorageTest.await(() -> service.pendingCount() == 0);
-                assertEquals(text.isEmpty() ? LyricsInfo.UNAVAILABLE : text.startsWith("[") ? LyricsInfo.AVAILABLE : LyricsInfo.PLAIN, service.info(track));
+                assertEquals(text.isEmpty() ? LyricsInfo.LOCAL_MISSING : text.startsWith("[") ? LyricsInfo.AVAILABLE : LyricsInfo.PLAIN, service.info(track));
             }
             assertEquals("日本語の歌詞", service.get(track).lines().getFirst().text());
         }

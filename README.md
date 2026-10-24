@@ -6,9 +6,9 @@ A client-side music player for Minecraft. Browse your own library, build playlis
 
 ## Install
 
-DarkMusic **v2.8.2** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v2.9.0** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-2.8.2.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-2.9.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Open **Settings → General → Music Folders**, or add songs to `config/darkmusic/music` inside the instance.
@@ -133,6 +133,6 @@ Report problems through [GitHub Issues](https://github.com/DarkLian/DarkMusic/is
 
 ## License
 
-DarkMusic is free of charge and source-available. The [DarkMusic License & Permissions](LICENSE) reserves rights in new DarkLian contributions first published from v2.8.2, while allowing private modifications and unmodified official releases in modpacks under its conditions. Standalone redistribution and distributed modified versions containing that protected material require written permission.
+DarkMusic is free of charge and source-available. The [DarkMusic License & Permissions](LICENSE) reserves rights in new DarkLian contributions first published from v2.9.0, while allowing private modifications and unmodified official releases in modpacks under its conditions. Standalone redistribution and distributed modified versions containing that protected material require written permission.
 
 Previously released CC0 portions remain under their original dedication, including when reused in newer versions; the new terms do not revoke those rights. Existing icon notices and third-party licenses remain effective. See [Third-party notices](src/main/resources/THIRD-PARTY-NOTICES.md); corresponding third-party source archives accompany each release. External tools, music, and artwork retain their owners' rights.

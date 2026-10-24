@@ -169,7 +169,7 @@ Duplicate tests require content-bound source/archive evidence and reject stale f
 Packaging checks verify the custom current license, preserved CC0 legacy text, LGPL notices, and current Fabric metadata. Release checks inspect the license in both binary and source JARs and keep the third-party source bundle available. Existing historical license grants must not be relabeled or erased.
 
 
-## Pending reliability and command changes
+## Recovery and command reliability
 
 Backup recovery tests cover external changes after interruption, newly created restore targets, conservative handling of legacy journals, and restart after claiming a recognized replacement. Unknown contents remain at their destination with a conflict copy and a retained journal. Duplicate tests distinguish verified source evidence from unverified embedded tags, including cached hints across repeated scans. Fresh provenance verification reuses its digest for exact-file and archive evidence within a scan; unchanged file size and timestamp alone do not authorize trusting an old hash across scans.
 
@@ -189,3 +189,10 @@ External caption networking remains a documented trust boundary. Canonical suppo
 The full Windows real-collection check passed 497 tests (495 passed, two optional network/tool-install checks skipped), with Gradle 9.8.2 and test-only ASM 9.11.1. Focused status/localization/update checks and builds passed after the final presentation adjustments. English and Traditional Chinese native smoke runs passed at fullscreen 1920x1080, GUI scale 2 with SmoothFont; private captures were visually inspected for colored status prefixes, neutral metadata, selected rows, and CJK text. No new public screenshots were added. These checks do not establish Linux/macOS native GUI or audio behavior.
 
 The translation update's failed build came from a regression test matching an English phrase in the restricted-content explanation. The test now asserts the intended localized classification instead of a particular wording; classification requirements remain intact. Both dependency PRs were inspected and tested together before merging, and their combined GitHub build passed.
+## v2.9.0 release validation
+
+Clean Windows verification through `scripts/verify.ps1 -Clean -DesktopIntegration` passed 498 tests: 496 passed and two optional live-network/tool-install checks skipped. Existing managed tools and temporary excerpts derived from the private collection were used; original audio hashes remained unchanged and temporary excerpts were removed. English and Traditional Chinese Minecraft smoke runs passed at fullscreen 1920×1080, GUI scale 2, with SmoothFont, including real output, lyrics/commands, and compact/wide screen bounds.
+
+The local-only missing result is unresolved until online lookup completes. Tests check this for both sidecars and embedded lyrics. A controlled caption fallback test verifies that an empty provider result stays searching until the fallback finishes, rather than publishing a premature final miss. Updated status wording scopes completed misses to the checked sources; failures, pauses, and candidate choices remain distinct. Advanced Lyrics puts Find Missing Lyrics first while preserving its online-lookup requirement, and Settings omits the redundant icon-marked song-lyrics shortcut.
+
+Binary and source packaging checks verify version 2.9.0, license notices, language-key parity (1,482 keys), third-party source archive integrity, and absence of private audio and smoke classes. Live provider coverage, native Linux/macOS desktop behavior, external-tool redirect isolation, and untested hardware scenarios are not established by these checks.
