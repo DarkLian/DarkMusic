@@ -78,7 +78,7 @@ public final class TextPromptScreen extends LocalScreen {
         UiTheme.panel(g, left, top, panelWidth, 130);
         UiIcon.EDIT.draw(g, left + 12, top + 10, 12, UiTheme.ACCENT);
         longText.draw(g, font, "title", title.getString(), left + 32, top + 12, panelWidth - 44, UiTheme.TEXT);
-        longText.draw(g, font, "error", error, left + 12, top + 104, panelWidth - 24, UiTheme.WARNING);
+        longText.draw(g, font, "error", error, left + 12, top + 104, panelWidth - 24, UiTheme.ERROR);
         super.extractRenderState(g, x, y, d);
     }
 }

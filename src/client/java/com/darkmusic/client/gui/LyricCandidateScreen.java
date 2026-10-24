@@ -45,7 +45,7 @@ public final class LyricCandidateScreen extends LocalScreen {
         UiTheme.header(g, font, title, UiIcon.LYRICS);
         longText.begin();
         longText.draw(g, font, "identity", document.title() + " | " + document.artist(), 14, 35, width - 28, UiTheme.TEXT);
-        longText.draw(g, font, "source", error.isEmpty() ? document.provider() + " | " + Text.get(document.generated() ? "lyrics.generated" : document.synchronizedLyrics() ? "lyrics.synced" : "lyrics.plain") : error, 14, 49, width - 28, UiTheme.SECONDARY);
+        longText.draw(g, font, "source", error.isEmpty() ? document.provider() + " | " + Text.get(document.generated() ? "lyrics.generated" : document.synchronizedLyrics() ? "lyrics.synced" : "lyrics.plain") : error, 14, 49, width - 28, error.isEmpty() ? UiStatus.color(UiStatus.Tone.INFO) : UiTheme.ERROR);
         super.extractRenderState(g, x, y, delta);
     }
 }

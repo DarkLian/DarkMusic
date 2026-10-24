@@ -39,12 +39,12 @@ public final class ImportHistoryScreen extends LocalScreen {
         for (var batch : app.importHistory.batches()) {
             String when = DATE.format(Instant.ofEpochMilli(batch.timestamp()));
             if (!batch.error().isBlank())
-                list.add(new RowList.Row(Text.get("import.darkmusic.failed"), when + " | " + batch.destination(), batch.error()));
+                list.add(new RowList.Row(Text.get("import.darkmusic.failed"), when + " | " + batch.destination(), batch.error()).status(batch.error(), UiStatus.Tone.ERROR));
             for (var item : batch.entries()) {
                 String path = item.source().replace('\\', '/');
                 String name = path.substring(path.lastIndexOf('/') + 1);
                 String status = Text.get(item.success() ? "import.darkmusic.success" : "import.darkmusic.failed");
-                list.add(new RowList.Row(name + " | " + status, when + " | " + batch.destination() + (item.success() ? "" : " | " + item.message()), item.source() + "\n" + item.destination()));
+                list.add(new RowList.Row(name, when + " | " + batch.destination(), item.source() + "\n" + item.destination()).status(status + (item.success() ? "" : " | " + item.message()), item.success() ? UiStatus.Tone.SUCCESS : UiStatus.Tone.ERROR));
             }
         }
         rows.rows(list);

@@ -114,7 +114,7 @@ public final class SoundEnvironmentScreen extends AudioPage {
         info("environment.dependencies");
         section("environment.saved");
         info(() -> Text.get("environment.saved_count", e.userPresets.size(), PresetNames.ENVIRONMENT_LIMIT));
-        info(() -> app.warning.equals(Text.get("error.save_settings")) ? app.warning : notice);
+        status(() -> app.warning.equals(Text.get("error.save_settings")) ? app.warning : notice, () -> app.warning.equals(Text.get("error.save_settings")) ? UiStatus.Tone.ERROR : UiStatus.Tone.SUCCESS);
         action("environment.save", () -> show(PresetDialogs.save(this, "environment.save", e.userPresets, PresetNames.ENVIRONMENT_LIMIT, (name, replace) -> {
             e.savePreset(name, replace);
             notice = Text.get("preset.saved");

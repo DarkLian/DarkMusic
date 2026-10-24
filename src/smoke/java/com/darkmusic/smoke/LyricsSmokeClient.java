@@ -47,6 +47,29 @@ final class LyricsSmokeClient {
         });
     }
 
+    private void statusProbe(Minecraft mc) {
+        mc.gui.setScreen(new LocalScreen(net.minecraft.network.chat.Component.literal("Status and metadata"), null) {
+            @Override
+            protected void init() {
+                var list = addRenderableWidget(new RowList(16, 54, width - 32, Math.min(180, height - 78), 38, "Status samples", (i, activate) -> {
+                }));
+                list.rows(List.of(
+                    new RowList.Row("Example song", "MP3 | Music folder").status(com.darkmusic.client.text.Text.get("lyrics.status.searching"), UiStatus.Tone.INFO),
+                    new RowList.Row("Example song", "FLAC | Music folder").status(com.darkmusic.client.text.Text.get("download.library.already"), UiStatus.Tone.SUCCESS),
+                    new RowList.Row("Example song", "OPUS | Music folder").status(com.darkmusic.client.text.Text.get("download.library.possible"), UiStatus.Tone.WARNING),
+                    new RowList.Row("Example song", "MP3 | Music folder").status(com.darkmusic.client.text.Text.get("lyrics.status.network"), UiStatus.Tone.ERROR)));
+                list.select(1);
+            }
+
+            @Override
+            public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor g, int x, int y, float delta) {
+                UiTheme.background(g, width, height);
+                g.text(font, title, 16, 12, UiTheme.TEXT);
+                super.extractRenderState(g, x, y, delta);
+            }
+        });
+    }
+
     private static void check(boolean condition, String message) {
         if (!condition) throw new AssertionError(message);
     }
@@ -149,6 +172,20 @@ final class LyricsSmokeClient {
             }
             if (stage == -4) {
                 if (!scrollVerified) return;
+                statusProbe(mc);
+                since = ticks;
+                stage = -5;
+                return;
+            }
+            if (stage == -5) {
+                if (ticks - since < 5) return;
+                if (Boolean.getBoolean("darkmusic.smoothFontAvailable")) {
+                    Path images = Path.of(System.getProperty("darkmusic.privateImages"));
+                    Files.createDirectories(images.resolve("screenshots"));
+                    net.minecraft.client.Screenshot.grab(images.toFile(), "semantic-status-" + mc.options.languageCode + ".png", mc.gameRenderer.mainRenderTarget(), 1, ignored -> {
+                    });
+                }
+                System.out.println("DARKMUSIC_STATUS_UI_PASS: separate semantic status prefix and neutral file metadata, selected row, CJK text");
                 stage = 0;
             }
             if (stage == 0) {

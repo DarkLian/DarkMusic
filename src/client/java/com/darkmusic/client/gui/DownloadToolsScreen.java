@@ -82,8 +82,8 @@ public final class DownloadToolsScreen extends LocalScreen {
         UiTheme.section(g, font, Text.get("ui.darkmusic.dependencies"), 12, 86, width - 24);
         var status = app.downloads.snapshot();
         String summary = status.toolStatus();
-        longText.draw(g, font, "tools", summary, 12, height - 34, width - (details.visible ? 128 : 24), UiTheme.SECONDARY);
-        longText.draw(g, font, "tools_message", status.message(), 12, height - 20, width - (details.visible ? 128 : 24), UiTheme.WARNING);
+        longText.draw(g, font, "tools", summary, 12, height - 34, width - (details.visible ? 128 : 24), UiStatus.color(app.downloads.toolDiagnostic() != null ? UiStatus.Tone.ERROR : app.downloads.toolsBusy() || app.downloads.toolVersions().isEmpty() ? UiStatus.Tone.INFO : UiStatus.Tone.SUCCESS));
+        longText.draw(g, font, "tools_message", status.message(), 12, height - 20, width - (details.visible ? 128 : 24), UiStatus.color(app.downloads.toolDiagnostic() != null ? UiStatus.Tone.ERROR : UiStatus.Tone.INFO));
         super.extractRenderState(g, x, y, delta);
     }
 }

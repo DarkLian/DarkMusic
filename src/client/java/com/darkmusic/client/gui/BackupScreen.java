@@ -15,6 +15,7 @@ public final class BackupScreen extends AudioPage {
     private BackupArchive.Data data;
     private boolean settings = true, playlists = true, shortcuts = true, history = true, replace, remap = true, busy;
     private String status = "";
+    private UiStatus.Tone statusTone = UiStatus.Tone.INFO;
     private boolean available;
     private BackupArchive.Restore prepared;
     private long previewVersion;
@@ -52,7 +53,7 @@ public final class BackupScreen extends AudioPage {
         info("backup.scope");
         action("backup.export", () -> choose(true));
         action("backup.open", () -> choose(false));
-        if (!status.isEmpty()) info(() -> status);
+        if (!status.isEmpty()) status(() -> status, () -> statusTone);
         if (data != null) {
             section("backup.preview");
             info(() -> Text.get("backup.count", data.playlists().size(), data.history().size()));
@@ -62,7 +63,7 @@ public final class BackupScreen extends AudioPage {
             toggle("backup.history", () -> history, v -> history = v);
             toggle("backup.replace", () -> replace, v -> replace = v);
             toggle("backup.remap", () -> remap, v -> remap = v);
-            info(() -> prepared == null ? Text.get("backup.preparing") : Text.get("backup.unresolved", prepared.unresolved()));
+            status(() -> prepared == null ? Text.get("backup.preparing") : Text.get("backup.unresolved", prepared.unresolved()), () -> prepared != null && prepared.unresolved() > 0 ? UiStatus.Tone.WARNING : UiStatus.Tone.INFO);
             action("backup.apply", this::confirmRestore);
             if (prepared == null && !preparing && !previewFailed) {
                 preparing = true;
@@ -74,6 +75,7 @@ public final class BackupScreen extends AudioPage {
                     else {
                         previewFailed = true;
                         status = Text.get("backup.failed");
+                        statusTone = UiStatus.Tone.ERROR;
                         org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Backup preview failed", error);
                     }
                     if (isCurrent()) rebuildWidgets();
@@ -159,6 +161,7 @@ public final class BackupScreen extends AudioPage {
                     previewFailed = false;
                 }
                 status = Text.get(export ? "backup.exported" : "backup.loaded");
+                statusTone = UiStatus.Tone.SUCCESS;
             }
             if (error == null) app.announce(status);
             finish(error);
@@ -170,6 +173,7 @@ public final class BackupScreen extends AudioPage {
         if (failure != null) {
             org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Backup operation failed", failure);
             status = Text.get("backup.failed");
+            statusTone = UiStatus.Tone.ERROR;
         }
         if (isCurrent()) rebuildWidgets();
     }

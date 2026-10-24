@@ -58,7 +58,16 @@ abstract class AudioPage extends LocalScreen {
     }
 
     protected final void info(Supplier<String> text) {
-        details.add(new Detail(text, cursor));
+        details.add(new Detail(text, cursor, null));
+        cursor += 22;
+    }
+
+    protected final void status(Supplier<String> text) {
+        status(text, () -> UiStatus.Tone.INFO);
+    }
+
+    protected final void status(Supplier<String> text, Supplier<UiStatus.Tone> tone) {
+        details.add(new Detail(text, cursor, tone));
         cursor += 22;
     }
 
@@ -225,8 +234,12 @@ abstract class AudioPage extends LocalScreen {
             g.text(font, Text.get(h.key), formX + 4, contentY(h.y) + 4, sectionColor());
         }
         for (var d : details)
-            if (contentY(d.y) > 20 && contentY(d.y) < height)
-                longText.draw(g, font, "detail" + d.y, d.text.get(), formX + 4, contentY(d.y) + 5, formWidth - 8, UiTheme.SECONDARY);
+            if (contentY(d.y) > 20 && contentY(d.y) < height) {
+                if (d.tone == null)
+                    longText.draw(g, font, "detail" + d.y, d.text.get(), formX + 4, contentY(d.y) + 5, formWidth - 8, UiTheme.SECONDARY);
+                else
+                    longText.drawUpdating(g, font, "detail" + d.y, d.text.get(), formX + 4, contentY(d.y) + 5, formWidth - 8, UiStatus.color(d.tone.get()));
+            }
         renderContent(g, x, y, delta);
         g.disableScissor();
         super.extractRenderState(g, x, y, delta);
@@ -238,6 +251,6 @@ abstract class AudioPage extends LocalScreen {
     private record Heading(String key, int y) {
     }
 
-    private record Detail(Supplier<String> text, int y) {
+    private record Detail(Supplier<String> text, int y, Supplier<UiStatus.Tone> tone) {
     }
 }

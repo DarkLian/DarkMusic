@@ -173,7 +173,7 @@ public final class AudioDeletionScreen extends LocalScreen {
             : busy || preparing ? Text.get("reset.darkmusic.working") : result != null ? Text.get("delete_audio.result", result.removed().size(), result.failed().size(), result.cancelled().size())
             + (result.companionFailures().isEmpty() ? "" : " | " + Text.get("delete_audio.companion_failed", result.companionFailures().size()))
             : plan != null && !plan.trashSupported() ? Text.get("delete_audio.no_trash") : Text.get("delete_audio.trash_help");
-        longText.draw(g, font, "status", status, 12, height - 54, width - 24, UiTheme.SECONDARY);
+        longText.draw(g, font, "status", status, 12, height - 54, width - 24, UiStatus.color(!error.isEmpty() ? UiStatus.Tone.ERROR : result != null ? (!result.failed().isEmpty() || !result.cancelled().isEmpty() || !result.companionFailures().isEmpty() ? UiStatus.Tone.WARNING : UiStatus.Tone.SUCCESS) : plan != null && !plan.trashSupported() ? UiStatus.Tone.WARNING : UiStatus.Tone.INFO));
         super.extractRenderState(g, x, y, delta);
     }
 }

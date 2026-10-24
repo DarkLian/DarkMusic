@@ -18,10 +18,16 @@ final class UpdateScreen extends AudioPage {
         section("update.check");
         shownFailure = app.updates.installFailureLog();
         if (shownFailure != null) {
-            info("update.install_failed");
+            status(() -> Text.get("update.install_failed"), () -> UiStatus.Tone.ERROR);
             action("update.open_log", app.updates::openInstallLog);
         }
-        info(() -> status.equals("update.found") ? Text.get(status, app.updates.availableVersion()) : Text.get(status));
+        status(() -> status.equals("update.found") ? Text.get(status, app.updates.availableVersion()) : Text.get(status), () -> switch (status) {
+            case "update.failed", "update.check_failed", "update.download_failed", "update.install_failed" ->
+                UiStatus.Tone.ERROR;
+            case "update.found", "update.latest", "update.ready" -> UiStatus.Tone.SUCCESS;
+            case "update.development", "update.unsupported" -> UiStatus.Tone.WARNING;
+            default -> UiStatus.Tone.INFO;
+        });
         if (!app.updates.canInstall()) info("update.development");
         if (status.equals("update.found") && app.updates.canInstall()) {
             action("update.download", () -> {

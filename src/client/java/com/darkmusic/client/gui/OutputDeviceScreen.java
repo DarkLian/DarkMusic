@@ -12,6 +12,7 @@ public final class OutputDeviceScreen extends AudioPage {
     private List<OutputDevices.Device> devices = List.of();
     private boolean loading, changing, started;
     private String status = "";
+    private UiStatus.Tone statusTone = UiStatus.Tone.INFO;
 
     public OutputDeviceScreen(DarkMusicClient app, Screen parent) {
         super(app, parent, "device.title");
@@ -21,7 +22,7 @@ public final class OutputDeviceScreen extends AudioPage {
     protected void populate() {
         section("device.title");
         info("device.help");
-        if (!status.isEmpty()) info(() -> status);
+        if (!status.isEmpty()) status(() -> status, () -> statusTone);
         info(() -> Text.get("device.current", app.outputDeviceId().isEmpty() ? Text.get("device.default") : devices.stream().filter(d -> d.id().equals(app.outputDeviceId())).map(OutputDevices.Device::name).findFirst().orElse(Text.get("device.unavailable"))));
         var defaultRow = new SettingRow(formX, 0, formWidth, Text.get("device.default"), () -> app.outputDeviceId().isEmpty(), () -> select(""));
         place(defaultRow);
@@ -49,6 +50,7 @@ public final class OutputDeviceScreen extends AudioPage {
         if (loading || changing) return;
         loading = true;
         status = Text.get("device.loading");
+        statusTone = UiStatus.Tone.INFO;
         rebuildWidgets();
         CompletableFuture.supplyAsync(OutputDevices::available, app.io).whenComplete((list, error) -> minecraft.execute(() -> {
             loading = false;
@@ -57,6 +59,7 @@ public final class OutputDeviceScreen extends AudioPage {
                 status = "";
             } else {
                 status = Text.get("device.failed");
+                statusTone = UiStatus.Tone.ERROR;
                 org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Cannot enumerate audio outputs", error);
             }
             if (isCurrent()) rebuildWidgets();
@@ -67,10 +70,12 @@ public final class OutputDeviceScreen extends AudioPage {
         if (changing || loading) return;
         changing = true;
         status = Text.get("device.changing");
+        statusTone = UiStatus.Tone.INFO;
         rebuildWidgets();
         app.selectOutputDevice(id).whenComplete((ok, error) -> minecraft.execute(() -> {
             changing = false;
             status = Text.get(error == null && ok ? "device.changed" : "device.failed");
+            statusTone = error == null && ok ? UiStatus.Tone.SUCCESS : UiStatus.Tone.ERROR;
             app.announce(status);
             if (isCurrent()) rebuildWidgets();
         }));

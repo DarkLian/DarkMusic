@@ -108,7 +108,7 @@ public final class LyricsScreen extends LocalScreen {
                 : !app.lyrics.inspected(track) || status == com.darkmusic.client.lyrics.LyricsLookup.Status.SEARCHING ? "lyrics.status.searching"
                 : status != com.darkmusic.client.lyrics.LyricsLookup.Status.IDLE && status != com.darkmusic.client.lyrics.LyricsLookup.Status.DISABLED
                 ? "lyrics.status." + status.name().toLowerCase(java.util.Locale.ROOT) : "lyrics.find_prompt";
-            g.centeredText(font, Text.get(key), width / 2, Math.max(90, height / 2), UiTheme.MUTED);
+            g.centeredText(font, Text.get(key), width / 2, Math.max(90, height / 2), UiStatus.color(!app.settings.lyricsEnabled ? UiStatus.Tone.WARNING : document.instrumental() ? UiStatus.Tone.SUCCESS : UiStatus.lyrics(status)));
         } else if (document.synchronizedLyrics()) {
             int visible = Math.max(1, (height - 120) / 24);
             int start = browsing ? first : Math.max(0, current - visible / 2);

@@ -11,6 +11,7 @@ import java.util.concurrent.CompletableFuture;
 public final class LyricsOptionsScreen extends AudioPage {
     private final Track track;
     private String feedback = "";
+    private UiStatus.Tone feedbackTone = UiStatus.Tone.INFO;
     private int offset;
     private boolean hadSidecar, hadBackup;
 
@@ -27,6 +28,7 @@ public final class LyricsOptionsScreen extends AudioPage {
 
     private void result(CompletableFuture<Void> future) {
         future.whenComplete((done, failure) -> minecraft.execute(() -> {
+            feedbackTone = failure == null ? UiStatus.Tone.SUCCESS : UiStatus.Tone.ERROR;
             feedback = Text.get(failure == null ? "lyrics.operation_saved" : "lyrics.operation_failed");
             if (isCurrent()) rebuildWidgets();
         }));
@@ -39,7 +41,10 @@ public final class LyricsOptionsScreen extends AudioPage {
         slider("lyrics.offset", offset, -30000, 30000, 600, v -> {
             offset = (int) Math.round(v);
             app.lyrics.lookup.offset(track, offset).exceptionally(failure -> {
-                minecraft.execute(() -> feedback = Text.get("lyrics.operation_failed"));
+                minecraft.execute(() -> {
+                    feedback = Text.get("lyrics.operation_failed");
+                    feedbackTone = UiStatus.Tone.ERROR;
+                });
                 return null;
             });
         }, " ms");
@@ -91,7 +96,7 @@ public final class LyricsOptionsScreen extends AudioPage {
         action("lyrics.restore", () -> show(new ConfirmationScreen(this, Text.component("lyrics.restore"), Text.component("lyrics.restore.help"), Text.component("lyrics.restore"),
             () -> app.lyrics.lookup.restore(track).thenCompose(done -> app.lyrics.lookup.select(track, null)))));
         enableSince(restoreStart, hadBackup);
-        info(() -> feedback);
+        status(() -> feedback, () -> feedbackTone);
     }
 
     @Override
@@ -104,7 +109,10 @@ public final class LyricsOptionsScreen extends AudioPage {
     @Override
     public void onFilesDrop(java.util.List<Path> files) {
         if (files.size() == 1) confirmImport(files.getFirst());
-        else feedback = Text.get("lyrics.import.single");
+        else {
+            feedback = Text.get("lyrics.import.single");
+            feedbackTone = UiStatus.Tone.WARNING;
+        }
     }
 
     private void confirmImport(Path path) {

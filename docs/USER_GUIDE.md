@@ -369,6 +369,12 @@ Lyrics are an independently movable element in every HUD layout. Enable **Lyrics
 
 The live HUD stays empty before the first timestamp and when synchronized lyrics are unavailable. It shows no missing-lyrics message. Layout editing can show a preview so the element remains easy to position. Timing follows the current playback position through pause, seek, speed changes, and track transitions.
 
+## Reading status messages
+
+Changing statuses use consistent colors throughout the menus: **blue** for activity and information, **green** for available or successful results, **amber** for warnings, uncertainty, and review, and **red** for failures. The text explains the outcome; color is an additional cue.
+
+In download rows, status appears first in color, followed by neutral file information such as the saved filename, format, and location. A saved download with a bookkeeping warning stays amber rather than looking like an unqualified success. Smart Cleanup evidence and lyrics results retain their explicit strength or availability labels. Status colors adapt for contrast when you change the menu background.
+
 ## Shortcuts and commands
 
 | Action | Default key |

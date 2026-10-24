@@ -59,7 +59,7 @@ public final class IgnoredMatchesScreen extends LocalScreen {
         UiTheme.background(g, width, height);
         UiTheme.header(g, font, title, UiIcon.SEARCH);
         longText.begin();
-        longText.draw(g, font, "notice", Text.get(store.error().isEmpty() ? "cleanup.restore.help" : store.error()), 12, height - 50, width - 24, UiTheme.SECONDARY);
+        longText.draw(g, font, "notice", Text.get(store.error().isEmpty() ? "cleanup.restore.help" : store.error()), 12, height - 50, width - 24, store.error().isEmpty() ? UiStatus.color(UiStatus.Tone.INFO) : UiTheme.ERROR);
         super.extractRenderState(g, x, y, delta);
     }
 }

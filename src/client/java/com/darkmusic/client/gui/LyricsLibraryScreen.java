@@ -19,9 +19,10 @@ public final class LyricsLibraryScreen extends AudioPage {
         running = app.lyrics.libraryLookupRunning();
         section("lyrics.library.find");
         info("lyrics.consent.scope");
-        if (!app.settings.lyricsEnabled) info("lyrics.library.enable");
-        info(() -> Text.get("lyrics.library.progress", app.lyrics.libraryChecked(), app.lyrics.libraryTotal(), app.lyrics.libraryRequests()));
-        info(this::status);
+        if (!app.settings.lyricsEnabled) status(() -> Text.get("lyrics.library.enable"), () -> UiStatus.Tone.WARNING);
+        status(() -> Text.get("lyrics.library.progress", app.lyrics.libraryChecked(), app.lyrics.libraryTotal(), app.lyrics.libraryRequests()));
+        status(this::status, () -> !app.settings.lyricsEnabled || !app.settings.lyricsOnline || app.lyrics.lookup.cooldownSeconds() > 0
+            ? UiStatus.Tone.WARNING : UiStatus.Tone.INFO);
         int start = rowCount();
         action("lyrics.library.start", () -> {
             app.lyrics.startLibraryLookup();

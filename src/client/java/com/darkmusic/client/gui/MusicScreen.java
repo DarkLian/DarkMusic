@@ -707,9 +707,9 @@ public final class MusicScreen extends LocalScreen {
         longText.draw(g, font, "selected_path", selected.relativePath(), x + 15, y + 51, textWidth - 15, UiTheme.MUTED);
         if (app.settings.lyricsEnabled) {
             var info = app.lyrics.info(selected);
-            UiIcon.LYRICS.draw(g, x, y + 63, 10, info.color());
+            UiIcon.LYRICS.draw(g, x, y + 63, 10, UiStatus.lyricsColor(info));
             LyricsStatusIcon.draw(g, font, info, x + 15, y + 62, 12);
-            longText.drawUpdating(g, font, "selected_lyrics:" + selected.id(), app.lyrics.status(selected), x + 30, y + 64, textWidth - 30, info.color());
+            longText.drawUpdating(g, font, "selected_lyrics:" + selected.id(), app.lyrics.status(selected), x + 30, y + 64, textWidth - 30, UiStatus.lyricsColor(info));
         }
     }
 

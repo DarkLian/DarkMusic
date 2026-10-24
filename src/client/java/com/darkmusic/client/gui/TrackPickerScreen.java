@@ -106,7 +106,7 @@ public final class TrackPickerScreen extends LocalScreen {
         longText.begin();
         UiTheme.background(g, width, height);
         UiTheme.header(g, font, title, UiIcon.ADD);
-        longText.draw(g, font, "selection", selection.hidden() == 0 ? Text.get("format.darkmusic.selected", selection.size()) : Text.get("playlist.darkmusic.filtered_selection", selection.size(), selection.hidden()), Math.max(120, width / 2), 12, width - Math.max(120, width / 2) - 12, UiTheme.SECONDARY);
+        longText.draw(g, font, "selection", selection.hidden() == 0 ? Text.get("format.darkmusic.selected", selection.size()) : Text.get("playlist.darkmusic.filtered_selection", selection.size(), selection.hidden()), Math.max(120, width / 2), 12, width - Math.max(120, width / 2) - 12, UiStatus.color(selection.hidden() > 0 ? UiStatus.Tone.WARNING : UiStatus.Tone.INFO));
         super.extractRenderState(g, x, y, d);
     }
 }

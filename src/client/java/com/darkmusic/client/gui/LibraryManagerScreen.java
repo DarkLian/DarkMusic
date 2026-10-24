@@ -87,7 +87,7 @@ public final class LibraryManagerScreen extends LocalScreen {
         UiTheme.background(g, width, height);
         UiTheme.header(g, font, title, UiIcon.TOOLS);
         longText.draw(g, font, "selection", selection.hidden() == 0 ? Text.get("format.darkmusic.selected", selection.size()) : Text.get("playlist.darkmusic.filtered_selection", selection.size(), selection.hidden()),
-            12, height - 40, width - 24, UiTheme.SECONDARY);
+            12, height - 40, width - 24, UiStatus.color(selection.hidden() > 0 ? UiStatus.Tone.WARNING : UiStatus.Tone.INFO));
         super.extractRenderState(g, x, y, delta);
     }
 }

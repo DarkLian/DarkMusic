@@ -100,7 +100,7 @@ public final class ToolCards extends AbstractWidget {
             UiIcon.TOOLS.draw(g, px + 10, py + 11, 14, UiTheme.ACCENT);
             g.text(font, names[i], px + 32, py + 10, UiTheme.TEXT);
             String status = i < versions.size() ? versions.get(i) : Text.get("download.darkmusic.tools_unchecked");
-            horizontal.draw(g, font, "version" + i, status, px + 32, py + 29, cell - 42, UiTheme.SECONDARY);
+            horizontal.draw(g, font, "version" + i, status, px + 32, py + 29, cell - 42, i < versions.size() ? UiTheme.SECONDARY : UiStatus.color(UiStatus.Tone.INFO));
         }
         g.disableScissor();
         scrollbar.configure(getRight() - 9, getY(), height, (4 / columns) * 64, height);

@@ -47,7 +47,7 @@ public final class AudioSettingsScreen extends LocalScreen {
     }
 
     private void info(java.util.function.Supplier<String> text) {
-        details.add(new Detail(text, cursor));
+        details.add(new Detail(text, cursor, null));
         cursor += 22;
     }
 
@@ -196,7 +196,8 @@ public final class AudioSettingsScreen extends LocalScreen {
             slider((a.duckRelease - .1) / 1.9, "audio.darkmusic.duck_release", v -> String.format(Locale.ROOT, "%.1f s", a.duckRelease), v -> a.duckRelease = .1 + v * 1.9, 19, "audio.darkmusic.duck_release_help");
         }
         section("audio.saved_profiles");
-        info(() -> app.warning.equals(Text.get("error.save_settings")) ? app.warning : notice);
+        details.add(new Detail(() -> app.warning.equals(Text.get("error.save_settings")) ? app.warning : notice, cursor, () -> app.warning.equals(Text.get("error.save_settings")) ? UiStatus.Tone.ERROR : UiStatus.Tone.SUCCESS));
+        cursor += 22;
         row("audio.darkmusic.save_profile", null, () -> show(PresetDialogs.save(this, "audio.darkmusic.save_profile", a.savedProfiles, Integer.MAX_VALUE, 100, (name, replace) -> {
             var copy = ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(a), AudioSettings.class);
             copy.savedProfiles.clear();
@@ -314,11 +315,12 @@ public final class AudioSettingsScreen extends LocalScreen {
         for (var detail : details) {
             int detailY = 40 + detail.y - scroll;
             if (detailY >= 28 && detailY < height - 12)
-                longText.draw(g, font, "detail" + detail.y, detail.text.get(), formX + 4, detailY, formWidth - 8, UiTheme.SECONDARY);
+                longText.drawUpdating(g, font, "detail" + detail.y, detail.text.get(), formX + 4, detailY, formWidth - 8,
+                    detail.tone == null ? UiTheme.SECONDARY : UiStatus.color(detail.tone.get()));
         }
         if (normalizationY >= 0) {
             String label = LoudnessStatusText.describe(app.playback.normalization());
-            longText.draw(g, font, "normalization", label, formX + 4, 40 + normalizationY - scroll, formWidth - 8, UiTheme.SECONDARY);
+            longText.draw(g, font, "normalization", label, formX + 4, 40 + normalizationY - scroll, formWidth - 8, UiStatus.color(app.playback.normalization().state() == com.darkmusic.client.audio.LoudnessCache.State.FAILED ? UiStatus.Tone.ERROR : app.playback.normalization().peakLimited() ? UiStatus.Tone.WARNING : UiStatus.Tone.INFO));
         }
         g.disableScissor();
         super.extractRenderState(g, x, y, delta);
@@ -327,6 +329,7 @@ public final class AudioSettingsScreen extends LocalScreen {
     private record Section(String title, int y) {
     }
 
-    private record Detail(java.util.function.Supplier<String> text, int y) {
+    private record Detail(java.util.function.Supplier<String> text, int y,
+                          java.util.function.Supplier<UiStatus.Tone> tone) {
     }
 }

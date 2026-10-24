@@ -367,12 +367,12 @@ public final class RowList extends AbstractWidget {
         int rightInset = (current ? 34 : 9) + (lyric != null ? 34 : 0);
         if (lyric != null) {
             int x = getRight() - rightInset + 2;
-            UiIcon.LYRICS.draw(g, x, y + (rowHeight - 14) / 2, 14, lyric.color());
+            UiIcon.LYRICS.draw(g, x, y + (rowHeight - 14) / 2, 14, UiStatus.lyricsColor(lyric));
             LyricsStatusIcon.draw(g, font, lyric, x + 17, y + (rowHeight - 12) / 2, 12);
         }
         if (current) playingIcon.get().draw(g, getRight() - 26, y + (rowHeight - 14) / 2, 14, UiTheme.ACCENT);
         Row row = rows.get(i);
-        boolean twoLines = rowHeight >= 28 && !row.subtitle().isBlank();
+        boolean twoLines = rowHeight >= 28 && (!row.subtitle().isBlank() || !row.status().isBlank());
         int lineGap = 4;
         int titleY = twoLines ? y + (rowHeight - (font.lineHeight * 2 + lineGap)) / 2 : y + (rowHeight - font.lineHeight) / 2;
         int inset = selection == null ? 5 : 25;
@@ -400,8 +400,13 @@ public final class RowList extends AbstractWidget {
             inset += 18;
         }
         horizontal.draw(g, font, "title" + i, row.title(), getX() + inset, titleY, Math.max(1, width - inset - rightInset), UiTheme.TEXT);
-        if (twoLines)
-            horizontal.draw(g, font, "subtitle" + i, row.subtitle(), getX() + inset, titleY + font.lineHeight + lineGap, Math.max(1, width - inset - rightInset), tint.applyAsInt(i));
+        if (twoLines) {
+            if (row.status().isBlank())
+                horizontal.draw(g, font, "subtitle" + i, row.subtitle(), getX() + inset, titleY + font.lineHeight + lineGap, Math.max(1, width - inset - rightInset), tint.applyAsInt(i));
+            else
+                horizontal.drawStatus(g, font, "subtitle" + i, row.status(), row.subtitle(), getX() + inset, titleY + font.lineHeight + lineGap,
+                    Math.max(1, width - inset - rightInset), UiStatus.color(row.tone()), UiTheme.SECONDARY);
+        }
         if (progress != null) {
             double value = progress.applyAsDouble(i);
             if (value >= 0)
@@ -577,14 +582,22 @@ public final class RowList extends AbstractWidget {
         defaultButtonNarrationText(output);
     }
 
-    public record Row(String title, String subtitle, String details) {
+    public record Row(String title, String subtitle, String details, String status, UiStatus.Tone tone) {
         public String text(String separator) {
-            return java.util.stream.Stream.of(title, subtitle, details).filter(value -> !value.isBlank())
+            return java.util.stream.Stream.of(title, status, subtitle, details).filter(value -> !value.isBlank())
                 .collect(java.util.stream.Collectors.joining(separator));
         }
 
         public Row(String title, String subtitle) {
             this(title, subtitle, "");
+        }
+
+        public Row(String title, String subtitle, String details) {
+            this(title, subtitle, details, "", UiStatus.Tone.INFO);
+        }
+
+        public Row status(String value, UiStatus.Tone tone) {
+            return new Row(title, subtitle, details, value, tone);
         }
     }
 }

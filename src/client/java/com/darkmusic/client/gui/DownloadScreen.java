@@ -521,7 +521,7 @@ public final class DownloadScreen extends LocalScreen {
         if (queueView) {
             String filter = query.strip().toLowerCase(Locale.ROOT);
             visibleJobs = snapshot.items().stream().filter(i -> filter.isEmpty() || (i.title() + " " + Text.get("state.darkmusic." + i.status().name().toLowerCase(Locale.ROOT)) + " " + i.message() + " " + i.directory()).toLowerCase(Locale.ROOT).contains(filter)).toList();
-            rows.rows(visibleJobs.stream().map(i -> new RowList.Row(i.title(), Text.get("state.darkmusic." + i.status().name().toLowerCase(Locale.ROOT)) + (i.progress() >= 0 ? " " + Math.round(i.progress() * 100) + "%" : "") + " | " + i.message() + " | " + i.directory())).toList());
+            rows.rows(visibleJobs.stream().map(i -> jobRow(i)).toList());
             rows.select(java.util.stream.IntStream.range(0, visibleJobs.size()).filter(i -> visibleJobs.get(i).id() == selectedJob).findFirst().orElse(-1));
             rows.emptyMessage(Text.get(snapshot.items().isEmpty() ? "text.darkmusic.no_downloads_queued" : "download.darkmusic.no_queue_matches"));
         } else {
@@ -529,7 +529,7 @@ public final class DownloadScreen extends LocalScreen {
             visible = p == null ? List.of() : p.entries().stream().filter(e -> filter.isEmpty() || (e.title() + " " + Math.max(1, e.index())).toLowerCase(Locale.ROOT).contains(filter)).toList();
             if (listeningEntry != null && !visible.contains(listeningEntry)) listeningEntry = null;
             selection.visible(visible.stream().map(DownloadScreen::key).toList());
-            rows.rows(visible.stream().map(e -> new RowList.Row(Math.max(1, e.index()) + ". " + e.title(), e.available() ? libraryStatus(e) : Text.get("text.darkmusic.unavailable_private_deleted"))).toList());
+            rows.rows(visible.stream().map(e -> entryRow(e)).toList());
             rows.emptyMessage(p == null ? Text.get("text.darkmusic.analyze_a_url_to_preview_entries") : Text.get("download.darkmusic.no_matches"));
         }
     }
@@ -564,15 +564,36 @@ public final class DownloadScreen extends LocalScreen {
         updateButtons();
     }
 
-    private String libraryStatus(Entry entry) {
+    private RowList.Row entryRow(Entry entry) {
+        var row = new RowList.Row(Math.max(1, entry.index()) + ". " + entry.title(), "");
+        if (!entry.available())
+            return row.status(Text.get("text.darkmusic.unavailable_private_deleted"), UiStatus.Tone.WARNING);
         var lookup = app.sourceIndex().lookup(entry);
         if (!lookup.confirmed().isEmpty()) {
             var f = lookup.confirmed().getFirst();
-            return Text.get("download.library.already") + " | " + f.track().title() + " | " + f.format() + " | " + f.track().file();
+            return new RowList.Row(row.title(), f.track().title() + " | " + f.format() + " | " + f.track().file())
+                .status(Text.get("download.library.already"), UiStatus.Tone.SUCCESS);
         }
-        if (!lookup.possible().isEmpty())
-            return Text.get("download.library.possible") + " | " + lookup.possible().getFirst().title();
-        return Text.get(lookup.complete() ? "download.library.not_detected" : "download.library.incomplete");
+        if (!lookup.possible().isEmpty()) return new RowList.Row(row.title(), lookup.possible().getFirst().title())
+            .status(Text.get("download.library.possible"), UiStatus.Tone.WARNING);
+        return row.status(Text.get(lookup.complete() ? "download.library.not_detected" : "download.library.incomplete"),
+            lookup.complete() ? UiStatus.Tone.INFO : UiStatus.Tone.WARNING);
+    }
+
+    static RowList.Row jobRow(Item item) {
+        String message = item.message();
+        String metadata = item.directory().toString();
+        if (item.status() == Status.SAVED) {
+            int warning = message.indexOf(" \u2014 ");
+            String filename = warning < 0 ? message : message.substring(0, warning);
+            if (!filename.isBlank()) metadata = filename + " | " + metadata;
+            message = warning < 0 ? "" : message.substring(warning + 3);
+        }
+        String status = Text.get("state.darkmusic." + item.status().name().toLowerCase(Locale.ROOT))
+            + (item.progress() >= 0 ? " " + Math.round(item.progress() * 100) + "%" : "")
+            + (message.isBlank() ? "" : " | " + message);
+        return new RowList.Row(item.title(), metadata, item.message())
+            .status(status, item.status() == Status.SAVED && !message.isBlank() ? UiStatus.Tone.WARNING : UiStatus.download(item.status()));
     }
 
     @Override
@@ -611,7 +632,9 @@ public final class DownloadScreen extends LocalScreen {
         String summary = queueView ? Text.get("format.darkmusic.queue_summary", done, s.items().size(), failed) : s.preview() == null ? "" : Text.get("format.darkmusic.preview_summary", s.preview().source(), s.preview().first(), s.preview().first() + s.preview().entries().size() - 1, s.preview().total() >= 0 ? Text.get("format.darkmusic.total", s.preview().total()) : Text.get("format.darkmusic.unknown_total"));
         summary = Text.get(queueView ? "ui.darkmusic.queue" : "ui.darkmusic.preview_entries") + (summary.isBlank() ? "" : ": " + summary);
         if (!queueView) summary = Text.get("folders.destination", app.library.root()) + " | " + summary;
-        longText.draw(g, font, "detail", detail.isBlank() ? summary : detail + " | " + summary, rows.getX(), resultTop - 13, rows.getWidth(), detail.isBlank() ? UiTheme.SECONDARY : UiTheme.WARNING);
+        var tone = !notice.isBlank() || app.downloads.analysisDiagnostic() != null ? UiStatus.Tone.ERROR : UiStatus.Tone.INFO;
+        if (audition != null && audition.snapshot().status() == AuditionPlayer.Status.ERROR) tone = UiStatus.Tone.ERROR;
+        longText.drawStatus(g, font, "detail", detail, summary, rows.getX(), resultTop - 13, rows.getWidth(), UiStatus.color(tone), UiTheme.SECONDARY);
         super.extractRenderState(g, x, y, delta);
     }
 

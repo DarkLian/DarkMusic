@@ -140,7 +140,8 @@ public final class SmartCleanupScreen extends LocalScreen {
                     row.group().tracks().stream().map(t -> t.title()).collect(java.util.stream.Collectors.joining(" / ")));
             var p = row.pair();
             return new RowList.Row(p.a().title() + "  /  " + p.b().title(),
-                Text.get("cleanup.strength." + p.strength().name().toLowerCase(Locale.ROOT)) + " | " + reasons(p));
+                reasons(p)).status(Text.get("cleanup.strength." + p.strength().name().toLowerCase(Locale.ROOT)),
+                p.strength() == DuplicateResult.Strength.STRONG ? UiStatus.Tone.SUCCESS : UiStatus.Tone.WARNING);
         });
         int index = java.util.stream.IntStream.range(0, list.size()).filter(i -> list.get(i).id().equals(selected)).findFirst().orElse(-1);
         rows.select(index);
@@ -178,9 +179,9 @@ public final class SmartCleanupScreen extends LocalScreen {
         var s = scanner.snapshot();
         String status = Text.get("cleanup.stage." + s.stage().name().toLowerCase(Locale.ROOT)) + " | " + Text.get("cleanup.progress", s.done(), s.total(), visible.size());
         if (app.library.snapshot().scanning()) status = Text.get("cleanup.wait_scan");
-        longText.draw(g, font, "progress", status, 12, height - 72, width - 24, UiTheme.SECONDARY);
+        longText.draw(g, font, "progress", status, 12, height - 72, width - 24, UiStatus.color(s.stage() == DuplicateScanner.Stage.FAILED ? UiStatus.Tone.ERROR : s.stage() == DuplicateScanner.Stage.COMPLETE ? UiStatus.Tone.SUCCESS : UiStatus.Tone.INFO));
         String details = !reviews.error().isEmpty() ? Text.get(reviews.error()) : s.cacheFailed() ? Text.get("cleanup.cache_failed") : s.limited() ? Text.get("cleanup.limited") : Text.get("cleanup.skipped", s.unavailable(), s.audioFailed());
-        longText.draw(g, font, "details", details, 12, height - 56, width - 24, s.cacheFailed() || s.limited() ? UiTheme.WARNING : UiTheme.MUTED);
+        longText.draw(g, font, "details", details, 12, height - 56, width - 24, !reviews.error().isEmpty() ? UiTheme.ERROR : s.cacheFailed() || s.limited() || s.unavailable() > 0 || s.audioFailed() > 0 ? UiTheme.WARNING : UiStatus.color(UiStatus.Tone.INFO));
         super.extractRenderState(g, x, y, delta);
     }
 }

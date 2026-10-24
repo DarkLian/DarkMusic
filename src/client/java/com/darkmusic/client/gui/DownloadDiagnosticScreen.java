@@ -12,6 +12,7 @@ public final class DownloadDiagnosticScreen extends AudioPage {
     private final DownloadDiagnostics.Diagnostic diagnostic;
     private final Runnable retry;
     private String copyStatus = "";
+    private UiStatus.Tone copyTone = UiStatus.Tone.INFO;
 
     public DownloadDiagnosticScreen(DarkMusicClient app, Screen parent, DownloadDiagnostics.Diagnostic diagnostic, Runnable retry) {
         super(app, parent, "download.diag.title");
@@ -28,12 +29,12 @@ public final class DownloadDiagnosticScreen extends AudioPage {
     protected void populate() {
         section("download.diag.what");
         info(() -> Text.get("download.diag.stage." + diagnostic.stage().name().toLowerCase(java.util.Locale.ROOT)));
-        info(diagnostic::summary);
+        status(diagnostic::summary, () -> UiStatus.Tone.ERROR);
         info(() -> Text.get("download.diag.source", Text.get("download.diag.source." + diagnostic.source().name().toLowerCase(java.util.Locale.ROOT))));
         section("download.diag.meaning");
-        info(diagnostic::explanation);
+        status(diagnostic::explanation, () -> UiStatus.Tone.WARNING);
         section("download.diag.try");
-        info(diagnostic::action);
+        status(diagnostic::action);
         section("download.diag.technical");
         info(() -> Text.get("download.diag.tool", diagnostic.tool().display(), diagnostic.toolVersion()));
         info(() -> Text.get("download.diag.exit", diagnostic.exitCode() == null ? "—" : diagnostic.exitCode()));
@@ -44,11 +45,13 @@ public final class DownloadDiagnosticScreen extends AudioPage {
                 String version = net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("darkmusic").orElseThrow().getMetadata().getVersion().getFriendlyString();
                 minecraft.keyboardHandler.setClipboard(diagnostic.report(version));
                 copyStatus = Text.get("download.diag.copied");
+                copyTone = UiStatus.Tone.SUCCESS;
             } catch (Exception failure) {
                 copyStatus = Text.get("download.diag.copy_failed");
+                copyTone = UiStatus.Tone.ERROR;
             }
         });
-        info(() -> copyStatus);
+        status(() -> copyStatus, () -> copyTone);
         if (retry != null && diagnostic.canRetry()) {
             int index = rowCount();
             action("download.diag.retry", () -> {

@@ -56,7 +56,7 @@ public final class AudioAnalyzerScreen extends AudioPage {
         graphs.clear();
         configure();
         section("analyzer.title");
-        info(this::status);
+        status(this::status);
         toggle("analyzer.enabled", () -> enabled, v -> enabled = v);
         choice("analyzer.mode", mode, AudioComparison.Mode.values(), v -> mode = v);
         info(() -> Text.get("analyzer.scope." + mode.name().toLowerCase(Locale.ROOT)));
@@ -71,7 +71,7 @@ public final class AudioAnalyzerScreen extends AudioPage {
         });
         info(() -> Text.get(app.settings.audio.neutral ? "analyzer.ao_bypassed" : "analyzer.ao_active") + " | " + Text.get(app.settings.environment.active() ? "analyzer.env_active" : "analyzer.env_bypassed"));
         section("analyzer.normalization");
-        info(this::normalization);
+        status(this::normalization);
         info("analyzer.album_scope");
         section("analyzer.meters");
         info(() -> meter(0));

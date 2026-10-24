@@ -180,3 +180,12 @@ The full Windows `scripts/verify.ps1 -DesktopIntegration` run passed 491 tests (
 `/da help` and `/darkmusic help` list the existing commands in groups with click-to-suggest actions. Both lyrics aliases are checked through the Fabric command dispatcher, including localized failure feedback without triggering unrelated actions. Menu opening is deferred until chat closes and revalidates the current playback state.
 
 External caption networking remains a documented trust boundary. Canonical supported URLs and initial public-address checks are retained. yt-dlp performs redirects and DNS resolution itself ([upstream networking implementation](https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/networking/_urllib.py)); these checks are not a complete process network sandbox. Cross-platform egress enforcement requires a separately reviewed solution. No new dependencies or system firewall changes were introduced.
+
+
+## Semantic menu status colors
+
+`UiStatusTest` checks distinct, readable information/success/warning/error colors against dark, light, custom, hovered, and selected surfaces. It verifies typed download/lyrics outcomes, separation of status from metadata in accessible row text, retained saved filenames, and partial-success warnings. The cached palette is recalculated when the menu theme changes, rather than doing contrast searches per rendered row. `HorizontalText` paints the status prefix separately while keeping the existing bounded, Unicode-aware scrolling behavior.
+
+The full Windows real-collection check passed 497 tests (495 passed, two optional network/tool-install checks skipped), with Gradle 9.8.2 and test-only ASM 9.11.1. Focused status/localization/update checks and builds passed after the final presentation adjustments. English and Traditional Chinese native smoke runs passed at fullscreen 1920x1080, GUI scale 2 with SmoothFont; private captures were visually inspected for colored status prefixes, neutral metadata, selected rows, and CJK text. No new public screenshots were added. These checks do not establish Linux/macOS native GUI or audio behavior.
+
+The translation update's failed build came from a regression test matching an English phrase in the restricted-content explanation. The test now asserts the intended localized classification instead of a particular wording; classification requirements remain intact. Both dependency PRs were inspected and tested together before merging, and their combined GitHub build passed.

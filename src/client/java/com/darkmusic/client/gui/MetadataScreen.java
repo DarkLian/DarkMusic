@@ -123,7 +123,7 @@ public final class MetadataScreen extends LocalScreen {
         String[] keys = {"text.darkmusic.song_title", "text.darkmusic.artist", "library.darkmusic.album", "library.darkmusic.filename"};
         for (int i = 0; i < keys.length; i++)
             g.text(font, Text.get(keys[i]) + (i == 3 && original != null ? " (" + original.extension() + ")" : ""), left + 12, top + 30 + i * 36, UiTheme.SECONDARY);
-        longText.draw(g, font, "status", saving ? Text.get("library.darkmusic.saving") : original == null && error.isEmpty() ? Text.get("text.darkmusic.loading") : error, left + 12, top + 216, panelWidth - 24, UiTheme.WARNING);
+        longText.draw(g, font, "status", saving ? Text.get("library.darkmusic.saving") : original == null && error.isEmpty() ? Text.get("text.darkmusic.loading") : error, left + 12, top + 216, panelWidth - 24, error.isEmpty() ? UiStatus.color(UiStatus.Tone.INFO) : UiTheme.ERROR);
         super.extractRenderState(g, x, y, delta);
     }
 }

@@ -12,6 +12,7 @@ import net.minecraft.client.gui.screens.Screen;
 public final class SongActionsScreen extends AudioPage {
     private final Track track;
     private String feedback = "";
+    private UiStatus.Tone feedbackTone = UiStatus.Tone.INFO;
     private SettingRow next, add;
 
     public SongActionsScreen(DarkMusicClient app, Screen parent, Track track) {
@@ -32,7 +33,7 @@ public final class SongActionsScreen extends AudioPage {
             add = labeledAction(Text.get("upnext.add"), Text.get("upnext.add.help"), () -> queue(false));
             tick();
         }
-        info(() -> feedback);
+        status(() -> feedback, () -> feedbackTone);
         action("upnext.title", () -> show(new UpNextScreen(app, this)));
     }
 
@@ -41,9 +42,12 @@ public final class SongActionsScreen extends AudioPage {
         var resolved = app.playlists.index(app.library.snapshot().tracks()).get(track.id());
         if (resolved == null) {
             feedback = Text.get("player.darkmusic.outside_library");
+            feedbackTone = UiStatus.Tone.WARNING;
             return;
         }
-        if (first ? app.playback.playNext(resolved) : app.playback.addToQueue(resolved))
+        boolean accepted = first ? app.playback.playNext(resolved) : app.playback.addToQueue(resolved);
+        feedbackTone = accepted ? UiStatus.Tone.SUCCESS : UiStatus.Tone.WARNING;
+        if (accepted)
             feedback = Text.get(first ? "upnext.added_next" : "upnext.added", track.title());
         else feedback = Text.get("upnext.full", com.darkmusic.client.audio.PlaybackController.QUEUE_LIMIT);
     }

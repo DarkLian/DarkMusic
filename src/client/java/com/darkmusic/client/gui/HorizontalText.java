@@ -42,14 +42,19 @@ public final class HorizontalText {
     }
 
     public void draw(GuiGraphicsExtractor g, Font font, String key, String text, int x, int y, int width, int color) {
-        draw(g, font, key, text, x, y, width, color, false);
+        draw(g, font, key, text, x, y, width, color, false, 0, color);
     }
 
     public void drawUpdating(GuiGraphicsExtractor g, Font font, String key, String text, int x, int y, int width, int color) {
-        draw(g, font, key, text, x, y, width, color, true);
+        draw(g, font, key, text, x, y, width, color, true, 0, color);
     }
 
-    private void draw(GuiGraphicsExtractor g, Font font, String key, String text, int x, int y, int width, int color, boolean preserveOffset) {
+    public void drawStatus(GuiGraphicsExtractor g, Font font, String key, String status, String detail, int x, int y, int width, int statusColor, int detailColor) {
+        String text = status + (status.isBlank() || detail.isBlank() ? "" : " | ") + detail;
+        draw(g, font, key, text, x, y, width, detailColor, true, status.length(), statusColor);
+    }
+
+    private void draw(GuiGraphicsExtractor g, Font font, String key, String text, int x, int y, int width, int color, boolean preserveOffset, int statusLength, int statusColor) {
         if (width <= 0) return;
         Line line = lines.computeIfAbsent(key, k -> new Line());
         if (!Objects.equals(line.text, text) || line.font != font) {
@@ -66,10 +71,17 @@ public final class HorizontalText {
             String prefix = font.plainSubstrByWidth(text, offset);
             line.visible = font.plainSubstrByWidth(text.substring(prefix.length()), width + font.lineHeight + 2);
             line.shift = offset - font.width(prefix);
+            line.visibleStart = prefix.length();
             line.paintedOffset = offset;
             line.paintedWidth = width;
         }
-        g.text(font, line.visible, x - line.shift, y, color);
+        int visibleStart = line.visibleStart;
+        int colored = Math.clamp(statusLength - visibleStart, 0, line.visible.length());
+        if (colored > 0) {
+            String status = line.visible.substring(0, colored);
+            g.text(font, status, x - line.shift, y, statusColor);
+            g.text(font, line.visible.substring(colored), x - line.shift + font.width(status), y, color);
+        } else g.text(font, line.visible, x - line.shift, y, color);
         g.disableScissor();
     }
 
@@ -93,7 +105,7 @@ public final class HorizontalText {
     static final class Line {
         Font font;
         String text, visible;
-        int measured, maximum, paintedOffset = -1, paintedWidth, shift;
+        int measured, maximum, paintedOffset = -1, paintedWidth, shift, visibleStart;
         double offset;
 
         void update(String text, int measured, boolean preserveOffset) {

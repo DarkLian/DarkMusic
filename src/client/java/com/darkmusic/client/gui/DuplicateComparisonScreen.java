@@ -195,7 +195,7 @@ public final class DuplicateComparisonScreen extends LocalScreen {
                 SongCard.draw(app, g, font, longText, track(i), "compare" + i, left, cardY, columnWidth);
             }
         String status = !notice.isEmpty() ? notice : audition != null && !audition.error().isEmpty() ? Text.get("cleanup.preview_failed") : Text.get("cleanup.quality_note");
-        longText.draw(g, font, "notice", status, 12, height - 15, width - 24, UiTheme.MUTED);
+        longText.draw(g, font, "notice", status, 12, height - 15, width - 24, UiStatus.color(audition != null && !audition.error().isEmpty() ? UiStatus.Tone.ERROR : !notice.isEmpty() ? UiStatus.Tone.WARNING : UiStatus.Tone.INFO));
         super.extractRenderState(g, x, y, delta);
     }
 }

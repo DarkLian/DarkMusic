@@ -16,7 +16,7 @@ public final class UiTheme {
     public static int HOVER = 0xFF303750, SELECTED = 0xFF48446D, BORDER = 0xFF3A4059;
     public static int ACCENT = 0xFFB8A8FA, TEXT = 0xFFF0EFF9, SECONDARY = 0xFFB0B5CE;
     public static int MUTED = 0xFF868DA7;
-    public static final int SUCCESS = 0xFF66DDB8, WARNING = 0xFFEBC37C, ERROR = 0xFFEF8798;
+    public static int SUCCESS = 0xFF66DDB8, WARNING = 0xFFEBC37C, ERROR = 0xFFEF8798;
 
     public static void apply(com.darkmusic.client.config.Settings settings) {
         int base = settings.menuBackgroundColor | 0xFF000000;
@@ -52,6 +52,10 @@ public final class UiTheme {
         SELECTED = settings.menuBackgroundColor == 0x111420 && settings.menuAccentColor == 0xB8A8FA
             ? 0xFF48446D : mix(SURFACE, ACCENT, .30f);
         ACCENT = readableAccent(ACCENT, SURFACE, TEXT);
+        UiStatus.refresh();
+        SUCCESS = UiStatus.color(UiStatus.Tone.SUCCESS);
+        WARNING = UiStatus.color(UiStatus.Tone.WARNING);
+        ERROR = UiStatus.color(UiStatus.Tone.ERROR);
     }
 
     private UiTheme() {

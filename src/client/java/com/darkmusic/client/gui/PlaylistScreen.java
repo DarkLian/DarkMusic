@@ -219,7 +219,7 @@ public final class PlaylistScreen extends LocalScreen {
         UiTheme.header(g, font, title, UiIcon.PLAYLIST);
         if (lists.visible) g.text(font, Text.get("view.darkmusic.playlists"), 14, 72, UiTheme.ACCENT);
         if (entries.visible)
-            longText.draw(g, font, "selection", (selected() == null ? "" : app.playlists.displayName(selected()) + " | ") + Text.get("format.darkmusic.selected", selection.size()), entries.getX() + 2, 72, entries.getWidth() - 4, UiTheme.SECONDARY);
+            longText.draw(g, font, "selection", (selected() == null ? "" : app.playlists.displayName(selected()) + " | ") + Text.get("format.darkmusic.selected", selection.size()), entries.getX() + 2, 72, entries.getWidth() - 4, UiStatus.color(UiStatus.Tone.INFO));
         super.extractRenderState(g, x, y, d);
         importOverlay.render(app, g, width, height);
     }

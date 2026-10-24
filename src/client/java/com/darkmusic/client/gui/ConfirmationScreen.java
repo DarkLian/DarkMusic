@@ -113,7 +113,7 @@ public final class ConfirmationScreen extends LocalScreen {
         for (int i = 0; i < lines.size(); i++)
             g.text(font, lines.get(i), left + 12, top + 30 + i * 11 - scroll, UiTheme.SECONDARY);
         g.disableScissor();
-        longText.draw(g, font, "status", busy ? Text.get("reset.darkmusic.working") : error, left + 12, top + panelHeight - 50, panelWidth - 24, UiTheme.WARNING);
+        longText.draw(g, font, "status", busy ? Text.get("reset.darkmusic.working") : error, left + 12, top + panelHeight - 50, panelWidth - 24, busy ? UiStatus.color(UiStatus.Tone.INFO) : UiTheme.ERROR);
         super.extractRenderState(g, x, y, delta);
     }
 }
