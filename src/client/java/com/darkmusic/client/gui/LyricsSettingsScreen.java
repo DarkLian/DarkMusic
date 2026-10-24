@@ -19,6 +19,9 @@ public final class LyricsSettingsScreen extends AudioPage {
     protected void populate() {
         var s = app.settings;
         section("lyrics.settings");
+        int find = rowCount();
+        action("lyrics.library.find", () -> show(new LyricsLibraryScreen(app, this)));
+        enableSince(find, s.lyricsOnline);
         info("lyrics.consent.scope");
         toggle("lyrics.online", () -> s.lyricsOnline, v -> {
             if (v && s.lyricsConsentVersion < 1) show(LyricsConsent.request(app, this));
@@ -26,7 +29,6 @@ public final class LyricsSettingsScreen extends AudioPage {
         });
         int start = rowCount();
         toggle("lyrics.automatic", () -> s.lyricsAutomaticLookup, v -> s.lyricsAutomaticLookup = v);
-        action("lyrics.library.find", () -> show(new LyricsLibraryScreen(app, this)));
         toggle("lyrics.after_download", () -> s.lyricsDownloadLookup, v -> s.lyricsDownloadLookup = v);
         enableSince(start, s.lyricsOnline);
         toggle("lyrics.auto_captions", () -> s.lyricsAutoCaptions, v -> s.lyricsAutoCaptions = v);

@@ -161,7 +161,6 @@ public final class SettingsScreen extends LocalScreen {
             rebuildWidgets();
         }, "lyrics.darkmusic.enabled_help");
         if (s.lyricsEnabled) {
-            action("lyrics.darkmusic.title", () -> show(new LyricsScreen(app, this)), "lyrics.darkmusic.help");
             action("lyrics.settings", () -> show(new LyricsSettingsScreen(app, this)), "lyrics.settings.help");
         }
         if (s.lyricsEnabled) {

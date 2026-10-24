@@ -102,7 +102,9 @@ class UiPolishTest {
             assertEquals(LyricsInfo.PLAIN, service.info(plain));
             assertFalse(service.document(plain).synchronizedLyrics());
             assertEquals(java.util.List.of("Untimed words"), service.document(plain).plain());
-            assertEquals(LyricsInfo.UNAVAILABLE, service.info(absent));
+            assertEquals(LyricsInfo.LOCAL_MISSING, service.info(absent));
+            assertEquals(LyricsInfo.State.UNKNOWN, service.info(absent).state());
+            assertEquals("?", service.info(absent).mark());
             assertEquals(LyricsInfo.UNKNOWN, service.info(track("missing")));
             for (int i = 0; i < 1000; i++) {
                 service.inspect(track("unknown" + i));
