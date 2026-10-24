@@ -24,9 +24,9 @@ final class SpectrumHalo {
         var bounds = new ScreenRectangle(x, Math.max(0, y - 2), width, height + 4).transformMaxBounds(pose);
         if (clip != null) bounds = clip.intersection(bounds);
         if (bounds == null) return;
-        int columns = settings.spectrumStyle == Settings.SpectrumStyle.BARS ? Math.min(bands, width / 2) : Math.min(width, settings.visualQuality.detail);
+        int columns = settings.spectrumStyle.bars() ? Math.min(bands, width / 2) : Math.min(width, settings.visualQuality.detail);
         float[] tops = new float[columns], bottoms = new float[columns];
-        boolean bars = settings.spectrumStyle == Settings.SpectrumStyle.BARS;
+        boolean bars = settings.spectrumStyle.bars();
         boolean filled = bars || settings.spectrumStyle == Settings.SpectrumStyle.FILLED_SPIKE || settings.spectrumStyle == Settings.SpectrumStyle.FILLED_WAVE;
         int previous = 0;
         for (int i = 0; i < columns; i++) {
@@ -44,7 +44,7 @@ final class SpectrumHalo {
             bottoms[i] = downward ? y + high : y + height - low;
             previous = h;
         }
-        g.guiRenderState.addGuiElement(new Halo(pose, clip, bounds, x, width, tops, bottoms, bars, settings.hudShape, hudHeight, settings.spectrumColors.first(), settings.spectrumColors.last()));
+        g.guiRenderState.addGuiElement(new Halo(pose, clip, bounds, x, width, tops, bottoms, bars, settings.hudShape, hudHeight, SpectrumAppearance.opacity(settings.spectrumColors.first() | 0xff000000, settings.spectrumOpacity), SpectrumAppearance.opacity(settings.spectrumColors.last() | 0xff000000, settings.spectrumOpacity)));
     }
 
     record Halo(Matrix3x2f pose, ScreenRectangle scissorArea, ScreenRectangle bounds, int x, int width,
@@ -84,8 +84,8 @@ final class SpectrumHalo {
                     row = next;
                     continue;
                 }
-                int a = Math.round(38 * (fading ? (bottom - row) / 2f : (row - top) / 2f));
-                int b = Math.round(38 * (fading ? (bottom - next) / 2f : (next - top) / 2f));
+                int a = (int) Math.round(38 * ((first >>> 24) / 255.0) * (fading ? (bottom - row) / 2f : (row - top) / 2f));
+                int b = (int) Math.round(38 * ((first >>> 24) / 255.0) * (fading ? (bottom - next) / 2f : (next - top) / 2f));
                 v.addVertexWith2DPose(pose, l, row).setColor(color | a << 24);
                 v.addVertexWith2DPose(pose, l, next).setColor(color | b << 24);
                 v.addVertexWith2DPose(pose, r, next).setColor(color | b << 24);

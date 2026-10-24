@@ -17,7 +17,31 @@ public record CircularHudLayout(int width, int height, float centerX, float cent
     }
 
     public static CircularHudLayout of(boolean spectrum, boolean text, float spectrumHeight) {
-        int radius = (int) Math.ceil(RING_OUTER + (spectrum ? spectrumHeight : 0) + FEATHER + 1);
+        return of(spectrum, text, spectrumHeight, 0);
+    }
+
+    public static CircularHudLayout of(boolean spectrum, boolean text, float spectrumHeight, int waveformHeight) {
+        int radius = (int) Math.ceil(RING_OUTER + (spectrum ? spectrumHeight : 0) + waveformHeight + FEATHER + 1);
+        return measured(radius, text);
+    }
+
+    public static float progressInner(com.darkmusic.client.config.Settings settings) {
+        return ICON_RADIUS + ((settings.hudProgress || settings.hudVisualizer) ? settings.circularImageGap : 0);
+    }
+
+    public static float spectrumBase(com.darkmusic.client.config.Settings settings) {
+        return progressInner(settings) + (settings.hudProgress ? settings.waveformProgress ? settings.waveform.height : RING_OUTER - RING_INNER : 0);
+    }
+
+    public static float outerRadius(com.darkmusic.client.config.Settings settings) {
+        return spectrumBase(settings) + (settings.hudVisualizer ? settings.circularSpectrumHeight : 0);
+    }
+
+    public static CircularHudLayout of(com.darkmusic.client.config.Settings settings) {
+        return measured((int) Math.ceil(outerRadius(settings) + FEATHER + 1), settings.circularText);
+    }
+
+    private static CircularHudLayout measured(int radius, boolean text) {
         int title = radius * 2 + 9;
         int width = Math.max(176, radius * 2 + 12);
         return new CircularHudLayout(width, text ? title + 28 : radius * 2, width / 2f, radius, title, title + 16);

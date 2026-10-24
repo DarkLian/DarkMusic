@@ -3,6 +3,7 @@ package com.darkmusic.smoke;
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.gui.*;
+import com.darkmusic.client.hud.HudImages;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.lyrics.*;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -19,6 +20,7 @@ import java.util.concurrent.CompletableFuture;
  */
 final class LyricsSmokeClient {
     private int stage = -2, ticks, since;
+    private boolean imageCacheClosed;
     private Track a, b;
     private CompletableFuture<Void> operation;
     private double paused;
@@ -123,6 +125,16 @@ final class LyricsSmokeClient {
                 if (other != w)
                     check(w.getRight() <= other.getX() || w.getX() >= other.getRight() || w.getBottom() <= other.getY() || w.getY() >= other.getBottom(), "Overlapping controls");
         }
+    }
+
+    private void captureWaveform(Minecraft mc, String name) throws Exception {
+        if (!Boolean.getBoolean("darkmusic.smoothFontAvailable")) return;
+        SmokeUi.displayReady(mc);
+        Path images = Path.of(System.getProperty("darkmusic.privateImages"));
+        Files.createDirectories(images.resolve("screenshots"));
+        net.minecraft.client.Screenshot.grab(images.toFile(), "waveform-" + name + "-" + mc.options.languageCode + ".png",
+            mc.gameRenderer.mainRenderTarget(), 1, ignored -> {
+            });
     }
 
     private void tick(Minecraft mc) {
@@ -358,6 +370,192 @@ final class LyricsSmokeClient {
                 if (ticks - since < 5) return;
                 check(!(mc.gui.screen() instanceof LyricsScreen), "Stopping before the deferred open prevents a stale lyrics menu");
                 check(app.requestLyrics().equals("upnext.idle"), "A stopped track is not treated as currently playing");
+                app.settings.waveformProgress = true;
+                app.playback.play(List.of(a), a);
+                since = ticks;
+                stage = 12;
+            } else if (stage == 12) {
+                if (app.playback.state().status() != AudioBackend.Status.PLAYING || app.waveforms.get(a) == null)
+                    return;
+                check(Math.abs(app.waveforms.get(a).duration() - app.playback.state().duration()) < 1, "Waveform covers the actual whole track");
+                app.playback.seek(app.playback.state().duration() * .4);
+                stage = 13;
+            } else if (stage == 13) {
+                if (Math.abs(app.playback.state().position() / app.playback.state().duration() - .4) > .03) return;
+                app.playback.pause();
+                mc.gui.setScreen(new MusicScreen(app, null));
+                since = ticks;
+                stage = 14;
+            } else if (stage == 14) {
+                if (ticks - since < 5) return;
+                captureWaveform(mc, "player");
+                app.settings.hudStyle = com.darkmusic.client.config.Settings.HudStyle.ARTWORK;
+                var waveformSettings = new SettingsScreen(app, null);
+                mc.gui.setScreen(waveformSettings);
+                var section = SettingsScreen.class.getDeclaredField("selectedSection");
+                section.setAccessible(true);
+                section.setInt(waveformSettings, 4);
+                for (var style : com.darkmusic.client.config.WaveformSettings.Style.values()) {
+                    app.settings.waveform.style = style;
+                    for (int w : new int[]{320, 426, 960}) {
+                        var previewOnly = SettingsScreen.class.getDeclaredField("previewOnly");
+                        previewOnly.setAccessible(true);
+                        previewOnly.setBoolean(waveformSettings, true);
+                        bounds(waveformSettings, w, w == 960 ? 540 : 240);
+                        var playerPreview = (ValueSlider) SmokeUi.field(waveformSettings, "playerProgressPreview");
+                        check(playerPreview.getX() >= 0 && playerPreview.getRight() <= w && playerPreview.getY() >= 0 && playerPreview.getBottom() <= waveformSettings.height,
+                            "Main-menu progress preview fits compact and wide settings");
+                    }
+                }
+                app.settings.waveform.style = com.darkmusic.client.config.WaveformSettings.Style.FILLED;
+                waveformSettings.init(960, 540);
+                var groups = (List<?>) SmokeUi.field(waveformSettings, "subsections");
+                check(groups.size() == 1, "Progress uses the shared category heading renderer");
+                int groupY = (int) SmokeUi.field(groups.getFirst(), "y");
+                var placed = (List<?>) SmokeUi.field(waveformSettings, "controls");
+                for (String label : List.of(
+                    com.darkmusic.client.text.Text.get("hud.darkmusic.transparency", Math.round(app.settings.hudBackgroundTransparency * 100)),
+                    com.darkmusic.client.text.Text.get("hud.darkmusic.background_gradient"),
+                    com.darkmusic.client.text.Text.get("hud.darkmusic.background_colors"))) {
+                    var control = placed.stream().filter(row -> ((AbstractWidget) SmokeUi.field(row, "widget")).getMessage().getString().equals(label)).findFirst().orElseThrow();
+                    check((int) SmokeUi.field(control, "y") < groupY, "HUD background controls precede Progress Bar");
+                }
+                SmokeUi.click(mc, com.darkmusic.client.text.Text.get("waveform.style") + ": " + com.darkmusic.client.text.Text.get("waveform.style.filled"));
+                app.settings.waveform.style = com.darkmusic.client.config.WaveformSettings.Style.FILLED;
+                waveformSettings.init(960, 540);
+                since = ticks;
+                stage = 17;
+            } else if (stage == 17) {
+                if (ticks - since < 5) return;
+                captureWaveform(mc, "appearance");
+                app.settings.hudEnabled = false;
+                since = ticks;
+                stage = 23;
+            } else if (stage == 23) {
+                if (ticks - since < 5) return;
+                captureWaveform(mc, "player-preview-hud-off");
+                app.settings.hudEnabled = true;
+                app.settings.hudStyle = com.darkmusic.client.config.Settings.HudStyle.CLASSIC;
+                mc.gui.setScreen(new HudEditorScreen(app, null));
+                since = ticks;
+                stage = 15;
+            } else if (stage == 15) {
+                var styles = new com.darkmusic.client.config.Settings.HudStyle[]{
+                    com.darkmusic.client.config.Settings.HudStyle.CLASSIC,
+                    com.darkmusic.client.config.Settings.HudStyle.ARTWORK,
+                    com.darkmusic.client.config.Settings.HudStyle.CIRCULAR};
+                int elapsed = ticks - since;
+                if (elapsed < 18) {
+                    app.settings.hudStyle = styles[elapsed / 6];
+                    if (elapsed % 6 == 5)
+                        captureWaveform(mc, styles[elapsed / 6].name().toLowerCase(java.util.Locale.ROOT));
+                    return;
+                }
+                check(app.playback.state().status() == AudioBackend.Status.PAUSED, "Waveform rendering preserves pause");
+                app.settings.waveform.style = com.darkmusic.client.config.WaveformSettings.Style.BARS;
+                app.settings.waveform.height = 18;
+                app.settings.waveform.detail = 512;
+                app.settings.waveform.spacing = 4;
+                app.settings.waveform.opacity = .65;
+                app.settings.waveform.contrast = 2;
+                app.settings.waveform.smoothing = .8;
+                mc.gui.setScreen(new MusicScreen(app, null));
+                since = ticks;
+                stage = 18;
+            } else if (stage == 18) {
+                if (ticks - since < 5) return;
+                captureWaveform(mc, "bars-player");
+                app.settings.hudStyle = com.darkmusic.client.config.Settings.HudStyle.CIRCULAR;
+                mc.gui.setScreen(new HudEditorScreen(app, null));
+                since = ticks;
+                stage = 19;
+            } else if (stage == 19) {
+                if (ticks - since < 5) return;
+                if (app.artwork.get(a) == null) return;
+                captureWaveform(mc, "bars-circular");
+                app.settings.waveform = new com.darkmusic.client.config.WaveformSettings();
+                app.settings.waveformProgress = false;
+                since = ticks;
+                stage = 20;
+            } else if (stage == 20) {
+                int elapsed = ticks - since, sample = elapsed / 8;
+                if (sample < 13) {
+                    if (sample >= 10 && !imageCacheClosed) {
+                        app.artwork.close();
+                        imageCacheClosed = true;
+                    }
+                    var styles = new com.darkmusic.client.config.Settings.HudStyle[]{
+                        com.darkmusic.client.config.Settings.HudStyle.CLASSIC,
+                        com.darkmusic.client.config.Settings.HudStyle.ARTWORK,
+                        com.darkmusic.client.config.Settings.HudStyle.CIRCULAR};
+                    app.settings.hudStyle = sample < 6 ? styles[sample / 2] : sample >= 10 ? styles[sample - 10] : styles[2];
+                    app.settings.hudImage(sample < 6 && sample % 2 == 1 || sample == 7
+                        ? com.darkmusic.client.config.Settings.HudImage.ICON : com.darkmusic.client.config.Settings.HudImage.ARTWORK);
+                    app.settings.circularImageGap = sample == 6 || sample == 7 ? 12 : 0;
+                    app.settings.hudProgress = sample != 4 && sample != 5 && sample != 6;
+                    app.settings.hudVisualizer = sample != 7 && sample != 9;
+                    app.settings.waveformProgress = sample == 9;
+                    if (elapsed % 8 == 7) {
+                        var editor = mc.gui.screen();
+                        for (int w : new int[]{320, 426, 960}) bounds(editor, w, w == 960 ? 540 : 240);
+                        editor.init(960, 540);
+                        captureWaveform(mc, "image-" + sample);
+                        check((HudImages.cover(app, a) == null) == (sample < 6 && sample % 2 == 1 || sample == 7 || sample >= 10), "Artwork selection and icon fallback agree");
+                    }
+                    return;
+                }
+                if (imageCacheClosed) app.artwork = new com.darkmusic.client.library.ArtworkCache();
+                app.settings.classicImage = app.settings.circularImage = app.settings.artworkImage = com.darkmusic.client.config.Settings.HudImage.ARTWORK;
+                app.settings.circularImageGap = 0;
+                app.settings.hudProgress = app.settings.hudVisualizer = true;
+                app.settings.waveformProgress = false;
+                System.out.println("DARKMUSIC_HUD_IMAGE_PASS: artwork/icon in three layouts, unavailable-artwork fallback, circular crop, zero/custom gap, progress-only/spectrum-only/both and compact/wide bounds");
+                app.settings.spectrumStyle = app.settings.circularSpectrumStyle = com.darkmusic.client.config.Settings.SpectrumStyle.ROUNDED_BARS;
+                app.settings.spectrumOpacity = .55;
+                app.configureVisualizer();
+                app.playback.toggle();
+                since = ticks;
+                stage = 21;
+            } else if (stage == 21) {
+                float[] levels = new float[64];
+                app.playback.spectrum().copyTo(levels);
+                float maximum = 0;
+                for (float level : levels) maximum = Math.max(maximum, level);
+                if (app.playback.state().status() != AudioBackend.Status.PLAYING || maximum < .02) return;
+                app.settings.hudProgress = false;
+                mc.gui.setScreen(new MusicScreen(app, null));
+                since = ticks;
+                stage = 22;
+            } else if (stage == 22) {
+                int elapsed = ticks - since;
+                if (elapsed < 5) return;
+                if (elapsed == 5) {
+                    captureWaveform(mc, "rounded-spectrum-player");
+                    mc.gui.setScreen(new HudEditorScreen(app, null));
+                }
+                var styles = new com.darkmusic.client.config.Settings.HudStyle[]{
+                    com.darkmusic.client.config.Settings.HudStyle.CLASSIC,
+                    com.darkmusic.client.config.Settings.HudStyle.ARTWORK,
+                    com.darkmusic.client.config.Settings.HudStyle.CIRCULAR,
+                    com.darkmusic.client.config.Settings.HudStyle.SPECTRUM};
+                int sample = (elapsed - 5) / 8;
+                if (sample < styles.length) {
+                    app.settings.hudStyle = styles[sample];
+                    if ((elapsed - 5) % 8 == 7)
+                        captureWaveform(mc, "rounded-spectrum-" + styles[sample].name().toLowerCase(java.util.Locale.ROOT));
+                    return;
+                }
+                app.playback.pause();
+                app.settings.spectrumStyle = app.settings.circularSpectrumStyle = com.darkmusic.client.config.Settings.SpectrumStyle.BARS;
+                app.settings.spectrumOpacity = 1;
+                app.settings.hudProgress = true;
+                System.out.println("DARKMUSIC_ROUNDED_SPECTRUM_PASS: real audio drives rounded spectra in player and all four HUD layouts; main-menu preview also renders with HUD off");
+                since = ticks;
+                stage = 16;
+            } else if (stage == 16) {
+                if (ticks - since < 5) return;
+                check(app.waveforms.get(a) == null, "Disabling waveforms clears the active view");
+                System.out.println("DARKMUSIC_WAVEFORM_PASS: real full-track envelope, shared player/HUD data, seek/pause, all progress HUD layouts, disable and compact/wide regression checks");
                 System.out.println("DARKMUSIC_LYRICS_COMMAND_PASS: active/paused Up Next track, offline local lyrics, disabled feedback, stopped retained track and deferred state revalidation");
                 System.out.println("DARKMUSIC_LYRICS_UI_PASS: independent lyrics HUD in all four layouts, compact/wide nonoverlap, drag/resize isolation, startup cue, timed/plain views, actual device playback, pause/seek/resume/speed, positive offset and Up Next isolation; online access disabled");
                 System.out.println("DARKMUSIC_SMOKE_PASS:" + Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip());

@@ -12,7 +12,7 @@ public record ArtworkHudLayout(int width, int height, int artworkX, int artworkY
         int w = Math.max(1, (int) Math.round(imageWidth * fit));
         int h = Math.max(1, (int) Math.round(imageHeight * fit));
         int extra = settings.hudVisualizer ? HudLayout.GAP + settings.artworkSpectrumHeight : 0;
-        int blockHeight = h + (settings.hudProgress ? 3 : 0);
+        int blockHeight = h + (settings.hudProgress ? (settings.waveformProgress ? settings.waveform.height + 2 : 3) : 0);
         if (!settings.hudVisualizer) return new ArtworkHudLayout(w, blockHeight, 0, 0, w, h, 0, 0);
         return switch (settings.artworkSpectrumPosition) {
             case ABOVE -> new ArtworkHudLayout(w, blockHeight + extra, 0, extra, w, h, 0, 0);

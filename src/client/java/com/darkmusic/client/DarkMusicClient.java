@@ -182,6 +182,7 @@ public class DarkMusicClient implements ClientModInitializer {
     }
 
     public com.darkmusic.client.library.ArtworkCache artwork;
+    public com.darkmusic.client.audio.WaveformCache waveforms;
     public com.darkmusic.client.playlist.PlaylistStore playlists;
     public com.darkmusic.client.download.DownloadService downloads;
     public com.darkmusic.client.download.AuditionPlayer audition;
@@ -698,6 +699,7 @@ public class DarkMusicClient implements ClientModInitializer {
             }
         }));
         artwork = new com.darkmusic.client.library.ArtworkCache();
+        waveforms = new com.darkmusic.client.audio.WaveformCache(config.directory());
         playback = createPlayback();
         playback.volume(settings.volume);
         configureVisualizer();
@@ -902,6 +904,12 @@ public class DarkMusicClient implements ClientModInitializer {
     }
 
     protected void tick(Minecraft client, boolean allowed) {
+        if (waveforms != null && settings != null && playback != null) {
+            var waveformTrack = playback.state().track();
+            if (waveformTrack == null && library != null && !library.snapshot().tracks().isEmpty())
+                waveformTrack = library.snapshot().tracks().getFirst();
+            waveforms.update(waveformTrack, settings.waveformProgress && !mediaBusy);
+        }
         if (settings != null && playback != null && settings.lyricsEnabled) {
             var track = playback.state().track();
             lyrics.request(track, settings.lyricsAutomaticLookup);
@@ -1006,6 +1014,7 @@ public class DarkMusicClient implements ClientModInitializer {
         speedFeedback.clear();
         volumeFeedback.clear();
         artwork.close();
+        if (waveforms != null) waveforms.close();
         var oldPlayback = playback;
         var oldLibrary = library;
         var oldDownloads = downloads;
@@ -1035,6 +1044,7 @@ public class DarkMusicClient implements ClientModInitializer {
             settings = failure == null ? Settings.defaults(prior) : prior;
             playback = createPlayback();
             artwork = new com.darkmusic.client.library.ArtworkCache();
+            waveforms = new com.darkmusic.client.audio.WaveformCache(config.directory());
             library = new com.darkmusic.client.library.MusicLibrary(config.directory());
             downloads = new com.darkmusic.client.download.DownloadService(config.directory(), () -> library.requestRescan());
             downloads.configure(new com.darkmusic.client.download.DownloadModels.Tools(settings.ytDlpPath, settings.ffmpegPath, settings.ffprobePath, settings.javascriptPath));
@@ -1097,6 +1107,7 @@ public class DarkMusicClient implements ClientModInitializer {
         if (playback != null) playback.close();
         if (listeningHistory != null) listeningHistory.flush(true);
         if (artwork != null) artwork.close();
+        if (waveforms != null) waveforms.close();
         lyrics.close();
     }
 }

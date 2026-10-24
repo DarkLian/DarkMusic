@@ -27,7 +27,11 @@ public final class Settings {
     public Double hudX, hudY;
     public double hudScale = 1;
     public boolean hudArtwork = true;
+    public HudImage classicImage = HudImage.ARTWORK, circularImage = HudImage.ARTWORK, artworkImage = HudImage.ARTWORK;
+    public int circularImageGap;
     public boolean hudProgress = true;
+    public boolean waveformProgress;
+    public WaveformSettings waveform = new WaveformSettings();
     public boolean hudVisualizer = true;
     public HudStyle hudStyle = HudStyle.CLASSIC;
     public SpectrumStyle circularSpectrumStyle = SpectrumStyle.BARS;
@@ -48,6 +52,7 @@ public final class Settings {
     public VisualColors spectrumColors = defaultVisualColors(), progressColors = defaultVisualColors();
     public int visualizerBars = 36;
     public double visualizerSensitivity = 1, visualizerSmoothing = .6;
+    public double spectrumOpacity = 1;
     public String ytDlpPath = "", ffmpegPath = "", ffprobePath = "", javascriptPath = "";
     public com.darkmusic.client.download.DownloadEncoding.Format downloadFormat = com.darkmusic.client.download.DownloadEncoding.Format.ORIGINAL;
     public AudioSettings audio = new AudioSettings();
@@ -81,10 +86,16 @@ public final class Settings {
     }
 
     public void validate() {
+        if (classicImage == null) classicImage = HudImage.ARTWORK;
+        if (circularImage == null) circularImage = HudImage.ARTWORK;
+        if (artworkImage == null) artworkImage = HudImage.ARTWORK;
+        circularImageGap = Math.clamp(circularImageGap, 0, 24);
         if (lyricsConsentVersion < 1) {
             lyricsOnline = false;
             lyricsLibraryLookup = false;
         }
+        if (waveform == null) waveform = new WaveformSettings();
+        waveform.validate();
         menuBackgroundColor &= 0xFFFFFF;
         menuAccentColor &= 0xFFFFFF;
         circularSpectrumHeight = Math.clamp(circularSpectrumHeight, 4, 60);
@@ -126,13 +137,14 @@ public final class Settings {
         spectrumColors.validate();
         progressColors.validate();
         visualizerBars = Math.clamp(visualizerBars, 8, 64);
+        spectrumOpacity = Double.isFinite(spectrumOpacity) ? Math.clamp(spectrumOpacity, .1, 1) : 1;
         visualizerSensitivity = Double.isFinite(visualizerSensitivity) ? Math.clamp(visualizerSensitivity, .25, 4) : 1;
         visualizerSmoothing = Double.isFinite(visualizerSmoothing) ? Math.clamp(visualizerSmoothing, 0, .95) : .6;
         if (hudStyle == null) hudStyle = HudStyle.CLASSIC;
         if (spectrumStyle == null) spectrumStyle = SpectrumStyle.BARS;
         if (spectrumFinish == null) spectrumFinish = SurfaceFinish.BEVELED;
         if (progressFinish == null) progressFinish = SurfaceFinish.BEVELED;
-        if (circularSpectrumStyle != SpectrumStyle.BARS && circularSpectrumStyle != SpectrumStyle.FILLED_WAVE && circularSpectrumStyle != SpectrumStyle.FILLED_SPIKE)
+        if (circularSpectrumStyle != SpectrumStyle.BARS && circularSpectrumStyle != SpectrumStyle.ROUNDED_BARS && circularSpectrumStyle != SpectrumStyle.FILLED_WAVE && circularSpectrumStyle != SpectrumStyle.FILLED_SPIKE)
             circularSpectrumStyle = SpectrumStyle.BARS;
         if (hudShape == null) hudShape = HudShape.RECTANGLE;
         if (spectrumPosition == null) spectrumPosition = SpectrumPosition.BELOW;
@@ -170,11 +182,35 @@ public final class Settings {
         return quality;
     }
 
+    public HudImage hudImage() {
+        return switch (hudStyle) {
+            case CIRCULAR -> circularImage;
+            case ARTWORK -> artworkImage;
+            default -> classicImage;
+        };
+    }
+
+    public void hudImage(HudImage image) {
+        switch (hudStyle) {
+            case CIRCULAR -> circularImage = image;
+            case ARTWORK -> artworkImage = image;
+            default -> classicImage = image;
+        }
+    }
+
+    public enum HudImage {ARTWORK, ICON}
+
     public enum HudStyle {CLASSIC, CIRCULAR, ARTWORK, SPECTRUM}
 
     public enum SurfaceFinish {FLAT, BEVELED}
 
-    public enum SpectrumStyle {BARS, SMOOTH_WAVE, FILLED_WAVE, SPIKE, FILLED_SPIKE}
+    public enum SpectrumStyle {
+        BARS, SMOOTH_WAVE, FILLED_WAVE, SPIKE, FILLED_SPIKE, ROUNDED_BARS;
+
+        public boolean bars() {
+            return this == BARS || this == ROUNDED_BARS;
+        }
+    }
 
     public enum HudShape {RECTANGLE, ROUNDED, CHAMFERED}
 

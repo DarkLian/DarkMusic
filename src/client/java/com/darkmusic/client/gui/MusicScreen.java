@@ -342,9 +342,7 @@ public final class MusicScreen extends LocalScreen {
                 if (!seekDragging) seekTrack = app.playback.state().track();
                 seekDragging = progress != null && progress.editing();
             }, this::commitSeek));
-        progress.trackOnly(true);
-        progress.simpleProgress(true);
-        progress.colors(() -> app.settings.progressColors);
+        PlayerProgress.configure(progress, app, () -> app.playback.state().track());
         if (drawer) {
             icon("text.darkmusic.open_folder", UiIcon.FOLDER, 84, contextY, 24, true, app::openFolder);
             icon("import.darkmusic.history", UiIcon.PLAYLIST, 112, contextY, 24, true, () -> show(new ImportHistoryScreen(app, this)));

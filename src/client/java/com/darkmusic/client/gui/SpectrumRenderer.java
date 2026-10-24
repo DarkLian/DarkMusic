@@ -19,6 +19,10 @@ public final class SpectrumRenderer {
     }
 
     private void fill(DarkMusicClient app, int left, int top, int right, int bottom, int color) {
+        if (app.settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.ROUNDED_BARS) {
+            mesh.rounded(left, top, right, bottom, color, app.settings.spectrumFinish);
+            return;
+        }
         if (app.settings.spectrumFinish != com.darkmusic.client.config.Settings.SurfaceFinish.BEVELED || bottom - top < 2) {
             rawFill(left, top, right, bottom, color);
             return;
@@ -89,10 +93,10 @@ public final class SpectrumRenderer {
         if (width < 8 || height < 1 || app.playback.spectrum() == null) return;
         if (!update(app, settingsPreview)) return;
         int bands = app.settings.visualizerBars;
-        mesh.begin(width, hudHeight, app.settings.hudShape);
+        mesh.begin(width, hudHeight, app.settings.hudShape, app.settings.spectrumOpacity);
         if (app.settings.visualQuality.glow)
             SpectrumHalo.draw(g, app.settings, x, y, width, height, levels, bands, downward, hudHeight);
-        if (app.settings.spectrumStyle != com.darkmusic.client.config.Settings.SpectrumStyle.BARS) {
+        if (!app.settings.spectrumStyle.bars()) {
             // At most 384 columns, even on large windows. Reuse the analysis snapshot above.
             int columns = Math.min(width, app.settings.visualQuality.detail), previous = 0, previousPeak = 0;
             for (int i = 0; i < columns; i++) {
@@ -139,10 +143,21 @@ public final class SpectrumRenderer {
                 for (int j = i * bands / bars; j < (i + 1) * bands / bars; j++)
                     peak = Math.max(peak, barHeight(peaks[j], height));
                 int color = (app.settings.spectrumColors.color(i / (double) Math.max(1, bars - 1)) & 0xffffff) | 0x22000000;
-                if (app.settings.visualQuality.trails)
-                    trail(left, Math.max(left + 1, right), y, height, h, peak, color, downward);
-                if (app.settings.visualQuality.peakHold && peak > 0)
-                    rawFill(left, downward ? y + Math.max(0, peak - 1) : y + height - peak, Math.max(left + 1, right), downward ? y + peak : y + height - peak + 1, color | 0xff000000);
+                if (app.settings.visualQuality.trails) {
+                    if (app.settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.ROUNDED_BARS)
+                        mesh.rounded(left, downward ? y : y + height - peak, Math.max(left + 1, right), downward ? y + peak : y + height,
+                            color, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT);
+                    else trail(left, Math.max(left + 1, right), y, height, h, peak, color, downward);
+                }
+                if (app.settings.visualQuality.peakHold && peak > 0) {
+                    if (app.settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.ROUNDED_BARS) {
+                        if (SpectrumAppearance.detachedPeak(peak, h, 1))
+                            mesh.rounded(left, downward ? y + peak - 2 : y + height - peak, Math.max(left + 1, right),
+                                downward ? y + peak : y + height - peak + 2, color | 0xff000000,
+                                com.darkmusic.client.config.Settings.SurfaceFinish.FLAT);
+                    } else
+                        rawFill(left, downward ? y + Math.max(0, peak - 1) : y + height - peak, Math.max(left + 1, right), downward ? y + peak : y + height - peak + 1, color | 0xff000000);
+                }
             }
             if (h > 0)
                 fill(app, left, top, Math.max(left + 1, right), top + h, app.settings.spectrumColors.color(bars <= 1 ? 0 : i / (double) (bars - 1)));

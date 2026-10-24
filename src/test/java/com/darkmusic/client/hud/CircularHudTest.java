@@ -17,6 +17,48 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CircularHudTest {
     @Test
+    void roundedPeaksUseTheSameSmoothedMagnitudeAsTheLiveBarBeforeTestingSeparation() {
+        float[] levels = new float[64];
+        Arrays.fill(levels, .5f);
+        for (float peak : new float[]{.51f, .8f}) {
+            float[] peaks = new float[64];
+            Arrays.fill(peaks, peak);
+            int[] vertices = {0};
+            VertexConsumer consumer = (VertexConsumer) Proxy.newProxyInstance(VertexConsumer.class.getClassLoader(), new Class<?>[]{VertexConsumer.class}, (proxy, method, args) -> {
+                if (method.getName().equals("addVertex")) vertices[0]++;
+                return proxy;
+            });
+            new CircularHudMesh.Rings(new Matrix3x2f(), null, null, 0, 0, -2,
+                peaks, 36, Settings.SpectrumStyle.ROUNDED_BARS, 0, 0, 0xff123456, 0xff123456,
+                Settings.SurfaceFinish.FLAT, Settings.SurfaceFinish.FLAT, 96, false, 50, 59, 59, levels).buildVertices(consumer);
+            assertEquals(peak > .6f, vertices[0] > 0);
+        }
+    }
+
+    @Test
+    void roundedPeakIsAThinPillAndOpacityIncludesTrailsAndGlow() {
+        float[] levels = new float[64];
+        Arrays.fill(levels, 1);
+        for (var style : new Settings.SpectrumStyle[]{Settings.SpectrumStyle.ROUNDED_BARS, Settings.SpectrumStyle.BARS, Settings.SpectrumStyle.FILLED_WAVE})
+            for (double mode : new double[]{-1, -2, -3}) {
+                var radii = new java.util.ArrayList<Double>();
+                VertexConsumer consumer = (VertexConsumer) Proxy.newProxyInstance(VertexConsumer.class.getClassLoader(), new Class<?>[]{VertexConsumer.class}, (proxy, method, args) -> {
+                    if (method.getName().equals("addVertex")) radii.add(Math.hypot((float) args[0], (float) args[1]));
+                    if (method.getName().equals("setColor"))
+                        assertTrue(((int) args[0] >>> 24) <= 128, "Trails/glow must not override configured opacity");
+                    return proxy;
+                });
+                new CircularHudMesh.Rings(new Matrix3x2f(), null, null, 0, 0, mode,
+                    levels, 36, style, 0, 0, 0x80123456, 0x80123456,
+                    Settings.SurfaceFinish.FLAT, Settings.SurfaceFinish.FLAT, 96, true, 50, 59).buildVertices(consumer);
+                assertTrue(!radii.isEmpty());
+                if (mode == -2 && style == Settings.SpectrumStyle.ROUNDED_BARS)
+                    assertTrue(radii.stream().mapToDouble(Double::doubleValue).min().orElseThrow() >= 107 - CircularHudLayout.FEATHER - .01,
+                        "Peak thickness must not grow with bar width or curve around the whole cap");
+            }
+    }
+
+    @Test
     void disabledProgressHasNoRailAndSpectrumStartsAtTheIconEdge() {
         float[] levels = new float[64];
         var points = new ArrayList<Point>();
@@ -24,7 +66,7 @@ class CircularHudTest {
             if (method.getName().equals("addVertex")) points.add(new Point((float) args[0], (float) args[1]));
             return proxy;
         });
-        for (var style : new Settings.SpectrumStyle[]{Settings.SpectrumStyle.BARS, Settings.SpectrumStyle.FILLED_WAVE, Settings.SpectrumStyle.FILLED_SPIKE}) {
+        for (var style : new Settings.SpectrumStyle[]{Settings.SpectrumStyle.BARS, Settings.SpectrumStyle.ROUNDED_BARS, Settings.SpectrumStyle.FILLED_WAVE, Settings.SpectrumStyle.FILLED_SPIKE}) {
             points.clear();
             Arrays.fill(levels, 0);
             var mesh = new CircularHudMesh.Rings(new Matrix3x2f(), null, null, 100, 100, -3,
@@ -251,6 +293,60 @@ class CircularHudTest {
             assertEquals(fitted, new String(fitted.getBytes(java.nio.charset.StandardCharsets.UTF_8), java.nio.charset.StandardCharsets.UTF_8));
         }
         assertEquals(value, CircularHudRenderer.ellipsis(value, 100, String::length));
+    }
+
+    @Test
+    void waveformRingStaysWithinMeasuredBoundsAndFillsOnlyThePlayedPart() {
+        float[] envelope = new float[com.darkmusic.client.audio.TrackWaveform.BINS];
+        for (int i = 0; i < envelope.length; i++) envelope[i] = i / (float) envelope.length;
+        var waveform = new com.darkmusic.client.audio.TrackWaveform(envelope, 200);
+        var settings = new Settings();
+        settings.hudVisualizer = false;
+        settings.waveformProgress = true;
+        var layout = CircularHudLayout.of(settings);
+        var colors = new java.util.HashSet<Integer>();
+        var points = new ArrayList<Point>();
+        VertexConsumer consumer = (VertexConsumer) Proxy.newProxyInstance(VertexConsumer.class.getClassLoader(), new Class<?>[]{VertexConsumer.class}, (proxy, method, args) -> {
+            if (method.getName().equals("addVertex")) {
+                var p = new Point((float) args[0], (float) args[1]);
+                points.add(p);
+                assertTrue(Float.isFinite(p.x()) && Float.isFinite(p.y()));
+                assertTrue(p.x() >= 0 && p.x() <= layout.width() && p.y() >= 0 && p.y() < layout.titleY() - 8);
+                double radius = Math.hypot(p.x() - layout.centerX(), p.y() - layout.centerY());
+                assertTrue(radius >= CircularHudLayout.ICON_RADIUS - CircularHudLayout.FEATHER - .001);
+                assertTrue(radius <= CircularHudLayout.ICON_RADIUS + 14 + CircularHudLayout.FEATHER + .001);
+            }
+            if (method.getName().equals("setColor")) colors.add((int) args[0]);
+            return proxy;
+        });
+        new CircularHudMesh.ProgressWaveform(new Matrix3x2f(), null, null, layout.centerX(), layout.centerY(),
+            0, waveform, 0xff12ab34, 0xff12ab34, Settings.SurfaceFinish.FLAT, new com.darkmusic.client.config.WaveformSettings().look()).buildVertices(consumer);
+        assertTrue(!points.isEmpty());
+        assertTrue(!colors.contains(0xff12ab34), "Nothing is highlighted at the start");
+        points.clear();
+        colors.clear();
+        new CircularHudMesh.ProgressWaveform(new Matrix3x2f(), null, null, layout.centerX(), layout.centerY(),
+            .5, waveform, 0xff12ab34, 0xff12ab34, Settings.SurfaceFinish.FLAT, new com.darkmusic.client.config.WaveformSettings().look()).buildVertices(consumer);
+        assertTrue(colors.contains(0xff12ab34));
+        assertTrue(colors.contains(0xff555d78), "Unplayed audio remains visible");
+    }
+
+    @Test
+    void progressRailUsesConfiguredImageGapWithoutChangingItsThickness() {
+        for (int gap : new int[]{0, 12, 24}) {
+            float inner = CircularHudLayout.ICON_RADIUS + gap;
+            var radii = new ArrayList<Double>();
+            VertexConsumer consumer = (VertexConsumer) Proxy.newProxyInstance(VertexConsumer.class.getClassLoader(), new Class<?>[]{VertexConsumer.class}, (proxy, method, args) -> {
+                if (method.getName().equals("addVertex"))
+                    radii.add(Math.hypot((float) args[0] - 100, (float) args[1] - 100));
+                return proxy;
+            });
+            new CircularHudMesh.Rings(new Matrix3x2f(), null, null, 100, 100, .4, null,
+                36, Settings.SpectrumStyle.BARS, 0xff123456, 0xff123456, 0, 0,
+                Settings.SurfaceFinish.FLAT, Settings.SurfaceFinish.FLAT, 192, false, 18, inner + 3, inner).buildVertices(consumer);
+            assertEquals(inner - CircularHudLayout.FEATHER, radii.stream().mapToDouble(Double::doubleValue).min().orElseThrow(), .001);
+            assertEquals(inner + 3 + CircularHudLayout.FEATHER, radii.stream().mapToDouble(Double::doubleValue).max().orElseThrow(), .001);
+        }
     }
 
     private record Point(float x, float y) {

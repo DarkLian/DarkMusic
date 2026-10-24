@@ -82,6 +82,16 @@ public final class ValueSlider extends AbstractSliderButton {
         trackOnly = value;
     }
 
+    private java.util.function.Supplier<com.darkmusic.client.audio.TrackWaveform> waveform;
+
+    private java.util.function.Supplier<com.darkmusic.client.config.WaveformSettings> waveformOptions;
+
+    public void waveform(java.util.function.Supplier<com.darkmusic.client.audio.TrackWaveform> source,
+                         java.util.function.Supplier<com.darkmusic.client.config.WaveformSettings> options) {
+        waveform = source;
+        waveformOptions = options;
+    }
+
     private java.util.function.Supplier<com.darkmusic.client.config.VisualColors> colors;
     private java.util.function.Supplier<com.darkmusic.client.config.Settings.SurfaceFinish> finish = () -> com.darkmusic.client.config.Settings.SurfaceFinish.FLAT;
 
@@ -130,6 +140,11 @@ public final class ValueSlider extends AbstractSliderButton {
             g.outline(getX(), getY(), getWidth(), getHeight(), isFocused() ? UiTheme.ACCENT : UiTheme.BORDER);
         if (simpleProgress) {
             g.fill(getX(), getY(), getRight(), getBottom(), UiTheme.BACKGROUND);
+            if (waveform != null) {
+                var options = waveformOptions.get();
+                if (WaveformProgress.draw(g, waveform.get(), colors.get(), options, getX(), getY() + (20 - options.height) / 2,
+                    getWidth(), options.height, value, finish.get())) return;
+            }
             g.fill(getX(), getY() + 8, getRight(), getY() + 12, UiTheme.SURFACE);
             ColorStrip.draw(g, colors.get(), getX(), getY() + 8, getWidth(), 4,
                 (int) Math.round(getWidth() * value), com.darkmusic.client.config.Settings.SurfaceFinish.FLAT);

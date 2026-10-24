@@ -6,9 +6,9 @@ A client-side music player for Minecraft. Browse your own library, build playlis
 
 ## Install
 
-DarkMusic **v2.9.0** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v2.10.0** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-2.9.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-2.10.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Open **Settings → General → Music Folders**, or add songs to `config/darkmusic/music` inside the instance.
@@ -20,6 +20,8 @@ Install DarkMusic on the client. Servers do not need it. Windows, Linux, and mac
 Update notifications are enabled by default and appear once per launch after joining a world or server. Click **Update** to approve a download. **Settings → General → Check for Updates** also checks manually, including when notifications are off. Close Minecraft after the download finishes to install it; your settings, library, playlists, and assets are preserved. If installation fails, the next launch reports it and offers the installation log.
 
 ## Features
+
+- **Waveform progress:** optionally display the actual song waveform in the main player and HUD, with the played portion highlighted. Enable it in Settings → HUD → Progress Bar.
 
 - **Library:** scan multiple music folders, choose a default save folder, and browse All Tracks, nested folders, playlists, artists, and albums. Search titles, artists, albums, and paths.
 - **File management:** Open Folder follows the selected library folder. Use Manage Audio Files to review and delete selected files, individually or in bulk, with Move to Trash where supported and separate confirmation for permanent deletion. Cancel Remaining Files keeps pending items on disk.

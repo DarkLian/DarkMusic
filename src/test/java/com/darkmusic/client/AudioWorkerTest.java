@@ -296,8 +296,9 @@ class AudioWorkerTest {
             }, failure::set);
             StorageTest.await(() -> backend.state().position() > .01 || failure.get() != null);
             assertNull(failure.get());
-            assertTrue(backend.state().position() > track.duration());
-            assertTrue(backend.state().duration() >= backend.state().position());
+            var observed = backend.state();
+            assertTrue(observed.position() > track.duration());
+            assertTrue(observed.duration() >= observed.position());
             backend.pause();
             StorageTest.await(() -> backend.state().status() == AudioBackend.Status.PAUSED);
             var field = JavaSoundBackend.class.getDeclaredField("worker");

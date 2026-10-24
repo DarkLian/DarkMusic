@@ -24,11 +24,11 @@ public final class HudLayout {
             return new Content(art.width(), art.height(), art.artworkY(), art.artworkHeight(), art.spectrumY(), settings.hudVisualizer, settings.artworkSpectrumHeight);
         }
         if (settings.hudStyle == Settings.HudStyle.CIRCULAR) {
-            var circle = CircularHudLayout.of(settings.hudVisualizer, settings.circularText, settings.circularSpectrumHeight);
+            var circle = CircularHudLayout.of(settings);
             return new Content(Math.max(1, Math.min(circle.width(), maximumWidth)), circle.height(), 0, circle.height(), 0, settings.hudVisualizer);
         }
         int width = Math.max(1, Math.min(settings.hudArtwork ? 220 : 184, maximumWidth));
-        int mainHeight = settings.hudProgress ? 46 : 38;
+        int mainHeight = settings.hudProgress ? (settings.waveformProgress ? 42 + settings.waveform.height : 46) : 38;
         boolean above = settings.hudVisualizer && settings.spectrumPosition == Settings.SpectrumPosition.ABOVE;
         int extra = settings.hudVisualizer ? GAP + settings.classicSpectrumHeight : 0;
         return new Content(width, mainHeight + extra, above ? extra : 0, mainHeight,

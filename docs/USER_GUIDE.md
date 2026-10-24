@@ -435,3 +435,29 @@ DarkMusic remains free of charge. From v2.8.2, new original DarkLian contributio
 Recovery checks stored hashes before restoring configuration, playlists, history, or shortcuts. If a file has newer or unrecognized contents, DarkMusic preserves it and keeps recovery copies under `config/darkmusic/backups/<transaction>/conflicts`. Startup reports the conflict instead of overwriting that file. Keep the pending journal and recovery directory until you resolve the conflict; old journals without replacement hashes may require manual review.
 
 Source-association write failures leave the audio saved and show a partial-success warning. DarkMusic retains a file-bound receipt and retries bookkeeping independently of downloading audio, up to three times (after 10 seconds, then at 60-second intervals). If storage remains unavailable, the receipt stays for a later download attempt. Moving or replacing the file can prevent automatic repair; unrelated replacement contents are not associated with the old source.
+
+### Waveform progress bars
+
+In **Settings → HUD → Progress Bar**, enable **Waveform Progress Bar** to show the actual song envelope in the main player's seek bar and the Classic, Artwork, and Circular HUD progress displays. The played portion uses your progress colors. HUD progress visibility, waveform mode, finish, and colors are grouped together. The waveform toggle also works when the HUD is disabled; Spectrum Only retains its progress-free HUD.
+
+Choose **Filled Wave** for a smooth continuous contour or **Rounded Bars** for separated columns. Adjust height, detail, smoothing, contrast, opacity, bar spacing, and the unplayed color. Played areas keep the shared progress color/gradient and finish. Circular HUDs use height as ring thickness. The appearance controls expand below the waveform toggle and affect both the main player and HUD. **Reset Waveform Appearance** restores these controls without changing progress colors or turning waveform mode off.
+
+The waveform blends musical energy with a small peak contribution, preserving dynamics instead of flattening loud recordings into an almost solid band. Smoothing and contrast change only its appearance. HUD background transparency, gradient, and colors remain with HUD appearance above the Progress Bar category.
+
+The default is off. One background worker analyzes only the active song (or the HUD preview song), without changing playback, volume, speed, seeking, or audio effects. A normal progress bar appears while data loads or if analysis is unavailable. Waveforms are cached locally across launches and rebuilt when the indexed file size or modification time changes. Memory holds up to 16 envelopes; the disk cache holds up to 256 entries. Analysis is bounded to 90 seconds of work and files up to six hours, with normal-bar fallback beyond those limits.
+
+### HUD images and circular spacing
+
+Classic, Circular, and Artwork + Spectrum each offer **HUD Image → Song Artwork / DarkMusic Icon**. Artwork is the default in all three layouts; missing or loading artwork falls back to the same DarkMusic icon. Each layout remembers its own choice. Classic retains its separate Show HUD Image visibility toggle. Circular artwork is center-cropped to a circle without stretching.
+
+Circular HUDs offer **Image-to-Ring Gap** from 0 to 24 GUI pixels. Zero connects the image outline to the nearest enabled layer. With both layers on, progress is closest to the image and spectrum starts outside progress. With only spectrum on, it starts directly at the image edge plus the chosen gap. Waveform progress uses the same gap; it no longer adds an extra fixed space beside the image.
+
+**Rounded Bars** is available as a spectrum style in every HUD layout and the main player. Existing spectrum colors, finishes, direction, glow, trails, and peak markers remain available.
+
+In Settings → HUD, a labeled **Main Menu Progress Preview** appears below the HUD preview. It uses the same progress widget styling as the main player and stays visible when Now-Playing HUD is disabled. It follows the current playing/paused position or shows a sample position when stopped. It is a display-only preview and does not seek or change playback. Compact windows expose both through the existing Preview button.
+
+### Spectrum appearance
+
+Spectrum controls include Band Count (frequency detail), height, smoothing, sensitivity, colors, finish, and independent peak/trail/glow controls. **Spectrum Opacity** fades faces, peak markers, trails, and glow together in the main player and every HUD; it defaults to 100% and leaves artwork and progress opacity alone. Curve styles also expose **Curve Detail**, from 96 to 384 rendering segments. This smooths the drawn contour without adding analyzed frequency bands; bar styles use Band Count instead.
+
+Rounded Bars uses rounded peak markers that appear only when more than two GUI pixels above the live bar. Circular markers have a fixed thin radial thickness instead of tracing the entire curved cap. Existing peak-hold and decay timing is preserved.

@@ -17,10 +17,16 @@ final class SpectrumMesh {
     private final int[] rectangles = new int[16384];
     private final int[] bottomColors = new int[3277];
     private boolean hasGradient;
+    private double opacity = 1;
     private int count, width, hudHeight;
     private Settings.HudShape shape;
 
     void begin(int width, int hudHeight, Settings.HudShape shape) {
+        begin(width, hudHeight, shape, 1);
+    }
+
+    void begin(int width, int hudHeight, Settings.HudShape shape, double opacity) {
+        this.opacity = opacity;
         count = 0;
         hasGradient = false;
         this.width = width;
@@ -30,6 +36,35 @@ final class SpectrumMesh {
 
     void fill(int left, int top, int right, int bottom, int color) {
         gradient(left, top, right, bottom, color, color);
+    }
+
+    /**
+     * Rounded caps reuse the bounded batch and the existing HUD shape clipping.
+     */
+    void rounded(int left, int top, int right, int bottom, int color, Settings.SurfaceFinish finish) {
+        if (right <= left || bottom <= top) return;
+        float radius = Math.min(3, Math.min(right - left, bottom - top) / 2f);
+        int rows = (int) Math.ceil(radius);
+        for (int row = 0; row < rows; row++) {
+            double dy = Math.max(0, radius - row - .5);
+            double inset = radius - Math.sqrt(Math.max(0, radius * radius - dy * dy));
+            int trim = (int) Math.ceil(inset);
+            float edge = (float) (trim - inset);
+            int upper = finish == Settings.SurfaceFinish.BEVELED ? Bevel.shade(color, .24 * (1 - row / Math.max(1f, radius))) : color;
+            int lower = finish == Settings.SurfaceFinish.BEVELED ? Bevel.shade(color, -.20 * (1 - row / Math.max(1f, radius))) : color;
+            roundedRow(left, top + row, right, trim, edge, upper);
+            if (bottom - row - 1 != top + row) roundedRow(left, bottom - row - 1, right, trim, edge, lower);
+        }
+        gradient(left, top + rows, right, bottom - rows, color, color);
+    }
+
+    private void roundedRow(int left, int y, int right, int trim, float coverage, int color) {
+        fill(left + trim, y, right - trim, y + 1, color);
+        if (trim > 0 && coverage > 0) {
+            int edge = color & 0xffffff | Math.round((color >>> 24) * coverage) << 24;
+            fill(left + trim - 1, y, left + trim, y + 1, edge);
+            if (right - trim != left + trim - 1) fill(right - trim, y, right - trim + 1, y + 1, edge);
+        }
     }
 
     void gradient(int left, int top, int right, int bottom, int topColor, int bottomColor) {
@@ -56,6 +91,8 @@ final class SpectrumMesh {
 
     private void rectangle(int left, int top, int right, int bottom, int topColor, int bottomColor) {
         if (right <= left || bottom <= top) return;
+        topColor = SpectrumAppearance.opacity(topColor, opacity);
+        bottomColor = SpectrumAppearance.opacity(bottomColor, opacity);
         if (count + 5 > rectangles.length)
             throw new IllegalStateException("Spectrum geometry exceeded its bounded detail budget");
         bottomColors[count / 5] = bottomColor;
