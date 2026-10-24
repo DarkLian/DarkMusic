@@ -29,6 +29,16 @@ public final class MediaFiles {
     }
 
     private final MetadataReader metadata = new MetadataReader();
+    private final Runnable beforeCommit;
+
+    public MediaFiles() {
+        this(() -> {
+        });
+    }
+
+    MediaFiles(Runnable beforeCommit) {
+        this.beforeCommit = beforeCommit;
+    }
 
     public Imported importFiles(Path root, String rootId, String folder, List<Path> sources, ProcessRunner.Token token) throws Exception {
         Path base = root.toRealPath(), destination = base.resolve(folder).normalize();
@@ -116,6 +126,7 @@ public final class MediaFiles {
         String extension = dot > 0 ? sourceName.substring(dot) : "";
         Path target = source.resolveSibling(filename + extension);
         checkSource(track);
+        var sourceIdentity = AudioReplacement.Identity.read(source);
         String verifiedSource = SourceLinks.read(source);
         boolean rename = !source.getFileName().toString().equals(target.getFileName().toString());
         boolean caseAlias = rename && source.getFileName().toString().equalsIgnoreCase(target.getFileName().toString()) && Files.exists(target) && Files.isSameFile(source, target);
@@ -133,10 +144,16 @@ public final class MediaFiles {
         Path work = Files.createTempDirectory(source.getParent(), ".darkmusic-work-");
         Path staged = work.resolve("edited" + extension);
         var movedCompanions = new ArrayList<Integer>();
+        var copiedCompanions = new HashMap<Integer, AudioReplacement.Identity>();
+        Path retained = work.resolve("retained" + extension);
+        var edit = new AudioReplacement.Edit(source, target, work.resolve("original" + extension), sourceIdentity);
         boolean preserveWork = false;
         try {
             boolean tagsChanged = !original.title().equals(requested.title()) || !original.artist().equals(requested.artist()) || !original.album().equals(requested.album());
             copy(source, staged, token);
+            if (!sourceIdentity.hash().equals(SourceLinks.contentHash(staged)))
+                throw new AudioReplacement.RecoveryRequired(staged, new IOException(Text.get("library.darkmusic.file_changed")));
+            Files.copy(staged, retained, StandardCopyOption.COPY_ATTRIBUTES);
             if (tagsChanged) {
                 var container = AudioFormats.detect(source);
                 if (container == AudioFormats.Container.OPUS || container == AudioFormats.Container.WEBM)
@@ -164,63 +181,45 @@ public final class MediaFiles {
                 Files.setLastModifiedTime(staged, java.nio.file.attribute.FileTime.fromMillis(track.modified() + 1));
             token.check();
             checkSource(track);
-            Path retained = work.resolve("retained" + extension);
-            Files.copy(source, retained, StandardCopyOption.COPY_ATTRIBUTES);
+            beforeCommit.run();
             try {
+                edit.claim();
+                boolean sharedLyrics = rename && com.darkmusic.client.lyrics.LyricsFiles.shared(source);
                 for (int i = 0; rename && i < companions.size(); i++) {
-                    if (!Files.exists(companions.get(i), LinkOption.NOFOLLOW_LINKS)) continue;
-                    moveCaseAware(companions.get(i), nextCompanions.get(i), work.resolve("companion-" + i));
+                    Path old = companions.get(i), next = nextCompanions.get(i);
+                    if (!Files.exists(old, LinkOption.NOFOLLOW_LINKS)) continue;
+                    if (sharedLyrics) {
+                        if (Files.exists(next) && Files.isSameFile(old, next)) continue;
+                        Files.copy(old, next, StandardCopyOption.COPY_ATTRIBUTES);
+                        copiedCompanions.put(i, AudioReplacement.Identity.read(next));
+                    } else moveCaseAware(old, next, work.resolve("companion-" + i));
                     movedCompanions.add(i);
                 }
-                if (caseAlias) {
-                    try {
-                        com.darkmusic.client.download.DownloadPipeline.renameRecorded(source, target,
-                            () -> AudioReplacement.renameCase(staged, source, target, work.resolve("original" + extension)));
-                    } catch (AudioReplacement.RecoveryRequired failure) {
-                        preserveWork = true;
-                        throw failure;
-                    }
-                } else if (!rename) {
-                    try {
-                        AudioReplacement.replace(staged, target, work.resolve("original" + extension));
-                    } catch (AudioReplacement.RecoveryRequired failure) {
-                        preserveWork = true;
-                        throw failure;
-                    }
-                } else com.darkmusic.client.download.DownloadPipeline.renameRecorded(source, target, () -> {
-                    Files.move(staged, target); // A concurrent collision must fail, never overwrite.
-                    try {
-                        Files.delete(source);
-                    } catch (Exception failure) {
-                        Files.delete(target);
-                        throw failure;
-                    }
-                });
+                if (rename)
+                    com.darkmusic.client.download.DownloadPipeline.renameRecorded(source, target, () -> edit.install(staged));
+                else edit.install(staged);
                 try {
-                    SourceLinks.renamed(source, target, verifiedSource);
+                    SourceLinks.renamed(source, target, verifiedSource, edit.installedHash());
                 } catch (IOException provenanceFailure) {
-                    // The source map is atomically replaced; a failed write leaves its old binding intact.
-                    try {
-                        if (rename && !caseAlias) {
-                            Files.move(retained, source); // Never overwrite a concurrent replacement.
-                            Files.delete(target);
-                        } else
-                            Files.copy(retained, source, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
-                        if (rename)
-                            com.darkmusic.client.download.DownloadPipeline.renameRecorded(target, source, () -> {
-                            });
-                    } catch (IOException rollback) {
-                        provenanceFailure.addSuppressed(rollback);
-                        preserveWork = true;
-                        throw new AudioReplacement.RecoveryRequired(retained, provenanceFailure);
-                    }
+                    if (rename)
+                        com.darkmusic.client.download.DownloadPipeline.renameRecorded(target, source, edit::rollback);
+                    else edit.rollback();
                     throw provenanceFailure;
                 }
             } catch (Exception failure) {
+                try {
+                    edit.rollback();
+                } catch (IOException rollback) {
+                    failure.addSuppressed(rollback);
+                    preserveWork = true;
+                }
                 for (int i = movedCompanions.size() - 1; i >= 0; i--) {
                     int index = movedCompanions.get(i);
                     try {
-                        moveCaseAware(nextCompanions.get(index), companions.get(index), work.resolve("companion-rollback-" + index));
+                        if (copiedCompanions.containsKey(index))
+                            AudioReplacement.claim(nextCompanions.get(index), work.resolve("copied-rollback-" + index), copiedCompanions.get(index));
+                        else
+                            moveCaseAware(nextCompanions.get(index), companions.get(index), work.resolve("companion-rollback-" + index));
                     } catch (IOException rollback) {
                         failure.addSuppressed(rollback);
                         preserveWork = true;

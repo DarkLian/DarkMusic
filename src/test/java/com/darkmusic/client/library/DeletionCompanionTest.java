@@ -129,4 +129,24 @@ class DeletionCompanionTest {
         assertEquals(List.of(lrc), result.companionFailures());
         assertEquals("external changes after confirmation", Files.readString(lrc));
     }
+
+    @Test
+    void sharedLyricsAreNotOfferedForDeletionAndNewSiblingsAreRechecked() throws Exception {
+        var mp3 = track("shared.mp3");
+        Path lyric = LyricsFiles.companions(mp3.file()).getFirst();
+        Files.writeString(lyric, "Shared user lyrics");
+        Path sibling = Files.writeString(temp.resolve("shared.flac"), "Disposable sibling");
+        var deletion = service(false);
+        assertTrue(deletion.prepare(Map.of(temp, "root"), List.of(mp3)).companions().isEmpty());
+        Files.delete(sibling);
+        var plan = deletion.prepare(Map.of(temp, "root"), List.of(mp3)).trashCompanions(true);
+        assertEquals(1, plan.companions().size());
+        Files.writeString(sibling, "New sibling after confirmation");
+        var result = deletion.delete(plan, AudioDeletion.Mode.TRASH, new ProcessRunner.Token(), p -> {
+        });
+        assertEquals(List.of(mp3), result.removed());
+        assertEquals(List.of(lyric), result.companionFailures());
+        assertEquals("Shared user lyrics", Files.readString(lyric));
+        assertTrue(Files.exists(sibling));
+    }
 }

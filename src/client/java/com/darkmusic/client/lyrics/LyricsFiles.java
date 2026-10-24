@@ -29,6 +29,25 @@ public final class LyricsFiles {
         return List.of(lrc, lrc.resolveSibling(lrc.getFileName() + ".darkmusic.json"), lrc.resolveSibling(lrc.getFileName() + ".darkmusic-backup"));
     }
 
+    public static Map<Path, Set<Path>> companionOwners(Path directory) throws IOException {
+        var owners = new HashMap<Path, Set<Path>>();
+        try (var entries = Files.newDirectoryStream(directory)) {
+            for (Path file : entries) {
+                if (!com.darkmusic.client.audio.AudioFormats.candidate(file) || !Files.exists(file, LinkOption.NOFOLLOW_LINKS))
+                    continue;
+                Path audio = file.toAbsolutePath().normalize();
+                owners.computeIfAbsent(companions(audio).getFirst(), ignored -> new HashSet<>()).add(audio);
+            }
+        }
+        return owners;
+    }
+
+    public static boolean shared(Path audio) throws IOException {
+        Path normalized = audio.toAbsolutePath().normalize();
+        return companionOwners(normalized.getParent()).getOrDefault(companions(normalized).getFirst(), Set.of())
+            .stream().anyMatch(path -> !path.equals(normalized));
+    }
+
     private static void safe(Path file) throws IOException {
         if (Files.isSymbolicLink(file) || Files.exists(file, LinkOption.NOFOLLOW_LINKS)
             && (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) || Files.size(file) > LIMIT))

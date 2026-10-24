@@ -1465,5 +1465,7 @@
   "lyrics.library.idle": "就緒。可靠的歌詞版本會自動套用。",
   "lyrics.library.wait_provider": "服務暫時冷卻：%s 秒後重試。進度已保留。",
   "lyrics.library.looking": "正在尋找歌詞… 可靠的版本會自動套用。",
-  "lyrics.library.checking": "正在檢查本機歌詞與快取結果…"
+  "lyrics.library.checking": "正在檢查本機歌詞與快取結果…",
+  "delete_audio.shared_lyrics": "與其他音訊格式共用的歌詞檔會保留。",
+  "library.darkmusic.edit_recovery": "編輯期間檔案已變更。復原用檔案已保留於 %s。"
 }

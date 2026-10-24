@@ -41,6 +41,10 @@ public final class PcmRateConverter {
         return tempo == null ? position : tempo.position();
     }
 
+    long decodedFrames() {
+        return loaded;
+    }
+
     double rawPosition() {
         return position;
     }

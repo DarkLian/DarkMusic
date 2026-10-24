@@ -60,6 +60,12 @@ class PackagedJarTest {
                 assertFalse(entry.getName().matches("(?i).*(\\.(exe|mp3|wav|flac|ogg)|(^|/)(Music|images_private)/.*)$"), "Development resources must not ship: " + entry.getName());
             var metadata = JsonParser.parseString(new String(jar.getInputStream(jar.getJarEntry("fabric.mod.json")).readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
             assertEquals("client", metadata.get("environment").getAsString());
+            assertEquals("LicenseRef-DarkMusic-All-Rights-Reserved", metadata.get("license").getAsString());
+            var projectLicense = jar.stream().filter(e -> e.getName().startsWith("LICENSE_")).findFirst().orElseThrow();
+            String license = new String(jar.getInputStream(projectLicense).readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            assertTrue(license.contains("## Permitted Uses") && license.contains("## Restricted Uses"));
+            assertTrue(license.contains("Those previously released portions"), "The current license must not revoke prior dedications");
+            assertNotNull(jar.getJarEntry("licenses/CC0-1.0.txt"));
             assertEquals(Set.of("client"), metadata.getAsJsonObject("entrypoints").keySet());
             assertNotNull(jar.getJarEntry("THIRD-PARTY-NOTICES.md"));
             assertNotNull(jar.getJarEntry("licenses/LGPL-2.1.txt"));

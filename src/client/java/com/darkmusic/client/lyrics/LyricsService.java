@@ -38,12 +38,13 @@ public final class LyricsService implements AutoCloseable {
     private final Map<String, Track> backgroundVisited = new java.util.HashMap<>();
     private java.util.Set<String> backgroundRoots;
     private boolean libraryRun;
-    private final java.util.Map<Track, com.darkmusic.client.download.ProcessRunner.Token> libraryRequests = new java.util.HashMap<>();
+    private com.darkmusic.client.download.ProcessRunner.Token libraryOwner;
     private long libraryRequestStart;
 
     public void startLibraryLookup() {
         cancelLibraryLookup();
         libraryRun = true;
+        libraryOwner = new com.darkmusic.client.download.ProcessRunner.Token();
         backgroundActive = false;
         backgroundTracks = List.of();
         backgroundVisited.clear();
@@ -54,8 +55,8 @@ public final class LyricsService implements AutoCloseable {
     public void cancelLibraryLookup() {
         libraryRun = false;
         backgroundActive = false;
-        libraryRequests.forEach(lookup::cancelAutomatic);
-        libraryRequests.clear();
+        lookup.cancelOwner(libraryOwner);
+        libraryOwner = null;
     }
 
     public boolean libraryLookupRunning() {
@@ -72,6 +73,10 @@ public final class LyricsService implements AutoCloseable {
 
     public long libraryRequests() {
         return lookup.requests() - libraryRequestStart;
+    }
+
+    public long libraryRetrySeconds() {
+        return lookup.ownerRetrySeconds(libraryOwner);
     }
 
     public LyricsService() {
@@ -133,7 +138,8 @@ public final class LyricsService implements AutoCloseable {
                 }
             }
             if (backgroundTrack == null) {
-                if (backgroundCursor >= backgroundTracks.size()) libraryRun = false;
+                if (backgroundCursor >= backgroundTracks.size() && !lookup.ownerOutstanding(libraryOwner))
+                    libraryRun = false;
                 return;
             }
         }
@@ -143,11 +149,7 @@ public final class LyricsService implements AutoCloseable {
         }
         inspect(backgroundTrack);
         if (!inspected(backgroundTrack)) return;
-        lookup.automatic(backgroundTrack, document(backgroundTrack).available());
-        if (libraryRun) {
-            var token = lookup.automaticToken(backgroundTrack);
-            if (token != null) libraryRequests.put(backgroundTrack, token);
-        }
+        lookup.automatic(backgroundTrack, document(backgroundTrack).available(), libraryRun ? libraryOwner : null);
         backgroundVisited.put(backgroundTrack.id(), backgroundTrack);
         backgroundTrack = null;
     }

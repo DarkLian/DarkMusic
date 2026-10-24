@@ -261,6 +261,7 @@ public final class MusicLibrary implements AutoCloseable {
         var priorTracks = prior.tracks().stream().collect(java.util.stream.Collectors.groupingBy(Track::rootId));
         var priorFolders = prior.folders().stream().collect(java.util.stream.Collectors.groupingBy(MusicLibrary::folderRoot));
         var complete = new HashSet<String>();
+        var unreadableScopes = new HashMap<String, List<String>>();
         var failures = new ArrayList<String>();
         for (var entry : selected.entrySet()) {
             var job = jobs.get(entry.getKey());
@@ -291,12 +292,15 @@ public final class MusicLibrary implements AutoCloseable {
             }
             folders.add(prefix);
             if (result != null && result.complete) complete.add(entry.getValue());
+            if (result != null && !result.unreadable.isEmpty())
+                unreadableScopes.put(entry.getValue(), result.unreadable.stream()
+                    .map(path -> entry.getKey().toAbsolutePath().normalize().relativize(path).toString().replace('\\', '/')).toList());
             if (result != null && !result.message.isBlank()) failures.add(entry.getKey() + ": " + result.message);
             else if (job.timedOut && !job.result.isDone())
                 failures.add(entry.getKey() + ": " + Text.get("library.status.slow_root"));
         }
         tracks.sort(Comparator.comparing(Track::relativePath, String.CASE_INSENSITIVE_ORDER).thenComparing(Track::rootId));
-        return new Snapshot(revisions.incrementAndGet(), tracks, scanning, failures.isEmpty() && scanning ? Text.get("library.status.scanning") : String.join(" | ", failures), List.copyOf(folders), complete.size() == selected.size(), complete);
+        return new Snapshot(revisions.incrementAndGet(), tracks, scanning, failures.isEmpty() && scanning ? Text.get("library.status.scanning") : String.join(" | ", failures), List.copyOf(folders), complete.size() == selected.size(), complete, unreadableScopes);
     }
 
     private record RootResult(List<Track> tracks, List<Path> directories, List<String> folders, boolean complete,
@@ -508,11 +512,16 @@ public final class MusicLibrary implements AutoCloseable {
     }
 
     public record Snapshot(long revision, List<Track> tracks, boolean scanning, String message, List<String> folders,
-                           boolean complete, Set<String> completeRoots) {
+                           boolean complete, Set<String> completeRoots, Map<String, List<String>> unreadableScopes) {
         public Snapshot {
             tracks = List.copyOf(tracks);
             folders = List.copyOf(folders);
             completeRoots = Set.copyOf(completeRoots);
+            unreadableScopes = unreadableScopes.entrySet().stream().collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> List.copyOf(e.getValue())));
+        }
+
+        public Snapshot(long revision, List<Track> tracks, boolean scanning, String message, List<String> folders, boolean complete, Set<String> completeRoots) {
+            this(revision, tracks, scanning, message, folders, complete, completeRoots, Map.of());
         }
 
         public Snapshot(long revision, List<Track> tracks, boolean scanning, String message, List<String> folders, boolean complete) {

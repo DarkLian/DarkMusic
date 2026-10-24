@@ -42,6 +42,8 @@ public final class LyricsLibraryScreen extends AudioPage {
         if (!app.lyrics.libraryLookupRunning()) return Text.get("lyrics.library.idle");
         long seconds = app.lyrics.lookup.cooldownSeconds();
         if (seconds > 0) return Text.get("lyrics.library.wait_provider", seconds);
+        if (app.lyrics.libraryChecked() >= app.lyrics.libraryTotal() && app.lyrics.libraryRetrySeconds() > 0)
+            return Text.get("lyrics.retry_in", app.lyrics.libraryRetrySeconds());
         return Text.get(app.lyrics.lookup.busy() ? "lyrics.library.looking" : "lyrics.library.checking");
     }
 

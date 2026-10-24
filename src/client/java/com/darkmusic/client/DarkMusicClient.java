@@ -903,13 +903,15 @@ public class DarkMusicClient implements ClientModInitializer {
         if (!mediaBusy && queuedLibraryRevision != queuedLibrary.revision()) {
             queuedLibraryRevision = queuedLibrary.revision();
             if (!queuedLibrary.scanning()) lyrics.lookup.prune(queuedLibrary.tracks(),
-                new java.util.HashSet<>(library.roots().values()), queuedLibrary.completeRoots());
+                new java.util.HashSet<>(library.roots().values()), queuedLibrary.completeRoots(), queuedLibrary.unreadableScopes());
             if (!queuedLibrary.scanning()) {
                 var registered = new java.util.HashSet<>(library.roots().values());
+                var cleanupRoots = new java.util.HashSet<>(queuedLibrary.completeRoots());
+                cleanupRoots.removeAll(queuedLibrary.unreadableScopes().keySet());
                 if (cleanupReviews != null)
-                    cleanupReviews.prune(queuedLibrary.tracks(), registered, queuedLibrary.completeRoots());
+                    cleanupReviews.prune(queuedLibrary.tracks(), registered, cleanupRoots);
                 if (cleanupScanner != null)
-                    cleanupScanner.prune(queuedLibrary.tracks(), registered, queuedLibrary.completeRoots());
+                    cleanupScanner.prune(queuedLibrary.tracks(), registered, cleanupRoots);
             }
             if (sourceIndex != null && !mediaBusy) {
                 sourceIndex.roots(library.roots());

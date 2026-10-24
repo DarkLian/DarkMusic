@@ -24,6 +24,37 @@ import static org.junit.jupiter.api.Assertions.*;
 @Timeout(20)
 class AudioWorkerTest {
     @Test
+    void repeatedEmptyDecoderReadsFailButLegitimatePrimingRecovers() throws Exception {
+        var clip = TestMusic.clip();
+        var track = StorageTest.track("real", "empty-read", TestMusic.featured());
+        for (boolean recover : List.of(false, true)) {
+            var reads = new java.util.concurrent.atomic.AtomicInteger();
+            var failure = new AtomicReference<String>();
+            var resources = new CopyOnWriteArrayList<AtomicBoolean>();
+            try (var backend = new JavaSoundBackend(Runnable::run, path -> new AudioInputStream(clip.stream(), clip.format(), clip.bytes().length / clip.format().getFrameSize()) {
+                @Override
+                public int read(byte[] bytes, int off, int len) throws IOException {
+                    int n = reads.incrementAndGet();
+                    return !recover || n <= 4 ? 0 : super.read(bytes, off, len);
+                }
+            }, f -> output(resources), java.time.Duration.ofSeconds(2), java.time.Duration.ofMillis(100))) {
+                backend.play(track, () -> {
+                }, failure::set);
+                if (recover) {
+                    com.darkmusic.client.testing.Await.until(java.time.Duration.ofSeconds(5), () -> backend.state().position() > .01 || failure.get() != null, "Priming ends");
+                    assertNull(failure.get());
+                    assertTrue(reads.get() > 4);
+                } else {
+                    com.darkmusic.client.testing.Await.until(java.time.Duration.ofSeconds(5), () -> failure.get() != null, "Empty decoder is bounded");
+                    assertEquals(AudioBackend.Status.ERROR, backend.state().status());
+                    assertTrue(reads.get() > 1);
+                    assertTrue(backend.awaitIdle(3));
+                }
+            }
+        }
+    }
+
+    @Test
     void openingAtSavedPositionIsAtomicAndCanRemainPaused() throws Exception {
         var lines = new CopyOnWriteArrayList<AtomicBoolean>();
         var failure = new AtomicReference<String>();

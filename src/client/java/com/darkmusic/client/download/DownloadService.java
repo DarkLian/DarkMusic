@@ -123,7 +123,12 @@ public final class DownloadService implements AutoCloseable {
     }
 
     public com.darkmusic.client.lyrics.LyricsDocument fetchSourceLyrics(com.darkmusic.client.library.Track track, String preferences, boolean generated, ProcessRunner.Token token) throws Exception {
-        return fetchLyrics(track, com.darkmusic.client.library.SourceLinks.resolve(track.file()), preferences, generated, token);
+        String source = com.darkmusic.client.library.SourceLinks.resolve(track.file());
+        String canonical = com.darkmusic.client.lyrics.CaptionUrls.automatic(source);
+        if (!source.isBlank() && canonical.isBlank())
+            throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.UNSUPPORTED_URL, DownloadDiagnostics.Stage.OPTIONAL,
+                DownloadDiagnostics.Tool.YT_DLP, null, "", null);
+        return fetchLyrics(track, canonical, preferences, generated, token);
     }
 
     private com.darkmusic.client.lyrics.LyricsDocument fetchLyrics(com.darkmusic.client.library.Track track, String link, String preferences, boolean generated, ProcessRunner.Token token) throws Exception {

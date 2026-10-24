@@ -65,13 +65,18 @@ public final class LyricsLookup implements AutoCloseable {
     private final Map<String, ProcessRunner.Token> latestOperations = new ConcurrentHashMap<>();
     private final Map<String, String> activeQueries = new ConcurrentHashMap<>();
     private final Map<String, ProcessRunner.Token> pending = new ConcurrentHashMap<>();
+    private final Map<String, ProcessRunner.Token> operationOwners = new ConcurrentHashMap<>();
     private final Set<String> loaded = ConcurrentHashMap.newKeySet();
     private final Map<String, Track> loadedTracks = new ConcurrentHashMap<>();
     private final Map<String, LyricsDocument> reviewSelections = new ConcurrentHashMap<>();
     private final Map<String, String> encodings = new ConcurrentHashMap<>();
     private final Object loadLock = new Object();
 
-    private record Attempt(Track track, int count, long retryAt, LyricsProvider.Query query) {
+    private record Attempt(Track track, int count, long retryAt, LyricsProvider.Query query,
+                           ProcessRunner.Token owner) {
+        Attempt(Track track, int count, long retryAt, LyricsProvider.Query query) {
+            this(track, count, retryAt, query, null);
+        }
     }
 
     private final Map<String, Attempt> automatic = new ConcurrentHashMap<>();
@@ -371,19 +376,26 @@ public final class LyricsLookup implements AutoCloseable {
     }
 
     public void automatic(Track track, boolean localAvailable) {
+        automatic(track, localAvailable, null);
+    }
+
+    void automatic(Track track, boolean localAvailable, ProcessRunner.Token owner) {
+        if (owner != null && owner.cancelled()) return;
         if (!enabled || !online || track == null || localAvailable || choice(track).selected != null || reviewSelections.containsKey(track.id()) || !loaded.contains(track.id()))
             return;
         if (pending.containsKey(track.id())) return;
         if (clock.getAsLong() < retryNotBefore) return;
         Attempt previous = automatic.get(track.id());
+        if (owner == null && previous != null) owner = previous.owner;
+        if (owner != null && owner.cancelled()) return;
         if (previous != null && previous.track.equals(track) && previous.query != null) return;
         if (previous != null && previous.track.equals(track) && clock.getAsLong() < previous.retryAt) return;
         int count = previous != null && previous.track.equals(track) ? previous.count + 1 : 1;
-        automatic.put(track.id(), new Attempt(track, count, Long.MAX_VALUE, null));
+        automatic.put(track.id(), new Attempt(track, count, Long.MAX_VALUE, null, owner));
         if (automatic.size() > 512)
             automatic.entrySet().stream().filter(e -> !e.getKey().equals(track.id()) && e.getValue().retryAt == Long.MAX_VALUE && !pending.containsKey(e.getKey()))
                 .map(Map.Entry::getKey).findFirst().ifPresent(automatic::remove);
-        start(track, token -> automaticDiscovery(track, captionPreferences, generatedCaptions, token), true, true);
+        start(track, token -> automaticDiscovery(track, captionPreferences, generatedCaptions, token), true, true, worker, owner, null);
     }
 
     /**
@@ -395,7 +407,11 @@ public final class LyricsLookup implements AutoCloseable {
         if (now < retryNotBefore) return;
         for (var attempt : automatic.values())
             if (attempt.retryAt != Long.MAX_VALUE && now >= attempt.retryAt) {
-                if (attempt.query == null) automatic(attempt.track, false);
+                if (attempt.owner != null && attempt.owner.cancelled()) {
+                    automatic.remove(attempt.track.id(), attempt);
+                    continue;
+                }
+                if (attempt.query == null) automatic(attempt.track, false, attempt.owner);
                 else {
                     automatic.put(attempt.track.id(), new Attempt(attempt.track, attempt.count + 1, Long.MAX_VALUE, attempt.query));
                     start(attempt.track, token -> discover(attempt.track, attempt.query, true, false, token), true, false);
@@ -413,16 +429,28 @@ public final class LyricsLookup implements AutoCloseable {
         return remaining <= 0 ? 0 : TimeUnit.NANOSECONDS.toSeconds(remaining - 1) + 1;
     }
 
-    ProcessRunner.Token automaticToken(Track track) {
-        Attempt attempt = automatic.get(track.id());
-        return attempt != null && attempt.query == null ? latestOperations.get(track.id()) : null;
+    synchronized void cancelOwner(ProcessRunner.Token owner) {
+        if (owner == null) return;
+        owner.cancel();
+        automatic.entrySet().removeIf(e -> e.getValue().owner == owner);
+        for (var entry : operationOwners.entrySet()) {
+            if (entry.getValue() != owner || !operationOwners.remove(entry.getKey(), owner)) continue;
+            var token = latestOperations.remove(entry.getKey());
+            if (token != null) token.cancel();
+            if (token != null) pending.remove(entry.getKey(), token);
+            var track = loadedTracks.get(entry.getKey());
+            if (track != null) publish(track, new Snapshot(Status.CANCELLED, List.of()));
+        }
     }
 
-    void cancelAutomatic(Track track, ProcessRunner.Token owned) {
-        if (owned != null && latestOperations.get(track.id()) == owned) {
-            cancel(track);
-            automatic.remove(track.id());
-        }
+    boolean ownerOutstanding(ProcessRunner.Token owner) {
+        return owner != null && !owner.cancelled() && automatic.values().stream()
+            .anyMatch(a -> a.owner == owner && (a.retryAt != Long.MAX_VALUE || pending.containsKey(a.track.id())));
+    }
+
+    long ownerRetrySeconds(ProcessRunner.Token owner) {
+        return automatic.values().stream().filter(a -> a.owner == owner).mapToLong(a -> retrySeconds(a.track))
+            .filter(delay -> delay > 0).min().orElse(0);
     }
 
     public long retrySeconds(Track track) {
@@ -461,7 +489,7 @@ public final class LyricsLookup implements AutoCloseable {
                 if (!alternatives.isEmpty()) return alternatives;
                 throw failure;
             }
-        }, true, true, captionWorker);
+        }, true, true, captionWorker, operationOwners.get(track.id()), token);
         return found;
     }
 
@@ -520,13 +548,22 @@ public final class LyricsLookup implements AutoCloseable {
     }
 
     private void start(Track track, Search search, boolean requiresOnline, boolean applyReliable, ThreadPoolExecutor executor) {
+        start(track, search, requiresOnline, applyReliable, executor, null, null);
+    }
+
+    private synchronized void start(Track track, Search search, boolean requiresOnline, boolean applyReliable, ThreadPoolExecutor executor,
+                                    ProcessRunner.Token owner, ProcessRunner.Token parent) {
         if (track == null || closed) return;
+        if (owner != null && owner.cancelled() || parent != null && (parent.cancelled() || pending.get(track.id()) != parent))
+            return;
         if (!enabled || requiresOnline && !online) {
             publish(track, new Snapshot(Status.DISABLED, List.of()));
             return;
         }
         cancel(track);
-        var token = new ProcessRunner.Token();
+        var token = new ProcessRunner.Token(owner);
+        if (owner == null) operationOwners.remove(track.id());
+        else operationOwners.put(track.id(), owner);
         if (snapshots.size() >= 64)
             snapshots.keySet().stream().filter(id -> !pending.containsKey(id) && !retained(id)).findFirst().ifPresent(snapshots::remove);
         latestOperations.put(track.id(), token);
@@ -542,7 +579,8 @@ public final class LyricsLookup implements AutoCloseable {
                     if (!sameFile(track)) throw new CancellationException();
                     boolean sidecarExists = Files.exists(com.darkmusic.client.download.DownloadLyrics.sidecar(track.file()));
                     synchronized (this) {
-                        if (pending.get(track.id()) != token || closed || !enabled || !online) return;
+                        if (pending.get(track.id()) != token || token.cancelled() || closed || !enabled || !online)
+                            return;
                         var reliable = reliableMatch(found);
                         publish(track, new Snapshot(found.isEmpty() ? Status.NOT_FOUND : reliable != null ? Status.READY : Status.AMBIGUOUS, found));
                         // Automatic playback lookup starts only after local inspection found no lyrics.
@@ -591,7 +629,7 @@ public final class LyricsLookup implements AutoCloseable {
             }
             if (providerWait > 0)
                 retryNotBefore = Math.max(retryNotBefore, clock.getAsLong() + TimeUnit.MILLISECONDS.toNanos(providerWait));
-            return new Attempt(track, attempt.count, retryAt, attempt.query);
+            return new Attempt(track, attempt.count, retryAt, attempt.query, attempt.owner);
         });
     }
 
@@ -629,6 +667,7 @@ public final class LyricsLookup implements AutoCloseable {
             ProcessRunner.Token token = latestOperations.remove(id);
             if (token != null) token.cancel();
             pending.remove(id);
+            operationOwners.remove(id);
             choices.remove(id);
             snapshots.remove(id);
             known.remove(id);
@@ -669,7 +708,7 @@ public final class LyricsLookup implements AutoCloseable {
 
     public void cancel(Track track) {
         if (track == null) return;
-        automatic.computeIfPresent(track.id(), (id, attempt) -> new Attempt(attempt.track, attempt.count, Long.MAX_VALUE, attempt.query));
+        automatic.computeIfPresent(track.id(), (id, attempt) -> new Attempt(attempt.track, attempt.count, Long.MAX_VALUE, attempt.query, attempt.owner));
         ProcessRunner.Token token = latestOperations.remove(track.id());
         if (token != null) token.cancel();
         if (pending.remove(track.id()) != null)
@@ -810,6 +849,10 @@ public final class LyricsLookup implements AutoCloseable {
     }
 
     public void prune(List<Track> tracks, Set<String> registeredRoots, Set<String> completeRoots) {
+        prune(tracks, registeredRoots, completeRoots, Map.of());
+    }
+
+    public void prune(List<Track> tracks, Set<String> registeredRoots, Set<String> completeRoots, Map<String, List<String>> unreadableScopes) {
         if (directory == null) return;
         submit(() -> {
             Path folder = directory.resolve("tracks");
@@ -826,12 +869,22 @@ public final class LyricsLookup implements AutoCloseable {
                         continue;
                     }
                     // Legacy records can be pruned only when every registered root was checked successfully.
+                    if (saved != null && protectedScope(saved.rootId, saved.trackId, unreadableScopes)) continue;
                     if (saved != null && (saved.rootId == null ? completeRoots.containsAll(registeredRoots)
                         : !registeredRoots.contains(saved.rootId) || completeRoots.contains(saved.rootId)))
                         Files.deleteIfExists(path);
                 }
             }
         });
+    }
+
+    private static boolean protectedScope(String root, String id, Map<String, List<String>> scopes) {
+        if (root == null) return !scopes.isEmpty();
+        var unreadable = scopes.getOrDefault(root, List.of());
+        if (unreadable.isEmpty()) return false;
+        if (id == null || !id.startsWith(root + ":")) return true;
+        String relative = id.substring(root.length() + 1).replace('\\', '/');
+        return unreadable.stream().anyMatch(scope -> scope.isEmpty() || relative.equals(scope) || relative.startsWith(scope + "/"));
     }
 
     private Saved saved(Track track, Choice choice) {

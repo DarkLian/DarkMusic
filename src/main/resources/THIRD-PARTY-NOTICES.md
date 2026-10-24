@@ -1,8 +1,14 @@
 # DarkMusic bundled libraries
 
-DarkMusic's own sources retain the project's CC0-1.0 license. Third-party
-libraries retain their original copyright notices and licenses. They are
-included as separate, unmodified nested JARs under META-INF/jars.
+DarkMusic's current project-specific terms are in LICENSE_darkmusic (LICENSE in
+the source repository). They reserve rights in new DarkLian contributions first
+published from v2.8.2, with free use, private modifications, and an official-modpack
+exception. Previously released portions remain under CC0-1.0, including when
+reused in this version; the prior dedication is in licenses/CC0-1.0.txt. Per-file
+notices, including the existing interface icons' CC0 dedication, remain effective.
+
+Third-party libraries retain their original copyright notices and licenses.
+They are included as separate, unmodified nested JARs under META-INF/jars.
 
 | Maven coordinate                                | Applicable source notices                                                                      |
 |-------------------------------------------------|------------------------------------------------------------------------------------------------|

@@ -194,6 +194,12 @@ jar {
 	}
 }
 
+tasks.named('sourcesJar', Jar) {
+    def projectName = project.name
+    inputs.property "projectName", projectName
+    from('LICENSE') { rename { "${it}_$projectName" } }
+}
+
 // configure the maven publication
 publishing {
 	publications {

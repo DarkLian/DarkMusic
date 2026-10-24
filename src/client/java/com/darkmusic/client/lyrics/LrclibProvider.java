@@ -211,7 +211,7 @@ public final class LrclibProvider implements LyricsProvider, AutoCloseable {
         return URLEncoder.encode(s, StandardCharsets.UTF_8);
     }
 
-    private Reply http(URI uri, ProcessRunner.Token token) throws Exception {
+    Reply http(URI uri, ProcessRunner.Token token) throws Exception {
         var request = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(20))
             .header("User-Agent", userAgent()).header("Lrclib-Client", userAgent())
             .header("Accept", "application/json").GET().build();
@@ -223,7 +223,7 @@ public final class LrclibProvider implements LyricsProvider, AutoCloseable {
                 if (System.nanoTime() >= deadline) throw new Failure(Problem.NETWORK);
                 try {
                     var response = future.get(100, TimeUnit.MILLISECONDS);
-                    return new Reply(response.statusCode(), StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(response.body())).toString(), response.headers().firstValue("Retry-After").orElse("60"));
+                    return new Reply(response.statusCode(), StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(response.body())).toString(), response.headers().firstValue("Retry-After").orElse(null));
                 } catch (TimeoutException waiting) {
                 }
             }

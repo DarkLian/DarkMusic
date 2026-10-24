@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v2.8.1 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v2.8.2 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Interface language
 
@@ -144,7 +144,7 @@ Open **Manage Audio Files** with the wrench above the player's collection list, 
 
 Use **Move to Trash** when the operating system supports it. **Delete Permanently…** requires a separate confirmation and cannot be undone through DarkMusic. A failed Trash operation never switches to permanent deletion automatically.
 
-Only reviewed audio files are removed by default. You may explicitly include associated lyric sidecars, provenance, and backups in the review; those companions always use Trash, even when audio deletion is permanent. A failed Trash operation never becomes permanent deletion. Successfully deleted tracks are removed from playlists, Favorite Music, and Up Next; failures remain available to review and retry. File changes detected after review require a fresh review.
+Only reviewed audio files are removed by default. You may explicitly include associated lyric sidecars, provenance, and backups in the review; those companions always use Trash, even when audio deletion is permanent. Lyrics shared by another audio format with the same filename stem are kept. Renaming one format copies shared lyric companions so the other format keeps its lyrics and attribution. A failed Trash operation never becomes permanent deletion. Successfully deleted tracks are removed from playlists, Favorite Music, and Up Next; failures remain available to review and retry. File changes detected after review require a fresh review.
 
 During deletion, **Cancel Remaining Files** stops pending work. An already-issued Trash operation finishes or reaches its timeout before its outcome is reported. Completed deletions remain completed, and untouched pending files are listed as canceled rather than failed. To delete canceled files later, select and review them again in Manage Audio Files.
 
@@ -334,7 +334,7 @@ Online lookup sends the song’s title, artist, album, and duration to LRCLIB. A
 
 Choose **Find Missing Lyrics → Start** to check the collection explicitly. DarkMusic shows the checked count, actual LRCLIB request count, and waiting status. It checks songs one at a time without selecting or playing them, waits for library scanning and media operations, skips unhealthy roots, and keeps its place across rescans. Cancel stops owned pending requests. Closing the screen does not cancel the run. Playing or deliberately selected songs can also request lyrics when enabled. New-download lookup begins after the audio is saved and does not delay the download worker.
 
-The first reliable version is saved locally and applied automatically, with alternate versions retained for review. Weak matches are not applied automatically. Existing local sidecars, embedded lyrics, and explicitly chosen versions take priority. A match is based on metadata and duration; different recordings can still need manual correction.
+The first reliable version is saved locally and applied automatically, with alternate versions retained for review. Library cancellation also cancels owned caption fallback and retries; unrelated manual searches remain active. Weak matches are not applied automatically. Existing local sidecars, embedded lyrics, and explicitly chosen versions take priority. A match is based on metadata and duration; different recordings can still need manual correction.
 
 Results are cached across launches. Confirmed empty provider responses are cached for 14 days; temporary failures are not saved as missing lyrics. Network and temporary provider failures retry per song without keeping it selected, with increasing delays of up to 30 minutes; this does not pause later library songs. Provider-wide waits apply to actual rate-limit responses or explicit Retry-After values, bounded to 24 hours. Requests are normally spaced at least one second apart. A 503 without Retry-After does not invent a global rate-limit wait. The status shows the retry countdown; horizontally scrolling it keeps your reading position as the countdown changes.
 
@@ -414,3 +414,7 @@ Settings, playlists, and import history are stored in the instance's `config/dar
 | Shortcut conflict | Rebind it in Minecraft's Key Binds menu |
 
 For a reproducible issue, share the mod/Minecraft versions, operating system, steps, and relevant logs in [GitHub Issues](https://github.com/DarkLian/DarkMusic/issues). Remove private details before posting.
+
+## License and modpacks
+
+DarkMusic remains free of charge. From v2.8.2, new original DarkLian contributions use the [DarkMusic License & Permissions](../LICENSE), allowing private modifications and inclusion of unmodified official binaries in modpacks with attribution, preserved notices, and third-party license compliance. Other redistribution or distributed modifications containing that new protected material require written permission. Previously released CC0 portions and separately licensed components retain their existing rights; the change is not retroactive.

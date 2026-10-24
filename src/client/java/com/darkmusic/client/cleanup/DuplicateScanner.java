@@ -128,9 +128,11 @@ public final class DuplicateScanner implements AutoCloseable {
                     String stamp = stamp(t, before);
                     var saved = cache.get(t.id(), stamp);
                     String hash = saved == null ? "" : saved.hash();
-                    String source = sources.computeIfAbsent(t.file().getParent(), SourceLinks::readDirectory).getOrDefault(t.file().getFileName().toString(), saved == null ? "" : saved.source());
+                    String source = sources.computeIfAbsent(t.file().getParent(), SourceLinks::readDirectory).containsKey(t.file().getFileName().toString())
+                        ? SourceLinks.read(t.file()) : "";
                     if (DuplicateMatcher.sourceId(source).isEmpty()) {
                         for (String archiveKey : archives.computeIfAbsent(t.file().getParent(), LibrarySourceIndex::archive).getOrDefault(t.file().getFileName().toString(), List.of())) {
+                            if (!SourceLinks.matchesArchive(t.file(), archiveKey)) continue;
                             String key = archiveKey.endsWith(":original") ? archiveKey.substring(0, archiveKey.length() - 9) : archiveKey;
                             int split = key.indexOf(':');
                             if (split > 0) {

@@ -98,11 +98,20 @@ public final class AudioDeletion {
     public Plan prepare(Map<Path, String> roots, List<Track> selected) throws IOException {
         var items = new LinkedHashMap<Path, Item>();
         var companions = new ArrayList<Companion>();
+        var companionOwners = new HashMap<Path, Map<Path, Set<Path>>>();
         for (Track track : selected) {
             var attributes = validate(roots, track);
             Path file = track.file().toAbsolutePath().normalize();
             items.putIfAbsent(file, new Item(track, file, attributes.fileKey(), attributes.fileKey() == null ? hash(file) : ""));
             com.darkmusic.client.lyrics.LyricsFiles.recover(file);
+            var owners = companionOwners.get(file.getParent());
+            if (owners == null) {
+                owners = com.darkmusic.client.lyrics.LyricsFiles.companionOwners(file.getParent());
+                companionOwners.put(file.getParent(), owners);
+            }
+            // Shared lyrics belong to surviving formats too; do not offer them as this file's companions.
+            if (owners.getOrDefault(com.darkmusic.client.lyrics.LyricsFiles.companions(file).getFirst(), Set.of()).size() > 1)
+                continue;
             for (Path companion : com.darkmusic.client.lyrics.LyricsFiles.companions(file)) {
                 if (!Files.exists(companion, LinkOption.NOFOLLOW_LINKS)) continue;
                 if (Files.isSymbolicLink(companion) || !Files.isRegularFile(companion, LinkOption.NOFOLLOW_LINKS))
@@ -147,6 +156,8 @@ public final class AudioDeletion {
                         if (!companion.audio().id().equals(item.track().id())) continue;
                         try {
                             token.check();
+                            if (com.darkmusic.client.lyrics.LyricsFiles.shared(item.file()))
+                                throw new IOException("Lyrics are shared with another audio file");
                             var a = Files.readAttributes(companion.file(), BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
                             if (!a.isRegularFile() || Files.isSymbolicLink(companion.file()) || a.size() != companion.size()
                                 || a.lastModifiedTime().toMillis() != companion.modified() || !Objects.equals(a.fileKey(), companion.fileKey())

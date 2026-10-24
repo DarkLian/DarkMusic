@@ -157,3 +157,13 @@ Optional `-PlyricsIntegration` enables `LrclibLiveTest`, which uses public test 
 `DeletionCompanionTest`, `DownloadCommitTest`, and source-index/metadata tests cover explicit companion handling, identity changes, rollback, and recoverable download commits. `ReviewPerformanceTest` and `PartialRootScopeTest` cover incremental matching, bounded cache writes, and retention limited to unreadable subtrees. Existing Up Next tests verify that no-op or non-head edits retain the preloaded next track.
 
 Release verification uses `scripts/verify.ps1 -Clean -DesktopIntegration` with the private collection and existing managed tools, followed by both localized Minecraft lyrics smoke runs. Never infer native macOS/Linux, prolonged outage, or real inaccessible-filesystem behavior from mocks or hosted compilation.
+
+## v2.8.2 integrity and licensing checks
+
+`MetadataCommitSafetyTest` replaces the source immediately after final validation for rename and in-place commits, checks recovery retention, and verifies rollback preserves a later external replacement. Shared-stem fixtures verify copying lyric companions and attribution during rename. `DeletionCompanionTest` verifies shared lyrics are not offered for deletion and newly introduced sibling formats are rechecked. These filesystem policy tests use disposable non-audio documents.
+
+`PartialRootScopeTest` saves lyric selections, offsets, language, and encoding with no library index, simulates an unreadable subtree, and verifies only positively missing healthy-scope preferences are pruned. `LyricsOwnershipTest` controls blocked caption and retry operations with latches, cancels their library owner, and verifies unrelated manual work survives. Its loopback HTTP-server test exercises the real adapter with a missing Retry-After header.
+
+Duplicate tests require content-bound source/archive evidence and reject stale filename-only or cached provenance. Controlled decoder tests use real private-collection PCM to verify bounded empty reads and legitimate priming. Caption requests accept canonical supported providers; these checks do not establish a complete network sandbox around external-tool redirects or DNS resolution.
+
+Packaging checks verify the custom current license, preserved CC0 legacy text, LGPL notices, and current Fabric metadata. Release checks inspect the license in both binary and source JARs and keep the third-party source bundle available. Existing historical license grants must not be relabeled or erased.

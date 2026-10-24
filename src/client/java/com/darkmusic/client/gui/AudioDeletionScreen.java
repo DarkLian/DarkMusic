@@ -48,6 +48,7 @@ public final class AudioDeletionScreen extends LocalScreen {
             refreshRows();
             updateButtons();
         }).bounds(12, height - 80, width - 24, 20).build());
+        Help.tip(companions, Text.get("delete_audio.shared_lyrics"));
         int w = (width - 32) / 3;
         back = button("text.darkmusic.cancel", 12, height - 28, w, () -> {
             if (busy) {

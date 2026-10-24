@@ -80,6 +80,9 @@ public final class JavaSoundBackend implements AudioBackend {
     private final Thread worker;
     private final java.util.ArrayDeque<Segment> timeline = new java.util.ArrayDeque<>();
     private final long stallNanos;
+    private final long decoderStallNanos;
+    private PcmRateConverter emptyConverter;
+    private long decoderEmptySince;
     private volatile State state = new State(null, Status.STOPPED, 0, 0, "");
     private volatile boolean closed, paused;
     private volatile double gain = 0.7;
@@ -119,8 +122,13 @@ public final class JavaSoundBackend implements AudioBackend {
     }
 
     public JavaSoundBackend(Executor callbacks, Decoder decoder, Output output, java.time.Duration stallTimeout) {
+        this(callbacks, decoder, output, stallTimeout, java.time.Duration.ofSeconds(5));
+    }
+
+    public JavaSoundBackend(Executor callbacks, Decoder decoder, Output output, java.time.Duration stallTimeout, java.time.Duration decoderTimeout) {
         this.callbacks = callbacks;
         this.stallNanos = stallTimeout.toNanos();
+        this.decoderStallNanos = Math.max(1, decoderTimeout.toNanos());
         this.decoder = decoder;
         this.output = output;
         worker = Thread.ofPlatform().daemon().name("darkmusic-audio").start(this::run);
@@ -448,6 +456,7 @@ public final class JavaSoundBackend implements AudioBackend {
                     if (output instanceof OutputDevices && !line.isOpen())
                         throw new javax.sound.sampled.LineUnavailableException("Audio output disconnected");
                     if (paused) {
+                        decoderEmptySince = 0;
                         line.stop();
                         update(request, Status.PAUSED);
                         progressedAt = System.nanoTime();
@@ -481,7 +490,16 @@ public final class JavaSoundBackend implements AudioBackend {
                     int inputChannels = stream.getFormat().getChannels(), outputChannels = line.getFormat().getChannels();
                     processor.diagnostics().sourceChannels(inputChannels);
                     int frames = Math.min(amount / frame, pcm.length / inputChannels);
+                    long decodedBefore = converter.decodedFrames();
                     int samples = converter.read(pcm, frames * inputChannels, rate, deviceRate, options.enhancements.preservePitch);
+                    if (samples == 0 && converter.decodedFrames() == decodedBefore) {
+                        long now = System.nanoTime();
+                        if (emptyConverter != converter || decoderEmptySince == 0) {
+                            emptyConverter = converter;
+                            decoderEmptySince = now;
+                        } else if (now - decoderEmptySince > decoderStallNanos)
+                            throw new java.io.IOException(com.darkmusic.client.text.Text.get("audio.error.decoder_stalled"));
+                    } else decoderEmptySince = 0;
                     // Time spent decoding must not consume the output device's stall budget.
                     progressedAt = System.nanoTime();
                     if (samples > 0 && inputChannels != outputChannels) {

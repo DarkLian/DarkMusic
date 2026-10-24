@@ -5,9 +5,9 @@
   "name": "DarkMusic",
   "description": "A client-side music library, player, downloader, and audio-reactive HUD.",
   "authors": [
-    "DarkMusic contributors"
+    "DarkLian"
   ],
-  "license": "CC0-1.0",
+  "license": "LicenseRef-DarkMusic-All-Rights-Reserved",
   "icon": "assets/darkmusic/icon.png",
   "environment": "client",
   "entrypoints": {

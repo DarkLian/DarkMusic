@@ -15,6 +15,52 @@ class PartialRootScopeTest {
     Path temp;
 
     @Test
+    void unreadableSubtreeKeepsSavedLyricsEvenWithoutALibraryCache() throws Exception {
+        Path root = Files.createDirectories(temp.resolve("no-index-library"));
+        Path denied = Files.createDirectory(root.resolve("denied"));
+        Path file = Files.writeString(denied.resolve("kept.dat"), "Disposable identity");
+        var kept = new Track("r", "denied/kept.dat", file, "Song", "Artist", "", 180, Files.size(file), Files.getLastModifiedTime(file).toMillis(), "");
+        Path missing = root.resolve("gone.dat");
+        var gone = new Track("r", "gone.dat", missing, "Gone", "", "", 0, 0, 0, "");
+        Path prefs = temp.resolve("preferences");
+        var provider = new com.darkmusic.client.lyrics.LyricsProvider() {
+            public String id() {
+                return "offline";
+            }
+
+            public List<Candidate> search(Query q, com.darkmusic.client.download.ProcessRunner.Token token) {
+                return List.of();
+            }
+        };
+        var document = com.darkmusic.client.lyrics.LyricsDocument.of("import", "1", "Song", "Artist", "", 180, "ja", com.darkmusic.client.lyrics.LyricsDocument.Variant.ORIGINAL, false, false, "[00:01]Retained");
+        try (var lyrics = new com.darkmusic.client.lyrics.LyricsLookup(prefs, provider)) {
+            lyrics.select(kept, document).get(5, java.util.concurrent.TimeUnit.SECONDS);
+            lyrics.offset(kept, 650).get(5, java.util.concurrent.TimeUnit.SECONDS);
+            lyrics.language(kept, "ja").get(5, java.util.concurrent.TimeUnit.SECONDS);
+            lyrics.encoding(kept, "Big5").get(5, java.util.concurrent.TimeUnit.SECONDS);
+            lyrics.offset(gone, 100).get(5, java.util.concurrent.TimeUnit.SECONDS);
+        }
+        try (var library = new MusicLibrary(temp.resolve("no-index-data"), p -> {
+        }, 2000, p -> !p.equals(denied));
+             var lyrics = new com.darkmusic.client.lyrics.LyricsLookup(prefs, provider)) {
+            library.setRoot(root, "r");
+            Await.until(Duration.ofSeconds(5), () -> !library.snapshot().scanning(), "No-index scan completes");
+            var scan = library.snapshot();
+            assertTrue(scan.tracks().isEmpty());
+            assertEquals(List.of("denied"), scan.unreadableScopes().get("r"));
+            lyrics.prune(scan.tracks(), Set.of("r"), scan.completeRoots(), scan.unreadableScopes());
+            lyrics.offset(kept, 650).get(5, java.util.concurrent.TimeUnit.SECONDS); // Storage barrier, not a timing sleep.
+            try (var records = Files.list(prefs.resolve("tracks"))) {
+                assertEquals(1, records.count());
+            }
+            assertEquals(document, lyrics.choice(kept).selected());
+            assertEquals(650, lyrics.choice(kept).offset());
+            assertEquals("ja", lyrics.choice(kept).language());
+            assertEquals("Big5", lyrics.encoding(kept));
+        }
+    }
+
+    @Test
     void queuedWalkerDoesNotKeepTheLibraryScanningBehindStalledWalkers() throws Exception {
         Path first = Files.createDirectories(temp.resolve("first")), second = Files.createDirectories(temp.resolve("second")), third = Files.createDirectories(temp.resolve("third"));
         var entered = new java.util.concurrent.CountDownLatch(2);

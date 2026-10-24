@@ -248,6 +248,10 @@ public final class SourceLinks {
      * Called only after the media operation succeeded; the caller owns rollback on failure.
      */
     public static void renamed(Path source, Path target, String verifiedSource) throws java.io.IOException {
+        renamed(source, target, verifiedSource, null);
+    }
+
+    public static void renamed(Path source, Path target, String verifiedSource, String expectedHash) throws java.io.IOException {
         synchronized (LOCK) {
             Path file = source.resolveSibling(".darkmusic-sources.json");
             var data = json(file);
@@ -257,7 +261,10 @@ public final class SourceLinks {
             if (prior.isJsonObject() && !verifiedSource.isEmpty() && verifiedSource.equals(prior.getAsJsonObject().get("url").getAsString())) {
                 var o = prior.getAsJsonObject();
                 String identity = o.has("identity") ? o.get("identity").getAsString() : "";
-                data.add(target.getFileName().toString(), binding(target, o.get("url").getAsString(), identity));
+                var next = binding(target, o.get("url").getAsString(), identity);
+                if (expectedHash != null && !expectedHash.equals(next.get("sha256").getAsString()))
+                    throw new java.io.IOException(com.darkmusic.client.text.Text.get("library.darkmusic.file_changed"));
+                data.add(target.getFileName().toString(), next);
             } else if (prior.isJsonPrimitive()) data.add(target.getFileName().toString(), prior);
             ConfigStore.atomicWrite(file, ConfigStore.JSON.toJson(data));
         }

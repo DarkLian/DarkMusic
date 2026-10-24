@@ -75,12 +75,22 @@ public class ProcessRunner {
     }
 
     public static final class Token {
+        private final Token owner;
+
+        public Token() {
+            this(null);
+        }
+
+        public Token(Token owner) {
+            this.owner = owner;
+        }
+
         private final AtomicBoolean cancelled = new AtomicBoolean();
         private final Set<ProcessHandle> descendants = ConcurrentHashMap.newKeySet();
         private volatile Process process;
 
         public boolean cancelled() {
-            return cancelled.get();
+            return cancelled.get() || owner != null && owner.cancelled();
         }
 
         public void check() {
