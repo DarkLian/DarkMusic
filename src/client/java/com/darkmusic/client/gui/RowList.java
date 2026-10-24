@@ -46,6 +46,12 @@ public final class RowList extends AbstractWidget {
     private String emptyMessage = Text.get("text.darkmusic.no_entries");
     private SongSelection selection;
     private int selected = -1, scroll;
+    private int clickedRow = -1;
+
+    void resetClicks() {
+        clickedRow = -1;
+    }
+
     private double fractionalScroll;
     private java.util.function.Consumer<PlaylistDrag> reorder;
     private MouseButtonEvent pressed;
@@ -162,6 +168,7 @@ public final class RowList extends AbstractWidget {
             return;
         }
         hoveredRow = -2;
+        resetClicks();
         if (dropping != null && dropping.stream().map(this.rows::get).toList().equals(rows)) {
             var prior = dropping;
             double[] nextFrom = new double[rows.size()];
@@ -192,6 +199,7 @@ public final class RowList extends AbstractWidget {
      */
     public void rows(int size, java.util.function.IntFunction<Row> factory) {
         if (size < 0) throw new IllegalArgumentException("Negative row count");
+        resetClicks();
         cancelDrag();
         var cached = new java.util.LinkedHashMap<Integer, Row>(32, .75f, true);
         this.rows = new java.util.AbstractList<>() {
@@ -360,7 +368,7 @@ public final class RowList extends AbstractWidget {
         if (lyric != null) {
             int x = getRight() - rightInset + 2;
             UiIcon.LYRICS.draw(g, x, y + (rowHeight - 14) / 2, 14, lyric.color());
-            g.text(font, lyric.mark(), x + 17, y + (rowHeight - 9) / 2, lyric.color());
+            LyricsStatusIcon.draw(g, font, lyric, x + 17, y + (rowHeight - 12) / 2, 12);
         }
         if (current) playingIcon.get().draw(g, getRight() - 26, y + (rowHeight - 14) / 2, 14, UiTheme.ACCENT);
         Row row = rows.get(i);
@@ -404,6 +412,8 @@ public final class RowList extends AbstractWidget {
     @Override
     public void onClick(MouseButtonEvent event, boolean twice) {
         clamp();
+        int previousClick = clickedRow;
+        resetClicks();
         if (scrollbar.hit(event.x(), event.y())) {
             cancelDrag();
             scrollbar.onClick(event, twice);
@@ -424,7 +434,9 @@ public final class RowList extends AbstractWidget {
             selected = index;
             if (selection != null)
                 selection.choose(index, event.hasControlDownWithQuirk() || event.x() < getX() + 24, event.hasShiftDown());
-            action.accept(index, selection == null && twice);
+            boolean activate = selection == null && twice && previousClick == index;
+            if (!activate) clickedRow = index;
+            action.accept(index, activate);
         }
     }
 
@@ -504,6 +516,7 @@ public final class RowList extends AbstractWidget {
     @Override
     public boolean keyPressed(KeyEvent event) {
         if (!isFocused() || rows.isEmpty()) return false;
+        resetClicks();
         if (selection != null && event.isSelectAll()) {
             selection.all();
             return true;
@@ -547,7 +560,10 @@ public final class RowList extends AbstractWidget {
     @Override
     public void setFocused(boolean focused) {
         super.setFocused(focused);
-        if (!focused) cancelDrag();
+        if (!focused) {
+            resetClicks();
+            cancelDrag();
+        }
     }
 
     @Override

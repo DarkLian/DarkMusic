@@ -13,37 +13,55 @@ import java.util.Locale;
  * Optional source captions only; no lyric search, transcription, or authentication.
  */
 public final class DownloadLyrics {
-    public record Result(String text, String warning) {
+    public record Result(String text, String warning, String language, boolean generated,
+                         DownloadDiagnostics.Category failure) {
+        public Result(String text, String warning) {
+            this(text, warning, "und", false, null);
+        }
+
+        public Result(String text, String warning, String language, boolean generated) {
+            this(text, warning, language, generated, null);
+        }
     }
 
     private DownloadLyrics() {
     }
 
     public static String language(JsonObject metadata) {
-        return LyricsLanguages.select(metadata, LyricsLanguages.resolve("auto", Locale.getDefault().toLanguageTag()));
+        return LyricsLanguages.select(metadata, LyricsLanguages.resolve("auto"));
     }
 
     public static Result fetch(ProcessRunner runner, Toolchain tools, DownloadModels.Entry entry, JsonObject metadata, Path work, ProcessRunner.Token token) throws Exception {
-        return fetch(runner, tools, entry, metadata, work, token, LyricsLanguages.resolve("auto", Locale.getDefault().toLanguageTag()));
+        return fetch(runner, tools, entry, metadata, work, token, LyricsLanguages.resolve("auto"));
     }
 
     public static Result fetch(ProcessRunner runner, Toolchain tools, DownloadModels.Entry entry, JsonObject metadata, Path work, ProcessRunner.Token token, List<String> preferences) throws Exception {
+        return fetch(runner, tools, entry, metadata, work, token, preferences, false);
+    }
+
+    public static Result fetch(ProcessRunner runner, Toolchain tools, DownloadModels.Entry entry, JsonObject metadata, Path work, ProcessRunner.Token token, List<String> preferences, boolean allowGenerated) throws Exception {
         token.check();
         String link = DownloadModels.url(entry.url());
         String language = LyricsLanguages.select(metadata, preferences);
+        boolean generated = false;
+        if (language.isEmpty() && allowGenerated) {
+            language = LyricsLanguages.select(metadata, preferences, true);
+            generated = !language.isEmpty();
+        }
         if (language.isEmpty())
             return new Result("", com.darkmusic.client.text.Text.get("lyrics.darkmusic.no_preferred_captions"));
         try {
             var args = tools.base();
-            args.addAll(List.of("--skip-download", "--no-playlist", "--playlist-items", "1", "--write-subs", "--no-write-auto-subs", "--extractor-args", "youtube:skip=translated_subs", "--sub-langs", "^" + language + "$", "--sub-format", "lrc/vtt/srt/best", "--convert-subs", "lrc", "--paths", work.toString(), "--output", "lyrics.%(ext)s", "--", link));
+            args.addAll(List.of("--skip-download", "--no-playlist", "--playlist-items", "1", generated ? "--no-write-subs" : "--write-subs", generated ? "--write-auto-subs" : "--no-write-auto-subs", "--extractor-args", "youtube:skip=translated_subs", "--sub-langs", "^" + language + "$", "--sub-format", "lrc/vtt/srt/best", "--convert-subs", "lrc", "--paths", work.toString(), "--output", "lyrics.%(ext)s", "--", link));
             var result = runner.run(args, work, token, Duration.ofSeconds(90), 32_000, s -> {
             });
-            if (result.exit() != 0) throw new java.io.IOException(DownloadJson.friendly(result.output()));
+            if (result.exit() != 0)
+                throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Stage.OPTIONAL, DownloadDiagnostics.Tool.YT_DLP, result.exit(), result.output());
             try (var files = Files.list(work)) {
                 Path lrc = files.filter(p -> p.getFileName().toString().startsWith("lyrics.") && p.toString().endsWith(".lrc")).filter(Files::isRegularFile).sorted().findFirst().orElse(null);
                 if (lrc != null && Files.size(lrc) <= 1_000_000) {
                     String text = Files.readString(lrc);
-                    if (!Lrc.parse(text).lines().isEmpty()) return new Result(text, "");
+                    if (!Lrc.parse(text).lines().isEmpty()) return new Result(text, "", language, generated);
                 }
             }
             return new Result("", com.darkmusic.client.text.Text.get("lyrics.darkmusic.no_timed_captions"));
@@ -51,8 +69,14 @@ public final class DownloadLyrics {
             token.check();
             if (failure instanceof InterruptedException) throw failure;
             org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Optional lyric captions could not be downloaded", failure);
-            return new Result("", com.darkmusic.client.text.Text.get("lyrics.darkmusic.download_failed"));
+            var category = DownloadDiagnostics.classify(failure, DownloadDiagnostics.Stage.OPTIONAL, link, 0, 1, "").category();
+            return new Result("", com.darkmusic.client.text.Text.get("lyrics.darkmusic.download_failed"), "und", false, category);
         }
+    }
+
+    public static com.darkmusic.client.lyrics.LyricsDocument document(Result result) {
+        return com.darkmusic.client.lyrics.LyricsDocument.of("captions", "", "", "", "", 0, result.language(),
+            com.darkmusic.client.lyrics.LyricsDocument.Variant.UNKNOWN, result.generated(), false, result.text());
     }
 
     public static Path sidecar(Path audio) {

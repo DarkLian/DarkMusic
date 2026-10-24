@@ -185,7 +185,7 @@ public class DarkMusicClient implements ClientModInitializer {
     public com.darkmusic.client.download.DownloadService downloads;
     public com.darkmusic.client.download.AuditionPlayer audition;
     public com.darkmusic.client.update.UpdateService updates;
-    public final com.darkmusic.client.lyrics.LyricsService lyrics = new com.darkmusic.client.lyrics.LyricsService();
+    public final com.darkmusic.client.lyrics.LyricsService lyrics = new com.darkmusic.client.lyrics.LyricsService(config.directory().resolve("lyrics"));
     public boolean playlistsReady;
     public boolean mediaBusy;
     private boolean restoring;
@@ -301,6 +301,7 @@ public class DarkMusicClient implements ClientModInitializer {
                 }
                 if (failure == null) {
                     store.replaceTrack(track, edited);
+                    lyrics.lookup.renamed(track, edited);
                     listeningHistory.rename(track, edited);
                     scanned.requestRescan();
                 }
@@ -380,6 +381,7 @@ public class DarkMusicClient implements ClientModInitializer {
                 }
                 var removed = completed == null ? java.util.Set.<String>of() : completed.removed().stream().map(com.darkmusic.client.library.Track::id).collect(java.util.stream.Collectors.toSet());
                 store.removeTracks(removed);
+                lyrics.lookup.deleted(removed);
                 player.finishDeletion(resume, removed);
                 if (cleanupScanner != null) cleanupScanner.deleted(removed);
                 if (sourceIndex != null) sourceIndex.deleted(removed);
@@ -502,8 +504,11 @@ public class DarkMusicClient implements ClientModInitializer {
             com.darkmusic.client.audio.ExternalAudio.configure(() -> new com.darkmusic.client.audio.ExternalAudio.Paths(config.directory(), settings.ffmpegPath, settings.ffprobePath));
             if (downloads != null) downloads.format(settings.downloadFormat);
             if (downloads != null)
-                downloads.lyrics(settings.lyricsEnabled, settings.lyricsLanguages, Minecraft.getInstance().options.languageCode);
+                downloads.lyrics(settings.lyricsEnabled, settings.lyricsLanguages);
             lyrics.enabled(settings.lyricsEnabled);
+            lyrics.lookup.configure(settings.lyricsEnabled, settings.lyricsOnline);
+            lyrics.lookup.captionPreferences(settings.lyricsLanguages, settings.lyricsAutoCaptions);
+            if (downloads != null) downloads.autoCaptions(settings.lyricsAutoCaptions);
             if (playback != null) playback.configure(settings.audio, settings.environment);
         }
         if (playback != null && playback.spectrum() != null) {
@@ -565,6 +570,7 @@ public class DarkMusicClient implements ClientModInitializer {
         updates = new com.darkmusic.client.update.UpdateService(this);
         com.darkmusic.client.command.LocalCommands.register(this);
         com.darkmusic.client.hud.NowPlayingHud.register(this);
+        com.darkmusic.client.hud.LyricsHud.register(this);
         com.darkmusic.client.hud.VolumeFeedback.register(this);
         com.darkmusic.client.hud.SpeedFeedback.register(this);
         com.darkmusic.client.hud.DownloadHud.register(this);
@@ -658,7 +664,15 @@ public class DarkMusicClient implements ClientModInitializer {
         downloads = new com.darkmusic.client.download.DownloadService(config.directory(), () -> library.requestRescan());
         downloads.configure(new com.darkmusic.client.download.DownloadModels.Tools(settings.ytDlpPath, settings.ffmpegPath, settings.ffprobePath, settings.javascriptPath));
         downloads.format(settings.downloadFormat);
-        downloads.lyrics(settings.lyricsEnabled, settings.lyricsLanguages, Minecraft.getInstance().options.languageCode);
+        lyrics.lookup.captions(downloads::fetchLyrics);
+        lyrics.lookup.captionPreferences(settings.lyricsLanguages, settings.lyricsAutoCaptions);
+        downloads.savedObserver(file -> Minecraft.getInstance().execute(() -> {
+            if (!closed && settings.lyricsEnabled && settings.lyricsOnline && settings.lyricsDownloadLookup)
+                lyrics.lookup.downloaded(file, library.roots(), settings.lyricsLanguages, settings.lyricsAutoCaptions);
+        }));
+        lyrics.lookup.configure(settings.lyricsEnabled, settings.lyricsOnline);
+        downloads.autoCaptions(settings.lyricsAutoCaptions);
+        downloads.lyrics(settings.lyricsEnabled, settings.lyricsLanguages);
         try {
             activateDirectory(settings.musicDirectory.isBlank() ? config.defaultMusic() : java.nio.file.Path.of(settings.musicDirectory));
         } catch (Exception e) {
@@ -843,6 +857,16 @@ public class DarkMusicClient implements ClientModInitializer {
     }
 
     protected void tick(Minecraft client, boolean allowed) {
+        if (settings != null && playback != null && settings.lyricsEnabled) {
+            var track = playback.state().track();
+            lyrics.request(track, settings.lyricsAutomaticLookup);
+            if (library != null) {
+                var snapshot = library.snapshot();
+                if (snapshot.scanning() || mediaBusy) lyrics.lookup.tickRetries();
+                else
+                    lyrics.background(snapshot.tracks(), snapshot.completeRoots(), settings.lyricsOnline && settings.lyricsLibraryLookup);
+            }
+        }
         allowed &= !mediaBusy;
         if (!warning.isEmpty() && System.nanoTime() >= warningUntil) warning = "";
         while (toggle.consumeClick()) if (allowed) playbackShortcut(toggle);

@@ -31,11 +31,13 @@ class LyricsLanguageTest {
     }
 
     @Test
-    void autoUsesTheSuppliedMinecraftLanguageWithoutEnglishOrAlphabeticalFallback() {
+    void autoIsIndependentOfMinecraftLanguageAndDoesNotChooseArbitrarily() {
         var info = metadata("{\"de\":[{}],\"en\":[{}],\"ja\":[{}]}");
-        assertEquals("ja", LyricsLanguages.select(info, LyricsLanguages.resolve("auto", "ja_jp")));
-        assertEquals("", LyricsLanguages.select(info, LyricsLanguages.resolve("auto", "ko_kr")));
-        assertEquals(List.of("ja", "zh-TW", "en"), LyricsLanguages.resolve("ja, auto, en", "zh_tw"));
+        assertEquals("", LyricsLanguages.select(info, LyricsLanguages.resolve("auto", "ja_jp")));
+        assertEquals("", LyricsLanguages.select(info, LyricsLanguages.resolve("auto", "en_us")));
+        assertEquals(List.of("ja", "auto", "en"), LyricsLanguages.resolve("ja, auto, en", "zh_tw"));
+        assertEquals("ja", LyricsLanguages.select(metadata("{\"ja\":[{}]}"), LyricsLanguages.resolve("auto", "en_us")));
+        assertEquals("", LyricsLanguages.select(metadata("{\"en\":[{\"is_translated\":true}]}"), List.of("auto")));
     }
 
     @Test

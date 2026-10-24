@@ -30,11 +30,17 @@ public final class LyricsLanguages {
         return String.join(", ", languages);
     }
 
+    /**
+     * Retained for callers migrating from the former interface-language policy.
+     */
     public static List<String> resolve(String preferences, String automatic) {
-        String auto = tag(automatic);
-        if (auto.isEmpty()) auto = "en";
+        return resolve(preferences);
+    }
+
+    public static List<String> resolve(String preferences) {
+        // Auto is a policy, never the interface or OS language. The second argument is retained for compatibility.
         var languages = new LinkedHashSet<String>();
-        for (String part : normalize(preferences).split(", ")) languages.add(part.equals("auto") ? auto : part);
+        for (String part : normalize(preferences).split(", ")) languages.add(part);
         return List.copyOf(languages);
     }
 
@@ -53,9 +59,29 @@ public final class LyricsLanguages {
     }
 
     public static String select(JsonObject metadata, List<String> preferences) {
-        if (!metadata.has("subtitles") || !metadata.get("subtitles").isJsonObject()) return "";
-        var subtitles = metadata.getAsJsonObject("subtitles");
+        return select(metadata, preferences, false);
+    }
+
+    public static String select(JsonObject metadata, List<String> preferences, boolean generated) {
+        String field = generated ? "automatic_captions" : "subtitles";
+        if (!metadata.has(field) || !metadata.get(field).isJsonObject()) return "";
+        var subtitles = metadata.getAsJsonObject(field);
         for (String preferred : preferences) {
+            if (preferred.equals("auto")) {
+                // Only a single eligible original track is unambiguous. Multiple originals require explicit preferences.
+                String sole = "";
+                int eligible = 0;
+                for (var entry : subtitles.entrySet()) {
+                    if (!tag(entry.getKey()).isEmpty() && entry.getValue().isJsonArray()
+                        && !entry.getValue().getAsJsonArray().isEmpty()
+                        && java.util.stream.StreamSupport.stream(entry.getValue().getAsJsonArray().spliterator(), false).allMatch(f -> manual(f, generated))) {
+                        sole = entry.getKey();
+                        eligible++;
+                    }
+                }
+                if (eligible == 1) return sole;
+                continue;
+            }
             String best = "";
             int score = 0;
             for (var entry : subtitles.entrySet()) {
@@ -64,7 +90,7 @@ public final class LyricsLanguages {
                     continue;
                 boolean manual = true;
                 for (JsonElement format : entry.getValue().getAsJsonArray())
-                    if (!manual(format)) {
+                    if (!manual(format, generated)) {
                         manual = false;
                         break;
                     }
@@ -79,11 +105,11 @@ public final class LyricsLanguages {
         return "";
     }
 
-    private static boolean manual(JsonElement value) {
+    private static boolean manual(JsonElement value, boolean generated) {
         if (!value.isJsonObject()) return false;
         var format = value.getAsJsonObject();
-        if (DownloadJson.text(format, "kind").equalsIgnoreCase("asr")) return false;
-        for (String flag : List.of("is_translated", "is_auto_generated"))
+        if (!generated && DownloadJson.text(format, "kind").equalsIgnoreCase("asr")) return false;
+        for (String flag : generated ? List.of("is_translated") : List.of("is_translated", "is_auto_generated"))
             if (DownloadJson.text(format, flag).equalsIgnoreCase("true")) return false;
         String url = DownloadJson.text(format, "url");
         if (url.isBlank()) return true;

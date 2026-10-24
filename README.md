@@ -6,9 +6,9 @@ A client-side music player for Minecraft. Browse your own library, build playlis
 
 ## Install
 
-DarkMusic **v2.7.0** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v2.8.0** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-2.7.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-2.8.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Open **Settings → General → Music Folders**, or add songs to `config/darkmusic/music` inside the instance.
@@ -42,7 +42,7 @@ Update notifications are enabled by default and appear once per launch after joi
 - **Audio Options:** profiles, loudness normalization, graphic or parametric EQ, dynamic EQ, de-essing, tone controls, crossfeed, compression, algorithmic or convolution reverb, and optional true-peak protection. Pitch-preserving speed, gapless playback, crossfade, and game-audio balance remain available.
 - **Sound Environment:** 23 choices, including Off, Car Cabin, Stairwell, and Orbital Echo, with independent intensity, room/tone controls, optional textures and ambience, and saved custom presets. Combine environments with Audio Options.
 - **Audio Analyzer:** device-clock stage measurements, spectra, waveforms, EQ response, stereo and dynamics meters, plus temporary A/B comparison and level matching.
-- **Lyrics:** optional synchronized local `.lrc` files and supported embedded tags, plus matching manual source captions during downloads with ordered language preferences.
+- **Lyrics:** find synchronized or plain lyrics for existing songs through LRCLIB, keep local sidecars and embedded text, choose alternate matches, and adjust timing per song. Background lookup caches results and retries temporary failures. Move and resize the lyrics HUD separately in every layout.
 
 ## Build your playlists
 
@@ -67,6 +67,12 @@ A customized Classic HUD, placed on the middle-left. Move and resize it in Edit 
 Preview HUD layouts, choose a spectrum style, and pick a gradient or your own colors.
 
 ![HUD and spectrum settings with live artwork preview](docs/images/settings-2.3.5.png)
+
+## Find lyrics for your collection
+
+Enable lyrics in **Settings → Lyrics** to look up songs already in your library. Reliable matches apply automatically; review alternatives when a match needs your choice. Lyrics language is independent of Minecraft’s interface language.
+
+Move the lyrics display separately in Edit HUD Layout, customize its width and colors, and adjust a song’s timing without rewriting its lyric file. Online lookup and background library fetching can be changed in Advanced Lyrics.
 
 ## Shape your sound
 

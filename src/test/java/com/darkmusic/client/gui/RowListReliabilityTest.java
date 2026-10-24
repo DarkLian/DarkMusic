@@ -9,6 +9,34 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class RowListReliabilityTest {
     @Test
+    void activationRequiresTwoConsecutiveClicksOnTheSameRow() {
+        var activated = new ArrayList<Integer>();
+        var list = new RowList(0, 0, 200, 200, 36, "Songs", (i, activate) -> {
+            if (activate) activated.add(i);
+        });
+        list.rows(List.of(new RowList.Row("A", ""), new RowList.Row("B", "")));
+        var a = new net.minecraft.client.input.MouseButtonEvent(40, 12, new net.minecraft.client.input.MouseButtonInfo(0, 0));
+        var b = new net.minecraft.client.input.MouseButtonEvent(40, 48, new net.minecraft.client.input.MouseButtonInfo(0, 0));
+        list.onClick(a, false);
+        list.onClick(b, true);
+        list.onClick(a, true);
+        assertTrue(activated.isEmpty());
+        list.onClick(a, true);
+        assertEquals(List.of(0), activated);
+        list.onClick(a, true);
+        assertEquals(List.of(0), activated, "A completed pair must not arm a third click");
+        list.resetClicks(); // Another screen element was clicked.
+        list.onClick(a, true);
+        assertEquals(List.of(0), activated);
+        list.setFocused(false);
+        list.onClick(a, true);
+        assertEquals(List.of(0), activated);
+        list.rows(List.of(new RowList.Row("C", ""), new RowList.Row("D", "")));
+        list.onClick(a, true);
+        assertEquals(List.of(0), activated, "Changing row contents must invalidate an old click");
+    }
+
+    @Test
     void fractionalScrollingAccumulatesInBothDirectionsAndRecoversAtTheBoundary() {
         var list = new RowList(0, 0, 200, 400, 36, "Songs", (i, activated) -> {
         });

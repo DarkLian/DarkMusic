@@ -56,7 +56,9 @@ class LyricsTest {
                 return new Result(1, "HTTP 429");
             }
         };
-        assertFalse(DownloadLyrics.fetch(failed, tools, entry, metadata, temp, new ProcessRunner.Token()).warning().isBlank());
+        var failedCaptions = DownloadLyrics.fetch(failed, tools, entry, metadata, temp, new ProcessRunner.Token());
+        assertFalse(failedCaptions.warning().isBlank());
+        assertEquals(com.darkmusic.client.download.DownloadDiagnostics.Category.RATE_LIMITED, failedCaptions.failure());
         var cancelled = new ProcessRunner.Token();
         cancelled.cancel();
         assertThrows(Exception.class, () -> DownloadLyrics.fetch(runner, tools, entry, metadata, temp, cancelled));
@@ -85,7 +87,7 @@ class LyricsTest {
         settings.lyricsEnabled = true;
         int enabled = HudLayout.content(settings, 1000).height();
         settings.lyricsEnabled = false;
-        assertEquals(enabled - 16, HudLayout.content(settings, 1000).height());
+        assertEquals(enabled, HudLayout.content(settings, 1000).height());
         assertFalse(ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(settings), Settings.class).lyricsEnabled);
     }
 }

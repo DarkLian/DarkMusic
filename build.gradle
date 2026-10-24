@@ -70,7 +70,8 @@ def downloadToolsDirectory = file(providers.gradleProperty('downloadToolsDirecto
 // A separate development-only mod exercises actual screens and audio devices.
 // It is never included in the release JAR or normal runClient classpath.
 if (providers.gradleProperty('smoke').isPresent()) {
-	def visualSmoke = ['visualSmoke', 'captureMusic', 'previewSmoke', 'advancedSmoke', 'queueSmoke', 'cleanupSmoke'].any { providers.gradleProperty(it).isPresent() }
+	def vanillaFontSmoke = providers.gradleProperty('vanillaFontSmoke').isPresent()
+	def visualSmoke = ['visualSmoke', 'captureMusic', 'previewSmoke', 'advancedSmoke', 'queueSmoke', 'cleanupSmoke', 'lyricsSmoke'].any { providers.gradleProperty(it).isPresent() } && !vanillaFontSmoke
 	def smokeFont = file(providers.gradleProperty('smokeFont').getOrElse('run/resourcepacks/SmoothFont_1.21.zip'))
 	sourceSets {
 		smoke {
@@ -84,10 +85,10 @@ if (providers.gradleProperty('smoke').isPresent()) {
 			smokeClient {
 				client()
 				source sourceSets.smoke
-				runDir providers.gradleProperty('cleanupSmoke').isPresent() ? 'build/cleanup-run' : providers.gradleProperty('queueSmoke').isPresent() ? 'build/queue-run' : providers.gradleProperty('advancedSmoke').isPresent() ? 'build/advanced-run' : providers.gradleProperty('resetSmoke').isPresent() ? 'build/reset-run' : providers.gradleProperty('previewSmoke').isPresent() ? 'build/preview-run' : providers.gradleProperty('captureMusic').isPresent() ? 'build/capture-run' : 'build/smoke-run'
+				runDir providers.gradleProperty('lyricsSmoke').isPresent() ? 'build/lyrics-run' : providers.gradleProperty('cleanupSmoke').isPresent() ? 'build/cleanup-run' : providers.gradleProperty('queueSmoke').isPresent() ? 'build/queue-run' : providers.gradleProperty('advancedSmoke').isPresent() ? 'build/advanced-run' : providers.gradleProperty('resetSmoke').isPresent() ? 'build/reset-run' : providers.gradleProperty('previewSmoke').isPresent() ? 'build/preview-run' : providers.gradleProperty('captureMusic').isPresent() ? 'build/capture-run' : 'build/smoke-run'
 				vmArg "-Ddarkmusic.music=${realMusicDirectory}"
 				vmArg "-Ddarkmusic.visualSmoke=${visualSmoke}"
-				vmArg "-Ddarkmusic.smoothFontAvailable=${smokeFont.isFile()}"
+				vmArg "-Ddarkmusic.smoothFontAvailable=${smokeFont.isFile() && !vanillaFontSmoke}"
 				vmArg "-Ddarkmusic.smokeRunFile=${file('build/smoke-run-id.txt').absolutePath}"
 				vmArg "-Ddarkmusic.verifyHudRestart=${providers.gradleProperty('verifyHudRestart').isPresent()}"
 				vmArg "-Ddarkmusic.resetSmoke=${providers.gradleProperty('resetSmoke').isPresent()}"
@@ -95,16 +96,18 @@ if (providers.gradleProperty('smoke').isPresent()) {
 				vmArg "-Ddarkmusic.capture=${providers.gradleProperty('captureMusic').isPresent()}"
 				vmArg "-Ddarkmusic.advanced=${providers.gradleProperty('advancedSmoke').isPresent()}"
 				vmArg "-Ddarkmusic.cleanupSmoke=${providers.gradleProperty('cleanupSmoke').isPresent()}"
+				vmArg "-Ddarkmusic.lyricsSmoke=${providers.gradleProperty('lyricsSmoke').isPresent()}"
 				vmArg "-Ddarkmusic.queueSmoke=${providers.gradleProperty('queueSmoke').isPresent()}"
 				vmArg "-Ddarkmusic.testNativeBindings=${providers.gradleProperty('nativeBindingsSmoke').isPresent()}"
 				vmArg "-Ddarkmusic.privateImages=${file('docs/images_private').absolutePath}"
-				if (providers.gradleProperty('cleanupSmoke').isPresent() || providers.gradleProperty('queueSmoke').isPresent() || providers.gradleProperty('captureMusic').isPresent() || providers.gradleProperty('previewSmoke').isPresent() || providers.gradleProperty('advancedSmoke').isPresent()) vmArg "-Ddarkmusic.downloadTools=${downloadToolsDirectory.absolutePath}"
+				if (providers.gradleProperty('lyricsSmoke').isPresent() || providers.gradleProperty('cleanupSmoke').isPresent() || providers.gradleProperty('queueSmoke').isPresent() || providers.gradleProperty('captureMusic').isPresent() || providers.gradleProperty('previewSmoke').isPresent() || providers.gradleProperty('advancedSmoke').isPresent()) vmArg "-Ddarkmusic.downloadTools=${downloadToolsDirectory.absolutePath}"
 			}
 		}
 	}
-	def smokeLog = layout.buildDirectory.file(providers.gradleProperty('cleanupSmoke').isPresent() ? 'cleanup-run/logs/latest.log' : providers.gradleProperty('queueSmoke').isPresent() ? 'queue-run/logs/latest.log' : providers.gradleProperty('advancedSmoke').isPresent() ? 'advanced-run/logs/latest.log' : providers.gradleProperty('resetSmoke').isPresent() ? 'reset-run/logs/latest.log' : providers.gradleProperty('previewSmoke').isPresent() ? 'preview-run/logs/latest.log' : providers.gradleProperty('captureMusic').isPresent() ? 'capture-run/logs/latest.log' : 'smoke-run/logs/latest.log')
+	def smokeLog = layout.buildDirectory.file(providers.gradleProperty('lyricsSmoke').isPresent() ? 'lyrics-run/logs/latest.log' : providers.gradleProperty('cleanupSmoke').isPresent() ? 'cleanup-run/logs/latest.log' : providers.gradleProperty('queueSmoke').isPresent() ? 'queue-run/logs/latest.log' : providers.gradleProperty('advancedSmoke').isPresent() ? 'advanced-run/logs/latest.log' : providers.gradleProperty('resetSmoke').isPresent() ? 'reset-run/logs/latest.log' : providers.gradleProperty('previewSmoke').isPresent() ? 'preview-run/logs/latest.log' : providers.gradleProperty('captureMusic').isPresent() ? 'capture-run/logs/latest.log' : 'smoke-run/logs/latest.log')
 	def smokeRunId = layout.buildDirectory.file('smoke-run-id.txt')
 	def smokeRunFolder = file(loom.runs.smokeClient.runDir)
+	def smokeLanguage = providers.gradleProperty('smokeLanguage').getOrNull()
 	tasks.register('prepareSmokeClient') {
 		doLast {
 			def runId = smokeRunId.get().asFile
@@ -115,12 +118,12 @@ if (providers.gradleProperty('smoke').isPresent()) {
 			if (!font.isFile() && visualSmoke) throw new GradleException('Visual checks require run/resourcepacks/SmoothFont_1.21.zip (or -PsmokeFont=/path/to/the/pack)')
 			def packs = new File(runFolder, 'resourcepacks')
 			packs.mkdirs()
-			if (font.isFile()) java.nio.file.Files.copy(font.toPath(), new File(packs, 'SmoothFont_1.21.zip').toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+			if (font.isFile() && !vanillaFontSmoke) java.nio.file.Files.copy(font.toPath(), new File(packs, 'SmoothFont_1.21.zip').toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
 			else logger.lifecycle('SmoothFont unavailable: running functional smoke checks with the vanilla font; visual captures remain disabled.')
 			def options = new File(runFolder, 'options.txt')
 			def values = options.isFile() ? options.readLines('UTF-8') : []
-			def display = [guiScale: '2', overrideWidth: '1280', overrideHeight: '720', fullscreen: 'true', exclusiveFullscreen: 'true', fullscreenResolution: '1920x1080@60:24', resourcePacks: font.isFile() ? '["vanilla","file/SmoothFont_1.21.zip"]' : '["vanilla"]', incompatibleResourcePacks: font.isFile() ? '["file/SmoothFont_1.21.zip"]' : '[]']
-			if (providers.gradleProperty('smokeLanguage').isPresent()) display.lang = providers.gradleProperty('smokeLanguage').get()
+			def display = [guiScale: '2', overrideWidth: '1280', overrideHeight: '720', fullscreen: 'true', exclusiveFullscreen: 'true', fullscreenResolution: '1920x1080@60:24', resourcePacks: font.isFile() && !vanillaFontSmoke ? '["vanilla","file/SmoothFont_1.21.zip"]' : '["vanilla"]', incompatibleResourcePacks: font.isFile() && !vanillaFontSmoke ? '["file/SmoothFont_1.21.zip"]' : '[]']
+			if (smokeLanguage != null) display.lang = smokeLanguage
 			values = values.findAll { !display.containsKey(it.takeWhile { c -> c != ':' }) }
 			display.each { key, value -> values.add("$key:$value") }
 			options.setText(values.join('\n') + '\n', 'UTF-8')
@@ -143,6 +146,7 @@ test {
 	useJUnitPlatform()
 	maxHeapSize = '512m'
 	systemProperty 'java.awt.headless', !providers.gradleProperty('desktopIntegration').isPresent()
+	systemProperty 'darkmusic.test.lyricsNetwork', providers.gradleProperty('lyricsIntegration').isPresent()
 	systemProperty 'darkmusic.test.desktop', providers.gradleProperty('desktopIntegration').isPresent()
 	systemProperty 'darkmusic.test.managedTools', providers.gradleProperty('managedToolsIntegration').isPresent()
 	systemProperty 'darkmusic.test.managedData', file('build/managed-tools-integration').absolutePath

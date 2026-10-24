@@ -150,23 +150,27 @@ public final class DownloadPipeline {
     }
 
     public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadEncoding.Format format, java.util.function.BooleanSupplier lyricsEnabled) throws Exception {
-        return execute(entry, destination, tools, token, progress, format, lyricsEnabled, () -> LyricsLanguages.resolve("auto", java.util.Locale.getDefault().toLanguageTag()));
+        return execute(entry, destination, tools, token, progress, format, lyricsEnabled, () -> LyricsLanguages.resolve("auto"));
     }
 
     public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadEncoding.Format format, java.util.function.BooleanSupplier lyricsEnabled, java.util.function.Supplier<List<String>> lyricsLanguages) throws Exception {
+        return execute(entry, destination, tools, token, progress, format, lyricsEnabled, lyricsLanguages, () -> false);
+    }
+
+    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadEncoding.Format format, java.util.function.BooleanSupplier lyricsEnabled, java.util.function.Supplier<List<String>> lyricsLanguages, java.util.function.BooleanSupplier autoCaptions) throws Exception {
         token.check();
         DownloadDiagnostics.at(DownloadDiagnostics.Stage.COMMIT, DownloadDiagnostics.Tool.NONE, () -> {
             prepare();
             return null;
         });
         try {
-            return download(entry, destination, tools, token, progress, format, lyricsEnabled, lyricsLanguages);
+            return download(entry, destination, tools, token, progress, format, lyricsEnabled, lyricsLanguages, autoCaptions);
         } finally {
             close();
         }
     }
 
-    private Saved download(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadEncoding.Format format, java.util.function.BooleanSupplier lyricsEnabled, java.util.function.Supplier<List<String>> lyricsLanguages) throws Exception {
+    private Saved download(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadEncoding.Format format, java.util.function.BooleanSupplier lyricsEnabled, java.util.function.Supplier<List<String>> lyricsLanguages, java.util.function.BooleanSupplier autoCaptions) throws Exception {
         DownloadDiagnostics.Stage stage = DownloadDiagnostics.Stage.COMMIT;
         DownloadDiagnostics.Tool tool = DownloadDiagnostics.Tool.NONE;
         try {
@@ -270,7 +274,7 @@ public final class DownloadPipeline {
                     stage = DownloadDiagnostics.Stage.OPTIONAL;
                     tool = DownloadDiagnostics.Tool.YT_DLP;
                     progress.accept(Status.CONVERTING, com.darkmusic.client.text.Text.get("lyrics.darkmusic.downloading"));
-                    lyrics = DownloadLyrics.fetch(runner, tools, entry, metadata, work, token, lyricsLanguages.get());
+                    lyrics = DownloadLyrics.fetch(runner, tools, entry, metadata, work, token, lyricsLanguages.get(), autoCaptions.getAsBoolean());
                     if (!lyrics.warning().isBlank())
                         warning = (warning + "; " + lyrics.warning()).replaceFirst("^; ", "");
                 }
@@ -308,6 +312,8 @@ public final class DownloadPipeline {
                             temporaryLyrics = Files.createTempFile(destination, ".darkmusic-lyrics-", ".tmp");
                             Files.writeString(temporaryLyrics, lyrics.text());
                             Files.move(temporaryLyrics, DownloadLyrics.sidecar(target));
+                            com.darkmusic.client.config.ConfigStore.atomicWrite(DownloadLyrics.sidecar(target).resolveSibling(DownloadLyrics.sidecar(target).getFileName() + ".darkmusic.json"),
+                                com.darkmusic.client.config.ConfigStore.JSON.toJson(DownloadLyrics.document(lyrics)));
                         } catch (IOException failure) {
                             warning = (warning + "; " + com.darkmusic.client.text.Text.get("lyrics.darkmusic.save_failed")).replaceFirst("^; ", "");
                             org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not save lyric sidecar", failure);

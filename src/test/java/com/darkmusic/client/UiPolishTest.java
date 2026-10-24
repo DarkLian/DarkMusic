@@ -44,7 +44,7 @@ class UiPolishTest {
                 service.enabled(true);
                 service.request(track);
                 StorageTest.await(() -> service.pendingCount() == 0);
-                assertEquals(text.isEmpty() ? LyricsInfo.UNAVAILABLE : text.startsWith("[") ? LyricsInfo.AVAILABLE : LyricsInfo.UNKNOWN, service.info(track));
+                assertEquals(text.isEmpty() ? LyricsInfo.UNAVAILABLE : text.startsWith("[") ? LyricsInfo.AVAILABLE : LyricsInfo.PLAIN, service.info(track));
             }
             assertEquals("日本語の歌詞", service.get(track).lines().getFirst().text());
         }
@@ -99,7 +99,9 @@ class UiPolishTest {
             service.request(absent);
             StorageTest.await(() -> service.pendingCount() == 0);
             assertEquals(LyricsInfo.AVAILABLE, service.info(timed));
-            assertEquals(LyricsInfo.UNKNOWN, service.info(plain));
+            assertEquals(LyricsInfo.PLAIN, service.info(plain));
+            assertFalse(service.document(plain).synchronizedLyrics());
+            assertEquals(java.util.List.of("Untimed words"), service.document(plain).plain());
             assertEquals(LyricsInfo.UNAVAILABLE, service.info(absent));
             assertEquals(LyricsInfo.UNKNOWN, service.info(track("missing")));
             for (int i = 0; i < 1000; i++) {

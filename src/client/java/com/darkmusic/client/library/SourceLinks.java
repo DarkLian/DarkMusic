@@ -43,16 +43,7 @@ public final class SourceLinks {
         }
         try {
             executor.execute(() -> {
-                String url = read(track.file());
-                if (url.isEmpty()) try {
-                    var info = com.darkmusic.client.audio.ExternalAudio.probe(track.file());
-                    if (info.has("format")) url = tags(info.getAsJsonObject("format"));
-                    if (url.isEmpty() && info.has("streams")) for (var stream : info.getAsJsonArray("streams")) {
-                        url = tags(stream.getAsJsonObject());
-                        if (!url.isEmpty()) break;
-                    }
-                } catch (Exception ignored) {
-                }
+                String url = resolve(track.file());
                 synchronized (cache) {
                     if (cache.containsKey(key)) cache.put(key, url);
                 }
@@ -61,6 +52,23 @@ public final class SourceLinks {
             cache.remove(key);
         }
         return "";
+    }
+
+    /**
+     * Full provenance lookup for background workers, including embedded source tags.
+     */
+    public static String resolve(Path audio) {
+        String url = read(audio);
+        if (url.isEmpty()) try {
+            var info = com.darkmusic.client.audio.ExternalAudio.probe(audio);
+            if (info.has("format")) url = tags(info.getAsJsonObject("format"));
+            if (url.isEmpty() && info.has("streams")) for (var stream : info.getAsJsonArray("streams")) {
+                url = tags(stream.getAsJsonObject());
+                if (!url.isEmpty()) break;
+            }
+        } catch (Exception ignored) {
+        }
+        return url;
     }
 
     private static String tags(JsonObject object) {

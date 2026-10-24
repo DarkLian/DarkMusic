@@ -66,6 +66,8 @@ public final class MusicScreen extends LocalScreen {
     private String playingId = "";
     private String openFolderTarget = "";
     private String followedId = "";
+    private String lyricsSelectionId = "";
+    private long lyricsSelectedAt;
     private PlaybackController.Source followedSource;
     private UiIcon playingIcon = UiIcon.PLAY;
 
@@ -163,10 +165,15 @@ public final class MusicScreen extends LocalScreen {
         openFolderTarget = "";
         shuffle = repeat = null;
         int contextY = height < 300 ? 64 : 70;
-        Help.tip(icon("upnext.title", UiIcon.PLAYLIST, width >= 640 ? width - 296 : width - 208, 6,
-            width >= 640 ? 112 : 24, width < 640, () -> show(new UpNextScreen(app, this))), Text.get("upnext.title.help"));
-        icon("text.darkmusic.downloads", UiIcon.DOWNLOAD, width - 180, 6, 96, false, () -> show(new DownloadScreen(app, this)));
-        icon("text.darkmusic.settings", UiIcon.SETTINGS, width - 80, 6, 68, false, () -> show(new SettingsScreen(app, this)));
+        boolean compactNavigation = width < 640;
+        int navigationWidth = compactNavigation ? 24 : 112;
+        int navigationX = width - 12 - 3 * navigationWidth - 8;
+        Help.tip(icon("upnext.title", UiIcon.PLAYLIST, navigationX, 4, navigationWidth, compactNavigation,
+            () -> show(new UpNextScreen(app, this))), Text.get("upnext.title.help"));
+        icon("text.darkmusic.downloads", UiIcon.DOWNLOAD, navigationX + navigationWidth + 4, 4, navigationWidth, compactNavigation,
+            () -> show(new DownloadScreen(app, this)));
+        icon("text.darkmusic.settings", UiIcon.SETTINGS, navigationX + 2 * (navigationWidth + 4), 4, navigationWidth, compactNavigation,
+            () -> show(new SettingsScreen(app, this)));
         String[] modes = {"All", "Playlists", "Artists", "Albums"};
         int searchX;
         if (width >= 800) {
@@ -267,7 +274,7 @@ public final class MusicScreen extends LocalScreen {
             }
         });
         lyricsButton = app.settings.lyricsEnabled
-            ? icon("lyrics.darkmusic.title", UiIcon.LYRICS, inspector.x() + 54, inspector.y() + 4, 22, true, () -> show(new LyricsScreen(app, this))) : null;
+            ? icon("lyrics.darkmusic.title", UiIcon.LYRICS, inspector.x() + 54, inspector.y() + 4, 22, true, () -> show(new LyricsScreen(app, this, selected))) : null;
         int sourceX = inspector.x() + (lyricsButton == null ? 54 : 78);
         sourceLink = icon("library.darkmusic.open_source", UiIcon.LINK, sourceX, inspector.y() + 4, 22, true, () -> {
             String url = app.sourceLinks.get(selected);
@@ -567,7 +574,13 @@ public final class MusicScreen extends LocalScreen {
         jump.active = audio.track() != null;
         if (app.settings.lyricsEnabled) {
             app.lyrics.request(audio.track());
-            app.lyrics.request(selected);
+            String selectedId = selected == null ? "" : selected.id();
+            long now = System.nanoTime();
+            if (!selectedId.equals(lyricsSelectionId)) {
+                lyricsSelectionId = selectedId;
+                lyricsSelectedAt = now;
+            }
+            app.lyrics.request(selected, app.settings.lyricsAutomaticLookup && now - lyricsSelectedAt >= 750_000_000L);
             songs.inspectVisibleLyrics();
         }
         volume.sync(app.settings.volume);
@@ -691,7 +704,8 @@ public final class MusicScreen extends LocalScreen {
         if (app.settings.lyricsEnabled) {
             var info = app.lyrics.info(selected);
             UiIcon.LYRICS.draw(g, x, y + 63, 10, info.color());
-            longText.draw(g, font, "selected_lyrics", info.mark() + " " + Text.get(info.key()), x + 15, y + 64, textWidth - 15, info.color());
+            LyricsStatusIcon.draw(g, font, info, x + 15, y + 62, 12);
+            longText.drawUpdating(g, font, "selected_lyrics:" + selected.id(), app.lyrics.status(selected), x + 30, y + 64, textWidth - 30, info.color());
         }
     }
 

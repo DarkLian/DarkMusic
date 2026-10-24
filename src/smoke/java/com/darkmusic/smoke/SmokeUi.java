@@ -76,12 +76,13 @@ final class SmokeUi {
         var widget = find(mc, label);
         if (mc.gui.screen() instanceof SettingsScreen s && (widget == null || !widget.visible)) {
             if ((boolean) field(s, "previewOnly")) press(mc, find(mc, Text.get("phase2.settings_form")));
+            var sectionKeys = (String[]) field(s, "SECTION_KEYS");
             outer:
-            for (int section = 0; section < 6; section++) {
-                for (int step = 0; step < 6 && (int) field(s, "selectedSection") != section; step++) {
+            for (int section = 0; section < sectionKeys.length; section++) {
+                for (int step = 0; step < sectionKeys.length && (int) field(s, "selectedSection") != section; step++) {
                     int current = (int) field(s, "selectedSection");
-                    var next = find(mc, Text.get("phase2.section." + section));
-                    press(mc, next == null ? find(mc, Text.get("phase2.section." + current)) : next);
+                    var next = find(mc, Text.get(sectionKeys[section]));
+                    press(mc, next == null ? find(mc, Text.get(sectionKeys[current])) : next);
                 }
                 for (int scroll = 0; scroll < 80; scroll++) {
                     widget = find(mc, label);

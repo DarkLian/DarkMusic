@@ -25,19 +25,21 @@ public final class HudLayout {
         }
         if (settings.hudStyle == Settings.HudStyle.CIRCULAR) {
             var circle = CircularHudLayout.of(settings.hudVisualizer, settings.circularText, settings.circularSpectrumHeight);
-            return new Content(Math.max(1, Math.min(circle.width(), maximumWidth)), circle.height() + lyricsHeight(settings), 0, circle.height(), 0, settings.hudVisualizer);
+            return new Content(Math.max(1, Math.min(circle.width(), maximumWidth)), circle.height(), 0, circle.height(), 0, settings.hudVisualizer);
         }
         int width = Math.max(1, Math.min(settings.hudArtwork ? 220 : 184, maximumWidth));
         int mainHeight = settings.hudProgress ? 46 : 38;
         boolean above = settings.hudVisualizer && settings.spectrumPosition == Settings.SpectrumPosition.ABOVE;
         int extra = settings.hudVisualizer ? GAP + settings.classicSpectrumHeight : 0;
-        return new Content(width, mainHeight + extra + lyricsHeight(settings), above ? extra : 0, mainHeight,
+        return new Content(width, mainHeight + extra, above ? extra : 0, mainHeight,
             above ? 0 : mainHeight + GAP, settings.hudVisualizer, settings.classicSpectrumHeight);
     }
 
+    /**
+     * Lyrics occupy their own independently positioned HUD element.
+     */
     public static int lyricsHeight(Settings settings) {
-        if (settings.hudStyle == Settings.HudStyle.ARTWORK || settings.hudStyle == Settings.HudStyle.SPECTRUM) return 0;
-        return settings.lyricsEnabled && settings.lyricsHud ? settings.lyricsNextLine ? 28 : 16 : 0;
+        return 0;
     }
 
     public static Bounds bounds(Settings settings, int width, int height) {

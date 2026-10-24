@@ -61,6 +61,14 @@ public abstract class LocalScreen extends Screen {
     }
 
     @Override
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean twice) {
+        for (var child : children())
+            if (child instanceof RowList rows && (event.button() != 0 || !rows.isMouseOver(event.x(), event.y())))
+                rows.resetClicks();
+        return super.mouseClicked(event, twice);
+    }
+
+    @Override
     public boolean mouseScrolled(double x, double y, double dx, double dy) {
         if (longText.scroll(x, y, dx, dy, HorizontalText.shiftDown())) return true;
         return super.mouseScrolled(x, y, dx, dy);

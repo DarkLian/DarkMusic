@@ -56,6 +56,33 @@ class DownloadTest {
     }
 
     @Test
+    void savedAudioDoesNotWaitForOptionalCaptionRequests() throws Exception {
+        var fake = new FakeRunner() {
+            @Override
+            public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) throws IOException, InterruptedException {
+                assertFalse(args.contains("--write-subs") || args.contains("--write-auto-subs"), "Captions must be retrieved after the audio job finishes");
+                var result = super.run(args, dir, token, timeout, max, line);
+                if (args.contains("--write-info-json")) {
+                    var info = com.google.gson.JsonParser.parseString(Files.readString(dir.resolve("source.info.json"))).getAsJsonObject();
+                    info.add("subtitles", com.google.gson.JsonParser.parseString("{\"ja\":[{}]}"));
+                    Files.writeString(dir.resolve("source.info.json"), info.toString());
+                }
+                return result;
+            }
+        };
+        var notified = new CountDownLatch(1);
+        try (var service = new DownloadService(temp.resolve("async-lyrics"), () -> {
+        }, fake)) {
+            service.configure(tools());
+            service.lyrics(true);
+            service.savedObserver(file -> notified.countDown());
+            service.enqueueSelected(List.of(entry("background-lyrics")), temp.resolve("saved"));
+            await(() -> service.snapshot().items().size() == 1 && service.snapshot().items().getFirst().status() == Status.SAVED);
+            assertTrue(notified.await(2, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
     void urlsSelectionsAndUnicodeNamesAreSafe() {
         assertEquals("YouTube", source("https://www.youtube.com/watch?v=a&list=PL1"));
         assertEquals("Bilibili", source("https://space.bilibili.com/1/favlist"));

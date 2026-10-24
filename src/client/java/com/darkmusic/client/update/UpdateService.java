@@ -147,6 +147,20 @@ public final class UpdateService implements AutoCloseable {
         }));
     }
 
+    public void requestUpdate() {
+        if (release != null && canInstall()) {
+            download();
+            return;
+        }
+        message("update.checking");
+        checkNow(status -> {
+            if ("update.found".equals(status)) {
+                if (canInstall()) download();
+                else message("update.development");
+            } else message(status);
+        });
+    }
+
     public void download() {
         if (closed || app.settings == null || release == null || installed == null)
             return;

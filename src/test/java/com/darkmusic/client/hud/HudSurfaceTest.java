@@ -25,7 +25,7 @@ class HudSurfaceTest {
         settings.lyricsEnabled = true;
         settings.lyricsHud = true;
         var withLyrics = HudLayout.content(settings, Integer.MAX_VALUE);
-        assertEquals(baseline.width(), withLyrics.width());
+        assertEquals(baseline, withLyrics);
         assertEquals(baseline.spectrumY(), withLyrics.spectrumY());
         assertEquals(baseline.spectrum(), withLyrics.spectrum());
     }

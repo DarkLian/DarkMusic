@@ -42,13 +42,19 @@ public final class HorizontalText {
     }
 
     public void draw(GuiGraphicsExtractor g, Font font, String key, String text, int x, int y, int width, int color) {
+        draw(g, font, key, text, x, y, width, color, false);
+    }
+
+    public void drawUpdating(GuiGraphicsExtractor g, Font font, String key, String text, int x, int y, int width, int color) {
+        draw(g, font, key, text, x, y, width, color, true);
+    }
+
+    private void draw(GuiGraphicsExtractor g, Font font, String key, String text, int x, int y, int width, int color, boolean preserveOffset) {
         if (width <= 0) return;
         Line line = lines.computeIfAbsent(key, k -> new Line());
-        if (!Objects.equals(line.text, text)) {
-            line.text = text;
-            line.measured = font.width(text);
-            line.offset = 0;
-            line.visible = null;
+        if (!Objects.equals(line.text, text) || line.font != font) {
+            line.update(text, font.width(text), preserveOffset);
+            line.font = font;
         }
         line.maximum = Math.max(0, line.measured - width);
         line.offset = clamp(line.offset, line.maximum);
@@ -84,10 +90,18 @@ public final class HorizontalText {
         return true;
     }
 
-    private static final class Line {
+    static final class Line {
+        Font font;
         String text, visible;
         int measured, maximum, paintedOffset = -1, paintedWidth, shift;
         double offset;
+
+        void update(String text, int measured, boolean preserveOffset) {
+            this.text = text;
+            this.measured = measured;
+            if (!preserveOffset) offset = 0;
+            visible = null;
+        }
     }
 
     private record Zone(String key, int x, int y, int width, int height) {

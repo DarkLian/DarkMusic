@@ -54,7 +54,13 @@ public final class Settings {
     public SoundEnvironmentSettings environment = new SoundEnvironmentSettings();
     public boolean lyricsEnabled;
     public String lyricsLanguages = "auto";
+    public boolean lyricsOnline = true, lyricsAutomaticLookup = true, lyricsDownloadLookup = true;
+    public boolean lyricsLibraryLookup = true;
+    public boolean lyricsAutoCaptions;
     public boolean lyricsHud, lyricsNextLine;
+    public double lyricsHudX = .5, lyricsHudY = .9, lyricsHudScale = 1;
+    public int lyricsHudWidth = 300, lyricsHudColor = 0xDDD9FF, lyricsHudNextColor = 0xAAA7BD;
+    public double lyricsHudOpacity;
     public VisualQuality visualQuality = defaultVisualQuality();
 
     public static Settings defaults(Settings previous) {
@@ -128,6 +134,13 @@ public final class Settings {
         if (spectrumDirection == null) spectrumDirection = SpectrumDirection.UPWARD;
         hudBackgroundTransparency = Double.isFinite(hudBackgroundTransparency) ? Math.clamp(hudBackgroundTransparency, 0, 1) : 1;
         hudScale = com.darkmusic.client.hud.HudScale.clamp(hudScale);
+        lyricsHudScale = com.darkmusic.client.hud.HudScale.clamp(lyricsHudScale);
+        lyricsHudX = Double.isFinite(lyricsHudX) ? Math.clamp(lyricsHudX, 0, 1) : .5;
+        lyricsHudY = Double.isFinite(lyricsHudY) ? Math.clamp(lyricsHudY, 0, 1) : .9;
+        lyricsHudWidth = Math.clamp(lyricsHudWidth, 120, 600);
+        lyricsHudColor &= 0xFFFFFF;
+        lyricsHudNextColor &= 0xFFFFFF;
+        lyricsHudOpacity = Double.isFinite(lyricsHudOpacity) ? Math.clamp(lyricsHudOpacity, 0, 1) : 0;
         hudX = hudX == null || !Double.isFinite(hudX) ? (hudPosition.endsWith("RIGHT") ? 1.0 : 0.0) : Math.clamp(hudX, 0, 1);
         hudY = hudY == null || !Double.isFinite(hudY) ? (hudPosition.startsWith("BOTTOM") ? 1.0 : 0.0) : Math.clamp(hudY, 0, 1);
     }

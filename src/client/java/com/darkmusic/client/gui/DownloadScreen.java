@@ -106,11 +106,11 @@ public final class DownloadScreen extends LocalScreen {
     @Override
     protected void init() {
         app.sourceIndex();
-        backButton(width - 36, 6, 24);
+        backButton(width - 36, 4, 24);
         rowsSnapshot = null;
-        UiButton.icon(button(Text.get("text.darkmusic.tools"), width - 128, 6, 88,
+        UiButton.icon(button(Text.get("text.darkmusic.tools"), width - 128, 4, 88,
             () -> show(new DownloadToolsScreen(app, this)), Text.get("text.darkmusic.set_executable_paths_and_check_yt_dlp_ffmpeg_ffprobe_and_optional_javascript_runti")), UiIcon.TOOLS, false);
-        sourceToggle = UiButton.icon(button(Text.get("phase2.source"), width - 220, 6, 88, () -> {
+        sourceToggle = UiButton.icon(button(Text.get("phase2.source"), width - 220, 4, 88, () -> {
             sourceExpanded = !sourceExpanded;
             updateButtons();
         }, Text.get("download.darkmusic.source_panel_help")), UiIcon.SEARCH, false);

@@ -21,7 +21,7 @@ public final class LocalCommands {
 
     public static void register(DarkMusicClient app) {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, context) -> register(dispatcher,
-            () -> app.requestScreen(false), () -> app.requestScreen(true), () -> app.updates.download()));
+            () -> app.requestScreen(false), () -> app.requestScreen(true), () -> app.updates.requestUpdate()));
     }
 
     public static void register(CommandDispatcher<FabricClientCommandSource> dispatcher, Runnable player, Runnable layout) {

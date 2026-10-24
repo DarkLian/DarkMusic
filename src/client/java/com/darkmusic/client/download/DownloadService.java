@@ -87,15 +87,64 @@ public final class DownloadService implements AutoCloseable {
     }
 
     private volatile boolean lyricsEnabled = true;
-    private volatile List<String> lyricsLanguages = LyricsLanguages.resolve("auto", java.util.Locale.getDefault().toLanguageTag());
+    private volatile boolean autoCaptions;
+    private volatile java.util.function.Consumer<Path> savedObserver = file -> {
+    };
+
+    public void savedObserver(java.util.function.Consumer<Path> observer) {
+        savedObserver = java.util.Objects.requireNonNull(observer);
+    }
+
+    public void autoCaptions(boolean value) {
+        autoCaptions = value;
+    }
+
+    private volatile List<String> lyricsLanguages = LyricsLanguages.resolve("auto");
 
     public void lyrics(boolean enabled) {
         lyricsEnabled = enabled;
     }
 
     public void lyrics(boolean enabled, String preferences, String automatic) {
-        lyricsLanguages = LyricsLanguages.resolve(preferences, automatic);
+        lyrics(enabled, preferences);
+    }
+
+    public void lyrics(boolean enabled, String preferences) {
+        lyricsLanguages = LyricsLanguages.resolve(preferences);
         lyricsEnabled = enabled;
+    }
+
+    /**
+     * Explicit lyric lookup for existing music, using configured tools without installing anything.
+     */
+    public com.darkmusic.client.lyrics.LyricsDocument fetchLyrics(com.darkmusic.client.library.Track track, String preferences, boolean generated, ProcessRunner.Token token) throws Exception {
+        String link = com.darkmusic.client.library.SourceLinks.resolve(track.file());
+        if (link.isBlank()) return null;
+        Tools selected;
+        synchronized (this) {
+            selected = settings;
+        }
+        var chain = tools(selected, token);
+        Files.createDirectories(data);
+        Path work = Files.createTempDirectory(data, ".lyrics-");
+        try {
+            var args = chain.base();
+            args.addAll(List.of("--dump-single-json", "--skip-download", "--no-playlist", "--playlist-items", "1", "--", url(link)));
+            var result = runner.run(args, work, token, Duration.ofSeconds(90), 2_000_000, ignored -> {
+            });
+            if (result.exit() != 0)
+                throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Stage.ANALYSIS, DownloadDiagnostics.Tool.YT_DLP, result.exit(), result.output());
+            var metadata = DownloadJson.object(result.output());
+            var entry = new Entry(1, track.title(), link, "", "", true);
+            var lyrics = DownloadLyrics.fetch(runner, chain, entry, metadata, work, token, LyricsLanguages.resolve(preferences), generated);
+            if (lyrics.failure() != null)
+                throw new DownloadDiagnostics.Failure(lyrics.failure(), DownloadDiagnostics.Stage.OPTIONAL, DownloadDiagnostics.Tool.YT_DLP, null, "", null);
+            return lyrics.text().isBlank() ? null : DownloadLyrics.document(lyrics);
+        } finally {
+            try (var files = Files.walk(work)) {
+                for (Path path : files.sorted(java.util.Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
+            }
+        }
     }
 
     public synchronized void format(DownloadEncoding.Format value) {
@@ -578,6 +627,7 @@ public final class DownloadService implements AutoCloseable {
                 update(item, Status.DOWNLOADING, -1, Text.get("download.darkmusic.tools_checking"));
                 Toolchain chain = tools(item.tools, item.token);
                 verifiedVersions = chain.versions();
+                // Publish audio first; the saved observer schedules optional lyrics independently.
                 var result = pipeline.execute(item.entry, item.destination, chain, item.token, (status, detail) -> {
                     double percent = -1;
                     try {
@@ -586,11 +636,12 @@ public final class DownloadService implements AutoCloseable {
                     } catch (NumberFormatException ignored) {
                     }
                     update(item, status, percent, detail);
-                }, item.format, () -> lyricsEnabled, () -> lyricsLanguages);
+                }, item.format, () -> false, () -> lyricsLanguages, () -> autoCaptions);
                 update(item, result.skipped() ? Status.SKIPPED : Status.SAVED, 1, result.file().getFileName() + (result.warning().isBlank() ? "" : " — " + result.warning()));
                 if (awareness != null) awareness.saved(item.entry, result.file(), item.format);
                 if (!result.skipped()) try {
                     refresh.run();
+                    savedObserver.accept(result.file());
                 } catch (RuntimeException e) {
                     LOG.warn("Saved download could not trigger a library refresh", e);
                 }

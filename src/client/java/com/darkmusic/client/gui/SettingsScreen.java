@@ -33,7 +33,7 @@ public final class SettingsScreen extends LocalScreen {
     private List<net.minecraft.util.FormattedCharSequence> folderLines = List.of();
     private int scroll, top, bottom, formWidth, cursor, previewX, previewY, previewWidth, previewHeight;
     private int formX, selectedSection, buildingSection;
-    private static final String[] SECTION_KEYS = {"phase2.section.0", "settings.audio_section", "phase2.section.1", "phase2.section.2", "phase2.section.5"};
+    private static final String[] SECTION_KEYS = {"phase2.section.0", "settings.audio_section", "lyrics.section", "settings.appearance_section", "phase2.section.1", "phase2.section.2", "phase2.section.5"};
     private final int[] sectionScroll = new int[SECTION_KEYS.length];
     private boolean previewOnly, previewVisible;
 
@@ -120,6 +120,7 @@ public final class SettingsScreen extends LocalScreen {
                     previewOnly = false;
                     rebuildWidgets();
                 }).bounds(12, wide ? 44 + i * 28 : 38, wide ? 112 : 140, 24).build());
+                if (SECTION_KEYS[i].equals("lyrics.section")) UiButton.icon(button, null, false);
                 UiButton.selected(button, () -> selectedSection == index);
             }
         }
@@ -145,24 +146,29 @@ public final class SettingsScreen extends LocalScreen {
             app.listeningHistory.flush(true);
             return java.util.concurrent.CompletableFuture.completedFuture(null);
         })), "history.clear_help");
-        toggle("lyrics.darkmusic.enabled", () -> s.lyricsEnabled, v -> {
-            s.lyricsEnabled = v;
-            rebuildWidgets();
-        }, "lyrics.darkmusic.enabled_help");
-        if (s.lyricsEnabled) {
-            action("lyrics.darkmusic.title", () -> show(new LyricsScreen(app, this)), "lyrics.darkmusic.help");
-            action("lyrics.darkmusic.languages", () -> show(new TextPromptScreen(this, Text.get("lyrics.darkmusic.languages_prompt"), s.lyricsLanguages, value -> {
-                s.lyricsLanguages = com.darkmusic.client.download.LyricsLanguages.normalize(value);
-                app.save();
-            })), "lyrics.darkmusic.languages_help");
-            controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("lyrics.darkmusic.languages") + ": " + (s.lyricsLanguages.equals("auto") ? Text.get("lyrics.darkmusic.language_auto") : s.lyricsLanguages)));
-        }
         toggle("text.darkmusic.autoplay_on_launch", () -> s.autoplay, v -> s.autoplay = v, "text.darkmusic.automatically_start_the_library_after_minecraft_launches_disabled_by_default");
         action("folders.title", () -> show(new MusicFoldersScreen(app, this)), "folders.scope");
         folderY = cursor;
         folderPath = app.library.root().toString();
         folderLines = font.split(net.minecraft.network.chat.Component.literal(folderPath), formWidth - 14);
         cursor += folderLines.size() * 10 + 4;
+        section("settings.audio_section");
+        action("audio.darkmusic.title", () -> show(new AudioSettingsScreen(app, this)), "audio.darkmusic.options_help");
+        action("environment.title", () -> show(new SoundEnvironmentScreen(app, this)), "environment.scope");
+        section("lyrics.section");
+        toggle("lyrics.darkmusic.enabled", () -> s.lyricsEnabled, v -> {
+            s.lyricsEnabled = v;
+            rebuildWidgets();
+        }, "lyrics.darkmusic.enabled_help");
+        if (s.lyricsEnabled) {
+            action("lyrics.darkmusic.title", () -> show(new LyricsScreen(app, this)), "lyrics.darkmusic.help");
+            action("lyrics.settings", () -> show(new LyricsSettingsScreen(app, this)), "lyrics.settings.help");
+        }
+        if (s.lyricsEnabled) {
+            toggle("lyrics.darkmusic.hud", () -> s.lyricsHud, v -> s.lyricsHud = v, "lyrics.darkmusic.hud_help");
+            action("lyrics.hud.settings", () -> show(new LyricsHudSettingsScreen(app, this)), "lyrics.hud.settings.help");
+        }
+        section("settings.appearance_section");
         action("settings.darkmusic.menu_background", () -> show(new ColorPickerScreen(this, s.menuBackgroundColor, 0x111420, color -> {
             s.menuBackgroundColor = color;
             app.save();
@@ -171,9 +177,6 @@ public final class SettingsScreen extends LocalScreen {
             s.menuAccentColor = color;
             app.save();
         })), "settings.darkmusic.menu_accent_help");
-        section("settings.audio_section");
-        action("audio.darkmusic.title", () -> show(new AudioSettingsScreen(app, this)), "audio.darkmusic.options_help");
-        action("environment.title", () -> show(new SoundEnvironmentScreen(app, this)), "environment.scope");
         section("text.darkmusic.hud_settings");
         toggle("text.darkmusic.now_playing_hud", () -> s.hudEnabled, v -> s.hudEnabled = v, "hud.darkmusic.master_help");
         action("circle.darkmusic.style", () -> {
@@ -223,10 +226,6 @@ public final class SettingsScreen extends LocalScreen {
             slider(s.hudBackgroundTransparency, v -> Text.get("hud.darkmusic.transparency", Math.round(s.hudBackgroundTransparency * 100)), v -> s.hudBackgroundTransparency = v, 100, "hud.darkmusic.transparency_help");
             toggle("hud.darkmusic.background_gradient", () -> s.hudBackgroundGradient, v -> s.hudBackgroundGradient = v, "hud.darkmusic.background_gradient_help");
             action("hud.darkmusic.background_colors", () -> show(new ColorsScreen(app, this, s.hudBackgroundColors, "hud.darkmusic.background_colors")), "colors.darkmusic.help");
-        }
-        if (s.lyricsEnabled && s.hudStyle != Settings.HudStyle.ARTWORK && s.hudStyle != Settings.HudStyle.SPECTRUM) {
-            toggle("lyrics.darkmusic.hud", () -> s.lyricsHud, v -> s.lyricsHud = v, "lyrics.darkmusic.hud_help");
-            toggle("lyrics.darkmusic.next", () -> s.lyricsNextLine, v -> s.lyricsNextLine = v, "lyrics.darkmusic.next_help");
         }
         section("hud.darkmusic.section_spectrum");
         action("style.darkmusic.spectrum", () -> {
@@ -330,7 +329,7 @@ public final class SettingsScreen extends LocalScreen {
     @Override
     public boolean mouseScrolled(double x, double y, double dx, double dy) {
         if (HorizontalText.horizontalIntent(dx, dy)) return super.mouseScrolled(x, y, dx, dy);
-        if (previewVisible && app.settings.hudEnabled && x >= previewX && x < previewX + previewWidth && y >= previewY + 20 && y < previewY + previewHeight && dy != 0) {
+        if (previewVisible && (lyricsPreview() ? com.darkmusic.client.hud.LyricsHud.enabled(app.settings) : app.settings.hudEnabled) && x >= previewX && x < previewX + previewWidth && y >= previewY + 20 && y < previewY + previewHeight && dy != 0) {
             previewScale = previewWheel.scroll(previewScale, dy);
             fitPreview();
             scaleChanged = System.nanoTime();
@@ -351,8 +350,14 @@ public final class SettingsScreen extends LocalScreen {
 
     private void fitPreview() {
         var layout = NowPlayingHud.content(app);
-        double fit = Math.min((previewWidth - 16.0) / layout.width(), (previewHeight - 30.0) / layout.height());
+        int w = lyricsPreview() ? app.settings.lyricsHudWidth : layout.width();
+        int h = lyricsPreview() ? com.darkmusic.client.hud.HudLyricsLayout.height(app.settings.lyricsNextLine) : layout.height();
+        double fit = Math.min((previewWidth - 16.0) / w, (previewHeight - 30.0) / h);
         previewScale = Math.min(previewScale, Math.max(.1, Math.floor(fit * 10) / 10));
+    }
+
+    private boolean lyricsPreview() {
+        return SECTION_KEYS[selectedSection].equals("lyrics.section");
     }
 
     @Override
@@ -366,7 +371,10 @@ public final class SettingsScreen extends LocalScreen {
             g.text(font, Text.get("hud.darkmusic.live_preview"), previewX + 6, previewY + 6, UiTheme.ACCENT);
             g.enableScissor(previewX + 2, previewY + 20, previewX + previewWidth - 2, previewY + previewHeight - 2);
             fitPreview();
-            NowPlayingHud.renderPreview(app, g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30, previewScale, longText);
+            if (lyricsPreview())
+                com.darkmusic.client.hud.LyricsHud.renderPreview(app, g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30, previewScale);
+            else
+                NowPlayingHud.renderPreview(app, g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30, previewScale, longText);
             g.disableScissor();
             if (System.nanoTime() - scaleChanged < 2_000_000_000L) {
                 String scale = Text.get("hud.darkmusic.preview_scale", Math.round(previewScale * 100));
