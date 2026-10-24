@@ -190,7 +190,7 @@ public final class DownloadScreen extends LocalScreen {
         existingDetails = action("download.library.existing", () -> {
             var choice = app.downloads.duplicateChoice();
             if (choice != null) show(new DownloadDuplicateScreen(app, this, choice));
-            else if (listeningEntry != null) show(new ExistingDownloadsScreen(app, this, listeningEntry));
+            else if (hasExistingMatches(listeningEntry)) show(new ExistingDownloadsScreen(app, this, listeningEntry));
         }, "download.library.inspect_help");
         UiButton.icon(existingDetails, UiIcon.FOLDER, true);
         UiButton.style(analyze, UiButton.Style.PRIMARY);
@@ -326,7 +326,14 @@ public final class DownloadScreen extends LocalScreen {
         if (available) search.setWidth(Math.max(24, search.getWidth() - 28));
         boolean inspect = app.downloads.duplicateChoice() != null || !queueView && listeningEntry != null;
         place(existingDetails, width - (queueView ? 36 : 92) - (available ? 28 : 0), searchY, 24, inspect);
+        existingDetails.active = app.downloads.duplicateChoice() != null || !queueView && hasExistingMatches(listeningEntry);
         if (inspect) search.setWidth(Math.max(24, search.getWidth() - 28));
+    }
+
+    private boolean hasExistingMatches(Entry entry) {
+        if (entry == null) return false;
+        var lookup = app.sourceIndex().lookup(entry);
+        return !lookup.confirmed().isEmpty() || !lookup.possible().isEmpty();
     }
 
     private void cycleMode() {
