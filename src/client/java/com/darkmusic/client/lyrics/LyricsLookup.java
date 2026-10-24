@@ -191,7 +191,7 @@ public final class LyricsLookup implements AutoCloseable {
     }
 
     private void rememberChoice(Track track, LyricsDocument document) {
-        LyricsInfo available = document == null || !document.available() ? null : document.instrumental() ? LyricsInfo.UNAVAILABLE
+        LyricsInfo available = document == null || !document.available() ? null : document.instrumental() ? LyricsInfo.INSTRUMENTAL
             : document.synchronizedLyrics() ? LyricsInfo.AVAILABLE : LyricsInfo.PLAIN;
         known.compute(track.id(), (id, prior) -> new Known(track.size(), track.modified(), prior != null && prior.matches(track) ? prior.status : Status.IDLE, available));
     }

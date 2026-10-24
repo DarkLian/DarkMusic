@@ -22,6 +22,11 @@ class MultilingualLyricsTest {
         assertEquals("\u2713", LyricsInfo.PLAIN.mark());
         assertEquals("?", LyricsInfo.UNKNOWN.mark());
         assertEquals("?", LyricsInfo.CHECKING.mark());
+        assertEquals("?", LyricsInfo.LOCAL_MISSING.mark());
+        assertEquals(LyricsInfo.State.UNKNOWN, LyricsInfo.LOCAL_MISSING.state());
+        assertEquals("lyrics.darkmusic.availability.unavailable", LyricsInfo.LOCAL_MISSING.key());
+        assertEquals("lyrics.instrumental", LyricsInfo.INSTRUMENTAL.key());
+        assertEquals(LyricsInfo.State.UNAVAILABLE, LyricsInfo.INSTRUMENTAL.state());
         assertEquals("?", LyricsInfo.SEARCHING.mark());
         assertEquals("?", LyricsInfo.lookup(LyricsLookup.Status.AMBIGUOUS).mark());
         assertEquals("\u2717", LyricsInfo.UNAVAILABLE.mark());

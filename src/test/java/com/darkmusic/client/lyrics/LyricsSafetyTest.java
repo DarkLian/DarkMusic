@@ -69,6 +69,45 @@ class LyricsSafetyTest {
     }
 
     @Test
+    void emptyProviderResultIsNotFinalWhileCaptionFallbackIsRunning() throws Exception {
+        Track track = identity("pending-caption.dat");
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        LyricsProvider provider = new LyricsProvider() {
+            public String id() {
+                return "empty-provider";
+            }
+
+            public List<Candidate> search(Query query, ProcessRunner.Token token) {
+                return List.of();
+            }
+        };
+        try (var lookup = new LyricsLookup(temp.resolve("pending-caption"), provider)) {
+            lookup.configure(true, true);
+            lookup.captions((t, p, g, token) -> {
+                entered.countDown();
+                if (!release.await(5, TimeUnit.SECONDS)) throw new java.io.IOException("Caption test timed out");
+                return LyricsDocument.EMPTY;
+            });
+            lookup.load(track);
+            lookup.automatic(track, false);
+            try {
+                assertTrue(entered.await(5, TimeUnit.SECONDS));
+                assertEquals(LyricsLookup.Status.SEARCHING, lookup.snapshot(track).status());
+                assertEquals(LyricsInfo.State.UNKNOWN, LyricsInfo.lookup(lookup.snapshot(track).status()).state());
+            } finally {
+                release.countDown();
+            }
+            com.darkmusic.client.testing.Await.until(java.time.Duration.ofSeconds(5),
+                () -> lookup.snapshot(track).status() == LyricsLookup.Status.NOT_FOUND, "Final miss follows completed caption fallback");
+            assertEquals(LyricsInfo.State.UNAVAILABLE, LyricsInfo.lookup(lookup.snapshot(track).status()).state());
+            assertNull(lookup.choice(track).selected());
+        } finally {
+            release.countDown();
+        }
+    }
+
+    @Test
     void interactiveSearchRunsBeforeQueuedBackgroundLookups() throws Exception {
         var first = identity("first.dat");
         var second = identity("second.dat");

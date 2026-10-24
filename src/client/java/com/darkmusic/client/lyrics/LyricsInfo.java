@@ -18,6 +18,8 @@ public record LyricsInfo(State state, Evidence evidence, String lookupKey) {
     public static final LyricsInfo LOCAL_ERROR = new LyricsInfo(State.UNKNOWN, Evidence.FAILED, "lyrics.status.local_error");
     public static final LyricsInfo AVAILABLE = new LyricsInfo(State.AVAILABLE, Evidence.LOCAL);
     public static final LyricsInfo PLAIN = new LyricsInfo(State.AVAILABLE, Evidence.LOCAL, "lyrics.plain");
+    public static final LyricsInfo LOCAL_MISSING = new LyricsInfo(State.UNKNOWN, Evidence.LOCAL, "lyrics.darkmusic.availability.unavailable");
+    public static final LyricsInfo INSTRUMENTAL = new LyricsInfo(State.UNAVAILABLE, Evidence.CHOICE, "lyrics.instrumental");
     public static final LyricsInfo UNAVAILABLE = new LyricsInfo(State.UNAVAILABLE, Evidence.LOCAL);
     public static final LyricsInfo CAPTIONS = new LyricsInfo(State.UNKNOWN, Evidence.CAPTIONS);
     public static final LyricsInfo NO_CAPTIONS = new LyricsInfo(State.UNAVAILABLE, Evidence.CAPTIONS);

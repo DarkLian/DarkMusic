@@ -278,7 +278,7 @@ public final class LyricsService implements AutoCloseable {
                     document = LyricsDocument.of(saved.provider(), saved.recordId(), saved.title(), saved.artist(), saved.album(), saved.duration(), saved.language(), saved.variant(), saved.generated(), saved.instrumental(), text);
             } catch (RuntimeException ignored) {
             }
-        LyricsInfo info = document.available() ? LyricsInfo.AVAILABLE : LyricsInfo.UNAVAILABLE;
+        LyricsInfo info = document.available() ? LyricsInfo.AVAILABLE : LyricsInfo.LOCAL_MISSING;
         return new Cached(fingerprint, document, info, System.nanoTime());
     }
 
@@ -328,7 +328,7 @@ public final class LyricsService implements AutoCloseable {
 
     public LyricsInfo info(Track track) {
         var document = document(track);
-        if (document.instrumental()) return LyricsInfo.UNAVAILABLE;
+        if (document.instrumental()) return LyricsInfo.INSTRUMENTAL;
         if (document.available()) return document.synchronizedLyrics() ? LyricsInfo.AVAILABLE : LyricsInfo.PLAIN;
         var known = lookup.knownInfo(track);
         if (enabled && known != null) return known;
