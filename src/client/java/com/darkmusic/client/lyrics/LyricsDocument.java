@@ -21,7 +21,13 @@ public record LyricsDocument(String provider, String recordId, String title, Str
                                     double duration, String language, Variant variant, boolean generated,
                                     boolean instrumental, String text) {
         if (text == null || text.length() > 1_000_000) throw new IllegalArgumentException("Invalid lyric size");
-        text = text.replace("\u0000", "");
+        if (text.codePoints().anyMatch(c -> Character.isISOControl(c) && c != '\n' && c != '\r' && c != '\t'))
+            throw new IllegalArgumentException("Binary or control characters in lyric text");
+        text = clean(text);
+        title = clean(title);
+        artist = clean(artist);
+        album = clean(album);
+        if (!Double.isFinite(duration) || duration < 0) duration = 0;
         Lrc timed = Lrc.parse(text);
         List<String> plain = text.lines().filter(s -> !s.matches("\\s*\\[(?:ar|al|ti|by|offset|length|re|ve):.*]\\s*")).toList();
         if (!timed.lines().isEmpty()) plain = timed.lines().stream().map(Lrc.Line::text).toList();
@@ -32,6 +38,10 @@ public record LyricsDocument(String provider, String recordId, String title, Str
 
     public boolean synchronizedLyrics() {
         return !timed.lines().isEmpty();
+    }
+
+    private static String clean(String value) {
+        return value == null ? "" : value.replaceAll("\u00a7[^\\r\\n]", "");
     }
 
     public boolean available() {

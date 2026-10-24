@@ -47,7 +47,8 @@ public class DarkMusicClient implements ClientModInitializer {
         if (sourceIndex == null) {
             sourceIndex = new com.darkmusic.client.cleanup.LibrarySourceIndex(config.directory());
             var s = library.snapshot();
-            sourceIndex.update(s.tracks(), library.roots(), s.complete());
+            sourceIndex.roots(library.roots());
+            if (!s.scanning()) sourceIndex.update(s.tracks(), library.roots(), s.complete());
             downloads.awareness(sourceIndex);
         }
         return sourceIndex;
@@ -357,7 +358,7 @@ public class DarkMusicClient implements ClientModInitializer {
         var scanned = library;
         var resume = player.suspendForEdit();
         var result = new CompletableFuture<com.darkmusic.client.library.AudioDeletion.Result>();
-        var window = mode == com.darkmusic.client.library.AudioDeletion.Mode.TRASH ? new com.darkmusic.client.gui.DesktopWindowGuard() : null;
+        var window = mode == com.darkmusic.client.library.AudioDeletion.Mode.TRASH || plan.trashCompanions() ? new com.darkmusic.client.gui.DesktopWindowGuard() : null;
         result.whenComplete((value, failure) -> {
             if (window != null) Minecraft.getInstance().execute(window::close);
         });
@@ -368,6 +369,14 @@ public class DarkMusicClient implements ClientModInitializer {
                 if (!player.awaitIdle(10))
                     throw new java.io.IOException(com.darkmusic.client.text.Text.get("library.darkmusic.file_busy"));
                 deleted = new com.darkmusic.client.library.AudioDeletion().delete(plan, mode, token, progress);
+                for (var track : deleted.removed()) {
+                    try {
+                        com.darkmusic.client.library.SourceLinks.forget(track.file());
+                        com.darkmusic.client.download.DownloadPipeline.forgetRecorded(track.file());
+                    } catch (java.io.IOException cleanupFailure) {
+                        org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Could not remove deleted-file provenance", cleanupFailure);
+                    }
+                }
             } catch (Exception failure) {
                 problem = failure;
             }
@@ -375,15 +384,22 @@ public class DarkMusicClient implements ClientModInitializer {
             var failure = problem;
             Minecraft.getInstance().execute(() -> {
                 mediaBusy = false;
+                var removed = completed == null ? java.util.Set.<String>of() : completed.removed().stream().map(com.darkmusic.client.library.Track::id).collect(java.util.stream.Collectors.toSet());
+                try {
+                    store.removeTracks(removed);
+                } catch (RuntimeException storageClosed) {
+                    org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Deleted files require playlist reconciliation on restart", storageClosed);
+                }
                 if (closed || resetting || playback != player) {
-                    result.completeExceptionally(new IllegalStateException(com.darkmusic.client.text.Text.get("library.darkmusic.busy")));
+                    if (completed != null) result.complete(completed);
+                    else
+                        result.completeExceptionally(failure != null ? failure : new IllegalStateException(com.darkmusic.client.text.Text.get("library.darkmusic.busy")));
                     return;
                 }
-                var removed = completed == null ? java.util.Set.<String>of() : completed.removed().stream().map(com.darkmusic.client.library.Track::id).collect(java.util.stream.Collectors.toSet());
-                store.removeTracks(removed);
                 lyrics.lookup.deleted(removed);
                 player.finishDeletion(resume, removed);
                 if (cleanupScanner != null) cleanupScanner.deleted(removed);
+                if (cleanupReviews != null) cleanupReviews.deleted(removed);
                 if (sourceIndex != null) sourceIndex.deleted(removed);
                 if (!removed.isEmpty()) scanned.rescan();
                 if (failure == null) result.complete(completed);
@@ -664,7 +680,7 @@ public class DarkMusicClient implements ClientModInitializer {
         downloads = new com.darkmusic.client.download.DownloadService(config.directory(), () -> library.requestRescan());
         downloads.configure(new com.darkmusic.client.download.DownloadModels.Tools(settings.ytDlpPath, settings.ffmpegPath, settings.ffprobePath, settings.javascriptPath));
         downloads.format(settings.downloadFormat);
-        lyrics.lookup.captions(downloads::fetchLyrics);
+        lyrics.lookup.captions(downloads::fetchLyrics, downloads::fetchSourceLyrics);
         lyrics.lookup.captionPreferences(settings.lyricsLanguages, settings.lyricsAutoCaptions);
         downloads.savedObserver(file -> Minecraft.getInstance().execute(() -> {
             if (!closed && settings.lyricsEnabled && settings.lyricsOnline && settings.lyricsDownloadLookup)
@@ -864,7 +880,7 @@ public class DarkMusicClient implements ClientModInitializer {
                 var snapshot = library.snapshot();
                 if (snapshot.scanning() || mediaBusy) lyrics.lookup.tickRetries();
                 else
-                    lyrics.background(snapshot.tracks(), snapshot.completeRoots(), settings.lyricsOnline && settings.lyricsLibraryLookup);
+                    lyrics.background(snapshot.tracks(), snapshot.completeRoots(), settings.lyricsOnline && lyrics.libraryLookupRunning());
             }
         }
         allowed &= !mediaBusy;
@@ -886,10 +902,23 @@ public class DarkMusicClient implements ClientModInitializer {
         var queuedLibrary = library.snapshot();
         if (!mediaBusy && queuedLibraryRevision != queuedLibrary.revision()) {
             queuedLibraryRevision = queuedLibrary.revision();
-            if (sourceIndex != null && !mediaBusy)
-                sourceIndex.update(queuedLibrary.tracks(), library.roots(), queuedLibrary.complete());
-            if (!mediaBusy) playback.reconcileQueued(playlists.index(queuedLibrary.tracks()),
+            if (!queuedLibrary.scanning()) lyrics.lookup.prune(queuedLibrary.tracks(),
                 new java.util.HashSet<>(library.roots().values()), queuedLibrary.completeRoots());
+            if (!queuedLibrary.scanning()) {
+                var registered = new java.util.HashSet<>(library.roots().values());
+                if (cleanupReviews != null)
+                    cleanupReviews.prune(queuedLibrary.tracks(), registered, queuedLibrary.completeRoots());
+                if (cleanupScanner != null)
+                    cleanupScanner.prune(queuedLibrary.tracks(), registered, queuedLibrary.completeRoots());
+            }
+            if (sourceIndex != null && !mediaBusy) {
+                sourceIndex.roots(library.roots());
+                if (!queuedLibrary.scanning())
+                    sourceIndex.update(queuedLibrary.tracks(), library.roots(), queuedLibrary.complete());
+            }
+            if (!mediaBusy && !queuedLibrary.scanning())
+                playback.reconcileQueued(playlists.index(queuedLibrary.tracks()),
+                    new java.util.HashSet<>(library.roots().values()), queuedLibrary.completeRoots());
         }
         if (listeningHistory != null && !mediaBusy) listeningHistory.flush(false);
         if (sourceIndex != null && cleanupScanner != null && sourceEvidenceRevision != cleanupScanner.snapshot().revision()) {

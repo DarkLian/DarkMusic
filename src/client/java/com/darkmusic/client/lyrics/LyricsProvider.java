@@ -36,6 +36,10 @@ public interface LyricsProvider {
 
     String id();
 
+    default long requestCount() {
+        return 0;
+    }
+
     List<Candidate> search(Query query, ProcessRunner.Token token) throws Exception;
 
     default List<Candidate> alternatives(Query query, ProcessRunner.Token token) throws Exception {

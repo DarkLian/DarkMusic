@@ -19,10 +19,14 @@ public final class LyricsSettingsScreen extends AudioPage {
     protected void populate() {
         var s = app.settings;
         section("lyrics.settings");
-        toggle("lyrics.online", () -> s.lyricsOnline, v -> s.lyricsOnline = v);
+        info("lyrics.consent.scope");
+        toggle("lyrics.online", () -> s.lyricsOnline, v -> {
+            if (v && s.lyricsConsentVersion < 1) show(LyricsConsent.request(app, this));
+            else s.lyricsOnline = v;
+        });
         int start = rowCount();
         toggle("lyrics.automatic", () -> s.lyricsAutomaticLookup, v -> s.lyricsAutomaticLookup = v);
-        toggle("lyrics.library_lookup", () -> s.lyricsLibraryLookup, v -> s.lyricsLibraryLookup = v);
+        action("lyrics.library.find", () -> show(new LyricsLibraryScreen(app, this)));
         toggle("lyrics.after_download", () -> s.lyricsDownloadLookup, v -> s.lyricsDownloadLookup = v);
         enableSince(start, s.lyricsOnline);
         toggle("lyrics.auto_captions", () -> s.lyricsAutoCaptions, v -> s.lyricsAutoCaptions = v);

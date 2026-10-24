@@ -65,6 +65,14 @@ public final class DuplicateScanner implements AutoCloseable {
 
     public synchronized void deleted(Set<String> ids) {
         removed.addAll(ids);
+        if (!closed) worker.execute(() -> {
+            cache.remove(ids);
+            try {
+                cache.flush();
+            } catch (java.io.IOException failure) {
+                org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").warn("Could not prune duplicate cache", failure);
+            }
+        });
         var s = snapshot;
         publish(s.stage, s.done, s.total, s.unavailable, s.audioFailed, s.limited, s.cacheFailed, s.comparisons, s.pairs);
     }
@@ -75,12 +83,31 @@ public final class DuplicateScanner implements AutoCloseable {
         publish(s.stage, s.done, s.total, s.unavailable, s.audioFailed, s.limited, s.cacheFailed, s.comparisons, s.pairs);
     }
 
+    public synchronized void prune(List<Track> tracks, Set<String> registered, Set<String> complete) {
+        if (closed) return;
+        worker.execute(() -> {
+            if (!loaded) {
+                cache.load();
+                loaded = true;
+            }
+            var present = new HashSet<String>();
+            for (Track track : tracks) present.add(track.id());
+            cache.prune(present, registered, complete);
+            try {
+                cache.flush();
+            } catch (java.io.IOException failure) {
+                org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").warn("Could not prune duplicate cache", failure);
+            }
+        });
+    }
+
     private synchronized void publish(Stage stage, int done, int total, int unavailable, int audioFailed, boolean limited, boolean cacheFailed, long comparisons, List<DuplicateResult> pairs) {
         snapshot = new Snapshot(snapshot.revision + 1, stage, done, total, unavailable, audioFailed, limited, cacheFailed, comparisons,
             removed.isEmpty() && dismissed.isEmpty() ? List.copyOf(pairs) : pairs.stream().filter(r -> !dismissed.contains(r.id()) && !removed.contains(r.a().id()) && !removed.contains(r.b().id())).toList());
     }
 
     private void scan(List<Track> tracks, DuplicatePolicy policy, boolean audio, ProcessRunner.Token request) {
+        int total = Math.min(tracks.size(), DuplicatePolicy.MAX_TRACKS);
         int done = 0, unavailable = 0, audioFailed = 0;
         boolean limited = tracks.size() > DuplicatePolicy.MAX_TRACKS;
         var analyzed = new ArrayList<DuplicateMatcher.Entry>();
@@ -127,7 +154,7 @@ public final class DuplicateScanner implements AutoCloseable {
                 }
                 done++;
                 if (System.nanoTime() >= nextUpdate) {
-                    publish(Stage.READING, done, tracks.size(), unavailable, audioFailed, limited, false, 0, List.of());
+                    publish(Stage.READING, done, total, unavailable, audioFailed, limited, false, 0, List.of());
                     nextUpdate = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(200);
                 }
                 if (System.nanoTime() >= nextFlush) {
@@ -141,11 +168,21 @@ public final class DuplicateScanner implements AutoCloseable {
             }
             int finalDone = done, finalUnavailable = unavailable, finalAudio = audioFailed;
             boolean finalLimited = limited;
-            publish(Stage.MATCHING, done, tracks.size(), unavailable, audioFailed, limited, false, 0, List.of());
-            var result = new DuplicateMatcher().match(analyzed, policy, request, pairs -> publish(Stage.MATCHING, finalDone, tracks.size(), finalUnavailable, finalAudio, finalLimited, false, 0, pairs));
+            publish(Stage.MATCHING, done, total, unavailable, audioFailed, limited, false, 0, List.of());
+            DuplicateMatcher.Session incremental = audio ? new DuplicateMatcher.Session(policy, request) : null;
+            DuplicateMatcher.Matches result;
+            if (incremental != null) {
+                for (int i = 0; i < analyzed.size(); i++) {
+                    incremental.add(analyzed.get(i));
+                    if (i % 1000 == 0)
+                        publish(Stage.MATCHING, done, total, unavailable, audioFailed, limited, false, 0, incremental.snapshot().pairs());
+                }
+                result = incremental.snapshot();
+            } else
+                result = new DuplicateMatcher().match(analyzed, policy, request, pairs -> publish(Stage.MATCHING, finalDone, total, finalUnavailable, finalAudio, finalLimited, false, 0, pairs));
             if (audio) {
                 int processed = 0;
-                long nextPartial = System.nanoTime() + TimeUnit.SECONDS.toNanos(20), nextProgress = 0;
+                long nextPartial = System.nanoTime() + TimeUnit.SECONDS.toNanos(60), nextProgress = 0;
                 for (int i = 0; i < analyzed.size(); i++) {
                     request.check();
                     var e = analyzed.get(i);
@@ -162,6 +199,7 @@ public final class DuplicateScanner implements AutoCloseable {
                         if (!e.stamp().equals(stamp(e.track(), attributes(e.track()))))
                             throw new java.io.IOException("File changed");
                         analyzed.set(i, new DuplicateMatcher.Entry(e.track(), e.stamp(), e.hash(), source, fingerprint));
+                        incremental.update(i, analyzed.get(i));
                         cache.put(e.track().id(), e.stamp(), e.hash(), source, fingerprint);
                     } catch (java.util.concurrent.CancellationException cancelled) {
                         throw cancelled;
@@ -170,9 +208,8 @@ public final class DuplicateScanner implements AutoCloseable {
                         org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").debug("Cannot fingerprint {}", e.track().file(), failure);
                     }
                     if (System.nanoTime() >= nextPartial) {
-                        result = new DuplicateMatcher().match(analyzed, policy, request, pairs -> {
-                        });
-                        nextPartial = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
+                        result = incremental.snapshot();
+                        nextPartial = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
                         try {
                             cache.flush();
                         } catch (Exception ignored) {
@@ -182,13 +219,13 @@ public final class DuplicateScanner implements AutoCloseable {
                 result = new DuplicateMatcher().match(analyzed, policy, request, pairs -> {
                 });
             }
-            publish(Stage.COMPLETE, done, tracks.size(), unavailable, audioFailed, limited || result.limited(), false, result.comparisons(), result.pairs());
+            publish(Stage.COMPLETE, done, total, unavailable, audioFailed, limited || result.limited(), false, result.comparisons(), result.pairs());
         } catch (java.util.concurrent.CancellationException cancelled) {
             var s = snapshot;
-            publish(Stage.CANCELLED, done, tracks.size(), unavailable, audioFailed, limited || s.limited, false, s.comparisons, s.pairs);
+            publish(Stage.CANCELLED, done, total, unavailable, audioFailed, limited || s.limited, false, s.comparisons, s.pairs);
         } catch (Throwable failure) {
             org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").warn("Duplicate scan failed", failure);
-            publish(Stage.FAILED, done, tracks.size(), unavailable, audioFailed, limited, false, 0, snapshot.pairs);
+            publish(Stage.FAILED, done, total, unavailable, audioFailed, limited, false, 0, snapshot.pairs);
         } finally {
             try {
                 cache.flush();

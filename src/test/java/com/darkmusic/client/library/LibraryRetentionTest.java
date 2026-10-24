@@ -36,9 +36,9 @@ class LibraryRetentionTest {
         var constructor = jobType.getDeclaredConstructor(MusicLibrary.class, Path.class, String.class, long.class);
         constructor.setAccessible(true);
         Object job = constructor.newInstance(library, root, "root", 0L);
-        var resultConstructor = resultType.getDeclaredConstructor(List.class, List.class, List.class, boolean.class, String.class);
+        var resultConstructor = resultType.getDeclaredConstructor(List.class, List.class, List.class, boolean.class, String.class, List.class);
         resultConstructor.setAccessible(true);
-        Object result = resultConstructor.newInstance(scanned, List.of(root), List.of("@root", "@root/new"), complete, "");
+        Object result = resultConstructor.newInstance(scanned, List.of(root), List.of("@root", "@root/new"), complete, "", List.of());
         var partial = jobType.getDeclaredField("partial");
         partial.setAccessible(true);
         partial.set(job, result);

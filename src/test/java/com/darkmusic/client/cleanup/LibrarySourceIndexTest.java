@@ -20,14 +20,14 @@ class LibrarySourceIndexTest {
         Path root = temp.resolve("r");
         var a = file(root, "before.txt");
         var entry = new DownloadModels.Entry(1, "Title", "https://youtu.be/abcDEFG_123", "Youtube", "abcDEFG_123", true);
-        Files.writeString(root.resolve(".darkmusic-sources.json"), "{\"before.txt\":\"https://youtu.be/abcDEFG_123\"}");
+        com.darkmusic.client.library.SourceLinks.record(a.file(), "https://youtu.be/abcDEFG_123");
         try (var index = new LibrarySourceIndex(temp.resolve("data"))) {
             index.update(List.of(a), Map.of(root, a.rootId()), true);
             index.settled().get(10, TimeUnit.SECONDS);
             assertEquals(1, index.verified(entry).size());
             Files.move(a.file(), root.resolve("after.txt"));
             var b = new Track(a.rootId(), "after.txt", root.resolve("after.txt"), a.title(), a.artist(), a.album(), a.duration(), a.size(), a.modified(), "");
-            Files.writeString(root.resolve(".darkmusic-sources.json"), "{\"after.txt\":\"https://www.youtube.com/watch?v=abcDEFG_123\"}");
+            com.darkmusic.client.library.SourceLinks.record(b.file(), "https://www.youtube.com/watch?v=abcDEFG_123");
             index.update(List.of(b), Map.of(root, b.rootId()), true);
             index.settled().get(10, TimeUnit.SECONDS);
             assertEquals(b.id(), index.verified(entry).getFirst().track().id());
@@ -51,7 +51,8 @@ class LibrarySourceIndexTest {
         var a = file(root, "renamed.txt");
         var b = file(other, "other.txt");
         Files.writeString(root.resolve(".darkmusic-downloads.json"), "{\"Youtube:abcDEFG_123:original\":\"renamed.txt\",\"Youtube:deleted_123:original\":\"missing.txt\"}");
-        Files.writeString(other.resolve(".darkmusic-sources.json"), "{\"other.txt\":\"https://youtu.be/abcDEFG_123\"}");
+        com.darkmusic.client.library.SourceLinks.record(a.file(), "https://youtu.be/abcDEFG_123", "Youtube:abcDEFG_123:original");
+        com.darkmusic.client.library.SourceLinks.record(b.file(), "https://youtu.be/abcDEFG_123");
         var entry = new DownloadModels.Entry(1, "Different title", "https://www.youtube.com/watch?v=abcDEFG_123", "Youtube", "abcDEFG_123", true);
         try (var index = new LibrarySourceIndex(temp.resolve("data"))) {
             index.update(List.of(a, b), Map.of(root, root.toString(), other, other.toString()), true);

@@ -9,12 +9,18 @@ import java.nio.file.*;
 import java.util.*;
 
 /**
- * Sixteen bounded atomic shards avoid repeatedly serializing a large library during analysis. Worker-owned.
+ * Small insertion-ordered shards bound checkpoint writes during sequential analysis. Worker-owned.
  */
 public final class DuplicateCache {
     private final Path directory;
     private final Map<String, Saved> entries = new LinkedHashMap<>();
     private final Set<Integer> dirty = new HashSet<>();
+    private final Map<String, Integer> shards = new HashMap<>();
+    private static final int SHARD_ENTRIES = 512;
+    private static final int MAX_SHARDS = (DuplicatePolicy.MAX_TRACKS + SHARD_ENTRIES - 1) / SHARD_ENTRIES + 1;
+    private final Map<Integer, Integer> counts = new HashMap<>();
+    private boolean initialized;
+    private int tailShard;
     private static final Gson JSON = new Gson();
 
     public record Saved(String id, String stamp, String hash, String source, String fingerprint) {
@@ -41,8 +47,11 @@ public final class DuplicateCache {
     }
 
     public void load() {
-        for (int shard = 0; shard < 16; shard++) {
-            Path path = file(shard);
+        boolean current = Files.isRegularFile(directory.resolve("v2/complete"), LinkOption.NOFOLLOW_LINKS);
+        initialized = current;
+        int count = current ? MAX_SHARDS : 16;
+        for (int shard = 0; shard < count; shard++) {
+            Path path = current ? file(shard) : directory.resolve("cache-" + shard + ".json");
             try {
                 if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) || Files.size(path) > 24_000_000) continue;
                 FileData data;
@@ -52,7 +61,14 @@ public final class DuplicateCache {
                 if (data == null || data.schema != DuplicatePolicy.CACHE_SCHEMA || !FingerprintService.ALGORITHM.equals(data.algorithm) || data.entries == null)
                     continue;
                 for (Saved value : data.entries)
-                    if (valid(value) && entries.size() < DuplicatePolicy.MAX_TRACKS) entries.put(value.id, value);
+                    if (valid(value) && entries.size() < DuplicatePolicy.MAX_TRACKS && !entries.containsKey(value.id)) {
+                        entries.put(value.id, value);
+                        int assigned = current ? shard : allocate();
+                        shards.put(value.id, assigned);
+                        if (current) counts.merge(assigned, 1, Integer::sum);
+                        if (current && assigned > tailShard) tailShard = assigned;
+                        if (!current) dirty.add(assigned);
+                    }
             } catch (Exception failure) {
                 org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").warn("Ignoring damaged duplicate cache shard {}", shard, failure);
             }
@@ -74,29 +90,56 @@ public final class DuplicateCache {
         if (!entries.containsKey(id) && entries.size() >= DuplicatePolicy.MAX_TRACKS) {
             String oldest = entries.keySet().iterator().next();
             entries.remove(oldest);
-            dirty.add(shard(oldest));
+            int removedShard = shards.remove(oldest);
+            dirty.add(removedShard);
+            counts.computeIfPresent(removedShard, (s, n) -> n - 1);
         }
         var bytes = ByteBuffer.allocate(fingerprint.length * 4);
         for (int value : fingerprint) bytes.putInt(value);
         var saved = new Saved(id, stamp, hash, source, Base64.getEncoder().encodeToString(bytes.array()));
-        if (!saved.equals(entries.put(id, saved))) dirty.add(shard(id));
+        if (!shards.containsKey(id)) shards.put(id, allocate());
+        if (!saved.equals(entries.put(id, saved))) dirty.add(shards.get(id));
     }
 
     public void flush() throws IOException {
         for (int shard : List.copyOf(dirty)) {
-            var values = entries.values().stream().filter(v -> shard(v.id) == shard).toList();
+            var values = entries.values().stream().filter(v -> shards.get(v.id) == shard).toList();
             String json = JSON.toJson(new FileData(DuplicatePolicy.CACHE_SCHEMA, FingerprintService.ALGORITHM, values));
             if (json.length() > 24_000_000) throw new IOException("Duplicate cache shard capacity exceeded");
             ConfigStore.atomicWrite(file(shard), json);
             dirty.remove(shard);
         }
+        if (!initialized && !entries.isEmpty()) {
+            ConfigStore.atomicWrite(directory.resolve("v2/complete"), "2");
+            initialized = true;
+        }
     }
 
-    private static int shard(String id) {
-        return id.hashCode() & 15;
+    public void remove(Set<String> ids) {
+        for (String id : ids) {
+            if (entries.remove(id) == null) continue;
+            int shard = shards.remove(id);
+            counts.computeIfPresent(shard, (s, count) -> count - 1);
+            dirty.add(shard);
+        }
+    }
+
+    public void prune(Set<String> present, Set<String> registered, Set<String> complete) {
+        var missing = new HashSet<String>();
+        for (String id : entries.keySet())
+            if (!present.contains(id) &&
+                (registered.stream().noneMatch(root -> id.startsWith(root + ":")) || complete.stream().anyMatch(root -> id.startsWith(root + ":"))))
+                missing.add(id);
+        remove(missing);
+    }
+
+    private int allocate() {
+        while (counts.getOrDefault(tailShard, 0) >= SHARD_ENTRIES) tailShard = (tailShard + 1) % MAX_SHARDS;
+        counts.merge(tailShard, 1, Integer::sum);
+        return tailShard;
     }
 
     private Path file(int index) {
-        return directory.resolve("cache-" + index + ".json");
+        return directory.resolve("v2").resolve("cache-" + index + ".json");
     }
 }

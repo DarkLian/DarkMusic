@@ -44,6 +44,20 @@ public final class LyricsLanguages {
         return List.copyOf(languages);
     }
 
+    /**
+     * An explicit song tag may break Auto's caption tie; it never overrides the user's ordered choices.
+     */
+    public static String preferSongLanguage(String preferences, String language) {
+        if (!normalize(preferences).equals("auto")) return preferences;
+        String tag = com.darkmusic.client.lyrics.LyricsDocument.normalizeLanguage(language);
+        if (tag.equals("und") || tag.equals("mul")) return preferences;
+        try {
+            return normalize(tag + ", auto");
+        } catch (IllegalArgumentException unknown) {
+            return preferences;
+        }
+    }
+
     private static IllegalArgumentException invalid() {
         return new IllegalArgumentException(Text.get("lyrics.darkmusic.language_invalid"));
     }

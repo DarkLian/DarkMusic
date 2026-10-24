@@ -20,11 +20,13 @@ class UpNextTest {
         Consumer<String> failed;
         Prepared prepared;
         int opens;
+        int promoteOnRead;
 
         record Prepared(Track track, Runnable started, Runnable ended, Consumer<String> failed, Transition gate) {
         }
 
         public State state() {
+            if (promoteOnRead > 0 && --promoteOnRead == 0) promote(prepared, true);
             return state;
         }
 
@@ -88,6 +90,38 @@ class UpNextTest {
 
     void start() {
         player.play(source, source.getFirst(), origin);
+    }
+
+    @Test
+    void tailAndRejectedQueueEditsPreserveThePreparedTransition() {
+        start();
+        player.addToQueue(x);
+        player.addToQueue(y);
+        player.addToQueue(x);
+        var ids = player.upNextSnapshot().manual().stream().map(PlaybackController.Queued::id).toList();
+        var prepared = audio.prepared;
+        assertFalse(player.removeQueued(-1));
+        assertFalse(player.moveQueued(ids.get(1), 1));
+        assertFalse(player.moveQueued(ids.get(1), 99));
+        assertSame(prepared, audio.prepared);
+        assertTrue(player.moveQueued(ids.get(1), 2));
+        assertSame(prepared, audio.prepared);
+        assertTrue(player.removeQueued(ids.get(1)));
+        assertSame(prepared, audio.prepared);
+        assertTrue(player.removeQueued(ids.getFirst()));
+        assertNotSame(prepared, audio.prepared);
+    }
+
+    @Test
+    void aPromotionDuringHeadInvalidationDoesNotRemoveTheFollowingEntry() {
+        start();
+        player.addToQueue(x);
+        player.addToQueue(y);
+        long head = player.upNextSnapshot().manual().getFirst().id();
+        audio.promoteOnRead = 2;
+        assertFalse(player.removeQueued(head));
+        assertEquals(x, audio.state().track());
+        assertEquals(List.of(y), player.upNextSnapshot().manual().stream().map(PlaybackController.Queued::track).toList());
     }
 
     @Test

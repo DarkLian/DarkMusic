@@ -50,6 +50,16 @@ public final class DownloadPipeline {
         void run() throws IOException;
     }
 
+    public static void forgetRecorded(Path audio) throws IOException {
+        synchronized (historyLock) {
+            Path file = audio.resolveSibling(".darkmusic-downloads.json");
+            if (!Files.exists(file, java.nio.file.LinkOption.NOFOLLOW_LINKS)) return;
+            var archive = readArchive(file);
+            boolean changed = archive.entrySet().removeIf(e -> e.getValue().isJsonPrimitive() && audio.getFileName().toString().equals(e.getValue().getAsString()));
+            if (changed) ConfigStore.atomicWrite(file, ConfigStore.JSON.toJson(archive));
+        }
+    }
+
     /**
      * Keep duplicate detection and the file rename in one serialized transaction.
      */
@@ -120,9 +130,12 @@ public final class DownloadPipeline {
     }
 
     private static Path previous(JsonObject archive, String identity, Path destination) throws IOException {
+        Path recovered = DownloadCommit.recover(destination, identity, archive);
+        if (recovered != null) return recovered;
         if (!archive.has(identity)) return null;
         Path prior = destination.resolve(archive.get(identity).getAsString()).normalize();
-        return prior.getParent().equals(destination.toAbsolutePath().normalize()) && Files.isRegularFile(prior) && Files.size(prior) > 0 ? prior : null;
+        return prior.getParent().equals(destination.toAbsolutePath().normalize()) && Files.isRegularFile(prior) && Files.size(prior) > 0
+            && com.darkmusic.client.library.SourceLinks.matchesArchive(prior, identity) ? prior : null;
     }
 
     synchronized void prepare() throws IOException {
@@ -301,33 +314,24 @@ public final class DownloadPipeline {
                     if (prior != null)
                         return new Saved(prior, true, com.darkmusic.client.text.Text.get("download.already_saved"));
                     Path target = destination.resolve(name);
-                    for (int suffix = 2; Files.exists(target) || Files.exists(DownloadLyrics.sidecar(target)); suffix++)
+                    for (int suffix = 2; Files.exists(target) || com.darkmusic.client.lyrics.LyricsFiles.companions(target).stream().anyMatch(p -> Files.exists(p, java.nio.file.LinkOption.NOFOLLOW_LINKS)); suffix++)
                         target = destination.resolve(name.substring(0, name.lastIndexOf('.')) + " (" + suffix + ")." + plan.extension());
+                    DownloadCommit.prepare(incoming, target, identity, entry.url());
                     Files.move(incoming, target);
                     incoming = null;
-                    com.darkmusic.client.library.SourceLinks.record(target, entry.url());
+                    com.darkmusic.client.library.SourceLinks.record(target, entry.url(), identity);
                     if (lyricsEnabled.getAsBoolean() && !lyrics.text().isBlank()) {
-                        Path temporaryLyrics = null;
                         try {
-                            temporaryLyrics = Files.createTempFile(destination, ".darkmusic-lyrics-", ".tmp");
-                            Files.writeString(temporaryLyrics, lyrics.text());
-                            Files.move(temporaryLyrics, DownloadLyrics.sidecar(target));
-                            com.darkmusic.client.config.ConfigStore.atomicWrite(DownloadLyrics.sidecar(target).resolveSibling(DownloadLyrics.sidecar(target).getFileName() + ".darkmusic.json"),
-                                com.darkmusic.client.config.ConfigStore.JSON.toJson(DownloadLyrics.document(lyrics)));
-                        } catch (IOException failure) {
+                            com.darkmusic.client.lyrics.LyricsFiles.save(target, DownloadLyrics.document(lyrics), false);
+                        } catch (Exception failure) {
                             warning = (warning + "; " + com.darkmusic.client.text.Text.get("lyrics.darkmusic.save_failed")).replaceFirst("^; ", "");
-                            org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not save lyric sidecar", failure);
-                        } finally {
-                            if (temporaryLyrics != null) try {
-                                Files.deleteIfExists(temporaryLyrics);
-                            } catch (IOException cleanup) {
-                                org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not clean lyric scratch file", cleanup);
-                            }
+                            org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not save lyric companions; audio remains saved", failure);
                         }
                     }
                     archive.addProperty(identity, target.getFileName().toString());
                     try {
                         ConfigStore.atomicWrite(history, ConfigStore.JSON.toJson(archive));
+                        DownloadCommit.finish(target, identity);
                     } catch (IOException e) {
                         org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not save download history {}", history, e);
                         warning = com.darkmusic.client.text.Text.get("download.history_write");

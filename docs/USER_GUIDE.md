@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v2.8.0 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v2.8.1 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Interface language
 
@@ -144,7 +144,7 @@ Open **Manage Audio Files** with the wrench above the player's collection list, 
 
 Use **Move to Trash** when the operating system supports it. **Delete Permanently…** requires a separate confirmation and cannot be undone through DarkMusic. A failed Trash operation never switches to permanent deletion automatically.
 
-Only the reviewed audio files are removed. Folders, lyric sidecars, and other accompanying files are kept. Successfully deleted tracks are removed from playlists and Favorite Music; failures remain available to review and retry. File changes detected after review require a fresh review.
+Only reviewed audio files are removed by default. You may explicitly include associated lyric sidecars, provenance, and backups in the review; those companions always use Trash, even when audio deletion is permanent. A failed Trash operation never becomes permanent deletion. Successfully deleted tracks are removed from playlists, Favorite Music, and Up Next; failures remain available to review and retry. File changes detected after review require a fresh review.
 
 During deletion, **Cancel Remaining Files** stops pending work. An already-issued Trash operation finishes or reaches its timeout before its outcome is reported. Completed deletions remain completed, and untouched pending files are listed as canceled rather than failed. To delete canceled files later, select and review them again in Manage Audio Files.
 
@@ -328,23 +328,23 @@ Open **Settings → Lyrics** and turn on **Enable Lyrics**. Open the selected so
 
 ### Automatic and manual lookup
 
-**Advanced Lyrics** contains Online Lyrics Lookup, Automatic Lookup on Playback, Background Library Lyrics, and Look Up Lyrics After Downloads. These lookup options start enabled; the master Enable Lyrics setting retains your existing preference and starts off on new installations.
+**Advanced Lyrics** contains Online Lyrics Lookup, Automatic Lookup on Playback, Find Missing Lyrics, and Look Up Lyrics After Downloads. Online access starts off and requires a one-time consent prompt, including for upgraded installations. The master Enable Lyrics setting retains your existing preference and starts off on new installations. Playback and post-download lookup preferences are preserved, but cannot access the network until online lookup is approved.
 
 Online lookup sends the song’s title, artist, album, and duration to LRCLIB. Audio files are not uploaded. Turning off Online Lyrics Lookup keeps local and previously saved lyrics usable.
 
-With background library lookup enabled, DarkMusic checks songs one at a time without selecting or playing them. It waits for library scanning and media operations, skips unhealthy roots, and keeps its place across rescans. Playing or deliberately selected songs can also request lyrics. New-download lookup begins after the audio is saved and does not delay the download worker.
+Choose **Find Missing Lyrics → Start** to check the collection explicitly. DarkMusic shows the checked count, actual LRCLIB request count, and waiting status. It checks songs one at a time without selecting or playing them, waits for library scanning and media operations, skips unhealthy roots, and keeps its place across rescans. Cancel stops owned pending requests. Closing the screen does not cancel the run. Playing or deliberately selected songs can also request lyrics when enabled. New-download lookup begins after the audio is saved and does not delay the download worker.
 
-Reliable matches are saved locally and applied automatically. Ambiguous results remain available for review. Existing local sidecars, embedded lyrics, and explicitly chosen versions take priority. A match is based on metadata and duration; different recordings can still need manual correction.
+The first reliable version is saved locally and applied automatically, with alternate versions retained for review. Weak matches are not applied automatically. Existing local sidecars, embedded lyrics, and explicitly chosen versions take priority. A match is based on metadata and duration; different recordings can still need manual correction.
 
-Results are cached across launches. Confirmed empty provider responses are cached for 14 days; temporary failures are not saved as missing lyrics. Network, rate-limit, and temporary provider failures retry without keeping a song selected, with increasing delays of up to 30 minutes. A provider’s longer Retry-After is respected. The status shows the retry countdown; horizontally scrolling it keeps your reading position as the countdown changes.
+Results are cached across launches. Confirmed empty provider responses are cached for 14 days; temporary failures are not saved as missing lyrics. Network and temporary provider failures retry per song without keeping it selected, with increasing delays of up to 30 minutes; this does not pause later library songs. Provider-wide waits apply to actual rate-limit responses or explicit Retry-After values, bounded to 24 hours. Requests are normally spaced at least one second apart. A 503 without Retry-After does not invent a global rate-limit wait. The status shows the retry countdown; horizontally scrolling it keeps your reading position as the countdown changes.
 
 In **Search Lyrics**, edit the search title or artist without changing your music tags. Preview a result and choose **Apply**. Manual search results require Apply even when the search was retried automatically. **Refresh Lyrics** refreshes the LRCLIB search; **Find Source Captions** separately checks the known original video. Neither requires downloading the audio again. Source captions need working download tools and a recorded source link.
 
-Automatic lookup uses LRCLIB first, then source captions when there is no candidate or the provider fails. Manual captions are preferred. **Allow Autogenerated Captions** is off by default; enabling it permits source-generated captions and labels them as generated. Captions may contain dialogue, and neither provider coverage nor website caption availability is guaranteed.
+Automatic lookup uses LRCLIB first, then source captions when no reliable match is found or the provider fails. Automatic caption requests use DarkMusic-recorded provenance for known YouTube/Bilibili hosts, not arbitrary URLs in audio tags. Legacy filename-only provenance requires manual review rather than automatic source identity decisions. Manual captions are preferred. **Allow Autogenerated Captions** is off by default; enabling it permits source-generated captions and labels them as generated. Captions may contain dialogue, and neither provider coverage nor website caption availability is guaranteed.
 
 ### Language and versions
 
-Lyrics do not follow Minecraft’s UI language or the operating-system locale. Auto prefers original captions only when one eligible track is unambiguous. Set ordered language preferences, including regional tags such as `ja`, `zh-Hant`, or `en`, when multiple caption languages need a choice. An explicit per-song language setting is available in Lyrics Options. Unknown or shared-script text is not treated as a verified spoken language.
+Lyrics do not follow Minecraft’s UI language or the operating-system locale. Auto uses a credible file language tag to resolve caption ties where possible; otherwise it prefers original captions only when one eligible track is unambiguous. Set ordered language preferences, including regional tags such as `ja`, `zh-Hant`, or `en`, when multiple caption languages need a choice. An explicit per-song language setting is available in Lyrics Options. Unknown or shared-script text is not treated as a verified spoken language.
 
 Available original, translated, transliterated, or generated variants retain their source information when known. DarkMusic does not translate lyrics or transcribe audio itself. Plain lyrics are shown as **Unsynchronized Lyrics** in a scrollable view; timestamps are never invented.
 
@@ -359,7 +359,7 @@ Place `Song.lrc` beside `Song.mp3` (or another supported audio file), or use **I
 
 Lyrics Options provides a per-song offset from −30,000 to +30,000 ms. Positive values display lyrics later. Adjust in 100 ms steps or enter an exact value through the slider’s numeric editor, and reset to original timing when needed. The offset is saved separately rather than rewriting timestamps.
 
-Online results and selections are stored under `config/darkmusic/lyrics` by default. **Save Lyrics** writes the selected content beside the audio. **Replace Existing Lyrics** requires confirmation and keeps a backup; **Restore Previous Lyrics** is available when that backup exists. **Keep Existing Lyrics** clears the chosen online version. Cache clearing leaves saved per-song selections and music files intact.
+Online results and selections are stored under `config/darkmusic/lyrics` by default. **Save Lyrics** writes the selected content beside the audio. **Replace Existing Lyrics** captures the displayed version, requires confirmation, and preserves the first backup across repeated replacements; **Restore Previous Lyrics** is available when that backup exists. **Keep Existing Lyrics** clears the chosen online version. Cache clearing leaves saved per-song selections and music files intact. Imports accept text/LRC files with confirmation and reject binary content. Auto encoding supports Unicode; select Big5, GB18030, Windows-31J, or EUC-KR explicitly for older lyric files. External audio retagging preserves timing/language preferences and offers the previous lyric selection for confirmation. Orphaned saved records are pruned only when the associated roots can be checked safely.
 
 Checkmarks indicate available lyrics, question marks indicate an unchecked or unresolved state, and crosses indicate missing lyrics or a failed lookup. The status text distinguishes these outcomes. A plain result is available even though it cannot drive synchronized HUD lines.
 

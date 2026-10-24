@@ -540,6 +540,10 @@ public final class MusicScreen extends LocalScreen {
 
     @Override
     public void tick() {
+        if (app.settings.lyricsEnabled && app.settings.lyricsConsentVersion < 1) {
+            show(LyricsConsent.request(app, this));
+            return;
+        }
         if (width < 320 || height < 240) return;
         if (openFolder != null) {
             String target = browseDirectory().toString();

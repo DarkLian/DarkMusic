@@ -25,6 +25,7 @@ class DownloadDiagnosticsTest {
             Map.entry("HTTP Error 503: Service Unavailable", Category.NETWORK_FAILURE),
             Map.entry("Login required", Category.AUTH_REQUIRED), Map.entry("Private video", Category.AUTH_REQUIRED),
             Map.entry("Incompatible JavaScript runtime", Category.TOOL_INCOMPATIBLE),
+            Map.entry("Requested format is not available. Use --list-formats for a list of available formats", Category.TOOL_INCOMPATIBLE),
             Map.entry("Temporary failure in name resolution", Category.NETWORK_FAILURE),
             Map.entry("Connection timed out", Category.NETWORK_TIMEOUT), Map.entry("No space left on device", Category.STORAGE_FAILURE),
             Map.entry("Permission denied", Category.STORAGE_FAILURE), Map.entry("Unrecognized tool error", Category.UNKNOWN));

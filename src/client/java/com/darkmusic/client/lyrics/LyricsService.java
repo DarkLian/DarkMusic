@@ -37,6 +37,42 @@ public final class LyricsService implements AutoCloseable {
     private long backgroundCacheRevision = -1;
     private final Map<String, Track> backgroundVisited = new java.util.HashMap<>();
     private java.util.Set<String> backgroundRoots;
+    private boolean libraryRun;
+    private final java.util.Map<Track, com.darkmusic.client.download.ProcessRunner.Token> libraryRequests = new java.util.HashMap<>();
+    private long libraryRequestStart;
+
+    public void startLibraryLookup() {
+        cancelLibraryLookup();
+        libraryRun = true;
+        backgroundActive = false;
+        backgroundTracks = List.of();
+        backgroundVisited.clear();
+        backgroundAt = 0;
+        libraryRequestStart = lookup.requests();
+    }
+
+    public void cancelLibraryLookup() {
+        libraryRun = false;
+        backgroundActive = false;
+        libraryRequests.forEach(lookup::cancelAutomatic);
+        libraryRequests.clear();
+    }
+
+    public boolean libraryLookupRunning() {
+        return libraryRun;
+    }
+
+    public int libraryChecked() {
+        return backgroundVisited.size();
+    }
+
+    public int libraryTotal() {
+        return backgroundTracks.size();
+    }
+
+    public long libraryRequests() {
+        return lookup.requests() - libraryRequestStart;
+    }
 
     public LyricsService() {
         this(null);
@@ -70,8 +106,6 @@ public final class LyricsService implements AutoCloseable {
             return;
         }
         long now = clock.getAsLong();
-        if (now < backgroundAt || lookup.busy()) return;
-        backgroundAt = now + TimeUnit.SECONDS.toNanos(1);
         if (!backgroundActive || backgroundCacheRevision != lookup.cacheRevision()) {
             backgroundActive = true;
             backgroundCacheRevision = lookup.cacheRevision();
@@ -87,6 +121,9 @@ public final class LyricsService implements AutoCloseable {
             backgroundRoots = healthyRoots;
             backgroundCursor = 0;
         }
+        // Initialize progress even while a previous lookup or provider cooldown is still active.
+        if (now < backgroundAt || lookup.busy()) return;
+        backgroundAt = now + TimeUnit.SECONDS.toNanos(1);
         if (backgroundTrack == null) {
             for (int skipped = 0; skipped < 1024 && backgroundCursor < backgroundTracks.size(); skipped++) {
                 Track candidate = backgroundTracks.get(backgroundCursor++);
@@ -95,7 +132,10 @@ public final class LyricsService implements AutoCloseable {
                     break;
                 }
             }
-            if (backgroundTrack == null) return;
+            if (backgroundTrack == null) {
+                if (backgroundCursor >= backgroundTracks.size()) libraryRun = false;
+                return;
+            }
         }
         if (healthyRoots != null && !healthyRoots.contains(backgroundTrack.rootId())) {
             backgroundTrack = null;
@@ -104,6 +144,10 @@ public final class LyricsService implements AutoCloseable {
         inspect(backgroundTrack);
         if (!inspected(backgroundTrack)) return;
         lookup.automatic(backgroundTrack, document(backgroundTrack).available());
+        if (libraryRun) {
+            var token = lookup.automaticToken(backgroundTrack);
+            if (token != null) libraryRequests.put(backgroundTrack, token);
+        }
         backgroundVisited.put(backgroundTrack.id(), backgroundTrack);
         backgroundTrack = null;
     }
@@ -111,7 +155,7 @@ public final class LyricsService implements AutoCloseable {
     public synchronized void enabled(boolean value) {
         if (enabled == value || closed) return;
         enabled = value;
-        if (!value) backgroundActive = false;
+        if (!value) cancelLibraryLookup();
         generation++;
         pending.clear();
         queue.clear();
@@ -183,8 +227,9 @@ public final class LyricsService implements AutoCloseable {
             Cached result;
             try {
                 lookup.load(track);
+                LyricsFiles.recover(track.file());
                 Path sidecar = com.darkmusic.client.download.DownloadLyrics.sidecar(track.file());
-                Fingerprint fingerprint = new Fingerprint(stamp(track.file()), stamp(sidecar), stamp(sidecar.resolveSibling(sidecar.getFileName() + ".darkmusic-backup")), stamp(sidecar.resolveSibling(sidecar.getFileName() + ".darkmusic.json")));
+                Fingerprint fingerprint = new Fingerprint(stamp(track.file()), stamp(sidecar), stamp(sidecar.resolveSibling(sidecar.getFileName() + ".darkmusic-backup")), stamp(sidecar.resolveSibling(sidecar.getFileName() + ".darkmusic.json")), lookup.encoding(track));
                 if (previous != null && fingerprint.equals(previous.fingerprint))
                     result = new Cached(fingerprint, previous.document, previous.info, System.nanoTime());
                 else result = read(track.file(), sidecar, fingerprint);
@@ -212,7 +257,7 @@ public final class LyricsService implements AutoCloseable {
         if (fingerprint.sidecar.size >= 0) {
             if (fingerprint.sidecar.size > 1_000_000)
                 return new Cached(fingerprint, LyricsDocument.EMPTY, LyricsInfo.LOCAL_ERROR, System.nanoTime());
-            text = decode(Files.readAllBytes(sidecar));
+            text = decode(Files.readAllBytes(sidecar), fingerprint.encoding);
         } else {
             if (fingerprint.audio.size < 0)
                 return new Cached(fingerprint, LyricsDocument.EMPTY, LyricsInfo.LOCAL_ERROR, System.nanoTime());
@@ -248,6 +293,11 @@ public final class LyricsService implements AutoCloseable {
             skip = 2;
         }
         return charset.newDecoder().decode(java.nio.ByteBuffer.wrap(bytes, skip, bytes.length - skip)).toString();
+    }
+
+    static String decode(byte[] bytes, String encoding) throws java.nio.charset.CharacterCodingException {
+        if (encoding == null || encoding.equals("Auto")) return decode(bytes);
+        return java.nio.charset.Charset.forName(encoding).newDecoder().decode(java.nio.ByteBuffer.wrap(bytes)).toString();
     }
 
     public LyricsDocument document(Track track) {
@@ -347,7 +397,7 @@ public final class LyricsService implements AutoCloseable {
     private record Stamp(long size, java.nio.file.attribute.FileTime modified) {
     }
 
-    private record Fingerprint(Stamp audio, Stamp sidecar, Stamp backup, Stamp provenance) {
+    private record Fingerprint(Stamp audio, Stamp sidecar, Stamp backup, Stamp provenance, String encoding) {
     }
 
     private record Shifted(LyricsDocument document, int offset, Lrc data) {

@@ -36,7 +36,8 @@ public final class ConfigStore {
                 } else reader.skipValue();
                 return Repeat.OFF;
             }
-        }).create();
+        }).registerTypeAdapter(com.darkmusic.client.lyrics.LyricsDocument.class,
+        new com.darkmusic.client.lyrics.LyricsDocumentAdapter()).create();
     private final Path directory;
     private final ExecutorService io;
     private final Consumer<String> warning;

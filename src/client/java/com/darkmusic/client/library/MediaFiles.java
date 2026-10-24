@@ -52,7 +52,7 @@ public final class MediaFiles {
                         throw new IOException(Text.get("library.darkmusic.not_audio"));
                     int dot = name.lastIndexOf('.');
                     String stem = dot > 0 ? name.substring(0, dot) : name, extension = dot > 0 ? name.substring(dot) : "";
-                    for (int number = 2; Files.exists(target); number++) {
+                    for (int number = 2; Files.exists(target) || com.darkmusic.client.lyrics.LyricsFiles.companions(target).stream().anyMatch(p -> Files.exists(p, LinkOption.NOFOLLOW_LINKS)); number++) {
                         if (number > 10000) throw new IOException(Text.get("library.darkmusic.name_collision"));
                         target = destination.resolve(stem + " (" + number + ")" + extension);
                     }
@@ -116,17 +116,23 @@ public final class MediaFiles {
         String extension = dot > 0 ? sourceName.substring(dot) : "";
         Path target = source.resolveSibling(filename + extension);
         checkSource(track);
+        String verifiedSource = SourceLinks.read(source);
         boolean rename = !source.getFileName().toString().equals(target.getFileName().toString());
         boolean caseAlias = rename && source.getFileName().toString().equalsIgnoreCase(target.getFileName().toString()) && Files.exists(target) && Files.isSameFile(source, target);
         if (rename && Files.exists(target) && !caseAlias)
             throw new IOException(Text.get("library.darkmusic.name_collision"));
-        Path lyric = com.darkmusic.client.download.DownloadLyrics.sidecar(source), nextLyric = com.darkmusic.client.download.DownloadLyrics.sidecar(target);
-        boolean moveLyric = rename && Files.isRegularFile(lyric, LinkOption.NOFOLLOW_LINKS);
-        if (moveLyric && Files.exists(nextLyric) && !Files.isSameFile(lyric, nextLyric))
-            throw new IOException(Text.get("library.darkmusic.lyric_collision"));
+        com.darkmusic.client.lyrics.LyricsFiles.recover(source);
+        var companions = com.darkmusic.client.lyrics.LyricsFiles.companions(source);
+        var nextCompanions = com.darkmusic.client.lyrics.LyricsFiles.companions(target);
+        for (int i = 0; rename && i < companions.size(); i++) {
+            Path old = companions.get(i), next = nextCompanions.get(i);
+            if (Files.isSymbolicLink(old) || Files.isSymbolicLink(next)
+                || Files.exists(next, LinkOption.NOFOLLOW_LINKS) && (!Files.exists(old) || !Files.isSameFile(old, next)))
+                throw new IOException(Text.get("library.darkmusic.lyric_collision"));
+        }
         Path work = Files.createTempDirectory(source.getParent(), ".darkmusic-work-");
         Path staged = work.resolve("edited" + extension);
-        boolean lyricMoved = false;
+        var movedCompanions = new ArrayList<Integer>();
         boolean preserveWork = false;
         try {
             boolean tagsChanged = !original.title().equals(requested.title()) || !original.artist().equals(requested.artist()) || !original.album().equals(requested.album());
@@ -158,11 +164,14 @@ public final class MediaFiles {
                 Files.setLastModifiedTime(staged, java.nio.file.attribute.FileTime.fromMillis(track.modified() + 1));
             token.check();
             checkSource(track);
-            if (moveLyric) {
-                moveCaseAware(lyric, nextLyric, work.resolve("lyrics.lrc"));
-                lyricMoved = true;
-            }
+            Path retained = work.resolve("retained" + extension);
+            Files.copy(source, retained, StandardCopyOption.COPY_ATTRIBUTES);
             try {
+                for (int i = 0; rename && i < companions.size(); i++) {
+                    if (!Files.exists(companions.get(i), LinkOption.NOFOLLOW_LINKS)) continue;
+                    moveCaseAware(companions.get(i), nextCompanions.get(i), work.resolve("companion-" + i));
+                    movedCompanions.add(i);
+                }
                 if (caseAlias) {
                     try {
                         com.darkmusic.client.download.DownloadPipeline.renameRecorded(source, target,
@@ -187,11 +196,38 @@ public final class MediaFiles {
                         throw failure;
                     }
                 });
+                try {
+                    SourceLinks.renamed(source, target, verifiedSource);
+                } catch (IOException provenanceFailure) {
+                    // The source map is atomically replaced; a failed write leaves its old binding intact.
+                    try {
+                        if (rename && !caseAlias) {
+                            Files.move(retained, source); // Never overwrite a concurrent replacement.
+                            Files.delete(target);
+                        } else
+                            Files.copy(retained, source, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+                        if (rename)
+                            com.darkmusic.client.download.DownloadPipeline.renameRecorded(target, source, () -> {
+                            });
+                    } catch (IOException rollback) {
+                        provenanceFailure.addSuppressed(rollback);
+                        preserveWork = true;
+                        throw new AudioReplacement.RecoveryRequired(retained, provenanceFailure);
+                    }
+                    throw provenanceFailure;
+                }
             } catch (Exception failure) {
-                if (lyricMoved) moveCaseAware(nextLyric, lyric, work.resolve("lyrics-rollback.lrc"));
+                for (int i = movedCompanions.size() - 1; i >= 0; i--) {
+                    int index = movedCompanions.get(i);
+                    try {
+                        moveCaseAware(nextCompanions.get(index), companions.get(index), work.resolve("companion-rollback-" + index));
+                    } catch (IOException rollback) {
+                        failure.addSuppressed(rollback);
+                        preserveWork = true;
+                    }
+                }
                 throw failure;
             }
-            SourceLinks.record(target, SourceLinks.read(source));
             String relative = track.relativePath();
             int slash = relative.lastIndexOf('/');
             relative = (slash < 0 ? "" : relative.substring(0, slash + 1)) + target.getFileName();

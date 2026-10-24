@@ -237,7 +237,13 @@ public final class PlaybackController implements AutoCloseable {
             || order.stream().anyMatch(i -> i == null || i < 0 || i >= manual.size())) return false;
         var reordered = order.stream().map(manual::get).toList();
         if (reordered.equals(manual)) return false;
-        invalidatePlan();
+        if (!reordered.getFirst().equals(manual.getFirst())) {
+            invalidatePlan();
+            if (!manual.stream().map(Queued::id).toList().equals(expectedIds)) {
+                refreshNext();
+                return false;
+            }
+        }
         manual.clear();
         manual.addAll(reordered);
         changedQueue();
@@ -262,7 +268,15 @@ public final class PlaybackController implements AutoCloseable {
     }
 
     public boolean removeQueued(long id) {
-        invalidatePlan();
+        settlePromotion();
+        int index = -1;
+        for (int i = 0; i < manual.size(); i++)
+            if (manual.get(i).id == id) {
+                index = i;
+                break;
+            }
+        if (index < 0) return false;
+        if (index == 0) invalidatePlan();
         if (!manual.removeIf(q -> q.id == id)) {
             refreshNext();
             return false;
@@ -273,7 +287,7 @@ public final class PlaybackController implements AutoCloseable {
     }
 
     public boolean moveQueued(long id, int destination) {
-        invalidatePlan();
+        settlePromotion();
         int index = -1;
         for (int i = 0; i < manual.size(); i++)
             if (manual.get(i).id == id) {
@@ -281,8 +295,20 @@ public final class PlaybackController implements AutoCloseable {
                 break;
             }
         if (index < 0 || destination < 0 || destination >= manual.size() || destination == index) {
-            refreshNext();
             return false;
+        }
+        if (index == 0 || destination == 0) {
+            invalidatePlan();
+            index = -1;
+            for (int i = 0; i < manual.size(); i++)
+                if (manual.get(i).id == id) {
+                    index = i;
+                    break;
+                }
+            if (index < 0 || destination >= manual.size()) {
+                refreshNext();
+                return false;
+            }
         }
         var entry = manual.remove(index);
         manual.add(destination, entry);

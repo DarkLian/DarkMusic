@@ -127,9 +127,13 @@ public final class FingerprintService {
     }
 
     public static Match compare(int[] a, int[] b, DuplicatePolicy p) {
+        return compare(a, b, keys(a), keys(b), p);
+    }
+
+    static Match compare(int[] a, int[] b, Set<Long> aKeys, Set<Long> bKeys, DuplicatePolicy p) {
         if (Math.min(a.length, b.length) < p.audioFrames) return new Match(false, false, 1, 0);
-        var keys = new HashSet<>(keys(a));
-        keys.retainAll(keys(b));
+        var keys = new HashSet<>(aKeys);
+        keys.retainAll(bKeys);
         if (keys.size() < 2) return new Match(false, false, 1, 0);
         var positions = new HashMap<Integer, ArrayList<Integer>>();
         for (int j = 0; j < b.length; j++)

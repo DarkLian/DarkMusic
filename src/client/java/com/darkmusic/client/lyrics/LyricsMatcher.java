@@ -19,7 +19,7 @@ public final class LyricsMatcher {
     }
 
     private static Set<String> versions(String text) {
-        return Set.of("live", "remix", "instrumental", "cover", "extended", "acoustic", "sped", "slowed", "nightcore", "現場", "翻唱", "伴奏")
+        return com.darkmusic.client.library.RecordingVersions.WORDS
             .stream().filter(v -> normalized(text).matches(".*(?:^| )" + v + "(?: |$).*")).collect(Collectors.toSet());
     }
 

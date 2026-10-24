@@ -89,7 +89,8 @@ public final class DuplicateComparisonScreen extends LocalScreen {
         });
         var ignore = button("cleanup.ignore", 16 + half, height - 42, half, () -> {
             if (app.cleanupReviews().ignore(pair)) onClose();
-            else notice = Text.get("cleanup.store_failed");
+            else
+                notice = Text.get(app.cleanupReviews().error().isEmpty() ? "cleanup.store_failed" : app.cleanupReviews().error());
         });
         ignore.active = app.cleanupReviews().ready();
         Help.tip(ignore, Text.get("cleanup.ignore.help"));

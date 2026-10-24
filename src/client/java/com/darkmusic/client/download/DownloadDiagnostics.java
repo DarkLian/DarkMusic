@@ -149,6 +149,8 @@ public final class DownloadDiagnostics {
                 category = Category.NETWORK_TIMEOUT;
             else if (contains(text, "name resolution", "unable to resolve", "connection refused", "connection reset", "network is unreachable", "remote end closed") || error instanceof java.net.UnknownHostException)
                 category = Category.NETWORK_FAILURE;
+            else if (contains(text, "requested format is not available"))
+                category = Category.TOOL_INCOMPATIBLE;
             else if (contains(text, "deleted video", "video unavailable", "video is unavailable", "not available"))
                 category = Category.CONTENT_UNAVAILABLE;
             else if (stage == Stage.PROCESSING) category = Category.PROCESSING_FAILURE;

@@ -387,7 +387,8 @@ class MultilingualLyricsTest {
     void defaultAutomationKeepsExplicitlyDisabledPreferencesAndCleansOnlyTitleDecorations() {
         var defaults = new com.darkmusic.client.config.Settings();
         assertFalse(defaults.lyricsEnabled);
-        assertTrue(defaults.lyricsOnline && defaults.lyricsAutomaticLookup && defaults.lyricsDownloadLookup);
+        assertFalse(defaults.lyricsOnline || defaults.lyricsLibraryLookup);
+        assertTrue(defaults.lyricsAutomaticLookup && defaults.lyricsDownloadLookup);
         var old = com.darkmusic.client.config.ConfigStore.JSON.fromJson("{\"lyricsOnline\":false,\"lyricsAutomaticLookup\":false}", com.darkmusic.client.config.Settings.class);
         assertFalse(old.lyricsOnline || old.lyricsAutomaticLookup);
         var track = new Track("root", "file", Path.of("file"), "Artist - Song (Official Lyric Video)", "Artist", "", 180, 0, 0, "");
@@ -806,7 +807,7 @@ class MultilingualLyricsTest {
             await(() -> lookup.choice(a).selected() != null);
             assertEquals("Words", lookup.choice(a).selected().text());
         }
-        try (var lookup = new LyricsLookup(temp.resolve("other"), provider(q -> List.of(new LyricsProvider.Candidate(document("A"), true, "lyrics.match.metadata"), new LyricsProvider.Candidate(document("B"), true, "lyrics.match.metadata"))))) {
+        try (var lookup = new LyricsLookup(temp.resolve("other"), provider(q -> List.of(new LyricsProvider.Candidate(document("A"), false, "lyrics.match.metadata"), new LyricsProvider.Candidate(document("B"), false, "lyrics.match.metadata"))))) {
             lookup.configure(true, true);
             lookup.load(b);
             lookup.automatic(b, false);

@@ -42,6 +42,7 @@ public final class LibrarySourceIndex implements AutoCloseable {
     private volatile long revision;
     private Request pending;
     private boolean running;
+    private boolean cacheDirty;
     private final Map<String, String> deleted = new HashMap<>();
 
     public LibrarySourceIndex(Path data) {
@@ -51,7 +52,7 @@ public final class LibrarySourceIndex implements AutoCloseable {
                 if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) && Files.size(file) < 64_000_000)
                     try (var reader = Files.newBufferedReader(file)) {
                         var saved = new Gson().fromJson(reader, CacheFile.class);
-                        if (saved != null && saved.schema == 1 && saved.entries != null) for (var v : saved.entries)
+                        if (saved != null && saved.schema == 2 && saved.entries != null) for (var v : saved.entries)
                             if (v != null && v.id != null && v.stamp != null && v.source != null && v.id.length() <= 16384 && v.stamp.length() <= 128 && v.source.length() <= 8192 && cache.size() < DuplicatePolicy.MAX_TRACKS)
                                 cache.put(v.id, v);
                     }
@@ -63,6 +64,14 @@ public final class LibrarySourceIndex implements AutoCloseable {
 
     public long revision() {
         return revision;
+    }
+
+    public synchronized void roots(Map<Path, String> values) {
+        if (!roots.equals(values)) {
+            roots = Map.copyOf(values);
+            complete = false;
+            revision++;
+        }
     }
 
     public synchronized void update(List<Track> tracks, Map<Path, String> roots, boolean complete) {
@@ -88,7 +97,9 @@ public final class LibrarySourceIndex implements AutoCloseable {
                 }
             }
             var result = new HashMap<String, List<Existing>>();
+            var previousCache = new HashMap<>(cache);
             var provenance = new HashMap<Path, Map<String, String>>();
+            var bindings = new HashMap<Path, Map<String, String>>();
             var history = new HashMap<Path, Map<String, List<String>>>();
             boolean healthy = request.complete;
             int processed = 0;
@@ -99,13 +110,8 @@ public final class LibrarySourceIndex implements AutoCloseable {
                     var attrs = DuplicateScanner.attributes(t);
                     String stamp = DuplicateScanner.stamp(t, attrs);
                     String source = provenance.computeIfAbsent(t.file().getParent(), SourceLinks::readDirectory).getOrDefault(t.file().getFileName().toString(), "");
-                    var prior = cache.get(t.id());
-                    boolean cached = prior != null && prior.stamp.equals(stamp);
-                    if (source.isEmpty() && cached) source = prior.source;
                     var archive = history.computeIfAbsent(t.file().getParent(), LibrarySourceIndex::archive);
                     var archiveKeys = archive.getOrDefault(t.file().getFileName().toString(), List.of());
-                    if (source.isEmpty() && !cached && archiveKeys.isEmpty())
-                        source = DuplicateMediaInfo.read(t, source).source();
                     synchronized (this) {
                         if (deleted.containsKey(t.id()) && !deleted.get(t.id()).equals(stamp)) deleted.remove(t.id());
                     }
@@ -114,6 +120,8 @@ public final class LibrarySourceIndex implements AutoCloseable {
                     String sourceId = DuplicateMatcher.sourceId(source);
                     if (!sourceId.isEmpty()) ids.add(sourceId);
                     for (String archiveKey : archiveKeys) {
+                        if (!archiveKey.equals(bindings.computeIfAbsent(t.file().getParent(), SourceLinks::archiveBindings).get(t.file().getFileName().toString())))
+                            continue;
                         String key = archiveKey;
                         boolean original = key.endsWith(":original");
                         if (original) key = key.substring(0, key.length() - 9);
@@ -136,10 +144,18 @@ public final class LibrarySourceIndex implements AutoCloseable {
                 }
             }
             publish(result, healthy);
+            var present = new HashSet<String>();
+            for (Track track : request.tracks) present.add(track.id());
+            cache.keySet().removeIf(id -> !present.contains(id) && (request.complete || request.roots.values().stream().noneMatch(root -> id.startsWith(root + ":"))));
             while (cache.size() > DuplicatePolicy.MAX_TRACKS) cache.remove(cache.keySet().iterator().next());
             try {
-                String json = new Gson().toJson(new CacheFile(1, List.copyOf(cache.values())));
-                if (json.length() < 64_000_000) ConfigStore.atomicWrite(file, json);
+                cacheDirty |= !cache.equals(previousCache);
+                if (!cacheDirty) continue;
+                String json = new Gson().toJson(new CacheFile(2, List.copyOf(cache.values())));
+                if (json.length() < 64_000_000) {
+                    ConfigStore.atomicWrite(file, json);
+                    cacheDirty = false;
+                }
             } catch (Exception e) {
                 org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").warn("Cannot save source index", e);
             }
@@ -197,7 +213,9 @@ public final class LibrarySourceIndex implements AutoCloseable {
     public List<Existing> verified(DownloadModels.Entry entry) {
         return lookup(entry).confirmed.stream().filter(v -> {
             try {
-                return roots.containsValue(v.track.rootId()) && v.stamp.equals(DuplicateScanner.stamp(v.track, DuplicateScanner.attributes(v.track)));
+                String source = SourceLinks.read(v.track.file());
+                return !source.isEmpty() && identity(entry.extractor(), entry.mediaId(), entry.url()).equals(DuplicateMatcher.sourceId(source))
+                    && roots.containsValue(v.track.rootId()) && v.stamp.equals(DuplicateScanner.stamp(v.track, DuplicateScanner.attributes(v.track)));
             } catch (Exception unavailable) {
                 return false;
             }

@@ -47,7 +47,15 @@ public final class LrclibProvider implements LyricsProvider, AutoCloseable {
 
     private final HttpClient client;
     private final Transport transport;
+    private final java.util.concurrent.atomic.AtomicLong requestCount = new java.util.concurrent.atomic.AtomicLong();
+
+    @Override
+    public long requestCount() {
+        return requestCount.get();
+    }
+
     private long nextRequest, cooldownUntil;
+    private final java.util.concurrent.locks.ReentrantLock requests = new java.util.concurrent.locks.ReentrantLock(true);
     private Problem cooldownProblem = Problem.RATE_LIMITED;
     private int cooldownStatus;
 
@@ -76,13 +84,23 @@ public final class LrclibProvider implements LyricsProvider, AutoCloseable {
     }
 
     @Override
-    public synchronized List<Candidate> search(Query query, ProcessRunner.Token token) throws Exception {
-        return search(query, token, false);
+    public List<Candidate> search(Query query, ProcessRunner.Token token) throws Exception {
+        return lockedSearch(query, token, false);
     }
 
     @Override
-    public synchronized List<Candidate> alternatives(Query query, ProcessRunner.Token token) throws Exception {
-        return search(query, token, true);
+    public List<Candidate> alternatives(Query query, ProcessRunner.Token token) throws Exception {
+        return lockedSearch(query, token, true);
+    }
+
+    private List<Candidate> lockedSearch(Query query, ProcessRunner.Token token, boolean alternatives) throws Exception {
+        while (!requests.tryLock(50, TimeUnit.MILLISECONDS)) token.check();
+        try {
+            token.check();
+            return search(query, token, alternatives);
+        } finally {
+            requests.unlock();
+        }
     }
 
     private List<Candidate> search(Query query, ProcessRunner.Token token, boolean alternatives) throws Exception {
@@ -118,6 +136,7 @@ public final class LrclibProvider implements LyricsProvider, AutoCloseable {
         token.check();
         Reply reply;
         try {
+            requestCount.incrementAndGet();
             reply = transport.get(URI.create("https://lrclib.net" + path), token);
         } catch (CancellationException | InterruptedException e) {
             throw e;
@@ -131,7 +150,8 @@ public final class LrclibProvider implements LyricsProvider, AutoCloseable {
         }
         if (reply.status == 404) return JsonNull.INSTANCE;
         if (reply.status == 429 || reply.status == 503) {
-            long seconds = 60;
+            // Missing Retry-After on a 503 is not proof of a provider-wide rate limit.
+            long seconds = reply.status == 429 ? 60 : 0;
             try {
                 seconds = Long.parseLong(reply.retryAfter);
             } catch (Exception ignored) {
@@ -140,7 +160,7 @@ public final class LrclibProvider implements LyricsProvider, AutoCloseable {
                 } catch (Exception alsoIgnored) {
                 }
             }
-            long waitMillis = TimeUnit.SECONDS.toMillis(Math.max(1, seconds));
+            long waitMillis = TimeUnit.SECONDS.toMillis(Math.clamp(seconds, reply.status == 429 ? 1 : 0, TimeUnit.HOURS.toSeconds(24)));
             try {
                 cooldownUntil = Math.addExact(System.nanoTime(), TimeUnit.MILLISECONDS.toNanos(waitMillis));
             } catch (ArithmeticException excessiveWait) {

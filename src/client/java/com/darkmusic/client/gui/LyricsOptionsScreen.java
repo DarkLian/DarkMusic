@@ -57,23 +57,35 @@ public final class LyricsOptionsScreen extends AudioPage {
             result(app.lyrics.lookup.offset(track, 0));
         });
         section("lyrics.versions");
+        labeledAction(Text.get("lyrics.encoding") + ": " + app.lyrics.lookup.encoding(track), Text.get("lyrics.encoding.help"), () -> {
+            var values = java.util.List.of("Auto", "Big5", "GB18030", "windows-31j", "EUC-KR");
+            int index = values.indexOf(app.lyrics.lookup.encoding(track));
+            result(app.lyrics.lookup.encoding(track, values.get((index + 1) % values.size())));
+        });
         action("lyrics.track_language", () -> show(new TextPromptScreen(this, Text.get("lyrics.track_language"), app.lyrics.lookup.choice(track).language(), value -> {
             result(app.lyrics.lookup.language(track, value));
         })));
         action("lyrics.keep_local", () -> result(app.lyrics.lookup.select(track, null)));
         action("lyrics.import", () -> show(TextPromptScreen.validated(this, Text.get("lyrics.import_path"), "", 4096, value -> {
-            result(app.lyrics.lookup.importFile(track, Path.of(value)));
+            Path selected = Path.of(value);
+            minecraft.execute(() -> confirmImport(selected));
             return true;
         })));
         hadSidecar = app.lyrics.sidecarExists(track);
         hadBackup = app.lyrics.backupExists(track);
         int saveStart = rowCount();
-        action("lyrics.save", () -> show(new ConfirmationScreen(this, Text.component("lyrics.save"), Text.component("lyrics.save.help"), Text.component("lyrics.save"),
-            () -> app.lyrics.lookup.save(track, app.lyrics.document(track), false))));
+        action("lyrics.save", () -> {
+            var document = app.lyrics.document(track);
+            show(new ConfirmationScreen(this, Text.component("lyrics.save"), Text.component("lyrics.save.help"), Text.component("lyrics.save"),
+                () -> app.lyrics.lookup.save(track, document, false)));
+        });
         enableSince(saveStart, app.lyrics.document(track).available() && !hadSidecar);
         int replaceStart = rowCount();
-        action("lyrics.replace", () -> show(new ConfirmationScreen(this, Text.component("lyrics.replace"), Text.component("lyrics.replace.help"), Text.component("lyrics.replace"),
-            () -> app.lyrics.lookup.save(track, app.lyrics.document(track), true))));
+        action("lyrics.replace", () -> {
+            var document = app.lyrics.document(track);
+            show(new ConfirmationScreen(this, Text.component("lyrics.replace"), Text.component("lyrics.replace.help"), Text.component("lyrics.replace"),
+                () -> app.lyrics.lookup.save(track, document, true)));
+        });
         enableSince(replaceStart, app.lyrics.document(track).available() && hadSidecar);
         int restoreStart = rowCount();
         action("lyrics.restore", () -> show(new ConfirmationScreen(this, Text.component("lyrics.restore"), Text.component("lyrics.restore.help"), Text.component("lyrics.restore"),
@@ -91,6 +103,12 @@ public final class LyricsOptionsScreen extends AudioPage {
 
     @Override
     public void onFilesDrop(java.util.List<Path> files) {
-        if (files.size() == 1) result(app.lyrics.lookup.importFile(track, files.getFirst()));
+        if (files.size() == 1) confirmImport(files.getFirst());
+        else feedback = Text.get("lyrics.import.single");
+    }
+
+    private void confirmImport(Path path) {
+        show(new ConfirmationScreen(this, Text.component("lyrics.import"), Text.component("lyrics.import.confirm", path.getFileName()),
+            Text.component("lyrics.import"), () -> app.lyrics.lookup.importFile(track, path)).nonDestructive());
     }
 }

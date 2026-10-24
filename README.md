@@ -6,9 +6,9 @@ A client-side music player for Minecraft. Browse your own library, build playlis
 
 ## Install
 
-DarkMusic **v2.8.0** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v2.8.1** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-2.8.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-2.8.1.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Open **Settings → General → Music Folders**, or add songs to `config/darkmusic/music` inside the instance.
@@ -70,9 +70,9 @@ Preview HUD layouts, choose a spectrum style, and pick a gradient or your own co
 
 ## Find lyrics for your collection
 
-Enable lyrics in **Settings → Lyrics** to look up songs already in your library. Reliable matches apply automatically; review alternatives when a match needs your choice. Lyrics language is independent of Minecraft’s interface language.
+Enable lyrics in **Settings → Lyrics**, then approve online lookup to find lyrics for the song you play. **Find Missing Lyrics** checks your collection only when you start it. The first reliable version applies automatically, and alternatives stay available. Lyrics language is independent of Minecraft’s interface language.
 
-Move the lyrics display separately in Edit HUD Layout, customize its width and colors, and adjust a song’s timing without rewriting its lyric file. Online lookup and background library fetching can be changed in Advanced Lyrics.
+Move the lyrics display separately in Edit HUD Layout, customize its width and colors, and adjust a song’s timing without rewriting its lyric file. Online lookup requires consent; whole-library lookup is an explicit action in Advanced Lyrics. Song-specific failures retry separately, so later songs can continue. Provider-requested waits remain respected.
 
 ## Shape your sound
 

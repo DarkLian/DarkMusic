@@ -64,19 +64,19 @@ class DuplicateStorageTest {
             assertTrue(scanner.snapshot().pairs().getFirst().evidence().contains(DuplicateResult.Evidence.EXACT));
             scanner.deleted(Set.of(a.id()));
             assertTrue(scanner.snapshot().pairs().isEmpty());
+            scanner.settled().get(10, TimeUnit.SECONDS);
         }
         String stamp = DuplicateScanner.stamp(a, DuplicateScanner.attributes(a));
         var cache = new DuplicateCache(temp.resolve("data"));
         cache.load();
-        assertNotNull(cache.get(a.id(), stamp));
+        assertNull(cache.get(a.id(), stamp), "Known deletions prune cached associations");
         assertNull(cache.get(a.id(), "changed"));
-        assertArrayEquals(new int[0], cache.get(a.id(), stamp).values());
         cache.put(a.id(), stamp, "", "", new int[]{1, -2, 3});
         cache.flush();
         var loaded = new DuplicateCache(temp.resolve("data"));
         loaded.load();
         assertArrayEquals(new int[]{1, -2, 3}, loaded.get(a.id(), stamp).values());
-        Files.writeString(temp.resolve("data/cleanup-cache/cache-" + (a.id().hashCode() & 15) + ".json"), "not json");
+        Files.writeString(temp.resolve("data/cleanup-cache/v2/cache-0.json"), "not json");
         var damaged = new DuplicateCache(temp.resolve("data"));
         assertDoesNotThrow(damaged::load);
         assertNull(damaged.get(a.id(), stamp));

@@ -21,7 +21,9 @@ public final class MusicLibrary implements AutoCloseable {
     private final ExecutorService scanner = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-scan").factory());
     private final ExecutorService rootScanner = Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("darkmusic-root-", 0).factory());
     private final Map<Path, RootJob> rootJobs = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, java.util.concurrent.Semaphore> storeWalkers = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.function.Consumer<Path> beforeRoot;
+    private final java.util.function.Predicate<Path> readableDirectory;
     private final long rootTimeoutNanos;
     private final ScheduledExecutorService monitor = Executors.newSingleThreadScheduledExecutor(Thread.ofPlatform().daemon().name("darkmusic-watch").factory());
     private final AtomicBoolean running = new AtomicBoolean(), requested = new AtomicBoolean();
@@ -46,7 +48,12 @@ public final class MusicLibrary implements AutoCloseable {
     }
 
     MusicLibrary(Path data, java.util.function.Consumer<Path> beforeRoot, long timeoutMillis) {
+        this(data, beforeRoot, timeoutMillis, Files::isReadable);
+    }
+
+    MusicLibrary(Path data, java.util.function.Consumer<Path> beforeRoot, long timeoutMillis, java.util.function.Predicate<Path> readableDirectory) {
         this.beforeRoot = beforeRoot;
+        this.readableDirectory = readableDirectory;
         rootTimeoutNanos = TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
         cacheFile = data.resolve("library-cache.json");
         scanner.execute(() -> {
@@ -162,6 +169,21 @@ public final class MusicLibrary implements AutoCloseable {
             ticket = generation.get();
         }
         var prior = snapshot;
+        // A first scan after restart also needs the persisted index when a subtree is unavailable.
+        var known = new LinkedHashMap<String, Track>();
+        var rootPaths = new HashMap<String, Path>();
+        selected.forEach((path, id) -> rootPaths.put(id, path));
+        for (Cached saved : cache.values()) {
+            Path base = rootPaths.get(saved.root);
+            if (base == null) continue;
+            try {
+                Path file = base.resolve(saved.path).normalize();
+                if (!file.equals(base) && file.startsWith(base))
+                    known.put(saved.root + ":" + saved.path, saved.track(file));
+            } catch (InvalidPathException invalid) { /* Ignore malformed persisted paths. */ }
+        }
+        for (Track track : prior.tracks()) known.put(track.id(), track);
+        prior = new Snapshot(prior.revision(), List.copyOf(known.values()), prior.scanning(), prior.message(), prior.folders(), prior.complete(), prior.completeRoots());
         rootJobs.entrySet().removeIf(entry -> !selected.containsKey(entry.getKey()) && entry.getValue().result.isDone());
         var jobs = new LinkedHashMap<Path, RootJob>();
         for (var entry : selected.entrySet()) {
@@ -254,7 +276,17 @@ public final class MusicLibrary implements AutoCloseable {
                 }
                 tracks.addAll(retained.values());
             } else {
-                tracks.addAll(result.tracks);
+                var retained = new LinkedHashMap<String, Track>();
+                for (var track : priorTracks.getOrDefault(entry.getValue(), List.of()))
+                    if (result.unreadable.stream().anyMatch(path -> track.file().toAbsolutePath().normalize().startsWith(path)))
+                        retained.put(track.id(), track);
+                for (String folder : priorFolders.getOrDefault(entry.getValue(), List.of())) {
+                    String relative = folder.equals(prefix) ? "" : folder.substring(Math.min(folder.length(), prefix.length() + 1));
+                    if (result.unreadable.stream().anyMatch(path -> entry.getKey().resolve(relative).normalize().startsWith(path)))
+                        folders.add(folder);
+                }
+                for (var track : result.tracks) retained.put(track.id(), track);
+                tracks.addAll(retained.values());
                 folders.addAll(result.folders);
             }
             folders.add(prefix);
@@ -268,11 +300,12 @@ public final class MusicLibrary implements AutoCloseable {
     }
 
     private record RootResult(List<Track> tracks, List<Path> directories, List<String> folders, boolean complete,
-                              String message) {
+                              String message, List<Path> unreadable) {
         RootResult {
             tracks = List.copyOf(tracks);
             directories = List.copyOf(directories);
             folders = List.copyOf(folders);
+            unreadable = List.copyOf(unreadable);
         }
     }
 
@@ -299,6 +332,9 @@ public final class MusicLibrary implements AutoCloseable {
             var folders = new ArrayList<String>();
             folders.add("@" + id);
             int[] unreadable = {0};
+            var unreadablePaths = new ArrayList<Path>();
+            java.util.concurrent.Semaphore permit = null;
+            boolean acquired = false;
             long[] publishedAt = {System.nanoTime()};
             boolean complete = false;
             String message = "";
@@ -306,11 +342,23 @@ public final class MusicLibrary implements AutoCloseable {
                 beforeRoot.accept(directory);
                 if (!Files.isDirectory(directory) || !Files.isReadable(directory))
                     throw new IOException(Text.get("library.status.unavailable"));
+                String store = Files.getFileStore(directory).toString();
+                permit = storeWalkers.computeIfAbsent(store, key -> new java.util.concurrent.Semaphore(2, true));
+                while (!permit.tryAcquire(250, TimeUnit.MILLISECONDS)) {
+                    if (cancelled || closed || ticket != generation.get()) return;
+                }
+                acquired = true;
+                progressAt = System.nanoTime();
                 Files.walkFileTree(directory, new SimpleFileVisitor<>() {
                     @Override
                     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
                         progressAt = System.nanoTime();
                         if (cancelled || closed || ticket != generation.get()) return FileVisitResult.TERMINATE;
+                        if (!readableDirectory.test(dir)) {
+                            unreadable[0]++;
+                            unreadablePaths.add(dir.toAbsolutePath().normalize());
+                            return FileVisitResult.SKIP_SUBTREE;
+                        }
                         if (!dir.equals(directory) && dir.getFileName().toString().startsWith(".darkmusic-work-"))
                             return FileVisitResult.SKIP_SUBTREE;
                         if (dir.toAbsolutePath().normalize().equals(cacheFile.toAbsolutePath().getParent().resolve("downloads/work")))
@@ -331,7 +379,7 @@ public final class MusicLibrary implements AutoCloseable {
                             tracks.add(old != null && old.size == attrs.size() && old.modified == attrs.lastModifiedTime().toMillis()
                                 ? old.track(file) : metadata.read(id, relative, file, attrs.size(), attrs.lastModifiedTime().toMillis()));
                             if (tracks.size() % 100 == 0 && System.nanoTime() - publishedAt[0] > 250_000_000L) {
-                                partial = new RootResult(tracks, directories, folders, false, "");
+                                partial = new RootResult(tracks, directories, folders, false, "", unreadablePaths);
                                 revision++;
                                 publishedAt[0] = System.nanoTime();
                             }
@@ -343,15 +391,26 @@ public final class MusicLibrary implements AutoCloseable {
                     public FileVisitResult visitFileFailed(Path file, IOException failure) {
                         progressAt = System.nanoTime();
                         unreadable[0]++;
+                        unreadablePaths.add(file.toAbsolutePath().normalize());
+                        return cancelled || closed || ticket != generation.get() ? FileVisitResult.TERMINATE : FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult postVisitDirectory(Path dir, IOException failure) {
+                        if (failure != null) {
+                            unreadable[0]++;
+                            unreadablePaths.add(dir.toAbsolutePath().normalize());
+                        }
                         return cancelled || closed || ticket != generation.get() ? FileVisitResult.TERMINATE : FileVisitResult.CONTINUE;
                     }
                 });
-                complete = !cancelled && !closed && ticket == generation.get() && unreadable[0] == 0;
+                complete = !cancelled && !closed && ticket == generation.get();
                 if (unreadable[0] != 0) message = Text.get("library.status.unreadable", unreadable[0]);
             } catch (Exception failure) {
                 message = Text.failure(failure, "library.status.scan_failed");
             } finally {
-                result.complete(new RootResult(tracks, directories, folders, complete, message));
+                if (acquired) permit.release();
+                result.complete(new RootResult(tracks, directories, folders, complete, message, unreadablePaths));
                 revision++;
                 if (timedOut && !closed) requestRescan();
             }
@@ -405,7 +464,9 @@ public final class MusicLibrary implements AutoCloseable {
                     if (!(event.context() instanceof Path relative)) continue;
                     Path path = ((Path) key.watchable()).resolve(relative);
                     String name = path.getFileName().toString();
-                    if (path.startsWith(cacheFile.toAbsolutePath().getParent().resolve("downloads/work")) || name.startsWith(".darkmusic-") && (name.endsWith(".tmp") || name.equals(".darkmusic-downloads.json")))
+                    if (path.startsWith(cacheFile.toAbsolutePath().getParent().resolve("downloads/work")) || name.startsWith(".darkmusic-")
+                        && (name.endsWith(".tmp") || name.equals(".darkmusic-downloads.json") || name.equals(".darkmusic-sources.json")
+                        || name.matches("\\.darkmusic-download-commit-[a-f0-9]{64}\\.json") || name.matches("\\.darkmusic-lyrics-[a-f0-9]{24}\\.json")))
                         continue;
                     changed |= event.kind() == StandardWatchEventKinds.ENTRY_DELETE || supported(path) || Files.isDirectory(path) || watchedDirectories.contains(path);
                 }

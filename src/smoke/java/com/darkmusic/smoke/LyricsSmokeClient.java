@@ -114,6 +114,7 @@ final class LyricsSmokeClient {
                 app.settings.ffprobePath = tools.resolve("ffprobe.exe").toString();
                 app.settings.lyricsEnabled = true;
                 app.settings.lyricsOnline = false;
+                app.settings.lyricsConsentVersion = 1;
                 app.save();
                 app.chooseDirectory(Path.of(System.getProperty("darkmusic.music")), () -> {
                 });
@@ -123,8 +124,12 @@ final class LyricsSmokeClient {
             if (stage == -1) {
                 if (app.library.snapshot().scanning() || app.library.snapshot().tracks().isEmpty()) return;
                 SmokeUi.displayReady(mc);
-                a = app.library.snapshot().tracks().getFirst();
-                b = app.library.snapshot().tracks().size() > 1 ? app.library.snapshot().tracks().get(1) : a;
+                Path requested = Path.of(System.getProperty("darkmusic.music")).toAbsolutePath().normalize();
+                String root = app.library.roots().get(requested);
+                var testTracks = app.library.snapshot().tracks().stream().filter(t -> t.rootId().equals(root)).toList();
+                check(!testTracks.isEmpty(), "The requested private test collection is indexed");
+                a = testTracks.getFirst();
+                b = testTracks.size() > 1 ? testTracks.get(1) : a;
                 // Authored timing fixtures exercise the real playback clock; they are not music/cover assets or provider results.
                 timed = LyricsDocument.of("import", "smoke", a.title(), a.artist(), a.album(), a.duration(), "ja", LyricsDocument.Variant.ORIGINAL,
                     false, false, "[00:01]最初の行\n[00:03]第二行\n[00:06]Third line");
@@ -148,8 +153,20 @@ final class LyricsSmokeClient {
             }
             if (stage == 0) {
                 doubleClicks(mc);
+                app.settings.lyricsConsentVersion = 0;
+                app.settings.lyricsOnline = false;
+                var consentPlayer = new MusicScreen(app, null);
+                mc.gui.setScreen(consentPlayer);
+                consentPlayer.tick();
+                check(mc.gui.screen() instanceof ConfirmationScreen, "Upgrade asks before enabling online lyrics");
+                var consent = mc.gui.screen();
+                for (int w : new int[]{320, 426, 960}) bounds(consent, w, w == 960 ? 540 : 240);
+                consent.onClose();
+                consentPlayer.tick();
+                check(mc.gui.screen() == consentPlayer && !app.settings.lyricsOnline, "Cancel remains offline without repeated prompts");
                 for (var screen : List.of(new LyricsScreen(app, null, a), new LyricsSearchScreen(app, null, a),
-                    new LyricsSettingsScreen(app, null), new LyricsHudSettingsScreen(app, null), new LyricsOptionsScreen(app, null, a), new LyricCandidateScreen(app, null, a, timed))) {
+                    new LyricsSettingsScreen(app, null), new LyricsLibraryScreen(app, null), new LyricsHudSettingsScreen(app, null), new LyricsOptionsScreen(app, null, a),
+                    new AudioDeletionScreen(app, null, List.of(a), null), new LyricCandidateScreen(app, null, a, timed))) {
                     mc.gui.setScreen(screen);
                     for (int w : new int[]{320, 426, 960}) bounds(screen, w, w == 960 ? 540 : 240);
                 }

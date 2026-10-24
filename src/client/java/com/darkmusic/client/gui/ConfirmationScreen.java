@@ -23,6 +23,13 @@ public final class ConfirmationScreen extends LocalScreen {
     private ScrollBar scrollbar;
     private int left, top, panelWidth, panelHeight, scroll, bodyHeight;
     private boolean busy;
+    private boolean destructive = true;
+
+    public ConfirmationScreen nonDestructive() {
+        destructive = false;
+        return this;
+    }
+
     private String error = "";
 
     public ConfirmationScreen(Screen parent, Component title, Component explanation, Component confirmLabel, Supplier<CompletableFuture<Void>> action) {
@@ -49,7 +56,7 @@ public final class ConfirmationScreen extends LocalScreen {
         int half = (panelWidth - 28) / 2;
         cancel = addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.cancel"), b -> onClose()).bounds(left + 10, top + panelHeight - 30, half, 20).build());
         confirm = addRenderableWidget(UiButton.builder(confirmLabel, b -> submit()).bounds(left + 18 + half, top + panelHeight - 30, half, 20).build());
-        UiButton.style(confirm, UiButton.Style.DESTRUCTIVE);
+        if (destructive) UiButton.style(confirm, UiButton.Style.DESTRUCTIVE);
         setInitialFocus(cancel);
         confirm.active = cancel.active = !busy;
         scrollbar = addRenderableWidget(new ScrollBar(() -> scroll, value -> scroll = value));

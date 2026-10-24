@@ -54,8 +54,9 @@ public final class Settings {
     public SoundEnvironmentSettings environment = new SoundEnvironmentSettings();
     public boolean lyricsEnabled;
     public String lyricsLanguages = "auto";
-    public boolean lyricsOnline = true, lyricsAutomaticLookup = true, lyricsDownloadLookup = true;
-    public boolean lyricsLibraryLookup = true;
+    public int lyricsConsentVersion;
+    public boolean lyricsOnline, lyricsLibraryLookup;
+    public boolean lyricsAutomaticLookup = true, lyricsDownloadLookup = true;
     public boolean lyricsAutoCaptions;
     public boolean lyricsHud, lyricsNextLine;
     public double lyricsHudX = .5, lyricsHudY = .9, lyricsHudScale = 1;
@@ -80,6 +81,10 @@ public final class Settings {
     }
 
     public void validate() {
+        if (lyricsConsentVersion < 1) {
+            lyricsOnline = false;
+            lyricsLibraryLookup = false;
+        }
         menuBackgroundColor &= 0xFFFFFF;
         menuAccentColor &= 0xFFFFFF;
         circularSpectrumHeight = Math.clamp(circularSpectrumHeight, 4, 60);

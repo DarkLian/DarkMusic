@@ -14,9 +14,14 @@ import java.util.function.Consumer;
  * Bounded inverted retrieval, followed by independent evidence checks. No transitive matches.
  */
 public final class DuplicateMatcher {
-    public record Entry(Track track, String stamp, String hash, String source, int[] fingerprint) {
+    public record Entry(Track track, String stamp, String hash, String source, int[] fingerprint, Set<Long> audioKeys) {
+        public Entry(Track track, String stamp, String hash, String source, int[] fingerprint) {
+            this(track, stamp, hash, source, fingerprint, FingerprintService.keys(fingerprint == null ? new int[0] : fingerprint));
+        }
+
         public Entry {
             fingerprint = fingerprint == null ? new int[0] : fingerprint.clone();
+            audioKeys = Set.copyOf(audioKeys);
         }
     }
 
@@ -24,7 +29,8 @@ public final class DuplicateMatcher {
     }
 
     private static final Set<String> DECORATIONS = Set.of("official", "audio", "video", "music", "mv", "pv", "hd", "hq", "4k", "1080p", "lyrics", "lyric", "visualizer", "youtube", "bilibili");
-    private static final Set<String> VERSIONS = Set.of("live", "remix", "instrumental", "cover", "acoustic", "karaoke", "remaster", "remastered", "sped", "slowed", "現場", "翻唱", "伴奏");
+    private static final Set<String> VERSIONS = com.darkmusic.client.library.RecordingVersions.WORDS;
+    private static final Set<String> GENERIC_TITLES = Set.of("home", "intro", "outro", "interlude", "untitled", "opening", "ending");
 
     public static String normalize(String value) {
         String s = Normalizer.normalize(value == null ? "" : value, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT)
@@ -91,47 +97,79 @@ public final class DuplicateMatcher {
     }
 
     public Matches match(List<Entry> entries, DuplicatePolicy policy, ProcessRunner.Token token, Consumer<List<DuplicateResult>> partial) {
-        var indexes = new HashMap<String, ArrayList<Integer>>();
-        var output = new ArrayList<DuplicateResult>();
-        long comparisons = 0;
-        boolean limited = false;
+        var session = new Session(policy, token);
         for (int i = 0; i < entries.size(); i++) {
+            session.add(entries.get(i));
+            if (i % 1000 == 0 && !session.output.isEmpty()) partial.accept(session.snapshot().pairs());
+            if (session.output.size() >= DuplicatePolicy.MAX_RESULTS) break;
+        }
+        return session.snapshot();
+    }
+
+    /**
+     * Worker-owned retrieval index reused as newly decoded fingerprints arrive.
+     */
+    public static final class Session {
+        private final DuplicatePolicy policy;
+        private final ProcessRunner.Token token;
+        private final List<Entry> entries = new ArrayList<>();
+        private final Map<String, ArrayList<Integer>> indexes = new HashMap<>();
+        private final Map<String, DuplicateResult> output = new LinkedHashMap<>();
+        private long comparisons;
+        private boolean limited;
+
+        public Session(DuplicatePolicy policy, ProcessRunner.Token token) {
+            this.policy = policy;
+            this.token = token;
+        }
+
+        public void add(Entry entry) {
+            int index = entries.size();
+            entries.add(entry);
+            update(index, entry);
+        }
+
+        public void update(int index, Entry entry) {
             token.check();
-            var entry = entries.get(i);
+            entries.set(index, entry);
             var keys = keys(entry);
             var votes = new HashMap<Integer, Integer>();
             for (String key : keys) {
                 var bucket = indexes.get(key);
-                if (bucket != null) for (int other : bucket) votes.merge(other, 1, Integer::sum);
+                if (bucket != null) for (int other : bucket) if (other != index) votes.merge(other, 1, Integer::sum);
             }
-            var retrieved = votes.entrySet().stream().sorted(Map.Entry.<Integer, Integer>comparingByValue().reversed().thenComparing(Map.Entry.comparingByKey())).limit(DuplicatePolicy.MAX_RETRIEVED).toList();
+            var retrieved = votes.entrySet().stream().sorted(Map.Entry.<Integer, Integer>comparingByValue().reversed()
+                .thenComparing(Map.Entry.comparingByKey())).limit(DuplicatePolicy.MAX_RETRIEVED).toList();
             if (votes.size() > retrieved.size()) limited = true;
             for (var candidate : retrieved) {
                 token.check();
                 comparisons++;
-                var result = compare(entries.get(candidate.getKey()), entry, policy);
+                var other = entries.get(candidate.getKey());
+                var result = compare(other, entry, policy);
                 if (result != null) {
-                    output.add(result);
-                    if (output.size() >= DuplicatePolicy.MAX_RESULTS) {
+                    if (output.size() >= DuplicatePolicy.MAX_RESULTS && !output.containsKey(result.id())) {
                         limited = true;
-                        break;
+                        continue;
                     }
+                    output.put(result.id(), result);
                 }
             }
-            if (output.size() >= DuplicatePolicy.MAX_RESULTS) break;
             for (String key : keys) {
                 var bucket = indexes.computeIfAbsent(key, k -> new ArrayList<>());
-                if (bucket.size() < DuplicatePolicy.BUCKET_SIZE) bucket.add(i);
+                if (bucket.contains(index)) continue;
+                if (bucket.size() < DuplicatePolicy.BUCKET_SIZE) bucket.add(index);
                 else {
-                    // Keep representative early entries and recent neighbours, never enumerate a giant bucket.
-                    bucket.set(32 + i % 32, i);
+                    bucket.set(32 + index % 32, index);
                     limited = true;
                 }
             }
-            if (i % 1000 == 0 && !output.isEmpty()) partial.accept(List.copyOf(output));
         }
-        output.sort(Comparator.comparing(DuplicateResult::strength).thenComparing(r -> r.a().title()));
-        return new Matches(List.copyOf(output), comparisons, limited);
+
+        public Matches snapshot() {
+            var sorted = new ArrayList<>(output.values());
+            sorted.sort(Comparator.comparing(DuplicateResult::strength).thenComparing(r -> r.a().title()));
+            return new Matches(List.copyOf(sorted), comparisons, limited);
+        }
     }
 
     private static Set<String> keys(Entry e) {
@@ -148,7 +186,7 @@ public final class DuplicateMatcher {
         words.addAll(tokens(name));
         for (String word : words.stream().sorted(Comparator.comparingInt(String::length).reversed()).limit(12).toList())
             for (int d = -1; d <= 1; d++) keys.add("w:" + word + ":" + (duration + d));
-        for (long key : FingerprintService.keys(e.fingerprint())) keys.add("a:" + key);
+        for (long key : e.audioKeys()) keys.add("a:" + key);
         return keys;
     }
 
@@ -164,9 +202,15 @@ public final class DuplicateMatcher {
         if (title >= p.title && length) reasons.add(DuplicateResult.Evidence.TITLE_DURATION);
         if (name >= p.filename && (length || p == DuplicatePolicy.LOOSE && similarity(a.track().artist(), b.track().artist()) >= p.artist))
             reasons.add(DuplicateResult.Evidence.FILENAME);
-        var audio = FingerprintService.compare(a.fingerprint(), b.fingerprint(), p);
+        var audio = FingerprintService.compare(a.fingerprint(), b.fingerprint(), a.audioKeys(), b.audioKeys(), p);
         if (audio.matched())
             reasons.add(audio.partial() ? DuplicateResult.Evidence.OVERLAP : DuplicateResult.Evidence.AUDIO);
+        if (GENERIC_TITLES.contains(normalize(a.track().title()))
+            && !normalize(a.track().artist()).isEmpty() && !normalize(b.track().artist()).isEmpty()
+            && similarity(a.track().artist(), b.track().artist()) < p.artist) {
+            reasons.remove(DuplicateResult.Evidence.TITLE_DURATION);
+            reasons.remove(DuplicateResult.Evidence.FILENAME);
+        }
         if (p == DuplicatePolicy.STRICT && !reasons.contains(DuplicateResult.Evidence.EXACT) && !reasons.contains(DuplicateResult.Evidence.SOURCE)
             && !reasons.contains(DuplicateResult.Evidence.AUDIO) && !reasons.contains(DuplicateResult.Evidence.OVERLAP)
             && similarity(a.track().artist(), b.track().artist()) < p.artist) reasons.clear();

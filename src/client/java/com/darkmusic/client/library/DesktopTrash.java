@@ -13,16 +13,41 @@ final class DesktopTrash implements AudioDeletion.Trash {
     private DataInputStream input;
     private DataOutputStream output;
     private boolean available;
+    private Tail diagnostics = new Tail();
+
+    private static final class Tail {
+        private final StringBuilder text = new StringBuilder();
+
+        synchronized void append(String value) {
+            text.append(value);
+            if (text.length() > 4096) text.delete(0, text.length() - 4096);
+        }
+
+        @Override
+        public synchronized String toString() {
+            return text.toString();
+        }
+    }
 
     public boolean supported() {
         if (process != null) return available && process.isAlive();
         try {
             String binary = System.getProperty("os.name").startsWith("Windows") ? "javaw.exe" : "java";
-            Path java = Path.of(System.getProperty("java.home"), "bin", binary);
+            Path javaBinary = Path.of(System.getProperty("java.home"), "bin", binary);
             Path classes = Path.of(DesktopTrashApp.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-            process = new ProcessBuilder(List.of(java.toString(), "-Djava.awt.headless=false", "-cp", classes.toString(),
-                DesktopTrashApp.class.getName(), Long.toString(ProcessHandle.current().pid())))
-                .redirectError(ProcessBuilder.Redirect.DISCARD).start();
+            process = new ProcessBuilder(List.of(javaBinary.toString(), "-Djava.awt.headless=false", "-cp", classes.toString(),
+                DesktopTrashApp.class.getName(), Long.toString(ProcessHandle.current().pid()))).start();
+            diagnostics = new Tail();
+            var tail = diagnostics;
+            var errors = process.getErrorStream();
+            Thread.ofVirtual().name("darkmusic-trash-errors").start(() -> {
+                try (var reader = new InputStreamReader(errors, java.nio.charset.StandardCharsets.UTF_8)) {
+                    char[] buffer = new char[512];
+                    int count;
+                    while ((count = reader.read(buffer)) >= 0) if (count > 0) tail.append(new String(buffer, 0, count));
+                } catch (IOException ignored) {
+                }
+            });
             input = new DataInputStream(process.getInputStream());
             output = new DataOutputStream(process.getOutputStream());
             available = response(input::readBoolean, 10);
@@ -38,7 +63,7 @@ final class DesktopTrash implements AudioDeletion.Trash {
         if (!supported()) return false;
         Path file = item.file();
         try {
-            return response(() -> {
+            boolean moved = response(() -> {
                 output.writeBoolean(true);
                 output.writeUTF(file.toString());
                 output.writeLong(item.track().size());
@@ -47,8 +72,11 @@ final class DesktopTrash implements AudioDeletion.Trash {
                 output.flush();
                 return input.readBoolean();
             }, 120);
+            if (!moved)
+                org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Desktop Trash rejected {}: {}", file, diagnostics);
+            return moved;
         } catch (Exception failure) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Desktop Trash operation failed for {}", file, failure);
+            org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Desktop Trash operation failed for {}: {}", file, diagnostics, failure);
             close();
             return false;
         }

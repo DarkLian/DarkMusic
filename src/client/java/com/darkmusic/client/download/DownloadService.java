@@ -118,8 +118,24 @@ public final class DownloadService implements AutoCloseable {
      * Explicit lyric lookup for existing music, using configured tools without installing anything.
      */
     public com.darkmusic.client.lyrics.LyricsDocument fetchLyrics(com.darkmusic.client.library.Track track, String preferences, boolean generated, ProcessRunner.Token token) throws Exception {
-        String link = com.darkmusic.client.library.SourceLinks.resolve(track.file());
+        String link = com.darkmusic.client.lyrics.CaptionUrls.automatic(com.darkmusic.client.library.SourceLinks.read(track.file()));
+        return fetchLyrics(track, link, preferences, generated, token);
+    }
+
+    public com.darkmusic.client.lyrics.LyricsDocument fetchSourceLyrics(com.darkmusic.client.library.Track track, String preferences, boolean generated, ProcessRunner.Token token) throws Exception {
+        return fetchLyrics(track, com.darkmusic.client.library.SourceLinks.resolve(track.file()), preferences, generated, token);
+    }
+
+    private com.darkmusic.client.lyrics.LyricsDocument fetchLyrics(com.darkmusic.client.library.Track track, String link, String preferences, boolean generated, ProcessRunner.Token token) throws Exception {
         if (link.isBlank()) return null;
+        try {
+            link = com.darkmusic.client.lyrics.CaptionUrls.publicUrl(link);
+        } catch (java.net.UnknownHostException network) {
+            throw network;
+        } catch (java.io.IOException rejected) {
+            throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.UNSUPPORTED_URL, DownloadDiagnostics.Stage.OPTIONAL,
+                DownloadDiagnostics.Tool.YT_DLP, null, "", rejected);
+        }
         Tools selected;
         synchronized (this) {
             selected = settings;
@@ -136,6 +152,12 @@ public final class DownloadService implements AutoCloseable {
                 throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Stage.ANALYSIS, DownloadDiagnostics.Tool.YT_DLP, result.exit(), result.output());
             var metadata = DownloadJson.object(result.output());
             var entry = new Entry(1, track.title(), link, "", "", true);
+            try {
+                var tag = org.jaudiotagger.audio.AudioFileIO.read(track.file().toFile()).getTag();
+                if (tag != null)
+                    preferences = LyricsLanguages.preferSongLanguage(preferences, tag.getFirst(org.jaudiotagger.tag.FieldKey.LANGUAGE));
+            } catch (
+                Exception unavailable) { /* Unknown song language remains Auto; video/UI language is not substituted. */ }
             var lyrics = DownloadLyrics.fetch(runner, chain, entry, metadata, work, token, LyricsLanguages.resolve(preferences), generated);
             if (lyrics.failure() != null)
                 throw new DownloadDiagnostics.Failure(lyrics.failure(), DownloadDiagnostics.Stage.OPTIONAL, DownloadDiagnostics.Tool.YT_DLP, null, "", null);
