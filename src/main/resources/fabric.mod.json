@@ -3,7 +3,7 @@
   "id": "darkmusic",
   "version": "${version}",
   "name": "DarkMusic",
-  "description": "A client-side music library, player, downloader, and audio-reactive HUD.",
+  "description": "A client-side Minecraft music player with local libraries, playlists, in-game downloads, synced lyrics, audio effects, and customizable audio-reactive HUDs.",
   "authors": [
     "DarkLian"
   ],
