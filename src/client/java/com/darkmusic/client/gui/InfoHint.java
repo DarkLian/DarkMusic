@@ -12,6 +12,7 @@ import net.minecraft.network.chat.Component;
  */
 public final class InfoHint extends AbstractWidget {
     private final boolean marker;
+
     @Override
     public void setTooltip(net.minecraft.client.gui.components.Tooltip tooltip) {
         super.setTooltip(tooltip);
@@ -27,7 +28,9 @@ public final class InfoHint extends AbstractWidget {
         this(x, y, 20, help, true);
     }
 
-    /** Hover and keyboard help over an already-rendered section label. */
+    /**
+     * Hover and keyboard help over an already-rendered section label.
+     */
     public InfoHint(int x, int y, int width, Component help) {
         this(x, y, width, help, false);
     }

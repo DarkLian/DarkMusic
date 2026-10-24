@@ -14,9 +14,14 @@ import java.util.function.Consumer;
  * Bounded inverted retrieval, followed by independent evidence checks. No transitive matches.
  */
 public final class DuplicateMatcher {
-    public record Entry(Track track, String stamp, String hash, String source, int[] fingerprint, Set<Long> audioKeys) {
+    public record Entry(Track track, String stamp, String hash, String source, int[] fingerprint, Set<Long> audioKeys,
+                        boolean verifiedSource) {
         public Entry(Track track, String stamp, String hash, String source, int[] fingerprint) {
-            this(track, stamp, hash, source, fingerprint, FingerprintService.keys(fingerprint == null ? new int[0] : fingerprint));
+            this(track, stamp, hash, source, fingerprint, FingerprintService.keys(fingerprint == null ? new int[0] : fingerprint), true);
+        }
+
+        public Entry(Track track, String stamp, String hash, String source, int[] fingerprint, boolean verifiedSource) {
+            this(track, stamp, hash, source, fingerprint, FingerprintService.keys(fingerprint == null ? new int[0] : fingerprint), verifiedSource);
         }
 
         public Entry {
@@ -195,7 +200,8 @@ public final class DuplicateMatcher {
         var reasons = EnumSet.noneOf(DuplicateResult.Evidence.class);
         if (!a.hash().isEmpty() && a.hash().equals(b.hash())) reasons.add(DuplicateResult.Evidence.EXACT);
         String source = sourceId(a.source());
-        if (!source.isEmpty() && source.equals(sourceId(b.source()))) reasons.add(DuplicateResult.Evidence.SOURCE);
+        if (!source.isEmpty() && source.equals(sourceId(b.source())))
+            reasons.add(a.verifiedSource() && b.verifiedSource() ? DuplicateResult.Evidence.SOURCE : DuplicateResult.Evidence.SOURCE_TAG);
         boolean length = p.duration(a.track().duration(), b.track().duration());
         double title = similarity(a.track().title(), b.track().title());
         double name = similarity(a.track().file().getFileName().toString(), b.track().file().getFileName().toString());

@@ -167,3 +167,16 @@ Release verification uses `scripts/verify.ps1 -Clean -DesktopIntegration` with t
 Duplicate tests require content-bound source/archive evidence and reject stale filename-only or cached provenance. Controlled decoder tests use real private-collection PCM to verify bounded empty reads and legitimate priming. Caption requests accept canonical supported providers; these checks do not establish a complete network sandbox around external-tool redirects or DNS resolution.
 
 Packaging checks verify the custom current license, preserved CC0 legacy text, LGPL notices, and current Fabric metadata. Release checks inspect the license in both binary and source JARs and keep the third-party source bundle available. Existing historical license grants must not be relabeled or erased.
+
+
+## Pending reliability and command changes
+
+Backup recovery tests cover external changes after interruption, newly created restore targets, conservative handling of legacy journals, and restart after claiming a recognized replacement. Unknown contents remain at their destination with a conflict copy and a retained journal. Duplicate tests distinguish verified source evidence from unverified embedded tags, including cached hints across repeated scans. Fresh provenance verification reuses its digest for exact-file and archive evidence within a scan; unchanged file size and timestamp alone do not authorize trusting an old hash across scans.
+
+Download receipt tests cover failed source persistence, independent repair, and rejection of replaced content. Desktop Trash checks include passing the reviewed fallback hash to the isolated helper, native transfer of disposable documents, and same-size/timestamp companion replacement protection. Saved-lyrics tests use a controlled clock to verify five-second read retries without a restart.
+
+The full Windows `scripts/verify.ps1 -DesktopIntegration` run passed 491 tests (489 passed, two optional network/install tests skipped) before the command additions. Nine focused command/localization tests and a build passed afterward. Native lyrics smoke checks passed in English and Traditional Chinese with the private collection, fullscreen 1920x1080, GUI scale 2, and SmoothFont. The smoke flow checks deferred lyrics commands for active and paused Up Next tracks, offline local lyrics, disabled lyrics, and a stop occurring before the menu opens. No real server disconnect/death race or subprocess redirect exploit was exercised.
+
+`/da help` and `/darkmusic help` list the existing commands in groups with click-to-suggest actions. Both lyrics aliases are checked through the Fabric command dispatcher, including localized failure feedback without triggering unrelated actions. Menu opening is deferred until chat closes and revalidates the current playback state.
+
+External caption networking remains a documented trust boundary. Canonical supported URLs and initial public-address checks are retained. yt-dlp performs redirects and DNS resolution itself ([upstream networking implementation](https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/networking/_urllib.py)); these checks are not a complete process network sandbox. Cross-platform egress enforcement requires a separately reviewed solution. No new dependencies or system firewall changes were introduced.

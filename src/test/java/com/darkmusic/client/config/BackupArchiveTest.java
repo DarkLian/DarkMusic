@@ -317,4 +317,69 @@ class BackupArchiveTest {
         assertEquals(Set.of(entry), store.retainedImports());
         assertFalse(Files.exists(directory.resolve("playlists.json")));
     }
+
+    @Test
+    void interruptedRecoveryPreservesExternalChangesAndReportsConflict() throws Exception {
+        Path root = directory.resolve("conflict/config/darkmusic");
+        Files.createDirectories(root);
+        Files.writeString(root.resolve("config.json"), "original config");
+        var update = new LinkedHashMap<String, String>();
+        update.put("config.json", "transaction config");
+        update.put("playlists.json", "transaction playlists");
+        assertThrows(AssertionError.class, () -> BackupArchive.install(root, update, (path, value) -> {
+            ConfigStore.atomicWrite(path, value);
+            if (path.getFileName().toString().equals("playlists.json"))
+                throw new AssertionError("Simulated termination");
+        }));
+        Files.writeString(root.resolve("config.json"), "external newer config");
+        Files.writeString(root.resolve("playlists.json"), "external newly created playlists");
+        assertThrows(java.io.IOException.class, () -> BackupArchive.recover(root));
+        assertEquals("external newer config", Files.readString(root.resolve("config.json")));
+        assertEquals("external newly created playlists", Files.readString(root.resolve("playlists.json")));
+        assertTrue(BackupArchive.recoveryPending(root));
+        try (var paths = Files.walk(root.resolve("backups"))) {
+            assertTrue(paths.filter(Files::isRegularFile).anyMatch(p -> {
+                try {
+                    return Files.readString(p).equals("external newer config");
+                } catch (java.io.IOException e) {
+                    return false;
+                }
+            }));
+        }
+        // An explicit user resolution to a recognized state permits recovery to resume.
+        Files.writeString(root.resolve("config.json"), "transaction config");
+        Files.writeString(root.resolve("playlists.json"), "transaction playlists");
+        assertTrue(BackupArchive.recover(root));
+        assertEquals("original config", Files.readString(root.resolve("config.json")));
+        assertFalse(Files.exists(root.resolve("playlists.json")));
+    }
+
+    @Test
+    void legacyJournalDoesNotAuthorizeOverwritingUnknownContent() throws Exception {
+        String id = UUID.randomUUID().toString();
+        Path rollback = Files.createDirectories(directory.resolve("backups").resolve(id));
+        Files.writeString(rollback.resolve("config.json"), "original");
+        Files.writeString(directory.resolve("config.json"), "unrecognized");
+        Files.writeString(directory.resolve("restore-pending.json"),
+            "{\"version\":1,\"backup\":\"" + id + "\",\"existed\":{\"config.json\":true}}");
+        assertThrows(java.io.IOException.class, () -> BackupArchive.recover(directory));
+        assertEquals("unrecognized", Files.readString(directory.resolve("config.json")));
+    }
+
+    @Test
+    void recoveryResumesAfterClaimingARecognizedReplacement() throws Exception {
+        Files.writeString(directory.resolve("config.json"), "original");
+        assertThrows(AssertionError.class, () -> BackupArchive.install(directory, Map.of("config.json", "replacement"), (path, value) -> {
+            ConfigStore.atomicWrite(path, value);
+            throw new AssertionError("Interrupted");
+        }));
+        var journal = com.google.gson.JsonParser.parseString(Files.readString(directory.resolve("restore-pending.json"))).getAsJsonObject();
+        Path originals = directory.resolve("backups").resolve(journal.get("backup").getAsString());
+        Files.move(directory.resolve("config.json"), originals.resolve("recover-config.json"));
+        assertTrue(BackupArchive.recover(directory));
+        assertEquals("original", Files.readString(directory.resolve("config.json")));
+        assertFalse(Files.exists(originals.resolve("recover-config.json")));
+        assertFalse(BackupArchive.recoveryPending(directory));
+    }
+
 }

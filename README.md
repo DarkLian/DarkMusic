@@ -115,7 +115,7 @@ Space toggles Play/Pause inside the player. Focused controls retain their normal
 
 Change shortcuts in **Options → Controls → Key Binds → DarkMusic**.
 
-`/da` or `/darkmusic` opens the player. Add `gui` to edit HUD layout, or `help` for links and tips. These commands run locally.
+`/da` or `/darkmusic` opens the player. Add `gui` to edit HUD layout, `lyrics` to open the current song's lyrics, `update` to check and download an available update, or `help` for grouped commands, shortcuts, and links. These commands run locally.
 
 ## Build and contribute
 

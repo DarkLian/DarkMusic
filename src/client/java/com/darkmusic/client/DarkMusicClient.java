@@ -429,7 +429,11 @@ public class DarkMusicClient implements ClientModInitializer {
     private volatile boolean closed;
     private boolean resetting;
     private long directoryGeneration;
-    private Boolean requestedLayout;
+
+    private enum RequestedScreen {PLAYER, HUD, LYRICS}
+
+    private RequestedScreen requestedScreen;
+    private Object requestedWorld;
     private long requestUntil;
 
     public void warn(String text) {
@@ -542,22 +546,43 @@ public class DarkMusicClient implements ClientModInitializer {
     }
 
     public void requestScreen(boolean layout) {
-        requestedLayout = layout;
+        requestedScreen = layout ? RequestedScreen.HUD : RequestedScreen.PLAYER;
+        requestedWorld = Minecraft.getInstance().level;
         requestUntil = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
     }
 
+    public String requestLyrics() {
+        String problem = lyricsCommandProblem();
+        if (!problem.isEmpty()) return problem;
+        requestedScreen = RequestedScreen.LYRICS;
+        requestedWorld = Minecraft.getInstance().level;
+        requestUntil = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        return "";
+    }
+
+    private String lyricsCommandProblem() {
+        return com.darkmusic.client.command.LocalCommands.lyricsProblem(
+            !closed && !resetting && !mediaBusy && settings != null && library != null && playback != null,
+            settings != null && settings.lyricsEnabled, playback == null ? null : playback.state());
+    }
+
     private void openRequestedScreen(Minecraft client) {
-        if (requestedLayout == null) return;
-        if (closed || resetting || System.nanoTime() > requestUntil || client.player != null && !client.player.isAlive()) {
-            requestedLayout = null;
+        if (requestedScreen == null) return;
+        if (closed || resetting || client.level != requestedWorld || System.nanoTime() > requestUntil || client.player != null && !client.player.isAlive()) {
+            requestedScreen = null;
             return;
         }
         var screen = client.gui.screen();
         if (settings == null || library == null || client.gui.overlay() != null || !client.gui.canInterruptScreen()
             || screen != null && !(screen instanceof TitleScreen)) return;
-        boolean layout = requestedLayout;
-        requestedLayout = null;
-        if (layout) client.gui.setScreen(new com.darkmusic.client.gui.HudEditorScreen(this, screen));
+        var requested = requestedScreen;
+        requestedScreen = null;
+        if (requested == RequestedScreen.LYRICS) {
+            String problem = lyricsCommandProblem();
+            if (!problem.isEmpty()) warn(com.darkmusic.client.text.Text.get(problem));
+            else client.gui.setScreen(new com.darkmusic.client.gui.LyricsScreen(this, screen));
+        } else if (requested == RequestedScreen.HUD)
+            client.gui.setScreen(new com.darkmusic.client.gui.HudEditorScreen(this, screen));
         else open();
     }
 
@@ -613,7 +638,11 @@ public class DarkMusicClient implements ClientModInitializer {
             }
         })).exceptionally(failure -> {
             org.slf4j.LoggerFactory.getLogger("darkmusic").error("Could not recover or load user data", failure);
-            Minecraft.getInstance().execute(() -> warn(com.darkmusic.client.text.Text.get("backup.recovery_failed")));
+            Throwable cause = failure;
+            while (cause.getCause() != null) cause = cause.getCause();
+            String message = cause instanceof com.darkmusic.client.config.BackupArchive.RecoveryConflict
+                ? cause.getMessage() : com.darkmusic.client.text.Text.get("backup.recovery_failed");
+            Minecraft.getInstance().execute(() -> warn(message));
             return null;
         });
         ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> {
@@ -958,7 +987,8 @@ public class DarkMusicClient implements ClientModInitializer {
         cleanupReviews = null;
         sourceEvidenceRevision = -1;
         sourceEvidence = java.util.List.of();
-        requestedLayout = null;
+        requestedScreen = null;
+        requestedWorld = null;
         directoryGeneration++;
         autoplayPending = false;
         com.darkmusic.client.gui.DesktopFolderPicker.cancel();

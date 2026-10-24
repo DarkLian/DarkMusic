@@ -128,16 +128,21 @@ public final class DuplicateScanner implements AutoCloseable {
                     String stamp = stamp(t, before);
                     var saved = cache.get(t.id(), stamp);
                     String hash = saved == null ? "" : saved.hash();
-                    String source = sources.computeIfAbsent(t.file().getParent(), SourceLinks::readDirectory).containsKey(t.file().getFileName().toString())
-                        ? SourceLinks.read(t.file()) : "";
-                    if (DuplicateMatcher.sourceId(source).isEmpty()) {
-                        for (String archiveKey : archives.computeIfAbsent(t.file().getParent(), LibrarySourceIndex::archive).getOrDefault(t.file().getFileName().toString(), List.of())) {
-                            if (!SourceLinks.matchesArchive(t.file(), archiveKey)) continue;
-                            String key = archiveKey.endsWith(":original") ? archiveKey.substring(0, archiveKey.length() - 9) : archiveKey;
-                            int split = key.indexOf(':');
-                            if (split > 0) {
-                                source = "darkmusic-source:" + LibrarySourceIndex.identity(key.substring(0, split), key.substring(split + 1), source);
-                                break;
+                    var verified = sources.computeIfAbsent(t.file().getParent(), SourceLinks::readDirectory).containsKey(t.file().getFileName().toString())
+                        ? SourceLinks.verify(t.file()) : null;
+                    String source = verified == null ? (saved != null && saved.source().startsWith("unverified:") ? saved.source().substring(11) : "") : verified.url();
+                    boolean verifiedSource = verified != null;
+                    if (verified != null) {
+                        hash = verified.hash(); // Reuse the same fresh hash for exact and archive evidence.
+                        if (DuplicateMatcher.sourceId(source).isEmpty()) {
+                            for (String archiveKey : archives.computeIfAbsent(t.file().getParent(), LibrarySourceIndex::archive).getOrDefault(t.file().getFileName().toString(), List.of())) {
+                                if (!archiveKey.equals(verified.identity())) continue;
+                                String key = archiveKey.endsWith(":original") ? archiveKey.substring(0, archiveKey.length() - 9) : archiveKey;
+                                int split = key.indexOf(':');
+                                if (split > 0) {
+                                    source = "darkmusic-source:" + LibrarySourceIndex.identity(key.substring(0, split), key.substring(split + 1), source);
+                                    break;
+                                }
                             }
                         }
                     }
@@ -146,8 +151,8 @@ public final class DuplicateScanner implements AutoCloseable {
                     request.check();
                     if (!stamp.equals(stamp(t, attributes(t))))
                         throw new java.io.IOException("File changed during analysis");
-                    cache.put(t.id(), stamp, hash, source, fingerprint);
-                    analyzed.add(new DuplicateMatcher.Entry(t, stamp, hash, source, audio ? fingerprint : new int[0]));
+                    cache.put(t.id(), stamp, hash, verifiedSource || source.isEmpty() ? source : "unverified:" + source, fingerprint);
+                    analyzed.add(new DuplicateMatcher.Entry(t, stamp, hash, source, audio ? fingerprint : new int[0], verifiedSource));
                 } catch (java.util.concurrent.CancellationException cancelled) {
                     throw cancelled;
                 } catch (Exception failure) {
@@ -200,9 +205,9 @@ public final class DuplicateScanner implements AutoCloseable {
                         String source = e.source().isEmpty() ? DuplicateMediaInfo.read(e.track(), "").source() : e.source();
                         if (!e.stamp().equals(stamp(e.track(), attributes(e.track()))))
                             throw new java.io.IOException("File changed");
-                        analyzed.set(i, new DuplicateMatcher.Entry(e.track(), e.stamp(), e.hash(), source, fingerprint));
+                        analyzed.set(i, new DuplicateMatcher.Entry(e.track(), e.stamp(), e.hash(), source, fingerprint, e.verifiedSource()));
                         incremental.update(i, analyzed.get(i));
-                        cache.put(e.track().id(), e.stamp(), e.hash(), source, fingerprint);
+                        cache.put(e.track().id(), e.stamp(), e.hash(), e.verifiedSource() || source.isEmpty() ? source : "unverified:" + source, fingerprint);
                     } catch (java.util.concurrent.CancellationException cancelled) {
                         throw cancelled;
                     } catch (Exception failure) {

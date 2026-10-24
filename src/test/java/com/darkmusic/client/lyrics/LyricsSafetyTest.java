@@ -263,4 +263,43 @@ class LyricsSafetyTest {
             assertEquals("words", lookup.snapshot(after).candidates().getFirst().document().text());
         }
     }
+
+    @Test
+    void failedSavedChoiceReadRetriesWithoutRestartWithBoundedBackoff() throws Exception {
+        Track track = identity("read-retry.dat");
+        Path settings = temp.resolve("read-retry");
+        LyricsProvider provider = new LyricsProvider() {
+            public String id() {
+                return "test";
+            }
+
+            public List<Candidate> search(Query q, ProcessRunner.Token token) {
+                return List.of();
+            }
+        };
+        var selected = document("Saved choice");
+        try (var lookup = new LyricsLookup(settings, provider)) {
+            lookup.select(track, selected).get(5, TimeUnit.SECONDS);
+            lookup.offset(track, 650).get(5, TimeUnit.SECONDS);
+        }
+        Path path;
+        try (var files = Files.list(settings.resolve("tracks"))) {
+            path = files.findFirst().orElseThrow();
+        }
+        String saved = Files.readString(path);
+        Files.writeString(path, "{invalid");
+        var now = new java.util.concurrent.atomic.AtomicLong();
+        try (var lookup = new LyricsLookup(settings, provider, now::get)) {
+            lookup.load(track);
+            assertNull(lookup.choice(track).selected());
+            Files.writeString(path, saved);
+            lookup.load(track);
+            assertNull(lookup.choice(track).selected(), "Avoid repeatedly reading a failing file every tick");
+            now.set(TimeUnit.SECONDS.toNanos(5));
+            lookup.load(track);
+            assertEquals(selected, lookup.choice(track).selected());
+            assertEquals(650, lookup.choice(track).offset());
+        }
+    }
+
 }

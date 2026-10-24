@@ -6,7 +6,7 @@ import java.util.*;
 
 public record DuplicateResult(String id, Track a, Track b, String stampA, String stampB,
                               Set<Evidence> evidence, Strength strength) {
-    public enum Evidence {EXACT, SOURCE, AUDIO, OVERLAP, TITLE_DURATION, FILENAME, VERSION}
+    public enum Evidence {EXACT, SOURCE, SOURCE_TAG, AUDIO, OVERLAP, TITLE_DURATION, FILENAME, VERSION}
 
     public enum Strength {STRONG, POSSIBLE, VERSIONS}
 

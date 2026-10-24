@@ -115,7 +115,10 @@ public final class SmartCleanupScreen extends LocalScreen {
         int scroll = rows.scrollOffset();
         String find = query.strip().toLowerCase(Locale.ROOT);
         boolean changed = groupedPairs != state.pairs() || reviewRevision != reviews.revision() || !find.equals(groupedQuery);
-        if (!changed && !force) { revision = state.revision(); return; }
+        if (!changed && !force) {
+            revision = state.revision();
+            return;
+        }
         if (changed) {
             visible = state.pairs().stream().filter(p -> !reviews.contains(p) && p.matches(find)).toList();
             groups = DuplicateGroups.build(visible);

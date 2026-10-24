@@ -149,4 +149,23 @@ class DeletionCompanionTest {
         assertEquals("Shared user lyrics", Files.readString(lyric));
         assertTrue(Files.exists(sibling));
     }
+
+    @Test
+    void sameSizeTimestampCompanionReplacementRetainsReviewedHash() throws Exception {
+        var t = track("stable-companion.dat");
+        Path lyric = LyricsFiles.companions(t.file()).getFirst();
+        Files.writeString(lyric, "before");
+        var service = service(false);
+        var plan = service.prepare(Map.of(temp, "root"), List.of(t)).trashCompanions(true);
+        assertEquals(SourceLinks.contentHash(lyric), plan.companions().getFirst().hash());
+        var modified = Files.getLastModifiedTime(lyric);
+        Files.writeString(lyric, "after!");
+        Files.setLastModifiedTime(lyric, modified);
+        var result = service.delete(plan, AudioDeletion.Mode.TRASH, new ProcessRunner.Token(), p -> {
+        });
+        assertEquals(List.of(t), result.removed());
+        assertEquals(List.of(lyric), result.companionFailures());
+        assertEquals("after!", Files.readString(lyric));
+    }
+
 }

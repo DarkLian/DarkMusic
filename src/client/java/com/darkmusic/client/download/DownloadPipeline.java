@@ -319,7 +319,8 @@ public final class DownloadPipeline {
                     DownloadCommit.prepare(incoming, target, identity, entry.url());
                     Files.move(incoming, target);
                     incoming = null;
-                    com.darkmusic.client.library.SourceLinks.record(target, entry.url(), identity);
+                    if (!com.darkmusic.client.library.SourceLinks.record(target, entry.url(), identity))
+                        warning = (warning + "; " + com.darkmusic.client.text.Text.get("download.provenance_write")).replaceFirst("^; ", "");
                     if (lyricsEnabled.getAsBoolean() && !lyrics.text().isBlank()) {
                         try {
                             com.darkmusic.client.lyrics.LyricsFiles.save(target, DownloadLyrics.document(lyrics), false);
@@ -334,7 +335,7 @@ public final class DownloadPipeline {
                         DownloadCommit.finish(target, identity);
                     } catch (IOException e) {
                         org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not save download history {}", history, e);
-                        warning = com.darkmusic.client.text.Text.get("download.history_write");
+                        warning = (warning + "; " + com.darkmusic.client.text.Text.get("download.history_write")).replaceFirst("^; ", "");
                     }
                     return new Saved(target, false, warning);
                 }
@@ -353,6 +354,13 @@ public final class DownloadPipeline {
             throw failure;
         } catch (Exception failure) {
             throw new DownloadDiagnostics.Failure(null, stage, tool, null, failure.getMessage(), failure);
+        }
+    }
+
+    boolean repairBookkeeping(Path destination, String identity) throws IOException {
+        synchronized (historyLock) {
+            DownloadCommit.recover(destination, identity, readArchive(destination.resolve(".darkmusic-downloads.json")));
+            return !DownloadCommit.pending(destination, identity);
         }
     }
 

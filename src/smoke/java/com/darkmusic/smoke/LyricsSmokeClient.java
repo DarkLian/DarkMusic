@@ -287,7 +287,41 @@ final class LyricsSmokeClient {
                     check(!app.lyrics.document(b).equals(app.lyrics.document(a)), "No stale lyrics on the next queued track");
                 else
                     System.out.println("DARKMUSIC_LYRICS_LIMITATION: only one private track available; distinct-track stale-result check not repeated");
+                mc.gui.setScreen(null);
+                check(app.requestLyrics().isEmpty(), "Lyrics command accepts the current Up Next track");
+                since = ticks;
+                stage = 8;
+            } else if (stage == 8) {
+                if (ticks - since < 5) return;
+                check(mc.gui.screen() instanceof LyricsScreen, "Deferred lyrics command opens its menu");
+                check(app.playback.state().track().id().equals(b.id()), "Opening lyrics does not replace the current song");
+                app.playback.pause();
+                since = ticks;
+                stage = 9;
+            } else if (stage == 9) {
+                if (ticks - since < 10) return;
+                check(app.playback.state().status() == AudioBackend.Status.PAUSED, "Command preview remains pausable");
+                mc.gui.setScreen(null);
+                check(app.requestLyrics().isEmpty(), "Lyrics command accepts paused music");
+                since = ticks;
+                stage = 10;
+            } else if (stage == 10) {
+                if (ticks - since < 5) return;
+                check(mc.gui.screen() instanceof LyricsScreen, "Paused-song lyrics menu opens");
+                check(app.playback.state().status() == AudioBackend.Status.PAUSED, "Opening lyrics never resumes music");
+                app.settings.lyricsEnabled = false;
+                check(app.requestLyrics().equals("lyrics.darkmusic.disabled"), "Disabled lyrics are reported without enabling them");
+                app.settings.lyricsEnabled = true;
+                mc.gui.setScreen(null);
+                check(app.requestLyrics().isEmpty(), "Queue the final request before a playback change");
                 app.playback.stop();
+                since = ticks;
+                stage = 11;
+            } else if (stage == 11) {
+                if (ticks - since < 5) return;
+                check(!(mc.gui.screen() instanceof LyricsScreen), "Stopping before the deferred open prevents a stale lyrics menu");
+                check(app.requestLyrics().equals("upnext.idle"), "A stopped track is not treated as currently playing");
+                System.out.println("DARKMUSIC_LYRICS_COMMAND_PASS: active/paused Up Next track, offline local lyrics, disabled feedback, stopped retained track and deferred state revalidation");
                 System.out.println("DARKMUSIC_LYRICS_UI_PASS: independent lyrics HUD in all four layouts, compact/wide nonoverlap, drag/resize isolation, startup cue, timed/plain views, actual device playback, pause/seek/resume/speed, positive offset and Up Next isolation; online access disabled");
                 System.out.println("DARKMUSIC_SMOKE_PASS:" + Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip());
                 stage = 99;

@@ -390,7 +390,11 @@ Volume changes in 5% steps and speed in 0.1× steps. Volume, mute, and speed sho
 |---|---|
 | `/da` or `/darkmusic` | Open player |
 | `/da gui` or `/darkmusic gui` | Edit HUD layout |
-| `/da help` or `/darkmusic help` | Show local tips and links |
+| `/da lyrics` or `/darkmusic lyrics` | Open lyrics for the current song, including while paused |
+| `/da update` or `/darkmusic update` | Check for updates and download an available update |
+| `/da help` or `/darkmusic help` | Show grouped commands, shortcut guidance, and links |
+
+The lyrics command leaves playback and the temporary queue unchanged. Lyrics must be enabled in Settings; online lookup is optional. If nothing is playing, the client is busy, or lyrics are disabled, a local message explains why the menu cannot open. A paused song is still eligible. The song is rechecked after chat closes, and pending menu requests are canceled when the world changes. Click a command in `/da help` to put it into chat before running it.
 
 These commands are handled client-side; help feedback is shown locally.
 
@@ -418,3 +422,10 @@ For a reproducible issue, share the mod/Minecraft versions, operating system, st
 ## License and modpacks
 
 DarkMusic remains free of charge. From v2.8.2, new original DarkLian contributions use the [DarkMusic License & Permissions](../LICENSE), allowing private modifications and inclusion of unmodified official binaries in modpacks with attribution, preserved notices, and third-party license compliance. Other redistribution or distributed modifications containing that new protected material require written permission. Previously released CC0 portions and separately licensed components retain their existing rights; the change is not retroactive.
+
+
+### Interrupted backup recovery
+
+Recovery checks stored hashes before restoring configuration, playlists, history, or shortcuts. If a file has newer or unrecognized contents, DarkMusic preserves it and keeps recovery copies under `config/darkmusic/backups/<transaction>/conflicts`. Startup reports the conflict instead of overwriting that file. Keep the pending journal and recovery directory until you resolve the conflict; old journals without replacement hashes may require manual review.
+
+Source-association write failures leave the audio saved and show a partial-success warning. DarkMusic retains a file-bound receipt and retries bookkeeping independently of downloading audio, up to three times (after 10 seconds, then at 60-second intervals). If storage remains unavailable, the receipt stays for a later download attempt. Moving or replacing the file can prevent automatic repair; unrelated replacement contents are not associated with the old source.

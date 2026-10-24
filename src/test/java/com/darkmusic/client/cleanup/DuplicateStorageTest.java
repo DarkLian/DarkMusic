@@ -141,4 +141,41 @@ class DuplicateStorageTest {
         assertEquals("same", Files.readString(a.file()));
         assertEquals("same", Files.readString(b.file()));
     }
+
+    @Test
+    void unverifiedEmbeddedSourceCannotBeStrongEvidence() throws Exception {
+        var a = file("first-unrelated", "One disposable document");
+        var b = file("second-unrelated", "Another unrelated document");
+        String url = "https://www.youtube.com/watch?v=abcdefghijk";
+        var left = new DuplicateMatcher.Entry(a, "a", "", url, new int[0], false);
+        var right = new DuplicateMatcher.Entry(b, "b", "", url, new int[0], true);
+        var result = DuplicateMatcher.compare(left, right, DuplicatePolicy.BALANCED);
+        assertNotNull(result);
+        assertTrue(result.evidence().contains(DuplicateResult.Evidence.SOURCE_TAG));
+        assertFalse(result.evidence().contains(DuplicateResult.Evidence.SOURCE));
+        assertEquals(DuplicateResult.Strength.POSSIBLE, result.strength());
+    }
+
+    @Test
+    void cachedUnverifiedSourceHintsStayWeakAcrossScans() throws Exception {
+        var a = file("hint-alpha", "One disposable document");
+        var b = file("hint-beta", "Different disposable document size");
+        var data = temp.resolve("hints");
+        var cache = new DuplicateCache(data);
+        for (var track : List.of(a, b))
+            cache.put(track.id(), DuplicateScanner.stamp(track, DuplicateScanner.attributes(track)), "",
+                "unverified:https://youtu.be/abcdefghijk", new int[0]);
+        cache.flush();
+        for (int i = 0; i < 2; i++)
+            try (var scanner = new DuplicateScanner(data)) {
+                scanner.start(List.of(a, b), DuplicatePolicy.BALANCED, false);
+                scanner.settled().get(10, TimeUnit.SECONDS);
+                assertEquals(1, scanner.snapshot().pairs().size());
+                var pair = scanner.snapshot().pairs().getFirst();
+                assertTrue(pair.evidence().contains(DuplicateResult.Evidence.SOURCE_TAG));
+                assertFalse(pair.evidence().contains(DuplicateResult.Evidence.SOURCE));
+                assertEquals(DuplicateResult.Strength.POSSIBLE, pair.strength());
+            }
+    }
+
 }

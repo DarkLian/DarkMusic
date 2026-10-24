@@ -90,11 +90,72 @@ class NavigationAndCommandsTest {
         }
         assertEquals(2, player.get());
         assertEquals(2, layout.get());
-        assertEquals(6, messages.size());
-        var links = messages.get(2).getSiblings().stream().filter(c -> c.getStyle().getClickEvent() != null).toList();
+        assertEquals(22, messages.size());
+        for (int start : List.of(0, 11)) {
+            assertEquals("Commands", messages.get(start + 1).getString());
+            for (int i = 0; i < 5; i++) {
+                var event = assertInstanceOf(net.minecraft.network.chat.ClickEvent.SuggestCommand.class,
+                    messages.get(start + 2 + i).getStyle().getClickEvent());
+                assertEquals(List.of("/da", "/da gui", "/da lyrics", "/da update", "/da help").get(i), event.command());
+                assertNotNull(messages.get(start + 2 + i).getStyle().getHoverEvent());
+            }
+        }
+        var links = messages.get(10).getSiblings().stream().filter(c -> c.getStyle().getClickEvent() != null).toList();
         assertEquals(2, links.size());
-        assertInstanceOf(net.minecraft.network.chat.ClickEvent.OpenUrl.class, messages.get(2).getStyle().getClickEvent());
+        assertInstanceOf(net.minecraft.network.chat.ClickEvent.OpenUrl.class, messages.get(10).getStyle().getClickEvent());
         for (var link : links)
             assertInstanceOf(net.minecraft.network.chat.ClickEvent.OpenUrl.class, link.getStyle().getClickEvent());
     }
+
+    @Test
+    void lyricsCommandValidatesReadinessEnabledStateAndActualPlayback() {
+        var t = track("current.mp3");
+        var playing = new com.darkmusic.client.audio.AudioBackend.State(t, com.darkmusic.client.audio.AudioBackend.Status.PLAYING, 5, 180, "");
+        assertEquals("command.darkmusic.unavailable", LocalCommands.lyricsProblem(false, true, playing));
+        assertEquals("lyrics.darkmusic.disabled", LocalCommands.lyricsProblem(true, false, playing));
+        assertEquals("lyrics.darkmusic.disabled", LocalCommands.lyricsProblem(true, false, null));
+        assertEquals("upnext.idle", LocalCommands.lyricsProblem(true, true, null));
+        for (var status : com.darkmusic.client.audio.AudioBackend.Status.values()) {
+            var state = new com.darkmusic.client.audio.AudioBackend.State(t, status, 5, 180, "");
+            assertEquals(status == com.darkmusic.client.audio.AudioBackend.Status.STOPPED || status == com.darkmusic.client.audio.AudioBackend.Status.ERROR
+                ? "upnext.idle" : "", LocalCommands.lyricsProblem(true, true, state));
+            assertEquals("upnext.idle", LocalCommands.lyricsProblem(true, true,
+                new com.darkmusic.client.audio.AudioBackend.State(null, status, 0, 0, "")));
+        }
+    }
+
+    @Test
+    void bothLyricsAliasesReturnLocalizedFeedbackOrScheduleOnlyTheLyricsAction() throws Exception {
+        var dispatcher = new CommandDispatcher<FabricClientCommandSource>();
+        var result = new java.util.concurrent.atomic.AtomicReference<>("lyrics.darkmusic.disabled");
+        var requested = new AtomicInteger();
+        var messages = new ArrayList<Component>();
+        FabricClientCommandSource source = (FabricClientCommandSource) Proxy.newProxyInstance(getClass().getClassLoader(), new Class[]{FabricClientCommandSource.class}, (proxy, method, args) -> {
+            return switch (method.getName()) {
+                case "attended" -> true;
+                case "sendFeedback" -> {
+                    messages.add((Component) args[0]);
+                    yield null;
+                }
+                default -> throw new AssertionError("Unexpected command interaction: " + method.getName());
+            };
+        });
+        LocalCommands.register(dispatcher, () -> fail("Must not open player"), () -> fail("Must not edit HUD"), () -> fail("Must not update"), () -> {
+            requested.incrementAndGet();
+            return result.get();
+        });
+        for (String alias : List.of("da", "darkmusic")) {
+            for (String problem : List.of("lyrics.darkmusic.disabled", "upnext.idle", "command.darkmusic.unavailable")) {
+                result.set(problem);
+                assertEquals(0, dispatcher.execute(alias + " lyrics", source));
+                assertEquals(com.darkmusic.client.text.Text.get(problem), messages.getLast().getString());
+            }
+            result.set("");
+            int count = messages.size();
+            assertEquals(1, dispatcher.execute(alias + " lyrics", source));
+            assertEquals(count, messages.size());
+        }
+        assertEquals(8, requested.get());
+    }
+
 }

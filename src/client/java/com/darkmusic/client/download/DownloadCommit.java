@@ -27,6 +27,10 @@ final class DownloadCommit {
         ConfigStore.atomicWrite(pending, ConfigStore.JSON.toJson(receipt));
     }
 
+    static boolean pending(Path destination, String identity) {
+        return Files.exists(file(destination, identity), LinkOption.NOFOLLOW_LINKS);
+    }
+
     static void finish(Path target, String identity) throws IOException {
         if (SourceLinks.matchesArchive(target, identity)) Files.deleteIfExists(file(target.getParent(), identity));
     }
@@ -51,7 +55,7 @@ final class DownloadCommit {
         var a = Files.readAttributes(target, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         if (a.size() != receipt.size || a.lastModifiedTime().toMillis() != receipt.modified || !receipt.hash.equals(SourceLinks.contentHash(target)))
             return null;
-        SourceLinks.record(target, receipt.url, identity);
+        if (!SourceLinks.record(target, receipt.url, identity, receipt.hash)) return null;
         if (!SourceLinks.matchesArchive(target, identity)) return null;
         archive.addProperty(identity, receipt.filename);
         try {

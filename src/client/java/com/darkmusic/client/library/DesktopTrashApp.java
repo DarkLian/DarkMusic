@@ -12,6 +12,24 @@ public final class DesktopTrashApp {
     private DesktopTrashApp() {
     }
 
+    static boolean matchesHash(Path file, String expected) throws Exception {
+        if (expected == null || !expected.matches("[a-f0-9]{64}")) return false;
+        var digest = java.security.MessageDigest.getInstance("SHA-256");
+        try (var input = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS)) {
+            byte[] buffer = new byte[65536];
+            int count;
+            while ((count = input.read(buffer)) >= 0) if (count > 0) digest.update(buffer, 0, count);
+        }
+        return java.util.HexFormat.of().formatHex(digest.digest()).equals(expected);
+    }
+
+    private static boolean unchanged(Path file, BasicFileAttributes before) throws IOException {
+        var after = Files.readAttributes(file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        return after.isRegularFile() && !Files.isSymbolicLink(file) && before.size() == after.size()
+            && before.lastModifiedTime().equals(after.lastModifiedTime())
+            && java.util.Objects.equals(before.fileKey(), after.fileKey());
+    }
+
     public static void main(String[] args) {
         long parent = Long.parseLong(args[0]);
         Thread.ofPlatform().daemon().start(() -> {
@@ -32,12 +50,15 @@ public final class DesktopTrashApp {
                 Path file = Path.of(input.readUTF());
                 long size = input.readLong(), modified = input.readLong();
                 String identity = input.readUTF();
+                String hash = input.readUTF();
                 boolean moved = false;
                 try {
                     var attributes = Files.readAttributes(file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
                     if (supported && attributes.isRegularFile() && !Files.isSymbolicLink(file)
                         && attributes.size() == size && attributes.lastModifiedTime().toMillis() == modified
-                        && String.valueOf(attributes.fileKey()).equals(identity))
+                        && String.valueOf(attributes.fileKey()).equals(identity)
+                        && (attributes.fileKey() != null || matchesHash(file, hash))
+                        && unchanged(file, attributes))
                         moved = Desktop.getDesktop().moveToTrash(file.toFile());
                 } catch (Exception failure) {
                     failure.printStackTrace(System.err);

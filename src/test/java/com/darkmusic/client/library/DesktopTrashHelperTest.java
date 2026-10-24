@@ -29,7 +29,7 @@ class DesktopTrashHelperTest {
                 var attributes = Files.readAttributes(disposable, java.nio.file.attribute.BasicFileAttributes.class);
                 var reviewed = new Track("root", disposable.getFileName().toString(), disposable, "", "", "", 0,
                     attributes.size(), attributes.lastModifiedTime().toMillis(), "");
-                assertTrue(trash.move(new AudioDeletion.Item(reviewed, disposable, attributes.fileKey())), "Native desktop Trash transfer");
+                assertTrue(trash.move(new AudioDeletion.Item(reviewed, disposable, attributes.fileKey(), attributes.fileKey() == null ? SourceLinks.contentHash(disposable) : "")), "Native desktop Trash transfer");
                 assertTrue(Files.notExists(disposable), "Confirmed file must leave its original location");
             }
             var process = DesktopTrash.class.getDeclaredField("process");
@@ -41,4 +41,17 @@ class DesktopTrashHelperTest {
             trash.close();
         }
     }
+
+    @Test
+    void noFileKeyFallbackHashRejectsSameSizeTimestampReplacement() throws Exception {
+        Path file = Files.writeString(directory.resolve("identity.txt"), "first");
+        var time = Files.getLastModifiedTime(file);
+        String hash = SourceLinks.contentHash(file);
+        assertTrue(DesktopTrashApp.matchesHash(file, hash));
+        Files.writeString(file, "other");
+        Files.setLastModifiedTime(file, time);
+        assertFalse(DesktopTrashApp.matchesHash(file, hash));
+        assertFalse(DesktopTrashApp.matchesHash(file, ""));
+    }
+
 }

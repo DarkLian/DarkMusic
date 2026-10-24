@@ -22,7 +22,7 @@ public final class AudioDeletion {
         }
     }
 
-    public record Companion(Track audio, Path file, long size, long modified, Object fileKey) {
+    public record Companion(Track audio, Path file, long size, long modified, Object fileKey, String hash) {
     }
 
     public record Plan(Map<Path, String> roots, List<Item> items, boolean trashSupported, List<Companion> companions,
@@ -117,7 +117,7 @@ public final class AudioDeletion {
                 if (Files.isSymbolicLink(companion) || !Files.isRegularFile(companion, LinkOption.NOFOLLOW_LINKS))
                     throw new IOException(Text.get("lyrics.unsafe_path"));
                 var a = Files.readAttributes(companion, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-                companions.add(new Companion(track, companion, a.size(), a.lastModifiedTime().toMillis(), a.fileKey()));
+                companions.add(new Companion(track, companion, a.size(), a.lastModifiedTime().toMillis(), a.fileKey(), hash(companion)));
             }
         }
         if (items.isEmpty()) throw new IOException(Text.get("delete_audio.empty"));
@@ -161,10 +161,11 @@ public final class AudioDeletion {
                             var a = Files.readAttributes(companion.file(), BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
                             if (!a.isRegularFile() || Files.isSymbolicLink(companion.file()) || a.size() != companion.size()
                                 || a.lastModifiedTime().toMillis() != companion.modified() || !Objects.equals(a.fileKey(), companion.fileKey())
+                                || !hash(companion.file()).equals(companion.hash())
                                 || !companion.file().toRealPath().getParent().equals(item.file().getParent().toRealPath()))
                                 throw new IOException("Companion changed after confirmation");
                             var track = new Track(item.track().rootId(), item.track().relativePath(), companion.file(), "", "", "", 0, companion.size(), companion.modified(), "");
-                            if (!plan.trashSupported() || !trash.supported() || !trash.move(new Item(track, companion.file(), companion.fileKey()))
+                            if (!plan.trashSupported() || !trash.supported() || !trash.move(new Item(track, companion.file(), companion.fileKey(), companion.hash()))
                                 || !Files.notExists(companion.file(), LinkOption.NOFOLLOW_LINKS))
                                 throw new IOException("Companion Trash failed");
                         } catch (Exception failure) {

@@ -71,6 +71,7 @@ public final class LyricsLookup implements AutoCloseable {
     private final Map<String, LyricsDocument> reviewSelections = new ConcurrentHashMap<>();
     private final Map<String, String> encodings = new ConcurrentHashMap<>();
     private final Object loadLock = new Object();
+    private final Map<String, Long> loadRetryAfter = new LinkedHashMap<>();
 
     private record Attempt(Track track, int count, long retryAt, LyricsProvider.Query query,
                            ProcessRunner.Token owner) {
@@ -200,16 +201,24 @@ public final class LyricsLookup implements AutoCloseable {
      */
     public void load(Track track) {
         synchronized (loadLock) {
-            if (closed || loaded.contains(track.id()) && track.equals(loadedTracks.get(track.id())))
+            if (closed || clock.getAsLong() < loadRetryAfter.getOrDefault(track.id(), Long.MIN_VALUE)
+                || loaded.contains(track.id()) && track.equals(loadedTracks.get(track.id())))
                 return;
             loaded.add(track.id());
             loadedTracks.put(track.id(), track);
             if (directory == null) return;
             try {
                 Path path = preference(track);
-                if (!Files.isRegularFile(path)) return;
+                try {
+                    var attrs = Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+                    if (!attrs.isRegularFile()) throw new java.io.IOException("Invalid saved lyric preferences");
+                } catch (NoSuchFileException missing) {
+                    loadRetryAfter.remove(track.id());
+                    return;
+                }
                 Saved data = read(path, Saved.class);
-                if (data.schema != 1) return;
+                if (data == null || data.schema != 1) throw new java.io.IOException("Invalid saved lyric preferences");
+                loadRetryAfter.remove(track.id());
                 encodings.put(track.id(), validEncoding(data.encoding));
                 LyricsDocument document = data.selected == null ? null : validated(data.selected);
                 boolean changed = data.reviewRequired || data.size != track.size() || data.modified != track.modified();
@@ -222,7 +231,10 @@ public final class LyricsLookup implements AutoCloseable {
                 rememberChoice(track, document);
                 trimChoices(track.id());
             } catch (Exception failure) {
-                LOG.warn("Could not read saved lyric choice", failure);
+                loaded.remove(track.id());
+                loadRetryAfter.put(track.id(), clock.getAsLong() + TimeUnit.SECONDS.toNanos(5));
+                if (loadRetryAfter.size() > 256) loadRetryAfter.remove(loadRetryAfter.keySet().iterator().next());
+                LOG.warn("Could not read saved lyric choice; retry available in five seconds", failure);
             }
         }
     }

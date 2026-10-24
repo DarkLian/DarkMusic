@@ -162,28 +162,34 @@ public final class SourceLinks {
         return o;
     }
 
-    public static String read(Path audio) {
+    public record Verified(String url, String identity, String hash) {
+    }
+
+    /**
+     * One fresh content check; callers may reuse its hash while the inspected file stays unchanged.
+     */
+    public static Verified verify(Path audio) {
         synchronized (LOCK) {
             try {
                 var value = json(audio.resolveSibling(".darkmusic-sources.json")).get(audio.getFileName().toString());
-                return valid(audio, value, true) ? value.getAsJsonObject().get("url").getAsString() : "";
+                if (!valid(audio, value, true)) return null;
+                var o = value.getAsJsonObject();
+                return new Verified(o.get("url").getAsString(), o.has("identity") ? o.get("identity").getAsString() : "",
+                    o.get("sha256").getAsString());
             } catch (Exception unavailable) {
-                return "";
+                return null;
             }
         }
     }
 
+    public static String read(Path audio) {
+        var verified = verify(audio);
+        return verified == null ? "" : verified.url();
+    }
+
     public static boolean matchesArchive(Path audio, String identity) {
-        synchronized (LOCK) {
-            try {
-                var value = json(audio.resolveSibling(".darkmusic-sources.json")).get(audio.getFileName().toString());
-                if (!valid(audio, value, true)) return false;
-                var o = value.getAsJsonObject();
-                return o.has("identity") && identity.equals(o.get("identity").getAsString());
-            } catch (Exception unavailable) {
-                return false;
-            }
-        }
+        var verified = verify(audio);
+        return verified != null && identity.equals(verified.identity());
     }
 
     /**
@@ -215,21 +221,32 @@ public final class SourceLinks {
         }
     }
 
-    public static void record(Path audio, String url) {
-        record(audio, url, "");
+    public static boolean record(Path audio, String url) {
+        return record(audio, url, "");
     }
 
-    public static void record(Path audio, String url, String identity) {
+    public static boolean record(Path audio, String url, String identity) {
+        return record(audio, url, identity, null);
+    }
+
+    public static boolean record(Path audio, String url, String identity, String expectedHash) {
         synchronized (LOCK) {
             try {
                 Path file = audio.resolveSibling(".darkmusic-sources.json");
                 var data = json(file);
                 if (safe(url).isEmpty()) {
-                    if (data.remove(audio.getFileName().toString()) == null) return;
-                } else data.add(audio.getFileName().toString(), binding(audio, url, identity));
+                    if (data.remove(audio.getFileName().toString()) == null) return true;
+                } else {
+                    var association = binding(audio, url, identity);
+                    if (expectedHash != null && !expectedHash.equals(association.get("sha256").getAsString()))
+                        throw new java.io.IOException("Audio changed before provenance repair");
+                    data.add(audio.getFileName().toString(), association);
+                }
                 ConfigStore.atomicWrite(file, ConfigStore.JSON.toJson(data));
+                return true;
             } catch (Exception failure) {
                 org.slf4j.LoggerFactory.getLogger(SourceLinks.class).warn("Could not save source association", failure);
+                return false;
             }
         }
     }

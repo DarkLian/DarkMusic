@@ -26,6 +26,7 @@ public final class DownloadService implements AutoCloseable {
     private final ExecutorService analysis = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-url-analysis").factory());
     private final Object toolResolutionLock = new Object();
     private final ExecutorService downloads = Executors.newFixedThreadPool(PARALLEL_DOWNLOADS, Thread.ofPlatform().daemon().name("darkmusic-download-", 1).factory());
+    private final ScheduledExecutorService bookkeeping = Executors.newSingleThreadScheduledExecutor(Thread.ofPlatform().daemon().name("darkmusic-download-repair").factory());
     private final BlockingQueue<Work> pending = new LinkedBlockingQueue<>();
     private final List<Work> work = new ArrayList<>();
     private final java.util.Set<ActiveKey> activeKeys = new java.util.HashSet<>();
@@ -666,6 +667,9 @@ public final class DownloadService implements AutoCloseable {
                 }, item.format, () -> false, () -> lyricsLanguages, () -> autoCaptions);
                 update(item, result.skipped() ? Status.SKIPPED : Status.SAVED, 1, result.file().getFileName() + (result.warning().isBlank() ? "" : " — " + result.warning()));
                 if (awareness != null) awareness.saved(item.entry, result.file(), item.format);
+                String commitIdentity = item.entry.key() + (item.format == DownloadEncoding.Format.ORIGINAL ? ":original" : "");
+                if (DownloadCommit.pending(result.file().getParent(), commitIdentity))
+                    repairBookkeeping(result.file().getParent(), commitIdentity, 0);
                 if (!result.skipped()) try {
                     refresh.run();
                     savedObserver.accept(result.file());
@@ -696,12 +700,30 @@ public final class DownloadService implements AutoCloseable {
         if (status.finished()) retryAfterQueue();
     }
 
+    private void repairBookkeeping(Path destination, String identity, int attempt) {
+        if (closed || attempt >= 3) return;
+        try {
+            bookkeeping.schedule(() -> {
+                if (closed) return;
+                try {
+                    if (pipeline.repairBookkeeping(destination, identity)) return;
+                } catch (Exception failure) {
+                    LOG.warn("Download association repair remains pending", failure);
+                }
+                repairBookkeeping(destination, identity, attempt + 1);
+            }, attempt == 0 ? 10 : 60, TimeUnit.SECONDS);
+        } catch (RejectedExecutionException stopped) {
+            // The durable receipt remains available on the next download attempt.
+        }
+    }
+
     @Override
     public void close() {
         closed = true;
         cancelAll();
         analysis.shutdownNow();
         downloads.shutdownNow();
+        bookkeeping.shutdownNow();
         try {
             analysis.awaitTermination(2, TimeUnit.SECONDS);
             downloads.awaitTermination(2, TimeUnit.SECONDS);

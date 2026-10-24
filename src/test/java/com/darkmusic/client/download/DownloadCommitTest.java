@@ -31,4 +31,34 @@ class DownloadCommitTest {
         assertFalse(archive.has(second));
         assertEquals("Unrelated existing file", Files.readString(temp.resolve("reused.txt")));
     }
+
+    @Test
+    void failedProvenanceRemainsRepairableWithoutDownloadingAgain() throws Exception {
+        String id = "Youtube:abcdefghijk:original";
+        Path incoming = Files.writeString(temp.resolve("incoming.txt"), "Disposable receipt fixture");
+        Path target = temp.resolve("saved.txt");
+        DownloadCommit.prepare(incoming, target, id, "https://youtu.be/abcdefghijk");
+        Files.move(incoming, target);
+        Path provenance = Files.createDirectory(temp.resolve(".darkmusic-sources.json"));
+        assertFalse(com.darkmusic.client.library.SourceLinks.record(target, "https://youtu.be/abcdefghijk", id));
+        var pipeline = new DownloadPipeline(new ProcessRunner(), temp.resolve("data"));
+        assertFalse(pipeline.repairBookkeeping(temp, id));
+        assertTrue(DownloadCommit.pending(temp, id));
+        assertEquals("Disposable receipt fixture", Files.readString(target));
+        Files.delete(provenance);
+        assertTrue(pipeline.repairBookkeeping(temp, id));
+        assertFalse(DownloadCommit.pending(temp, id));
+        assertTrue(com.darkmusic.client.library.SourceLinks.matchesArchive(target, id));
+    }
+
+    @Test
+    void expectedHashPreventsBindingAReplacementDuringRepair() throws Exception {
+        Path audio = Files.writeString(temp.resolve("replaced.txt"), "expected audio identity");
+        String expected = com.darkmusic.client.library.SourceLinks.contentHash(audio);
+        Files.writeString(audio, "external replacement");
+        assertFalse(com.darkmusic.client.library.SourceLinks.record(audio, "https://youtu.be/abcdefghijk", "Youtube:abcdefghijk", expected));
+        assertEquals("", com.darkmusic.client.library.SourceLinks.read(audio));
+        assertEquals("external replacement", Files.readString(audio));
+    }
+
 }

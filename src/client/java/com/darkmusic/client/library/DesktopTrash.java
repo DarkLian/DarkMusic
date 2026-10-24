@@ -69,6 +69,7 @@ final class DesktopTrash implements AudioDeletion.Trash {
                 output.writeLong(item.track().size());
                 output.writeLong(item.track().modified());
                 output.writeUTF(String.valueOf(item.fileKey()));
+                output.writeUTF(item.hash());
                 output.flush();
                 return input.readBoolean();
             }, 120);
