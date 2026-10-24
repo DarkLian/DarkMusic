@@ -111,7 +111,7 @@ class DownloadTest {
         assertTrue(mix.videoAlso());
         assertEquals(-1, mix.total());
         assertTrue(DownloadJson.friendly("HTTP Error 429").contains("HTTP 429"));
-        assertTrue(DownloadJson.friendly("DRM restricted private").contains("not bypassed"));
+        assertEquals(com.darkmusic.client.text.Text.get("text.darkmusic.this_entry_is_private_restricted_or_requires_authentication_access_controls_are_no"), DownloadJson.friendly("DRM restricted private"));
     }
 
     @Test
