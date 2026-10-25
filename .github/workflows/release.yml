@@ -77,7 +77,7 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           version="${RELEASE_TAG#v}"
-          for file in "darkmusic-$version.jar" "darkmusic-$version-sources.jar" "darkmusic-$version-third-party-sources.zip"; do
+          for file in "darkmusic-$version.jar" "darkmusic-$version-sources.jar" "darkmusic-$version-third-party-sources.zip" "darkmusic-pip-dependencies-$version-windows-x64.zip"; do
             test -s "release-files/$file"
           done
           notes="docs/RELEASE-$version.md"
@@ -85,4 +85,5 @@ jobs:
           gh release create "$RELEASE_TAG" --verify-tag --latest --title "DarkMusic $RELEASE_TAG" --notes-file "$notes" \
             "release-files/darkmusic-$version.jar" \
             "release-files/darkmusic-$version-sources.jar" \
-            "release-files/darkmusic-$version-third-party-sources.zip"
+            "release-files/darkmusic-$version-third-party-sources.zip" \
+            "release-files/darkmusic-pip-dependencies-$version-windows-x64.zip"

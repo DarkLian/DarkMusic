@@ -16,10 +16,18 @@ import java.util.zip.ZipInputStream;
  */
 public final class PipNativeTools {
     private final Path directory;
+    public final PipRuntime runtime;
+    private final java.util.function.BooleanSupplier allowed;
     private CompletableFuture<Path> prepared;
 
     public PipNativeTools(Path config) {
+        this(config, () -> false);
+    }
+
+    public PipNativeTools(Path config, java.util.function.BooleanSupplier allowed) {
         directory = config.resolve("pip-native");
+        runtime = new PipRuntime(config);
+        this.allowed = allowed;
     }
 
     public static boolean supported() {
@@ -29,7 +37,7 @@ public final class PipNativeTools {
     public static String failure(Throwable error) {
         while (error.getCause() != null) error = error.getCause();
         String key = error.getMessage();
-        return key != null && Set.of("pip.bundle_missing", "pip.bundle_damaged", "pip.unsupported").contains(key) ? key : "pip.capture_error";
+        return key != null && Set.of("pip.bundle_missing", "pip.bundle_damaged", "pip.unsupported", "pip.setup.required", "pip.setup.disabled").contains(key) ? key : "pip.capture_error";
     }
 
     public synchronized CompletableFuture<Path> prepare() {
@@ -45,26 +53,29 @@ public final class PipNativeTools {
 
     private Path extract() throws Exception {
         if (!supported()) throw new IOException("pip.unsupported");
-        String development = System.getProperty("darkmusic.pipHelper", "");
-        if (!development.isBlank()) {
-            Path exe = Path.of(development).toAbsolutePath();
-            if (!Files.isRegularFile(exe)) throw new IOException("pip.bundle_missing");
-            return exe;
-        }
-        String base = "/assets/darkmusic/pip/windows-x64/";
-        byte[] archive;
-        String expected;
-        try (var input = PipNativeTools.class.getResourceAsStream(base + "helper.zip"); var checksum = PipNativeTools.class.getResourceAsStream(base + "helper.sha256")) {
-            if (input == null || checksum == null) throw new IOException("pip.bundle_missing");
-            archive = input.readNBytes(100_000_001);
-            expected = new String(checksum.readNBytes(128), java.nio.charset.StandardCharsets.US_ASCII).strip();
-        }
-        return unpack(archive, expected, directory);
+        if (!allowed.getAsBoolean()) throw new IOException("pip.setup.disabled");
+        return runtime.executable();
     }
 
     static Path unpack(byte[] archive, String expected, Path directory) throws Exception {
         String digest = hash(archive);
         if (archive.length > 100_000_000 || !digest.equals(expected)) throw new IOException("pip.bundle_damaged");
+        return unpackArchives(List.of(() -> new ByteArrayInputStream(archive)), digest, directory);
+    }
+
+    static Path unpack(byte[] code, String codeHash, Path dependencies, String dependencyHash, Path directory) throws Exception {
+        if (code.length > 2_000_000 || !hash(code).equals(codeHash) || Files.isSymbolicLink(dependencies) ||
+            !com.darkmusic.client.update.GitHubRelease.hash(dependencies).equals(dependencyHash))
+            throw new IOException("pip.bundle_damaged");
+        return unpackArchives(List.of(() -> new ByteArrayInputStream(code), () -> Files.newInputStream(dependencies)),
+            hash((codeHash + dependencyHash).getBytes(java.nio.charset.StandardCharsets.US_ASCII)), directory);
+    }
+
+    private interface Archive {
+        InputStream open() throws IOException;
+    }
+
+    private static Path unpackArchives(List<Archive> archives, String digest, Path directory) throws Exception {
         Files.createDirectories(directory);
         if (Files.isSymbolicLink(directory)) throw new IOException("pip.bundle_damaged");
         Path target = directory.resolve(digest);
@@ -74,31 +85,32 @@ public final class PipNativeTools {
         int count = 0;
         long total = 0;
         java.util.Set<Path> seen = new HashSet<>();
-        try (var zip = new ZipInputStream(new ByteArrayInputStream(archive))) {
-            for (var entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
-                Path file = staging.resolve(entry.getName()).normalize();
-                if (!file.startsWith(staging) || file.equals(staging) || file.getNameCount() - staging.getNameCount() > 4 || !seen.add(file) || ++count > 2048)
-                    throw new IOException("pip.bundle_damaged");
-                for (Path parent = file; !parent.equals(staging); parent = parent.getParent())
-                    if (Files.isSymbolicLink(parent)) throw new IOException("pip.bundle_damaged");
-                if (entry.isDirectory()) {
-                    if (!existing) Files.createDirectories(file);
-                    else if (!Files.isDirectory(file, LinkOption.NOFOLLOW_LINKS))
+        for (var archive : archives)
+            try (var zip = new ZipInputStream(archive.open())) {
+                for (var entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
+                    Path file = staging.resolve(entry.getName()).normalize();
+                    if (!file.startsWith(staging) || file.equals(staging) || file.getNameCount() - staging.getNameCount() > 4 || !seen.add(file) || ++count > 2048)
                         throw new IOException("pip.bundle_damaged");
-                    continue;
-                }
-                byte[] content = zip.readNBytes(40_000_001);
-                total += content.length;
-                if (content.length > 40_000_000 || total > 300_000_000) throw new IOException("pip.bundle_damaged");
-                if (existing) {
-                    if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) || Files.size(file) != content.length || !hash(Files.readAllBytes(file)).equals(hash(content)))
-                        throw new IOException("pip.bundle_damaged");
-                } else {
-                    Files.createDirectories(file.getParent());
-                    Files.write(file, content, StandardOpenOption.CREATE_NEW);
+                    for (Path parent = file; !parent.equals(staging); parent = parent.getParent())
+                        if (Files.isSymbolicLink(parent)) throw new IOException("pip.bundle_damaged");
+                    if (entry.isDirectory()) {
+                        if (!existing) Files.createDirectories(file);
+                        else if (!Files.isDirectory(file, LinkOption.NOFOLLOW_LINKS))
+                            throw new IOException("pip.bundle_damaged");
+                        continue;
+                    }
+                    byte[] content = zip.readNBytes(40_000_001);
+                    total += content.length;
+                    if (content.length > 40_000_000 || total > 300_000_000) throw new IOException("pip.bundle_damaged");
+                    if (existing) {
+                        if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) || Files.size(file) != content.length || !hash(Files.readAllBytes(file)).equals(hash(content)))
+                            throw new IOException("pip.bundle_damaged");
+                    } else {
+                        Files.createDirectories(file.getParent());
+                        Files.write(file, content, StandardOpenOption.CREATE_NEW);
+                    }
                 }
             }
-        }
         if (existing) try (var files = Files.walk(target)) {
             for (Path path : files.toList())
                 if (!path.equals(target) && !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS) && !seen.contains(path))
@@ -114,10 +126,13 @@ public final class PipNativeTools {
     }
 
     public CompletableFuture<List<PipSource>> windows(ProcessRunner.Token token) {
+        if (!allowed.getAsBoolean()) return CompletableFuture.failedFuture(new IOException("pip.setup.disabled"));
         return prepare().thenApplyAsync(exe -> {
             try {
+                if (!allowed.getAsBoolean()) throw new IOException("pip.setup.disabled");
                 var result = new ProcessRunner().run(List.of(exe.toString(), "--list"), exe.getParent(), token, Duration.ofSeconds(10), 262144, line -> {
                 });
+                if (!allowed.getAsBoolean()) throw new IOException("pip.setup.disabled");
                 if (result.exit() != 0) throw new IOException("pip.capture_error");
                 var sources = new Gson().fromJson(result.output().strip(), PipSource[].class);
                 if (sources == null || sources.length > 256) throw new IOException("pip.capture_error");

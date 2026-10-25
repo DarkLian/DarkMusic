@@ -11,6 +11,8 @@ import net.minecraft.client.gui.screens.Screen;
 public final class PipScreen extends AudioPage {
     private boolean shownActive;
     private com.darkmusic.client.pip.PipAudio shownAudio;
+    private String shownSetup = "";
+    private boolean shownBusy, shownReady, shownEnabled;
 
     public PipScreen(DarkMusicClient app, Screen parent) {
         super(app, parent, "pip.title");
@@ -27,6 +29,35 @@ public final class PipScreen extends AudioPage {
         shownActive = pip.active();
         shownAudio = pip.audio();
         var s = app.settings.pip;
+        var setup = pip.tools.runtime;
+        shownSetup = setup.status();
+        shownBusy = setup.busy();
+        shownReady = setup.ready();
+        shownEnabled = s.enabled;
+        status(() -> Text.get(setup.status()), () -> setup.ready() ? UiStatus.Tone.SUCCESS : setup.status().contains("failed") || setup.status().equals("pip.bundle_damaged") ? UiStatus.Tone.ERROR : UiStatus.Tone.INFO);
+        if (setup.busy()) {
+            if (setup.status().equals("pip.setup.installing"))
+                info(() -> Text.get("pip.setup.progress", setup.downloaded() / 1048576, setup.size() / 1048576));
+            action("pip.setup.cancel", setup::cancel);
+            return;
+        }
+        labeledAction(Text.get("pip.setup.check"), Text.get("pip.setup.check.help"), setup::check).active = !pip.active();
+        if (s.enabled) labeledAction(Text.get("pip.setup.disable"), Text.get("pip.setup.access.help"), () -> {
+            s.enabled = false;
+            pip.stop();
+            changed();
+        });
+        if (!setup.ready()) {
+            labeledAction(Text.get("pip.setup.install"), Text.get("pip.setup.install.help"), () -> confirm("pip.setup.install", "pip.setup.install.confirm", setup::install)).active = setup.compatible();
+            return;
+        }
+        if (!s.enabled) labeledAction(Text.get("pip.setup.enable"), Text.get("pip.setup.access.help"), () -> {
+            confirm("pip.setup.enable", "pip.setup.access.confirm", () -> {
+                s.enabled = true;
+                changed();
+            });
+        });
+        if (!s.enabled) return;
         status(() -> Text.get(pip.status()), () -> pip.status().equals("pip.live") ? UiStatus.Tone.SUCCESS : pip.status().equals("pip.idle") ? UiStatus.Tone.INFO : UiStatus.Tone.WARNING);
         info(() -> pip.source() == null ? Text.get("pip.no_source") : pip.source().App() + " — " + pip.source().Title());
         if (!PipNativeTools.supported()) {
@@ -42,11 +73,18 @@ public final class PipScreen extends AudioPage {
         }).active = pip.source() != null;
         toggle("pip.visible", () -> s.visible, v -> s.visible = v);
         toggle("pip.in_menus", () -> s.inMenus, v -> s.inMenus = v);
-        var audioToggle = new SettingRow(formX, 0, formWidth, Text.get("pip.audio_spectrum"), () -> s.audioSpectrum, () -> {
-            s.audioSpectrum = !s.audioSpectrum;
-            changed();
+        var audioToggle = new SettingRow(formX, 0, formWidth, Text.get("pip.audio_spectrum"), () -> s.audioSpectrum && s.audioAccess, () -> {
+            if (s.audioSpectrum && s.audioAccess) {
+                s.audioSpectrum = false;
+                s.audioAccess = false;
+                changed();
+            } else confirm("pip.audio_spectrum", "pip.setup.audio.confirm", () -> {
+                s.audioAccess = true;
+                s.audioSpectrum = true;
+                changed();
+            });
         });
-        audioToggle.active = !pip.active();
+        audioToggle.active = !pip.active() && setup.audioSupported();
         Help.tip(audioToggle, Text.get("pip.audio_spectrum.help"));
         place(audioToggle);
         action("pip.spectrum.title", () -> show(new PipSpectrumScreen(app, this)));
@@ -73,7 +111,16 @@ public final class PipScreen extends AudioPage {
 
     @Override
     public void tick() {
-        if (shownActive != app.pip.active() || shownAudio != app.pip.audio()) rebuildWidgets();
+        var setup = app.pip.tools.runtime;
+        if (shownActive != app.pip.active() || shownAudio != app.pip.audio() || !shownSetup.equals(setup.status()) || shownBusy != setup.busy() || shownReady != setup.ready() || shownEnabled != app.settings.pip.enabled)
+            rebuildWidgets();
+    }
+
+    private void confirm(String title, String explanation, Runnable action) {
+        show(new ConfirmationScreen(this, Text.component(title), Text.component(explanation), Text.component(title), () -> {
+            action.run();
+            return java.util.concurrent.CompletableFuture.completedFuture(null);
+        }).nonDestructive());
     }
 
     private void cycleKey(boolean focus) {

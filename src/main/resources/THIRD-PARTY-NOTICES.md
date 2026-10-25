@@ -10,11 +10,12 @@ notices, including the existing interface icons' CC0 dedication, remain effectiv
 Third-party libraries retain their original copyright notices and licenses.
 They are included as separate, unmodified nested JARs under META-INF/jars.
 
-Development builds with Picture-in-Picture also bundle a self-contained Windows
-x64 helper under assets/darkmusic/pip/windows-x64/helper.zip. It includes
-Microsoft .NET / Windows Desktop runtime binaries and C#/WinRT projections.
+Picture-in-Picture code is bundled under assets/darkmusic/pip/windows-x64/helper.zip.
+Its optional Windows x64 dependencies are installed separately, with explicit
+approval, from the matching DarkMusic GitHub release into this Minecraft instance.
+That dependency archive includes Microsoft .NET / Windows Desktop runtime binaries and C#/WinRT projections.
 Their .NET MIT license, runtime third-party notices, C#/WinRT MIT license, and
-Windows SDK license are included inside that archive. These components are
+Windows SDK license are included inside the dependency archive. These components are
 unmodified redistributables, used only when the user explicitly starts PiP or
 opens its window picker; no system-wide runtime installation is performed.
 

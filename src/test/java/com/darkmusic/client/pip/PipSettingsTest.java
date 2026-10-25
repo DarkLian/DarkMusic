@@ -15,10 +15,22 @@ class PipSettingsTest {
         assertFalse(settings.hudEnabled);
         assertNotNull(settings.pip);
         assertFalse(settings.pip.inMenus);
+        assertFalse(settings.pip.enabled);
+        assertFalse(settings.pip.audioAccess);
         assertEquals(60, settings.pip.frameRate);
         assertEquals(119, settings.pip.focusKey);
         assertEquals(120, settings.pip.returnKey);
         assertFalse(new Gson().toJson(settings.pip).contains("Handle"));
+    }
+
+    @Test
+    void upgradingPipPreferencesDoesNotGrantAccess() {
+        var s = new Gson().fromJson("{\"audioSpectrum\":true,\"width\":0.45,\"frameRate\":144}", PipSettings.class);
+        assertFalse(s.enabled);
+        assertFalse(s.audioAccess);
+        assertTrue(s.audioSpectrum);
+        assertEquals(.45, s.width);
+        assertEquals(144, s.frameRate);
     }
 
     @Test

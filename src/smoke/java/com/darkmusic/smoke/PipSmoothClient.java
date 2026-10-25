@@ -21,6 +21,7 @@ final class PipSmoothClient {
     private volatile boolean closed;
     private int stage, ticks;
     private PipSpectrumSmoke spectrumCheck;
+    private PipSetupSmoke setupCheck;
     private String phase = "manual";
     private long lastReceived, lastUpload, lastRender, draws, diagnosticDrops;
 
@@ -106,6 +107,10 @@ final class PipSmoothClient {
             if (stage == 2 && Files.exists(folder.resolve("check-spectrum"))) {
                 if (spectrumCheck == null) spectrumCheck = new PipSpectrumSmoke();
                 if (spectrumCheck.tick(mc, app)) Files.writeString(folder.resolve("stop-minecraft"), "done");
+            }
+            if (stage == 2 && Files.exists(folder.resolve("check-setup"))) {
+                if (setupCheck == null) setupCheck = new PipSetupSmoke();
+                if (setupCheck.tick(mc, app)) Files.writeString(folder.resolve("stop-minecraft"), "done");
             }
             if (stage == 2 && ticks % 20 == 0) {
                 if (Files.isRegularFile(folder.resolve("phase"))) {

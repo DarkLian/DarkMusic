@@ -63,7 +63,14 @@ class PipBundleTest {
     void actualBundledHelperExtractsWithLicensesWhenPresent() throws Exception {
         try (var zip = PipNativeTools.class.getResourceAsStream("/assets/darkmusic/pip/windows-x64/helper.zip"); var sha = PipNativeTools.class.getResourceAsStream("/assets/darkmusic/pip/windows-x64/helper.sha256")) {
             org.junit.jupiter.api.Assumptions.assumeTrue(zip != null && sha != null, "Java-only build omits optional native bundle");
-            var exe = PipNativeTools.unpack(zip.readAllBytes(), new String(sha.readAllBytes(), java.nio.charset.StandardCharsets.US_ASCII).strip(), temp);
+            byte[] code = zip.readAllBytes();
+            try (var content = new ZipInputStream(new ByteArrayInputStream(code))) {
+                for (var e = content.getNextEntry(); e != null; e = content.getNextEntry())
+                    assertTrue(e.getName().startsWith("DarkMusic.Pip."), "Base JAR must not include runtime libraries");
+            }
+            var dependencies = Path.of(System.getProperty("darkmusic.test.pipDependencies"));
+            var exe = PipNativeTools.unpack(code, new String(sha.readAllBytes(), java.nio.charset.StandardCharsets.US_ASCII).strip(), dependencies,
+                com.darkmusic.client.update.GitHubRelease.hash(dependencies), temp);
             assertTrue(Files.size(exe) > 0);
             assertTrue(Files.size(exe.resolveSibling("DOTNET-LICENSE.TXT")) > 100);
             assertTrue(Files.size(exe.resolveSibling("licenses/CSWINRT-LICENSE.txt")) > 100);

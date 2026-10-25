@@ -17,6 +17,8 @@ Install DarkMusic on the client. Servers do not need it. Windows, Linux, and mac
 
 ## Watch another window while you play
 
+**Next-update development:** PiP code stays in the main mod while its large runtime becomes an explicit optional installation. Check requirements, install dependencies and grant access from the existing PiP icon. No companion mod or system-wide installation is needed. See [optional setup](docs/PIP-OPTIONAL-INSTALLATION.md); the published v3.0.0 package still contains the complete runtime.
+
 **Picture-in-Picture for Windows x64** brings a selected application window into Minecraft, including fullscreen. Open the **PiP icon beside Manage Audio Files**, or use **/da pip**, choose a window and start capture.
 
 Move, resize and crop the view, adjust its opacity, and use **Ctrl+Alt+F8** to operate the source application and **Ctrl+Alt+F9** to return to Minecraft. Keep the source window open and unminimized; capture starts only when you request it. Showing PiP in menus defaults to off.

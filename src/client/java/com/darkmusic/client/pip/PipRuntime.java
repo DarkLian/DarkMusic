@@ -1,0 +1,243 @@
+package com.darkmusic.client.pip;
+
+import com.darkmusic.client.download.ManagedTools;
+import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.update.GitHubRelease;
+import com.google.gson.JsonParser;
+
+import java.io.*;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.time.Duration;
+import java.util.concurrent.*;
+
+/**
+ * Explicit, instance-local runtime setup. Construction never starts a process or network request.
+ */
+public final class PipRuntime implements AutoCloseable {
+    static final String BASE = "/assets/darkmusic/pip/windows-x64/";
+
+    public record Bundle(String version, String name, long size, String sha256) {
+        static Bundle parse(String json) throws IOException {
+            try {
+                var o = JsonParser.parseString(json).getAsJsonObject();
+                var b = new Bundle(o.get("version").getAsString(), o.get("name").getAsString(), o.get("size").getAsLong(), o.get("sha256").getAsString());
+                if (o.get("schema").getAsInt() != 1 || !b.version.matches("[0-9]+\\.[0-9]+\\.[0-9]+") ||
+                    !b.name.equals("darkmusic-pip-dependencies-" + b.version + "-windows-x64.zip") || b.size <= 0 || b.size > 100_000_000 || !b.sha256.matches("[a-f0-9]{64}"))
+                    throw new IOException("pip.bundle_damaged");
+                return b;
+            } catch (RuntimeException e) {
+                throw new IOException("pip.bundle_damaged", e);
+            }
+        }
+
+        URI url() {
+            return URI.create("https://github.com/DarkLian/DarkMusic/releases/download/v" + version + "/" + name);
+        }
+
+        void verify(Path path) throws Exception {
+            if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) || Files.size(path) != size || !GitHubRelease.hash(path).equals(sha256))
+                throw new IOException("pip.bundle_damaged");
+        }
+    }
+
+    private final Path root;
+    private final ExecutorService worker = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-pip-setup").factory());
+    private volatile boolean busy, compatible, ready, closed;
+    private volatile long downloaded;
+    private volatile String status = "pip.setup.unchecked";
+    private volatile Path executable;
+    private volatile int build;
+    private ProcessRunner.Token token;
+    private volatile Bundle bundle;
+
+    @FunctionalInterface
+    interface Resources {
+        byte[] read(String name, int max) throws IOException;
+    }
+
+    @FunctionalInterface
+    interface Download {
+        void fetch(URI uri, Path out, long max, ProcessRunner.Token token, java.util.function.Consumer<Long> progress) throws Exception;
+    }
+
+    @FunctionalInterface
+    interface Requirements {
+        int build(ProcessRunner.Token token) throws Exception;
+    }
+
+    @FunctionalInterface
+    interface Graphics {
+        boolean supported(Path exe, ProcessRunner.Token token) throws Exception;
+    }
+
+    private final Resources resources;
+    private final Download download;
+    private final Requirements requirements;
+    private final Graphics graphics;
+
+    public PipRuntime(Path config) {
+        this(config, PipRuntime::resource, ManagedTools::download, null, PipRuntime::graphics);
+    }
+
+    PipRuntime(Path config, Resources resources, Download download, Requirements requirements, Graphics graphics) {
+        root = config.resolve("pip-native");
+        this.resources = resources;
+        this.download = download;
+        this.requirements = requirements == null ? this::requirements : requirements;
+        this.graphics = graphics;
+    }
+
+    public boolean busy() {
+        return busy;
+    }
+
+    public boolean compatible() {
+        return compatible;
+    }
+
+    public boolean ready() {
+        return ready;
+    }
+
+    public boolean audioSupported() {
+        return build >= 20348;
+    }
+
+    public String status() {
+        return status;
+    }
+
+    public long downloaded() {
+        return downloaded;
+    }
+
+    public long size() {
+        return bundle == null ? 0 : bundle.size;
+    }
+
+    public Path executable() throws IOException {
+        if (!ready || executable == null) throw new IOException("pip.setup.required");
+        return executable;
+    }
+
+    static byte[] resource(String name, int max) throws IOException {
+        try (var in = PipRuntime.class.getResourceAsStream(BASE + name)) {
+            if (in == null) throw new IOException("pip.bundle_missing");
+            byte[] bytes = in.readNBytes(max + 1);
+            if (bytes.length > max) throw new IOException("pip.bundle_damaged");
+            return bytes;
+        }
+    }
+
+    private Path archive() {
+        return root.resolve("dependencies-" + bundle.sha256 + ".zip");
+    }
+
+    private void directory() throws IOException {
+        for (Path path = root.toAbsolutePath(); path != null; path = path.getParent())
+            if (Files.isSymbolicLink(path)) throw new IOException("pip.bundle_damaged");
+        Files.createDirectories(root);
+    }
+
+    /**
+     * Read-only Windows/WGC check, before offering any installation. No selected-window access.
+     */
+    private int requirements(ProcessRunner.Token request) throws Exception {
+        if (!PipNativeTools.supported()) return 0;
+        String system = System.getenv("SystemRoot");
+        if (system == null) return 0;
+        var result = new ProcessRunner().run(java.util.List.of(Path.of(system, "System32/WindowsPowerShell/v1.0/powershell.exe").toString(),
+                "-NoProfile", "-NonInteractive", "-Command",
+                "$v=[Environment]::OSVersion.Version; if($v.Build -ge 19041 -and [Windows.Graphics.Capture.GraphicsCaptureSession,Windows.Graphics.Capture,ContentType=WindowsRuntime]::IsSupported()){ 'supported '+$v.Build }"),
+            root.getParent(), request, Duration.ofSeconds(15), 4096, line -> {
+            });
+        String output = result.output().strip();
+        return result.exit() == 0 && output.matches("supported [0-9]{5,6}") ? Integer.parseInt(output.substring(10)) : 0;
+    }
+
+    static boolean graphics(Path exe, ProcessRunner.Token request) throws Exception {
+        var probe = new ProcessRunner().run(java.util.List.of(exe.toString(), "--requirements"), exe.getParent(), request, Duration.ofSeconds(15), 4096, line -> {
+        });
+        return probe.exit() == 0 && probe.output().strip().equals("supported");
+    }
+
+    public CompletableFuture<Void> check() {
+        return begin(false);
+    }
+
+    public CompletableFuture<Void> install() {
+        return compatible ? begin(true) : CompletableFuture.completedFuture(null);
+    }
+
+    private synchronized CompletableFuture<Void> begin(boolean install) {
+        if (closed || busy) return CompletableFuture.completedFuture(null);
+        busy = true;
+        ready = false;
+        downloaded = 0;
+        var request = new ProcessRunner.Token();
+        token = request;
+        status = install ? "pip.setup.installing" : "pip.setup.checking";
+        return CompletableFuture.runAsync(() -> {
+            try {
+                build = requirements.build(request);
+                compatible = build >= 19041;
+                request.check();
+                if (!compatible) {
+                    status = "pip.setup.unsupported";
+                    return;
+                }
+                bundle = Bundle.parse(new String(resources.read("dependencies.json", 4096), StandardCharsets.UTF_8));
+                directory();
+                if (install) {
+                    Path temporary = Files.createTempFile(root, "runtime-", ".download");
+                    try {
+                        download.fetch(bundle.url(), temporary, bundle.size, request, n -> downloaded = n);
+                        bundle.verify(temporary);
+                        request.check();
+                        if (Files.exists(archive(), LinkOption.NOFOLLOW_LINKS)) bundle.verify(archive());
+                        else Files.move(temporary, archive());
+                    } finally {
+                        Files.deleteIfExists(temporary);
+                    }
+                }
+                if (!Files.exists(archive(), LinkOption.NOFOLLOW_LINKS)) {
+                    status = "pip.setup.required";
+                    return;
+                }
+                bundle.verify(archive());
+                request.check();
+                byte[] code = resources.read("helper.zip", 2_000_000);
+                String checksum = new String(resources.read("helper.sha256", 128), StandardCharsets.US_ASCII).strip();
+                var exe = PipNativeTools.unpack(code, checksum, archive(), bundle.sha256, root);
+                request.check();
+                if (!graphics.supported(exe, request)) {
+                    status = "pip.setup.graphics_failed";
+                    return;
+                }
+                request.check();
+                executable = exe;
+                ready = true;
+                status = "pip.setup.ready";
+            } catch (Exception error) {
+                status = request.cancelled() ? "pip.setup.cancelled" : PipNativeTools.failure(error);
+                if (status.equals("pip.capture_error"))
+                    status = install ? "pip.setup.install_failed" : "pip.setup.check_failed";
+            } finally {
+                busy = false;
+            }
+        }, worker);
+    }
+
+    public synchronized void cancel() {
+        if (token != null) token.cancel();
+    }
+
+    @Override
+    public synchronized void close() {
+        closed = true;
+        cancel();
+        worker.shutdown();
+    }
+}

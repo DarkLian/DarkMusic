@@ -210,6 +210,11 @@ internal sealed class CaptureHost : Form {
         if(args.Length==1&&args[0]=="--pacer-test"){bool pass=FramePacer.SelfTest();Console.WriteLine(pass?"pass":"fail");return pass?0:2;}
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
         try{
+            if(args.Length==1&&args[0]=="--requirements"){
+                if(Environment.OSVersion.Version.Build<19041||!GraphicsCaptureSession.IsSupported()){Console.WriteLine("unsupported");return 2;}
+                using var testDevice=Native.Device();
+                Console.WriteLine("supported");return 0;
+            }
             if(args.Length==1&&args[0]=="--list"){Console.WriteLine(JsonSerializer.Serialize(WindowIdentity.List()));return 0;}
             if(args.Length==1&&args[0]=="--supported"){Console.WriteLine(GraphicsCaptureSession.IsSupported()?"true":"false");return 0;}
             Application.Run(new CaptureHost(args));return 0;

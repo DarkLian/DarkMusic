@@ -28,7 +28,7 @@ public final class PipSession implements AutoCloseable {
     public PipSession(Path exe, PipSource source, long minecraft, PipSettings settings, int frameRate) {
         if (frameRate < 15 || frameRate > PipSettings.MAX_FRAME_RATE)
             throw new IllegalArgumentException("Invalid capture frame rate");
-        audio = settings.audioSpectrum ? new PipAudio() : null;
+        audio = settings.audioSpectrum && settings.audioAccess ? new PipAudio() : null;
         var command = List.of(exe.toString(), "--capture", Long.toString(source.Handle()), Integer.toString(source.Pid()), Long.toString(source.CreatedTicks()), Long.toString(minecraft), Long.toString(ProcessHandle.current().pid()), pipe, Integer.toString(frameRate), Integer.toString(settings.focusKey), Integer.toString(settings.returnKey), audio == null ? "0" : "1");
         Thread.ofPlatform().daemon().name("darkmusic-pip-helper").start(() -> launch(command, exe));
     }

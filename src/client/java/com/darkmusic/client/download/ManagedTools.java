@@ -187,7 +187,7 @@ public final class ManagedTools {
             throw new IOException(Text.get("tools.error.address"));
     }
 
-    private static void download(URI address, Path output, long limit, ProcessRunner.Token token, Consumer<Long> progress) throws Exception {
+    public static void download(URI address, Path output, long limit, ProcessRunner.Token token, Consumer<Long> progress) throws Exception {
         URI uri = address;
         for (int redirects = 0; redirects <= 5; redirects++) {
             token.check();

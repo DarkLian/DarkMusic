@@ -29,7 +29,7 @@ public final class PipController implements AutoCloseable {
 
     public PipController(DarkMusicClient app) {
         this.app = app;
-        tools = new PipNativeTools(app.config.directory());
+        tools = new PipNativeTools(app.config.directory(), () -> app.settings != null && app.settings.pip.enabled);
     }
 
     public static void register(DarkMusicClient app) {
@@ -49,6 +49,7 @@ public final class PipController implements AutoCloseable {
     }
 
     public void select(PipSource value) {
+        if (!app.settings.pip.enabled || !tools.runtime.ready()) return;
         stop();
         source = value;
     }
@@ -62,6 +63,7 @@ public final class PipController implements AutoCloseable {
     }
 
     public void tick() {
+        if ((preparing || session != null) && !app.settings.pip.enabled) stop();
         if (session != null) {
             session.watchdog();
             if (session.audio != null) session.audio.configure(app.settings.pip.spectrum);
@@ -70,6 +72,10 @@ public final class PipController implements AutoCloseable {
 
     public void start() {
         if (closed || active() || source == null) return;
+        if (!app.settings.pip.enabled || !tools.runtime.ready()) {
+            state = app.settings.pip.enabled ? "pip.setup.required" : "pip.setup.disabled";
+            return;
+        }
         if (!PipNativeTools.supported()) {
             state = "pip.unsupported";
             return;
@@ -80,7 +86,7 @@ public final class PipController implements AutoCloseable {
         state = "pip.starting";
         app.settings.pip.validate();
         tools.prepare().thenCombine(stopping, (exe, ignored) -> exe).whenComplete((exe, error) -> Minecraft.getInstance().execute(() -> {
-            if (closed || request != generation) return;
+            if (closed || request != generation || !app.settings.pip.enabled) return;
             preparing = false;
             if (error != null) {
                 state = PipNativeTools.failure(error);
@@ -210,5 +216,6 @@ public final class PipController implements AutoCloseable {
     public void close() {
         closed = true;
         stop();
+        tools.runtime.close();
     }
 }

@@ -87,6 +87,7 @@ if (providers.gradleProperty('smoke').isPresent()) {
                 client()
                 vmArg "-Ddarkmusic.pipSmoke=${providers.gradleProperty('pipSmoke').isPresent()}"
                 vmArg "-Ddarkmusic.pipBenchmark=${providers.gradleProperty('pipBenchmark').isPresent()}"
+                vmArg "-Ddarkmusic.pipDependencies=${file("build/libs/darkmusic-pip-dependencies-${project.version}-windows-x64.zip").absolutePath}"
                 if (providers.gradleProperty('pipTrace').isPresent()) vmArg "-Ddarkmusic.pip.trace=${file(providers.gradleProperty('pipTrace').get()).absolutePath}"
                 vmArg "-Ddarkmusic.pipFolder=${file(providers.gradleProperty('pipFolder').getOrElse('.local-tools/verification/pip-integrated')).absolutePath}"
                 source sourceSets.smoke
@@ -176,7 +177,7 @@ processResources {
     }
 }
 
-// The Windows capture helper is self-contained: users do not install .NET.
+// Feature code stays in the mod; the large instance-local runtime is opt-in.
 // Opt out explicitly for Java-only work on machines without the .NET SDK.
 if (!providers.gradleProperty('javaOnly').isPresent()) {
     def publishFolder = layout.buildDirectory.dir('pip-helper')
@@ -190,21 +191,39 @@ if (!providers.gradleProperty('javaOnly').isPresent()) {
         commandLine 'dotnet', 'publish', 'PipHelper.csproj', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '-o', publishFolder.get().asFile.absolutePath,
                 "-p:BaseIntermediateOutputPath=${layout.buildDirectory.dir('pip-helper-obj').get().asFile.absolutePath}/", "-p:BaseOutputPath=${layout.buildDirectory.dir('pip-helper-bin').get().asFile.absolutePath}/", '--nologo'
     }
-    tasks.register('bundlePipHelper', Zip) {
+    def codeFiles = ['DarkMusic.Pip.exe', 'DarkMusic.Pip.dll', 'DarkMusic.Pip.deps.json', 'DarkMusic.Pip.runtimeconfig.json']
+    def pipVersion = project.version.toString()
+    def dependencyFile = layout.buildDirectory.file("libs/darkmusic-pip-dependencies-${pipVersion}-windows-x64.zip")
+    def dependencyBundle = tasks.register('pipDependencies', Zip) {
         preserveFileTimestamps = false
         reproducibleFileOrder = true
         dependsOn tasks.named('publishPipHelper')
-        from(publishFolder)
+        from(publishFolder) { exclude codeFiles }
+        archiveFileName = "darkmusic-pip-dependencies-${project.version}-windows-x64.zip"
+        destinationDirectory = layout.buildDirectory.dir('libs')
+    }
+    tasks.register('bundlePipHelper', Zip) {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+        dependsOn dependencyBundle
+        from(publishFolder) { include codeFiles }
+        inputs.property 'version', project.version.toString()
         archiveFileName = 'helper.zip'
         destinationDirectory = resourceFolder
-        outputs.file(resourceFolder.map { it.file('helper.sha256') })
+        outputs.files(resourceFolder.map { it.file('helper.sha256') }, resourceFolder.map { it.file('dependencies.json') })
         doLast {
             def hash = java.security.MessageDigest.getInstance('SHA-256').digest(archiveFile.get().asFile.bytes).encodeHex().toString()
             new File(resourceFolder.get().asFile, 'helper.sha256').setText(hash, 'US-ASCII')
+            def deps = dependencyFile.get().asFile
+            new File(resourceFolder.get().asFile, 'dependencies.json').setText(groovy.json.JsonOutput.toJson([
+                schema: 1, version: pipVersion, name: deps.name, size: deps.length(),
+                sha256: java.security.MessageDigest.getInstance('SHA-256').digest(deps.bytes).encodeHex().toString()
+            ]), 'UTF-8')
         }
     }
     sourceSets.client.resources.srcDir(layout.buildDirectory.dir('generated/pip-resources'))
     tasks.named('processClientResources') { dependsOn tasks.named('bundlePipHelper') }
+    tasks.named('test') { systemProperty 'darkmusic.test.pipDependencies', dependencyFile.get().asFile.absolutePath }
 }
 
 tasks.withType(JavaCompile).configureEach {

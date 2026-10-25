@@ -4,6 +4,7 @@ package com.darkmusic.client.pip;
  * Display/audio-analysis preferences only: window identities and active capture never persist.
  */
 public final class PipSettings {
+    public boolean enabled = false, audioAccess = false;
     public static final int MAX_FRAME_RATE = 480;
     public boolean visible = true, inMenus = false;
     public boolean audioSpectrum = false;

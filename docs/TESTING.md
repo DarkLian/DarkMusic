@@ -1,5 +1,13 @@
 # Development and verification
 
+## Optional PiP runtime development
+
+The next-update packaging and consent flow is described in [optional PiP installation](PIP-OPTIONAL-INSTALLATION.md). `PipRuntimeTest` uses disposable runtime archives and injected transport for no-work construction, no-download checks, explicit install/cache reuse, checksum rejection, cancellation and unsupported systems. The desktop-only case runs the real Windows/WGC preflight and native graphics-device probe with a local copy of this build's dependency ZIP. `PipBundleTest` verifies that only DarkMusic helper code remains in the embedded archive and verifies the split extraction and notices. Upgraded PiP preferences retain appearance while new access fields default off.
+
+An isolated fullscreen Minecraft smoke check at 1920x1080, GUI scale 2 with SmoothFont passed the actual setup screens, canceled install/access/audio prompts, offline cached-runtime verification, explicit capture consent and revocation. Installation or access consent did not start capture. The smoke run used the existing private collection for library loading, stopped music, performed no network fetch or window enumeration, emitted its smoke-pass marker and completed Gradle successfully. The matching release dependency asset is not live yet; a future publication must supply it before real in-game downloading can be tested end-to-end. The already published v3.0.0 assets were not replaced.
+
+The full Windows private-collection verification (`scripts/verify.ps1 -DesktopIntegration`) passed with two optional live-provider/tool-install checks skipped. Final focused runtime/bundle/settings checks and assembly passed after the setup progress-label adjustment. Split-archive SHA-256, runtime license placement, 1,607 matching language keys, private-media/smoke exclusions, workflow lint and whitespace checks passed. The base JAR measured 4,014,198 bytes and optional dependencies 76,106,620 bytes. Historical PiP capture/spectrum benchmark harnesses now require the normal setup/access flow first; they must not silently grant access.
+
 ## v3.0.0 release validation
 
 Clean Windows release checks through `scripts/verify.ps1 -Clean -DesktopIntegration` completed successfully: **546 tests, 544 passed, two optional live-provider/tool-install checks skipped**, zero failures/errors. The real private collection and existing managed tools were used. The v3.0.0 binary/source JARs and third-party source ZIP passed integrity checks; packaged metadata, the native-helper SHA-256 and licenses, 1,584 matching localization keys, and exclusion of private audio and smoke classes were verified. Workflow lint and Git whitespace checks passed.
