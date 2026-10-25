@@ -1,6 +1,59 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v2.8.2 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v3.0.0 for Minecraft 26.2 with Fabric and Java 25.
+
+## Picture-in-Picture (Windows x64)
+
+On Windows 10/11 x64, use the **Picture-in-Picture** icon beside **Manage Audio Files**
+in the main player, or enter **/da pip** (also **/darkmusic pip**).
+Choose an open application window, then press **Start Capture**. Capture remains
+off until you start it, and never starts automatically after a Minecraft restart.
+
+Use **Edit PiP Layout** to drag the view, drag its bottom-right corner or scroll
+to resize it, and use the center guides to align it. Arrow keys move it; +/−
+resize it. **Crop Captured Window** lets you drag a rectangle around the video
+or enter precise crop percentages. Cropping changes only the displayed region.
+The view preserves that region's aspect ratio.
+
+While capturing, **Ctrl+Alt+F8** switches to the selected application and
+**Ctrl+Alt+F9** returns to Minecraft, including from exclusive fullscreen.
+You can choose other function keys while capture is stopped. If a shortcut is
+already reserved, choose different keys and try again. Windows can reject focus
+changes; Alt+Tab remains available.
+
+Close the menus to watch while playing. **Show PiP** hides the view while keeping
+capture and shortcuts active; **Stop Capture** releases capture and both shortcuts.
+Showing PiP in menus defaults to off; existing saved choices are preserved.
+Opacity and showing PiP in menus are independent of the music HUD. Position,
+size, crop and display preferences are saved; the selected window is not.
+
+Keep the source window open and unminimized. It may be covered by Minecraft.
+Sound continues through the source application. PiP does not replay, record,
+upload, or change DarkMusic playback. Enable **PiP Audio Spectrum** while capture
+is stopped to visualize the selected application's process-tree audio beside PiP.
+Open **PiP Spectrum Settings** for independent style, colors, opacity, effects,
+smoothing, sensitivity, band count and height. Choose above, below, left or right
+of the video; use **Edit PiP Layout** to preview the combined placement. At screen
+edges the spectrum stays visible by moving over the video. Music HUD settings and
+its audio source remain unchanged. This option defaults off and needs Windows build 20348
+or later; video capture can still work where process-audio capture is unavailable.
+Other audible browser tabs can contribute when they share the captured process
+tree: a selected window does not guarantee tab-isolated audio. Everything in the chosen
+window is potentially visible, so crop or stop before displaying private content.
+
+The frame limit offers **Match Monitor** and manual limits from **15 to 480 FPS**,
+including the detected refresh rate. Match Monitor reads Minecraft's current
+monitor when capture starts, uses 60 FPS if detection is unavailable, and caps
+at 480 FPS. Stop and restart capture after changing monitors to update this limit.
+Existing preferences retain their frame limit; the default remains 60 FPS.
+The frame limit caps capture, without generating additional video frames. Higher
+limits increase processing and memory traffic. Actual smoothness depends on the
+source, Minecraft's frame rate and the display. Captures are limited to 3840×2160.
+Linux/macOS capture, protected content, HDR, elevated apps and all multi-monitor
+combinations are not supported or verified. The default capture path measured
+about 47 FPS behind exclusive-fullscreen Minecraft on the tested system; selecting
+144 FPS does not guarantee 144 captured frames. See the
+[verification record](PIP-VERIFICATION.md) and [capture investigation](PIP-WGC-INVESTIGATION.md).
 
 ## Interface language
 

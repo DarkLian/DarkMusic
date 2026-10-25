@@ -16,6 +16,14 @@ import java.util.Locale;
 public final class ColorsScreen extends LocalScreen {
     private final DarkMusicClient app;
     private final VisualColors target;
+    private Preview customPreview;
+    private String previewTitle = "ui.darkmusic.live_preview";
+
+    @FunctionalInterface
+    public interface Preview {
+        void render(GuiGraphicsExtractor g, int x, int y, int width, int height);
+    }
+
     private EditBox start, end;
     private int fieldsY, swatchY, editorWidth, previewX, previewY, previewWidth;
     private boolean previewOnly;
@@ -33,6 +41,12 @@ public final class ColorsScreen extends LocalScreen {
         super(Text.component(titleKey), parent);
         this.app = app;
         this.target = target;
+    }
+
+    public ColorsScreen(DarkMusicClient app, Screen parent, VisualColors target, String titleKey, Preview preview, String previewTitle) {
+        this(app, parent, target, titleKey);
+        customPreview = preview;
+        this.previewTitle = previewTitle;
     }
 
     private VisualColors colors() {
@@ -174,10 +188,13 @@ public final class ColorsScreen extends LocalScreen {
         if (width >= 700 || previewOnly) {
             UiTheme.panel(g, previewX, previewY, previewWidth, height - previewY - 8);
             if (height - previewY > 50)
-                g.text(font, Text.get("ui.darkmusic.live_preview"), previewX + 8, previewY + 7, UiTheme.ACCENT);
+                g.text(font, Text.get(previewTitle), previewX + 8, previewY + 7, UiTheme.ACCENT);
             int inset = height - previewY > 50 ? 22 : 4;
             g.enableScissor(previewX + 2, previewY + inset, previewX + previewWidth - 2, height - 10);
-            NowPlayingHud.renderPreview(app, g, previewX + 8, previewY + inset, previewWidth - 16, height - previewY - inset - 12, 1, longText);
+            if (customPreview == null)
+                NowPlayingHud.renderPreview(app, g, previewX + 8, previewY + inset, previewWidth - 16, height - previewY - inset - 12, 1, longText);
+            else
+                customPreview.render(g, previewX + 8, previewY + inset, previewWidth - 16, height - previewY - inset - 12);
             g.disableScissor();
         }
         super.extractRenderState(g, mx, my, delta);

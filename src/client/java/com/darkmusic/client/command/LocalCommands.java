@@ -21,7 +21,7 @@ public final class LocalCommands {
 
     public static void register(DarkMusicClient app) {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, context) -> register(dispatcher,
-            () -> app.requestScreen(false), () -> app.requestScreen(true), () -> app.updates.requestUpdate(), app::requestLyrics));
+            () -> app.requestScreen(false), () -> app.requestScreen(true), () -> app.updates.requestUpdate(), app::requestLyrics, app::requestPip));
     }
 
     public static void register(CommandDispatcher<FabricClientCommandSource> dispatcher, Runnable player, Runnable layout) {
@@ -35,6 +35,12 @@ public final class LocalCommands {
 
     public static void register(CommandDispatcher<FabricClientCommandSource> dispatcher, Runnable player, Runnable layout, Runnable update,
                                 java.util.function.Supplier<String> lyrics) {
+        register(dispatcher, player, layout, update, lyrics, () -> {
+        });
+    }
+
+    public static void register(CommandDispatcher<FabricClientCommandSource> dispatcher, Runnable player, Runnable layout, Runnable update,
+                                java.util.function.Supplier<String> lyrics, Runnable pip) {
         for (String name : new String[]{"da", "darkmusic"})
             dispatcher.register(ClientCommands.literal(name).requires(FabricClientCommandSource::attended)
                 .executes(context -> {
@@ -43,6 +49,10 @@ public final class LocalCommands {
                 })
                 .then(ClientCommands.literal("gui").executes(context -> {
                     layout.run();
+                    return 1;
+                }))
+                .then(ClientCommands.literal("pip").executes(context -> {
+                    pip.run();
                     return 1;
                 }))
                 .then(ClientCommands.literal("lyrics").executes(context -> {
@@ -77,6 +87,7 @@ public final class LocalCommands {
         source.sendFeedback(command("/da", "command.darkmusic.player"));
         source.sendFeedback(command("/da gui", "command.darkmusic.layout"));
         source.sendFeedback(command("/da lyrics", "command.darkmusic.lyrics"));
+        source.sendFeedback(command("/da pip", "pip.title"));
         source.sendFeedback(command("/da update", "command.darkmusic.update"));
         source.sendFeedback(command("/da help", "command.darkmusic.show_help"));
         source.sendFeedback(Text.component("command.darkmusic.section.shortcuts").withStyle(ChatFormatting.GOLD));

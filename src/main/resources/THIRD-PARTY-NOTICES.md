@@ -10,6 +10,14 @@ notices, including the existing interface icons' CC0 dedication, remain effectiv
 Third-party libraries retain their original copyright notices and licenses.
 They are included as separate, unmodified nested JARs under META-INF/jars.
 
+Development builds with Picture-in-Picture also bundle a self-contained Windows
+x64 helper under assets/darkmusic/pip/windows-x64/helper.zip. It includes
+Microsoft .NET / Windows Desktop runtime binaries and C#/WinRT projections.
+Their .NET MIT license, runtime third-party notices, C#/WinRT MIT license, and
+Windows SDK license are included inside that archive. These components are
+unmodified redistributables, used only when the user explicitly starts PiP or
+opens its window picker; no system-wide runtime installation is performed.
+
 | Maven coordinate                                | Applicable source notices                                                                      |
 |-------------------------------------------------|------------------------------------------------------------------------------------------------|
 | com.googlecode.soundlibs:mp3spi:1.9.5.4         | JavaZOOM; GNU Library General Public License v2 or later                                       |

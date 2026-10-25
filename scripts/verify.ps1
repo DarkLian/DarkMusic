@@ -3,7 +3,8 @@ param(
     [string]$MusicDirectory = '',
     [string]$ToolsDirectory = '',
     [switch]$Clean,
-    [switch]$DesktopIntegration
+    [switch]$DesktopIntegration,
+    [switch]$JavaOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -58,6 +59,7 @@ try {
         }
     }
     $arguments = @('build', '-PrequireMusic', "-PmusicDirectory=$verificationDirectory")
+    if ($JavaOnly) { $arguments += '-PjavaOnly' }
     if ($ToolsDirectory) { $arguments += @('-PdownloadIntegration', "-PdownloadToolsDirectory=$ToolsDirectory") }
     if ($DesktopIntegration) { $arguments += '-PdesktopIntegration' }
     & $gradle @arguments

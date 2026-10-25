@@ -1,0 +1,123 @@
+package com.darkmusic.smoke;
+
+import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.gui.*;
+import com.darkmusic.client.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+
+import java.nio.file.*;
+
+/**
+ * Offline GUI checks: synthetic spectrum previews only, no capture or network access.
+ */
+final class PipSpectrumSmoke {
+    private int tick;
+    private String musicBefore;
+    private boolean hudWasEnabled;
+    private double editorY;
+
+    boolean tick(Minecraft mc, DarkMusicClient app) throws Exception {
+        tick++;
+        if (tick == 1) {
+            SmokeUi.captureReady(mc);
+            HudSettingsSmoke.check(mc, app);
+            musicBefore = signature(app);
+            app.settings.pip.audioSpectrum = true;
+            var s = app.settings.pip.spectrum;
+            for (int[] size : new int[][]{{320, 240}, {426, 240}, {960, 540}})
+                for (var position : Settings.ArtworkSpectrumPosition.values()) {
+                    s.position = position;
+                    for (var style : Settings.SpectrumStyle.values()) {
+                        s.style = style;
+                        var screen = new PipSpectrumScreen(app, null);
+                        screen.init(size[0], size[1]);
+                        check(screen);
+                        for (int i = 0; i < 24; i++) {
+                            screen.keyPressed(new KeyEvent(258, 0, 0));
+                            check(screen);
+                        }
+                    }
+                }
+            s.style = Settings.SpectrumStyle.ROUNDED_BARS;
+            s.position = Settings.ArtworkSpectrumPosition.BELOW;
+            mc.gui.setScreen(new PipSpectrumScreen(app, null));
+        }
+        if (tick == 10) capture(mc, "settings");
+        if (tick == 12) {
+            editorY = app.settings.pip.y;
+            app.settings.pip.y = 0;
+            var s = app.settings.pip.spectrum;
+            s.style = Settings.SpectrumStyle.FILLED_WAVE;
+            s.position = Settings.ArtworkSpectrumPosition.RIGHT;
+            mc.gui.setScreen(new PipEditorScreen(app, new PipSpectrumScreen(app, null), false));
+        }
+        if (tick == 22) {
+            var back = SmokeUi.find(mc, Text.get("phase2.back"));
+            if (back == null || back.getY() != mc.gui.screen().height - 24)
+                throw new IllegalStateException("PiP at the top must move the Back button away from the captured image");
+            capture(mc, "layout");
+        }
+        if (tick == 24) {
+            app.settings.pip.y = editorY;
+            mc.gui.setScreen(new PipSpectrumScreen(app, null));
+            for (int i = 0; i < 30; i++) {
+                var colors = SmokeUi.find(mc, Text.get("colors.darkmusic.spectrum"));
+                if (colors != null && colors.visible) {
+                    SmokeUi.press(mc, colors);
+                    break;
+                }
+                mc.gui.screen().mouseScrolled(mc.getWindow().getGuiScaledWidth() / 2.0, 300, 0, -1);
+            }
+            if (!(mc.gui.screen() instanceof ColorsScreen) || SmokeUi.field(mc.gui.screen(), "target") != app.settings.pip.spectrum.colors)
+                throw new IllegalStateException("PiP colors did not open its own editor");
+        }
+        if (tick == 34) capture(mc, "colors");
+        if (tick == 36) {
+            hudWasEnabled = app.settings.hudEnabled;
+            app.settings.hudEnabled = false;
+            var screen = new SettingsScreen(app, null);
+            mc.gui.setScreen(screen);
+            var selected = SettingsScreen.class.getDeclaredField("selectedSection");
+            selected.setAccessible(true);
+            selected.setInt(screen, 4);
+            screen.init(960, 540);
+        }
+        if (tick == 46) capture(mc, "hud-disabled");
+        if (tick == 50) {
+            app.settings.hudEnabled = hudWasEnabled;
+            if (!musicBefore.equals(signature(app)))
+                throw new IllegalStateException("PiP edited music spectrum preferences");
+            app.save();
+            System.out.println("PIP_SPECTRUM_UI_PASS:320x240,426x240,960x540;all_styles;four_positions;keyboard;independent_colors");
+            return true;
+        }
+        return false;
+    }
+
+    private static String signature(DarkMusicClient app) {
+        var s = app.settings;
+        return s.spectrumStyle + ":" + s.spectrumColors.preset + ":" + s.spectrumColors.start + ":" + s.spectrumColors.end + ":" + s.spectrumOpacity + ":" + s.visualizerSensitivity + ":" + s.visualizerSmoothing + ":" + s.visualizerBars;
+    }
+
+    private static void check(Screen screen) {
+        for (var child : screen.children())
+            if (child instanceof AbstractWidget w && w.visible) {
+                if (w.getX() < 0 || w.getY() < 0 || w.getX() + w.getWidth() > screen.width || w.getY() + w.getHeight() > screen.height)
+                    throw new IllegalStateException("PiP widget out of bounds: " + w.getMessage().getString());
+                if (w.getMessage().getString().contains("pip.spectrum."))
+                    throw new IllegalStateException("Untranslated PiP label");
+            }
+    }
+
+    private static void capture(Minecraft mc, String name) throws Exception {
+        SmokeUi.captureReady(mc);
+        var root = Path.of("../../docs/images_private/pip-spectrum").toAbsolutePath().normalize();
+        Files.createDirectories(root.resolve("screenshots"));
+        net.minecraft.client.Screenshot.grab(root.toFile(), name + "-" + mc.options.languageCode + ".png", mc.gameRenderer.mainRenderTarget(), 1, text -> {
+        });
+    }
+}

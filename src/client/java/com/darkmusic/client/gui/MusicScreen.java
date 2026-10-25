@@ -204,14 +204,20 @@ public final class MusicScreen extends LocalScreen {
         else if (layout.singleColumn())
             icon("ui.darkmusic.collections", UiIcon.FOLDER, 12, contextY, 110, false, () -> pane(Pane.COLLECTIONS));
         else {
-            int utilityWidth = Math.min(24, (layout.navigation().width() - 20) / 6);
+            int utilityWidth = layout.navigationUtilityWidth();
             openFolder = icon("text.darkmusic.open_folder", UiIcon.FOLDER, 12, contextY, utilityWidth, true, () -> app.openFolder(browseDirectory()));
             icon("import.darkmusic.history", UiIcon.PLAYLIST, 16 + utilityWidth, contextY, utilityWidth, true, () -> show(new ImportHistoryScreen(app, this)));
             icon("text.darkmusic.refresh_library", UiIcon.REFRESH, 20 + utilityWidth * 2, contextY, utilityWidth, true, () -> app.library.rescan());
             icon("delete_audio.manage", UiIcon.TOOLS, 24 + utilityWidth * 3, contextY, utilityWidth, true, () -> show(new LibraryManagerScreen(app, this)));
+            Help.tip(icon("pip.title", UiIcon.PIP, 28 + utilityWidth * 4, contextY, utilityWidth, true, () -> show(new PipScreen(app, this))), Text.get("pip.settings.help"));
+        }
+        if (drawer || layout.singleColumn() && library) {
+            int filesX = drawer ? 84 : 128;
+            icon("delete_audio.manage", UiIcon.TOOLS, filesX, contextY, 24, true, () -> show(new LibraryManagerScreen(app, this)));
+            Help.tip(icon("pip.title", UiIcon.PIP, filesX + 28, contextY, 24, true, () -> show(new PipScreen(app, this))), Text.get("pip.settings.help"));
         }
         if (library || drawer) {
-            int utilityWidth = drawer || layout.singleColumn() ? 24 : Math.min(24, (layout.navigation().width() - 20) / 6);
+            int utilityWidth = drawer || layout.singleColumn() ? 24 : layout.navigationUtilityWidth();
             int manageX = drawer ? width - 40 : layout.singleColumn() ? width - 64 : layout.navigation().right() - utilityWidth;
             UiButton.selected(icon("view.darkmusic.history", UiIcon.HISTORY, manageX - utilityWidth - 4, contextY, utilityWidth, true,
                 () -> mode("History")), () -> mode.equals("History"));

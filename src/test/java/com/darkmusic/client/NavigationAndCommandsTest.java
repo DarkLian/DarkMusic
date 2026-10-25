@@ -71,6 +71,7 @@ class NavigationAndCommandsTest {
         var dispatcher = new CommandDispatcher<FabricClientCommandSource>();
         var player = new AtomicInteger();
         var layout = new AtomicInteger();
+        var pip = new AtomicInteger();
         var messages = new ArrayList<Component>();
         FabricClientCommandSource source = (FabricClientCommandSource) Proxy.newProxyInstance(getClass().getClassLoader(), new Class[]{FabricClientCommandSource.class}, (proxy, method, args) -> {
             return switch (method.getName()) {
@@ -82,27 +83,30 @@ class NavigationAndCommandsTest {
                 default -> throw new AssertionError("Unexpected command interaction: " + method.getName());
             };
         });
-        LocalCommands.register(dispatcher, player::incrementAndGet, layout::incrementAndGet);
+        LocalCommands.register(dispatcher, player::incrementAndGet, layout::incrementAndGet, () -> {
+        }, () -> "", pip::incrementAndGet);
         for (String alias : List.of("da", "darkmusic")) {
             assertEquals(1, dispatcher.execute(alias, source));
             assertEquals(1, dispatcher.execute(alias + " gui", source));
+            assertEquals(1, dispatcher.execute(alias + " pip", source));
             assertEquals(1, dispatcher.execute(alias + " help", source));
         }
         assertEquals(2, player.get());
         assertEquals(2, layout.get());
-        assertEquals(22, messages.size());
-        for (int start : List.of(0, 11)) {
+        assertEquals(2, pip.get());
+        assertEquals(24, messages.size());
+        for (int start : List.of(0, 12)) {
             assertEquals("Commands", messages.get(start + 1).getString());
-            for (int i = 0; i < 5; i++) {
+            for (int i = 0; i < 6; i++) {
                 var event = assertInstanceOf(net.minecraft.network.chat.ClickEvent.SuggestCommand.class,
                     messages.get(start + 2 + i).getStyle().getClickEvent());
-                assertEquals(List.of("/da", "/da gui", "/da lyrics", "/da update", "/da help").get(i), event.command());
+                assertEquals(List.of("/da", "/da gui", "/da lyrics", "/da pip", "/da update", "/da help").get(i), event.command());
                 assertNotNull(messages.get(start + 2 + i).getStyle().getHoverEvent());
             }
         }
-        var links = messages.get(10).getSiblings().stream().filter(c -> c.getStyle().getClickEvent() != null).toList();
+        var links = messages.get(11).getSiblings().stream().filter(c -> c.getStyle().getClickEvent() != null).toList();
         assertEquals(2, links.size());
-        assertInstanceOf(net.minecraft.network.chat.ClickEvent.OpenUrl.class, messages.get(10).getStyle().getClickEvent());
+        assertInstanceOf(net.minecraft.network.chat.ClickEvent.OpenUrl.class, messages.get(11).getStyle().getClickEvent());
         for (var link : links)
             assertInstanceOf(net.minecraft.network.chat.ClickEvent.OpenUrl.class, link.getStyle().getClickEvent());
     }

@@ -23,6 +23,7 @@ public final class Settings {
     public boolean updateNotifications = true;
     public double speed = 1;
     public boolean hudEnabled = true;
+    public com.darkmusic.client.pip.PipSettings pip = new com.darkmusic.client.pip.PipSettings();
     public String hudPosition = "TOP_LEFT";
     public Double hudX, hudY;
     public double hudScale = 1;
@@ -86,6 +87,8 @@ public final class Settings {
     }
 
     public void validate() {
+        if (pip == null) pip = new com.darkmusic.client.pip.PipSettings();
+        pip.validate();
         if (classicImage == null) classicImage = HudImage.ARTWORK;
         if (circularImage == null) circularImage = HudImage.ARTWORK;
         if (artworkImage == null) artworkImage = HudImage.ARTWORK;

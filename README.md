@@ -6,14 +6,24 @@ A client-side music player for Minecraft. Browse your own library, build playlis
 
 ## Install
 
-DarkMusic **v2.10.0** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v3.0.0** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-2.10.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-3.0.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Open **Settings → General → Music Folders**, or add songs to `config/darkmusic/music` inside the instance.
 
 Install DarkMusic on the client. Servers do not need it. Windows, Linux, and macOS are supported; external audio formats and downloading need compatible tools for the operating system.
+
+## Watch another window while you play
+
+**Picture-in-Picture for Windows x64** brings a selected application window into Minecraft, including fullscreen. Open the **PiP icon beside Manage Audio Files**, or use **/da pip**, choose a window and start capture.
+
+Move, resize and crop the view, adjust its opacity, and use **Ctrl+Alt+F8** to operate the source application and **Ctrl+Alt+F9** to return to Minecraft. Keep the source window open and unminimized; capture starts only when you request it. Showing PiP in menus defaults to off.
+
+Turn on the optional **PiP Audio Spectrum** to visualize the application's audio, with its own styles, colors, effects and placement. Sound continues through the source application, independently of DarkMusic playback. Browser process sharing can include audio from other tabs.
+
+PiP smoothness depends on Windows, the source and Minecraft. A high frame limit does not guarantee that capture rate: the current default path measured about **47 FPS behind fullscreen Minecraft** on the tested system. Experimental 4 ms capture reached 144 FPS in windowed mode, but not exclusive fullscreen. See [verification](docs/PIP-VERIFICATION.md), [resource measurements](docs/PIP-PERFORMANCE.md), and the [WGC investigation](docs/PIP-WGC-INVESTIGATION.md). PiP capture is Windows-only; the music player remains available on Linux and macOS.
 
 ## Updates
 
@@ -117,11 +127,11 @@ Space toggles Play/Pause inside the player. Focused controls retain their normal
 
 Change shortcuts in **Options → Controls → Key Binds → DarkMusic**.
 
-`/da` or `/darkmusic` opens the player. Add `gui` to edit HUD layout, `lyrics` to open the current song's lyrics, `update` to check and download an available update, or `help` for grouped commands, shortcuts, and links. These commands run locally.
+`/da` or `/darkmusic` opens the player. Add `gui` to edit HUD layout, `lyrics` to open the current song's lyrics, `pip` to open Picture-in-Picture, `update` to check and download an available update, or `help` for grouped commands, shortcuts, and links. These commands run locally.
 
 ## Build and contribute
 
-Use JDK 25 and the included Gradle wrapper:
+Use JDK 25, the .NET 8 SDK for building the bundled Windows PiP helper, and the included Gradle wrapper. Mod users receive the helper's self-contained runtime and do not need the SDK.
 
 ```sh
 ./gradlew build

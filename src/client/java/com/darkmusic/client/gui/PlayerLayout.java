@@ -44,6 +44,10 @@ public record PlayerLayout(int width, int height, Rect navigation, Rect tracks, 
         return navigation.width() == 0;
     }
 
+    public int navigationUtilityWidth() {
+        return Math.min(24, Math.max(1, (navigation.width() - 24) / 7));
+    }
+
     public int artworkSize() {
         return inspector.width() == 0 ? 0 : Math.min(inspector.width() - 16, inspector.height() - spectrumHeight() - 100);
     }

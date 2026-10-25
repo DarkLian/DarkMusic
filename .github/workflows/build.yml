@@ -33,15 +33,20 @@ jobs:
         with:
           java-version: '25'
           distribution: 'microsoft'
+      - name: setup .NET SDK for the bundled Windows helper
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '8.0.x'
       - name: make gradle wrapper executable
         if: runner.os != 'Windows'
         run: chmod +x ./gradlew
       - name: build
+        # PiP is Windows-only at runtime; the helper cross-publishes on all builders.
         if: runner.os != 'Windows'
-        run: ./gradlew build
+        run: ./gradlew build -PbundlePipHelper
         # Private music is never uploaded to hosted runners. Audio-dependent
         # checks explicitly skip when absent; release validation runs locally
         # with -PrequireMusic -PdownloadIntegration and the real collection.
       - name: build on Windows
         if: runner.os == 'Windows'
-        run: .\gradlew.bat build
+        run: .\gradlew.bat build -PbundlePipHelper

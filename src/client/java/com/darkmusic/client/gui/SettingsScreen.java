@@ -23,6 +23,7 @@ public final class SettingsScreen extends LocalScreen {
     private final DarkMusicClient app;
     private ScrollBar scrollbar;
     private ValueSlider playerProgressPreview;
+    private final SpectrumRenderer playerSpectrumPreview = new SpectrumRenderer();
     private final List<Placed> controls = new ArrayList<>();
     private final List<Section> sections = new ArrayList<>();
     private final List<Subsection> subsections = new ArrayList<>();
@@ -156,7 +157,7 @@ public final class SettingsScreen extends LocalScreen {
                 previewOnly = !previewOnly;
                 rebuildWidgets();
             }).bounds(width - 120, 38, 108, 24).build());
-        if (previewVisible) {
+        if (previewVisible && (app.settings.hudEnabled || com.darkmusic.client.hud.LyricsHud.enabled(app.settings))) {
             int layoutButtonWidth = Math.min(previewWidth, font.width(Text.get("text.darkmusic.edit_hud_layout")) + 32);
             UiButton.icon(addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.edit_hud_layout"),
                     button -> show(new HudEditorScreen(app, this)))
@@ -204,72 +205,77 @@ public final class SettingsScreen extends LocalScreen {
             app.save();
         })), "settings.darkmusic.menu_accent_help");
         section("text.darkmusic.hud_settings");
-        toggle("text.darkmusic.now_playing_hud", () -> s.hudEnabled, v -> s.hudEnabled = v, "hud.darkmusic.master_help");
-        action("circle.darkmusic.style", () -> {
-            s.hudStyle = Settings.HudStyle.values()[(s.hudStyle.ordinal() + 1) % Settings.HudStyle.values().length];
-            app.save();
+        toggle("text.darkmusic.now_playing_hud", () -> s.hudEnabled, v -> {
+            s.hudEnabled = v;
             rebuildWidgets();
-        }, "circle.darkmusic.style_help");
-        controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("circle.darkmusic.style") + ": " + Text.get("circle.darkmusic.style." + s.hudStyle.name().toLowerCase(Locale.ROOT))));
+        }, "hud.darkmusic.master_help");
         boolean classic = s.hudStyle == Settings.HudStyle.CLASSIC;
         boolean artwork = s.hudStyle == Settings.HudStyle.ARTWORK;
         boolean spectrumOnly = s.hudStyle == Settings.HudStyle.SPECTRUM;
-        boolean linear = classic || artwork || spectrumOnly;
-        if (classic)
-            toggle("text.darkmusic.hud_artwork", () -> s.hudArtwork, v -> s.hudArtwork = v, "hud.darkmusic.artwork_help");
+        boolean linear = !s.hudEnabled || classic || artwork || spectrumOnly;
+        if (s.hudEnabled) {
+            action("circle.darkmusic.style", () -> {
+                s.hudStyle = Settings.HudStyle.values()[(s.hudStyle.ordinal() + 1) % Settings.HudStyle.values().length];
+                app.save();
+                rebuildWidgets();
+            }, "circle.darkmusic.style_help");
+            controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("circle.darkmusic.style") + ": " + Text.get("circle.darkmusic.style." + s.hudStyle.name().toLowerCase(Locale.ROOT))));
+            if (classic)
+                toggle("text.darkmusic.hud_artwork", () -> s.hudArtwork, v -> s.hudArtwork = v, "hud.darkmusic.artwork_help");
 
-        if (!spectrumOnly) {
-            action("hud.image_source", () -> {
-                s.hudImage(s.hudImage() == Settings.HudImage.ARTWORK ? Settings.HudImage.ICON : Settings.HudImage.ARTWORK);
-                app.save();
-                rebuildWidgets();
-            }, "hud.image_source.help");
-            controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("hud.image_source") + ": " +
-                Text.get("hud.image_source." + s.hudImage().name().toLowerCase(Locale.ROOT))));
-        }
+            if (!spectrumOnly) {
+                action("hud.image_source", () -> {
+                    s.hudImage(s.hudImage() == Settings.HudImage.ARTWORK ? Settings.HudImage.ICON : Settings.HudImage.ARTWORK);
+                    app.save();
+                    rebuildWidgets();
+                }, "hud.image_source.help");
+                controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("hud.image_source") + ": " +
+                    Text.get("hud.image_source." + s.hudImage().name().toLowerCase(Locale.ROOT))));
+            }
 
-        toggle("hud.darkmusic.spectrum", () -> s.hudVisualizer, v -> s.hudVisualizer = v, "hud.darkmusic.spectrum_help");
-        if (!linear) {
-            waveformSlider(s.circularImageGap / 24.0, v -> Text.get("hud.circular_gap", s.circularImageGap),
-                v -> s.circularImageGap = (int) Math.round(v * 24), 24, "hud.circular_gap.help");
-            toggle("circle.darkmusic.text", () -> s.circularText, v -> s.circularText = v, "circle.darkmusic.text_help");
-            action("circle.darkmusic.pulse", () -> {
-                if (!s.circularIconPulse) {
-                    s.circularIconPulse = true;
-                    s.visualQuality.beatReactive = false;
-                } else if (!s.visualQuality.beatReactive) s.visualQuality.beatReactive = true;
-                else s.circularIconPulse = false;
-                app.save();
-                rebuildWidgets();
-            }, "circle.darkmusic.pulse_help");
-            String pulse = !s.circularIconPulse ? "off" : s.visualQuality.beatReactive ? "beat" : "level";
-            controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("circle.darkmusic.pulse") + ": " + Text.get("circle.darkmusic.pulse." + pulse)));
-        }
-        if (classic) {
-            action("style.darkmusic.shape", () -> {
-                s.hudShape = Settings.HudShape.values()[(s.hudShape.ordinal() + 1) % Settings.HudShape.values().length];
-                app.save();
-                rebuildWidgets();
-            }, "style.darkmusic.shape_help");
-            controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("style.darkmusic.shape") + ": " + Text.get("style.darkmusic.shape." + s.hudShape.name().toLowerCase(Locale.ROOT))));
-            toggle("style.darkmusic.raised", () -> s.hudRaised, v -> s.hudRaised = v, "style.darkmusic.raised_help");
-        }
-        if (artwork)
-            toggle("hud.darkmusic.artwork_reactive", () -> s.artworkReactive, v -> s.artworkReactive = v, "hud.darkmusic.artwork_reactive_help");
-        if (linear && !spectrumOnly) {
-            slider(s.hudBackgroundTransparency, v -> Text.get("hud.darkmusic.transparency", Math.round(s.hudBackgroundTransparency * 100)), v -> s.hudBackgroundTransparency = v, 100, "hud.darkmusic.transparency_help");
-            toggle("hud.darkmusic.background_gradient", () -> s.hudBackgroundGradient, v -> s.hudBackgroundGradient = v, "hud.darkmusic.background_gradient_help");
-            action("hud.darkmusic.background_colors", () -> show(new ColorsScreen(app, this, s.hudBackgroundColors, "hud.darkmusic.background_colors")), "colors.darkmusic.help");
+            toggle("hud.darkmusic.spectrum", () -> s.hudVisualizer, v -> s.hudVisualizer = v, "hud.darkmusic.spectrum_help");
+            if (!linear) {
+                waveformSlider(s.circularImageGap / 24.0, v -> Text.get("hud.circular_gap", s.circularImageGap),
+                    v -> s.circularImageGap = (int) Math.round(v * 24), 24, "hud.circular_gap.help");
+                toggle("circle.darkmusic.text", () -> s.circularText, v -> s.circularText = v, "circle.darkmusic.text_help");
+                action("circle.darkmusic.pulse", () -> {
+                    if (!s.circularIconPulse) {
+                        s.circularIconPulse = true;
+                        s.visualQuality.beatReactive = false;
+                    } else if (!s.visualQuality.beatReactive) s.visualQuality.beatReactive = true;
+                    else s.circularIconPulse = false;
+                    app.save();
+                    rebuildWidgets();
+                }, "circle.darkmusic.pulse_help");
+                String pulse = !s.circularIconPulse ? "off" : s.visualQuality.beatReactive ? "beat" : "level";
+                controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("circle.darkmusic.pulse") + ": " + Text.get("circle.darkmusic.pulse." + pulse)));
+            }
+            if (classic) {
+                action("style.darkmusic.shape", () -> {
+                    s.hudShape = Settings.HudShape.values()[(s.hudShape.ordinal() + 1) % Settings.HudShape.values().length];
+                    app.save();
+                    rebuildWidgets();
+                }, "style.darkmusic.shape_help");
+                controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("style.darkmusic.shape") + ": " + Text.get("style.darkmusic.shape." + s.hudShape.name().toLowerCase(Locale.ROOT))));
+                toggle("style.darkmusic.raised", () -> s.hudRaised, v -> s.hudRaised = v, "style.darkmusic.raised_help");
+            }
+            if (artwork)
+                toggle("hud.darkmusic.artwork_reactive", () -> s.artworkReactive, v -> s.artworkReactive = v, "hud.darkmusic.artwork_reactive_help");
+            if (linear && !spectrumOnly) {
+                slider(s.hudBackgroundTransparency, v -> Text.get("hud.darkmusic.transparency", Math.round(s.hudBackgroundTransparency * 100)), v -> s.hudBackgroundTransparency = v, 100, "hud.darkmusic.transparency_help");
+                toggle("hud.darkmusic.background_gradient", () -> s.hudBackgroundGradient, v -> s.hudBackgroundGradient = v, "hud.darkmusic.background_gradient_help");
+                action("hud.darkmusic.background_colors", () -> show(new ColorsScreen(app, this, s.hudBackgroundColors, "hud.darkmusic.background_colors")), "colors.darkmusic.help");
+            }
         }
         subsection("progress.darkmusic.group");
-        if (!spectrumOnly) toggle("text.darkmusic.hud_progress", () -> s.hudProgress, v -> s.hudProgress = v,
-            artwork ? "hud.darkmusic.artwork_progress_help" : classic ? "text.darkmusic.show_the_current_track_s_progress_below_the_title_and_artist" : "circle.darkmusic.progress_help");
+        if (s.hudEnabled && !spectrumOnly)
+            toggle("text.darkmusic.hud_progress", () -> s.hudProgress, v -> s.hudProgress = v,
+                artwork ? "hud.darkmusic.artwork_progress_help" : classic ? "text.darkmusic.show_the_current_track_s_progress_below_the_title_and_artist" : "circle.darkmusic.progress_help");
         toggle("progress.darkmusic.waveform", () -> s.waveformProgress, v -> {
             s.waveformProgress = v;
             rebuildWidgets();
         }, "progress.darkmusic.waveform_help");
-        if (!spectrumOnly || s.waveformProgress)
-            finish("finish.darkmusic.progress", () -> s.progressFinish, v -> s.progressFinish = v);
+        finish("finish.darkmusic.progress", () -> s.progressFinish, v -> s.progressFinish = v);
         action("colors.darkmusic.progress", () -> show(new ColorsScreen(app, this, false)), "colors.darkmusic.help");
         if (s.waveformProgress) {
             action("waveform.style", () -> {
@@ -323,7 +329,7 @@ public final class SettingsScreen extends LocalScreen {
         }, linear ? "style.darkmusic.spectrum_help" : "circle.darkmusic.spectrum_help");
         var chosenStyle = linear ? s.spectrumStyle : s.circularSpectrumStyle;
         controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("style.darkmusic.spectrum") + ": " + Text.get((linear ? "style.darkmusic.spectrum." : "circle.darkmusic.spectrum.") + chosenStyle.name().toLowerCase(Locale.ROOT))));
-        if (linear) {
+        if (s.hudEnabled && linear) {
             if (!spectrumOnly) {
                 action("hud.darkmusic.position", () -> {
                     if (artwork)
@@ -357,13 +363,14 @@ public final class SettingsScreen extends LocalScreen {
         slider(s.visualizerSmoothing / .95, v -> Text.get("format.darkmusic.smoothing", Math.round(s.visualizerSmoothing * 100)), v -> s.visualizerSmoothing = v * .95, 19, "text.darkmusic.higher_values_give_slower_attack_and_decay_pausing_freezes_the_actual_spectrum_sto");
         slider((s.visualizerSensitivity - .25) / 3.75, v -> Text.get("format.darkmusic.sensitivity", String.format(Locale.ROOT, "%.2f", s.visualizerSensitivity)), v -> s.visualizerSensitivity = .25 + v * 3.75, 15, "text.darkmusic.boost_quiet_spectra_or_reduce_strong_levels_samples_follow_playback_speed_and_dark");
         slider((s.visualizerBars - 8) / 56.0, v -> Text.get("format.darkmusic.bars", s.visualizerBars), v -> s.visualizerBars = 8 + (int) Math.round(v * 56), 14, "text.darkmusic.8_64_logarithmic_frequency_bands_from_bass_to_treble_narrow_areas_combine_bars_to");
-        slider(linear ? ((artwork ? s.artworkSpectrumHeight : s.classicSpectrumHeight) - 8) / 92.0 : (s.circularSpectrumHeight - 4) / 56.0,
-            v -> Text.get("hud.darkmusic.spectrum_height", artwork ? s.artworkSpectrumHeight : linear ? s.classicSpectrumHeight : s.circularSpectrumHeight),
-            v -> {
-                if (artwork) s.artworkSpectrumHeight = 8 + (int) Math.round(v * 92);
-                else if (linear) s.classicSpectrumHeight = 8 + (int) Math.round(v * 92);
-                else s.circularSpectrumHeight = 4 + (int) Math.round(v * 56);
-            }, linear ? 92 : 56, "hud.darkmusic.spectrum_height_help");
+        if (s.hudEnabled)
+            slider(linear ? ((artwork ? s.artworkSpectrumHeight : s.classicSpectrumHeight) - 8) / 92.0 : (s.circularSpectrumHeight - 4) / 56.0,
+                v -> Text.get("hud.darkmusic.spectrum_height", artwork ? s.artworkSpectrumHeight : linear ? s.classicSpectrumHeight : s.circularSpectrumHeight),
+                v -> {
+                    if (artwork) s.artworkSpectrumHeight = 8 + (int) Math.round(v * 92);
+                    else if (linear) s.classicSpectrumHeight = 8 + (int) Math.round(v * 92);
+                    else s.circularSpectrumHeight = 4 + (int) Math.round(v * 56);
+                }, linear ? 92 : 56, "hud.darkmusic.spectrum_height_help");
         section("reset.darkmusic.section");
         action("reset.darkmusic.button", () -> show(new ConfirmationScreen(this, Text.component("reset.darkmusic.title"),
             Text.component("reset.darkmusic.body"), Text.component("reset.darkmusic.confirm"), app::resetDefaults)), "reset.darkmusic.help");
@@ -457,12 +464,17 @@ public final class SettingsScreen extends LocalScreen {
         if (!previewOnly) UiTheme.panel(g, formX - 2, top - 2, formWidth + 4, bottom - top + 4);
         if (previewVisible) {
             UiTheme.panel(g, previewX, previewY, previewWidth, previewHeight);
-            g.text(font, Text.get("hud.darkmusic.live_preview"), previewX + 6, previewY + 6, UiTheme.ACCENT);
+            g.text(font, Text.get(app.settings.hudEnabled || lyricsPreview() ? "hud.darkmusic.live_preview" : "settings.player_preview"), previewX + 6, previewY + 6, UiTheme.ACCENT);
             g.enableScissor(previewX + 2, previewY + 20, previewX + previewWidth - 2, previewY + previewHeight - 2);
-            fitPreview();
+            if (app.settings.hudEnabled || lyricsPreview()) fitPreview();
             if (lyricsPreview())
                 com.darkmusic.client.hud.LyricsHud.renderPreview(app, g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30, previewScale);
-            else
+            else if (!app.settings.hudEnabled) {
+                int available = previewHeight - 30 - (progressPreview() ? 54 : 0);
+                int spectrumHeight = Math.max(1, Math.min(60, available));
+                playerSpectrumPreview.bars(app, g, previewX + 12, previewY + 22 + (available - spectrumHeight) / 2,
+                    previewWidth - 24, spectrumHeight, false, true);
+            } else
                 NowPlayingHud.renderPreview(app, g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30 - (progressPreview() ? 54 : 0), previewScale, longText);
             if (progressPreview()) {
                 int divider = previewY + previewHeight - 54;

@@ -1,5 +1,64 @@
 # Development and verification
 
+## v3.0.0 release validation
+
+Clean Windows release checks through `scripts/verify.ps1 -Clean -DesktopIntegration` completed successfully: **546 tests, 544 passed, two optional live-provider/tool-install checks skipped**, zero failures/errors. The real private collection and existing managed tools were used. The v3.0.0 binary/source JARs and third-party source ZIP passed integrity checks; packaged metadata, the native-helper SHA-256 and licenses, 1,584 matching localization keys, and exclusion of private audio and smoke classes were verified. Workflow lint and Git whitespace checks passed.
+
+Runtime PiP, audio and layout checks are recorded below and in [PiP verification](PIP-VERIFICATION.md). The latest default/4 ms acquisition probes, OBS comparison and fullscreen/windowed crossover are in the [WGC investigation](PIP-WGC-INVESTIGATION.md). No extra public screenshots were taken. The user authorized release with the measured default fullscreen rate of approximately 47 FPS and unresolved focus/display-transition capture reports. No sustained fullscreen 144 FPS, browser-equivalence or native Linux/macOS PiP claim is made. Hosted build outcomes are available on the v3.0.0 release workflow.
+
+## PiP capture timing investigation
+
+See [WGC frame-rate investigation](PIP-WGC-INVESTIGATION.md) for measured default/4 ms capture, isolated acquire/dispose and readback probes, OBS modern-window comparison, and exclusive-fullscreen/windowed crossover results. Developer-only `-PpipTrace=<ignored-directory>` on the PiP smoke run records bounded native/Java stage timings on background writers. A `video4` phase explicitly requests a runtime-gated 4 ms WGC interval; normal capture defaults, protocol and music processing remain unchanged. GPU upload submission is measured on the CPU and must not be reported as GPU completion or scanout. Native Windows build 26300 was exercised; older-build runtime fallback, other GPUs, browser equivalence and sustained fullscreen 144 FPS are unverified.
+
+## PiP application-audio checkpoint
+
+HUD visibility follow-up: Minecraft UI assertions verify that disabling the
+Now-Playing HUD immediately removes HUD-only controls without losing preferences,
+while shared main-player spectrum/progress controls remain in every saved HUD
+layout at compact/wide sizes. Fullscreen SmoothFont preview was reviewed with the
+HUD off. Focused layout/localization tests and preview assembly passed.
+
+Independent PiP spectrum follow-up: **544 tests total, 542 passed, two optional
+checks skipped** through the Windows private-collection harness. Configuration
+tests cover separate music/PiP preferences, persistence, missing/null defaults,
+invalid values and four-sided placement at screen edges. The renderer reuses a
+session-owned appearance adapter instead of swapping the user's music settings.
+Minecraft UI checks exercised style/position controls and keyboard focus at
+320×240, 426×240 and 960×540. Private fullscreen 1920×1080, GUI-scale-2 SmoothFont
+captures were reviewed for settings, layout and independent color previews.
+English and Traditional Chinese smoke runs both completed successfully; final
+localized-label/configuration checks and preview assembly also passed.
+These follow-up UI tests use synthetic spectrum previews, not new live capture
+or device tests; the earlier throughput limit remains unchanged.
+
+Windows `scripts/verify.ps1 -DesktopIntegration` passed **540 tests: 538 passed,
+two optional live-provider/tool-install tests skipped**. Temporary excerpts from
+the private collection were cleaned and source hashes verified. New audio tests
+cover invalid/truncated/oversized packets, duplicate sequences, closed readers,
+and spectrum analysis of real audio. Native process-loopback capture, spectrum
+rendering and capture stop/restart were exercised in Minecraft.
+
+See [measured PiP performance](PIP-PERFORMANCE.md): fullscreen 1920×1080, GUI scale
+2 with SmoothFont. The 144 FPS PiP target remains unmet. These short checks do not
+establish browser equivalence, tab isolation, device-change resilience or prolonged
+gameplay stability. Native macOS/Linux PiP remains unsupported. Manual approval is
+still required before committing or releasing this preview.
+
+## PiP development checks
+
+See [PIP-VERIFICATION.md](PIP-VERIFICATION.md) for implemented paths and the actual
+runtime verification record. Run `gradlew test --tests '*Pip*Test' -PbundlePipHelper`
+for transport, preferences and bundle integrity checks. Building the native bundle
+needs the .NET 8 SDK. Windows full verification includes it automatically.
+
+`runSmokeClient -Psmoke -PpipSmoke -PbundlePipHelper` opens the production PiP
+controls in an isolated fullscreen client with SmoothFont and the private audio
+collection. Choose the application through the picker; no source is selected
+automatically. Bounded metadata/timing samples, without captured pixels, go under
+ignored `.local-tools/verification/pip-integrated`. Stop through that folder's
+`stop-minecraft` file. Use a fresh `-PpipFolder=...` per subsequent run. The shutdown
+marker indicates orderly shutdown only, not acceptable video smoothness.
+
 Use JDK 25 and the included Gradle wrapper. The client sources are in `src/client`; unit/integration checks are in `src/test`. `src/smoke` is a separate development-only mod for native Minecraft interaction checks and captures. It is not included in the distributed JAR.
 
 ## Build

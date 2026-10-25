@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>DarkMusic.Pip</AssemblyName>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="licenses/*" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="CopyRuntimeNotices" AfterTargets="Publish">
+    <ItemGroup>
+      <RuntimeLicense Include="%(ResolvedRuntimePack.PackageDirectory)/LICENSE.TXT" Condition="'%(ResolvedRuntimePack.FrameworkName)' == 'Microsoft.NETCore.App'" />
+      <RuntimeNotices Include="%(ResolvedRuntimePack.PackageDirectory)/THIRD-PARTY-NOTICES.TXT" Condition="'%(ResolvedRuntimePack.FrameworkName)' == 'Microsoft.NETCore.App'" />
+      <DesktopLicense Include="%(ResolvedRuntimePack.PackageDirectory)/LICENSE" Condition="'%(ResolvedRuntimePack.FrameworkName)' == 'Microsoft.WindowsDesktop.App'" />
+    </ItemGroup>
+    <Copy SourceFiles="@(RuntimeLicense)" DestinationFiles="$(PublishDir)DOTNET-LICENSE.TXT" />
+    <Copy SourceFiles="@(RuntimeNotices)" DestinationFiles="$(PublishDir)DOTNET-THIRD-PARTY-NOTICES.TXT" />
+    <Copy SourceFiles="@(DesktopLicense)" DestinationFiles="$(PublishDir)WINDOWSDESKTOP-LICENSE.TXT" />
+    <Error Condition="!Exists('$(PublishDir)DOTNET-LICENSE.TXT')" Text="Runtime license missing from PiP bundle" />
+  </Target>
+</Project>

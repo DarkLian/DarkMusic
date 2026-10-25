@@ -183,6 +183,7 @@ public class DarkMusicClient implements ClientModInitializer {
 
     public com.darkmusic.client.library.ArtworkCache artwork;
     public com.darkmusic.client.audio.WaveformCache waveforms;
+    public com.darkmusic.client.pip.PipController pip;
     public com.darkmusic.client.playlist.PlaylistStore playlists;
     public com.darkmusic.client.download.DownloadService downloads;
     public com.darkmusic.client.download.AuditionPlayer audition;
@@ -431,7 +432,7 @@ public class DarkMusicClient implements ClientModInitializer {
     private boolean resetting;
     private long directoryGeneration;
 
-    private enum RequestedScreen {PLAYER, HUD, LYRICS}
+    private enum RequestedScreen {PLAYER, HUD, LYRICS, PIP}
 
     private RequestedScreen requestedScreen;
     private Object requestedWorld;
@@ -561,6 +562,12 @@ public class DarkMusicClient implements ClientModInitializer {
         return "";
     }
 
+    public void requestPip() {
+        requestedScreen = RequestedScreen.PIP;
+        requestedWorld = Minecraft.getInstance().level;
+        requestUntil = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+    }
+
     private String lyricsCommandProblem() {
         return com.darkmusic.client.command.LocalCommands.lyricsProblem(
             !closed && !resetting && !mediaBusy && settings != null && library != null && playback != null,
@@ -582,7 +589,9 @@ public class DarkMusicClient implements ClientModInitializer {
             String problem = lyricsCommandProblem();
             if (!problem.isEmpty()) warn(com.darkmusic.client.text.Text.get(problem));
             else client.gui.setScreen(new com.darkmusic.client.gui.LyricsScreen(this, screen));
-        } else if (requested == RequestedScreen.HUD)
+        } else if (requested == RequestedScreen.PIP)
+            client.gui.setScreen(new com.darkmusic.client.gui.PipScreen(this, screen));
+        else if (requested == RequestedScreen.HUD)
             client.gui.setScreen(new com.darkmusic.client.gui.HudEditorScreen(this, screen));
         else open();
     }
@@ -616,6 +625,7 @@ public class DarkMusicClient implements ClientModInitializer {
         com.darkmusic.client.hud.VolumeFeedback.register(this);
         com.darkmusic.client.hud.SpeedFeedback.register(this);
         com.darkmusic.client.hud.DownloadHud.register(this);
+        com.darkmusic.client.pip.PipController.register(this);
         var category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("darkmusic", "controls"));
         open = binding("open", org.lwjgl.glfw.GLFW.GLFW_KEY_B, category);
         toggle = binding("toggle", org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSLASH, category);
@@ -651,6 +661,7 @@ public class DarkMusicClient implements ClientModInitializer {
                 Screens.getWidgets(screen).add(Button.builder(com.darkmusic.client.text.Text.component("text.darkmusic.music"), b -> open()).bounds(6, 6, 64, 20).build());
         });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (pip != null) pip.tick();
             updates.tick(client);
             boolean allowed = !resetting && settings != null && client.gui.screen() == null && client.gui.overlay() == null && client.player != null && client.player.isAlive();
             boolean pressed = false;
@@ -700,6 +711,7 @@ public class DarkMusicClient implements ClientModInitializer {
         }));
         artwork = new com.darkmusic.client.library.ArtworkCache();
         waveforms = new com.darkmusic.client.audio.WaveformCache(config.directory());
+        pip = new com.darkmusic.client.pip.PipController(this);
         playback = createPlayback();
         playback.volume(settings.volume);
         configureVisualizer();
@@ -1015,6 +1027,7 @@ public class DarkMusicClient implements ClientModInitializer {
         volumeFeedback.clear();
         artwork.close();
         if (waveforms != null) waveforms.close();
+        if (pip != null) pip.stop();
         var oldPlayback = playback;
         var oldLibrary = library;
         var oldDownloads = downloads;
@@ -1105,6 +1118,7 @@ public class DarkMusicClient implements ClientModInitializer {
         if (downloads != null) downloads.close();
         if (library != null) library.close();
         if (playback != null) playback.close();
+        if (pip != null) pip.close();
         if (listeningHistory != null) listeningHistory.flush(true);
         if (artwork != null) artwork.close();
         if (waveforms != null) waveforms.close();

@@ -29,6 +29,23 @@ class MenuLayoutTest {
     }
 
     @Test
+    void pipFitsBesideFileManagementWithoutOverlappingHistory() {
+        for (int width : new int[]{320, 426, 480, 639, 640, 854, 960, 1280}) {
+            var layout = PlayerLayout.of(width, 480);
+            if (layout.singleColumn()) {
+                assertTrue(156 + 24 + 4 <= width - 64 - 28);
+                continue;
+            }
+            int size = layout.navigationUtilityWidth();
+            int pip = 28 + size * 4;
+            int history = layout.navigation().right() - size * 2 - 4;
+            assertTrue(size >= 16);
+            assertTrue(pip + size + 4 <= history);
+            assertEquals(4, pip - (24 + size * 3 + size));
+        }
+    }
+
+    @Test
     void collectionDescriptionsOmitEmptyLinesAndNarrationSeparators() {
         var collection = new com.darkmusic.client.gui.RowList.Row("All Tracks (30)", "");
         assertEquals("All Tracks (30)", collection.text("\n"));
