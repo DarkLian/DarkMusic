@@ -1547,6 +1547,7 @@
   "pip.live": "Live capture",
   "pip.unsupported": "PiP requires Windows 10/11 on an x64 computer.",
   "pip.platform_notice": "PiP: Windows 10/11 x64 only. Not available on macOS or Linux.",
+  "pip.exclusive_warning": "Exclusive fullscreen can cause screen tearing while PiP is capturing. Turn off Exclusive Fullscreen (Borderless) or use windowed mode in Video Settings; Minecraft may need a restart.",
   "pip.no_source": "No window selected",
   "pip.choose": "Choose Window",
   "pip.choose.help": "Choose an open window. Capture starts only when you press Start.",

@@ -57,6 +57,8 @@ about 47 FPS behind exclusive-fullscreen Minecraft on the tested system; selecti
 144 FPS does not guarantee 144 captured frames. See the
 [verification record](PIP-VERIFICATION.md) and [capture investigation](PIP-WGC-INVESTIGATION.md).
 
+**Screen tearing in exclusive fullscreen.** On one tested system (144 Hz, VSync off, 140 FPS cap), visible tearing across the whole screen appeared in menus such as the inventory and the PiP layout editor while PiP was capturing, with Minecraft in **Exclusive** fullscreen and no other mods. Borderless and Windowed did not show it. If you see tearing, change the fullscreen mode in Video Settings. Turning VSync on did not fix it. The cause is not fully established, and other graphics hardware has not been tested.
+
 ## Interface language
 
 DarkMusic includes English and Traditional Chinese (Taiwan). Choose **繁體中文（台灣）** in Minecraft's **Options → Language** menu to use Traditional Chinese. Song names and other music metadata remain as supplied by your files.
@@ -477,6 +479,7 @@ Settings, playlists, and import history are stored in the instance's `config/dar
 | HUD missing | Enable Now-Playing HUD and start music; check HUD layout |
 | Audio Options effects unavailable | Turn Original / Neutral off; Sound Environment has its own master switch |
 | Shortcut conflict | Rebind it in Minecraft's Key Binds menu |
+| Screen tearing while PiP is capturing | Set Minecraft's fullscreen mode to Borderless or Windowed instead of Exclusive. See the note under Picture-in-Picture |
 
 For a reproducible issue, share the mod/Minecraft versions, operating system, steps, and relevant logs in [GitHub Issues](https://github.com/DarkLian/DarkMusic/issues). Remove private details before posting.
 

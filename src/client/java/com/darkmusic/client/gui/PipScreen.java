@@ -65,6 +65,8 @@ public final class PipScreen extends AudioPage {
             return;
         }
         status(() -> Text.get("pip.platform_notice"), () -> UiStatus.Tone.INFO);
+        if (com.darkmusic.client.pip.PipController.exclusiveFullscreen())
+            status(() -> Text.get("pip.exclusive_warning"), () -> UiStatus.Tone.WARNING);
         labeledAction(Text.get("pip.choose"), Text.get("pip.choose.help"), () -> show(new PipSourcesScreen(app, this)));
         labeledAction(Text.get(pip.active() ? "pip.stop" : "pip.start"), Text.get("pip.start.help"), () -> {
             if (pip.active()) pip.stop();
