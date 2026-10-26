@@ -43,7 +43,7 @@ public final class PipScreen extends AudioPage {
         }
         labeledAction(Text.get("pip.setup.check"), Text.get("pip.setup.check.help"), setup::check).active = !pip.active();
         if (s.enabled) labeledAction(Text.get("pip.setup.disable"), Text.get("pip.setup.access.help"), () -> {
-            s.enabled = false;
+            s.revokeAccess();
             pip.stop();
             changed();
         });

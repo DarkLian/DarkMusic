@@ -185,12 +185,12 @@ if (!providers.gradleProperty('javaOnly').isPresent()) {
     def publishFolder = layout.buildDirectory.dir('pip-helper')
     def resourceFolder = layout.buildDirectory.dir('generated/pip-resources/assets/darkmusic/pip/windows-x64')
     tasks.register('publishPipHelper', Exec) {
-        inputs.files(fileTree('src/pipHelper') { include '*.cs', '*.csproj', 'global.json' })
+        inputs.files(fileTree('src/pipHelper') { include '*.cs', '*.csproj', 'global.json', 'packages.lock.json' })
         inputs.dir('src/pipHelper/licenses')
         outputs.dir(publishFolder)
         workingDir file('src/pipHelper')
         environment 'DOTNET_CLI_TELEMETRY_OPTOUT', '1'
-        commandLine 'dotnet', 'publish', 'PipHelper.csproj', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '-o', publishFolder.get().asFile.absolutePath,
+        commandLine 'dotnet', 'publish', 'PipHelper.csproj', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '-p:RestoreLockedMode=true', '-o', publishFolder.get().asFile.absolutePath,
                 "-p:BaseIntermediateOutputPath=${layout.buildDirectory.dir('pip-helper-obj').get().asFile.absolutePath}/", "-p:BaseOutputPath=${layout.buildDirectory.dir('pip-helper-bin').get().asFile.absolutePath}/", '--nologo'
     }
     def codeFiles = ['DarkMusic.Pip.exe', 'DarkMusic.Pip.dll', 'DarkMusic.Pip.deps.json', 'DarkMusic.Pip.runtimeconfig.json']
@@ -257,7 +257,8 @@ jar {
 
 tasks.named('sourcesJar', Jar) {
     exclude 'assets/darkmusic/pip/**'
-    from('src/pipHelper') { include '*.cs', '*.csproj', 'global.json', 'licenses/**'; into 'pip-helper' }
+    from('src/pipHelper') { include '*.cs', '*.csproj', 'global.json', 'packages.lock.json', 'licenses/**';
+        into 'pip-helper' }
     def projectName = project.name
     inputs.property "projectName", projectName
     from('LICENSE') { rename { "${it}_$projectName" } }

@@ -760,6 +760,10 @@ public final class LyricsLookup implements AutoCloseable {
         });
     }
 
+    public CompletableFuture<Void> keepCurrentRecovery(Track track) {
+        return submit(() -> LyricsFiles.keepCurrent(track.file()));
+    }
+
     public CompletableFuture<Void> restore(Track track) {
         return submit(() -> {
             if (!sameFile(track))

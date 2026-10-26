@@ -141,6 +141,7 @@ public final class MediaFiles {
                 || Files.exists(next, LinkOption.NOFOLLOW_LINKS) && (!Files.exists(old) || !Files.isSameFile(old, next)))
                 throw new IOException(Text.get("library.darkmusic.lyric_collision"));
         }
+        requireEditSpace(Files.size(source), Files.getFileStore(source.getParent()).getUsableSpace());
         Path work = Files.createTempDirectory(source.getParent(), ".darkmusic-work-");
         Path staged = work.resolve("edited" + extension);
         var movedCompanions = new ArrayList<Integer>();
@@ -247,6 +248,11 @@ public final class MediaFiles {
                     org.slf4j.LoggerFactory.getLogger(MediaFiles.class).warn("Could not remove metadata staging directory {}", work, cleanup);
                 }
         }
+    }
+
+    static void requireEditSpace(long size, long usable) throws IOException {
+        if (size < 0 || size > (Long.MAX_VALUE - 4_194_304) / 3 || usable < size * 3 + 4_194_304)
+            throw new IOException(Text.get("library.darkmusic.edit_space"));
     }
 
     private static void moveCaseAware(Path source, Path target, Path temporary) throws IOException {

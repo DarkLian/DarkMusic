@@ -7,14 +7,15 @@ import java.io.IOException;
  * Bounded, band-limited streaming resampling. Output retains the device's original sample rate.
  */
 public final class PcmRateConverter {
-    private static final int TAPS = 32, PHASES = 512;
+    private static final int PHASES = 512;
+    private int taps = 32;
     private final AudioInputStream input;
     private final int channels, frameSize, sampleBytes;
     private final boolean floating;
     private final float[] scratch = new float[2048];
     private final byte[] buffer = new byte[4096];
     private double[][] ring;
-    private final double[][] weights = new double[PHASES][TAPS];
+    private double[][] weights = new double[PHASES][32];
     private int cursor, limit;
     private long loaded;
     private boolean ended;
@@ -55,10 +56,10 @@ public final class PcmRateConverter {
             throw new IllegalArgumentException("Invalid device sample rate");
         double ratio = input.getFormat().getSampleRate() / deviceRate;
         if (preservePitch && (speed != 1 || tempo != null)) {
-            if (ring.length == 64) {
+            if (ring.length < 65536) {
                 var expanded = new double[65536][channels];
-                for (long i = Math.max(0, loaded - 64); i < loaded; i++)
-                    System.arraycopy(ring[(int) (i & 63)], 0, expanded[(int) (i & 65535)], 0, channels);
+                for (long i = Math.max(0, loaded - ring.length); i < loaded; i++)
+                    System.arraycopy(ring[(int) (i & (ring.length - 1))], 0, expanded[(int) (i & 65535)], 0, channels);
                 ring = expanded;
             }
             if (tempo == null || tempoRatio != ratio || tempoRate != deviceRate) {
@@ -79,17 +80,29 @@ public final class PcmRateConverter {
     private void prepare(double speed) {
         if (prepared == speed) return;
         prepared = speed;
+        int required = Math.clamp((int) Math.ceil(32 * Math.max(1, speed) / 2) * 2, 32, 512);
+        if (required != taps) {
+            taps = required;
+            weights = new double[PHASES][taps];
+        }
+        if (ring.length < taps * 2) {
+            int size = Integer.highestOneBit(taps * 2 - 1) << 1;
+            var expanded = new double[size][channels];
+            for (long i = Math.max(0, loaded - ring.length); i < loaded; i++)
+                System.arraycopy(ring[(int) (i & (ring.length - 1))], 0, expanded[(int) (i & (size - 1))], 0, channels);
+            ring = expanded;
+        }
         double cutoff = speed > 1 ? .95 / speed : 1;
         for (int phase = 0; phase < PHASES; phase++) {
             double sum = 0, fraction = phase / (double) PHASES;
-            for (int i = 0; i < TAPS; i++) {
-                double distance = i - 15 - fraction, x = Math.PI * cutoff * distance;
+            for (int i = 0; i < taps; i++) {
+                double distance = i - (taps / 2 - 1) - fraction, x = Math.PI * cutoff * distance;
                 double sinc = Math.abs(x) < 1e-12 ? 1 : Math.sin(x) / x;
-                double window = .5 + .5 * Math.cos(Math.PI * distance / 16);
+                double window = .5 + .5 * Math.cos(Math.PI * distance / (taps / 2.0));
                 weights[phase][i] = sinc * window * cutoff;
                 sum += weights[phase][i];
             }
-            for (int i = 0; i < TAPS; i++) weights[phase][i] /= sum;
+            for (int i = 0; i < taps; i++) weights[phase][i] /= sum;
         }
     }
 
@@ -134,13 +147,13 @@ public final class PcmRateConverter {
         int written = 0;
         while (written + channels <= length) {
             long base = (long) position;
-            while (!ended && loaded <= base + 16) if (load() == 0) return written;
+            while (!ended && loaded <= base + taps / 2) if (load() == 0) return written;
             if (ended && position >= loaded) break;
             int phase = Math.min(PHASES - 1, (int) ((position - base) * PHASES));
             for (int c = 0; c < channels; c++) {
                 double sample = 0;
-                for (int i = 0; i < TAPS; i++) {
-                    long frame = base + i - 15;
+                for (int i = 0; i < taps; i++) {
+                    long frame = base + i - (taps / 2 - 1);
                     if (frame >= Math.max(0, loaded - ring.length) && frame < loaded)
                         sample += ring[(int) (frame & (ring.length - 1))][c] * weights[phase][i];
                 }

@@ -1605,5 +1605,9 @@
   "pip.placement.help": "Drag to move; drag bottom-right or scroll to resize. Arrows move; +/− resize. Shift disables snapping.",
   "pip.focus_denied": "Windows did not switch to the requested window. Use Alt+Tab and retry.",
   "pip.crop_invalid": "Enter four percentages (left, top, right, bottom), from 0 to 100. Keep at least 5% of both dimensions.",
-  "pip.too_large": "The source exceeds 3840×2160. Make its window smaller and restart capture."
+  "pip.too_large": "The source exceeds 3840×2160. Make its window smaller and restart capture.",
+  "library.darkmusic.edit_space": "Not enough free space to edit this file safely. Free at least three times the audio file size and try again.",
+  "lyrics.recovery.conflict": "Lyrics recovery conflict. Your current files were kept; recovery data: %s. Use Keep Current Lyrics Files in Lyrics Options to unblock edits.",
+  "lyrics.recovery.keep": "Keep Current Lyrics Files",
+  "lyrics.recovery.help": "Resolve a recovery conflict by keeping the files currently on disk. The recovery journal is archived beside the song, preserving its original lyrics for manual recovery. No lyrics are deleted or restored."
 }

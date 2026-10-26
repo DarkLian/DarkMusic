@@ -61,4 +61,22 @@ class DownloadCommitTest {
         assertEquals("external replacement", Files.readString(audio));
     }
 
+
+    @Test
+    void staleUnrepairableReceiptsArePrunedButValidTransactionsAndAudioRemain() throws Exception {
+        long now = System.currentTimeMillis();
+        Path a = Files.writeString(temp.resolve("incoming-a.txt"), "deleted target"), b = Files.writeString(temp.resolve("incoming-b.txt"), "retained target");
+        DownloadCommit.prepare(a, temp.resolve("missing.txt"), "Youtube:abcdefghijk", "https://youtu.be/abcdefghijk");
+        DownloadCommit.prepare(b, temp.resolve("retained.txt"), "Youtube:lmnopqrstuv", "https://youtu.be/lmnopqrstuv");
+        Files.move(b, temp.resolve("retained.txt"));
+        try (var paths = Files.newDirectoryStream(temp, ".darkmusic-download-commit-*.json")) {
+            for (Path file : paths)
+                Files.setLastModifiedTime(file, java.nio.file.attribute.FileTime.fromMillis(now - 45L * 86_400_000));
+        }
+        DownloadCommit.prune(temp, now + 2L * 86_400_000);
+        assertFalse(DownloadCommit.pending(temp, "Youtube:abcdefghijk"));
+        assertTrue(DownloadCommit.pending(temp, "Youtube:lmnopqrstuv"));
+        assertEquals("retained target", Files.readString(temp.resolve("retained.txt")));
+        assertTrue(Files.exists(a));
+    }
 }

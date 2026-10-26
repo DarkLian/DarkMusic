@@ -93,7 +93,68 @@ public final class LyricsFiles {
 
     public static void recover(Path audio) throws IOException {
         synchronized (LOCK) {
-            Path pending = journal(audio);
+            for (Path pending : pendingJournals(audio)) recoverOne(audio, pending);
+        }
+    }
+
+    private record RecoveryIndex(java.nio.file.attribute.FileTime modified, Map<String, List<Path>> byCompanion) {
+    }
+
+    private static final LinkedHashMap<Path, RecoveryIndex> recoveryIndexes = new LinkedHashMap<>();
+
+    private static List<Path> pendingJournals(Path audio) throws IOException {
+        Path directory = audio.getParent();
+        var modified = Files.getLastModifiedTime(directory);
+        var index = recoveryIndexes.get(directory);
+        if (index == null || !index.modified.equals(modified)) {
+            var byCompanion = new HashMap<String, List<Path>>();
+            try (var files = Files.newDirectoryStream(directory, ".darkmusic-lyrics-*.json")) {
+                for (Path file : files) {
+                    if (!file.getFileName().toString().matches("\\.darkmusic-lyrics-[a-f0-9]{24}\\.json")) continue;
+                    try {
+                        safeJournal(file);
+                        var data = ConfigStore.JSON.fromJson(Files.readString(file), Journal.class);
+                        if (data != null && data.changes != null && data.changes.size() <= 3)
+                            for (Change change : data.changes)
+                                if (change != null && change.name != null)
+                                    byCompanion.computeIfAbsent(change.name, key -> new ArrayList<>()).add(file);
+                    } catch (RuntimeException | IOException unrelated) {
+                    }
+                }
+            }
+            index = new RecoveryIndex(modified, byCompanion);
+            recoveryIndexes.put(directory, index);
+            while (recoveryIndexes.size() > 64) recoveryIndexes.remove(recoveryIndexes.keySet().iterator().next());
+        }
+        var pending = new LinkedHashSet<Path>();
+        pending.add(journal(audio));
+        for (Path companion : companions(audio))
+            pending.addAll(index.byCompanion.getOrDefault(companion.getFileName().toString(), List.of()));
+        return List.copyOf(pending);
+    }
+
+    /**
+     * Explicit conflict resolution: keep current files and preserve the journal for manual recovery.
+     */
+    public static void keepCurrent(Path audio) throws IOException {
+        synchronized (LOCK) {
+            for (Path pending : pendingJournals(audio)) {
+                if (!Files.exists(pending, LinkOption.NOFOLLOW_LINKS)) continue;
+                safeJournal(pending);
+                Path archived = pending.resolveSibling(".darkmusic-lyrics-recovery-" + UUID.randomUUID() + ".json");
+                Files.move(pending, archived);
+                org.slf4j.LoggerFactory.getLogger("darkmusic-lyrics").warn("Kept current lyric files; recovery data archived at {}", archived);
+            }
+        }
+    }
+
+    private static void safeJournal(Path pending) throws IOException {
+        if (Files.isSymbolicLink(pending) || !Files.isRegularFile(pending, LinkOption.NOFOLLOW_LINKS) || Files.size(pending) > 20_000_000)
+            throw new IOException("Unsafe lyric recovery journal: " + pending);
+    }
+
+    private static void recoverOne(Path audio, Path pending) throws IOException {
+        synchronized (LOCK) {
             if (!Files.exists(pending, LinkOption.NOFOLLOW_LINKS)) return;
             if (Files.isSymbolicLink(pending) || !Files.isRegularFile(pending, LinkOption.NOFOLLOW_LINKS) || Files.size(pending) > 20_000_000)
                 throw new IOException("Unsafe lyric recovery journal");
@@ -121,7 +182,7 @@ public final class LyricsFiles {
                 if (prior != null && prior.length > LIMIT) throw new IOException("Oversized lyric recovery data");
                 String current = hash(read(path));
                 if (!data.committed && !Objects.equals(current, hash(prior)) && !Objects.equals(current, change.afterHash))
-                    throw new IOException("Lyric recovery conflict; original retained in journal");
+                    throw new IOException(com.darkmusic.client.text.Text.get("lyrics.recovery.conflict", pending));
             }
             if (!data.committed) for (Change change : data.changes) {
                 Path path = pending.resolveSibling(change.name);

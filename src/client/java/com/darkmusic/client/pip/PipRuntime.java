@@ -51,6 +51,7 @@ public final class PipRuntime implements AutoCloseable {
     private volatile int build;
     private ProcessRunner.Token token;
     private volatile Bundle bundle;
+    private PipStorage.Lease lease;
 
     @FunctionalInterface
     interface Resources {
@@ -180,7 +181,13 @@ public final class PipRuntime implements AutoCloseable {
             root.getParent(), request, Duration.ofSeconds(15), 4096, line -> {
             });
         String output = result.output().strip();
-        return result.exit() == 0 && output.matches("supported [0-9]{5,6}") ? Integer.parseInt(output.substring(10)) : 0;
+        return requirementsResult(result.exit(), output);
+    }
+
+    static int requirementsResult(int exit, String output) throws IOException {
+        if (exit != 0 || !output.isEmpty() && !output.matches("supported [0-9]{5,6}"))
+            throw new IOException("PiP requirements probe failed");
+        return output.isEmpty() ? 0 : Integer.parseInt(output.substring(10));
     }
 
     static boolean graphics(Path exe, ProcessRunner.Token request) throws Exception {
@@ -216,36 +223,49 @@ public final class PipRuntime implements AutoCloseable {
                 }
                 bundle = Bundle.parse(new String(resources.read("dependencies.json", 4096), StandardCharsets.UTF_8));
                 directory();
-                if (install) {
-                    Path temporary = Files.createTempFile(root, "runtime-", ".download");
+                try (var setup = PipStorage.setup(root, request)) {
+                    if (install) {
+                        Path temporary = Files.createTempFile(root, "runtime-", ".download");
+                        try {
+                            download.fetch(bundle.url(), temporary, bundle.size, request, n -> downloaded = n);
+                            bundle.verify(temporary);
+                            request.check();
+                            if (Files.exists(archive(), LinkOption.NOFOLLOW_LINKS)) bundle.verify(archive());
+                            else try {
+                                Files.move(temporary, archive());
+                            } catch (FileAlreadyExistsException raced) {
+                                bundle.verify(archive());
+                            }
+                        } finally {
+                            Files.deleteIfExists(temporary);
+                        }
+                    }
+                    if (!Files.exists(archive(), LinkOption.NOFOLLOW_LINKS)) {
+                        status = "pip.setup.required";
+                        return;
+                    }
+                    bundle.verify(archive());
+                    request.check();
+                    byte[] code = resources.read("helper.zip", 2_000_000);
+                    String checksum = new String(resources.read("helper.sha256", 128), StandardCharsets.US_ASCII).strip();
+                    var exe = PipNativeTools.unpack(code, checksum, archive(), bundle.sha256, root);
+                    request.check();
+                    if (!graphics.supported(exe, request)) {
+                        status = "pip.setup.graphics_failed";
+                        return;
+                    }
+                    request.check();
+                    if (lease != null) lease.close();
+                    lease = PipStorage.use(exe.getParent(), archive().getFileName().toString(), request);
+                    executable = exe;
+                    ready = true;
+                    status = "pip.setup.ready";
                     try {
-                        download.fetch(bundle.url(), temporary, bundle.size, request, n -> downloaded = n);
-                        bundle.verify(temporary);
-                        request.check();
-                        if (Files.exists(archive(), LinkOption.NOFOLLOW_LINKS)) bundle.verify(archive());
-                        else Files.move(temporary, archive());
-                    } finally {
-                        Files.deleteIfExists(temporary);
+                        PipStorage.prune(root, exe.getParent(), archive(), System.currentTimeMillis());
+                    } catch (IOException cleanup) {
+                        org.slf4j.LoggerFactory.getLogger("darkmusic-pip-setup").warn("Unused PiP runtime cleanup deferred", cleanup);
                     }
                 }
-                if (!Files.exists(archive(), LinkOption.NOFOLLOW_LINKS)) {
-                    status = "pip.setup.required";
-                    return;
-                }
-                bundle.verify(archive());
-                request.check();
-                byte[] code = resources.read("helper.zip", 2_000_000);
-                String checksum = new String(resources.read("helper.sha256", 128), StandardCharsets.US_ASCII).strip();
-                var exe = PipNativeTools.unpack(code, checksum, archive(), bundle.sha256, root);
-                request.check();
-                if (!graphics.supported(exe, request)) {
-                    status = "pip.setup.graphics_failed";
-                    return;
-                }
-                request.check();
-                executable = exe;
-                ready = true;
-                status = "pip.setup.ready";
             } catch (Exception error) {
                 if (!request.cancelled())
                     org.slf4j.LoggerFactory.getLogger("darkmusic-pip-setup").warn("PiP runtime setup failed", error);
@@ -253,6 +273,11 @@ public final class PipRuntime implements AutoCloseable {
                 if (status.equals("pip.capture_error"))
                     status = install ? "pip.setup.install_failed" : "pip.setup.check_failed";
             } finally {
+                if (closed && lease != null) try {
+                    lease.close();
+                    lease = null;
+                } catch (IOException ignored) {
+                }
                 busy = false;
             }
         }, worker);
@@ -267,5 +292,10 @@ public final class PipRuntime implements AutoCloseable {
         closed = true;
         cancel();
         worker.shutdown();
+        if (!busy && lease != null) try {
+            lease.close();
+            lease = null;
+        } catch (IOException ignored) {
+        }
     }
 }

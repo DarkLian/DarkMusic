@@ -52,6 +52,12 @@ public final class PipSettings {
         return Double.isFinite(n) ? Math.clamp(n, min, max) : fallback;
     }
 
+    public void revokeAccess() {
+        enabled = false;
+        audioAccess = false;
+        audioSpectrum = false;
+    }
+
     public void resetCrop() {
         left = top = 0;
         right = bottom = 1;

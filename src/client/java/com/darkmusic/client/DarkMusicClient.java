@@ -918,7 +918,7 @@ public class DarkMusicClient implements ClientModInitializer {
     protected void tick(Minecraft client, boolean allowed) {
         if (waveforms != null && settings != null && playback != null) {
             var waveformTrack = playback.state().track();
-            if (waveformTrack == null && library != null && !library.snapshot().tracks().isEmpty())
+            if (waveformTrack == null && client.gui.screen() instanceof com.darkmusic.client.gui.SettingsScreen preview && preview.waveformPreviewActive() && library != null && !library.snapshot().tracks().isEmpty())
                 waveformTrack = library.snapshot().tracks().getFirst();
             waveforms.update(waveformTrack, settings.waveformProgress && !mediaBusy);
         }

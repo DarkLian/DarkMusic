@@ -136,7 +136,30 @@ public final class PipSession implements AutoCloseable {
         if (!closed && !audio.status().equals("pip.audio_unsupported")) audio.failure("pip.audio_error");
     }
 
+    @FunctionalInterface
+    interface Receiver {
+        void read() throws Exception;
+    }
+
+    static void receiveSafely(Receiver receiver, Runnable failed) {
+        try {
+            receiver.read();
+        } catch (Throwable error) {
+            failed.run();
+        }
+    }
+
     private void receive() {
+        receiveSafely(this::receiveFrames, () -> {
+            if (!closed) {
+                status = "pip.pipe_error";
+                close();
+            }
+        });
+        if (!closed && terminal(status)) close();
+    }
+
+    private void receiveFrames() {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
         while (!closed && System.nanoTime() < deadline) {
             FileInputStream input;
@@ -156,7 +179,7 @@ public final class PipSession implements AutoCloseable {
                 if (closed) return;
                 r.read();
                 if (!closed && !terminal(status)) status = "pip.disconnected";
-            } catch (IOException e) {
+            } catch (IOException error) {
                 if (!closed && !terminal(status)) status = "pip.pipe_error";
             }
             return;

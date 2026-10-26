@@ -216,6 +216,6 @@ public final class PipController implements AutoCloseable {
     public void close() {
         closed = true;
         stop();
-        tools.runtime.close();
+        stopping.whenComplete((done, error) -> tools.runtime.close());
     }
 }

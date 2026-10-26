@@ -9,6 +9,13 @@ import java.util.function.BooleanSupplier;
  */
 public final class TrackWaveform {
     public static final int BINS = 1024;
+
+    static final class AnalysisLimit extends IOException {
+        AnalysisLimit(String message) {
+            super(message);
+        }
+    }
+
     private final float[] levels;
     private final double duration;
 
@@ -67,7 +74,7 @@ public final class TrackWaveform {
         if (format.getSampleSizeInBits() != 16 || format.isBigEndian() ||
             !format.getEncoding().equals(javax.sound.sampled.AudioFormat.Encoding.PCM_SIGNED) ||
             channels < 1 || channels > 2 || frameSize != channels * 2 || !Double.isFinite(rate) || rate <= 0)
-            throw new IOException("Unsupported waveform PCM");
+            throw new AnalysisLimit("Unsupported waveform PCM");
         float[] peaks = new float[BINS * 2];
         double[] energy = new double[BINS * 2];
         long perBin = 256, frames = 0, inBin = 0;
@@ -77,7 +84,7 @@ public final class TrackWaveform {
         long progressed = System.nanoTime();
         while (true) {
             if (cancelled.getAsBoolean() || Thread.currentThread().isInterrupted()) throw new InterruptedException();
-            if (System.nanoTime() > deadline) throw new IOException("Waveform analysis timed out");
+            if (System.nanoTime() > deadline) throw new AnalysisLimit("Waveform analysis timed out");
             int read = pcm.read(bytes);
             if (read < 0) break;
             if (read == 0) {
@@ -112,9 +119,9 @@ public final class TrackWaveform {
                     bins++;
                 }
             }
-            if (frames > rate * 21600) throw new IOException("Waveform exceeds six-hour limit");
+            if (frames > rate * 21600) throw new AnalysisLimit("Waveform exceeds six-hour limit");
         }
-        if (frames == 0) throw new IOException("Empty waveform");
+        if (frames == 0) throw new AnalysisLimit("Empty waveform");
         float[] output = new float[BINS];
         float highest = 0;
         for (int i = 0; i < BINS; i++) {

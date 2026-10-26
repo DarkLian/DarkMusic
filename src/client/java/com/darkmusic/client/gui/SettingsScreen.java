@@ -452,6 +452,10 @@ public final class SettingsScreen extends LocalScreen {
         return SECTION_KEYS[selectedSection].equals("lyrics.section");
     }
 
+    public boolean waveformPreviewActive() {
+        return previewVisible && progressPreview();
+    }
+
     private boolean progressPreview() {
         return SECTION_KEYS[selectedSection].equals("phase2.section.1");
     }

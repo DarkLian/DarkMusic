@@ -19,7 +19,46 @@ final class DownloadCommit {
         return destination.resolve(".darkmusic-download-commit-" + com.darkmusic.client.cleanup.DuplicateScanner.digest(identity) + ".json");
     }
 
+    private static final java.util.concurrent.ConcurrentHashMap<Path, Long> pruned = new java.util.concurrent.ConcurrentHashMap<>();
+
+    static void prune(Path destination, long now) throws IOException {
+        Path base = destination.toAbsolutePath().normalize();
+        Long last = pruned.get(base);
+        if (last != null && now - last < 86_400_000L) return;
+        if (pruned.size() > 256) pruned.clear();
+        pruned.put(base, now);
+        try (var files = Files.newDirectoryStream(base, ".darkmusic-download-commit-*.json")) {
+            for (Path pending : files) {
+                if (Files.isSymbolicLink(pending) || !Files.isRegularFile(pending, LinkOption.NOFOLLOW_LINKS) || now - Files.getLastModifiedTime(pending).toMillis() < 30L * 86_400_000)
+                    continue;
+                boolean repairable = false;
+                try {
+                    if (Files.size(pending) <= 20_000) {
+                        var receipt = ConfigStore.JSON.fromJson(Files.readString(pending), Receipt.class);
+                        if (receipt != null && receipt.schema == 1 && receipt.filename != null && !receipt.filename.contains("/") && !receipt.filename.contains("\\") && !receipt.filename.startsWith(".")) {
+                            Path target = base.resolve(receipt.filename);
+                            try {
+                                var a = Files.readAttributes(target, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+                                repairable = a.isRegularFile() && a.size() == receipt.size && a.lastModifiedTime().toMillis() == receipt.modified;
+                            } catch (NoSuchFileException absent) {
+                                // Positive absence is safe; permission/offline I/O errors defer cleanup instead.
+                            }
+                        }
+                    }
+                } catch (com.google.gson.JsonParseException invalid) {
+                }
+                // Never touch the recording, source associations or lyric companions here.
+                if (!repairable) Files.deleteIfExists(pending);
+            }
+        }
+    }
+
     static void prepare(Path incoming, Path target, String identity, String url) throws IOException {
+        try {
+            prune(target.getParent(), System.currentTimeMillis());
+        } catch (IOException cleanup) {
+            org.slf4j.LoggerFactory.getLogger("darkmusic-download").debug("Receipt cleanup deferred", cleanup);
+        }
         Path pending = file(target.getParent(), identity);
         if (Files.isSymbolicLink(pending)) throw new IOException("Unsafe download commit receipt");
         var a = Files.readAttributes(incoming, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);

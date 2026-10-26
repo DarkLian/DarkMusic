@@ -259,7 +259,7 @@ public final class LyricsService implements AutoCloseable {
         if (fingerprint.sidecar.size >= 0) {
             if (fingerprint.sidecar.size > 1_000_000)
                 return new Cached(fingerprint, LyricsDocument.EMPTY, LyricsInfo.LOCAL_ERROR, System.nanoTime());
-            text = decode(Files.readAllBytes(sidecar), fingerprint.encoding);
+            text = decode(readLocal(sidecar, 1_000_000), fingerprint.encoding);
         } else {
             if (fingerprint.audio.size < 0)
                 return new Cached(fingerprint, LyricsDocument.EMPTY, LyricsInfo.LOCAL_ERROR, System.nanoTime());
@@ -269,11 +269,12 @@ public final class LyricsService implements AutoCloseable {
         }
         if (text.length() > 1_000_000)
             return new Cached(fingerprint, LyricsDocument.EMPTY, LyricsInfo.LOCAL_ERROR, System.nanoTime());
+        text = LyricsDocument.localText(text);
         var document = LyricsDocument.of(fingerprint.sidecar.size >= 0 ? "sidecar" : "embedded", "", "", "", "", 0, language, LyricsDocument.Variant.UNKNOWN, false, false, text);
         Path provenance = sidecar.resolveSibling(sidecar.getFileName() + ".darkmusic.json");
-        if (fingerprint.sidecar.size >= 0 && Files.isRegularFile(provenance) && Files.size(provenance) <= 4_000_000)
+        if (fingerprint.sidecar.size >= 0 && Files.isRegularFile(provenance, java.nio.file.LinkOption.NOFOLLOW_LINKS) && Files.size(provenance) <= 4_000_000)
             try {
-                var saved = com.darkmusic.client.config.ConfigStore.JSON.fromJson(Files.readString(provenance), LyricsDocument.class);
+                var saved = com.darkmusic.client.config.ConfigStore.JSON.fromJson(new String(readLocal(provenance, 4_000_000), java.nio.charset.StandardCharsets.UTF_8), LyricsDocument.class);
                 if (saved != null && text.equals(saved.text()))
                     document = LyricsDocument.of(saved.provider(), saved.recordId(), saved.title(), saved.artist(), saved.album(), saved.duration(), saved.language(), saved.variant(), saved.generated(), saved.instrumental(), text);
             } catch (RuntimeException ignored) {
@@ -387,9 +388,18 @@ public final class LyricsService implements AutoCloseable {
         shifted.clear();
     }
 
+    static byte[] readLocal(Path file, int limit) throws java.io.IOException {
+        try (var input = Files.newInputStream(file, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            byte[] bytes = input.readNBytes(limit + 1);
+            if (bytes.length > limit) throw new java.io.IOException("Oversized lyric file");
+            return bytes;
+        }
+    }
+
     private static Stamp stamp(Path file) throws java.io.IOException {
         try {
-            var attributes = Files.readAttributes(file, java.nio.file.attribute.BasicFileAttributes.class);
+            var attributes = Files.readAttributes(file, java.nio.file.attribute.BasicFileAttributes.class, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+            if (attributes.isSymbolicLink()) throw new java.io.IOException("Symbolic lyric path");
             return new Stamp(attributes.size(), attributes.lastModifiedTime());
         } catch (java.nio.file.NoSuchFileException missing) {
             return new Stamp(-1, null);

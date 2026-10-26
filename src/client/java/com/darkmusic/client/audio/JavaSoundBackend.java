@@ -438,7 +438,7 @@ public final class JavaSoundBackend implements AudioBackend {
                             lastPlayed = line.getLongFramePosition();
                             spectrum.begin(deviceRate, line.getFormat().getChannels());
                             if (!paused) line.start();
-                        } catch (Exception e) {
+                        } catch (Throwable e) {
                             fail(request, e);
                         }
                     }
@@ -584,12 +584,13 @@ public final class JavaSoundBackend implements AudioBackend {
                                     overlap = Math.max(0, selected.crossfade - Math.max(0, remaining / rate));
                                 for (int f = 0; f < outputFrames; f++) {
                                     incomingNormalization += (incomingTarget - incomingNormalization) * gainSmoothing;
-                                    double t = Math.clamp((overlap + f / deviceRate) / selected.crossfade, 0, 1), mix = Math.pow(Math.sin(t * Math.PI / 2), 2);
+                                    double t = Math.clamp((overlap + f / deviceRate) / selected.crossfade, 0, 1);
+                                    double incomingGain = crossfadeGain(t, true), outgoingGain = crossfadeGain(t, false);
                                     for (int c = 0; c < outputChannels; c++) {
                                         double incoming = 0;
                                         if (f * nextChannels < n)
                                             incoming = nextChannels == 1 ? nextPcm[f] : outputChannels == 1 ? (nextPcm[f * 2] + nextPcm[f * 2 + 1]) * .5 : nextPcm[f * 2 + c];
-                                        pcm[f * outputChannels + c] = (float) (pcm[f * outputChannels + c] * (1 - mix) + incoming * incomingNormalization * mix);
+                                        pcm[f * outputChannels + c] = (float) (pcm[f * outputChannels + c] * outgoingGain + incoming * incomingNormalization * incomingGain);
                                     }
                                 }
                                 overlap += outputFrames / deviceRate;
@@ -624,8 +625,8 @@ public final class JavaSoundBackend implements AudioBackend {
                             submittedFrames += sent / frame;
                         }
                     }
-                } catch (Exception e) {
-                    if (output instanceof OutputDevices selected && selected.isExplicit() &&
+                } catch (Throwable e) {
+                    if (e instanceof Exception && output instanceof OutputDevices selected && selected.isExplicit() &&
                         (!line.isOpen() || e instanceof javax.sound.sampled.LineUnavailableException ||
                             e instanceof OutputFailure)) {
                         var recovery = new java.util.concurrent.CompletableFuture<Boolean>();
@@ -638,6 +639,7 @@ public final class JavaSoundBackend implements AudioBackend {
                     }
                     fail(request, e);
                 }
+
             }
         } finally {
             release();
@@ -737,7 +739,7 @@ public final class JavaSoundBackend implements AudioBackend {
         }
     }
 
-    private void fail(Request request, Exception exception) {
+    private void fail(Request request, Throwable exception) {
         release();
         active = null;
         if (!current(request)) return;
@@ -814,7 +816,7 @@ public final class JavaSoundBackend implements AudioBackend {
             lastPlayed = line.getLongFramePosition();
             if (!paused) line.start();
             change.result.complete(true);
-        } catch (Exception failure) {
+        } catch (Throwable failure) {
             org.slf4j.LoggerFactory.getLogger("darkmusic-audio").warn("Cannot switch audio output", failure);
             change.result.complete(false);
         } finally {
@@ -841,6 +843,11 @@ public final class JavaSoundBackend implements AudioBackend {
         throw unavailable;
     }
 
+    static double crossfadeGain(double fraction, boolean incoming) {
+        double angle = Math.clamp(fraction, 0, 1) * Math.PI / 2;
+        return incoming ? Math.sin(angle) : Math.cos(angle);
+    }
+
     private void release() {
         spectrum.clear();
         processor.diagnostics().clear();
@@ -850,15 +857,15 @@ public final class JavaSoundBackend implements AudioBackend {
         if (line != null) {
             try {
                 line.stop();
-            } catch (RuntimeException ignored) {
+            } catch (Throwable ignored) {
             }
             try {
                 line.flush();
-            } catch (RuntimeException ignored) {
+            } catch (Throwable ignored) {
             }
             try {
                 line.close();
-            } catch (RuntimeException ignored) {
+            } catch (Throwable ignored) {
             } finally {
                 line = null;
             }
@@ -866,7 +873,7 @@ public final class JavaSoundBackend implements AudioBackend {
         if (stream != null) {
             try {
                 stream.close();
-            } catch (java.io.IOException ignored) {
+            } catch (Throwable ignored) {
             } finally {
                 stream = null;
             }

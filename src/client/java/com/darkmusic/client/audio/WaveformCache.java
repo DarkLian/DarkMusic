@@ -34,7 +34,7 @@ public final class WaveformCache implements AutoCloseable {
     private volatile boolean closed;
     private volatile long generation;
     private Future<?> task;
-    private volatile long retryAfter;
+    private final WaveformRetries retries = new WaveformRetries();
 
     public WaveformCache(Path data) {
         directory = data.resolve("waveforms");
@@ -49,13 +49,14 @@ public final class WaveformCache implements AutoCloseable {
      */
     public void update(Track track, boolean enabled) {
         String key = enabled && track != null ? identity(track) : "";
-        if (closed || key.isEmpty() && wanted.isEmpty() || key.equals(wanted) && (task != null && !task.isDone() || current != null && current.generation == generation && current.identity.equals(key) || System.nanoTime() < retryAfter))
+        if (closed || key.isEmpty() && wanted.isEmpty() || key.equals(wanted) && (task != null && !task.isDone() || current != null && current.generation == generation && current.identity.equals(key) || !retries.ready(key, System.nanoTime())))
             return;
         cancel();
         wanted = key;
         var cached = key.isEmpty() ? null : memory.get(key);
         current = cached == null ? null : new Published(key, generation, cached);
         if (key.isEmpty() || cached != null) return;
+        if (!retries.ready(key, System.nanoTime())) return;
         long request = generation;
         task = worker.submit(() -> {
             try {
@@ -77,13 +78,15 @@ public final class WaveformCache implements AutoCloseable {
                         org.slf4j.LoggerFactory.getLogger("darkmusic-waveform").debug("Waveform cache could not be saved", failure);
                     }
                 } else if (!matches(track)) throw new java.io.IOException("Waveform identity changed");
-                if (!closed && request == generation && key.equals(wanted))
+                if (!closed && request == generation && key.equals(wanted)) {
+                    retries.succeeded(key);
                     current = new Published(key, request, result);
+                }
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
             } catch (Exception failure) {
                 if (request == generation && key.equals(wanted))
-                    retryAfter = System.nanoTime() + TimeUnit.MINUTES.toNanos(1);
+                    retries.failed(key, System.nanoTime(), failure instanceof TrackWaveform.AnalysisLimit || failure instanceof javax.sound.sampled.UnsupportedAudioFileException);
                 org.slf4j.LoggerFactory.getLogger("darkmusic-waveform").debug("Waveform unavailable; using normal progress bar", failure);
             }
         });
@@ -138,7 +141,7 @@ public final class WaveformCache implements AutoCloseable {
         var stream = active;
         if (stream != null) ExternalAudio.abort(stream);
         worker.getQueue().clear();
-        retryAfter = 0;
+
     }
 
     @Override

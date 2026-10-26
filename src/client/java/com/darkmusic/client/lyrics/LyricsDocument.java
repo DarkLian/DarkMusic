@@ -17,6 +17,15 @@ public record LyricsDocument(String provider, String recordId, String title, Str
         plain = List.copyOf(plain);
     }
 
+    /**
+     * Existing lyric files may contain legacy EOF markers or padding; imports remain strict.
+     */
+    public static String localText(String text) {
+        var out = new StringBuilder(text.length());
+        text.codePoints().filter(c -> !Character.isISOControl(c) || c == '\n' || c == '\r' || c == '\t').forEach(out::appendCodePoint);
+        return out.toString();
+    }
+
     public static LyricsDocument of(String provider, String id, String title, String artist, String album,
                                     double duration, String language, Variant variant, boolean generated,
                                     boolean instrumental, String text) {

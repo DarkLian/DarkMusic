@@ -64,11 +64,16 @@ public final class PipNativeTools {
     }
 
     static Path unpack(byte[] code, String codeHash, Path dependencies, String dependencyHash, Path directory) throws Exception {
+        return unpack(code, codeHash, dependencies, dependencyHash, directory, () -> {
+        });
+    }
+
+    static Path unpack(byte[] code, String codeHash, Path dependencies, String dependencyHash, Path directory, Runnable beforePublish) throws Exception {
         if (code.length > 2_000_000 || !hash(code).equals(codeHash) || Files.isSymbolicLink(dependencies) ||
             !com.darkmusic.client.update.GitHubRelease.hash(dependencies).equals(dependencyHash))
             throw new IOException("pip.bundle_damaged");
         return unpackArchives(List.of(() -> new ByteArrayInputStream(code), () -> Files.newInputStream(dependencies)),
-            hash((codeHash + dependencyHash).getBytes(java.nio.charset.StandardCharsets.US_ASCII)), directory);
+            hash((codeHash + dependencyHash).getBytes(java.nio.charset.StandardCharsets.US_ASCII)), directory, beforePublish);
     }
 
     private interface Archive {
@@ -76,49 +81,66 @@ public final class PipNativeTools {
     }
 
     private static Path unpackArchives(List<Archive> archives, String digest, Path directory) throws Exception {
+        return unpackArchives(archives, digest, directory, () -> {
+        });
+    }
+
+    private static Path unpackArchives(List<Archive> archives, String digest, Path directory, Runnable beforePublish) throws Exception {
         Files.createDirectories(directory);
         if (Files.isSymbolicLink(directory)) throw new IOException("pip.bundle_damaged");
         Path target = directory.resolve(digest);
         boolean existing = Files.exists(target, LinkOption.NOFOLLOW_LINKS);
         if (Files.isSymbolicLink(target)) throw new IOException("pip.bundle_damaged");
         Path staging = existing ? target : Files.createTempDirectory(directory, "prepare-");
-        int count = 0;
-        long total = 0;
-        java.util.Set<Path> seen = new HashSet<>();
-        for (var archive : archives)
-            try (var zip = new ZipInputStream(archive.open())) {
-                for (var entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
-                    Path file = staging.resolve(entry.getName()).normalize();
-                    if (!file.startsWith(staging) || file.equals(staging) || file.getNameCount() - staging.getNameCount() > 4 || !seen.add(file) || ++count > 2048)
-                        throw new IOException("pip.bundle_damaged");
-                    for (Path parent = file; !parent.equals(staging); parent = parent.getParent())
-                        if (Files.isSymbolicLink(parent)) throw new IOException("pip.bundle_damaged");
-                    if (entry.isDirectory()) {
-                        if (!existing) Files.createDirectories(file);
-                        else if (!Files.isDirectory(file, LinkOption.NOFOLLOW_LINKS))
+        try {
+            int count = 0;
+            long total = 0;
+            java.util.Set<Path> seen = new HashSet<>();
+            for (var archive : archives)
+                try (var zip = new ZipInputStream(archive.open())) {
+                    for (var entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
+                        Path file = staging.resolve(entry.getName()).normalize();
+                        if (!file.startsWith(staging) || file.equals(staging) || file.getNameCount() - staging.getNameCount() > 4 || !seen.add(file) || ++count > 2048)
                             throw new IOException("pip.bundle_damaged");
-                        continue;
-                    }
-                    byte[] content = zip.readNBytes(40_000_001);
-                    total += content.length;
-                    if (content.length > 40_000_000 || total > 300_000_000) throw new IOException("pip.bundle_damaged");
-                    if (existing) {
-                        if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) || Files.size(file) != content.length || !hash(Files.readAllBytes(file)).equals(hash(content)))
+                        for (Path parent = file; !parent.equals(staging); parent = parent.getParent())
+                            if (Files.isSymbolicLink(parent)) throw new IOException("pip.bundle_damaged");
+                        if (entry.isDirectory()) {
+                            if (!existing) Files.createDirectories(file);
+                            else if (!Files.isDirectory(file, LinkOption.NOFOLLOW_LINKS))
+                                throw new IOException("pip.bundle_damaged");
+                            continue;
+                        }
+                        byte[] content = zip.readNBytes(40_000_001);
+                        total += content.length;
+                        if (content.length > 40_000_000 || total > 300_000_000)
                             throw new IOException("pip.bundle_damaged");
-                    } else {
-                        Files.createDirectories(file.getParent());
-                        Files.write(file, content, StandardOpenOption.CREATE_NEW);
+                        if (existing) {
+                            if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) || Files.size(file) != content.length || !hash(Files.readAllBytes(file)).equals(hash(content)))
+                                throw new IOException("pip.bundle_damaged");
+                        } else {
+                            Files.createDirectories(file.getParent());
+                            Files.write(file, content, StandardOpenOption.CREATE_NEW);
+                        }
                     }
                 }
+            if (existing) try (var files = Files.walk(target)) {
+                for (Path path : files.toList())
+                    if (!path.equals(target) && !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS) && !seen.contains(path) && !PipStorage.auxiliary(path))
+                        throw new IOException("pip.bundle_damaged");
             }
-        if (existing) try (var files = Files.walk(target)) {
-            for (Path path : files.toList())
-                if (!path.equals(target) && !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS) && !seen.contains(path))
-                    throw new IOException("pip.bundle_damaged");
+            if (!Files.isRegularFile(staging.resolve("DarkMusic.Pip.exe"))) throw new IOException("pip.bundle_damaged");
+            if (!existing) try {
+                beforePublish.run();
+                Files.move(staging, target);
+            } catch (FileAlreadyExistsException raced) {
+                // Re-run full archive/file validation against the winner; never trust its name alone.
+                return unpackArchives(archives, digest, directory);
+            }
+            return target.resolve("DarkMusic.Pip.exe");
+        } finally {
+            if (!existing && Files.exists(staging, LinkOption.NOFOLLOW_LINKS))
+                PipStorage.removeTree(directory, staging);
         }
-        if (!Files.isRegularFile(staging.resolve("DarkMusic.Pip.exe"))) throw new IOException("pip.bundle_damaged");
-        if (!existing) Files.move(staging, target);
-        return target.resolve("DarkMusic.Pip.exe");
     }
 
     private static String hash(byte[] bytes) throws NoSuchAlgorithmException {

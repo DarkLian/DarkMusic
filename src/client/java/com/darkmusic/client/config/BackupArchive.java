@@ -61,6 +61,10 @@ public final class BackupArchive {
         JsonObject values = ConfigStore.JSON.toJsonTree(settings).getAsJsonObject();
         for (String name : List.of("musicDirectory", "musicFolders", "roots", "ytDlpPath", "ffmpegPath", "ffprobePath", "javascriptPath", "outputDevice"))
             values.remove(name);
+        for (String name : List.of("lyricsConsentVersion", "lyricsOnline", "lyricsAutomaticLookup", "lyricsDownloadLookup", "lyricsLibraryLookup", "updateNotifications"))
+            values.remove(name);
+        if (values.has("pip")) for (String name : List.of("enabled", "audioAccess", "audioSpectrum"))
+            values.getAsJsonObject("pip").remove(name);
         var names = new LinkedHashMap<String, String>();
         if (settings.musicFolders != null) for (String folder : settings.musicFolders) {
             var path = Path.of(folder);
@@ -140,6 +144,17 @@ public final class BackupArchive {
         values.ffprobePath = current.ffprobePath;
         values.javascriptPath = current.javascriptPath;
         values.outputDevice = current.outputDevice;
+        // Consent belongs to this installation, never to an imported/shared backup.
+        values.lyricsConsentVersion = current.lyricsConsentVersion;
+        values.lyricsOnline = current.lyricsOnline;
+        values.lyricsAutomaticLookup = current.lyricsAutomaticLookup;
+        values.lyricsDownloadLookup = current.lyricsDownloadLookup;
+        values.lyricsLibraryLookup = current.lyricsLibraryLookup;
+        values.updateNotifications = current.updateNotifications;
+        if (values.pip == null) values.pip = new com.darkmusic.client.pip.PipSettings();
+        values.pip.enabled = current.pip.enabled;
+        values.pip.audioAccess = current.pip.audioAccess;
+        values.pip.audioSpectrum = current.pip.audioSpectrum;
         Settings importedSettings = ConfigStore.JSON.fromJson(data.settings, Settings.class);
         importedSettings.validate();
         values.shortcuts = selected.shortcuts ? importedSettings.shortcuts : new LinkedHashMap<>(current.shortcuts);

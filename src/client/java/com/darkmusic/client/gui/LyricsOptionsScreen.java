@@ -62,6 +62,9 @@ public final class LyricsOptionsScreen extends AudioPage {
             result(app.lyrics.lookup.offset(track, 0));
         });
         section("lyrics.versions");
+        labeledAction(Text.get("lyrics.recovery.keep"), Text.get("lyrics.recovery.help"), () ->
+            show(new ConfirmationScreen(this, Text.component("lyrics.recovery.keep"), Text.component("lyrics.recovery.help"), Text.component("lyrics.recovery.keep"),
+                () -> app.lyrics.lookup.keepCurrentRecovery(track)).nonDestructive()));
         labeledAction(Text.get("lyrics.encoding") + ": " + app.lyrics.lookup.encoding(track), Text.get("lyrics.encoding.help"), () -> {
             var values = java.util.List.of("Auto", "Big5", "GB18030", "windows-31j", "EUC-KR");
             int index = values.indexOf(app.lyrics.lookup.encoding(track));

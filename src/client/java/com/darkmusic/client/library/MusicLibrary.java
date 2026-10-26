@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * Read-only local library; all file work stays off Minecraft's thread.
  */
 public final class MusicLibrary implements AutoCloseable {
+    private final java.util.Set<Path> reportedWork = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final ExecutorService scanner = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-scan").factory());
     private final ExecutorService rootScanner = Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("darkmusic-root-", 0).factory());
     private final Map<Path, RootJob> rootJobs = new java.util.concurrent.ConcurrentHashMap<>();
@@ -363,8 +364,11 @@ public final class MusicLibrary implements AutoCloseable {
                             unreadablePaths.add(dir.toAbsolutePath().normalize());
                             return FileVisitResult.SKIP_SUBTREE;
                         }
-                        if (!dir.equals(directory) && dir.getFileName().toString().startsWith(".darkmusic-work-"))
+                        if (!dir.equals(directory) && dir.getFileName().toString().startsWith(".darkmusic-work-")) {
+                            if (reportedWork.add(dir))
+                                org.slf4j.LoggerFactory.getLogger("darkmusic-library").warn("Metadata recovery files retained; inspect before removing: {}", dir);
                             return FileVisitResult.SKIP_SUBTREE;
+                        }
                         if (dir.toAbsolutePath().normalize().equals(cacheFile.toAbsolutePath().getParent().resolve("downloads/work")))
                             return FileVisitResult.SKIP_SUBTREE;
                         directories.add(dir);

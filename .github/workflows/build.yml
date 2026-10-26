@@ -36,7 +36,7 @@ jobs:
       - name: setup .NET SDK for the bundled Windows helper
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '8.0.421'
       - name: make gradle wrapper executable
         if: runner.os != 'Windows'
         run: chmod +x ./gradlew
