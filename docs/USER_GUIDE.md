@@ -1,10 +1,10 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v3.1.0 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v3.1.1 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Picture-in-Picture (Windows x64)
 
-PiP is inactive by default, including after upgrading. Open the PiP icon, use **Check PiP Requirements**, approve **Install PiP Dependencies**, and then confirm **Enable PiP Access**. This installs dependencies inside the instance, without a companion mod or system-wide software. No restart is needed. See [PiP installation](PIP-OPTIONAL-INSTALLATION.md). Audio spectrum access has separate consent; installing dependencies never starts capture.
+PiP is inactive by default, including after upgrading. Open the PiP icon, use **Check PiP Requirements**, approve **Install PiP Dependencies**, and then confirm **Enable PiP Access**. This installs the native Windows helper and its runtime dependencies together inside the instance, without a companion mod or system-wide software. The main JAR contains only the Java integration and installation manifest. Upgrading from the earlier split package requires explicit installation of the new matching package; appearance settings and existing access consent are preserved. No restart is needed. See [PiP installation](PIP-OPTIONAL-INSTALLATION.md). Audio spectrum access has separate consent; installing dependencies never starts capture.
 
 On Windows 10/11 x64, use the **Picture-in-Picture** icon beside **Manage Audio Files**
 in the main player, or enter **/da pip** (also **/darkmusic pip**).

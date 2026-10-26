@@ -1,6 +1,14 @@
 # Development and verification
 
 
+## v3.1.1: PiP helper outside the base JAR
+
+The optional PiP ZIP now contains both the Windows helper and its runtime. The base JAR carries only a schema-2 installation manifest. Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed **609 tests: 603 passed, six optional/environment skips**, zero failures/errors. Regression tests cover native-payload exclusion, combined extraction, changed-file preservation, traversal/normalized-path collisions, missing helper rejection, explicit legacy-layout installation, cancellation and restart reuse. Real helper pacer/reliability self-tests and the Windows graphics/setup integration check passed.
+
+An isolated Minecraft PiP setup smoke passed at fullscreen 1920x1080, GUI scale 2, SmoothFont. It checked installation/access cancellation, verified local-package reuse, enable/disable and separate audio consent without enumerating windows or starting capture. Recursive inspection of the main JAR and nested libraries found no EXE/DLL/SO/dylib payloads. All four local archives passed CRC checks; the schema-2 manifest matched the combined package size and SHA-256. The local v3.1.1 main JAR is 3,954,986 bytes; the optional package is 76,206,540 bytes. IntelliJ formatting, workflow lint, whitespace and English/Traditional Chinese key parity passed.
+
+The previous v3.1.0 publication is unchanged. Hosted release CI and live published-package verification are recorded below after publication. Platform moderation acceptance has not been tested. Capture pacing, protocols, DSP, device requirements and consent settings are unchanged. Evidence is under ignored `.local-tools/verification/pip-external-helper/`. Release preparation repeated the clean full check (609 tests, 603 passed/six skipped), package audit and isolated in-game setup smoke successfully for v3.1.1; release evidence is under `.local-tools/verification/release-3.1.1/`.
+
 ## v3.1.0 release validation
 
 Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed **607 tests: 601 passed, six skipped**, zero failures/errors, using private-real-audio-derived fixtures and existing managed tools. The skipped cases are optional live tool installation, live LRCLIB, live published PiP installation, two unavailable Windows symlink fixtures and POSIX permissions on Windows. The published PiP installation check is run separately after publication.

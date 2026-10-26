@@ -6,9 +6,9 @@ Your own music library, inside Minecraft. Browse and play your collection, build
 
 ## Install
 
-DarkMusic **v3.1.0** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v3.1.1** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-3.1.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-3.1.1.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Add your songs under **Settings → General → Music Folders**, drag audio files into the player, or copy them to `config/darkmusic/music` in your instance.
@@ -109,13 +109,15 @@ Turn on **PiP Audio Spectrum** to visualize that application's sound with its ow
 
 ![Picture-in-Picture window inside Minecraft](docs/images/pip.png)
 
-PiP follows the frame limit you choose; on one tested system a 144 FPS limit delivered about 143 FPS. Smoothness still depends on Windows, the source application, and your graphics hardware, so no particular frame rate is promised. It needs Windows build 19041 or later (20348 or later for the audio spectrum). Details are in the [setup guide](docs/PIP-OPTIONAL-INSTALLATION.md), [verification notes](docs/PIP-VERIFICATION.md), and [performance measurements](docs/PIP-PERFORMANCE.md). Do not put the optional dependency ZIP from the release page in `mods`; use the in-game installer.
+PiP follows the frame limit you choose; on one tested system a 144 FPS limit delivered about 143 FPS. Smoothness still depends on Windows, the source application, and your graphics hardware, so no particular frame rate is promised. It needs Windows build 19041 or later (20348 or later for the audio spectrum). Details are in the [setup guide](docs/PIP-OPTIONAL-INSTALLATION.md), [verification notes](docs/PIP-VERIFICATION.md), and [performance measurements](docs/PIP-PERFORMANCE.md). The native helper and runtime are installed together only when you approve PiP installation; the main JAR contains their installation manifest. Do not put the optional dependency ZIP from the release page in `mods`; use the in-game installer.
 
 ## Updates
 
 Automatic update checks are on by default: they run after joining a world/server and every six hours while connected. Notifications appear once per launch after you join a world or server. Click **Update** to approve a download, then close Minecraft to finish installing. You can also use **Settings → General → Check for Updates**. Your settings, library, playlists, and assets are kept. If installation fails, the next launch tells you and offers the log.
 
 ## What's new
+
+**v3.1.1** moves the Windows PiP helper into the optional installation package. The main mod JAR contains no native helper binaries. Existing PiP users install the new matching package through the PiP menu; settings and access permissions are preserved ([release notes](docs/RELEASE-3.1.1.md)).
 
 **v3.1.0** improves large-library search, Opus metadata and lyrics, download resilience, and saved lyric retention. PiP accepts ultrawide and tall windows within the same 4K pixel budget. The frame-limit capture improvements from v3.0.4 remain included ([release notes](docs/RELEASE-3.1.0.md)).
 
@@ -156,7 +158,7 @@ English and Traditional Chinese (Taiwan) are included. Choose yours in Minecraft
 
 ## Build and contribute
 
-Use JDK 25, the .NET 8 SDK (for the bundled Windows PiP helper), and the included Gradle wrapper. Players do not need the SDK.
+Use JDK 25, the .NET 8 SDK (for the optional Windows PiP package), and the included Gradle wrapper. Players do not need the SDK.
 
 ```sh
 ./gradlew build

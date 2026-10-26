@@ -60,17 +60,27 @@ class PipBundleTest {
     }
 
     @Test
-    void actualBundledHelperExtractsWithLicensesWhenPresent() throws Exception {
-        try (var zip = PipNativeTools.class.getResourceAsStream("/assets/darkmusic/pip/windows-x64/helper.zip"); var sha = PipNativeTools.class.getResourceAsStream("/assets/darkmusic/pip/windows-x64/helper.sha256")) {
-            org.junit.jupiter.api.Assumptions.assumeTrue(zip != null && sha != null, "Java-only build omits optional native bundle");
-            byte[] code = zip.readAllBytes();
-            try (var content = new ZipInputStream(new ByteArrayInputStream(code))) {
-                for (var e = content.getNextEntry(); e != null; e = content.getNextEntry())
-                    assertTrue(e.getName().startsWith("DarkMusic.Pip."), "Base JAR must not include runtime libraries");
+    void mainJarContainsOnlyPipManifestAndNoNativePayloads() throws Exception {
+        try (var jar = new ZipFile(System.getProperty("darkmusic.jar"))) {
+            assertNull(jar.getEntry("assets/darkmusic/pip/windows-x64/helper.zip"));
+            assertNull(jar.getEntry("assets/darkmusic/pip/windows-x64/helper.sha256"));
+            for (var entry : Collections.list(jar.entries())) {
+                String name = entry.getName().toLowerCase(Locale.ROOT);
+                assertFalse(name.endsWith(".exe") || name.endsWith(".dll") || name.endsWith(".so") || name.endsWith(".dylib"), name);
+                if (name.startsWith("assets/darkmusic/pip/"))
+                    assertTrue(entry.isDirectory() || name.equals("assets/darkmusic/pip/windows-x64/dependencies.json"), name);
             }
+        }
+    }
+
+    @Test
+    void actualOptionalPackageExtractsHelperAndRuntimeWithLicensesWhenPresent() throws Exception {
+        try (var manifest = PipNativeTools.class.getResourceAsStream("/assets/darkmusic/pip/windows-x64/dependencies.json")) {
+            org.junit.jupiter.api.Assumptions.assumeTrue(manifest != null, "Java-only build omits optional native manifest");
+            var bundle = PipRuntime.Bundle.parse(new String(manifest.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
             var dependencies = Path.of(System.getProperty("darkmusic.test.pipDependencies"));
-            var exe = PipNativeTools.unpack(code, new String(sha.readAllBytes(), java.nio.charset.StandardCharsets.US_ASCII).strip(), dependencies,
-                com.darkmusic.client.update.GitHubRelease.hash(dependencies), temp);
+            bundle.verify(dependencies);
+            var exe = PipNativeTools.unpack(dependencies, bundle.sha256(), temp);
             assertTrue(Files.size(exe) > 0);
             assertTrue(Files.size(exe.resolveSibling("DOTNET-LICENSE.TXT")) > 100);
             assertTrue(Files.size(exe.resolveSibling("licenses/CSWINRT-LICENSE.txt")) > 100);
@@ -79,7 +89,8 @@ class PipBundleTest {
                 });
                 assertEquals(0, result.exit(), result.output());
                 assertEquals("pass", result.output().strip());
-                var reliability = new com.darkmusic.client.download.ProcessRunner().run(java.util.List.of(exe.toString(), "--reliability-test"), exe.getParent(), new com.darkmusic.client.download.ProcessRunner.Token(), java.time.Duration.ofSeconds(15), 2048, line -> {});
+                var reliability = new com.darkmusic.client.download.ProcessRunner().run(java.util.List.of(exe.toString(), "--reliability-test"), exe.getParent(), new com.darkmusic.client.download.ProcessRunner.Token(), java.time.Duration.ofSeconds(15), 2048, line -> {
+                });
                 assertEquals(0, reliability.exit(), reliability.output());
                 assertEquals("pass", reliability.output().strip());
             }

@@ -128,9 +128,9 @@ class PipReliabilityTest {
 
     @Test
     void extractionFailuresCleanTheirOwnStaging() throws Exception {
-        byte[] code = PipRuntimeTest.zip(java.util.Map.of("DarkMusic.Pip.exe", new byte[]{1})), deps = PipRuntimeTest.zip(java.util.Map.of("../escape.dll", new byte[]{2}));
+        byte[] deps = PipRuntimeTest.zip(java.util.Map.of("DarkMusic.Pip.exe", new byte[]{1}, "../escape.dll", new byte[]{2}));
         Path archive = Files.write(temp.resolve("deps.zip"), deps);
-        assertThrows(java.io.IOException.class, () -> PipNativeTools.unpack(code, PipRuntimeTest.hash(code), archive, PipRuntimeTest.hash(deps), temp));
+        assertThrows(java.io.IOException.class, () -> PipNativeTools.unpack(archive, PipRuntimeTest.hash(deps), temp));
         try (var files = Files.list(temp)) {
             assertTrue(files.noneMatch(p -> p.getFileName().toString().startsWith("prepare-")));
         }
@@ -138,10 +138,10 @@ class PipReliabilityTest {
 
     @Test
     void competingPublicationIsReusedOnlyAfterFullVerification() throws Exception {
-        byte[] code = PipRuntimeTest.zip(java.util.Map.of("DarkMusic.Pip.exe", new byte[]{1})), deps = PipRuntimeTest.zip(java.util.Map.of("runtime.dll", new byte[]{2}));
-        String ch = PipRuntimeTest.hash(code), dh = PipRuntimeTest.hash(deps);
+        byte[] deps = PipRuntimeTest.zip(java.util.Map.of("DarkMusic.Pip.exe", new byte[]{1}, "runtime.dll", new byte[]{2}));
+        String dh = PipRuntimeTest.hash(deps);
         Path archive = Files.write(temp.resolve("deps.zip"), deps);
-        String combined = PipRuntimeTest.hash((ch + dh).getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        String combined = dh;
         for (boolean valid : java.util.List.of(true, false)) {
             Path root = Files.createDirectory(temp.resolve(valid ? "valid" : "invalid"));
             Runnable publish = () -> {
@@ -153,9 +153,9 @@ class PipReliabilityTest {
                     throw new java.io.UncheckedIOException(e);
                 }
             };
-            if (valid) assertTrue(Files.isRegularFile(PipNativeTools.unpack(code, ch, archive, dh, root, publish)));
+            if (valid) assertTrue(Files.isRegularFile(PipNativeTools.unpack(archive, dh, root, publish)));
             else
-                assertThrows(java.io.IOException.class, () -> PipNativeTools.unpack(code, ch, archive, dh, root, publish));
+                assertThrows(java.io.IOException.class, () -> PipNativeTools.unpack(archive, dh, root, publish));
             try (var files = Files.list(root)) {
                 assertTrue(files.noneMatch(f -> f.getFileName().toString().startsWith("prepare-")));
             }

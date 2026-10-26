@@ -183,11 +183,11 @@ processResources {
     }
 }
 
-// Feature code stays in the mod; the large instance-local runtime is opt-in.
+// Java feature integration stays in the mod; all native code/runtime files are opt-in.
 // Opt out explicitly for Java-only work on machines without the .NET SDK.
 if (!providers.gradleProperty('javaOnly').isPresent()) {
     def publishFolder = layout.buildDirectory.dir('pip-helper')
-    def resourceFolder = layout.buildDirectory.dir('generated/pip-resources/assets/darkmusic/pip/windows-x64')
+    def resourceFolder = layout.buildDirectory.dir('generated/pip-manifest-resources/assets/darkmusic/pip/windows-x64')
     tasks.register('publishPipHelper', Exec) {
         inputs.files(fileTree('src/pipHelper') { include '*.cs', '*.csproj', 'global.json', 'packages.lock.json' })
         inputs.dir('src/pipHelper/licenses')
@@ -197,41 +197,42 @@ if (!providers.gradleProperty('javaOnly').isPresent()) {
         commandLine 'dotnet', 'publish', 'PipHelper.csproj', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '-p:RestoreLockedMode=true', '-o', publishFolder.get().asFile.absolutePath,
                 "-p:BaseIntermediateOutputPath=${layout.buildDirectory.dir('pip-helper-obj').get().asFile.absolutePath}/", "-p:BaseOutputPath=${layout.buildDirectory.dir('pip-helper-bin').get().asFile.absolutePath}/", '--nologo'
     }
-    def codeFiles = ['DarkMusic.Pip.exe', 'DarkMusic.Pip.dll', 'DarkMusic.Pip.deps.json', 'DarkMusic.Pip.runtimeconfig.json']
+
     def pipVersion = project.version.toString()
     def dependencyFile = layout.buildDirectory.file("libs/darkmusic-pip-dependencies-${pipVersion}-windows-x64.zip")
     def dependencyBundle = tasks.register('pipDependencies', Zip) {
         preserveFileTimestamps = false
         reproducibleFileOrder = true
         dependsOn tasks.named('publishPipHelper')
-        from(publishFolder) { exclude codeFiles }
+        from(publishFolder)
         archiveFileName = "darkmusic-pip-dependencies-${project.version}-windows-x64.zip"
         destinationDirectory = layout.buildDirectory.dir('libs')
     }
-    tasks.register('bundlePipHelper', Zip) {
-        preserveFileTimestamps = false
-        reproducibleFileOrder = true
+    // Keep the task name for existing development/CI commands; only the manifest enters the JAR.
+    tasks.register('bundlePipHelper') {
         dependsOn dependencyBundle
-        from(publishFolder) { include codeFiles }
-        inputs.property 'version', project.version.toString()
-        archiveFileName = 'helper.zip'
-        destinationDirectory = resourceFolder
-        outputs.files(resourceFolder.map { it.file('helper.sha256') }, resourceFolder.map { it.file('dependencies.json') })
+        inputs.file(dependencyFile)
+        inputs.property 'version', pipVersion
+        outputs.file(resourceFolder.map { it.file('dependencies.json') })
         doLast {
-            def hash = java.security.MessageDigest.getInstance('SHA-256').digest(archiveFile.get().asFile.bytes).encodeHex().toString()
-            new File(resourceFolder.get().asFile, 'helper.sha256').setText(hash, 'US-ASCII')
             def deps = dependencyFile.get().asFile
-            new File(resourceFolder.get().asFile, 'dependencies.json').setText(groovy.json.JsonOutput.toJson([
-                    schema: 1, version: pipVersion, name: deps.name, size: deps.length(),
+            def output = resourceFolder.get().asFile
+            output.mkdirs()
+            new File(output, 'dependencies.json').setText(groovy.json.JsonOutput.toJson([
+                    schema: 2, version: pipVersion, name: deps.name, size: deps.length(),
                     sha256: java.security.MessageDigest.getInstance('SHA-256').digest(deps.bytes).encodeHex().toString()
             ]), 'UTF-8')
         }
     }
-    sourceSets.client.resources.srcDir(layout.buildDirectory.dir('generated/pip-resources'))
+    sourceSets.client.resources.srcDir(layout.buildDirectory.dir('generated/pip-manifest-resources'))
     loom.runs.named('client') {
         vmArg "-Ddarkmusic.pipDependencies=${dependencyFile.get().asFile.absolutePath}"
     }
     tasks.named('processClientResources') { dependsOn tasks.named('bundlePipHelper') }
+    // Exclude obsolete outputs too when upgrading an existing, non-clean build directory.
+    tasks.named('jar') {
+        exclude 'assets/darkmusic/pip/windows-x64/helper.zip', 'assets/darkmusic/pip/windows-x64/helper.sha256'
+    }
     tasks.named('test') { systemProperty 'darkmusic.test.pipDependencies', dependencyFile.get().asFile.absolutePath }
 }
 
@@ -261,8 +262,10 @@ jar {
 
 tasks.named('sourcesJar', Jar) {
     exclude 'assets/darkmusic/pip/**'
-    from('src/pipHelper') { include '*.cs', '*.csproj', 'global.json', 'packages.lock.json', 'licenses/**';
-        into 'pip-helper' }
+    from('src/pipHelper') {
+        include '*.cs', '*.csproj', 'global.json', 'packages.lock.json', 'licenses/**';
+        into 'pip-helper'
+    }
     def projectName = project.name
     inputs.property "projectName", projectName
     from('LICENSE') { rename { "${it}_$projectName" } }

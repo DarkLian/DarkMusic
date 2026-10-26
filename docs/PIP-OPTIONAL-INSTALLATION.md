@@ -2,7 +2,7 @@
 
 Available from v3.0.1. The earlier v3.0.0 package bundled the complete runtime.
 
-All DarkMusic PiP feature code remains in the main mod, including the small native helper. The large .NET/Windows Desktop/C#/WinRT dependencies are a separate, optional ZIP. There is no companion mod and nothing additional to put in `mods`.
+DarkMusic's Java PiP integration remains in the main mod. The Windows native helper and its .NET/Windows Desktop/C#/WinRT dependencies are distributed together in one separate, optional ZIP. There is no companion mod and nothing additional to put in `mods`.
 
 ## Setup
 
@@ -19,15 +19,15 @@ The permissions here are DarkMusic consent, not an OS permission grant. Windows 
 
 ## Packaging and updates
 
-The build produces the small base JAR and `darkmusic-pip-dependencies-VERSION-windows-x64.zip`. The base includes `helper.zip`, its checksum and a dependency manifest, but no framework/SDK DLLs. The release workflow publishes the optional ZIP alongside the normal assets. A new runtime checksum requires explicit installation; unchanged cached archives are reused across launches. Previous runtime files are preserved, and no audio/configuration assets are removed.
+The build produces the small base JAR and `darkmusic-pip-dependencies-VERSION-windows-x64.zip`. The base includes only a schema-2 installation manifest with the native package version, size and SHA-256. It contains no native helper executable, helper ZIP or framework/SDK DLLs. The release workflow publishes the optional ZIP alongside the normal assets. A new runtime checksum requires explicit installation; unchanged cached archives are reused across launches. Previous runtime files are preserved, and no audio/configuration assets are removed.
 
-The base JAR is approximately **4.0 MB**, versus approximately **79 MB** for v3.0.0; the optional dependency ZIP is approximately **76 MB**, expanding to less than the enforced 300 MB extraction limit. Exact sizes vary with the SDK/runtime build.
+The base JAR is approximately **4 MB**, versus approximately **79 MB** for v3.0.0; the optional dependency ZIP is approximately **76 MB**, expanding to less than the enforced 300 MB extraction limit. Exact sizes vary with the SDK/runtime build.
 
-The matching dependency ZIP accompanies the v3.0.1 GitHub release. Use the in-game installer, which verifies the manifest checksum before use; do not put the ZIP in `mods`. Existing v3.0.0 assets and previously extracted runtimes are preserved. Old installations may need the matching optional dependencies, but appearance preferences remain intact and access defaults off on upgrade.
+The matching dependency ZIP accompanies each GitHub release. Use the in-game installer, which verifies the manifest checksum before use; do not put the ZIP in `mods`. Existing v3.0.0 assets and previously extracted runtimes are preserved. When upgrading from the previous split layout, install the new matching package explicitly. Legacy runtime-only ZIPs cannot activate this layout and are never combined with an unverified helper. Appearance preferences and existing capture/audio consent remain intact; capture never starts automatically.
 
 ## Verification scope
 
-Tests cover default-off upgrade behavior, no work at construction, no downloads during checks, unsupported systems, explicit installation, cache reuse after restart, cancellation, incorrect checksums, ZIP path traversal and collisions between code/dependency archives. A desktop-only check exercises the real Windows preflight and native graphics probe using a local copy of the built dependencies. These fixtures are disposable runtime files, not synthetic music or artwork.
+Tests cover default-off upgrade behavior, no work at construction, no downloads during checks, unsupported systems, explicit installation, cache reuse after restart, cancellation, incorrect checksums, ZIP path traversal, duplicate normalized paths, missing helpers, legacy package migration and native-payload exclusion from the base JAR. A desktop-only check exercises the real Windows preflight and native graphics probe using a local copy of the built dependencies. These fixtures are disposable runtime files, not synthetic music or artwork.
 
 Existing capture buffering, video protocol, frame pacing and music DSP are unchanged. Earlier fullscreen throughput measurements predate the system-wide AMD FreeSync correction; a later Chrome retest is recorded in `TESTING.md` and measured about 48 FPS at the default interval. Intermittent capture limitations, other Windows builds/GPUs and native non-Windows PiP remain unverified. See `TESTING.md` for release validation; the opt-in `-PpipRuntimeIntegration -PdesktopIntegration` test exercises the real installer against the matching published archive.
 

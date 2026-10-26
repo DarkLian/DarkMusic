@@ -12,7 +12,7 @@ import java.util.concurrent.*;
 import java.util.zip.ZipInputStream;
 
 /**
- * Bundled, offline helper. Extraction and executable verification never run on the client thread.
+ * Optional, verified native helper. Extraction and executable verification never run on the client thread.
  */
 public final class PipNativeTools {
     private final Path directory;
@@ -63,17 +63,16 @@ public final class PipNativeTools {
         return unpackArchives(List.of(() -> new ByteArrayInputStream(archive)), digest, directory);
     }
 
-    static Path unpack(byte[] code, String codeHash, Path dependencies, String dependencyHash, Path directory) throws Exception {
-        return unpack(code, codeHash, dependencies, dependencyHash, directory, () -> {
+    static Path unpack(Path archive, String expected, Path directory) throws Exception {
+        return unpack(archive, expected, directory, () -> {
         });
     }
 
-    static Path unpack(byte[] code, String codeHash, Path dependencies, String dependencyHash, Path directory, Runnable beforePublish) throws Exception {
-        if (code.length > 2_000_000 || !hash(code).equals(codeHash) || Files.isSymbolicLink(dependencies) ||
-            !com.darkmusic.client.update.GitHubRelease.hash(dependencies).equals(dependencyHash))
+    static Path unpack(Path archive, String expected, Path directory, Runnable beforePublish) throws Exception {
+        if (Files.isSymbolicLink(archive) || !Files.isRegularFile(archive, LinkOption.NOFOLLOW_LINKS) ||
+            Files.size(archive) > 100_000_000 || !com.darkmusic.client.update.GitHubRelease.hash(archive).equals(expected))
             throw new IOException("pip.bundle_damaged");
-        return unpackArchives(List.of(() -> new ByteArrayInputStream(code), () -> Files.newInputStream(dependencies)),
-            hash((codeHash + dependencyHash).getBytes(java.nio.charset.StandardCharsets.US_ASCII)), directory, beforePublish);
+        return unpackArchives(List.of(() -> Files.newInputStream(archive)), expected, directory, beforePublish);
     }
 
     private interface Archive {

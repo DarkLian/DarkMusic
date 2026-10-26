@@ -84,15 +84,13 @@ jobs:
           test -s "$notes"
           cp "$notes" release-files/release-notes.md
           python3 - "$version" <<'PY'
-          import sys, zipfile, hashlib
+          import sys, hashlib
           from pathlib import Path
           folder = Path('release-files')
           version = sys.argv[1]
-          with zipfile.ZipFile(folder / f'darkmusic-{version}.jar') as jar:
-              helper = jar.read('assets/darkmusic/pip/windows-x64/helper.sha256').decode().strip()
           deps = folder / f'darkmusic-pip-dependencies-{version}-windows-x64.zip'
           with (folder / 'release-notes.md').open('a') as notes:
-              notes.write(f'\n\nPiP helper SHA-256: `{helper}`\n\nPiP dependencies SHA-256: `{hashlib.sha256(deps.read_bytes()).hexdigest()}`\n')
+              notes.write(f'\n\nPiP native package (helper and runtime) SHA-256: `{hashlib.sha256(deps.read_bytes()).hexdigest()}`\n')
           PY
           gh release create "$RELEASE_TAG" --verify-tag --latest --title "DarkMusic $RELEASE_TAG" --notes-file release-files/release-notes.md \
             "release-files/darkmusic-$version.jar" \

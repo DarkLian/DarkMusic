@@ -23,7 +23,7 @@ public final class PipRuntime implements AutoCloseable {
             try {
                 var o = JsonParser.parseString(json).getAsJsonObject();
                 var b = new Bundle(o.get("version").getAsString(), o.get("name").getAsString(), o.get("size").getAsLong(), o.get("sha256").getAsString());
-                if (o.get("schema").getAsInt() != 1 || !b.version.matches("[0-9]+\\.[0-9]+\\.[0-9]+") ||
+                if (o.get("schema").getAsInt() != 2 || !b.version.matches("[0-9]+\\.[0-9]+\\.[0-9]+") ||
                     !b.name.equals("darkmusic-pip-dependencies-" + b.version + "-windows-x64.zip") || b.size <= 0 || b.size > 100_000_000 || !b.sha256.matches("[a-f0-9]{64}"))
                     throw new IOException("pip.bundle_damaged");
                 return b;
@@ -246,9 +246,7 @@ public final class PipRuntime implements AutoCloseable {
                     }
                     bundle.verify(archive());
                     request.check();
-                    byte[] code = resources.read("helper.zip", 2_000_000);
-                    String checksum = new String(resources.read("helper.sha256", 128), StandardCharsets.US_ASCII).strip();
-                    var exe = PipNativeTools.unpack(code, checksum, archive(), bundle.sha256, root);
+                    var exe = PipNativeTools.unpack(archive(), bundle.sha256, root);
                     request.check();
                     if (!graphics.supported(exe, request)) {
                         status = "pip.setup.graphics_failed";

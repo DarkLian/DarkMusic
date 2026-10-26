@@ -59,8 +59,8 @@ class PipRuntimeTest {
         } catch (UnsupportedOperationException | FileSystemException unavailable) {
             org.junit.jupiter.api.Assumptions.abort("Symbolic-link creation unavailable: " + unavailable.getClass().getSimpleName());
         }
-        byte[] code = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1})), deps = zip(Map.of("runtime.dll", new byte[]{2}));
-        try (var runtime = new PipRuntime(alias, resources(code, deps), (u, p, m, t, c) -> fail("No download through a linked directory"), t -> 26300, (e, t) -> true)) {
+        byte[] deps = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1}, "runtime.dll", new byte[]{2}));
+        try (var runtime = new PipRuntime(alias, resources(deps), (u, p, m, t, c) -> fail("No download through a linked directory"), t -> 26300, (e, t) -> true)) {
             runtime.check().get(5, TimeUnit.SECONDS);
             assertEquals("pip.bundle_damaged", runtime.status());
             assertFalse(runtime.ready());
@@ -103,20 +103,20 @@ class PipRuntimeTest {
     }
 
     static String manifest(byte[] deps) throws Exception {
-        return "{\"schema\":1,\"version\":\"3.0.0\",\"name\":\"darkmusic-pip-dependencies-3.0.0-windows-x64.zip\",\"size\":" + deps.length + ",\"sha256\":\"" + hash(deps) + "\"}";
+        return "{\"schema\":2,\"version\":\"3.0.0\",\"name\":\"darkmusic-pip-dependencies-3.0.0-windows-x64.zip\",\"size\":" + deps.length + ",\"sha256\":\"" + hash(deps) + "\"}";
     }
 
-    static PipRuntime.Resources resources(byte[] code, byte[] deps) throws Exception {
-        var data = Map.of("dependencies.json", manifest(deps).getBytes(StandardCharsets.UTF_8), "helper.zip", code, "helper.sha256", hash(code).getBytes(StandardCharsets.US_ASCII));
+    static PipRuntime.Resources resources(byte[] deps) throws Exception {
+        var data = Map.of("dependencies.json", manifest(deps).getBytes(StandardCharsets.UTF_8));
         return (name, max) -> data.get(name);
     }
 
     @Test
     void developmentInstallUsesMatchingLocalArchiveAndKeepsChecksumVerification() throws Exception {
-        byte[] code = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1})), deps = zip(Map.of("runtime.dll", new byte[]{2}));
+        byte[] deps = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1}, "runtime.dll", new byte[]{2}));
         Path local = Files.write(temp.resolve("local.zip"), deps);
         var transfer = PipRuntime.developmentDownload(true, local.toString(), (u, p, m, t, c) -> fail("No release download in development"));
-        try (var runtime = new PipRuntime(temp.resolve("valid"), resources(code, deps), transfer, t -> 26300, (e, t) -> true)) {
+        try (var runtime = new PipRuntime(temp.resolve("valid"), resources(deps), transfer, t -> 26300, (e, t) -> true)) {
             runtime.check().get();
             assertFalse(runtime.ready());
             runtime.install().get();
@@ -126,7 +126,7 @@ class PipRuntimeTest {
         byte[] changed = deps.clone();
         changed[0] ^= 1;
         Files.write(local, changed);
-        try (var runtime = new PipRuntime(temp.resolve("changed"), resources(code, deps), transfer, t -> 26300, (e, t) -> fail("Reject altered archive before execution"))) {
+        try (var runtime = new PipRuntime(temp.resolve("changed"), resources(deps), transfer, t -> 26300, (e, t) -> fail("Reject altered archive before execution"))) {
             runtime.check().get();
             runtime.install().get();
             assertFalse(runtime.ready());
@@ -148,10 +148,10 @@ class PipRuntimeTest {
 
     @Test
     void constructionAndCheckingNeverDownloadOrGrantAccess() throws Exception {
-        byte[] code = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1})), deps = zip(Map.of("runtime.dll", new byte[]{2}));
+        byte[] deps = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1}, "runtime.dll", new byte[]{2}));
         var downloads = new AtomicInteger();
         var checks = new AtomicInteger();
-        try (var runtime = new PipRuntime(temp, resources(code, deps), (u, p, m, t, progress) -> downloads.incrementAndGet(), t -> {
+        try (var runtime = new PipRuntime(temp, resources(deps), (u, p, m, t, progress) -> downloads.incrementAndGet(), t -> {
             checks.incrementAndGet();
             return 26300;
         }, (e, t) -> true)) {
@@ -169,9 +169,9 @@ class PipRuntimeTest {
 
     @Test
     void explicitInstallVerifiesAndReusesDependenciesAcrossRestart() throws Exception {
-        byte[] code = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1})), deps = zip(Map.of("runtime.dll", new byte[]{2}));
+        byte[] deps = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1}, "runtime.dll", new byte[]{2}));
         var downloads = new AtomicInteger();
-        var resources = resources(code, deps);
+        var resources = resources(deps);
         PipRuntime.Download fetch = (uri, out, max, token, progress) -> {
             assertEquals("https://github.com/DarkLian/DarkMusic/releases/download/v3.0.0/darkmusic-pip-dependencies-3.0.0-windows-x64.zip", uri.toString());
             downloads.incrementAndGet();
@@ -198,11 +198,11 @@ class PipRuntimeTest {
 
     @Test
     void cancellationAndBadDownloadsNeverActivateRuntime() throws Exception {
-        byte[] code = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1})), deps = zip(Map.of("runtime.dll", new byte[]{2}));
+        byte[] deps = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1}, "runtime.dll", new byte[]{2}));
         var entered = new CountDownLatch(1);
         var release = new CountDownLatch(1);
         var probes = new AtomicInteger();
-        try (var runtime = new PipRuntime(temp, resources(code, deps), (u, p, m, t, progress) -> {
+        try (var runtime = new PipRuntime(temp, resources(deps), (u, p, m, t, progress) -> {
             entered.countDown();
             assertTrue(release.await(5, TimeUnit.SECONDS));
             t.check();
@@ -223,7 +223,7 @@ class PipRuntimeTest {
         } finally {
             release.countDown();
         }
-        try (var runtime = new PipRuntime(temp, resources(code, deps), (u, p, m, t, progress) -> Files.write(p, new byte[]{9}), t -> 26300, (e, t) -> true)) {
+        try (var runtime = new PipRuntime(temp, resources(deps), (u, p, m, t, progress) -> Files.write(p, new byte[]{9}), t -> 26300, (e, t) -> true)) {
             runtime.check().get();
             runtime.install().get();
             assertFalse(runtime.ready());
@@ -245,14 +245,41 @@ class PipRuntimeTest {
     }
 
     @Test
-    void splitArchivesRejectCollisionsAndTraversal() throws Exception {
-        byte[] code = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1}));
-        for (var entry : List.of("DarkMusic.Pip.exe", "../escape.dll")) {
-            byte[] deps = zip(Map.of(entry, new byte[]{2}));
+    void combinedArchiveRejectsCollisionsTraversalAndMissingHelper() throws Exception {
+        for (var entry : List.of("alias/../DarkMusic.Pip.exe", "../escape.dll")) {
+            byte[] deps = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1}, entry, new byte[]{2}));
             Path archive = Files.createTempFile(temp, "deps-", ".zip");
             Files.write(archive, deps);
-            assertThrows(IOException.class, () -> PipNativeTools.unpack(code, hash(code), archive, hash(deps), temp.resolve(UUID.randomUUID().toString())));
+            assertThrows(IOException.class, () -> PipNativeTools.unpack(archive, hash(deps), temp.resolve(UUID.randomUUID().toString())));
         }
+        byte[] legacy = zip(Map.of("runtime.dll", new byte[]{2}));
+        Path archive = Files.write(temp.resolve("legacy.zip"), legacy);
+        assertThrows(IOException.class, () -> PipNativeTools.unpack(archive, hash(legacy), temp.resolve("missing")));
         assertFalse(Files.exists(temp.resolve("escape.dll")));
+    }
+
+    @Test
+    void legacyRuntimeCannotActivateNewPackageWithoutExplicitInstallation() throws Exception {
+        byte[] current = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1}, "runtime.dll", new byte[]{2}));
+        Path root = Files.createDirectories(temp.resolve("pip-native"));
+        byte[] legacy = zip(Map.of("runtime.dll", new byte[]{2}));
+        Path old = Files.write(root.resolve("dependencies-" + hash(legacy) + ".zip"), legacy);
+        Path oldRuntime = Files.createDirectory(root.resolve("a".repeat(64)));
+        Files.write(oldRuntime.resolve("DarkMusic.Pip.exe"), new byte[]{9});
+        var downloads = new AtomicInteger();
+        try (var runtime = new PipRuntime(temp, resources(current), (u, p, m, t, c) -> {
+            downloads.incrementAndGet();
+            Files.write(p, current);
+        }, t -> 26300, (e, t) -> true)) {
+            runtime.check().get();
+            assertFalse(runtime.ready());
+            assertEquals("pip.setup.required", runtime.status());
+            assertEquals(0, downloads.get());
+            runtime.install().get();
+            assertTrue(runtime.ready(), runtime.status());
+            assertEquals(1, downloads.get());
+            assertTrue(Files.exists(old));
+            assertArrayEquals(new byte[]{9}, Files.readAllBytes(oldRuntime.resolve("DarkMusic.Pip.exe")));
+        }
     }
 }
