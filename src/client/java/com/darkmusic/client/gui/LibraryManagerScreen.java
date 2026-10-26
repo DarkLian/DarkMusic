@@ -42,7 +42,7 @@ public final class LibraryManagerScreen extends LocalScreen {
             query = value;
             refresh();
         });
-        rows = addRenderableWidget(new RowList(12, 60, width - 24, Math.max(28, height - 132), 36,
+        rows = addRenderableWidget(new RowList(12, 74, width - 24, Math.max(28, height - 146), 36,
             Text.get("delete_audio.select"), (i, activated) -> {
         }));
         rows.multiple(selection);
@@ -88,6 +88,10 @@ public final class LibraryManagerScreen extends LocalScreen {
         UiTheme.header(g, font, title, UiIcon.TOOLS);
         longText.draw(g, font, "selection", selection.hidden() == 0 ? Text.get("format.darkmusic.selected", selection.size()) : Text.get("playlist.darkmusic.filtered_selection", selection.size(), selection.hidden()),
             12, height - 40, width - 24, UiStatus.color(selection.hidden() > 0 ? UiStatus.Tone.WARNING : UiStatus.Tone.INFO));
+        var snapshot = app.library.snapshot();
+        if (!snapshot.message().isBlank())
+            longText.draw(g, font, "library-status", snapshot.message(), 12, 59, width - 24,
+                UiStatus.color(snapshot.scanning() ? UiStatus.Tone.INFO : UiStatus.Tone.WARNING));
         super.extractRenderState(g, x, y, delta);
     }
 }

@@ -47,3 +47,6 @@ AGENTS.md
 
 # Runtime logs
 /logs/
+
+# Local agent coordination notes
+/handoffs.md

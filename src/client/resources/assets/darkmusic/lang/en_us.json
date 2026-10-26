@@ -1609,5 +1609,7 @@
   "library.darkmusic.edit_space": "Not enough free space to edit this file safely. Free at least three times the audio file size and try again.",
   "lyrics.recovery.conflict": "Lyrics recovery conflict. Your current files were kept; recovery data: %s. Use Keep Current Lyrics Files in Lyrics Options to unblock edits.",
   "lyrics.recovery.keep": "Keep Current Lyrics Files",
-  "lyrics.recovery.help": "Resolve a recovery conflict by keeping the files currently on disk. The recovery journal is archived beside the song, preserving its original lyrics for manual recovery. No lyrics are deleted or restored."
+  "lyrics.recovery.help": "Resolve a recovery conflict by keeping the files currently on disk. The recovery journal is archived beside the song, preserving its original lyrics for manual recovery. No lyrics are deleted or restored.",
+  "pip.setup.busy": "Another Minecraft client is setting up PiP. Wait for it to finish, then try again.",
+  "library.status.recovery_folders": "%s metadata recovery folder(s) need review. Original files are preserved."
 }

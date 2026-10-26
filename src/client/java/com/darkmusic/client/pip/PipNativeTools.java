@@ -37,7 +37,7 @@ public final class PipNativeTools {
     public static String failure(Throwable error) {
         while (error.getCause() != null) error = error.getCause();
         String key = error.getMessage();
-        return key != null && Set.of("pip.bundle_missing", "pip.bundle_damaged", "pip.unsupported", "pip.setup.required", "pip.setup.disabled").contains(key) ? key : "pip.capture_error";
+        return key != null && Set.of("pip.bundle_missing", "pip.bundle_damaged", "pip.unsupported", "pip.setup.required", "pip.setup.disabled", "pip.setup.busy").contains(key) ? key : "pip.capture_error";
     }
 
     public synchronized CompletableFuture<Path> prepare() {

@@ -262,7 +262,7 @@ public final class PipRuntime implements AutoCloseable {
                     status = "pip.setup.ready";
                     try {
                         PipStorage.prune(root, exe.getParent(), archive(), System.currentTimeMillis());
-                    } catch (IOException cleanup) {
+                    } catch (Exception cleanup) {
                         org.slf4j.LoggerFactory.getLogger("darkmusic-pip-setup").warn("Unused PiP runtime cleanup deferred", cleanup);
                     }
                 }

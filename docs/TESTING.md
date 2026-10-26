@@ -334,3 +334,12 @@ IntelliJ's formatter, workflow actionlint, whitespace checks, locked .NET restor
 
 
 Hosted [Windows, macOS and Linux CI](https://github.com/DarkLian/DarkMusic/actions/runs/40254982912) passed for `1e46232`. A final local assembly and four-artifact package check passed archive CRCs, embedded helper/dependency checksums, notices/source archives, localization parity and private/smoke exclusions. Published v3.0.1 assets were not changed.
+
+
+## PiP cleanup and recovery-status follow-up
+
+`scripts/verify.ps1 -DesktopIntegration` passed **576 tests: 571 passed, five skipped** with the private collection and existing managed tools. Final source checks passed 19 focused cases (17 passed, two skipped), including Windows/WGC/native graphics setup. New checks cover old ZIP reclamation despite a locked legacy runtime, current/young/leased runtime retention, stale zero-byte lease removal alongside an active lease, explicit setup-contention status and cancellation, Windows native sharing violations, and visible recovery-folder counts that clear on rescan after review. Original recovery-fixture contents remain unchanged. Native sharing is exercised with a disposable Windows file handle, not an actively running legacy helper executable.
+
+A Windows probe revealed that holding our own preflight handles prevents directory renaming. Cleanup now closes those handles before claiming the candidate. Locked/inaccessible legacy runtimes are deferred; reclaiming legacy files remains best effort. Unreferenced ZIPs must exceed the 24-hour grace independently of legacy directories. Both current and referenced active managed archives remain protected.
+
+IntelliJ formatting, actionlint, whitespace and English/Traditional Chinese parity (1,613 keys) passed. GUI status-row checks in an actual Minecraft window, hosted/UWP audio and post-FreeSync 144 FPS capture were not performed in this follow-up. Private evidence is under `.local-tools/verification/pip-cleanup-followup/`.

@@ -336,7 +336,7 @@ public final class MusicLibrary implements AutoCloseable {
             var directories = new ArrayList<Path>();
             var folders = new ArrayList<String>();
             folders.add("@" + id);
-            int[] unreadable = {0};
+            int[] unreadable = {0}, recoveryDirectories = {0};
             var unreadablePaths = new ArrayList<Path>();
             java.util.concurrent.Semaphore permit = null;
             boolean acquired = false;
@@ -365,6 +365,7 @@ public final class MusicLibrary implements AutoCloseable {
                             return FileVisitResult.SKIP_SUBTREE;
                         }
                         if (!dir.equals(directory) && dir.getFileName().toString().startsWith(".darkmusic-work-")) {
+                            recoveryDirectories[0]++;
                             if (reportedWork.add(dir))
                                 org.slf4j.LoggerFactory.getLogger("darkmusic-library").warn("Metadata recovery files retained; inspect before removing: {}", dir);
                             return FileVisitResult.SKIP_SUBTREE;
@@ -387,7 +388,7 @@ public final class MusicLibrary implements AutoCloseable {
                             tracks.add(old != null && old.size == attrs.size() && old.modified == attrs.lastModifiedTime().toMillis()
                                 ? old.track(file) : metadata.read(id, relative, file, attrs.size(), attrs.lastModifiedTime().toMillis()));
                             if (tracks.size() % 100 == 0 && System.nanoTime() - publishedAt[0] > 250_000_000L) {
-                                partial = new RootResult(tracks, directories, folders, false, "", unreadablePaths);
+                                partial = new RootResult(tracks, directories, folders, false, recoveryDirectories[0] == 0 ? "" : Text.get("library.status.recovery_folders", recoveryDirectories[0]), unreadablePaths);
                                 revision++;
                                 publishedAt[0] = System.nanoTime();
                             }
@@ -418,6 +419,8 @@ public final class MusicLibrary implements AutoCloseable {
                 message = Text.failure(failure, "library.status.scan_failed");
             } finally {
                 if (acquired) permit.release();
+                if (recoveryDirectories[0] > 0)
+                    message = (message.isBlank() ? "" : message + " | ") + Text.get("library.status.recovery_folders", recoveryDirectories[0]);
                 result.complete(new RootResult(tracks, directories, folders, complete, message, unreadablePaths));
                 revision++;
                 if (timedOut && !closed) requestRescan();

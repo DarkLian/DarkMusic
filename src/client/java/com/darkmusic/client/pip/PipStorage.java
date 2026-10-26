@@ -17,12 +17,16 @@ final class PipStorage {
         private final Path path;
 
         Lease(Path path, ProcessRunner.Token token) throws IOException {
+            this(path, token, java.util.concurrent.TimeUnit.SECONDS.toNanos(30));
+        }
+
+        Lease(Path path, ProcessRunner.Token token, long timeoutNanos) throws IOException {
             this.path = path;
             if (Files.isSymbolicLink(path)) throw new IOException("pip.bundle_damaged");
             channel = FileChannel.open(path, StandardOpenOption.CREATE, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
             FileLock acquired = null;
             try {
-                long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(30);
+                long deadline = System.nanoTime() + timeoutNanos;
                 while (acquired == null) {
                     token.check();
                     try {
@@ -30,7 +34,7 @@ final class PipStorage {
                     } catch (OverlappingFileLockException busy) {
                     }
                     if (acquired == null) {
-                        if (System.nanoTime() > deadline) throw new IOException("PiP setup busy in another client");
+                        if (System.nanoTime() > deadline) throw new IOException("pip.setup.busy");
                         java.util.concurrent.locks.LockSupport.parkNanos(20_000_000);
                     }
                 }
@@ -73,55 +77,141 @@ final class PipStorage {
         }
     }
 
+    private static final long GRACE_MILLIS = 86_400_000L;
+
     static void prune(Path root, Path current, Path archive, long now) throws IOException {
         var retained = new HashSet<String>();
         retained.add(archive.getFileName().toString());
-        boolean legacy = false;
         try (var paths = Files.list(root)) {
             for (Path path : paths.toList()) {
-                String name = path.getFileName().toString();
                 if (Files.isSymbolicLink(path)) continue;
-                if (name.startsWith("prepare-") && Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS) && now - Files.getLastModifiedTime(path).toMillis() > 86_400_000L) {
-                    removeTree(root, path);
+                String name = path.getFileName().toString();
+                if (!Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) continue;
+                boolean old = now - Files.getLastModifiedTime(path).toMillis() > GRACE_MILLIS;
+                if (name.startsWith("prepare-") && old) {
+                    tryRemoveRuntime(root, path);
                     continue;
                 }
-                if (!name.matches("[a-f0-9]{64}") || !Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) continue;
+                if (!name.matches("[a-f0-9]{64}")) continue;
+                // Inspect even the current/young runtime to reclaim leases from crashed clients.
+                boolean inUse = leased(path);
                 Path marker = path.resolve(".managed-runtime");
-                if (!Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS) || Files.size(marker) > 200) {
-                    legacy = true;
-                    continue;
+                String dependency = "";
+                if (Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS) && Files.size(marker) <= 200) {
+                    String value = Files.readString(marker);
+                    if (value.matches("dependencies-[a-f0-9]{64}\\.zip")) dependency = value;
                 }
-                String dependency = Files.readString(marker);
-                if (!dependency.matches("dependencies-[a-f0-9]{64}\\.zip")) {
-                    legacy = true;
-                    continue;
-                }
-                if (path.equals(current) || leased(path) || now - Files.getLastModifiedTime(path).toMillis() < 86_400_000L)
-                    retained.add(dependency);
-                else removeTree(root, path);
+                boolean keep = path.equals(current) || inUse || !old;
+                if (!keep) keep = !tryRemoveRuntime(root, path);
+                if (keep && !dependency.isEmpty()) retained.add(dependency);
             }
         }
-        // Pre-lease releases may still use a runtime: never guess that those directories are idle.
-        if (!legacy) try (var paths = Files.list(root)) {
+        // An extracted legacy runtime does not need its ZIP for ongoing playback.
+        // Unknown legacy associations must not disable reclamation of every old archive.
+        try (var paths = Files.list(root)) {
             for (Path file : paths.toList())
-                if (file.getFileName().toString().matches("dependencies-[a-f0-9]{64}\\.zip") && !retained.contains(file.getFileName().toString()) && !Files.isSymbolicLink(file))
-                    Files.deleteIfExists(file);
+                if (file.getFileName().toString().matches("dependencies-[a-f0-9]{64}\\.zip") && !retained.contains(file.getFileName().toString()) &&
+                    Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) && now - Files.getLastModifiedTime(file).toMillis() > GRACE_MILLIS) {
+                    try {
+                        Files.deleteIfExists(file);
+                    } catch (IOException busy) {
+                        deferred(file, busy);
+                    }
+                }
         }
     }
 
+    /**
+     * Preflight all files before touching a legacy runtime; Windows rejects writes to mapped EXE/DLLs.
+     */
+    private static boolean tryRemoveRuntime(Path root, Path directory) {
+        var channels = new ArrayList<FileChannel>();
+        var locks = new ArrayList<FileLock>();
+        Path claimed = null;
+        try {
+            try (var paths = Files.walk(directory)) {
+                for (Path file : paths.toList()) {
+                    if (Files.isSymbolicLink(file)) return false;
+                    if (Files.isDirectory(file, LinkOption.NOFOLLOW_LINKS)) continue;
+                    var channel = FileChannel.open(file, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
+                    channels.add(channel);
+                    var lock = channel.tryLock();
+                    if (lock == null) return false;
+                    locks.add(lock);
+                }
+            }
+        } catch (IOException | OverlappingFileLockException | java.io.UncheckedIOException busy) {
+            deferred(directory, busy);
+            return false;
+        } finally {
+            for (var lock : locks)
+                try {
+                    lock.close();
+                } catch (IOException ignored) {
+                }
+            for (var channel : channels)
+                try {
+                    channel.close();
+                } catch (IOException ignored) {
+                }
+        }
+        try {
+            // Windows cannot rename a directory while our own preflight file handles are open.
+            // Claim it after closing them; a sharing violation leaves the old directory in place.
+            claimed = root.resolve("prepare-prune-" + UUID.randomUUID());
+            Files.move(directory, claimed);
+            removeTree(root, claimed);
+            return true;
+        } catch (IOException | java.io.UncheckedIOException busy) {
+            // Keep remaining disposable runtime files for the next cleanup attempt.
+            deferred(claimed != null && Files.exists(claimed, LinkOption.NOFOLLOW_LINKS) ? claimed : directory, busy);
+            return false;
+        }
+    }
+
+    private static void deferred(Path path, Exception reason) {
+        org.slf4j.LoggerFactory.getLogger("darkmusic-pip-setup").debug("PiP cleanup deferred for {}", path, reason);
+    }
+
     private static boolean leased(Path directory) throws IOException {
+        boolean inUse = false;
         try (var files = Files.newDirectoryStream(directory, ".lease-*")) {
             for (Path file : files) {
-                if (Files.isSymbolicLink(file)) return true;
+                try {
+                    var attrs = Files.readAttributes(file, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+                    if (!file.getFileName().toString().matches("\\.lease-[a-f0-9-]{36}") || !attrs.isRegularFile() || attrs.size() != 0) {
+                        inUse = true;
+                        continue;
+                    }
+                } catch (NoSuchFileException closedConcurrently) {
+                    continue;
+                } catch (IOException busy) {
+                    inUse = true;
+                    deferred(file, busy);
+                    continue;
+                }
+                boolean stale = false;
                 try (var channel = FileChannel.open(file, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
                     try (var lock = channel.tryLock()) {
-                        if (lock == null) return true;
-                    } catch (OverlappingFileLockException inUse) {
-                        return true;
+                        if (lock == null) inUse = true;
+                        else stale = true;
+                    } catch (OverlappingFileLockException busy) {
+                        inUse = true;
                     }
+                } catch (NoSuchFileException closedConcurrently) {
+                    continue;
+                } catch (IOException busy) {
+                    inUse = true;
+                    deferred(file, busy);
+                }
+                if (stale) try {
+                    Files.deleteIfExists(file);
+                } catch (IOException busy) {
+                    inUse = true;
+                    deferred(file, busy);
                 }
             }
         }
-        return false;
+        return inUse;
     }
 }

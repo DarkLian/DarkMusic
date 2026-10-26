@@ -1609,5 +1609,7 @@
   "library.darkmusic.edit_space": "空間不足，無法安全編輯。請釋出至少音訊檔案三倍大小的空間後重試。",
   "lyrics.recovery.conflict": "歌詞復原衝突。目前的檔案已保留；復原資料：%s。請在歌詞選項中使用「保留目前的歌詞檔案」以繼續編輯。",
   "lyrics.recovery.keep": "保留目前的歌詞檔案",
-  "lyrics.recovery.help": "保留磁碟上目前的檔案以解決復原衝突。復原日誌會封存於歌曲旁，保留原始歌詞供手動復原。不會刪除或還原任何歌詞。"
+  "lyrics.recovery.help": "保留磁碟上目前的檔案以解決復原衝突。復原日誌會封存於歌曲旁，保留原始歌詞供手動復原。不會刪除或還原任何歌詞。",
+  "pip.setup.busy": "另一個 Minecraft 用戶端正在設定子母畫面。請等候完成後再試。",
+  "library.status.recovery_folders": "有 %s 個中繼資料復原資料夾需要檢查。原始檔案已保留。"
 }
