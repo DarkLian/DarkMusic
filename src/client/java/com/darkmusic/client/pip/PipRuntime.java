@@ -78,7 +78,33 @@ public final class PipRuntime implements AutoCloseable {
     private final Graphics graphics;
 
     public PipRuntime(Path config) {
-        this(config, PipRuntime::resource, ManagedTools::download, null, PipRuntime::graphics);
+        this(config, PipRuntime::resource, developmentDownload(net.fabricmc.loader.api.FabricLoader.getInstance().isDevelopmentEnvironment(),
+            System.getProperty("darkmusic.pipDependencies", ""), ManagedTools::download), null, PipRuntime::graphics);
+    }
+
+    /**
+     * Development builds pin their locally generated archive, which can differ from release CI.
+     */
+    static Download developmentDownload(boolean development, String archive, Download network) {
+        if (!development || archive.isBlank()) return network;
+        return (uri, out, max, request, progress) -> {
+            Path local = Path.of(archive);
+            request.check();
+            if (Files.isSymbolicLink(local) || !Files.isRegularFile(local, LinkOption.NOFOLLOW_LINKS) || Files.size(local) > max)
+                throw new IOException("pip.bundle_damaged");
+            try (var input = Files.newInputStream(local); var output = Files.newOutputStream(out, StandardOpenOption.TRUNCATE_EXISTING)) {
+                byte[] buffer = new byte[65536];
+                long total = 0;
+                for (int count; (count = input.read(buffer)) != -1; ) {
+                    request.check();
+                    total += count;
+                    if (total > max) throw new IOException("pip.bundle_damaged");
+                    output.write(buffer, 0, count);
+                    progress.accept(total);
+                }
+            }
+            // The installer still verifies the manifest's exact size and SHA-256 before extraction.
+        };
     }
 
     PipRuntime(Path config, Resources resources, Download download, Requirements requirements, Graphics graphics) {
@@ -221,6 +247,8 @@ public final class PipRuntime implements AutoCloseable {
                 ready = true;
                 status = "pip.setup.ready";
             } catch (Exception error) {
+                if (!request.cancelled())
+                    org.slf4j.LoggerFactory.getLogger("darkmusic-pip-setup").warn("PiP runtime setup failed", error);
                 status = request.cancelled() ? "pip.setup.cancelled" : PipNativeTools.failure(error);
                 if (status.equals("pip.capture_error"))
                     status = install ? "pip.setup.install_failed" : "pip.setup.check_failed";

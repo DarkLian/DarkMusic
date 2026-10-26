@@ -112,6 +112,41 @@ class PipRuntimeTest {
     }
 
     @Test
+    void developmentInstallUsesMatchingLocalArchiveAndKeepsChecksumVerification() throws Exception {
+        byte[] code = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1})), deps = zip(Map.of("runtime.dll", new byte[]{2}));
+        Path local = Files.write(temp.resolve("local.zip"), deps);
+        var transfer = PipRuntime.developmentDownload(true, local.toString(), (u, p, m, t, c) -> fail("No release download in development"));
+        try (var runtime = new PipRuntime(temp.resolve("valid"), resources(code, deps), transfer, t -> 26300, (e, t) -> true)) {
+            runtime.check().get();
+            assertFalse(runtime.ready());
+            runtime.install().get();
+            assertTrue(runtime.ready(), runtime.status());
+            assertEquals(deps.length, runtime.downloaded());
+        }
+        byte[] changed = deps.clone();
+        changed[0] ^= 1;
+        Files.write(local, changed);
+        try (var runtime = new PipRuntime(temp.resolve("changed"), resources(code, deps), transfer, t -> 26300, (e, t) -> fail("Reject altered archive before execution"))) {
+            runtime.check().get();
+            runtime.install().get();
+            assertFalse(runtime.ready());
+            assertEquals("pip.bundle_damaged", runtime.status());
+        }
+        var request = new com.darkmusic.client.download.ProcessRunner.Token();
+        request.cancel();
+        assertThrows(Exception.class, () -> transfer.fetch(java.net.URI.create("https://example.invalid"), temp.resolve("cancelled"), deps.length, request, n -> {
+        }));
+    }
+
+    @Test
+    void productionIgnoresDevelopmentArchiveProperty() {
+        PipRuntime.Download network = (u, p, m, t, c) -> {
+        };
+        assertSame(network, PipRuntime.developmentDownload(false, "private/local.zip", network));
+        assertSame(network, PipRuntime.developmentDownload(true, "", network));
+    }
+
+    @Test
     void constructionAndCheckingNeverDownloadOrGrantAccess() throws Exception {
         byte[] code = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1})), deps = zip(Map.of("runtime.dll", new byte[]{2}));
         var downloads = new AtomicInteger();

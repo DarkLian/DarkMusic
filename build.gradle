@@ -218,12 +218,15 @@ if (!providers.gradleProperty('javaOnly').isPresent()) {
             new File(resourceFolder.get().asFile, 'helper.sha256').setText(hash, 'US-ASCII')
             def deps = dependencyFile.get().asFile
             new File(resourceFolder.get().asFile, 'dependencies.json').setText(groovy.json.JsonOutput.toJson([
-                schema: 1, version: pipVersion, name: deps.name, size: deps.length(),
-                sha256: java.security.MessageDigest.getInstance('SHA-256').digest(deps.bytes).encodeHex().toString()
+                    schema: 1, version: pipVersion, name: deps.name, size: deps.length(),
+                    sha256: java.security.MessageDigest.getInstance('SHA-256').digest(deps.bytes).encodeHex().toString()
             ]), 'UTF-8')
         }
     }
     sourceSets.client.resources.srcDir(layout.buildDirectory.dir('generated/pip-resources'))
+    loom.runs.named('client') {
+        vmArg "-Ddarkmusic.pipDependencies=${dependencyFile.get().asFile.absolutePath}"
+    }
     tasks.named('processClientResources') { dependsOn tasks.named('bundlePipHelper') }
     tasks.named('test') { systemProperty 'darkmusic.test.pipDependencies', dependencyFile.get().asFile.absolutePath }
 }

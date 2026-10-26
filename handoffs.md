@@ -4,6 +4,15 @@
 
 Codex and Claude take turns. Read this file and inspect `git status`/recent commits before editing. Preserve the other agent's changes; do not start overlapping work or force-push. Record completed work, verification, pending actions and limitations here before handing over. The user explicitly authorized release v3.0.1 in the latest request.
 
+## Confirmed runClient installer correction - Codex
+
+- User reported that PiP could not install in `runClient`. Confirmed local manifest pins 76,106,620 bytes / `55eccdc6...`, whereas the published CI runtime is 76,242,875 bytes / `9e031f1d...`. The local .NET SDK output differs from release CI, so downloading that release fails the local manifest check.
+- Confirmed fix: Gradle client runs supply the locally built dependency archive. `PipRuntime` uses it only when Fabric reports a development environment, and only after explicit install confirmation. Exact size/hash verification and safe extraction remain mandatory; production ignores the development property and retains GitHub installation. Non-cancellation setup failures now log their cause.
+- IntelliJ's existing Minecraft Client configuration invokes Gradle `:runClient`, so no IDE configuration change is needed. Attempting obsolete `genIntellijRuns` failed because Loom has no such task; no generated IDE changes were made.
+- IntelliJ built-in formatter applied to changed Java/Gradle files. Focused desktop runtime suite: 10 cases, eight passed, two skipped (Windows symlink privilege, explicit live-release network test). Native Windows/WGC and graphics-device verification passed using the existing desktop local-archive fixture. The new transfer is covered separately by the installer regression. Altered archive rejection, cancellation, production override isolation and deferred install have regression coverage.
+- `gradlew build -PdesktopIntegration` passed: 557 cases, 455 passed, 102 skipped because this ordinary build does not enable the private audio/download integration properties used by `scripts/verify.ps1`. This is not a new clean release validation. Evidence: `.local-tools/verification/release-3.0.1/dev-install-*.log`.
+- User confirmed the runClient installation fix and explicitly authorized committing/pushing it. This correction is being committed to main with its tests and documentation; no new release or tag is requested. No capture or user configuration changed during development. The post-FreeSync performance comparison remains pending.
+
 ## Completed release - Codex, 2026-10-26
 
 - Published [v3.0.1](https://github.com/DarkLian/DarkMusic/releases/tag/v3.0.1) from `62134cf6d3c9b4354878c6a2883a88fff3d66424`. The release commit and annotated tag are pushed. GitHub About now mentions optional Windows PiP.
