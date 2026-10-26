@@ -10,7 +10,8 @@ public sealed class ProcessAudio : IDisposable {
     internal Task Completion { get; }
     internal ProcessAudio(uint pid,string name,CancellationToken parent,Action<string,object> report) {
         this.report=report;stop=CancellationTokenSource.CreateLinkedTokenSource(parent);
-        pipe=new NamedPipeServerStream(name,PipeDirection.Out,1,PipeTransmissionMode.Byte,PipeOptions.Asynchronous|PipeOptions.CurrentUserOnly,0,32768);
+        try{pipe=new NamedPipeServerStream(name,PipeDirection.Out,1,PipeTransmissionMode.Byte,PipeOptions.Asynchronous|PipeOptions.CurrentUserOnly,0,32768);}
+        catch{stop.Dispose();throw;}
         Completion=Task.Run(()=>Run(pid));
     }
     async Task Run(uint pid) {

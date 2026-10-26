@@ -89,9 +89,27 @@ internal sealed class CaptureHost : Form {
             trace?.Add("clock",0,0,UnixMicros(),Stopwatch.Frequency);
             Log("configuration",new{interval=intervalResult,unixMicros=UnixMicros(),qpc=Stopwatch.GetTimestamp(),qpcFrequency=Stopwatch.Frequency});
             _=WriteFrames();_=Task.Run(ReadCommands);session.StartCapture();timer.Start();
-            if(captureAudio)audio=new ProcessAudio((uint)identity.Pid,audioPipe,cancel.Token,Log);
+            if(captureAudio)_=RunAudio();
             Log("ready",new{width,height,cap});
         }catch(Exception ex){Finish(ex.Message=="hotkey_conflict"?"hotkey_conflict":"capture_error");}
+    }
+    async Task RunAudio(){
+        await AudioRecovery.Run(async token=>{
+            bool unsupported=false;
+            using var attempt=new ProcessAudio((uint)identity.Pid,audioPipe,token,(kind,data)=>{
+                if(kind=="audio_unsupported"){unsupported=true;Log(kind,data);}
+                else Log(kind=="audio_error"?"audio_retry":kind,data);
+            });
+            audio=attempt;
+            await attempt.Completion;
+            return unsupported;
+        },cancel.Token,Log);
+    }
+    void RecreatePool(Direct3D11CaptureFramePool sender,Windows.Graphics.SizeInt32 size){
+        width=size.Width;height=size.Height;
+        sender.Recreate(device!,DirectXPixelFormat.B8G8R8A8UIntNormalized,2,size);
+        lock(publication){pending?.Dispose();pending=null;}
+        Log("resize",new{width,height});
     }
     async Task WriteFrames(){
         try{
@@ -131,13 +149,15 @@ internal sealed class CaptureHost : Form {
             if(size.Width<1||size.Height<1)return;
             if(size.Width>3840||size.Height>2160){Finish("too_large");return;}
             if(size.Width!=width||size.Height!=height){
-                frame.Dispose();frame=null;width=size.Width;height=size.Height;
-                sender.Recreate(device!,DirectXPixelFormat.B8G8R8A8UIntNormalized,2,size);
-                Log("resize",new{width,height});return;
+                frame.Dispose();frame=null;RecreatePool(sender,size);return;
             }
             long start=Stopwatch.GetTimestamp();
             long captured=UnixMicros()-Math.Max(0,(long)(start*1_000_000.0/Stopwatch.Frequency-frame.SystemRelativeTime.TotalMicroseconds));
             using var bitmap=await SoftwareBitmap.CreateCopyFromSurfaceAsync(frame.Surface,BitmapAlphaMode.Ignore);
+            if(!CaptureBounds.Matches(bitmap.PixelWidth,bitmap.PixelHeight,width,height)){
+                // A queued surface may still belong to the previous pool after a resize.
+                frame.Dispose();frame=null;RecreatePool(sender,size);return;
+            }
             if(bitmap.BitmapPixelFormat!=BitmapPixelFormat.Bgra8)throw new InvalidOperationException("Unexpected capture pixel format");
             int length=checked(width*height*4);byte[] bytes=ArrayPool<byte>.Shared.Rent(length);
             try{
@@ -205,8 +225,15 @@ internal sealed class CaptureHost : Form {
         parent.Dispose();Log("closed",new{arrivals,converted,sent});base.OnFormClosed(e);
         trace?.Dispose();
     }
+    internal static void RunMessageLoop(Form host,Action failure){
+        System.Threading.ThreadExceptionEventHandler failed=(_,_)=>failure();
+        Application.ThreadException+=failed;
+        try{Application.Run(host);}finally{Application.ThreadException-=failed;}
+    }
     [STAThread]static int Main(string[] args){
         Console.OutputEncoding=new System.Text.UTF8Encoding(false);
+        Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+        if(args.Length==1&&args[0]=="--reliability-test"){bool pass=CaptureReliabilityTests.Run();Console.WriteLine(pass?"pass":"fail");return pass?0:2;}
         if(args.Length==1&&args[0]=="--pacer-test"){bool pass=FramePacer.SelfTest();Console.WriteLine(pass?"pass":"fail");return pass?0:2;}
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
         try{
@@ -217,7 +244,9 @@ internal sealed class CaptureHost : Form {
             }
             if(args.Length==1&&args[0]=="--list"){Console.WriteLine(JsonSerializer.Serialize(WindowIdentity.List()));return 0;}
             if(args.Length==1&&args[0]=="--supported"){Console.WriteLine(GraphicsCaptureSession.IsSupported()?"true":"false");return 0;}
-            Application.Run(new CaptureHost(args));return 0;
+            using var host=new CaptureHost(args);
+            RunMessageLoop(host,()=>host.Finish("capture_error"));
+            return 0;
         }catch(Exception){Console.WriteLine("{\"kind\":\"capture_error\",\"data\":{}}");return 1;}
     }
 }

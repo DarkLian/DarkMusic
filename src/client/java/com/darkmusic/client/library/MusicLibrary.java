@@ -37,6 +37,8 @@ public final class MusicLibrary implements AutoCloseable {
     private volatile Path root;
     private volatile String rootId;
     private volatile boolean closed;
+    private final Object watchLock = new Object();
+    private final java.util.concurrent.CompletableFuture<Void> watchClosed = new java.util.concurrent.CompletableFuture<>();
     private volatile WatchService watcher;
     private volatile Set<Path> watchedDirectories = Set.of();
     private volatile Set<Path> desiredWatchDirectories = Set.of();
@@ -437,37 +439,39 @@ public final class MusicLibrary implements AutoCloseable {
         if (!closed && ticket == generation.get()) snapshot = value;
     }
 
-    private synchronized void replaceWatcher(List<Path> directories) {
-        Set<Path> desired = Set.copyOf(directories);
-        desiredWatchDirectories = desired;
-        if (closed) return;
-        if (watcher == null) try {
-            watcher = FileSystems.getDefault().newWatchService();
-        } catch (IOException failure) {
-            watchFailed(failure);
-            return;
-        }
-        var iterator = watchKeys.entrySet().iterator();
-        while (iterator.hasNext()) {
-            var entry = iterator.next();
-            if (!desired.contains(entry.getKey()) || !entry.getValue().isValid()) {
-                entry.getValue().cancel();
-                iterator.remove();
-            }
-        }
-        failedWatches.keySet().retainAll(desired);
-        long now = System.nanoTime();
-        for (Path directory : desired) {
-            if (watchKeys.containsKey(directory) || now < failedWatches.getOrDefault(directory, 0L)) continue;
-            try {
-                watchKeys.put(directory, directory.register(watcher, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_DELETE, StandardWatchEventKinds.ENTRY_MODIFY));
-                failedWatches.remove(directory);
-            } catch (Exception failure) {
-                failedWatches.put(directory, now + TimeUnit.MINUTES.toNanos(1));
+    private void replaceWatcher(List<Path> directories) {
+        synchronized (watchLock) {
+            Set<Path> desired = Set.copyOf(directories);
+            desiredWatchDirectories = desired;
+            if (closed) return;
+            if (watcher == null) try {
+                watcher = FileSystems.getDefault().newWatchService();
+            } catch (IOException failure) {
                 watchFailed(failure);
+                return;
             }
+            var iterator = watchKeys.entrySet().iterator();
+            while (iterator.hasNext()) {
+                var entry = iterator.next();
+                if (!desired.contains(entry.getKey()) || !entry.getValue().isValid()) {
+                    entry.getValue().cancel();
+                    iterator.remove();
+                }
+            }
+            failedWatches.keySet().retainAll(desired);
+            long now = System.nanoTime();
+            for (Path directory : desired) {
+                if (watchKeys.containsKey(directory) || now < failedWatches.getOrDefault(directory, 0L)) continue;
+                try {
+                    watchKeys.put(directory, directory.register(watcher, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_DELETE, StandardWatchEventKinds.ENTRY_MODIFY));
+                    failedWatches.remove(directory);
+                } catch (Exception failure) {
+                    failedWatches.put(directory, now + TimeUnit.MINUTES.toNanos(1));
+                    watchFailed(failure);
+                }
+            }
+            watchedDirectories = Set.copyOf(watchKeys.keySet());
         }
-        watchedDirectories = Set.copyOf(watchKeys.keySet());
     }
 
     private void watchFailed(Exception failure) {
@@ -490,29 +494,39 @@ public final class MusicLibrary implements AutoCloseable {
         }
     }
 
-    private synchronized void pollEvents() {
-        WatchService service = watcher;
-        if (service == null || closed) return;
-        boolean changed = false;
-        WatchKey key;
-        while ((key = service.poll()) != null) {
-            for (var event : key.pollEvents()) {
-                if (event.kind() == StandardWatchEventKinds.OVERFLOW) {
-                    changed = true;
-                    continue;
+    private void pollEvents() {
+        synchronized (watchLock) {
+            WatchService service = watcher;
+            if (service == null || closed) return;
+            boolean changed = false;
+            WatchKey key;
+            while ((key = service.poll()) != null) {
+                for (var event : key.pollEvents()) {
+                    if (event.kind() == StandardWatchEventKinds.OVERFLOW) {
+                        changed = true;
+                        continue;
+                    }
+                    if (!(event.context() instanceof Path relative)) continue;
+                    Path path = ((Path) key.watchable()).resolve(relative).normalize();
+                    changed |= relevantWatchEvent(event.kind(), path);
                 }
-                if (!(event.context() instanceof Path relative)) continue;
-                Path path = ((Path) key.watchable()).resolve(relative).normalize();
-                if (ignoredWatchPath(path)) continue;
-                changed |= event.kind() == StandardWatchEventKinds.ENTRY_DELETE ? knownWatchPath(path) : supported(path) || Files.isDirectory(path);
+                if (!key.reset()) {
+                    watchKeys.remove((Path) key.watchable(), key);
+                    watchedDirectories = Set.copyOf(watchKeys.keySet());
+                    changed = true;
+                }
             }
-            if (!key.reset()) {
-                watchKeys.remove((Path) key.watchable(), key);
-                watchedDirectories = Set.copyOf(watchKeys.keySet());
-                changed = true;
-            }
+            if (changed) requestRescan();
         }
-        if (changed) requestRescan();
+    }
+
+    boolean relevantWatchEvent(WatchEvent.Kind<?> kind, Path path) {
+        if (ignoredWatchPath(path)) return false;
+        if (kind == StandardWatchEventKinds.ENTRY_DELETE) return knownWatchPath(path);
+        // Parent directory modify events do not tell us that any audio changed inside it.
+        if (desiredWatchDirectories.contains(path)) return kind == StandardWatchEventKinds.ENTRY_CREATE;
+        if (Files.isDirectory(path)) return kind == StandardWatchEventKinds.ENTRY_CREATE;
+        return supported(path);
     }
 
     boolean ignoredWatchPath(Path path) {
@@ -536,32 +550,50 @@ public final class MusicLibrary implements AutoCloseable {
         return (visible.scanning() || running.get()) && visible.tracks().stream().anyMatch(track -> track.file().equals(path));
     }
 
-    private synchronized void closeWatcher() {
-        WatchService old = watcher;
-        watcher = null;
-        watchedDirectories = desiredWatchDirectories = Set.of();
-        watchKeys.clear();
-        failedWatches.clear();
-        if (old != null) try {
-            old.close();
-        } catch (IOException ignored) {
+    private void closeWatcher() {
+        synchronized (watchLock) {
+            WatchService old = watcher;
+            watcher = null;
+            watchedDirectories = desiredWatchDirectories = Set.of();
+            watchKeys.clear();
+            failedWatches.clear();
+            if (old != null) try {
+                old.close();
+            } catch (IOException ignored) {
+            }
         }
     }
 
     @Override
     public void close() {
-        closed = true;
-        generation.incrementAndGet();
+        synchronized (this) {
+            if (closed) return;
+            closed = true;
+            generation.incrementAndGet();
+        }
         monitor.shutdownNow();
-        closeWatcher();
+        // Network filesystem calls in the watcher must not hold up the client closing this library.
+        Thread.ofPlatform().daemon().name("darkmusic-watch-close").start(() -> {
+            try {
+                closeWatcher();
+            } finally {
+                watchClosed.complete(null);
+            }
+        });
         scanner.shutdownNow();
         rootJobs.values().forEach(job -> job.cancelled = true);
         rootScanner.shutdownNow();
     }
 
     public boolean awaitStopped(long seconds) throws InterruptedException {
-        return scanner.awaitTermination(seconds, TimeUnit.SECONDS) && monitor.awaitTermination(seconds, TimeUnit.SECONDS)
-            && rootScanner.awaitTermination(seconds, TimeUnit.SECONDS);
+        if (!scanner.awaitTermination(seconds, TimeUnit.SECONDS) || !monitor.awaitTermination(seconds, TimeUnit.SECONDS)
+            || !rootScanner.awaitTermination(seconds, TimeUnit.SECONDS)) return false;
+        try {
+            watchClosed.get(seconds, TimeUnit.SECONDS);
+            return true;
+        } catch (java.util.concurrent.TimeoutException | java.util.concurrent.ExecutionException failure) {
+            return false;
+        }
     }
 
     public record Snapshot(long revision, List<Track> tracks, boolean scanning, String message, List<String> folders,

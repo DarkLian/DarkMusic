@@ -99,6 +99,9 @@ public final class PipSession implements AutoCloseable {
                     focusSuccesses++;
                     focusFailureUntil = 0;
                 }
+                case "audio_retry" -> {
+                    if (audio != null) audio.failure("pip.audio_starting");
+                }
                 case "audio_unsupported", "audio_error" -> {
                     if (audio != null) audio.failure("pip." + kind);
                 }
@@ -116,24 +119,44 @@ public final class PipSession implements AutoCloseable {
     }
 
     private void receiveAudio() {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
-        while (!closed && System.nanoTime() < deadline) {
-            FileInputStream stream;
-            try {
-                stream = new FileInputStream("\\\\.\\pipe\\" + pipe + ".audio");
-            } catch (IOException e) {
-                java.util.concurrent.locks.LockSupport.parkNanos(25_000_000);
-                continue;
+        receiveAudio(audio, () -> closed, () -> new FileInputStream("\\\\.\\pipe\\" + pipe + ".audio"),
+            () -> java.util.concurrent.locks.LockSupport.parkNanos(25_000_000), System::nanoTime);
+    }
+
+    @FunctionalInterface
+    interface AudioConnection {
+        InputStream open() throws IOException;
+    }
+
+    static void receiveAudio(PipAudio audio, java.util.function.BooleanSupplier stopped, AudioConnection connection,
+                             Runnable wait, java.util.function.LongSupplier clock) {
+        for (int attempt = 0; attempt < 3 && !stopped.getAsBoolean(); attempt++) {
+            long deadline = clock.getAsLong() + TimeUnit.SECONDS.toNanos(20);
+            boolean opened = false;
+            while (!stopped.getAsBoolean() && !audio.status().equals("pip.audio_unsupported") && !audio.status().equals("pip.audio_error") && clock.getAsLong() < deadline) {
+                InputStream stream;
+                try {
+                    stream = connection.open();
+                } catch (IOException unavailable) {
+                    wait.run();
+                    continue;
+                }
+                opened = true;
+                try {
+                    audio.read(stream);
+                } catch (IOException disconnected) {
+                    // The helper retries only this optional route. Reopen at a fresh packet boundary.
+                }
+                break;
             }
-            try {
-                audio.read(stream);
-                if (!closed) audio.failure("pip.audio_error");
-            } catch (IOException e) {
-                if (!closed) audio.failure("pip.audio_error");
-            }
-            return;
+            if (audio.status().equals("pip.audio_unsupported") || audio.status().equals("pip.audio_error") || stopped.getAsBoolean())
+                return;
+            if (!opened) break;
+            audio.failure("pip.audio_starting");
+            wait.run();
         }
-        if (!closed && !audio.status().equals("pip.audio_unsupported")) audio.failure("pip.audio_error");
+        if (!stopped.getAsBoolean() && !audio.status().equals("pip.audio_unsupported"))
+            audio.failure("pip.audio_error");
     }
 
     @FunctionalInterface

@@ -54,6 +54,7 @@ public final class PipAudio implements AutoCloseable {
             stream.close();
             return;
         }
+        analyzer.begin(44100, 2);
         byte[] header = new byte[32], pcm = new byte[32768];
         long lastSequence = 0, clock = 0;
         try (stream) {

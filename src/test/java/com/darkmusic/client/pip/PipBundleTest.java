@@ -79,6 +79,9 @@ class PipBundleTest {
                 });
                 assertEquals(0, result.exit(), result.output());
                 assertEquals("pass", result.output().strip());
+                var reliability = new com.darkmusic.client.download.ProcessRunner().run(java.util.List.of(exe.toString(), "--reliability-test"), exe.getParent(), new com.darkmusic.client.download.ProcessRunner.Token(), java.time.Duration.ofSeconds(15), 2048, line -> {});
+                assertEquals(0, reliability.exit(), reliability.output());
+                assertEquals("pass", reliability.output().strip());
             }
         }
     }

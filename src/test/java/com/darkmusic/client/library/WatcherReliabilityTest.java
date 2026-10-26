@@ -67,9 +67,9 @@ class WatcherReliabilityTest {
             snapshot.set(library, new MusicLibrary.Snapshot(1, List.of(track), true, ""));
             assertTrue(library.knownWatchPath(audio));
             snapshot.set(library, new MusicLibrary.Snapshot(2, List.of(track), false, ""));
-            ((java.util.concurrent.atomic.AtomicBoolean)field(library, "running")).set(true);
+            ((java.util.concurrent.atomic.AtomicBoolean) field(library, "running")).set(true);
             assertTrue(library.knownWatchPath(audio), "Cache publication cannot hide a deleted extensionless song");
-            ((java.util.concurrent.atomic.AtomicBoolean)field(library, "running")).set(false);
+            ((java.util.concurrent.atomic.AtomicBoolean) field(library, "running")).set(false);
             assertFalse(library.knownWatchPath(root.resolve("never-indexed.mp3")));
         }
     }
