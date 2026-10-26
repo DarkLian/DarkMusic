@@ -1,120 +1,133 @@
 # DarkMusic
 
-A client-side music player for Minecraft. Browse your own library, build playlists, download audio in-game, and display an audio-reactive HUD.
+Your own music library, inside Minecraft. Browse and play your collection, build playlists, download songs without leaving the game, shape the sound, and show it all on an audio-reactive HUD. Optionally, watch another window in a Picture-in-Picture view while you play.
 
 ![DarkMusic music library and playback controls](docs/images/player.png)
 
 ## Install
 
-DarkMusic **v3.0.2** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v3.0.2** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
 1. Download `darkmusic-3.0.2.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
-4. Open **Settings → General → Music Folders**, or add songs to `config/darkmusic/music` inside the instance.
+4. Add your songs under **Settings → General → Music Folders**, drag audio files into the player, or copy them to `config/darkmusic/music` in your instance.
 
-Install DarkMusic on the client. Servers do not need it. Windows, Linux, and macOS are supported; external audio formats and downloading need compatible tools for the operating system.
+DarkMusic runs on the client only; servers do not need it. The music player works on Windows, Linux, and macOS. Downloading and some audio formats need extra tools, which DarkMusic can install for you (see [Download music](#download-music)).
 
-## Watch another window while you play
+New to DarkMusic? The [User Guide](docs/USER_GUIDE.md) covers every screen and setting.
 
-**PiP is optional.** The main mod is approximately **4 MB**, with all PiP feature code included. From the existing PiP icon, check requirements, explicitly install the runtime dependencies, and grant access. No companion mod, system-wide installation or Minecraft restart is needed. See [optional setup](docs/PIP-OPTIONAL-INSTALLATION.md).
+## Highlights
 
-**Picture-in-Picture for Windows x64** brings a selected application window into Minecraft, including fullscreen. Open the **PiP icon beside Manage Audio Files**, or use **/da pip**. After setup and access consent, choose a window and start capture. Installation never starts capture automatically.
+- **Your library, your way.** Add several music folders and browse by folder, playlist, artist, or album. Search titles, artists, albums, and paths.
+- **Playlists and favorites.** Select songs in bulk, drag to reorder, and keep favorites one heart-click away.
+- **Up Next.** Play a song next or add it to a temporary queue without touching your playlists.
+- **Now-Playing HUD.** Classic, Circular, Artwork, or Spectrum Only, with lyrics, a progress bar or full-song waveform, and your own colors and position.
+- **Sound Environments and Audio Options.** 23 environments, EQ, loudness normalization, crossfade, gapless playback, and a live Audio Analyzer.
+- **In-game downloads.** Paste a video or playlist link, preview it, and pick what to save.
+- **Lyrics.** Synchronized or plain lyrics for songs already in your library.
+- **Smart Cleanup.** Find possible duplicates and decide for yourself what to keep. Nothing is deleted automatically.
+- **Picture-in-Picture (optional, Windows x64).** Bring another application window into Minecraft.
 
-Move, resize and crop the view, adjust its opacity, and use **Ctrl+Alt+F8** to operate the source application and **Ctrl+Alt+F9** to return to Minecraft. Keep the source window open and unminimized; capture starts only when you request it. Showing PiP in menus defaults to off.
+## Play your music
 
-Turn on the optional **PiP Audio Spectrum** to visualize the application's audio, with its own styles, colors, effects and placement. Sound continues through the source application, independently of DarkMusic playback. Browser process sharing can include audio from other tabs.
+Browse your collection, search, shuffle, repeat, seek in five-second steps, and change speed from 0.5× to 3.0× (pitch is preserved). **Jump to Playing** takes you back to the collection a song came from. Pick your headphones or speakers under Audio Options, or stay on System Default.
 
-PiP smoothness depends on Windows, the source and Minecraft. A high frame limit does not guarantee that capture rate. Earlier measurements found about **47 FPS behind fullscreen Minecraft** on the tested system; experimental 4 ms capture reached 144 FPS in windowed mode. These measurements predate a user-reported FreeSync correction, which has not yet been retested. See [verification](docs/PIP-VERIFICATION.md), [resource measurements](docs/PIP-PERFORMANCE.md), and the [WGC investigation](docs/PIP-WGC-INVESTIGATION.md). PiP capture is Windows-only; the music player remains available on Linux and macOS.
+Other everyday tools:
 
-## New in v3.0.2
-
-More reliable PiP resizing and audio-spectrum recovery, smoother playback transitions and sound-environment adjustments, and less disruptive library monitoring. Optional PiP files are cleaned up more reliably, and recovery folders are now visible in library status. See the [release notes](docs/RELEASE-3.0.2.md).
-
-## Updates
-
-Update notifications are enabled by default and appear once per launch after joining a world or server. Click **Update** to approve a download. **Settings → General → Check for Updates** also checks manually, including when notifications are off. Close Minecraft after the download finishes to install it; your settings, library, playlists, and assets are preserved. If installation fails, the next launch reports it and offers the installation log.
-
-## Features
-
-- **Waveform progress:** optionally display the actual song waveform in the main player and HUD, with the played portion highlighted. Enable it in Settings → HUD → Progress Bar.
-
-- **Library:** scan multiple music folders, choose a default save folder, and browse All Tracks, nested folders, playlists, artists, and albums. Search titles, artists, albums, and paths.
-- **File management:** Open Folder follows the selected library folder. Use Manage Audio Files to review and delete selected files, individually or in bulk, with Move to Trash where supported and separate confirmation for permanent deletion. Cancel Remaining Files keeps pending items on disk.
-- **Smart Cleanup:** discover possible duplicates across your library, expand related-file groups, compare artwork and file details, and listen with Play/Pause A and B. Keep both, ignore a match, or explicitly review one file for deletion.
-- **Import:** drag audio files into the player or playlist manager to copy them into your library. Import into the selected folder or playlist, and review results through Import History beside Open Folder.
-- **Listening history:** open the clock icon beside Manage Playlists for Recently Played, Most Played, play counts, and listening time. History stays in order while you play from it.
-- **Backup and restore:** export settings, playlists, key bindings, and listening history to a portable ZIP. Preview and choose what to restore; audio files are never included or changed.
-- **Audio output:** select an available playback device in Audio Options, or use System Default.
-- **Favorites:** mark songs with the heart button and find them in the built-in Favorite Music playlist.
-- **Metadata:** edit the selected song's title, artist, album, and filename using the pencil button. Open or copy its source link when available. Tags are saved to the file, and the filename extension stays protected.
-- **Playback:** seek in five-second steps, shuffle, repeat, mute, and change speed from 0.5× to 3.0×. The player follows track changes automatically while you are not searching. Jump to Playing returns to the collection where playback started. Search does not narrow the playback queue.
-- **Playlists:** bulk-select songs and reorder connected selections by dragging. Completed folder scans clean up confirmed missing entries, including favorites. Unavailable folders retain their entries while other folders finish scanning independently.
-- **Up Next:** open Song Actions for the selected song to play it next or append it to a temporary queue. Reorder or remove individual occurrences in Up Next, then continue the original collection. Playlists stay unchanged.
-- **Downloads:** analyze a video or collection URL, select entries or a range, preview audio, jump between available preview pages, and manage parallel downloads and retries.
-- **Existing music awareness:** download previews identify known source videos across registered folders. Inspect existing copies, skip matching output formats, or choose Download Anyway.
-- **Download diagnostics:** open Error Details after failed analysis or for a failed queue item. See the operation, tool, likely explanation, and relevant next steps; copy a bounded report without full URLs, local paths, or raw tool output.
-- **Navigation:** use visible Back buttons in secondary menus, or press Escape.
-- **HUD:** Classic, Circular, Artwork, and Spectrum Only layouts with optional progress and a spectrum driven by decoded audio. Artwork mode preserves image proportions and supports outward horizontal spectra beside the image.
-- **Visuals:** bars, waves, spikes, gradient presets, beveled finishes, glow, trails, peak markers, and frequency smoothing. Customize menu colors and HUD backgrounds using a visual color spectrum, RGB sliders, or hex values.
-- **Audio Options:** profiles, loudness normalization, graphic or parametric EQ, dynamic EQ, de-essing, tone controls, crossfeed, compression, algorithmic or convolution reverb, and optional true-peak protection. Pitch-preserving speed, gapless playback, crossfade, and game-audio balance remain available.
-- **Sound Environment:** 23 choices, including Off, Car Cabin, Stairwell, and Orbital Echo, with independent intensity, room/tone controls, optional textures and ambience, and saved custom presets. Combine environments with Audio Options.
-- **Audio Analyzer:** device-clock stage measurements, spectra, waveforms, EQ response, stereo and dynamics meters, plus temporary A/B comparison and level matching.
-- **Lyrics:** find synchronized or plain lyrics for existing songs through LRCLIB, keep local sidecars and embedded text, choose alternate matches, and adjust timing per song. Background lookup caches results and retries temporary failures. Move and resize the lyrics HUD separately in every layout.
+- **Edit song details.** Change title, artist, album, and filename with the pencil button. Open or copy a song's source link when one is available.
+- **Import.** Drag audio files into the player or playlist manager. Review results in Import History.
+- **Listening history.** The clock icon beside Manage Playlists shows Recently Played, Most Played, play counts, and listening time.
+- **Backup and restore.** Export settings, playlists, key bindings, and listening history to a ZIP, then preview and choose what to restore. Your audio files are never included or changed.
+- **Manage Audio Files.** Review files individually or in bulk and move them to Trash. Permanent deletion needs its own confirmation.
 
 ## Build your playlists
 
-Create playlists, bulk-select songs, and drag connected selections to reorder them. Keep favorites one heart-click away.
+Create playlists, bulk-select songs, and drag connected selections to reorder them.
 
 ![Playlist manager with bulk selection and drag reordering](docs/images/playlists.png)
 
-## Review possible duplicates
+## Decide what plays next
 
-Open **Manage Audio Files → Smart Cleanup** to find related recordings and expand each group to review individual matches. Compare both files, pause and resume previews, and decide what to keep. Deletion always uses a separate file review.
+Open Song Actions on a song to choose **Play Next** or **Add to Queue**. Open **Up Next** to see what is playing and what is coming, then drag to rearrange or remove entries. When your queue ends, the original collection continues.
 
-![Smart Cleanup groups related files for manual review](docs/images/smart-cleanup.png)
+![Up Next queue](docs/images/up-next.png)
 
-## Your HUD in-game
+## Show your music in the game
 
-A customized Classic HUD, placed on the middle-left. Move and resize it in Edit HUD Layout.
+Choose a **Classic**, **Circular**, **Artwork**, or **Spectrum Only** HUD. Pick bars, waves, or spikes, add gradients, glow, trails, and peak markers, and optionally turn on a **waveform progress bar** that shows the real shape of the song (**Settings → HUD → Progress Bar**). Move and resize everything in **Edit HUD Layout**.
 
 ![Classic Now-Playing HUD during gameplay](docs/images/classic-hud.png)
 
-## Customize your visuals
-
-Preview HUD layouts, choose a spectrum style, and pick a gradient or your own colors.
+Preview layouts live and pick a gradient or your own colors with a color spectrum, RGB sliders, or hex values.
 
 ![HUD and spectrum settings with live artwork preview](docs/images/settings-2.3.5.png)
 
-## Find lyrics for your collection
-
-Enable lyrics in **Settings → Lyrics**, then approve online lookup to find lyrics for the song you play. **Find Missing Lyrics** checks your collection only when you start it. The first reliable version applies automatically, and alternatives stay available. Lyrics language is independent of Minecraft’s interface language.
-
-Move the lyrics display separately in Edit HUD Layout, customize its width and colors, and adjust a song’s timing without rewriting its lyric file. Online lookup requires consent; whole-library lookup is an explicit action in Advanced Lyrics. Song-specific failures retry separately, so later songs can continue. Provider-requested waits remain respected.
-
 ## Shape your sound
 
-Open Sound Environment from Settings → Audio. Pick an environment directly and adjust its intensity independently of Audio Options. The picker stays open so you can compare different sounds.
+Open **Sound Environment** from **Settings → Audio** and pick one of **23 environments**, from Car Cabin and Stairwell to vinyl warmth and Orbital Echo. Adjust its intensity, save your own variations, and combine it with Audio Options.
 
 ![Sound Environment selection](docs/images/environment-picker.png)
 
-Open the Audio Analyzer from Audio Options to inspect live playback and compare processing modes.
+**Audio Options** offers Music, Gaming, Vocal, and Night profiles, loudness normalization, graphic or parametric EQ, compression, reverb, gapless playback, crossfade, and more. The **Audio Analyzer** lets you see your sound and compare settings with A/B listening.
 
 ![Live Audio Analyzer](docs/images/analyzer.png)
 
-See the [User Guide](docs/USER_GUIDE.md) for controls, setup, and limitations.
+## Follow along with lyrics
+
+Turn on lyrics in **Settings → Lyrics** and approve online lookup. DarkMusic searches [LRCLIB](https://lrclib.net) for the song you play and applies the first reliable match; alternatives stay available. **Find Missing Lyrics** checks your whole collection, but only when you start it. Your own lyric files and embedded lyrics keep working.
+
+Adjust timing for individual songs, and move and resize the lyrics HUD separately in every layout. Lyrics language is independent of Minecraft's interface language.
 
 ## Download music
 
-Paste a video or collection URL, analyze it, and choose entries or a range to download. Preview songs before adding them to the queue.
+Paste a video or playlist link under **Downloads**, analyze it, and select entries or a range. Preview songs before queueing them, and download several at once with progress and retries. If something fails, **Error Details** explains why and what to try, and lets you copy a safe report.
 
 ![Downloads with collection preview and page navigation](docs/images/downloads.png)
 
-In **Downloads → Tools**, choose **Install / Update Tools** for managed setup. DarkMusic uses yt-dlp, FFmpeg/FFprobe, and Deno. Existing installations can be selected under **Advanced Paths**.
+DarkMusic notices when a source video is already in your library, so you can skip it or choose **Download Anyway**.
 
-Tools are installed separately from the mod. The managed installer supports Windows x64 and Linux/macOS x64 or ARM64. Windows ARM64 needs compatible externally installed tools. Website support and caption availability depend on yt-dlp and the source website. Save content you have permission to download.
+Under **Downloads → Tools**, choose **Install / Update Tools** for automatic setup of yt-dlp, FFmpeg/FFprobe, and Deno. Existing installations can be selected under **Advanced Paths**. The installer supports Windows x64 and Linux/macOS x64 or ARM64; Windows ARM64 needs compatible tools installed by you. Which sites work depends on yt-dlp. Save only content you have permission to download.
 
-## Commands and shortcuts
+## Find duplicates
+
+Open **Manage Audio Files → Smart Cleanup** to find related recordings, even when filenames, tags, or formats differ. Compare artwork and file details, play version A or B, then keep both, ignore the match, or review a file for deletion.
+
+![Smart Cleanup groups related files for manual review](docs/images/smart-cleanup.png)
+
+## Watch another window while you play (optional)
+
+**Picture-in-Picture** shows a selected application window inside Minecraft, even in fullscreen. It is for **Windows x64** only and is entirely optional. The main mod is only about 4 MB, and PiP's extra runtime is installed on request.
+
+1. Click the **PiP icon** beside Manage Audio Files (or run `/da pip`).
+2. Choose **Check PiP Requirements**, then **Install PiP Dependencies**.
+3. Choose **Enable PiP Access**, pick a window, and start capture.
+
+Move, resize, and crop the view, change its opacity, press **Ctrl+Alt+F8** to operate the source application, and **Ctrl+Alt+F9** to return to Minecraft. Keep the source window open and not minimized. Capture never starts by itself, and disabling PiP Access stops it immediately.
+
+Turn on **PiP Audio Spectrum** to visualize that application's sound with its own styles and colors. Sound still plays through the source application, independently of DarkMusic.
+
+![Picture-in-Picture window inside Minecraft](docs/images/pip.png)
+
+PiP's smoothness depends on Windows, the source application, and your graphics hardware, so no particular frame rate is promised. It needs Windows build 19041 or later (20348 or later for the audio spectrum). Details are in the [setup guide](docs/PIP-OPTIONAL-INSTALLATION.md), [verification notes](docs/PIP-VERIFICATION.md), and [performance measurements](docs/PIP-PERFORMANCE.md). Do not put the optional dependency ZIP from the release page in `mods`; use the in-game installer.
+
+## Updates
+
+Update notifications are on by default and appear once per launch after you join a world or server. Click **Update** to approve a download, then close Minecraft to finish installing. You can also use **Settings → General → Check for Updates**. Your settings, library, playlists, and assets are kept. If installation fails, the next launch tells you and offers the log.
+
+## What's new
+
+**v3.0.2** makes PiP resizing and audio-spectrum recovery more reliable, keeps playback transitions and Sound Environment changes smoother, makes library monitoring less intrusive, and shows recovery folders in library status. See the [release notes](docs/RELEASE-3.0.2.md).
+
+**v3.0.1** shrank the main mod from about 79 MB to about 4 MB by making PiP's runtime an optional in-game install ([notes](docs/RELEASE-3.0.1.md)).
+
+**v3.0.0** introduced Picture-in-Picture and the PiP Audio Spectrum ([notes](docs/RELEASE-3.0.0.md)).
+
+**v2.10.0** added waveform progress bars, selectable HUD images, and rounded-bar spectra ([notes](docs/RELEASE-2.10.0.md)).
+
+Older versions are listed in [`docs`](docs).
+
+## Controls
 
 | Action | Default |
 |---|---|
@@ -129,28 +142,30 @@ Tools are installed separately from the mod. The managed installer supports Wind
 | Reset speed to 1.0× | Numpad 0 |
 | Mute / unmute | M |
 
-Space toggles Play/Pause inside the player. Focused controls retain their normal keyboard navigation and activation; text fields remain available for typing.
+Space toggles Play/Pause inside the player. Change shortcuts in **Options → Controls → Key Binds → DarkMusic**.
 
-Change shortcuts in **Options → Controls → Key Binds → DarkMusic**.
+`/da` or `/darkmusic` opens the player. Add `gui` to edit the HUD layout, `lyrics` to open the current song's lyrics, `pip` to open Picture-in-Picture, `update` to check for and download an update, or `help` for commands, shortcuts, and links. These commands run locally.
 
-`/da` or `/darkmusic` opens the player. Add `gui` to edit HUD layout, `lyrics` to open the current song's lyrics, `pip` to open Picture-in-Picture, `update` to check and download an available update, or `help` for grouped commands, shortcuts, and links. These commands run locally.
+## Language
+
+English and Traditional Chinese (Taiwan) are included. Choose yours in Minecraft's Language menu.
 
 ## Build and contribute
 
-Use JDK 25, the .NET 8 SDK for building the bundled Windows PiP helper, and the included Gradle wrapper. Mod users receive the helper's self-contained runtime and do not need the SDK.
+Use JDK 25, the .NET 8 SDK (for the bundled Windows PiP helper), and the included Gradle wrapper. Players do not need the SDK.
 
 ```sh
 ./gradlew build
 ```
 
-Windows: `gradlew.bat build`. Output files are in `build/libs`. See [Development and verification](docs/TESTING.md) for private-audio and runtime workflows.
+On Windows use `gradlew.bat build`. Output is in `build/libs`. See [Development and verification](docs/TESTING.md) for testing workflows.
 
-Interface wording is in [en_us.json](src/client/resources/assets/darkmusic/lang/en_us.json). Preserve translation keys and formatting placeholders when editing text. English and Traditional Chinese (Taiwan) are bundled. Select your language in Minecraft's Language menu; the Traditional Chinese catalog is [zh_tw.json](src/client/resources/assets/darkmusic/lang/zh_tw.json).
+Interface text lives in [en_us.json](src/client/resources/assets/darkmusic/lang/en_us.json) and [zh_tw.json](src/client/resources/assets/darkmusic/lang/zh_tw.json). Keep translation keys and formatting placeholders intact when editing.
 
-Report problems through [GitHub Issues](https://github.com/DarkLian/DarkMusic/issues). Include your Minecraft/mod versions, operating system, reproduction steps, and relevant logs. Remove account details and private paths before sharing logs.
+Report problems through [GitHub Issues](https://github.com/DarkLian/DarkMusic/issues). Include your Minecraft and mod versions, operating system, steps to reproduce, and relevant logs, with account details and private paths removed.
 
 ## License
 
 DarkMusic is free of charge and source-available. The [DarkMusic License & Permissions](LICENSE) reserves rights in new DarkLian contributions first published from v2.9.0, while allowing private modifications and unmodified official releases in modpacks under its conditions. Standalone redistribution and distributed modified versions containing that protected material require written permission.
 
-Previously released CC0 portions remain under their original dedication, including when reused in newer versions; the new terms do not revoke those rights. Existing icon notices and third-party licenses remain effective. See [Third-party notices](src/main/resources/THIRD-PARTY-NOTICES.md); corresponding third-party source archives accompany each release. External tools, music, and artwork retain their owners' rights.
+Previously released CC0 portions remain under their original dedication, including when reused in newer versions. Existing icon notices and third-party licenses remain effective. See [Third-party notices](src/main/resources/THIRD-PARTY-NOTICES.md); corresponding third-party source archives accompany each release. External tools, music, and artwork retain their owners' rights.
