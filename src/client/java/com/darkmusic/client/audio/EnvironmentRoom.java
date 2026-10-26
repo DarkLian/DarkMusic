@@ -11,7 +11,8 @@ final class EnvironmentRoom {
     private final double[][] low = new double[2][4], feedback = new double[2][4];
     private float[][] predelay;
     private int preAt, preLength;
-    private double rate, damping;
+    private double rate, damping, targetDamping, smoothing;
+    private final double[][] targetFeedback = new double[2][4];
 
     void initialize(double sampleRate) {
         if (rate != sampleRate) {
@@ -22,6 +23,7 @@ final class EnvironmentRoom {
             }
             predelay = new float[2][(int) (rate * .25) + 1];
         }
+        smoothing = 1 - Math.exp(-1 / (sampleRate * .012));
         clear();
     }
 
@@ -42,14 +44,16 @@ final class EnvironmentRoom {
         preAt = 0;
     }
 
-    void configure(Parameters p) {
+    void configure(Parameters p, boolean snap) {
         double[] times = {.0297, .0371, .0411, .0437};
-        damping = 1 - p.damping;
+        targetDamping = 1 - p.damping;
+        if (snap) damping = targetDamping;
         preLength = Math.clamp((int) (rate * p.predelay), 0, predelay[0].length - 1);
         for (int c = 0; c < 2; c++) {
             for (int i = 0; i < 4; i++) {
                 length[c][i] = Math.clamp((int) (rate * times[i] * p.roomSize) + c * 23, 1, comb[c][i].length);
-                feedback[c][i] = Math.min(.98, Math.pow(.001, length[c][i] / (rate * p.decay)));
+                targetFeedback[c][i] = Math.min(.98, Math.pow(.001, length[c][i] / (rate * p.decay)));
+                if (snap) feedback[c][i] = targetFeedback[c][i];
             }
             allLength[c][0] = Math.clamp((int) (rate * .005 * Math.sqrt(p.roomSize)) + c * 7, 1, allpass[c][0].length);
             allLength[c][1] = Math.clamp((int) (rate * .0017 * Math.sqrt(p.roomSize)) + c * 5, 1, allpass[c][1].length);
@@ -57,6 +61,7 @@ final class EnvironmentRoom {
     }
 
     double sample(double input, int c) {
+        if (c == 0) damping += (targetDamping - damping) * smoothing;
         if (preLength > 0) {
             int read = Math.floorMod(preAt - preLength, predelay[c].length);
             double delayed = predelay[c][read];
@@ -67,6 +72,7 @@ final class EnvironmentRoom {
         for (int i = 0; i < 4; i++) {
             int pos = at[c][i];
             double delayed = comb[c][i][pos];
+            feedback[c][i] += (targetFeedback[c][i] - feedback[c][i]) * smoothing;
             low[c][i] += (delayed - low[c][i]) * damping;
             comb[c][i][pos] = (float) (input * (1 - feedback[c][i]) + low[c][i] * feedback[c][i]);
             at[c][i] = (pos + 1) % length[c][i];

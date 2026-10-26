@@ -102,4 +102,16 @@ class DownloadDiagnosticsTest {
         assertEquals(7, result.exitCode());
         assertFalse(result.report("2.5.1").contains("secret"));
     }
+
+    @Test
+    void botVerificationIsNotPrivateContentAndKeepsManualRetryAvailable() {
+        String text = "ERROR: Sign in to confirm you're not a bot";
+        assertEquals(com.darkmusic.client.text.Text.get("download.error.bot_check"), DownloadJson.friendly(text));
+        var result = diagnostic(text, Stage.ANALYSIS);
+        assertEquals(Category.BOT_CHECK, result.category());
+        assertTrue(result.canRetry());
+        assertFalse(result.automaticRetry());
+        assertTrue(result.toolsRelated());
+        assertEquals(Category.AUTH_REQUIRED, diagnostic("This video is private", Stage.ANALYSIS).category());
+    }
 }

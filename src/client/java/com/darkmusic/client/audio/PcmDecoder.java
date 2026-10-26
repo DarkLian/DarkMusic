@@ -38,10 +38,22 @@ public final class PcmDecoder {
         var type = AudioFormats.detect(file);
         if (type == AudioFormats.Container.OPUS || type == AudioFormats.Container.MP4 || type == AudioFormats.Container.AAC || type == AudioFormats.Container.WEBM)
             return sixteen(ExternalAudio.open(file));
+        if (type == AudioFormats.Container.UNKNOWN) {
+            boolean toolsAvailable;
+            try {
+                ExternalAudio.tool(false);
+                ExternalAudio.tool(true);
+                toolsAvailable = true;
+            } catch (java.io.IOException missing) {
+                toolsAvailable = false;
+            }
+            if (toolsAvailable) return sixteen(ExternalAudio.open(file));
+        }
         String n = switch (type) {
             case MP3 -> ".mp3";
             case FLAC -> ".flac";
             case VORBIS -> ".ogg";
+            case WAVE, AIFF -> ".wav";
             default -> file.getFileName().toString().toLowerCase(Locale.ROOT);
         };
         AudioInputStream source;

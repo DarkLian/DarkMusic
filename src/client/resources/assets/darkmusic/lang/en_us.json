@@ -1611,5 +1611,9 @@
   "lyrics.recovery.keep": "Keep Current Lyrics Files",
   "lyrics.recovery.help": "Resolve a recovery conflict by keeping the files currently on disk. The recovery journal is archived beside the song, preserving its original lyrics for manual recovery. No lyrics are deleted or restored.",
   "pip.setup.busy": "Another Minecraft client is setting up PiP. Wait for it to finish, then try again.",
-  "library.status.recovery_folders": "%s metadata recovery folder(s) need review. Original files are preserved."
+  "library.status.recovery_folders": "%s metadata recovery folder(s) need review. Original files are preserved.",
+  "download.error.bot_check": "The website is asking for a bot check. Check Download Tools for current yt-dlp and JavaScript runtime support, or retry later or from another network. This does not establish that the video is private.",
+  "download.diag.summary.bot_check": "The website is asking for a bot check.",
+  "download.diag.cause.bot_check": "The source requested verification. This does not establish that the video is private or deleted.",
+  "download.diag.action.bot_check": "Check Download Tools for current yt-dlp and JavaScript runtime support. You can retry later or from another network. DarkMusic does not bypass website verification."
 }

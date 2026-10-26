@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
  */
 public final class DownloadDiagnostics {
     public enum Category {
-        EXTRACTOR_FAILURE, AUTH_REQUIRED, ACCESS_DENIED, RATE_LIMITED, NETWORK_FAILURE, NETWORK_TIMEOUT,
+        EXTRACTOR_FAILURE, BOT_CHECK, AUTH_REQUIRED, ACCESS_DENIED, RATE_LIMITED, NETWORK_FAILURE, NETWORK_TIMEOUT,
         UNSUPPORTED_URL, TOOL_MISSING, TOOL_INCOMPATIBLE, STORAGE_FAILURE, PROCESSING_FAILURE,
         OUTPUT_VALIDATION_FAILURE, CONTENT_UNAVAILABLE, CANCELLED, UNKNOWN
     }
@@ -51,7 +51,7 @@ public final class DownloadDiagnostics {
         }
 
         public boolean toolsRelated() {
-            return category == Category.TOOL_MISSING || category == Category.TOOL_INCOMPATIBLE || category == Category.EXTRACTOR_FAILURE;
+            return category == Category.TOOL_MISSING || category == Category.TOOL_INCOMPATIBLE || category == Category.EXTRACTOR_FAILURE || category == Category.BOT_CHECK;
         }
 
         public boolean canRetry() {
@@ -135,6 +135,7 @@ public final class DownloadDiagnostics {
             else if (code == 404 || code == 410) category = Category.CONTENT_UNAVAILABLE;
             else if (code == 408) category = Category.NETWORK_TIMEOUT;
             else if (code >= 500) category = Category.NETWORK_FAILURE;
+            else if (contains(text, "not a bot")) category = Category.BOT_CHECK;
             else if (contains(text, "private video", "video is private", "login required", "sign in to", "requires authentication", "age-restricted", "drm"))
                 category = Category.AUTH_REQUIRED;
             else if (contains(text, "unsupported url")) category = Category.UNSUPPORTED_URL;
@@ -184,7 +185,7 @@ public final class DownloadDiagnostics {
         };
         return new Diagnostic(operation, attempt, category, stage, source, tool,
             typed == null ? null : typed.exitCode, toolVersion, detail,
-            category != Category.CANCELLED && category != Category.EXTRACTOR_FAILURE && category != Category.AUTH_REQUIRED && RetryPolicy.automatic(error));
+            category != Category.CANCELLED && category != Category.EXTRACTOR_FAILURE && category != Category.AUTH_REQUIRED && category != Category.BOT_CHECK && RetryPolicy.automatic(error));
     }
 
     static String version(String value) {

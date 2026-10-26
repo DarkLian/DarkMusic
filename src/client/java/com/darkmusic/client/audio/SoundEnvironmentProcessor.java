@@ -38,20 +38,34 @@ public final class SoundEnvironmentProcessor {
             ready = true;
         }
         if (applied == null) {
-            engines[current].configure(requested);
+            engines[current].configure(requested, true);
             applied = requested;
-        } else if (!transitioning && !sameEngine(applied, requested)) {
-            var next = engines[1 - current];
-            next.clear();
-            next.configure(requested);
-            applied = requested;
-            transitioning = true;
-            transition = 0;
+        } else if (!sameEngine(applied, requested)) {
+            if (sameStructure(applied, requested)) {
+                // Keep delay/filter/convolution histories while continuous controls move.
+                engines[transitioning ? 1 - current : current].configure(requested, false);
+                applied = requested;
+            } else if (!transitioning) {
+                var next = engines[1 - current];
+                next.clear();
+                next.configure(requested, true);
+                applied = requested;
+                transitioning = true;
+                transition = 0;
+            }
         }
     }
 
     private static boolean sameEngine(SoundEnvironmentSettings a, SoundEnvironmentSettings b) {
         return a.preset == b.preset && a.texture == b.texture && a.ambience == b.ambience && a.parameters.same(b.parameters);
+    }
+
+    private static boolean sameStructure(SoundEnvironmentSettings a, SoundEnvironmentSettings b) {
+        var x = a.parameters;
+        var y = b.parameters;
+        return a.preset == b.preset && a.texture == b.texture && a.ambience == b.ambience && x.mono == y.mono && x.acoustic == y.acoustic &&
+            x.reverbEngine == y.reverbEngine && x.impulse == y.impulse && x.roomSize == y.roomSize && x.predelay == y.predelay &&
+            x.echoTime == y.echoTime && x.modulationMs == y.modulationMs && java.util.Arrays.equals(x.reflectionTimes, y.reflectionTimes);
     }
 
     public boolean ownsReverb() {
@@ -117,7 +131,7 @@ public final class SoundEnvironmentProcessor {
         private final Biquad high = new Biquad(), low = new Biquad(), presence = new Biquad();
         private final EnvironmentRoom room = new EnvironmentRoom();
         private ConvolutionReverb convolution;
-        private boolean convolutionReady;
+        private boolean convolutionReady, acousticWasAudible;
         private double convolutionMix, convolutionSmoothing;
         private float[][] history, modulation;
         private Parameters p;
@@ -125,12 +139,15 @@ public final class SoundEnvironmentProcessor {
         private boolean texture, ambience;
         private double rate, trim, noiseGain, oscSin, oscCos = 1, incSin, incCos, wind, crackle;
         private double[] damping = new double[2];
+        private final double[] reflectionGains = new double[8];
+        private double targetTrim, targetNoise, parameterSmoothing, drive, pan, echoGain, reverbWet, dampingAmount;
         private int cursor, modAt, echoFrames;
         private long random;
         double left, right;
 
         void initialize(double sampleRate) {
             convolutionSmoothing = 1 - Math.exp(-1 / (sampleRate * .02));
+            parameterSmoothing = 1 - Math.exp(-1 / (sampleRate * .012));
             if (history == null || rate != sampleRate) {
                 rate = sampleRate;
                 history = new float[2][(int) (rate * 1.7) + 4];
@@ -155,33 +172,47 @@ public final class SoundEnvironmentProcessor {
             cursor = modAt = 0;
             oscSin = wind = crackle = 0;
             convolutionMix = 0;
+            acousticWasAudible = false;
             oscCos = 1;
         }
 
-        void configure(SoundEnvironmentSettings s) {
+        void configure(SoundEnvironmentSettings s, boolean snap) {
             p = s.parameters;
             preset = s.preset;
             texture = s.texture;
             ambience = s.ambience;
             high.configure(Type.HIGH_PASS, rate, p.highPass, 0, .707);
-            high.snap();
+            if (snap) high.snap();
             low.configure(Type.LOW_PASS, rate, p.lowPass * (1 - p.distance * .65), 0, .707);
-            low.snap();
+            if (snap) low.snap();
             presence.configure(Type.PEAK, rate, p.presenceFrequency, p.presenceGain, 1.1);
-            presence.snap();
-            room.configure(p);
+            if (snap) presence.snap();
+            room.configure(p, snap);
             echoFrames = Math.max(1, (int) (rate * p.echoTime));
-            convolution = p.acoustic && p.wet > 0 && p.reverbEngine == com.darkmusic.client.config.AudioEnhancements.ReverbEngine.CONVOLUTION
-                ? new ConvolutionReverb(rate, ConvolutionReverb.Impulse.valueOf(p.impulse.name())) : null;
-            convolutionReady = false;
+            if (snap || convolution == null) {
+                convolution = p.acoustic && p.wet > 0 && p.reverbEngine == com.darkmusic.client.config.AudioEnhancements.ReverbEngine.CONVOLUTION
+                    ? new ConvolutionReverb(rate, ConvolutionReverb.Impulse.valueOf(p.impulse.name())) : null;
+                convolutionReady = false;
+            }
             double reflectionGain = 0;
             for (double v : p.reflectionGains) reflectionGain += Math.abs(v);
             // Reserve filter/transient headroom and the maximum reflection sends.
             // This is gain staging, not a second limiter or automatic normalization.
-            trim = .8 * Math.pow(10, (-p.distance * 9 - Math.max(0, p.presenceGain)) / 20)
+            targetTrim = .8 * Math.pow(10, (-p.distance * 9 - Math.max(0, p.presenceGain)) / 20)
                 / (1 + reflectionGain + p.echoGain / .65 + p.wet);
-            noiseGain = Math.pow(10, p.noiseDb / 20);
-            random = 0x41c64e6dL + 991L * preset.ordinal();
+            targetNoise = Math.pow(10, p.noiseDb / 20);
+            if (snap) {
+                trim = targetTrim;
+                noiseGain = targetNoise;
+                drive = p.drive;
+                pan = p.pan;
+                echoGain = p.echoGain;
+                reverbWet = p.wet;
+                dampingAmount = p.damping;
+                for (int i = 0; i < reflectionGains.length; i++)
+                    reflectionGains[i] = i < p.reflectionGains.length ? p.reflectionGains[i] : 0;
+                random = 0x41c64e6dL + 991L * preset.ordinal();
+            }
             double angle = 2 * Math.PI * p.modulationHz / rate;
             incSin = Math.sin(angle);
             incCos = Math.cos(angle);
@@ -199,14 +230,32 @@ public final class SoundEnvironmentProcessor {
         }
 
         void process(double l, double r) {
+            trim += (targetTrim - trim) * parameterSmoothing;
+            noiseGain += (targetNoise - noiseGain) * parameterSmoothing;
+            drive += (p.drive - drive) * parameterSmoothing;
+            pan += (p.pan - pan) * parameterSmoothing;
+            echoGain += (p.echoGain - echoGain) * parameterSmoothing;
+            reverbWet += (p.wet - reverbWet) * parameterSmoothing;
+            if (p.wet == 0 && reverbWet < 1e-8) reverbWet = 0;
+            if (reverbWet > 0) acousticWasAudible = true;
+            else if (acousticWasAudible) {
+                // Fully bypassed acoustics must not replay a frozen tail when re-enabled later.
+                room.clear();
+                convolution = null;
+                convolutionReady = acousticWasAudible = false;
+                convolutionMix = 0;
+            }
+            dampingAmount += (p.damping - dampingAmount) * parameterSmoothing;
+            for (int i = 0; i < p.reflectionGains.length; i++)
+                reflectionGains[i] += (p.reflectionGains[i] - reflectionGains[i]) * parameterSmoothing;
             convolutionMix += ((convolutionReady ? 1 : 0) - convolutionMix) * convolutionSmoothing;
             if (p.mono) l = r = (l + r) * .5;
             l = presence.sample(high.sample(l, 0), 0);
             r = presence.sample(high.sample(r, 1), 1);
-            if (p.drive > 0) {
-                double divisor = Math.tanh(1 + p.drive);
-                l = Math.tanh(l * (1 + p.drive)) / divisor;
-                r = Math.tanh(r * (1 + p.drive)) / divisor;
+            if (drive > 1e-8) {
+                double divisor = Math.tanh(1 + drive);
+                l = Math.tanh(l * (1 + drive)) / divisor;
+                r = Math.tanh(r * (1 + drive)) / divisor;
             }
             double generated = 0;
             if (texture) {
@@ -244,21 +293,21 @@ public final class SoundEnvironmentProcessor {
             for (int c = 0; c < 2; c++) {
                 double x = c == 0 ? l : r;
                 double echo = history[c][Math.floorMod(cursor - echoFrames, history[c].length)];
-                damping[c] += (echo - damping[c]) * (1 - p.damping);
-                history[c][cursor] = (float) (x + damping[c] * .35 * p.echoGain);
-                double output = x + damping[c] * p.echoGain;
+                damping[c] += (echo - damping[c]) * (1 - dampingAmount);
+                history[c][cursor] = (float) (x + damping[c] * .35 * echoGain);
+                double output = x + damping[c] * echoGain;
                 for (int i = 0; i < p.reflectionTimes.length; i++)
-                    output += history[c][Math.floorMod(cursor - (int) (rate * p.reflectionTimes[i]), history[c].length)] * p.reflectionGains[i];
-                if (p.acoustic && p.wet > 0) {
+                    output += history[c][Math.floorMod(cursor - (int) (rate * p.reflectionTimes[i]), history[c].length)] * reflectionGains[i];
+                if (p.acoustic && reverbWet > 0) {
                     double reverberated = room.sample(x, c);
                     if (convolutionReady) reverberated += (convolution.sample(x, c) - reverberated) * convolutionMix;
-                    output = output * (1 - p.wet) + reverberated * p.wet * .5;
+                    output = output * (1 - reverbWet) + reverberated * reverbWet * .5;
                 }
-                output *= trim * (c == 0 ? 1 - Math.max(0, p.pan) * .7 : 1 + Math.min(0, p.pan) * .7);
+                output *= trim * (c == 0 ? 1 - Math.max(0, pan) * .7 : 1 + Math.min(0, pan) * .7);
                 if (c == 0) left = output;
                 else right = output;
             }
-            if (p.acoustic && p.wet > 0) room.advance();
+            if (p.acoustic && reverbWet > 0) room.advance();
             cursor = (cursor + 1) % history[0].length;
             double next = oscSin * incCos + oscCos * incSin;
             oscCos = oscCos * incCos - oscSin * incSin;

@@ -343,3 +343,10 @@ Hosted [Windows, macOS and Linux CI](https://github.com/DarkLian/DarkMusic/actio
 A Windows probe revealed that holding our own preflight handles prevents directory renaming. Cleanup now closes those handles before claiming the candidate. Locked/inaccessible legacy runtimes are deferred; reclaiming legacy files remains best effort. Unreferenced ZIPs must exceed the 24-hour grace independently of legacy directories. Both current and referenced active managed archives remain protected.
 
 IntelliJ formatting, actionlint, whitespace and English/Traditional Chinese parity (1,613 keys) passed. GUI status-row checks in an actual Minecraft window, hosted/UWP audio and post-FreeSync 144 FPS capture were not performed in this follow-up. Private evidence is under `.local-tools/verification/pip-cleanup-followup/`.
+
+
+## Review findings 113?121
+
+Windows `scripts/verify.ps1 -DesktopIntegration` passed **584 tests: 579 passed, five skipped**, with zero failures/errors. The private collection and existing managed tools exercised same-format DSP handoff continuity, first-block stereo width, environment-history preservation, misleading audio extensions and unknown-container fallback. Filesystem and download regressions cover persistent watch registrations, retry backoff, bookkeeping filters, extensionless deletion, unexpected poll errors and bot-check classification. Final watcher/download-focused tests passed after the cache-publication refinement. IntelliJ formatting, actionlint, whitespace and 1,617-key English/Traditional Chinese parity passed.
+
+The five skips remain optional live managed-tool installation, live LRCLIB, two Windows symlink fixtures unavailable to this account and explicit live-release PiP installation. No new Minecraft GUI smoke, subjective listening, gameplay performance, real bot-check website or native non-Windows audio test was performed. Dither remains an optional deferred output-policy change. See [the per-finding disposition](OPEN-FINDINGS-113-121.md). Private evidence: `.local-tools/verification/findings-113-121/`.

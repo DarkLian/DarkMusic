@@ -90,6 +90,8 @@ public final class DownloadJson {
             return com.darkmusic.client.text.Text.get("text.darkmusic.the_site_is_rate_limiting_downloads_429_wait_before_retrying");
         if (s.matches("(?s).*\\bhttp(?: error| status| status code)?[ :]+403\\b.*"))
             return com.darkmusic.client.text.Text.get("text.darkmusic.the_site_refused_access_403_try_a_current_yt_dlp_version_or_another_public_entry");
+        if (s.contains("not a bot") || s.contains("confirm you're not a bot") || s.contains("confirm you’re not a bot"))
+            return com.darkmusic.client.text.Text.get("download.error.bot_check");
         if (s.contains("video is private") || s.contains("private video") || s.contains("sign in to") || s.contains("login required") || s.matches("(?s).*\\bdrm\\b.*") || s.contains("age-restricted") || s.contains("requires authentication"))
             return com.darkmusic.client.text.Text.get("text.darkmusic.this_entry_is_private_restricted_or_requires_authentication_access_controls_are_no");
         if (s.contains("unsupported url"))

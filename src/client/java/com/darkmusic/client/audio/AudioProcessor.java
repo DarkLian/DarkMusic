@@ -48,7 +48,8 @@ public final class AudioProcessor {
     }
 
     void begin(double sampleRate, int channelCount, boolean handoff) {
-        boolean retainProtection = handoff && rate == sampleRate && channels == channelCount;
+        // A gapless/crossfade promotion is one uninterrupted device stream, not a fresh DSP session.
+        if (handoff && rate == sampleRate && channels == channelCount) return;
         rate = sampleRate;
         channels = channelCount;
         applied = null;
@@ -59,11 +60,9 @@ public final class AudioProcessor {
         compressor.begin();
         crossfeed.begin(rate);
         environment.begin(rate);
-        if (!retainProtection) {
-            protection.begin(rate);
-            protectedWet = 0;
-            diagnostics.begin(rate, channels);
-        }
+        protection.begin(rate);
+        protectedWet = 0;
+        diagnostics.begin(rate, channels);
         smoothing = 1 - Math.exp(-1 / (rate * .012));
         slowSmoothing = 1 - Math.exp(-1 / (rate * .1));
         aoWet = settings.neutral ? 0 : 1;
@@ -90,6 +89,7 @@ public final class AudioProcessor {
             deEsser.configure(d);
             if (first) {
                 headroom = filters.headroom();
+                width = settings.width;
                 aoWet = settings.neutral ? 0 : 1;
                 protectedWet = !settings.neutral && settings.limiter && e.protection == AudioEnhancements.Protection.TRUE_PEAK ? 1 : 0;
                 compressionWet = settings.compressor ? 1 : 0;

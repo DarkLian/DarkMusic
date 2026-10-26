@@ -39,6 +39,10 @@ public final class MusicLibrary implements AutoCloseable {
     private volatile boolean closed;
     private volatile WatchService watcher;
     private volatile Set<Path> watchedDirectories = Set.of();
+    private volatile Set<Path> desiredWatchDirectories = Set.of();
+    private final Map<Path, WatchKey> watchKeys = new HashMap<>();
+    private final Map<Path, Long> failedWatches = new HashMap<>();
+    private final AtomicBoolean pollWarning = new AtomicBoolean();
     private boolean cacheDirty;
     private final AtomicBoolean watchWarning = new AtomicBoolean();
     private volatile Snapshot snapshot = new Snapshot(0, List.of(), false, Text.get("library.status.waiting"));
@@ -433,26 +437,37 @@ public final class MusicLibrary implements AutoCloseable {
         if (!closed && ticket == generation.get()) snapshot = value;
     }
 
-    private void replaceWatcher(List<Path> directories) {
+    private synchronized void replaceWatcher(List<Path> directories) {
         Set<Path> desired = Set.copyOf(directories);
-        if (watcher != null && desired.equals(watchedDirectories)) return;
-        closeWatcher();
-        try {
-            var service = FileSystems.getDefault().newWatchService();
-            watcher = service;
-            var registered = new HashSet<Path>();
-            for (Path dir : directories)
-                try {
-                    dir.register(service, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_DELETE, StandardWatchEventKinds.ENTRY_MODIFY);
-                    registered.add(dir);
-                } catch (Exception failure) {
-                    watchFailed(failure);
-                }
-            watchedDirectories = Set.copyOf(registered);
-        } catch (Exception failure) {
-            closeWatcher();
+        desiredWatchDirectories = desired;
+        if (closed) return;
+        if (watcher == null) try {
+            watcher = FileSystems.getDefault().newWatchService();
+        } catch (IOException failure) {
             watchFailed(failure);
+            return;
         }
+        var iterator = watchKeys.entrySet().iterator();
+        while (iterator.hasNext()) {
+            var entry = iterator.next();
+            if (!desired.contains(entry.getKey()) || !entry.getValue().isValid()) {
+                entry.getValue().cancel();
+                iterator.remove();
+            }
+        }
+        failedWatches.keySet().retainAll(desired);
+        long now = System.nanoTime();
+        for (Path directory : desired) {
+            if (watchKeys.containsKey(directory) || now < failedWatches.getOrDefault(directory, 0L)) continue;
+            try {
+                watchKeys.put(directory, directory.register(watcher, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_DELETE, StandardWatchEventKinds.ENTRY_MODIFY));
+                failedWatches.remove(directory);
+            } catch (Exception failure) {
+                failedWatches.put(directory, now + TimeUnit.MINUTES.toNanos(1));
+                watchFailed(failure);
+            }
+        }
+        watchedDirectories = Set.copyOf(watchKeys.keySet());
     }
 
     private void watchFailed(Exception failure) {
@@ -461,41 +476,72 @@ public final class MusicLibrary implements AutoCloseable {
     }
 
     private void poll() {
+        try {
+            pollEvents();
+        } catch (ClosedWatchServiceException closedService) {
+            if (!closed) {
+                closeWatcher();
+                requestRescan();
+            }
+        } catch (Throwable failure) {
+            if (pollWarning.compareAndSet(false, true))
+                org.slf4j.LoggerFactory.getLogger("darkmusic-library").warn("Library change polling failed; polling will retry and periodic rescans remain enabled", failure);
+            if (!closed) requestRescan();
+        }
+    }
+
+    private synchronized void pollEvents() {
         WatchService service = watcher;
         if (service == null || closed) return;
         boolean changed = false;
-        try {
-            WatchKey key;
-            while ((key = service.poll()) != null) {
-                for (var event : key.pollEvents()) {
-                    if (event.kind() == StandardWatchEventKinds.OVERFLOW) {
-                        changed = true;
-                        continue;
-                    }
-                    if (!(event.context() instanceof Path relative)) continue;
-                    Path path = ((Path) key.watchable()).resolve(relative);
-                    String name = path.getFileName().toString();
-                    if (path.startsWith(cacheFile.toAbsolutePath().getParent().resolve("downloads/work")) || name.startsWith(".darkmusic-")
-                        && (name.endsWith(".tmp") || name.equals(".darkmusic-downloads.json") || name.equals(".darkmusic-sources.json")
-                        || name.matches("\\.darkmusic-download-commit-[a-f0-9]{64}\\.json") || name.matches("\\.darkmusic-lyrics-[a-f0-9]{24}\\.json")))
-                        continue;
-                    changed |= event.kind() == StandardWatchEventKinds.ENTRY_DELETE || supported(path) || Files.isDirectory(path) || watchedDirectories.contains(path);
-                }
-                if (!key.reset()) {
-                    watchedDirectories = Set.of();
+        WatchKey key;
+        while ((key = service.poll()) != null) {
+            for (var event : key.pollEvents()) {
+                if (event.kind() == StandardWatchEventKinds.OVERFLOW) {
                     changed = true;
+                    continue;
                 }
+                if (!(event.context() instanceof Path relative)) continue;
+                Path path = ((Path) key.watchable()).resolve(relative).normalize();
+                if (ignoredWatchPath(path)) continue;
+                changed |= event.kind() == StandardWatchEventKinds.ENTRY_DELETE ? knownWatchPath(path) : supported(path) || Files.isDirectory(path);
             }
-        } catch (ClosedWatchServiceException ignored) {
-            return;
+            if (!key.reset()) {
+                watchKeys.remove((Path) key.watchable(), key);
+                watchedDirectories = Set.copyOf(watchKeys.keySet());
+                changed = true;
+            }
         }
         if (changed) requestRescan();
     }
 
-    private void closeWatcher() {
+    boolean ignoredWatchPath(Path path) {
+        String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
+        return path.startsWith(cacheFile.toAbsolutePath().getParent().resolve("downloads/work")) || name.startsWith(".darkmusic-work-") ||
+            name.endsWith(".lrc.darkmusic-backup") || name.endsWith(".lrc.darkmusic.json") || name.startsWith(".darkmusic-") &&
+            (name.endsWith(".tmp") || name.equals(".darkmusic-downloads.json") || name.equals(".darkmusic-sources.json") ||
+                name.matches("\\.darkmusic-download-commit-[a-f0-9]{64}\\.json") || name.matches("\\.darkmusic-lyrics-[a-f0-9]{24}\\.json") ||
+                name.matches("\\.darkmusic-lyrics-recovery-[a-f0-9-]{36}\\.json"));
+    }
+
+    boolean knownWatchPath(Path path) {
+        if (desiredWatchDirectories.contains(path)) return true;
+        for (var entry : roots.entrySet())
+            if (path.startsWith(entry.getKey())) {
+                String relative = entry.getKey().relativize(path).toString().replace('\\', '/');
+                if (cache.containsKey(entry.getValue() + ":" + relative)) return true;
+            }
+        // Cover initial partial scans and the short cache-publication window for extensionless tracks.
+        var visible = snapshot;
+        return (visible.scanning() || running.get()) && visible.tracks().stream().anyMatch(track -> track.file().equals(path));
+    }
+
+    private synchronized void closeWatcher() {
         WatchService old = watcher;
         watcher = null;
-        watchedDirectories = Set.of();
+        watchedDirectories = desiredWatchDirectories = Set.of();
+        watchKeys.clear();
+        failedWatches.clear();
         if (old != null) try {
             old.close();
         } catch (IOException ignored) {
