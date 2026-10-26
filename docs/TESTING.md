@@ -11,6 +11,10 @@ The native PiP setup smoke also passed: requirements checks, canceled installati
 
 The four local release archives passed CRC/integrity, packaged version, helper/dependency manifest and checksum binding, runtime/application separation, notices/source archives, 1,617-key localization parity and private/smoke exclusions. Workflow lint and whitespace checks passed. Recent native WGC resilience probes are recorded in [findings 122-127](OPEN-FINDINGS-122-127.md).
 
+Hosted [Windows, macOS and Linux release CI](https://github.com/DarkLian/DarkMusic/actions/runs/40262685668) and [main CI](https://github.com/DarkLian/DarkMusic/actions/runs/40262682462) passed. All four published assets were downloaded and matched GitHub SHA-256 metadata; packaged integrity, manifests, notices, sources, localization and exclusions passed again. The released base JAR is 4,038,865 bytes; optional dependencies are 76,106,620 bytes.
+
+The post-publication production-transport installation check passed separately (one test, zero skipped), using the actual released JAR and its matching GitHub dependency archive in a disposable fixture. It verified checksums, installation, Windows/WGC and graphics-device setup without granting capture/audio access, enumerating windows or starting capture. Published assets and the v3.0.2 tag were not modified after verification.
+
 No post-FreeSync fullscreen 144 FPS/resource benchmark, real-device COM/write-stall audio recovery, live website bot-check or native non-Windows PiP validation was performed. PiP remains Windows-only. Optional dither remains deferred.
 
 ## v3.0.1 release validation
