@@ -1,6 +1,7 @@
 package com.darkmusic.client.pip;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.*;
@@ -17,6 +18,31 @@ import static org.junit.jupiter.api.Assertions.*;
 class PipRuntimeTest {
     @TempDir
     Path temp;
+
+    @BeforeEach
+    void canonicalFixtureDirectory() throws IOException {
+        // macOS exposes its temporary directory through /var -> /private/var.
+        // Successful-install fixtures must not accidentally exercise linked-path rejection.
+        temp = temp.toRealPath();
+    }
+
+    @Test
+    void linkedInstallationDirectoryRemainsRejected() throws Exception {
+        Path target = Files.createDirectory(temp.resolve("target"));
+        Path alias = temp.resolve("alias");
+        try {
+            Files.createSymbolicLink(alias, target);
+        } catch (UnsupportedOperationException | FileSystemException unavailable) {
+            org.junit.jupiter.api.Assumptions.abort("Symbolic-link creation unavailable: " + unavailable.getClass().getSimpleName());
+        }
+        byte[] code = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1})), deps = zip(Map.of("runtime.dll", new byte[]{2}));
+        try (var runtime = new PipRuntime(alias, resources(code, deps), (u, p, m, t, c) -> fail("No download through a linked directory"), t -> 26300, (e, t) -> true)) {
+            runtime.check().get(5, TimeUnit.SECONDS);
+            assertEquals("pip.bundle_damaged", runtime.status());
+            assertFalse(runtime.ready());
+            assertFalse(Files.exists(target.resolve("pip-native")));
+        }
+    }
 
     @Test
     void realWindowsRequirementsAndInstalledRuntimeWithoutNetwork() throws Exception {
@@ -98,7 +124,7 @@ class PipRuntimeTest {
             assertEquals(0, downloads.get()); // OS checks required first.
             runtime.check().get();
             runtime.install().get();
-            assertTrue(runtime.ready());
+            assertTrue(runtime.ready(), runtime.status());
             assertTrue(runtime.audioSupported());
             assertEquals(1, downloads.get());
         }
