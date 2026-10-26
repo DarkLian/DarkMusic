@@ -1,10 +1,10 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v3.0.0 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v3.0.1 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Picture-in-Picture (Windows x64)
 
-For the next update's optional runtime flow, see [PiP installation](PIP-OPTIONAL-INSTALLATION.md). It keeps the code and icon in DarkMusic, requires explicit dependency installation and access consent, and defaults access off. The published v3.0.0 release uses the earlier bundled runtime described below.
+PiP is inactive by default, including after upgrading. Open the PiP icon, use **Check PiP Requirements**, approve **Install PiP Dependencies**, and then confirm **Enable PiP Access**. This installs dependencies inside the instance, without a companion mod or system-wide software. No restart is needed. See [PiP installation](PIP-OPTIONAL-INSTALLATION.md). Audio spectrum access has separate consent; installing dependencies never starts capture.
 
 On Windows 10/11 x64, use the **Picture-in-Picture** icon beside **Manage Audio Files**
 in the main player, or enter **/da pip** (also **/darkmusic pip**).

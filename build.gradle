@@ -154,6 +154,8 @@ test {
     systemProperty 'java.awt.headless', !providers.gradleProperty('desktopIntegration').isPresent()
     systemProperty 'darkmusic.test.lyricsNetwork', providers.gradleProperty('lyricsIntegration').isPresent()
     systemProperty 'darkmusic.test.desktop', providers.gradleProperty('desktopIntegration').isPresent()
+    systemProperty 'darkmusic.test.pipNetwork', providers.gradleProperty('pipRuntimeIntegration').isPresent()
+    systemProperty 'darkmusic.test.pipReleaseJar', providers.gradleProperty('pipRuntimeReleaseJar').isPresent() ? file(providers.gradleProperty('pipRuntimeReleaseJar').get()).absolutePath : ''
     systemProperty 'darkmusic.test.managedTools', providers.gradleProperty('managedToolsIntegration').isPresent()
     systemProperty 'darkmusic.test.managedData', file('build/managed-tools-integration').absolutePath
     systemProperty 'darkmusic.test.music', realMusicDirectory

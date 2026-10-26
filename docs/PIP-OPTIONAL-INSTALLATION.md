@@ -1,6 +1,6 @@
-# Optional PiP runtime (development)
+# Optional PiP runtime
 
-This change is not part of the already published v3.0.0 package.
+Available from v3.0.1. The earlier v3.0.0 package bundled the complete runtime.
 
 All DarkMusic PiP feature code remains in the main mod, including the small native helper. The large .NET/Windows Desktop/C#/WinRT dependencies are a separate, optional ZIP. There is no companion mod and nothing additional to put in `mods`.
 
@@ -21,12 +21,12 @@ The permissions here are DarkMusic consent, not an OS permission grant. Windows 
 
 The build produces the small base JAR and `darkmusic-pip-dependencies-VERSION-windows-x64.zip`. The base includes `helper.zip`, its checksum and a dependency manifest, but no framework/SDK DLLs. The release workflow publishes the optional ZIP alongside the normal assets. A new runtime checksum requires explicit installation; unchanged cached archives are reused across launches. Previous runtime files are preserved, and no audio/configuration assets are removed.
 
-The development build measured approximately **4.0 MB** for the base JAR versus approximately **79 MB** for published v3.0.0; the optional dependency ZIP is approximately **76 MB**, expanding to less than the enforced 300 MB extraction limit. Exact sizes vary with the SDK/runtime build.
+The base JAR is approximately **4.0 MB**, versus approximately **79 MB** for v3.0.0; the optional dependency ZIP is approximately **76 MB**, expanding to less than the enforced 300 MB extraction limit. Exact sizes vary with the SDK/runtime build.
 
-The already published v3.0.0 release does not have the new dependency ZIP. Therefore the new live installation URL can only work once a matching future release publishes it. Local tests use this build's archive and injected transport without publishing or fetching unofficial executables. Do not replace the existing v3.0.0 assets to test this change.
+The matching dependency ZIP accompanies the v3.0.1 GitHub release. Use the in-game installer, which verifies the manifest checksum before use; do not put the ZIP in `mods`. Existing v3.0.0 assets and previously extracted runtimes are preserved. Old installations may need the matching optional dependencies, but appearance preferences remain intact and access defaults off on upgrade.
 
 ## Verification scope
 
 Tests cover default-off upgrade behavior, no work at construction, no downloads during checks, unsupported systems, explicit installation, cache reuse after restart, cancellation, incorrect checksums, ZIP path traversal and collisions between code/dependency archives. A desktop-only check exercises the real Windows preflight and native graphics probe using a local copy of the built dependencies. These fixtures are disposable runtime files, not synthetic music or artwork.
 
-Existing capture buffering, video protocol, frame pacing and music DSP are unchanged. The previously documented fullscreen throughput and intermittent capture limitations remain. Live GitHub installation for the future release, other Windows builds/GPUs and native non-Windows PiP remain unverified.
+Existing capture buffering, video protocol, frame pacing and music DSP are unchanged. Earlier fullscreen throughput measurements predate the user's reported FreeSync correction; the post-correction comparison remains pending. Intermittent capture limitations, other Windows builds/GPUs and native non-Windows PiP remain unverified. See `TESTING.md` for release validation; the opt-in `-PpipRuntimeIntegration -PdesktopIntegration` test exercises the real installer against the matching published archive.

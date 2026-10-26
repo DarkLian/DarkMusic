@@ -19,6 +19,30 @@ class PipRuntimeTest {
     @TempDir
     Path temp;
 
+    @Test
+    void publishedDependenciesInstallWithTheProductionTransport() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeTrue(Boolean.getBoolean("darkmusic.test.pipNetwork") && Boolean.getBoolean("darkmusic.test.desktop") && PipNativeTools.supported(), "Explicit live PiP runtime installation check");
+        String releaseJar = System.getProperty("darkmusic.test.pipReleaseJar", "");
+        assertFalse(releaseJar.isBlank(), "Supply -PpipRuntimeReleaseJar pointing to the downloaded release JAR");
+        // CI can use a different .NET patch. Verify the runtime pinned by the actual release, not a local rebuild.
+        try (var jar = new ZipFile(Path.of(releaseJar).toFile()); var runtime = new PipRuntime(temp, (name, max) -> {
+            var entry = jar.getEntry(PipRuntime.BASE.substring(1) + name);
+            if (entry == null) throw new IOException("Missing published PiP resource");
+            try (var input = jar.getInputStream(entry)) {
+                byte[] bytes = input.readNBytes(max + 1);
+                if (bytes.length > max) throw new IOException("Oversized published PiP resource");
+                return bytes;
+            }
+        }, com.darkmusic.client.download.ManagedTools::download, null, PipRuntime::graphics)) {
+            runtime.check().get(30, TimeUnit.SECONDS);
+            assertTrue(runtime.compatible(), runtime.status());
+            assertFalse(runtime.ready());
+            runtime.install().get(180, TimeUnit.SECONDS);
+            assertTrue(runtime.ready(), runtime.status());
+            assertTrue(Files.isRegularFile(runtime.executable()));
+        }
+    }
+
     @BeforeEach
     void canonicalFixtureDirectory() throws IOException {
         // macOS exposes its temporary directory through /var -> /private/var.

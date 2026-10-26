@@ -1,5 +1,15 @@
 # Development and verification
 
+## v3.0.1 release validation
+
+Clean Windows validation through `scripts/verify.ps1 -Clean -DesktopIntegration` passed **555 tests: 551 passed, four skipped**, zero failures/errors. Skips were the optional live-provider/tool-install/PiP-network checks and the linked-directory fixture because local symbolic-link creation was unavailable. Real private-collection, existing managed-tool and desktop runtime checks ran. Focused runtime checks passed after finalizing the opt-in network-test resource selection.
+
+The v3.0.1 base JAR, source JAR, third-party source ZIP and optional Windows dependency ZIP passed integrity checks. The dependency manifest matches its archive SHA-256/size; only DarkMusic helper code remains embedded. Runtime notices, source archive contents, 1,607 matching localization keys, private-media/smoke exclusions, workflow lint and whitespace checks passed. The local base JAR is approximately 4 MB; optional dependencies approximately 76 MB. CI runtime patches may alter exact artifact sizes and checksums.
+
+After publication, the explicit live check is `gradlew.bat test --tests '*PipRuntimeTest.publishedDependenciesInstallWithTheProductionTransport' -PdesktopIntegration -PpipRuntimeIntegration -PpipRuntimeReleaseJar=<downloaded-release.jar>`. It reads the manifest and code from the actual released JAR, uses the production download transport, installs into a disposable fixture and probes the real graphics device. It does not grant window/audio access or start capture. It is opt-in and does not run during ordinary tests. The published JAR is required because CI may use a different .NET patch from a local rebuild.
+
+The earlier fullscreen setup UI smoke remains applicable: no production UI/capture implementation changed for release preparation. Post-FreeSync Chrome/fullscreen throughput, other Windows builds/GPUs and native non-Windows PiP remain unverified; this release makes no new performance claim.
+
 ## Optional PiP runtime development
 
 The next-update packaging and consent flow is described in [optional PiP installation](PIP-OPTIONAL-INSTALLATION.md). `PipRuntimeTest` uses disposable runtime archives and injected transport for no-work construction, no-download checks, explicit install/cache reuse, checksum rejection, cancellation and unsupported systems. The desktop-only case runs the real Windows/WGC preflight and native graphics-device probe with a local copy of this build's dependency ZIP. `PipBundleTest` verifies that only DarkMusic helper code remains in the embedded archive and verifies the split extraction and notices. Upgraded PiP preferences retain appearance while new access fields default off.
