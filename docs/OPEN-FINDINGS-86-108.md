@@ -32,7 +32,10 @@ This review is against `d131066`, not a new release. The user authorized committ
 
 Focused regressions cover consent import/export, local lyric hygiene and compact persistence, recovery conflict archival and shared ownership, retry timing, metadata free-space bounds, receiver/codec Errors, equal-power coefficients, high-ratio filter response, stale receipts, failed staging cleanup, competing publication, and active-client leases. Existing integration checks use the private collection and managed tools through `scripts/verify.ps1 -DesktopIntegration`.
 
-No system settings, original collection files, capture consent, published assets or release tags were changed. Native macOS/Linux runtime, UWP process-audio routing, actual catastrophic out-of-memory recovery, fresh hosted CI, Minecraft GUI/long-session gameplay and post-FreeSync 144 FPS capture remain unverified for this patch. User manual checks should cover PiP installation/disable/re-enable, the lyric conflict action and playback/crossfade before a commit/release.
+No system settings, original collection files, capture consent, published assets or release tags were changed. Native macOS/Linux runtime, UWP process-audio routing, actual catastrophic out-of-memory recovery, Minecraft GUI/long-session gameplay and post-FreeSync 144 FPS capture remain unverified for this patch. User manual checks should cover PiP installation/disable/re-enable, the lyric conflict action and playback/crossfade before a commit/release.
 
 
 Windows verification completed with 572 tests (567 passed, five skipped), followed by final focused checks (17 passed, two skipped). See TESTING.md for the exact scope, fixture correction and skipped checks. No new release was requested.
+
+
+[Windows, macOS and Linux CI](https://github.com/DarkLian/DarkMusic/actions/runs/40254982912) passed for `1e46232`. Final assembled artifacts passed archive CRCs, helper/dependency checksum binding, licensing/source archives, localization parity and private/smoke-content exclusions. These are builds and package checks, not native macOS/Linux PiP runtime verification.

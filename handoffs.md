@@ -2,7 +2,7 @@
 
 ## Working agreement
 
-Codex and Claude take turns. Read this file and inspect `git status`/recent commits before editing. Preserve the other agent's changes; do not start overlapping work or force-push. Record completed work, verification, pending actions and limitations here before handing over. The user explicitly authorized release v3.0.1 in the latest request.
+Codex and Claude take turns. Read this file and inspect `git status`/recent commits before editing. Preserve the other agent's changes; do not start overlapping work or force-push. Record completed work, verification, pending actions and limitations here before handing over. The latest request authorizes the reviewed fixes and commit/push; no new release is requested.
 
 ## Open findings 86-108 - Codex, 2026-10-26
 
@@ -13,7 +13,7 @@ Codex and Claude take turns. Read this file and inspect `git status`/recent comm
 - Detailed disposition and verification limits: `docs/OPEN-FINDINGS-86-108.md` and `docs/TESTING.md`. 94/95 and 86 were already addressed. 93 retains full-file deletion identity checks deliberately. 100/UWP audio is a hypothesis, still unverified. 99/self-built release/archive binding is documented; confirmed runClient override remains. Legacy runtimes without leases are conservatively retained rather than guessing whether they are active.
 - No new Minecraft GUI smoke, actual catastrophic heap exhaustion, UWP/audio-host inference, native non-Windows runtime or post-FreeSync performance measurement. No original music, user configuration, system settings or published assets were changed.
 - **PiP tasks still pending since launch:** repeat Chrome 144 FPS source/WGC/native transfer/Java/upload measurement behind fullscreen after the user's FreeSync correction; repeat same-source OBS comparison; remeasure CPU/RAM/GPU cost under that corrected setup; use evidence to decide whether supported MinUpdateInterval=4 ms should become a shipping option/default; long-session/gameplay, focus/return, windowed/fullscreen/minimize, multiple browser processes/tabs, audio-device changes and HDR/multi-monitor/other-GPU validation; verify hosted/UWP process-audio routing. Native macOS/Linux PiP is unsupported and needs a separate platform implementation if desired.
-- Code/documentation changes are ready for the user's authorized commit/push. Do not create another release without a request. Preserve earlier cleanup restrictions and private evidence below.
+- Code/documentation committed and pushed as `1e46232`. Windows, macOS and Linux CI all passed: https://github.com/DarkLian/DarkMusic/actions/runs/40254982912 . Final local assembly/package checks also passed (1,611 matching language keys, split archive checksums/CRCs/licenses, private/smoke exclusions). No new release/tag. The only unstaged file is the user-provided review. Preserve earlier cleanup restrictions and private evidence below.
 
 ## Confirmed runClient installer correction - Codex
 
