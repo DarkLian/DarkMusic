@@ -1,6 +1,8 @@
 # PiP performance checkpoint
 
-Development preview, October 26, 2026. **The 144 FPS PiP target is not met.**
+**Superseded in part (October 26, 2026).** A Chrome retest after the system-wide AMD FreeSync/Adaptive Sync correction measured the shipping default at about **48 FPS** and an experimental 4 ms interval at about **143 FPS received** in both borderless and exclusive fullscreen. It did **not** reproduce the exclusive-fullscreen drop recorded below. The figures here came from a different source application, with exclusive fullscreen forced by the test harness and before the FreeSync correction; which of those caused the difference is not established. See [PiP Chrome retest](TESTING.md#pip-chrome-retest-after-the-freesync-correction).
+
+Development preview, October 26, 2026. **The shipping default does not reach 144 FPS.**
 The later [WGC investigation](PIP-WGC-INVESTIGATION.md) isolates the default
 16 ms capture interval and a separate exclusive-fullscreen pacing limit. It
 demonstrates 144 FPS reception in windowed mode; the resource figures below

@@ -24,6 +24,10 @@ final class PipSmoothClient {
     private PipSetupSmoke setupCheck;
     private String phase = "manual";
     private long lastReceived, lastUpload, lastRender, draws, diagnosticDrops;
+    private final String sourceTitle = System.getProperty("darkmusic.pipSourceTitle", "");
+    private int joinedTick;
+    private boolean selecting;
+    private int refocuses;
 
     void start() {
         Thread.ofPlatform().daemon().name("pip-smoke-metrics").start(() -> {
@@ -68,6 +72,60 @@ final class PipSmoothClient {
         lastRender = now;
     }
 
+    /**
+     * Disposable copy of an existing development world, so the shared run folder is never opened.
+     */
+    private void joinBenchmarkWorld(Minecraft mc) throws java.io.IOException {
+        var source = Path.of(System.getProperty("darkmusic.pipWorldSource"));
+        var target = mc.gameDirectory.toPath().resolve("saves").resolve("PipBenchmark");
+        if (!Files.exists(target)) try (var paths = Files.walk(source)) {
+            for (var path : (Iterable<Path>) paths::iterator) {
+                var copy = target.resolve(source.relativize(path).toString());
+                if (Files.isDirectory(path)) Files.createDirectories(copy);
+                else Files.copy(path, copy);
+            }
+        }
+        mc.createWorldOpenFlows().openWorld("PipBenchmark", () -> {
+        });
+    }
+
+    /**
+     * Consents inside this isolated instance only, using this build's own verified dependency archive.
+     */
+    private void titledSource(Minecraft mc, DarkMusicClient app) {
+        if (mc.level == null) return;
+        if (joinedTick == 0) joinedTick = ticks;
+        if (selecting || ticks - joinedTick < 200 || !Files.exists(folder.resolve("select-fixture"))) return;
+        selecting = true;
+        var setup = app.pip.tools.runtime;
+        app.settings.pip.enabled = true;
+        note("select-start");
+        setup.check().thenCompose(done -> {
+                note("checked ready=" + setup.ready() + " status=" + setup.status());
+                return setup.ready() ? CompletableFuture.<Void>completedFuture(null) : setup.install();
+            })
+            .thenCompose(done -> app.pip.tools.windows(new com.darkmusic.client.download.ProcessRunner.Token()))
+            .thenAccept(sources -> mc.execute(() -> {
+                var matches = sources.stream().filter(s -> s.Title().contains(sourceTitle)).toList();
+                note("windows=" + sources.size() + " matches=" + matches.size());
+                if (matches.size() != 1)
+                    throw new IllegalStateException("Expected one window titled " + sourceTitle + ", found " + matches.size());
+                app.pip.select(matches.getFirst());
+                mc.gui.setScreen(null);
+            })).exceptionally(failure -> {
+                note("failed " + failure);
+                failure.printStackTrace();
+                return null;
+            });
+    }
+
+    private void note(String text) {
+        try {
+            Files.writeString(folder.resolve("select.log"), System.currentTimeMillis() + " " + text + System.lineSeparator(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (java.io.IOException ignored) {
+        }
+    }
+
     private void offer(String line) {
         if (!measurements.offer(line)) diagnosticDrops++;
     }
@@ -93,8 +151,9 @@ final class PipSmoothClient {
                     app.playback.repeat(PlaybackController.Repeat.ONE);
                     app.playback.play(List.of(track), track);
                 }
-                mc.gui.setScreen(new PipScreen(app, null));
-                if (Boolean.getBoolean("darkmusic.pipBenchmark") && Files.exists(folder.resolve("select-fixture")))
+                if (!sourceTitle.isEmpty()) joinBenchmarkWorld(mc);
+                else mc.gui.setScreen(new PipScreen(app, null));
+                if (sourceTitle.isEmpty() && Boolean.getBoolean("darkmusic.pipBenchmark") && Files.exists(folder.resolve("select-fixture")))
                     app.pip.tools.windows(new com.darkmusic.client.download.ProcessRunner.Token()).thenAccept(sources -> mc.execute(() -> {
                         var fixtures = sources.stream().filter(s -> s.App().equals("DarkMusic.Pip.BenchmarkSource")).toList();
                         if (fixtures.size() != 1)
@@ -103,6 +162,17 @@ final class PipSmoothClient {
                         mc.gui.setScreen(new com.darkmusic.client.gui.PipEditorScreen(app, new PipScreen(app, null), false));
                     }));
                 stage = 2;
+            }
+            if (stage == 2 && !sourceTitle.isEmpty()) {
+                mc.getFramerateLimitTracker().onInputReceived();
+                mc.options.pauseOnLostFocus = false;
+                if (GLFW.glfwGetWindowAttrib(mc.getWindow().handle(), GLFW.GLFW_ICONIFIED) == GLFW.GLFW_TRUE) {
+                    GLFW.glfwRestoreWindow(mc.getWindow().handle());
+                    GLFW.glfwFocusWindow(mc.getWindow().handle());
+                    refocuses++;
+                }
+                if (mc.gui.screen() instanceof net.minecraft.client.gui.screens.PauseScreen) mc.gui.setScreen(null);
+                titledSource(mc, app);
             }
             if (stage == 2 && Files.exists(folder.resolve("check-spectrum"))) {
                 if (spectrumCheck == null) spectrumCheck = new PipSpectrumSmoke();
@@ -129,7 +199,7 @@ final class PipSmoothClient {
                 var audio = app.playback.state();
                 var capturedAudio = app.pip.audio();
                 offer("{\"kind\":\"capture\",\"epochMillis\":" + System.currentTimeMillis() + ",\"phase\":\"" + phase + "\",\"received\":" + app.pip.received() + ",\"uploaded\":" + app.pip.uploaded() + ",\"audioPackets\":" + (capturedAudio == null ? 0 : capturedAudio.packets()) + ",\"audioStatus\":\"" + (capturedAudio == null ? "off" : capturedAudio.status()) + "\",\"world\":" + (mc.level != null) + ",\"screen\":\"" + (mc.gui.screen() == null ? "HUD" : mc.gui.screen().getClass().getSimpleName()) + "\"}");
-                offer("{\"kind\":\"state\",\"nanos\":" + System.nanoTime() + ",\"status\":\"" + audio.status() + "\",\"position\":" + audio.position() + ",\"draws\":" + draws + ",\"uploads\":" + app.pip.uploaded() + ",\"dropped\":" + app.pip.dropped() + ",\"pip\":\"" + app.pip.status() + "\",\"focusSuccesses\":" + app.pip.focusSuccesses() + ",\"focusFailures\":" + app.pip.focusFailures() + ",\"fullscreen\":" + mc.getWindow().isFullscreen() + ",\"monitor\":" + GLFW.glfwGetWindowMonitor(mc.getWindow().handle()) + ",\"diagnosticDrops\":" + diagnosticDrops + "}");
+                offer("{\"kind\":\"state\",\"nanos\":" + System.nanoTime() + ",\"status\":\"" + audio.status() + "\",\"position\":" + audio.position() + ",\"draws\":" + draws + ",\"uploads\":" + app.pip.uploaded() + ",\"dropped\":" + app.pip.dropped() + ",\"pip\":\"" + app.pip.status() + "\",\"focusSuccesses\":" + app.pip.focusSuccesses() + ",\"focusFailures\":" + app.pip.focusFailures() + ",\"fullscreen\":" + mc.getWindow().isFullscreen() + ",\"exclusive\":" + SmokeUi.field(mc.getWindow(), "exclusiveFullscreen") + ",\"refocuses\":" + refocuses + ",\"throttle\":\"" + mc.getFramerateLimitTracker().getThrottleReason() + "\",\"monitor\":" + GLFW.glfwGetWindowMonitor(mc.getWindow().handle()) + ",\"diagnosticDrops\":" + diagnosticDrops + "}");
             }
             if (stage == 2 && (Files.exists(folder.resolve("stop-minecraft")) || ticks > 36000)) {
                 closed = true;

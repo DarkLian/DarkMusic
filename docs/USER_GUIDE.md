@@ -52,9 +52,10 @@ The frame limit caps capture, without generating additional video frames. Higher
 limits increase processing and memory traffic. Actual smoothness depends on the
 source, Minecraft's frame rate and the display. Captures are limited to 3840×2160.
 Linux/macOS capture, protected content, HDR, elevated apps and all multi-monitor
-combinations are not supported or verified. The default capture path measured
-about 47 FPS behind exclusive-fullscreen Minecraft on the tested system; selecting
-144 FPS does not guarantee 144 captured frames. See the
+combinations are not supported or verified. On the tested system, the default
+capture path delivered about 48 FPS from a 144 FPS Chrome source in both borderless
+and exclusive fullscreen; selecting 144 FPS does not guarantee 144 captured frames,
+because Windows limits how often it delivers new window frames. See the
 [verification record](PIP-VERIFICATION.md) and [capture investigation](PIP-WGC-INVESTIGATION.md).
 
 **Screen tearing in exclusive fullscreen.** On one tested system (144 Hz, VSync off, 140 FPS cap), visible tearing across the whole screen appeared in menus such as the inventory and the PiP layout editor while PiP was capturing, with Minecraft in **Exclusive** fullscreen and no other mods. Borderless and Windowed did not show it. PiP settings now show a warning when exclusive fullscreen is on. If you see tearing, change the fullscreen mode in Video Settings. Turning VSync on did not fix it. The cause is not fully established, and other graphics hardware has not been tested.

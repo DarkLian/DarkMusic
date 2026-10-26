@@ -72,6 +72,7 @@ def downloadToolsDirectory = file(providers.gradleProperty('downloadToolsDirecto
 if (providers.gradleProperty('smoke').isPresent()) {
     def pipSmoke = providers.gradleProperty('pipSmoke').isPresent()
     def vanillaFontSmoke = providers.gradleProperty('vanillaFontSmoke').isPresent()
+    def smokeExclusive = providers.gradleProperty('smokeBorderless').isPresent() ? 'false' : 'true'
     def visualSmoke = ['visualSmoke', 'captureMusic', 'previewSmoke', 'advancedSmoke', 'queueSmoke', 'cleanupSmoke', 'lyricsSmoke', 'pipSmoke'].any { providers.gradleProperty(it).isPresent() } && !vanillaFontSmoke
     def smokeFont = file(providers.gradleProperty('smokeFont').getOrElse('run/resourcepacks/SmoothFont_1.21.zip'))
     sourceSets {
@@ -87,6 +88,8 @@ if (providers.gradleProperty('smoke').isPresent()) {
                 client()
                 vmArg "-Ddarkmusic.pipSmoke=${providers.gradleProperty('pipSmoke').isPresent()}"
                 vmArg "-Ddarkmusic.pipBenchmark=${providers.gradleProperty('pipBenchmark').isPresent()}"
+                if (providers.gradleProperty('pipSourceTitle').isPresent()) vmArg "-Ddarkmusic.pipSourceTitle=${providers.gradleProperty('pipSourceTitle').get()}"
+                if (providers.gradleProperty('pipWorldSource').isPresent()) vmArg "-Ddarkmusic.pipWorldSource=${file(providers.gradleProperty('pipWorldSource').get()).absolutePath}"
                 vmArg "-Ddarkmusic.pipDependencies=${file("build/libs/darkmusic-pip-dependencies-${project.version}-windows-x64.zip").absolutePath}"
                 if (providers.gradleProperty('pipTrace').isPresent()) vmArg "-Ddarkmusic.pip.trace=${file(providers.gradleProperty('pipTrace').get()).absolutePath}"
                 vmArg "-Ddarkmusic.pipFolder=${file(providers.gradleProperty('pipFolder').getOrElse('.local-tools/verification/pip-integrated')).absolutePath}"
@@ -128,7 +131,7 @@ if (providers.gradleProperty('smoke').isPresent()) {
             else logger.lifecycle('SmoothFont unavailable: running functional smoke checks with the vanilla font; visual captures remain disabled.')
             def options = new File(runFolder, 'options.txt')
             def values = options.isFile() ? options.readLines('UTF-8') : []
-            def display = [guiScale: '2', overrideWidth: '1280', overrideHeight: '720', fullscreen: 'true', exclusiveFullscreen: 'true', fullscreenResolution: pipSmoke ? '1920x1080@144:24' : '1920x1080@60:24', resourcePacks: font.isFile() && !vanillaFontSmoke ? '["vanilla","file/SmoothFont_1.21.zip"]' : '["vanilla"]', incompatibleResourcePacks: font.isFile() && !vanillaFontSmoke ? '["file/SmoothFont_1.21.zip"]' : '[]']
+            def display = [guiScale: '2', overrideWidth: '1280', overrideHeight: '720', fullscreen: 'true', exclusiveFullscreen: smokeExclusive, fullscreenResolution: pipSmoke ? '1920x1080@144:24' : '1920x1080@60:24', resourcePacks: font.isFile() && !vanillaFontSmoke ? '["vanilla","file/SmoothFont_1.21.zip"]' : '["vanilla"]', incompatibleResourcePacks: font.isFile() && !vanillaFontSmoke ? '["file/SmoothFont_1.21.zip"]' : '[]']
             if (smokeLanguage != null) display.lang = smokeLanguage
             values = values.findAll { !display.containsKey(it.takeWhile { c -> c != ':' }) }
             display.each { key, value -> values.add("$key:$value") }

@@ -29,7 +29,7 @@ The matching dependency ZIP accompanies the v3.0.1 GitHub release. Use the in-ga
 
 Tests cover default-off upgrade behavior, no work at construction, no downloads during checks, unsupported systems, explicit installation, cache reuse after restart, cancellation, incorrect checksums, ZIP path traversal and collisions between code/dependency archives. A desktop-only check exercises the real Windows preflight and native graphics probe using a local copy of the built dependencies. These fixtures are disposable runtime files, not synthetic music or artwork.
 
-Existing capture buffering, video protocol, frame pacing and music DSP are unchanged. Earlier fullscreen throughput measurements predate the user's reported FreeSync correction; the post-correction comparison remains pending. Intermittent capture limitations, other Windows builds/GPUs and native non-Windows PiP remain unverified. See `TESTING.md` for release validation; the opt-in `-PpipRuntimeIntegration -PdesktopIntegration` test exercises the real installer against the matching published archive.
+Existing capture buffering, video protocol, frame pacing and music DSP are unchanged. Earlier fullscreen throughput measurements predate the system-wide AMD FreeSync correction; a later Chrome retest is recorded in `TESTING.md` and measured about 48 FPS at the default interval. Intermittent capture limitations, other Windows builds/GPUs and native non-Windows PiP remain unverified. See `TESTING.md` for release validation; the opt-in `-PpipRuntimeIntegration -PdesktopIntegration` test exercises the real installer against the matching published archive.
 
 
 ## Development runs

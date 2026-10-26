@@ -1,5 +1,7 @@
 # WGC frame-rate investigation
 
+**Superseded in part (October 26, 2026).** A Chrome retest after the system-wide AMD FreeSync/Adaptive Sync correction measured the shipping default at about **48 FPS** and an experimental 4 ms interval at about **143 FPS received** in both borderless and exclusive fullscreen. It did **not** reproduce the exclusive-fullscreen drop recorded below. The figures here came from a different source application, with exclusive fullscreen forced by the test harness and before the FreeSync correction; which of those caused the difference is not established. See [PiP Chrome retest](TESTING.md#pip-chrome-retest-after-the-freesync-correction).
+
 October 26, 2026, measurements made in the 3.0 development workspace before release preparation. Measurements precede any capture architecture change. **144 FPS capture is demonstrated in isolation and with windowed Minecraft, but is not achieved behind exclusive-fullscreen Minecraft on this machine.**
 
 ## Findings

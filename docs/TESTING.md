@@ -1,6 +1,23 @@
 # Development and verification
 
 
+## PiP Chrome retest after the FreeSync correction
+
+October 26, 2026, Windows 11 build 26300, Ryzen 7 7800X3D, Radeon RX 9060 XT, 144 Hz display. The user reported fixing the system-wide AMD FreeSync/Adaptive Sync problem that had capped frame rates across applications; the earlier PiP measurements were taken before that correction.
+
+The source was a disposable Chrome window (throwaway profile) drawing real artwork from the private collection, shifted by one pixel every frame, with its own paint counter. Chrome painted 143-144 frames per second throughout, including while Minecraft covered it, so Chrome did not throttle the covered window. Minecraft ran fullscreen at 1920x1080, GUI scale 2, SmoothFont, VSync off and a 144 FPS cap, in a disposable copy of an existing development world, with PiP audio and music off. The live window state was logged during each run. The test harness previously forced exclusive fullscreen for every run; `-PsmokeBorderless` now selects borderless.
+
+| Mode | Capture interval | Received FPS | Uploaded FPS | Minecraft FPS |
+|---|---|---:|---:|---:|
+| Borderless | default | 48.0 | 48.0 | 139.1 |
+| Borderless | 4 ms | 144.0 | 134.9 | 139.0 |
+| Exclusive | default | 47.9 | 47.9 | 139.0 |
+| Exclusive | 4 ms | 142.6 | 132.9 | 139.0 |
+
+Rates trim the first 3 and last 1 seconds of 33-47 second phases; there was no frame-rate throttling in any measured window. The default 16 ms Windows capture interval limits delivery to about 48 FPS. The experimental 4 ms interval reached about 143-144 FPS received; uploads are bounded by Minecraft's roughly 139 FPS render rate, with 320-346 frames replaced by newer ones. The earlier drop to about 66 FPS behind exclusive fullscreen was **not reproduced**; the source application, the harness forcing exclusive fullscreen and the FreeSync problem all differ from the earlier runs, and which one explained the difference is not established.
+
+Not measured: visual tearing, CPU/RAM/GPU cost, other sources, other GPUs, long sessions, or any change to shipped behavior. The shipping default interval and the experimental 4 ms override are unchanged. Two earlier exclusive attempts were discarded when the window lost focus and minimized; the harness now restores it and clears the pause screen. Logs are under ignored `.local-tools/verification/pip-chrome-retest/`; derived media and the Chrome profile were deleted.
+
 ## v3.0.3 release validation
 
 Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed **589 tests: 584 passed, five skipped**, zero failures/errors, using the private collection and existing managed tools. The four local release archives built. The change adds only a PiP settings warning for exclusive fullscreen, with English and Traditional Chinese text; localization parity and menu layout tests passed.
