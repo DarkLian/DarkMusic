@@ -516,3 +516,16 @@ In Settings → HUD, a labeled **Main Menu Progress Preview** appears below the 
 Spectrum controls include Band Count (frequency detail), height, smoothing, sensitivity, colors, finish, and independent peak/trail/glow controls. **Spectrum Opacity** fades faces, peak markers, trails, and glow together in the main player and every HUD; it defaults to 100% and leaves artwork and progress opacity alone. Curve styles also expose **Curve Detail**, from 96 to 384 rendering segments. This smooths the drawn contour without adding analyzed frequency bands; bar styles use Band Count instead.
 
 Rounded Bars uses rounded peak markers that appear only when more than two GUI pixels above the live bar. Circular markers have a fixed thin radial thickness instead of tracing the entire curved cap. Existing peak-hold and decay timing is preserved.
+
+
+## Reliability in v3.0.2
+
+PiP drops mismatched resize frames instead of ending capture. If its optional audio route fails, it can retry twice without stopping video. A persistent audio error leaves video available; restarting PiP starts a fresh attempt. Unsupported audio capture does not repeatedly retry.
+
+Unused PiP dependencies and abandoned installation work become eligible for cleanup after 24 hours. Files in use are retained. If another Minecraft client is installing PiP, setup reports that contention separately from a download failure.
+
+Library status and Manage Audio Files show how many metadata recovery folders need review. These folders can contain retained originals: inspect them before manual cleanup. DarkMusic never automatically deletes their recovery audio.
+
+Portable backups preserve this installation's existing online-lookup and PiP access permissions. Restoring a backup does not grant capture/audio access or change those permissions.
+
+A downloader bot-verification response has its own explanation rather than being labeled a private video. It is not automatically retried or bypassed; Error Details offers relevant tool guidance and manual retry.

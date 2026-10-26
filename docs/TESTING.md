@@ -1,5 +1,18 @@
 # Development and verification
 
+
+## v3.0.2 release validation
+
+Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed **589 tests: 584 passed, five skipped**, zero failures/errors, using the private collection and existing managed tools. The skips are optional live tool installation, live LRCLIB, two unavailable Windows symlink fixtures and explicit live-release PiP installation. Originals remained unchanged; verification excerpts were cleaned.
+
+English and Traditional Chinese native lyrics/player smoke runs passed at fullscreen 1920x1080, configured/effective GUI scale 2 with SmoothFont. They exercised actual playback, pause/seek/speed, timed/plain lyrics, Up Next isolation, waveform progress, artwork fallback, rounded spectra, compact/wide layouts and independent lyric HUD placement. The generic legacy player smoke initially failed because its isolated configuration lacked tools for this Opus-only collection; the current localized harness explicitly configures the existing managed tools and passed. No blanket pass is claimed for the generic harness.
+
+The native PiP setup smoke also passed: requirements checks, canceled installation/access/audio prompts, cached dependency verification, explicit access and revocation, without window enumeration or starting capture. Its display used the same fullscreen 1920x1080, GUI scale 2 and SmoothFont.
+
+The four local release archives passed CRC/integrity, packaged version, helper/dependency manifest and checksum binding, runtime/application separation, notices/source archives, 1,617-key localization parity and private/smoke exclusions. Workflow lint and whitespace checks passed. Recent native WGC resilience probes are recorded in [findings 122-127](OPEN-FINDINGS-122-127.md).
+
+No post-FreeSync fullscreen 144 FPS/resource benchmark, real-device COM/write-stall audio recovery, live website bot-check or native non-Windows PiP validation was performed. PiP remains Windows-only. Optional dither remains deferred.
+
 ## v3.0.1 release validation
 
 Clean Windows validation through `scripts/verify.ps1 -Clean -DesktopIntegration` passed **555 tests: 551 passed, four skipped**, zero failures/errors. Skips were the optional live-provider/tool-install/PiP-network checks and the linked-directory fixture because local symbolic-link creation was unavailable. Real private-collection, existing managed-tool and desktop runtime checks ran. Focused runtime checks passed after finalizing the opt-in network-test resource selection.

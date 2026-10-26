@@ -6,9 +6,9 @@ A client-side music player for Minecraft. Browse your own library, build playlis
 
 ## Install
 
-DarkMusic **v3.0.1** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v3.0.2** targets **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-3.0.1.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-3.0.2.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Open **Settings → General → Music Folders**, or add songs to `config/darkmusic/music` inside the instance.
@@ -26,6 +26,10 @@ Move, resize and crop the view, adjust its opacity, and use **Ctrl+Alt+F8** to o
 Turn on the optional **PiP Audio Spectrum** to visualize the application's audio, with its own styles, colors, effects and placement. Sound continues through the source application, independently of DarkMusic playback. Browser process sharing can include audio from other tabs.
 
 PiP smoothness depends on Windows, the source and Minecraft. A high frame limit does not guarantee that capture rate. Earlier measurements found about **47 FPS behind fullscreen Minecraft** on the tested system; experimental 4 ms capture reached 144 FPS in windowed mode. These measurements predate a user-reported FreeSync correction, which has not yet been retested. See [verification](docs/PIP-VERIFICATION.md), [resource measurements](docs/PIP-PERFORMANCE.md), and the [WGC investigation](docs/PIP-WGC-INVESTIGATION.md). PiP capture is Windows-only; the music player remains available on Linux and macOS.
+
+## New in v3.0.2
+
+More reliable PiP resizing and audio-spectrum recovery, smoother playback transitions and sound-environment adjustments, and less disruptive library monitoring. Optional PiP files are cleaned up more reliably, and recovery folders are now visible in library status. See the [release notes](docs/RELEASE-3.0.2.md).
 
 ## Updates
 
