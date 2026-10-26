@@ -4,6 +4,7 @@ using System.IO.Pipes;
 internal static class CaptureReliabilityTests {
     internal static bool Run(){
         if(!CaptureBounds.Matches(64,48,64,48)||CaptureBounds.Matches(32,24,64,48)||CaptureBounds.Matches(128,96,64,48))return false;
+        if(CaptureInterval.TicksFor(144)!=34_722||CaptureInterval.TicksFor(60)!=83_333||CaptureInterval.TicksFor(15)!=160_000||CaptureInterval.TicksFor(480)!=10_417)return false;
         var reports=new List<string>();int calls=0;
         Func<int,CancellationToken,Task> noWait=(_,_)=>Task.CompletedTask;
         AudioRecovery.Run(_=>{calls++;throw new IOException("injected audio failure");},CancellationToken.None,(kind,_)=>reports.Add(kind),noWait).GetAwaiter().GetResult();

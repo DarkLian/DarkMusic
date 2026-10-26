@@ -88,6 +88,7 @@ if (providers.gradleProperty('smoke').isPresent()) {
                 client()
                 vmArg "-Ddarkmusic.pipSmoke=${providers.gradleProperty('pipSmoke').isPresent()}"
                 vmArg "-Ddarkmusic.pipBenchmark=${providers.gradleProperty('pipBenchmark').isPresent()}"
+                if (providers.gradleProperty('pipFrameRate').isPresent()) vmArg "-Ddarkmusic.pipFrameRate=${providers.gradleProperty('pipFrameRate').get()}"
                 if (providers.gradleProperty('pipSourceTitle').isPresent()) vmArg "-Ddarkmusic.pipSourceTitle=${providers.gradleProperty('pipSourceTitle').get()}"
                 if (providers.gradleProperty('pipWorldSource').isPresent()) vmArg "-Ddarkmusic.pipWorldSource=${file(providers.gradleProperty('pipWorldSource').get()).absolutePath}"
                 vmArg "-Ddarkmusic.pipDependencies=${file("build/libs/darkmusic-pip-dependencies-${project.version}-windows-x64.zip").absolutePath}"

@@ -6,7 +6,10 @@ using Windows.Graphics.Capture;
 // IGraphicsCaptureSession5: Microsoft win32metadata windows.graphics.capture.h.
 internal static class CaptureInterval {
     internal sealed record Result(bool Supported,long BeforeTicks,long EffectiveTicks,int Error);
-    internal static unsafe Result Inspect(GraphicsCaptureSession session,int? milliseconds) {
+    // Half the frame limit's period, so composition jitter cannot cost frames; FramePacer enforces the limit itself.
+    // Never slower than Windows' default of 16 ms, and never below 1 ms.
+    internal static long TicksFor(int frameRate)=>Math.Clamp((long)Math.Round(5_000_000.0/frameRate),10_000L,160_000L);
+    internal static unsafe Result Inspect(GraphicsCaptureSession session,long? ticks) {
         if(!ApiInformation.IsPropertyPresent("Windows.Graphics.Capture.GraphicsCaptureSession","MinUpdateInterval"))
             return new(false,-1,-1,0);
         IntPtr inspect=IntPtr.Zero,extension=IntPtr.Zero;
@@ -19,7 +22,7 @@ internal static class CaptureInterval {
             var set=(delegate* unmanaged[Stdcall]<IntPtr,long,int>)Marshal.ReadIntPtr(table,7*IntPtr.Size);
             long before=0,after=0;
             Marshal.ThrowExceptionForHR(get(extension,&before));
-            if(milliseconds.HasValue)Marshal.ThrowExceptionForHR(set(extension,TimeSpan.FromMilliseconds(milliseconds.Value).Ticks));
+            if(ticks.HasValue)Marshal.ThrowExceptionForHR(set(extension,ticks.Value));
             Marshal.ThrowExceptionForHR(get(extension,&after));
             return new(true,before,after,0);
         } catch(Exception ex) { return new(true,-1,-1,ex.HResult); }

@@ -82,8 +82,8 @@ internal sealed class CaptureHost : Form {
             item.Closed+=(_,_)=>Finish("source_closed");
             pool=Direct3D11CaptureFramePool.CreateFreeThreaded(device,DirectXPixelFormat.B8G8R8A8UIntNormalized,2,item.Size);
             pool.FrameArrived+=FrameArrived;session=pool.CreateCaptureSession(item);session.IsCursorCaptureEnabled=false;
-            // Leave shipping behavior unchanged; only the explicit diagnostic override requests 4 ms.
-            int? interval=Environment.GetEnvironmentVariable("DARKMUSIC_PIP_MIN_INTERVAL_MS")=="4"?4:null;
+            // The default 16 ms interval caps delivery near 48 FPS on a 144 Hz display, so follow the chosen limit; 4 ms stays a diagnostic override.
+            long? interval=Environment.GetEnvironmentVariable("DARKMUSIC_PIP_MIN_INTERVAL_MS")=="4"?40_000:CaptureInterval.TicksFor(cap);
             var intervalResult=CaptureInterval.Inspect(session,interval);
             trace?.Add("interval",intervalResult.Supported?1:0,intervalResult.Error,intervalResult.BeforeTicks,intervalResult.EffectiveTicks);
             trace?.Add("clock",0,0,UnixMicros(),Stopwatch.Frequency);

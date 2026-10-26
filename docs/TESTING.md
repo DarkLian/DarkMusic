@@ -16,7 +16,22 @@ The source was a disposable Chrome window (throwaway profile) drawing real artwo
 
 Rates trim the first 3 and last 1 seconds of 33-47 second phases; there was no frame-rate throttling in any measured window. The default 16 ms Windows capture interval limits delivery to about 48 FPS. The experimental 4 ms interval reached about 143-144 FPS received; uploads are bounded by Minecraft's roughly 139 FPS render rate, with 320-346 frames replaced by newer ones. The earlier drop to about 66 FPS behind exclusive fullscreen was **not reproduced**; the source application, the harness forcing exclusive fullscreen and the FreeSync problem all differ from the earlier runs, and which one explained the difference is not established.
 
-Not measured: visual tearing, CPU/RAM/GPU cost, other sources, other GPUs, long sessions, or any change to shipped behavior. The shipping default interval and the experimental 4 ms override are unchanged. Two earlier exclusive attempts were discarded when the window lost focus and minimized; the harness now restores it and clears the pause screen. Logs are under ignored `.local-tools/verification/pip-chrome-retest/`; derived media and the Chrome profile were deleted.
+Not measured: visual tearing, CPU/RAM/GPU cost, other sources, other GPUs or long sessions. These runs used the v3.0.3 default interval and the experimental 4 ms override. Two earlier exclusive attempts were discarded when the window lost focus and minimized; the harness now restores it and clears the pause screen. Logs are under ignored `.local-tools/verification/pip-chrome-retest/`; derived media and the Chrome profile were deleted.
+
+## v3.0.4 release validation
+
+Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed **589 tests: 584 passed, five skipped**, zero failures/errors, using the private collection and existing managed tools. The four local release archives built; the dependency ZIP is byte-identical to v3.0.3. The helper self-test covers the new interval values, and the live measurements are in the next section. English and Traditional Chinese native playback/HUD smoke runs were not repeated for this release; the user-facing change is in the PiP capture helper only.
+
+## PiP capture interval following the frame limit (v3.0.4)
+
+The helper now requests a minimum update interval of half the frame limit's period, clamped between 1 ms and Windows' 16 ms default; the 4 ms diagnostic override remains. Same machine, Chrome source and fullscreen 1920x1080, GUI scale 2, SmoothFont, VSync off, 144 FPS Minecraft cap, with the live state confirming **exclusive** fullscreen and no throttling:
+
+| Frame limit | Interval requested | Received FPS | Uploaded FPS | Minecraft FPS |
+|---|---|---:|---:|---:|
+| 144 | 3.47 ms | 142.7 | 132.9 | 139.0 |
+| 60 | 8.33 ms | 60.0 | 60.0 | 139.0 |
+
+Chrome painted about 143 frames per second in both runs, so 142.7 received is source-limited. The 60 FPS limit stayed at 60 with no replaced frames, so the frame pacer still enforces the limit. Not measured: borderless with the new interval, CPU/RAM/GPU cost, visual tearing, other Windows builds, GPUs or sources, and long sessions. The helper self-test checks the interval values for 15, 60, 144 and 480 FPS.
 
 ## v3.0.3 release validation
 

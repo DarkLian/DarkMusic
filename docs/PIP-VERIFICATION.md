@@ -151,7 +151,7 @@ skipped), followed by a successful preview assembly. Real process-loopback audio
 and an independently driven spectrum were checked, including stop/restart. A
 status-row null dereference found when stopping was fixed and retested.
 
-The fullscreen 144 FPS target is **not met by the shipping default**. A later Chrome retest after the AMD FreeSync correction measured about 48 FPS at the default interval and about 143 FPS received at 4 ms, in both borderless and exclusive fullscreen ([details](TESTING.md#pip-chrome-retest-after-the-freesync-correction)). The earlier measurement below used a different source: measured source presentation was
+The fullscreen 144 FPS target is **not met by the v3.0.3 default** (v3.0.4 follows the frame limit; see the retest). A later Chrome retest after the AMD FreeSync correction measured about 48 FPS at the default interval and about 143 FPS received at 4 ms, in both borderless and exclusive fullscreen ([details](TESTING.md#pip-chrome-retest-after-the-freesync-correction)). The earlier measurement below used a different source: measured source presentation was
 approximately 144 FPS, Minecraft approximately 139 FPS, and PiP approximately
 47 FPS. See [performance measurements](PIP-PERFORMANCE.md) for CPU, RAM, GPU,
 methodology and exclusions. Sustained/browser equivalence remains unverified.

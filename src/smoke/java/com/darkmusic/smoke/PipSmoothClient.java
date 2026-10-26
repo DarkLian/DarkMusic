@@ -190,7 +190,7 @@ final class PipSmoothClient {
                         phase = requested;
                         if (requested.equals("video4")) System.setProperty("darkmusic.pip.minIntervalMs", "4");
                         else System.clearProperty("darkmusic.pip.minIntervalMs");
-                        app.settings.pip.frameRate = 144;
+                        app.settings.pip.frameRate = Integer.getInteger("darkmusic.pipFrameRate", 144);
                         app.settings.pip.audioSpectrum = requested.equals("audio");
                         if (!requested.equals("off")) app.pip.start();
                         lastReceived = lastUpload = 0;
