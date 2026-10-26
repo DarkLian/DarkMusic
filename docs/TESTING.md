@@ -9,6 +9,8 @@ All four local archives passed CRC, version, embedded helper/dependency hashes, 
 
 English and Traditional Chinese native player/lyrics/HUD smoke checks passed at fullscreen 1920x1080, configured/effective GUI scale 2, with SmoothFont and actual device playback. Online lyric access was disabled for deterministic checks. No new public screenshots were taken.
 
+Publication verification: [release workflow 40296945963](https://github.com/DarkLian/DarkMusic/actions/runs/40296945963) passed Windows, Linux and macOS builds/tests. All four actual GitHub release assets were downloaded, matched against their published SHA-256 digests and checked for package integrity. The published mod JAR is 4,055,313 bytes (platform build packaging differs from the local JAR). The production-transport PiP installation test passed separately: one test, zero skips/failures, using the published JAR and its matching dependency ZIP in a disposable installation. This verifies dependency retrieval, validation, installation and graphics probing; it does not grant capture consent or test additional live applications.
+
 ## PiP Chrome retest after the FreeSync correction
 
 October 26, 2026, Windows 11 build 26300, Ryzen 7 7800X3D, Radeon RX 9060 XT, 144 Hz display. The user reported fixing the system-wide AMD FreeSync/Adaptive Sync problem that had capped frame rates across applications; the earlier PiP measurements were taken before that correction.
