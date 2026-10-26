@@ -1,5 +1,14 @@
 # Development and verification
 
+## v3.1.2: Cubes Without Borders conflict and exclusive-fullscreen warning
+
+Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed **609 tests: 603 passed, six optional/environment skips**, zero failures/errors, using the private collection and existing managed tools. Localization, menu layout and packaged-JAR checks passed; the JAR declares `"conflicts": {"cwb": "*"}`. The PiP package checksum differs from v3.1.1, so existing PiP users install the matching package through the PiP menu.
+
+The tearing diagnosis comes from the user's manual tests on one system (Radeon RX 9060 XT, 144 Hz, Windows 11): tearing with Exclusive Fullscreen or Cubes Without Borders' fullscreen modes while capturing, none with Minecraft's own non-exclusive fullscreen (with or without Sodium) or windowed mode. The warning was reviewed in game. Native playback/HUD smoke runs were not repeated; the change affects only the PiP settings warning and mod metadata.
+
+Publication: all four v3.1.2 assets are downloadable from the release; the downloaded JAR reports version 3.1.2 with the `cwb` conflict, SHA-256 `1d5af066980bc91d6ccd2ab62bcb3f2d5d167dbceb89381c00f70a2e90385753`.
+
+
 
 ## v3.1.1: PiP helper outside the base JAR
 
