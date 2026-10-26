@@ -46,10 +46,10 @@ public final class PipController implements AutoCloseable {
 
     /**
      * Exclusive fullscreen tears the whole screen while capture runs; the option applies after a restart.
+     * The option alone decides: Cubes Without Borders keeps it on while managing fullscreen itself, with the same tearing.
      */
     public static boolean exclusiveFullscreen() {
-        var options = Minecraft.getInstance().options;
-        return options.fullscreen().get() && options.exclusiveFullscreen().get();
+        return Minecraft.getInstance().options.exclusiveFullscreen().get();
     }
 
     public PipSource source() {

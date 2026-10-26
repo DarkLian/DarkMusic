@@ -6,9 +6,9 @@ Your own music library, inside Minecraft. Browse and play your collection, build
 
 ## Install
 
-DarkMusic **v3.1.1** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v3.1.2** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-3.1.1.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-3.1.2.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Add your songs under **Settings → General → Music Folders**, drag audio files into the player, or copy them to `config/darkmusic/music` in your instance.
@@ -103,7 +103,7 @@ Open **Manage Audio Files → Smart Cleanup** to find related recordings, even w
 2. Choose **Check PiP Requirements**, then **Install PiP Dependencies**.
 3. Choose **Enable PiP Access**, pick a window, and start capture.
 
-Move, resize, and crop the view, change its opacity, press **Ctrl+Alt+F8** to operate the source application, and **Ctrl+Alt+F9** to return to Minecraft. Use Minecraft's borderless or windowed mode while capturing; exclusive fullscreen can cause screen tearing. Keep the source window open and not minimized. Capture never starts by itself, and disabling PiP Access stops it immediately.
+Move, resize, and crop the view, change its opacity, press **Ctrl+Alt+F8** to operate the source application, and **Ctrl+Alt+F9** to return to Minecraft. Use Minecraft's own non-exclusive fullscreen or windowed mode while capturing; exclusive fullscreen and the Cubes Without Borders mod can cause screen tearing. Keep the source window open and not minimized. Capture never starts by itself, and disabling PiP Access stops it immediately.
 
 Turn on **PiP Audio Spectrum** to visualize that application's sound with its own styles and colors. Sound still plays through the source application, independently of DarkMusic.
 
@@ -116,6 +116,8 @@ PiP follows the frame limit you choose; on one tested system a 144 FPS limit del
 Automatic update checks are on by default: they run after joining a world/server and every six hours while connected. Notifications appear once per launch after you join a world or server. Click **Update** to approve a download, then close Minecraft to finish installing. You can also use **Settings → General → Check for Updates**. Your settings, library, playlists, and assets are kept. If installation fails, the next launch tells you and offers the log.
 
 ## What's new
+
+**v3.1.2** lists Cubes Without Borders as a conflicting mod and warns in PiP settings whenever Exclusive Fullscreen is on. Both cause screen tearing while PiP captures; Minecraft's own non-exclusive fullscreen does not ([notes](docs/RELEASE-3.1.2.md)).
 
 **v3.1.1** moves the Windows PiP helper into the optional installation package. The main mod JAR contains no native helper binaries. Existing PiP users install the new matching package through the PiP menu; settings and access permissions are preserved ([release notes](docs/RELEASE-3.1.1.md)).
 

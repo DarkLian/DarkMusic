@@ -1547,7 +1547,7 @@
   "pip.live": "即時擷取中",
   "pip.unsupported": "子母畫面需要 Windows 10/11 x64 電腦。",
   "pip.platform_notice": "子母畫面僅支援 Windows 10/11 x64，尚不支援 macOS 或 Linux。",
-  "pip.exclusive_warning": "擷取 PiP 時，獨佔全螢幕可能造成畫面撕裂。請在影片設定中關閉「獨佔全螢幕」（無邊框全螢幕）或使用視窗模式；可能需要重新啟動 Minecraft。",
+  "pip.exclusive_warning": "「獨佔全螢幕」已開啟，擷取 PiP 時可能造成畫面撕裂。請在影片設定中關閉它並重新啟動 Minecraft。若仍維持開啟，表示 Cubes Without Borders 等全螢幕模組正在保留此設定，並會造成相同的撕裂；使用 PiP 時請停用該模組。",
   "pip.no_source": "尚未選擇視窗",
   "pip.choose": "選擇視窗",
   "pip.choose.help": "選擇開啟的視窗。按下開始後才會擷取。",

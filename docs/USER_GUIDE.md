@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v3.1.1 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v3.1.2 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Picture-in-Picture (Windows x64)
 
@@ -60,7 +60,7 @@ on a 144 Hz display. On the tested system, a 144 FPS limit delivered about 143 F
 and Windows builds are untested, and a higher limit uses more CPU and memory bandwidth. See the
 [verification record](PIP-VERIFICATION.md) and [capture investigation](PIP-WGC-INVESTIGATION.md).
 
-**Screen tearing in exclusive fullscreen.** On one tested system (144 Hz, VSync off, 140 FPS cap), visible tearing across the whole screen appeared in menus such as the inventory and the PiP layout editor while PiP was capturing, with Minecraft in **Exclusive** fullscreen and no other mods. Borderless and Windowed did not show it. PiP settings now show a warning when exclusive fullscreen is on. If you see tearing, change the fullscreen mode in Video Settings. Turning VSync on did not fix it. The cause is not fully established, and other graphics hardware has not been tested.
+**Screen tearing in exclusive fullscreen.** On one tested system (144 Hz), visible tearing across the whole screen appeared while PiP was capturing when Minecraft used **Exclusive** fullscreen, or the fullscreen modes of the **Cubes Without Borders** mod. Minecraft's own non-exclusive fullscreen and windowed mode did not tear, with or without Sodium. VSync, FreeSync and frame-rate limits did not fix it. Turn off Exclusive Fullscreen in Video Settings and restart Minecraft; the setting only applies at startup. Cubes Without Borders keeps that setting on while it manages fullscreen, so disable the mod while using PiP. DarkMusic lists it as a conflicting mod, and PiP settings warn while Exclusive Fullscreen is on. The underlying cause is not established, and other graphics hardware has not been tested.
 
 ## Interface language
 
@@ -482,7 +482,7 @@ Settings, playlists, and import history are stored in the instance's `config/dar
 | HUD missing | Enable Now-Playing HUD and start music; check HUD layout |
 | Audio Options effects unavailable | Turn Original / Neutral off; Sound Environment has its own master switch |
 | Shortcut conflict | Rebind it in Minecraft's Key Binds menu |
-| Screen tearing while PiP is capturing | Set Minecraft's fullscreen mode to Borderless or Windowed instead of Exclusive. See the note under Picture-in-Picture |
+| Screen tearing while PiP is capturing | Turn off Exclusive Fullscreen and restart Minecraft; disable Cubes Without Borders if installed. See the note under Picture-in-Picture |
 
 For a reproducible issue, share the mod/Minecraft versions, operating system, steps, and relevant logs in [GitHub Issues](https://github.com/DarkLian/DarkMusic/issues). Remove private details before posting.
 
