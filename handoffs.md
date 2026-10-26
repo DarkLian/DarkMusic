@@ -4,7 +4,7 @@
 
 Codex and Claude take turns. Read this file and inspect `git status`/recent commits before editing. Preserve the other agent's changes; do not start overlapping work or force-push. Record completed work, verification, pending actions and limitations here before handing over. The user explicitly authorized release v3.0.1 in the latest request.
 
-## Completed release ? Codex, 2026-10-26
+## Completed release - Codex, 2026-10-26
 
 - Published [v3.0.1](https://github.com/DarkLian/DarkMusic/releases/tag/v3.0.1) from `62134cf6d3c9b4354878c6a2883a88fff3d66424`. The release commit and annotated tag are pushed. GitHub About now mentions optional Windows PiP.
 - [Release CI](https://github.com/DarkLian/DarkMusic/actions/runs/40251089951) passed on Windows, macOS and Linux, then published all four assets. No existing v3.0.0 assets were replaced.
