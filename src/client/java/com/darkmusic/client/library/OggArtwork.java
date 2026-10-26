@@ -20,6 +20,40 @@ public final class OggArtwork {
     }
 
     public static byte[] read(Path file) throws IOException {
+        byte[] packet = commentPacket(file);
+        return packet == null ? null : comments(packet, 0);
+    }
+
+    public static java.util.Map<String, String> tags(Path file) throws IOException {
+        byte[] packet = commentPacket(file);
+        if (packet == null) throw new IOException("Ogg comments unavailable within inspection bounds");
+        var tags = new java.util.HashMap<String, String>();
+        try {
+            var buffer = ByteBuffer.wrap(packet).order(ByteOrder.LITTLE_ENDIAN);
+            skip(buffer, buffer.getInt());
+            int count = buffer.getInt();
+            if (count < 0 || count > buffer.remaining() / 4) return java.util.Map.of();
+            for (int i = 0; i < count; i++) {
+                int length = buffer.getInt();
+                if (length < 0 || length > buffer.remaining()) return java.util.Map.of();
+                if (length <= 1_000_000) {
+                    String text = new String(packet, buffer.position(), length, StandardCharsets.UTF_8);
+                    int equals = text.indexOf('=');
+                    if (equals > 0) {
+                        String key = text.substring(0, equals).toLowerCase(java.util.Locale.ROOT);
+                        if (java.util.Set.of("title", "artist", "album", "lyrics", "unsyncedlyrics", "language").contains(key))
+                            tags.putIfAbsent(key, text.substring(equals + 1));
+                    }
+                }
+                skip(buffer, length);
+            }
+        } catch (IllegalArgumentException | java.nio.BufferUnderflowException malformed) {
+            throw new IOException("Invalid Ogg comments", malformed);
+        }
+        return java.util.Map.copyOf(tags);
+    }
+
+    private static byte[] commentPacket(Path file) throws IOException {
         try (var input = Files.newInputStream(file)) {
             var packet = new ByteArrayOutputStream();
             int consumed = 0, packets = 0;
@@ -44,9 +78,10 @@ public final class OggArtwork {
                         byte[] complete = packet.toByteArray();
                         packet.reset();
                         packets++;
-                        if (starts(complete, "OpusTags", 0)) return comments(complete, 8);
+                        if (starts(complete, "OpusTags", 0))
+                            return java.util.Arrays.copyOfRange(complete, 8, complete.length);
                         if (complete.length > 0 && complete[0] == 3 && starts(complete, "vorbis", 1))
-                            return comments(complete, 7);
+                            return java.util.Arrays.copyOfRange(complete, 7, complete.length);
                     }
                 }
             }

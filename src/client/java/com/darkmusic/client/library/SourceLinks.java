@@ -11,10 +11,23 @@ import java.util.concurrent.Executor;
 /**
  * File-bound provenance. Filename-only legacy records are retained but never treated as verified.
  */
-public final class SourceLinks {
+public final class SourceLinks implements AutoCloseable {
     private static final Object LOCK = new Object();
     private final Map<String, String> cache = Collections.synchronizedMap(new LinkedHashMap<>());
     private final Executor executor;
+    private java.util.concurrent.ExecutorService owned;
+
+    public SourceLinks() {
+        this(new java.util.concurrent.ThreadPoolExecutor(1, 1, 0, java.util.concurrent.TimeUnit.SECONDS,
+            new java.util.concurrent.ArrayBlockingQueue<>(16), Thread.ofPlatform().daemon().name("darkmusic-source-links").factory(),
+            new java.util.concurrent.ThreadPoolExecutor.AbortPolicy()));
+        owned = (java.util.concurrent.ExecutorService) executor;
+    }
+
+    @Override
+    public void close() {
+        if (owned != null) owned.shutdownNow();
+    }
 
     public SourceLinks(Executor executor) {
         this.executor = executor;
@@ -169,16 +182,22 @@ public final class SourceLinks {
      * One fresh content check; callers may reuse its hash while the inspected file stays unchanged.
      */
     public static Verified verify(Path audio) {
-        synchronized (LOCK) {
-            try {
-                var value = json(audio.resolveSibling(".darkmusic-sources.json")).get(audio.getFileName().toString());
-                if (!valid(audio, value, true)) return null;
-                var o = value.getAsJsonObject();
-                return new Verified(o.get("url").getAsString(), o.has("identity") ? o.get("identity").getAsString() : "",
-                    o.get("sha256").getAsString());
-            } catch (Exception unavailable) {
-                return null;
+        try {
+            JsonElement value;
+            Path file = audio.resolveSibling(".darkmusic-sources.json");
+            synchronized (LOCK) {
+                var found = json(file).get(audio.getFileName().toString());
+                value = found == null ? null : found.deepCopy();
             }
+            if (!valid(audio, value, true)) return null;
+            synchronized (LOCK) {
+                if (!value.equals(json(file).get(audio.getFileName().toString())) || !valid(audio, value, false))
+                    return null;
+            }
+            var o = value.getAsJsonObject();
+            return new Verified(o.get("url").getAsString(), o.has("identity") ? o.get("identity").getAsString() : "", o.get("sha256").getAsString());
+        } catch (Exception unavailable) {
+            return null;
         }
     }
 
@@ -230,24 +249,26 @@ public final class SourceLinks {
     }
 
     public static boolean record(Path audio, String url, String identity, String expectedHash) {
-        synchronized (LOCK) {
-            try {
+        try {
+            var association = safe(url).isEmpty() ? null : binding(audio, url, identity);
+            if (association != null && expectedHash != null && !expectedHash.equals(association.get("sha256").getAsString()))
+                throw new java.io.IOException("Audio changed before provenance repair");
+            synchronized (LOCK) {
                 Path file = audio.resolveSibling(".darkmusic-sources.json");
                 var data = json(file);
-                if (safe(url).isEmpty()) {
+                if (association == null) {
                     if (data.remove(audio.getFileName().toString()) == null) return true;
                 } else {
-                    var association = binding(audio, url, identity);
-                    if (expectedHash != null && !expectedHash.equals(association.get("sha256").getAsString()))
-                        throw new java.io.IOException("Audio changed before provenance repair");
+                    if (!valid(audio, association, false))
+                        throw new java.io.IOException("Audio changed before provenance commit");
                     data.add(audio.getFileName().toString(), association);
                 }
                 ConfigStore.atomicWrite(file, ConfigStore.JSON.toJson(data));
-                return true;
-            } catch (Exception failure) {
-                org.slf4j.LoggerFactory.getLogger(SourceLinks.class).warn("Could not save source association", failure);
-                return false;
             }
+            return true;
+        } catch (Exception failure) {
+            org.slf4j.LoggerFactory.getLogger(SourceLinks.class).warn("Could not save source association", failure);
+            return false;
         }
     }
 

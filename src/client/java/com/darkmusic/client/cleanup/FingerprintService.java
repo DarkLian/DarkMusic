@@ -31,6 +31,17 @@ public final class FingerprintService {
         this.executable = executable;
     }
 
+    static void pruneScratch(Path scratch, long now) {
+        if (!Files.isDirectory(scratch, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(scratch)) return;
+        try (var files = Files.list(scratch)) {
+            for (Path file : files.filter(p -> p.getFileName().toString().matches("fingerprint-[0-9]+\\.pcm")).toList())
+                if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) && now - Files.getLastModifiedTime(file, LinkOption.NOFOLLOW_LINKS).toMillis() > java.util.concurrent.TimeUnit.DAYS.toMillis(1))
+                    try {
+                        Files.deleteIfExists(file);
+                    } catch (java.io.IOException busy) { /* Retain files that are still in use. */ }
+        } catch (java.io.IOException unavailable) { /* Optional maintenance must not abort discovery. */ }
+    }
+
     public int[] extract(Path file, Path scratch, ProcessRunner.Token token) throws Exception {
         Files.createDirectories(scratch);
         Path pcm = Files.createTempFile(scratch, "fingerprint-", ".pcm");
@@ -150,6 +161,7 @@ public final class FingerprintService {
                 if (indices != null) for (int j : indices)
                     for (int delta = -1; delta <= 1; delta++) votes.merge(i - j + delta, 1, Integer::sum);
             }
+        int usable = Math.min((int) Arrays.stream(a).filter(v -> v != 0).count(), (int) Arrays.stream(b).filter(v -> v != 0).count());
         Match best = new Match(false, false, 1, 0);
         for (int offset : votes.entrySet().stream().sorted(Map.Entry.<Integer, Integer>comparingByValue().reversed()).limit(12).map(Map.Entry::getKey).toList()) {
             int valid = 0, close = 0, bits = 0;
@@ -162,7 +174,6 @@ public final class FingerprintService {
                 if (distance <= 10) close++;
             }
             double distance = valid == 0 ? 1 : bits / (32.0 * valid);
-            int usable = Math.min((int) Arrays.stream(a).filter(v -> v != 0).count(), (int) Arrays.stream(b).filter(v -> v != 0).count());
             boolean matched = valid >= p.audioFrames && valid >= usable * p.audioCoverage && close >= valid * p.audioCoverage && distance <= p.audioDistance;
             if (matched && (!best.matched() || distance < best.distance()))
                 best = new Match(true, Math.abs(offset) > 4 || Math.abs(a.length - b.length) > Math.min(a.length, b.length) / 10, distance, valid);

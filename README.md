@@ -113,7 +113,7 @@ PiP follows the frame limit you choose; on one tested system a 144 FPS limit del
 
 ## Updates
 
-Update notifications are on by default and appear once per launch after you join a world or server. Click **Update** to approve a download, then close Minecraft to finish installing. You can also use **Settings → General → Check for Updates**. Your settings, library, playlists, and assets are kept. If installation fails, the next launch tells you and offers the log.
+Automatic update checks are on by default: they run after joining a world/server and every six hours while connected. Notifications appear once per launch after you join a world or server. Click **Update** to approve a download, then close Minecraft to finish installing. You can also use **Settings → General → Check for Updates**. Your settings, library, playlists, and assets are kept. If installation fails, the next launch tells you and offers the log.
 
 ## What's new
 

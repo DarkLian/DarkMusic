@@ -403,7 +403,7 @@ public final class MusicScreen extends LocalScreen {
         }
         navigation.rows(java.util.stream.IntStream.range(0, groups.size()).mapToObj(i -> {
             String key = groups.get(i);
-            String label = mode.equals("All") ? i == 0 ? Text.get("text.darkmusic.all_tracks") : folderRows.get(i - 1).name() : mode.equals("History") ? Text.get("history." + key) : mode.equals("Playlists") ? app.playlists.displayName(app.playlists.get(key)) : key;
+            String label = mode.equals("All") ? i == 0 ? Text.get("text.darkmusic.all_tracks") : folderRows.get(i - 1).name() : mode.equals("History") ? Text.get("history." + key) : mode.equals("Playlists") ? app.playlists.displayName(app.playlists.get(key)) : key.isBlank() ? Text.get(mode.equals("Artists") ? "library.artist.unknown" : "library.album.unknown") : key;
             int count = mode.equals("History") ? app.listeningHistory.collection(tracks, key.equals("most")).size() : mode.equals("Playlists") ? app.playlists.resolve(key, tracks).size() : counts.getOrDefault(key, 0);
             return new RowList.Row(label + " (" + count + ")", "");
         }).toList());
@@ -451,7 +451,7 @@ public final class MusicScreen extends LocalScreen {
         boolean history = mode.equals("History");
         songs.rows(displayed.size(), i -> {
             var t = displayed.get(i);
-            return new RowList.Row(t.title(), history ? historyDetails(t, stats) : t.artist() + " | " + time(t.duration()) + " | " + t.album(), t.relativePath());
+            return new RowList.Row(t.title(), history ? historyDetails(t, stats) : (t.artist().isBlank() ? Text.get("library.artist.unknown") : t.artist()) + " | " + time(t.duration()) + " | " + t.album(), t.relativePath());
         });
         if (selected != null && (!awaitingEditedTrack || app.playlists.index(library).containsKey(selected.id()))) {
             selected = visible.stream().filter(t -> t.id().equals(selected.id())).findFirst().orElse(null);

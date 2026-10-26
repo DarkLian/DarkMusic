@@ -15,6 +15,41 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ImportHistoryTest {
+    @Test
+    void resetDoesNotResurrectPriorEntriesOnTheNextImport() throws Exception {
+        var io = Executors.newSingleThreadExecutor();
+        Path root = Files.createTempDirectory("darkmusic-history-reset-");
+        try {
+            var history = new ImportHistory(root, io, message -> {
+                throw new AssertionError(message);
+            });
+            history.record(new ImportHistory.Batch(1, "Old", 0, List.of(), ""));
+            io.submit(() -> {
+            }).get();
+            long before = history.revision();
+            io.submit(() -> {
+                try {
+                    Files.delete(root.resolve("import-history.json"));
+                    history.reset();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }).get();
+            assertTrue(history.batches().isEmpty());
+            assertTrue(history.revision() > before);
+            history.record(new ImportHistory.Batch(2, "New", 0, List.of(), ""));
+            io.submit(() -> {
+            }).get();
+            assertEquals(List.of(2L), history.batches().stream().map(ImportHistory.Batch::timestamp).toList());
+            assertTrue(!Files.readString(root.resolve("import-history.json")).contains("Old"));
+        } finally {
+            io.shutdown();
+            assertTrue(io.awaitTermination(10, TimeUnit.SECONDS));
+            Files.deleteIfExists(root.resolve("import-history.json"));
+            Files.delete(root);
+        }
+    }
+
     @TempDir
     Path temp;
 

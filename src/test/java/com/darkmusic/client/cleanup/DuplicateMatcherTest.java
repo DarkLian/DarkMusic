@@ -10,6 +10,20 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DuplicateMatcherTest {
+    @Test
+    void finalIncrementalSnapshotRetainsFingerprintOnlyDiscoveryAndEvidence() {
+        var token=new ProcessRunner.Token();
+        var session=new DuplicateMatcher.Session(DuplicatePolicy.BALANCED,token);
+        var a=entry("first.flac","Alpha","One",180,"","",null);
+        var b=entry("second.mp3","Unrelated title","Two",180,"","",null);
+        session.add(a);session.add(b);assertTrue(session.snapshot().pairs().isEmpty());
+        int[] fingerprint=new Random(19).ints(160).toArray();
+        a=entry("first.flac","Alpha","One",180,"","",fingerprint);
+        b=entry("second.mp3","Unrelated title","Two",180,"","",fingerprint);
+        session.update(0,a);session.update(1,b);
+        var expected=new DuplicateMatcher().match(List.of(a,b),DuplicatePolicy.BALANCED,token,pairs->{});
+        assertEquals(expected.pairs(),session.snapshot().pairs());assertEquals(1,expected.pairs().size());
+    }
     static DuplicateMatcher.Entry entry(String id, String title, String artist, double duration, String hash, String source, int[] print) {
         return new DuplicateMatcher.Entry(new Track("r", id, Path.of(id), title, artist, "", duration, 100, 1, ""), id, hash, source, print);
     }

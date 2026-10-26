@@ -30,6 +30,17 @@ class PipFramesTest {
     }
 
     @Test
+    void ultrawideAndTallFramesKeepTheSamePixelBudget() throws Exception {
+        for (int[] size : new int[][]{{5120, 1440}, {7680, 1080}, {2160, 3840}})
+            assertEquals(size[0] * size[1] * 4, PipFrame.decode(ByteBuffer.wrap(header(size[0], size[1], 1)), 0).bytes());
+        assertThrows(IOException.class, () -> PipFrame.decode(ByteBuffer.wrap(header(5120, 2160, 1)), 0));
+        assertThrows(IOException.class, () -> PipFrame.decode(ByteBuffer.wrap(header(7681, 1, 1)), 0));
+        try (var frames = new PipFrames()) {
+            assertThrows(IllegalArgumentException.class, () -> frames.writing(new PipFrame(1, 1, Integer.MAX_VALUE, 1, 0, 0, 0)));
+        }
+    }
+
+    @Test
     void invalidHeadersCannotAllocateUnboundedFrames() throws IOException {
         assertEquals(16, frame(1).bytes());
         for (int offset : new int[]{0, 4, 8, 12, 16, 20, 48, 52, 56}) {

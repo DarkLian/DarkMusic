@@ -791,59 +791,76 @@ public final class LyricsLookup implements AutoCloseable {
     }
 
     private Cached cached(String key) {
+        Cached value;
         synchronized (results) {
-            Cached value = results.get(key);
-            if (value == null && directory != null) try {
-                Path miss = directory.resolve("misses").resolve(key + ".json");
-                value = read(Files.isRegularFile(miss, LinkOption.NOFOLLOW_LINKS) ? miss : directory.resolve("cache").resolve(key + ".json"), Cached.class);
-            } catch (Exception ignored) {
-            }
-            if (value == null || value.schema != 1 || value.expires < System.currentTimeMillis() || value.candidates == null || value.candidates.size() > 20)
-                return null;
-            try {
-                var checked = value.candidates.stream().map(c -> new LyricsProvider.Candidate(validated(c.document()), c.reliable(), c.evidence())).toList();
-                value = new Cached(1, value.expires, checked);
-                results.put(key, value);
+            value = results.get(key);
+        }
+        Cached initial = value;
+        if (value == null && directory != null) try {
+            Path miss = directory.resolve("misses").resolve(key + ".json");
+            value = read(Files.isRegularFile(miss, LinkOption.NOFOLLOW_LINKS) ? miss : directory.resolve("cache").resolve(key + ".json"), Cached.class);
+        } catch (Exception ignored) {
+        }
+        if (value == null || value.schema != 1 || value.expires < System.currentTimeMillis() || value.candidates == null || value.candidates.size() > 20)
+            return null;
+        try {
+            var checked = value.candidates.stream().map(c -> new LyricsProvider.Candidate(validated(c.document()), c.reliable(), c.evidence())).toList();
+            value = new Cached(1, value.expires, checked);
+            synchronized (results) {
+                Cached newer = results.get(key);
+                if (newer == null || newer == initial) results.put(key, value);
+                else value = newer;
                 trim();
-                return value;
-            } catch (Exception invalid) {
-                return null;
             }
+            return value;
+        } catch (Exception invalid) {
+            return null;
         }
     }
 
     private void cache(String key, List<LyricsProvider.Candidate> candidates) {
+        var value = new Cached(1, System.currentTimeMillis() + TimeUnit.DAYS.toMillis(candidates.isEmpty() ? 14 : 90), candidates);
         synchronized (results) {
-            var value = new Cached(1, System.currentTimeMillis() + TimeUnit.DAYS.toMillis(candidates.isEmpty() ? 14 : 90), candidates);
             results.put(key, value);
             trim();
-            if (directory != null) try {
-                Path folder = directory.resolve(candidates.isEmpty() ? "misses" : "cache");
-                String json = ConfigStore.JSON.toJson(value);
-                ConfigStore.atomicWrite(folder.resolve(key + ".json"), json);
-                Files.deleteIfExists(directory.resolve(candidates.isEmpty() ? "cache" : "misses").resolve(key + ".json"));
+        }
+        if (directory == null) return;
+        try {
+            String json = ConfigStore.JSON.toJson(value);
+            Path folder = directory.resolve(candidates.isEmpty() ? "misses" : "cache");
+            ConfigStore.atomicWrite(folder.resolve(key + ".json"), json);
+            Files.deleteIfExists(directory.resolve(candidates.isEmpty() ? "cache" : "misses").resolve(key + ".json"));
+            synchronized (results) {
                 bytesSinceCacheTrim += json.getBytes(StandardCharsets.UTF_8).length;
-                // A library sweep must not enumerate the cache directory after every song.
                 if (System.nanoTime() < nextCacheTrim && bytesSinceCacheTrim < 4L * 1024 * 1024) return;
                 nextCacheTrim = System.nanoTime() + TimeUnit.MINUTES.toNanos(30);
                 bytesSinceCacheTrim = 0;
-                for (String name : List.of("cache", "misses")) {
-                    Path retained = directory.resolve(name);
-                    if (!Files.isDirectory(retained, LinkOption.NOFOLLOW_LINKS)) continue;
-                    long limit = (name.equals("misses") ? 16L : 64L) * 1024 * 1024;
-                    try (var files = Files.list(retained)) {
-                        var all = files.filter(p -> p.getFileName().toString().matches("[a-f0-9]{64}\\.json")).sorted(Comparator.comparingLong(p -> p.toFile().lastModified())).toList();
-                        long bytes = 0;
-                        for (Path file : all) bytes += Files.size(file);
-                        for (int i = 0; i < all.size() && (all.size() - i > 256_000 || bytes > limit); i++) {
-                            bytes -= Files.size(all.get(i));
-                            Files.deleteIfExists(all.get(i));
-                        }
+            }
+            submit(this::trimDiskCache);
+        } catch (Exception failure) {
+            LOG.warn("Could not save lyric lookup cache", failure);
+        }
+    }
+
+    private void trimDiskCache() {
+        try {
+            for (String name : List.of("cache", "misses")) {
+                Path retained = directory.resolve(name);
+                if (!Files.isDirectory(retained, LinkOption.NOFOLLOW_LINKS)) continue;
+                long limit = (name.equals("misses") ? 16L : 64L) * 1024 * 1024;
+                try (var files = Files.list(retained)) {
+                    var all = files.filter(p -> p.getFileName().toString().matches("[a-f0-9]{64}\\.json")).filter(p -> Files.isRegularFile(p, LinkOption.NOFOLLOW_LINKS))
+                        .sorted(Comparator.comparingLong(p -> p.toFile().lastModified())).toList();
+                    long bytes = 0;
+                    for (Path file : all) bytes += Files.size(file);
+                    for (int i = 0; i < all.size() && (all.size() - i > 256_000 || bytes > limit); i++) {
+                        bytes -= Files.size(all.get(i));
+                        Files.deleteIfExists(all.get(i));
                     }
                 }
-            } catch (Exception failure) {
-                LOG.warn("Could not save lyric lookup cache", failure);
             }
+        } catch (Exception failure) {
+            LOG.warn("Could not trim lyric lookup cache", failure);
         }
     }
 
@@ -884,10 +901,9 @@ public final class LyricsLookup implements AutoCloseable {
                     } catch (Exception invalid) {
                         continue;
                     }
-                    // Legacy records can be pruned only when every registered root was checked successfully.
+                    // Unknown legacy roots and unregistered folders have no positive absence evidence.
                     if (saved != null && protectedScope(saved.rootId, saved.trackId, unreadableScopes)) continue;
-                    if (saved != null && (saved.rootId == null ? completeRoots.containsAll(registeredRoots)
-                        : !registeredRoots.contains(saved.rootId) || completeRoots.contains(saved.rootId)))
+                    if (saved != null && saved.rootId != null && registeredRoots.contains(saved.rootId) && completeRoots.contains(saved.rootId))
                         Files.deleteIfExists(path);
                 }
             }

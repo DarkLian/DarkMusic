@@ -1606,7 +1606,7 @@
   "pip.placement.help": "拖曳移動；拖曳右下角或捲動調整大小。方向鍵移動；+/− 調整大小。Shift 停用對齊。",
   "pip.focus_denied": "Windows 未切換至要求的視窗。請使用 Alt+Tab 後再試。",
   "pip.crop_invalid": "請輸入左、上、右、下的四個百分比（0–100）。寬及高至少需保留 5%。",
-  "pip.too_large": "來源視窗超過 3840×2160。請縮小視窗後重新開始擷取。",
+  "pip.too_large": "來源超過 4K 像素總量或任一邊超過 7680 像素。請縮小視窗後重新開始擷取。",
   "library.darkmusic.edit_space": "空間不足，無法安全編輯。請釋出至少音訊檔案三倍大小的空間後重試。",
   "lyrics.recovery.conflict": "歌詞復原衝突。目前的檔案已保留；復原資料：%s。請在歌詞選項中使用「保留目前的歌詞檔案」以繼續編輯。",
   "lyrics.recovery.keep": "保留目前的歌詞檔案",
@@ -1616,5 +1616,11 @@
   "download.error.bot_check": "網站要求機器人驗證。請在下載工具中檢查 yt-dlp 與 JavaScript 執行環境，或稍後、改用其他網路重試。這不代表影片為私人影片。",
   "download.diag.summary.bot_check": "網站要求機器人驗證。",
   "download.diag.cause.bot_check": "來源網站要求驗證。這不代表影片為私人影片或已被刪除。",
-  "download.diag.action.bot_check": "請在下載工具中檢查 yt-dlp 與 JavaScript 執行環境，也可稍後或改用其他網路重試。DarkMusic 不會繞過網站驗證。"
+  "download.diag.action.bot_check": "請在下載工具中檢查 yt-dlp 與 JavaScript 執行環境，也可稍後或改用其他網路重試。DarkMusic 不會繞過網站驗證。",
+  "import.history.read_failed": "無法讀取匯入紀錄：%s",
+  "import.history.save_failed": "無法儲存匯入紀錄：%s",
+  "library.metadata.unavailable": "無法取得中繼資料：%s",
+  "library.metadata.tools_required": "%s；此格式可能需要 FFmpeg/FFprobe",
+  "library.artist.unknown": "未知演出者",
+  "library.album.unknown": "未知專輯"
 }

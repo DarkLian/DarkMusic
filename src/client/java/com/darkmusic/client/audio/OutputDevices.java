@@ -18,6 +18,7 @@ public final class OutputDevices implements JavaSoundBackend.Output {
     private final Consumer<String> notice;
     private volatile String actual = "";
     private boolean warned;
+    private Mixer.Info resolved;
 
     public OutputDevices(String preferred, boolean fallback, Consumer<String> notice) {
         this.preferred = Objects.requireNonNullElse(preferred, "");
@@ -70,7 +71,7 @@ public final class OutputDevices implements JavaSoundBackend.Output {
         SourceDataLine line;
         if (preferred.isEmpty()) line = AudioSystem.getSourceDataLine(format);
         else {
-            var matches = mixers().stream().filter(m -> id(m).equals(preferred)).toList();
+            var matches = resolved == null ? mixers().stream().filter(m -> id(m).equals(preferred)).toList() : List.of(resolved);
             if (matches.size() != 1) {
                 if (!fallback) throw new LineUnavailableException("Saved output is unavailable or ambiguous");
                 line = AudioSystem.getSourceDataLine(format);
@@ -80,7 +81,13 @@ public final class OutputDevices implements JavaSoundBackend.Output {
                     notice.accept(com.darkmusic.client.text.Text.get("device.fallback"));
                 }
             } else {
-                line = (SourceDataLine) AudioSystem.getMixer(matches.getFirst()).getLine(new DataLine.Info(SourceDataLine.class, format));
+                resolved = matches.getFirst();
+                try {
+                    line = (SourceDataLine) AudioSystem.getMixer(resolved).getLine(new DataLine.Info(SourceDataLine.class, format));
+                } catch (RuntimeException | LineUnavailableException failed) {
+                    resolved = null;
+                    throw failed;
+                }
                 actual = preferred;
             }
         }
@@ -88,6 +95,7 @@ public final class OutputDevices implements JavaSoundBackend.Output {
             line.open(format, Math.max(4096, (int) (format.getFrameRate() / 5) * format.getFrameSize()));
             return line;
         } catch (Exception e) {
+            resolved = null;
             line.close();
             throw e;
         }

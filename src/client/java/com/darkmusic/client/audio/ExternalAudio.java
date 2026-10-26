@@ -102,7 +102,7 @@ public final class ExternalAudio {
         double offset = Math.floor(seconds * rate) / rate;
         if (offset > 0) {
             int input = command.indexOf("-i");
-            command.addAll(input, List.of("-ss", Double.toString(offset)));
+            command.addAll(input, List.of("-ss", java.math.BigDecimal.valueOf(offset).toPlainString()));
         }
         Process process = new ProcessBuilder(command).start();
         boolean registered = false;

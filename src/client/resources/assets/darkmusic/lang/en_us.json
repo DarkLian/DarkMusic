@@ -1606,7 +1606,7 @@
   "pip.placement.help": "Drag to move; drag bottom-right or scroll to resize. Arrows move; +/− resize. Shift disables snapping.",
   "pip.focus_denied": "Windows did not switch to the requested window. Use Alt+Tab and retry.",
   "pip.crop_invalid": "Enter four percentages (left, top, right, bottom), from 0 to 100. Keep at least 5% of both dimensions.",
-  "pip.too_large": "The source exceeds 3840×2160. Make its window smaller and restart capture.",
+  "pip.too_large": "The source exceeds the 4K pixel budget or 7680 pixels on one side. Make its window smaller and restart capture.",
   "library.darkmusic.edit_space": "Not enough free space to edit this file safely. Free at least three times the audio file size and try again.",
   "lyrics.recovery.conflict": "Lyrics recovery conflict. Your current files were kept; recovery data: %s. Use Keep Current Lyrics Files in Lyrics Options to unblock edits.",
   "lyrics.recovery.keep": "Keep Current Lyrics Files",
@@ -1616,5 +1616,11 @@
   "download.error.bot_check": "The website is asking for a bot check. Check Download Tools for current yt-dlp and JavaScript runtime support, or retry later or from another network. This does not establish that the video is private.",
   "download.diag.summary.bot_check": "The website is asking for a bot check.",
   "download.diag.cause.bot_check": "The source requested verification. This does not establish that the video is private or deleted.",
-  "download.diag.action.bot_check": "Check Download Tools for current yt-dlp and JavaScript runtime support. You can retry later or from another network. DarkMusic does not bypass website verification."
+  "download.diag.action.bot_check": "Check Download Tools for current yt-dlp and JavaScript runtime support. You can retry later or from another network. DarkMusic does not bypass website verification.",
+  "import.history.read_failed": "Cannot read import history: %s",
+  "import.history.save_failed": "Cannot save import history: %s",
+  "library.metadata.unavailable": "Metadata unavailable: %s",
+  "library.metadata.tools_required": "%s; FFmpeg/FFprobe may be required for this format",
+  "library.artist.unknown": "Unknown artist",
+  "library.album.unknown": "Unknown album"
 }

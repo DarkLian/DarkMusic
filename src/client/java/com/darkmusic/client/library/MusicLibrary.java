@@ -81,6 +81,7 @@ public final class MusicLibrary implements AutoCloseable {
 
     public static boolean supported(Path file) {
         String n = file.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (n.matches(".*\\.(heic|heif|avif|mov|mkv)$")) return false;
         if (com.darkmusic.client.audio.AudioFormats.candidate(file)) return true;
         if (n.startsWith(".") || !Files.isRegularFile(file)) return false;
         try {

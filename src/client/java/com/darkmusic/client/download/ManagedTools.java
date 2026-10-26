@@ -210,24 +210,8 @@ public final class ManagedTools {
                     throw new IOException(Text.get("tools.error.http", code));
                 if (connection.getContentLengthLong() > limit)
                     throw new IOException(Text.get("tools.error.size"));
-                long deadline = System.nanoTime() + java.time.Duration.ofMinutes(10).toNanos();
                 try (var input = connection.getInputStream(); var out = Files.newOutputStream(output)) {
-                    byte[] buffer = new byte[65536];
-                    long size = 0, notified = 0;
-                    int count;
-                    while ((count = input.read(buffer)) != -1) {
-                        token.check();
-                        size += count;
-                        if (size > limit) throw new IOException(Text.get("tools.error.size"));
-                        if (System.nanoTime() > deadline) throw new IOException(Text.get("tools.error.timeout"));
-                        out.write(buffer, 0, count);
-                        long now = System.nanoTime();
-                        if (now - notified > 100_000_000L) {
-                            progress.accept(size);
-                            notified = now;
-                        }
-                    }
-                    progress.accept(size);
+                    transfer(input, out, limit, token, progress, System::nanoTime);
                 }
                 token.check();
                 return;
@@ -236,6 +220,32 @@ public final class ManagedTools {
             }
         }
         throw new IOException(Text.get("tools.error.address"));
+    }
+
+    static void transfer(java.io.InputStream input, java.io.OutputStream out, long limit, ProcessRunner.Token token,
+                         Consumer<Long> progress, java.util.function.LongSupplier clock) throws Exception {
+        byte[] buffer = new byte[65536];
+        long size = 0, notified = 0, lastProgress = clock.getAsLong();
+        int count;
+        while ((count = input.read(buffer)) != -1) {
+            token.check();
+            long now = clock.getAsLong();
+            if (now - lastProgress > java.time.Duration.ofMinutes(10).toNanos())
+                throw new IOException(Text.get("tools.error.timeout"));
+            if (count == 0) {
+                Thread.yield();
+                continue;
+            }
+            lastProgress = now;
+            size += count;
+            if (size > limit) throw new IOException(Text.get("tools.error.size"));
+            out.write(buffer, 0, count);
+            if (now - notified > 100_000_000L) {
+                progress.accept(size);
+                notified = now;
+            }
+        }
+        progress.accept(size);
     }
 
     public Toolchain install(ProcessRunner runner, ProcessRunner.Token token, Consumer<String> status) throws Exception {

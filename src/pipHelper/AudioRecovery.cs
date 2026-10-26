@@ -17,5 +17,6 @@ internal static class AudioRecovery {
 }
 
 internal static class CaptureBounds {
+    internal static bool Valid(int width,int height)=>width>0&&height>0&&width<=7680&&height<=7680&&(long)width*height<=3840L*2160;
     internal static bool Matches(int surfaceWidth,int surfaceHeight,int width,int height)=>surfaceWidth==width&&surfaceHeight==height;
 }

@@ -419,7 +419,7 @@ public class DarkMusicClient implements ClientModInitializer {
     private volatile long warningUntil;
     private long conflictWarning;
     private boolean autoplayPending;
-    public final com.darkmusic.client.library.SourceLinks sourceLinks = new com.darkmusic.client.library.SourceLinks(browsing);
+    public final com.darkmusic.client.library.SourceLinks sourceLinks = new com.darkmusic.client.library.SourceLinks();
     private boolean playlistCleanupPending;
     private long cleanedScan = -1, cleanedPlaylists = -1;
     private long queuedLibraryRevision = -1;
@@ -1044,6 +1044,7 @@ public class DarkMusicClient implements ClientModInitializer {
                     || oldAudition != null && !oldAudition.awaitStopped(15))
                     throw new java.io.IOException(com.darkmusic.client.text.Text.get("reset.darkmusic.waiting"));
                 var retained = com.darkmusic.client.config.ResetStorage.clear(config.directory(), roots);
+                importHistory.reset();
                 config.resetShortcuts(defaultBindings);
                 return retained;
             } catch (Exception e) {
@@ -1112,6 +1113,7 @@ public class DarkMusicClient implements ClientModInitializer {
         com.darkmusic.client.gui.DesktopFolderPicker.cancel();
         if (mediaToken != null) mediaToken.cancel();
         browsing.shutdownNow();
+        sourceLinks.close();
         if (cleanupScanner != null) cleanupScanner.close();
         if (sourceIndex != null) sourceIndex.close();
         if (audition != null) audition.close();

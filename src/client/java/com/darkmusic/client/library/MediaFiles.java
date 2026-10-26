@@ -56,8 +56,9 @@ public final class MediaFiles {
                 String name = source.getFileName().toString();
                 Path target = destination.resolve(name);
                 if (!Files.exists(target) || !Files.isSameFile(source, target)) {
-                    scratch = Files.createTempFile(destination, ".darkmusic-import-", ".tmp");
+                    scratch = LibraryFiles.incoming(destination, ".darkmusic-import-");
                     copy(source, scratch, token);
+                    LibraryFiles.preservePermissions(source, scratch);
                     if (AudioFormats.detect(scratch) == AudioFormats.Container.UNKNOWN)
                         throw new IOException(Text.get("library.darkmusic.not_audio"));
                     int dot = name.lastIndexOf('.');
@@ -114,7 +115,7 @@ public final class MediaFiles {
 
     public Track edit(Track track, Fields original, Fields requested, ProcessRunner.Token token) throws Exception {
         String filename = requested.filename().strip();
-        if (filename.isEmpty() || filename.length() > 180 || filename.matches(".*[\\p{Cntrl}<>:\"/\\\\|?*].*")
+        if (filename.isEmpty() || filename.length() > 180 || filename.codePoints().anyMatch(Character::isISOControl) || filename.matches("(?s).*[\\p{Cntrl}<>:\"/\\\\|?*].*")
             || filename.endsWith(".") || filename.startsWith(".") || filename.matches("(?i)(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\\..*)?"))
             throw new IOException(Text.get("library.darkmusic.invalid_filename"));
         for (String value : List.of(requested.title(), requested.artist(), requested.album()))

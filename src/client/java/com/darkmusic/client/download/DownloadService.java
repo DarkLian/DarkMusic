@@ -678,10 +678,10 @@ public final class DownloadService implements AutoCloseable {
                 }
             } catch (CancellationException | InterruptedException e) {
                 update(item, Status.CANCELLED, -1, Text.get("download.darkmusic.cancelled"));
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 LOG.warn("Download failed for entry {}", item.entry.mediaId(), e);
                 synchronized (this) {
-                    item.retryAllowed &= RetryPolicy.automatic(e);
+                    item.retryAllowed &= !(e instanceof Error) && RetryPolicy.automatic(e);
                     item.diagnostic = DownloadDiagnostics.classify(e, DownloadDiagnostics.Stage.DOWNLOAD, item.entry.url(), item.id,
                         item.attempts, verifiedVersions);
                 }

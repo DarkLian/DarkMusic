@@ -78,7 +78,7 @@ internal sealed class CaptureHost : Form {
             if(!identity.Valid()||!Native.IsWindow(minecraft)||!GraphicsCaptureSession.IsSupported())throw new InvalidOperationException("Capture target or capability unavailable");
             if(!Native.RegisterHotKey(Handle,2,(uint)(0x4000|modifiers),(uint)returnKey)||!Native.RegisterHotKey(Handle,1,(uint)(0x4000|modifiers),(uint)focusKey))throw new InvalidOperationException("hotkey_conflict");
             device=Native.Device();captureItem=Native.Item(source);var item=captureItem;width=item.Size.Width;height=item.Size.Height;
-            if(width>3840||height>2160){Finish("too_large");return;}
+            if(!CaptureBounds.Valid(width,height)){Finish("too_large");return;}
             item.Closed+=(_,_)=>Finish("source_closed");
             pool=Direct3D11CaptureFramePool.CreateFreeThreaded(device,DirectXPixelFormat.B8G8R8A8UIntNormalized,2,item.Size);
             pool.FrameArrived+=FrameArrived;session=pool.CreateCaptureSession(item);session.IsCursorCaptureEnabled=false;
@@ -147,7 +147,7 @@ internal sealed class CaptureHost : Form {
             if(!pacer.Accept(Stopwatch.GetTimestamp())){Interlocked.Increment(ref throttled);return;}
             var size=frame.ContentSize;
             if(size.Width<1||size.Height<1)return;
-            if(size.Width>3840||size.Height>2160){Finish("too_large");return;}
+            if(!CaptureBounds.Valid(size.Width,size.Height)){Finish("too_large");return;}
             if(size.Width!=width||size.Height!=height){
                 frame.Dispose();frame=null;RecreatePool(sender,size);return;
             }

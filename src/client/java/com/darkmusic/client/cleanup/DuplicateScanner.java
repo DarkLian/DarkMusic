@@ -107,6 +107,7 @@ public final class DuplicateScanner implements AutoCloseable {
     }
 
     private void scan(List<Track> tracks, DuplicatePolicy policy, boolean audio, ProcessRunner.Token request) {
+        FingerprintService.pruneScratch(scratch, System.currentTimeMillis());
         int total = Math.min(tracks.size(), DuplicatePolicy.MAX_TRACKS);
         int done = 0, unavailable = 0, audioFailed = 0;
         boolean limited = tracks.size() > DuplicatePolicy.MAX_TRACKS;
@@ -223,8 +224,7 @@ public final class DuplicateScanner implements AutoCloseable {
                         }
                     }
                 }
-                result = new DuplicateMatcher().match(analyzed, policy, request, pairs -> {
-                });
+                result = incremental.snapshot();
             }
             publish(Stage.COMPLETE, done, total, unavailable, audioFailed, limited || result.limited(), false, result.comparisons(), result.pairs());
         } catch (java.util.concurrent.CancellationException cancelled) {

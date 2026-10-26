@@ -63,8 +63,17 @@ public final class ImportHistory {
             }
         } catch (Exception e) {
             preserveInvalid = true;
-            warning.accept("Cannot read import history: " + e.getMessage());
+            warning.accept(com.darkmusic.client.text.Text.get("import.history.read_failed", e.getMessage()));
         }
+        revision++;
+    }
+
+    /**
+     * Storage-executor only, after reset has removed the persisted history.
+     */
+    public void reset() {
+        batches = List.of();
+        preserveInvalid = false;
         revision++;
     }
 
@@ -83,7 +92,7 @@ public final class ImportHistory {
                     }
                     ConfigStore.atomicWrite(file, ConfigStore.JSON.toJson(batches));
                 } catch (Exception e) {
-                    warning.accept("Cannot save import history: " + e.getMessage());
+                    warning.accept(com.darkmusic.client.text.Text.get("import.history.save_failed", e.getMessage()));
                 }
             });
         } catch (java.util.concurrent.RejectedExecutionException e) {

@@ -176,12 +176,12 @@ public final class UpdateService implements AutoCloseable {
         message("update.downloading");
         GitHubRelease selected = release;
         CompletableFuture.runAsync(() -> {
-            Path staged = null;
+            Path staged = null, job = null;
             try {
                 byte[] bytes = fetch(selected.url(), selected.size());
                 if (bytes.length != selected.size()) throw new java.io.IOException("Unexpected asset size");
                 Files.createDirectories(directory);
-                Path job = Files.createDirectory(directory.resolve(java.util.UUID.randomUUID().toString()));
+                job = Files.createDirectory(directory.resolve(java.util.UUID.randomUUID().toString()));
                 staged = job.resolve("download.jar");
                 Files.write(staged, bytes, StandardOpenOption.CREATE_NEW);
                 selected.verify(staged);
@@ -209,8 +209,8 @@ public final class UpdateService implements AutoCloseable {
                 });
             } catch (Exception failure) {
                 LOG.warn("Update download failed", failure);
-                if (staged != null) try {
-                    Files.deleteIfExists(staged);
+                if (job != null && (pending == null || !pending.getParent().equals(job))) try {
+                    UpdateRecovery.discard(job);
                 } catch (Exception cleanup) {
                     LOG.warn("Cannot clean failed update", cleanup);
                 }

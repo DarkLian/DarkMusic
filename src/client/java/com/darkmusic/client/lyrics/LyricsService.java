@@ -263,9 +263,37 @@ public final class LyricsService implements AutoCloseable {
         } else {
             if (fingerprint.audio.size < 0)
                 return new Cached(fingerprint, LyricsDocument.EMPTY, LyricsInfo.LOCAL_ERROR, System.nanoTime());
-            var tag = org.jaudiotagger.audio.AudioFileIO.read(audio.toFile()).getTag();
-            text = tag == null ? "" : tag.getFirst(org.jaudiotagger.tag.FieldKey.LYRICS);
-            language = tag == null ? "und" : tag.getFirst(org.jaudiotagger.tag.FieldKey.LANGUAGE);
+            var container = com.darkmusic.client.audio.AudioFormats.detect(audio);
+            if (container == com.darkmusic.client.audio.AudioFormats.Container.OPUS || container == com.darkmusic.client.audio.AudioFormats.Container.VORBIS) {
+                var tags = com.darkmusic.client.library.OggArtwork.tags(audio);
+                text = tags.getOrDefault("lyrics", tags.getOrDefault("unsyncedlyrics", ""));
+                language = tags.getOrDefault("language", "und");
+            } else if (container == com.darkmusic.client.audio.AudioFormats.Container.AAC || container == com.darkmusic.client.audio.AudioFormats.Container.WEBM) {
+                text = "";
+                try {
+                    var info = com.darkmusic.client.audio.ExternalAudio.probe(audio);
+                    var tags = new java.util.HashMap<String, String>();
+                    if (info.has("format") && info.getAsJsonObject("format").has("tags"))
+                        info.getAsJsonObject("format").getAsJsonObject("tags").entrySet().forEach(e -> tags.put(e.getKey().toLowerCase(java.util.Locale.ROOT), e.getValue().getAsString()));
+                    if (info.has("streams")) for (var stream : info.getAsJsonArray("streams"))
+                        if (stream.getAsJsonObject().has("tags"))
+                            stream.getAsJsonObject().getAsJsonObject("tags").entrySet().forEach(e -> tags.put(e.getKey().toLowerCase(java.util.Locale.ROOT), e.getValue().getAsString()));
+                    text = tags.getOrDefault("lyrics", tags.getOrDefault("unsyncedlyrics", ""));
+                    language = tags.getOrDefault("language", "und");
+                } catch (Exception unavailable) {
+                    return new Cached(fingerprint, LyricsDocument.EMPTY, LyricsInfo.LOCAL_ERROR, System.nanoTime());
+                }
+            } else {
+                try {
+                    var tag = org.jaudiotagger.audio.AudioFileIO.read(audio.toFile()).getTag();
+                    text = tag == null ? "" : tag.getFirst(org.jaudiotagger.tag.FieldKey.LYRICS);
+                    language = tag == null ? "und" : tag.getFirst(org.jaudiotagger.tag.FieldKey.LANGUAGE);
+                } catch (org.jaudiotagger.audio.exceptions.CannotReadException unsupported) {
+                    if (unsupported.getMessage() == null || !unsupported.getMessage().contains("No Reader associated"))
+                        throw unsupported;
+                    return new Cached(fingerprint, LyricsDocument.EMPTY, LyricsInfo.LOCAL_MISSING, System.nanoTime());
+                }
+            }
         }
         if (text.length() > 1_000_000)
             return new Cached(fingerprint, LyricsDocument.EMPTY, LyricsInfo.LOCAL_ERROR, System.nanoTime());

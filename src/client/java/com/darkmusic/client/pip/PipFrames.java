@@ -78,6 +78,8 @@ public final class PipFrames implements AutoCloseable {
      * The single receiver calls this only after validating the header.
      */
     public Lease writing(PipFrame frame) {
+        if (!PipFrame.validDimensions(frame.width(), frame.height()) || frame.bytes() != (long) frame.width() * frame.height() * 4)
+            throw new IllegalArgumentException("Invalid PiP buffer size");
         Slot slot;
         synchronized (this) {
             if (closed) return null;

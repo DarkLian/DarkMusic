@@ -50,7 +50,7 @@ at 480 FPS. Stop and restart capture after changing monitors to update this limi
 Existing preferences retain their frame limit; the default remains 60 FPS.
 The frame limit caps capture, without generating additional video frames. Higher
 limits increase processing and memory traffic. Actual smoothness depends on the
-source, Minecraft's frame rate and the display. Captures are limited to 3840×2160.
+source, Minecraft's frame rate and the display. Captures have a 3840×2160 pixel budget (8,294,400 pixels), with each side at most 7680 pixels. Ultrawide and tall windows within that budget are supported.
 Linux/macOS capture, protected content, HDR, elevated apps and all multi-monitor
 combinations are not supported or verified. From v3.0.4 DarkMusic asks Windows to
 deliver window frames about twice as often as your limit needs (never slower than the
@@ -297,7 +297,7 @@ Tool-related reports link to **Download Tools**. Check Tools validates the chose
 
 ## Mod updates
 
-**Settings → General → Update Notifications** checks GitHub when joining a world or server and notifies once per launch. Turning it off disables automatic checks and notices. **Check for Updates** checks manually regardless of that toggle and reports availability or errors. An available update requires a separate **Download Update** click; nothing downloads simply because a check found it.
+**Settings → General → Update Notifications** checks GitHub when joining a world or server, repeats the check every six hours while connected, and notifies once per launch. Turning it off disables automatic checks and notices. **Check for Updates** checks manually regardless of that toggle and reports availability or errors. An available update requires a separate **Download Update** click; nothing downloads simply because a check found it.
 
 A completed download is announced in client-side chat. Close Minecraft and wait a few seconds before restarting so the update can install. Settings, music, playlists, artwork, other assets, and other mods are preserved. New options receive their defaults. Updates require a compatible official release with a verified checksum; development source-set launches can check for releases but cannot install updates. If an installation fails, the existing version remains active. A client-side notice appears once per launch when notifications are enabled, and Check for Updates offers Open Installation Log even when notifications are off.
 

@@ -297,7 +297,7 @@ public final class DownloadPipeline {
                 String title = text(metadata, "title");
                 if (title.isBlank()) title = entry.title();
                 String name = filename(title, identity, plan.extension());
-                incoming = Files.createTempFile(destination, ".darkmusic-", ".tmp");
+                incoming = com.darkmusic.client.library.LibraryFiles.incoming(destination, ".darkmusic-");
                 try (var input = Files.newInputStream(converted); var output = Files.newOutputStream(incoming)) {
                     byte[] buffer = new byte[32_768];
                     int read;

@@ -38,6 +38,13 @@ public record Lrc(List<Line> lines) {
                 if (seconds >= 60) continue;
                 String fraction = matcher.group(3);
                 int ms = fraction == null ? 0 : Integer.parseInt((fraction + "000").substring(0, 3));
+                if (end > 0) {
+                    String segment = WORD_TIME.matcher(raw.substring(end, matcher.start())).replaceAll("").strip();
+                    if (!segment.isEmpty()) {
+                        for (long time : times) result.add(new Line(time, segment));
+                        times.clear();
+                    }
+                }
                 times.add(Long.parseLong(matcher.group(1)) * 60_000 + seconds * 1000L + ms - offset);
                 end = matcher.end();
             }

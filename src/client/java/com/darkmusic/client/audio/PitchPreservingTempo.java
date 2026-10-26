@@ -38,19 +38,20 @@ final class PitchPreservingTempo {
         return start + (ideal - Math.max(0, available - cursor) / (double) channels * blockSpeed) * ratio;
     }
 
-    private void ensure(long end) throws IOException {
+    private boolean ensure(long end) throws IOException {
         while (!ended && loaded <= end) {
             int n = source.read(decoded, decoded.length, ratio);
             if (n < 0) {
                 ended = true;
                 break;
             }
-            if (n == 0) continue;
+            if (n == 0) return false; // Yield to the worker so stop/seek and stall detection can run.
             for (int i = 0; i < n / channels; i++) {
                 var frame = ring[(int) (loaded++ & (ring.length - 1))];
                 for (int c = 0; c < channels; c++) frame[c] = decoded[i * channels + c];
             }
         }
+        return true;
     }
 
     private double value(long frame, int c) {
@@ -61,7 +62,7 @@ final class PitchPreservingTempo {
         int written = 0;
         while (written + channels <= length) {
             if (cursor == available) {
-                ensure((long) ideal + search + 2L * hop + 2048);
+                if (!ensure((long) ideal + search + 2L * hop + 2048)) return written;
                 if (ended && ideal >= loaded) break;
                 long selected = Math.max(0, Math.round(ideal));
                 if (!first) {

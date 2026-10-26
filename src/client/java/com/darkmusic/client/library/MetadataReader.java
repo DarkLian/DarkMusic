@@ -14,10 +14,16 @@ public final class MetadataReader {
         String name = file.getFileName().toString();
         int dot = name.lastIndexOf('.');
         String title = dot > 0 ? name.substring(0, dot) : name;
-        String artist = "Unknown artist", album = "Unknown album", problem = "";
+        String artist = "", album = "", problem = "";
         double duration = 0;
         try {
             var container = com.darkmusic.client.audio.AudioFormats.detect(file);
+            if (container == com.darkmusic.client.audio.AudioFormats.Container.OPUS) {
+                var opus = OpusMetadata.read(file);
+                if (opus.duration() >= 0)
+                    return new Track(root, relative, file, opus.tags().getOrDefault("title", title),
+                        opus.tags().getOrDefault("artist", ""), opus.tags().getOrDefault("album", ""), opus.duration(), size, modified, "");
+            }
             if (java.util.Set.of(com.darkmusic.client.audio.AudioFormats.Container.OPUS, com.darkmusic.client.audio.AudioFormats.Container.AAC, com.darkmusic.client.audio.AudioFormats.Container.WEBM).contains(container))
                 throw new java.io.IOException("Use codec-aware metadata inspection");
             var audio = AudioFileIO.read(file.toFile());
@@ -30,7 +36,7 @@ public final class MetadataReader {
             double length = audio.getAudioHeader().getPreciseTrackLength();
             duration = Double.isFinite(length) ? Math.max(0, length) : 0;
         } catch (Exception e) {
-            problem = "Metadata unavailable: " + e.getClass().getSimpleName();
+            problem = com.darkmusic.client.text.Text.get("library.metadata.unavailable", e.getClass().getSimpleName());
             try {
                 var info = com.darkmusic.client.audio.ExternalAudio.probe(file);
                 var format = info.getAsJsonObject("format");
@@ -57,7 +63,7 @@ public final class MetadataReader {
                 }
                 problem = "";
             } catch (Exception unavailable) {
-                problem += "; FFmpeg/FFprobe may be required for this format";
+                problem = com.darkmusic.client.text.Text.get("library.metadata.tools_required", problem);
             }
         }
         return new Track(root, relative, file, title, artist, album, duration, size, modified, problem);
