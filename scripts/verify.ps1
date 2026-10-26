@@ -37,11 +37,20 @@ $scratch = Join-Path $scratchRoot ([guid]::NewGuid().ToString())
 $verificationDirectory = $MusicDirectory
 $originalHashes = @{}
 $gradle = Join-Path $projectDirectory 'gradlew.bat'
+
+# Gradle and javac write warnings to stderr. Under 'Stop', Windows PowerShell 5.1 turns such a line into a
+# terminating error whenever the output is redirected, ending the run although the build succeeds.
+# Only the exit code decides success.
+function Invoke-Gradle {
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { & $gradle @args } finally { $ErrorActionPreference = $previous }
+}
 Push-Location $projectDirectory
 try {
     # Clean before preparing excerpts, so Gradle cannot delete its own test inputs.
     if ($Clean) {
-        & $gradle clean
+        Invoke-Gradle clean
         if ($LASTEXITCODE -ne 0) { throw "Gradle clean failed ($LASTEXITCODE)." }
     }
     $readerFiles = @($musicFiles | Where-Object { $_.Extension -match '^\.(mp3|flac|wav|ogg)$' })
@@ -62,7 +71,7 @@ try {
     if ($JavaOnly) { $arguments += '-PjavaOnly' }
     if ($ToolsDirectory) { $arguments += @('-PdownloadIntegration', "-PdownloadToolsDirectory=$ToolsDirectory") }
     if ($DesktopIntegration) { $arguments += '-PdesktopIntegration' }
-    & $gradle @arguments
+    Invoke-Gradle @arguments
     if ($LASTEXITCODE -ne 0) { throw "Gradle verification failed ($LASTEXITCODE)." }
 } finally {
     try {
