@@ -1,6 +1,12 @@
 # Development and verification
 
 
+## v3.0.3 release validation
+
+Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed **589 tests: 584 passed, five skipped**, zero failures/errors, using the private collection and existing managed tools. The four local release archives built. The change adds only a PiP settings warning for exclusive fullscreen, with English and Traditional Chinese text; localization parity and menu layout tests passed.
+
+The warning was confirmed manually in the PiP settings screen at GUI scale 2. The underlying tearing was reproduced on one system (RX 9060 XT, 144 Hz, VSync off, 140 FPS cap, Fabric API and DarkMusic only): exclusive fullscreen tore in the inventory and PiP layout editor while capturing; borderless and windowed mode did not, and VSync did not help. The cause is not established, and other hardware, the capture helper's role and the OBS comparison were not tested. Full native playback/HUD smoke runs were not repeated for this release.
+
 ## v3.0.2 release validation
 
 Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed **589 tests: 584 passed, five skipped**, zero failures/errors, using the private collection and existing managed tools. The skips are optional live tool installation, live LRCLIB, two unavailable Windows symlink fixtures and explicit live-release PiP installation. Originals remained unchanged; verification excerpts were cleaned.
