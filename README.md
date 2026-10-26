@@ -6,9 +6,9 @@ Your own music library, inside Minecraft. Browse and play your collection, build
 
 ## Install
 
-DarkMusic **v3.0.4** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v3.1.0** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-3.0.4.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-3.1.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Add your songs under **Settings → General → Music Folders**, drag audio files into the player, or copy them to `config/darkmusic/music` in your instance.
@@ -117,7 +117,7 @@ Automatic update checks are on by default: they run after joining a world/server
 
 ## What's new
 
-**v3.0.4** makes PiP capture follow your frame limit. Earlier versions were held near 48 FPS on a 144 Hz display; on one tested system a 144 FPS limit now delivers about 143 FPS ([notes](docs/RELEASE-3.0.4.md)).
+**v3.1.0** improves large-library search, Opus metadata and lyrics, download resilience, and saved lyric retention. PiP accepts ultrawide and tall windows within the same 4K pixel budget. The frame-limit capture improvements from v3.0.4 remain included ([release notes](docs/RELEASE-3.1.0.md)).
 
 **v3.0.3** adds a warning in the PiP settings when Minecraft is in exclusive fullscreen, which can cause visible screen tearing while PiP captures. Borderless or windowed mode avoids it ([notes](docs/RELEASE-3.0.3.md)).
 

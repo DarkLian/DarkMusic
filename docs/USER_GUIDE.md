@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v3.0.1 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v3.1.0 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Picture-in-Picture (Windows x64)
 
@@ -80,7 +80,7 @@ Folders scan independently, so a slow or unavailable network folder does not hol
 
 MP3, FLAC, WAV, Ogg Vorbis, and AIFF use the bundled audio readers. Opus, AAC, MP4/M4A, and WebM playback uses FFmpeg. These formats require a compatible FFmpeg installation, available through **Downloads → Tools**. Actual playback depends on the codec in the file.
 
-Titles, artists, albums, duration, and artwork are read from available metadata. Missing metadata may appear as a filename or an unknown artist/album. Use the player's pencil button to edit a selected song's tags.
+Titles, artists, albums, duration, and artwork are read from available metadata. Ordinary Opus metadata and embedded lyrics can be read directly; playback still requires FFmpeg. AAC/WebM retain external-tool metadata fallback. Missing metadata may appear as a filename or an unknown artist/album. Use the player's pencil button to edit a selected song's tags.
 
 ### Drag and import
 
@@ -105,7 +105,7 @@ Open **Import History** beside Open Folder to review import times, filenames, de
 
 Choose **All**, **Playlists**, **Artists**, or **Albums**. The left panel shows collections and track counts. In All, folder disclosure symbols expand nested folders; folders start collapsed.
 
-Search filters the visible list. Select a song and press Play, or double-click it. The right panel shows the selected song's details and artwork. It can show a different song from the one currently playing. Play starts that selection; Pause/Resume controls the current song only when both the song and its source collection match. The right-side spectrum follows that same rule. Track changes automatically reveal the playing song and its source collection when the search is empty and not focused. An active search keeps its text, cursor, and focus while music continues normally.
+Search filters the visible list. Width variants and Latin accents are folded for matching, so `beyonce` can find `Beyoncé`. Search keys are reused for large collections. Select a song and press Play, or double-click it. The right panel shows the selected song's details and artwork. It can show a different song from the one currently playing. Play starts that selection; Pause/Resume controls the current song only when both the song and its source collection match. The right-side spectrum follows that same rule. Track changes automatically reveal the playing song and its source collection when the search is empty and not focused. An active search keeps its text, cursor, and focus while music continues normally.
 
 The player uses larger borderless playback and utility icons. Volume has a slim filled track and percentage readout; Speed has a matching filled track and a multiplier on its left. The player controls are centered independently of the song list. Speed and Volume sliders sit at the outer edges, with Reset Speed and Mute beside the playback buttons. All controls use equal horizontal spacing. In the three-column layout, the song list is also centered; the details panel keeps its usual width.
 

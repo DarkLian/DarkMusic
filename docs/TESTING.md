@@ -1,6 +1,14 @@
 # Development and verification
 
 
+## v3.1.0 release validation
+
+Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed **607 tests: 601 passed, six skipped**, zero failures/errors, using private-real-audio-derived fixtures and existing managed tools. The skipped cases are optional live tool installation, live LRCLIB, live published PiP installation, two unavailable Windows symlink fixtures and POSIX permissions on Windows. The published PiP installation check is run separately after publication.
+
+All four local archives passed CRC, version, embedded helper/dependency hashes, dependency separation, source/license notices, private-media/smoke exclusions and 1,624-key localization parity checks. The mod JAR is 4,055,409 bytes; the optional dependency ZIP is unchanged from v3.0.4 (SHA-256 `55eccdc65bc1242f7d2fae0547ab7a35ab3a435a50a831d239653f932a2f5273`). Detailed behavioral tests, measurements and limitations are recorded in [the review report](OPEN-FINDINGS-128-148.md). Evidence: ignored `.local-tools/verification/release-3.1.0/`.
+
+English and Traditional Chinese native player/lyrics/HUD smoke checks passed at fullscreen 1920x1080, configured/effective GUI scale 2, with SmoothFont and actual device playback. Online lyric access was disabled for deterministic checks. No new public screenshots were taken.
+
 ## PiP Chrome retest after the FreeSync correction
 
 October 26, 2026, Windows 11 build 26300, Ryzen 7 7800X3D, Radeon RX 9060 XT, 144 Hz display. The user reported fixing the system-wide AMD FreeSync/Adaptive Sync problem that had capped frame rates across applications; the earlier PiP measurements were taken before that correction.
