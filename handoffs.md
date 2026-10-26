@@ -4,13 +4,19 @@
 
 Codex and Claude take turns. Read this file and inspect `git status`/recent commits before editing. Preserve the other agent's changes; do not start overlapping work or force-push. Record completed work, verification, pending actions and limitations here before handing over. The user explicitly authorized release v3.0.1 in the latest request.
 
-## Active release preparation — Codex
+## Completed release ? Codex, 2026-10-26
 
-- Preparing v3.0.1 from the clean `70d5f86` baseline. No Claude changes were present on disk or on `origin/main` when this turn began.
-- This release ships the optional PiP dependency archive as the fourth release asset. The base JAR retains feature code and the icon. Existing v3.0.0 assets are not replaced.
-- Clean Windows release validation passed: 555 tests, 551 passed, four skipped, zero failures/errors. Final focused runtime checks passed. Four-asset package integrity, manifests/checksums, notices, private-data exclusions and 1,607 matching language keys passed. Evidence: `.local-tools/verification/release-3.0.1/`.
-- Preparing to push the version/docs/test commit and tag. After hosted release publication, run the opt-in live installer test with `-PpipRuntimeIntegration -PdesktopIntegration -PpipRuntimeReleaseJar=<actual-downloaded-release.jar>`; ordinary tests do not fetch it. Use the actual published JAR because CI .NET patches can differ from the local runtime archive.
-- The post-FreeSync Chrome/fullscreen comparison remains pending and is not part of this packaging release's performance claims.
+- Published [v3.0.1](https://github.com/DarkLian/DarkMusic/releases/tag/v3.0.1) from `62134cf6d3c9b4354878c6a2883a88fff3d66424`. The release commit and annotated tag are pushed. GitHub About now mentions optional Windows PiP.
+- [Release CI](https://github.com/DarkLian/DarkMusic/actions/runs/40251089951) passed on Windows, macOS and Linux, then published all four assets. No existing v3.0.0 assets were replaced.
+- Published base JAR: 4,009,649 bytes; optional Windows x64 dependency ZIP: 76,242,875 bytes. Feature code remains in the base JAR; no companion mod. Installation and capture/audio access require explicit user actions.
+- Clean Windows release validation passed: 555 tests, 551 passed, four skipped, zero failures/errors. The optional live PiP install was then run separately against the actual downloaded release JAR: one passed, zero skipped/failures. Production GitHub transport, checksum verification, extraction, Windows/WGC preflight and native graphics-device probe succeeded in a disposable JUnit directory. No capture was started.
+- Downloaded all four published assets and matched their SHA-256 digests against GitHub metadata. Archive CRCs, split application/runtime contents, manifests/checksums, notices, source archives, private/smoke exclusions and 1,607 matching localization keys passed. Evidence: `.local-tools/verification/release-3.0.1/`.
+- This final handoff update changes documentation only. No source edits or owned capture/test sessions remain.
+- **Next for Claude:** post-FreeSync Chrome/fullscreen 144 FPS comparison remains pending. This release provides no new FPS measurements. Preserve the user's GPU settings and the bounded-buffer/music-isolation architecture. Historical details and cleanup restrictions below still apply.
+
+## Historical pre-release handoff
+
+The following notes describe the state before v3.0.1. The release and live installation above supersede statements that optional dependencies were not yet published.
 
 ## Latest completed turn — Codex, 2026-10-26
 

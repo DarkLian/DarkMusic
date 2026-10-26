@@ -311,3 +311,14 @@ English and Traditional Chinese Minecraft runs each emitted their smoke-pass mar
 Clean Windows release checks used scripts/verify.ps1 -Clean -DesktopIntegration through the private-collection harness: **517 tests, 515 passed, two optional live-provider/tool-install checks skipped**. Both language smoke runs completed with their pass markers and successful Gradle builds at fullscreen 1920x1080, GUI scale 2, SmoothFont. Source hashes remained unchanged and this run's excerpts were cleaned. The task-created Gradle daemon was stopped after completion because it held the PowerShell output pipe open.
 
 Packaged version 2.10.0, 1,518 matching localization keys, source-JAR license, third-party source archive (including six nested archives), and exclusion of private audio and smoke classes were verified. Waveform progress remains off by default; spectrum opacity defaults to 100%. New settings are additive. No new dependencies or playback DSP changes. Native Linux/macOS, heavy-workload gameplay FPS, and analysis-limit recordings remain unverified.
+
+
+## v3.0.1 release validation
+
+Clean Windows checks through `scripts/verify.ps1 -Clean -DesktopIntegration` passed **555 tests: 551 passed, four skipped, zero failures/errors**. The skipped checks were the optional managed-tool installation, live LRCLIB, unavailable Windows symlink fixture, and opt-in live PiP installation. Existing managed tools and the private real collection were used. Prior optional-setup UI checks passed at fullscreen 1920x1080, GUI scale 2 with SmoothFont; this packaging release adds no new capture-performance measurement.
+
+Windows, macOS and Linux [release CI](https://github.com/DarkLian/DarkMusic/actions/runs/40251089951) passed. All four published assets were downloaded and their SHA-256 digests matched GitHub metadata. Package CRCs, runtime/application separation, manifest binding, notices, source archives, private/smoke exclusions and 1,607 matching localization keys passed. The published base JAR is 4,009,649 bytes and optional Windows x64 dependencies are 76,242,875 bytes.
+
+After publication, `PipRuntimeTest.publishedDependenciesInstallWithTheProductionTransport` passed separately (one test, zero skipped). It read the actual published JAR with `-PpipRuntimeReleaseJar`, downloaded the matching release archive through production transport using `-PpipRuntimeIntegration -PdesktopIntegration`, verified and installed it in a disposable JUnit directory, and passed Windows/WGC and native graphics-device checks. It did not enumerate windows, grant capture/audio access or start capture. Local evidence is under ignored `.local-tools/verification/release-3.0.1/`.
+
+Native macOS/Linux PiP remains unsupported; CI builds do not establish native GUI/audio behavior on those systems. Post-FreeSync Chrome delivery at 144 FPS remains unverified and is recorded as the next handoff task.
