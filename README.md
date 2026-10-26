@@ -61,7 +61,7 @@ Choose a **Classic**, **Circular**, **Artwork**, or **Spectrum Only** HUD. Pick 
 
 Preview layouts live and pick a gradient or your own colors with a color spectrum, RGB sliders, or hex values.
 
-![HUD and spectrum settings with live artwork preview](docs/images/settings-2.3.5.png)
+![HUD and spectrum settings with live artwork preview](docs/images/settings.png)
 
 ## Shape your sound
 

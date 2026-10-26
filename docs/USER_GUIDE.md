@@ -298,7 +298,7 @@ A completed download is announced in client-side chat. Close Minecraft and wait 
 
 ## Customize the HUD
 
-![HUD and spectrum settings with live artwork preview](images/settings-2.3.5.png)
+![HUD and spectrum settings with live artwork preview](images/settings.png)
 
 Settings contains General, Audio, HUD, Spectrum, and Reset sections. Most changes save immediately. The preview shows current playback data, or sample visualization when no song is playing.
 
