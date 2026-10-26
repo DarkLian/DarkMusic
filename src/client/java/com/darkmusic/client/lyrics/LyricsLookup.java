@@ -95,6 +95,7 @@ public final class LyricsLookup implements AutoCloseable {
 
     private final LinkedHashMap<String, Cached> results = new LinkedHashMap<>(16, .75f, true);
     private long nextCacheTrim, bytesSinceCacheTrim;
+    private final Object cacheFiles = new Object();
     private volatile boolean enabled = true, online, closed;
     private volatile Captions captions;
     private volatile Captions manualCaptions;
@@ -828,8 +829,10 @@ public final class LyricsLookup implements AutoCloseable {
         try {
             String json = ConfigStore.JSON.toJson(value);
             Path folder = directory.resolve(candidates.isEmpty() ? "misses" : "cache");
-            ConfigStore.atomicWrite(folder.resolve(key + ".json"), json);
-            Files.deleteIfExists(directory.resolve(candidates.isEmpty() ? "cache" : "misses").resolve(key + ".json"));
+            synchronized (cacheFiles) {
+                ConfigStore.atomicWrite(folder.resolve(key + ".json"), json);
+                Files.deleteIfExists(directory.resolve(candidates.isEmpty() ? "cache" : "misses").resolve(key + ".json"));
+            }
             synchronized (results) {
                 bytesSinceCacheTrim += json.getBytes(StandardCharsets.UTF_8).length;
                 if (System.nanoTime() < nextCacheTrim && bytesSinceCacheTrim < 4L * 1024 * 1024) return;
@@ -842,6 +845,21 @@ public final class LyricsLookup implements AutoCloseable {
         }
     }
 
+    record CacheFile(Path path, long size, java.nio.file.attribute.FileTime modified, Object fileKey) { }
+
+    static CacheFile cacheFile(Path path) throws java.io.IOException {
+        var a = Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        return a.isRegularFile() ? new CacheFile(path, a.size(), a.lastModifiedTime(), a.fileKey()) : null;
+    }
+
+    boolean discardCacheFile(CacheFile candidate) throws java.io.IOException {
+        synchronized (cacheFiles) {
+            CacheFile current = cacheFile(candidate.path);
+            if (!candidate.equals(current)) return false; // A refresh won the race; keep its new result.
+            return Files.deleteIfExists(candidate.path);
+        }
+    }
+
     private void trimDiskCache() {
         try {
             for (String name : List.of("cache", "misses")) {
@@ -849,13 +867,13 @@ public final class LyricsLookup implements AutoCloseable {
                 if (!Files.isDirectory(retained, LinkOption.NOFOLLOW_LINKS)) continue;
                 long limit = (name.equals("misses") ? 16L : 64L) * 1024 * 1024;
                 try (var files = Files.list(retained)) {
-                    var all = files.filter(p -> p.getFileName().toString().matches("[a-f0-9]{64}\\.json")).filter(p -> Files.isRegularFile(p, LinkOption.NOFOLLOW_LINKS))
-                        .sorted(Comparator.comparingLong(p -> p.toFile().lastModified())).toList();
-                    long bytes = 0;
-                    for (Path file : all) bytes += Files.size(file);
-                    for (int i = 0; i < all.size() && (all.size() - i > 256_000 || bytes > limit); i++) {
-                        bytes -= Files.size(all.get(i));
-                        Files.deleteIfExists(all.get(i));
+                    var all = files.filter(p -> p.getFileName().toString().matches("[a-f0-9]{64}\\.json")).map(p -> {
+                        try { return cacheFile(p); } catch (java.io.IOException vanished) { return null; }
+                    }).filter(java.util.Objects::nonNull).sorted(Comparator.comparing(CacheFile::modified)).toList();
+                    long bytes = all.stream().mapToLong(CacheFile::size).sum(), count = all.size();
+                    for (CacheFile file : all) {
+                        if (count <= 256_000 && bytes <= limit) break;
+                        if (discardCacheFile(file)) { bytes -= file.size; count--; }
                     }
                 }
             }
