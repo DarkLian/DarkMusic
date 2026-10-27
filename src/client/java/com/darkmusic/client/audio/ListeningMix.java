@@ -1,6 +1,5 @@
 package com.darkmusic.client.audio;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.AudioSettings;
 
 /**
@@ -13,11 +12,14 @@ public final class ListeningMix {
     private ListeningMix() {
     }
 
-    public static boolean tick() {
-        var app = DarkMusicClient.INSTANCE;
+    /**
+     * @param audio   current audio settings, or null before they load
+     * @param playing whether DarkMusic is playing inside a world
+     */
+    public static boolean tick(AudioSettings audio, boolean playing) {
         double target = 1;
-        if (app != null && app.settings != null && app.playback != null && net.minecraft.client.Minecraft.getInstance().level != null && app.playback.state().status() == AudioBackend.Status.PLAYING && app.settings.audio.listening == AudioSettings.Listening.FOCUS)
-            target = app.settings.audio.focusGain;
+        if (audio != null && playing && audio.listening == AudioSettings.Listening.FOCUS)
+            target = audio.focusGain;
         double old = focus;
         focus += Math.clamp(target - focus, -.15, .15);
         if (Math.abs(focus - target) < .001) focus = target;
@@ -31,14 +33,13 @@ public final class ListeningMix {
         };
     }
 
-    public static void sound(String category, String id) {
-        var app = DarkMusicClient.INSTANCE;
-        if (app == null || app.settings == null || !app.settings.audio.ducking) return;
+    public static void sound(String category, String id, AudioSettings audio) {
+        if (audio == null || !audio.ducking) return;
         boolean priority = category.equals("HOSTILE") || category.equals("VOICE") || category.equals("UI") || id.contains("player.hurt");
         long now = System.nanoTime();
         if (priority && now - lastDuck > 500_000_000L) {
             lastDuck = now;
-            duckUntil = now + (long) (app.settings.audio.duckHold * 1e9);
+            duckUntil = now + (long) (audio.duckHold * 1e9);
         }
     }
 
