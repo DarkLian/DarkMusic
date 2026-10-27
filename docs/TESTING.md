@@ -1,5 +1,20 @@
 # Development and verification
 
+## v3.3.3: Repository review fixes
+
+These fixes come from a review of the whole repository. One of the review's findings was withdrawn because the fields it flagged were already `volatile`.
+
+- **Reset to Defaults.** `DarkMusicClient.createDownloads()` builds the download service for both startup and reset. `ResetSmokeClient` requires the saved-download lyric hook to be connected after a reset.
+- **Settings load.** `AuditRegressionTest.undecodableOptionsFileWarnsButStillLoadsSettings` covers an `options.txt` that is not valid UTF-8.
+- **Download reviews.** `DownloadAwarenessTest.laterBatchReplacesAnUnansweredReviewInsteadOfBeingDropped` covers a later batch replacing an earlier review that is still open.
+- **Update rollback.** `UpdateTest` adds two tests:
+  - a failed swap always leaves exactly one working mod JAR;
+  - a same-name swap restores the old JAR even when the backup cannot be moved back.
+- **Low-rate tempo.** `UnifiedAudioDspTest.wsolaKeepsLowSampleRateMonoContinuous` runs pitch-preserving tempo at 8, 11.025, 16 and 22.05 kHz, in mono and stereo, and requires zero discontinuities. Before the fix, 16 kHz mono had 26.
+- **Spectrum budget.** `SpectrumMeshTest` checks that geometry beyond the initial budget grows the buffers once, then drops the extra instead of throwing.
+- **Shared hashing.** `HashesTest` pins the SHA-256 of "abc" and checks cancellation. `RestoreJournal` keeps its own digest because `config` may not depend on `tools`.
+- **Test runs.** `scripts/verify.ps1 -Clean -DesktopIntegration` passed 637 tests (6 skipped). The smoke source set compiles; the smoke clients were not rerun for this release. The changes passed a manual play session.
+
 ## v3.3.2: PiP Install repair, 16-bit dither and code cleanup
 
 **PiP Install repair.** `PipRuntimeTest` covers three cases:
