@@ -24,6 +24,14 @@ class MediaControlsTest {
     @TempDir
     Path temp;
 
+    /**
+     * The installer refuses symbolic links in its path; macOS temporary folders live under the /var link.
+     */
+    @org.junit.jupiter.api.BeforeEach
+    void realPath() throws IOException {
+        temp = temp.toRealPath();
+    }
+
     private static byte[] zip(Map<String, byte[]> entries) throws IOException {
         var bytes = new ByteArrayOutputStream();
         try (var zip = new ZipOutputStream(bytes)) {

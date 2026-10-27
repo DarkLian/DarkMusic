@@ -152,7 +152,8 @@ public final class SettingRow extends AbstractWidget {
             horizontal.draw(g, font, "value", optionValue, valueX, getY() + 6, valueWidth, active ? UiTheme.ACCENT : UiTheme.MUTED);
             if (cycles) {
                 int hint = active ? UiTheme.SECONDARY : UiTheme.MUTED;
-                UiIcon.chevron(g, getRight() - ICON_INSET + 3, getY() + 3, 7, hint, 1);
+                // Glyph rows 5-8 and 11-14: centered on the row like the checkboxes, with an even gap.
+                UiIcon.chevron(g, getRight() - ICON_INSET + 3, getY() + 4, 7, hint, 1);
                 UiIcon.chevron(g, getRight() - ICON_INSET + 3, getY() + 10, 7, hint, 3);
             }
         } else
