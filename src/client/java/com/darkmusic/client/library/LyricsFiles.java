@@ -7,7 +7,6 @@ import com.darkmusic.client.text.Text;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
-import java.security.MessageDigest;
 import java.util.*;
 
 /**
@@ -68,12 +67,7 @@ public final class LyricsFiles {
     }
 
     private static String hash(byte[] bytes) {
-        if (bytes == null) return null;
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
-        } catch (java.security.NoSuchAlgorithmException impossible) {
-            throw new AssertionError(impossible);
-        }
+        return bytes == null ? null : com.darkmusic.client.tools.Hashes.sha256(bytes);
     }
 
     private static Path journal(Path audio) {

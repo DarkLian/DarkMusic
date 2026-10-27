@@ -107,8 +107,8 @@ public final class WaveformCache implements AutoCloseable {
         return attrs.isRegularFile() && attrs.size() == track.size() && attrs.lastModifiedTime().toMillis() == track.modified();
     }
 
-    private static String hash(String key) throws Exception {
-        return HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(key.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    private static String hash(String key) {
+        return com.darkmusic.client.tools.Hashes.sha256(key);
     }
 
     private TrackWaveform load(Path file, String key) {

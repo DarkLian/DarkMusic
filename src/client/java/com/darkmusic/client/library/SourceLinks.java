@@ -125,17 +125,7 @@ public final class SourceLinks implements AutoCloseable {
     }
 
     public static String contentHash(Path audio) throws java.io.IOException {
-        try {
-            var digest = java.security.MessageDigest.getInstance("SHA-256");
-            try (var input = Files.newInputStream(audio, LinkOption.NOFOLLOW_LINKS)) {
-                byte[] buffer = new byte[65536];
-                int n;
-                while ((n = input.read(buffer)) >= 0) if (n > 0) digest.update(buffer, 0, n);
-            }
-            return HexFormat.of().formatHex(digest.digest());
-        } catch (java.security.NoSuchAlgorithmException impossible) {
-            throw new AssertionError(impossible);
-        }
+        return com.darkmusic.client.tools.Hashes.sha256(audio, LinkOption.NOFOLLOW_LINKS);
     }
 
     private static boolean valid(Path audio, JsonElement element, boolean contents) throws java.io.IOException {

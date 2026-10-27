@@ -3,8 +3,6 @@ package com.darkmusic.client.audio;
 import com.darkmusic.client.text.Text;
 
 import javax.sound.sampled.*;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.*;
 import java.util.function.Consumer;
 
@@ -29,12 +27,7 @@ public final class OutputDevices implements JavaSoundBackend.Output {
     }
 
     static String id(Mixer.Info info) {
-        try {
-            String descriptor = info.getName() + "\n" + info.getVendor() + "\n" + info.getDescription() + "\n" + info.getVersion();
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(descriptor.getBytes(StandardCharsets.UTF_8)));
-        } catch (java.security.NoSuchAlgorithmException impossible) {
-            throw new AssertionError(impossible);
-        }
+        return com.darkmusic.client.tools.Hashes.sha256(info.getName() + "\n" + info.getVendor() + "\n" + info.getDescription() + "\n" + info.getVersion());
     }
 
     private static List<Mixer.Info> mixers() {

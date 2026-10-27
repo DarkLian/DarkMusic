@@ -12,7 +12,6 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.nio.channels.FileChannel;
 import java.nio.file.*;
-import java.security.MessageDigest;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.zip.GZIPInputStream;
@@ -136,13 +135,7 @@ public final class ManagedTools {
 
     static void verify(Path file, String expected, long size) throws Exception {
         if (Files.size(file) != size) throw new IOException(Text.get("tools.error.incomplete"));
-        var digest = MessageDigest.getInstance("SHA-256");
-        try (var in = Files.newInputStream(file)) {
-            byte[] buffer = new byte[65536];
-            int count;
-            while ((count = in.read(buffer)) != -1) digest.update(buffer, 0, count);
-        }
-        if (!expected.equalsIgnoreCase("sha256:" + HexFormat.of().formatHex(digest.digest())))
+        if (!expected.equalsIgnoreCase("sha256:" + Hashes.sha256(file)))
             throw new IOException(Text.get("tools.error.integrity"));
     }
 

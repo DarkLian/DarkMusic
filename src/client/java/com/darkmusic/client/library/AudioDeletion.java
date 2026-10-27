@@ -208,17 +208,7 @@ public final class AudioDeletion {
     }
 
     private static String hash(Path file) throws IOException {
-        try {
-            var digest = java.security.MessageDigest.getInstance("SHA-256");
-            try (var input = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS)) {
-                byte[] buffer = new byte[65536];
-                int count;
-                while ((count = input.read(buffer)) >= 0) if (count > 0) digest.update(buffer, 0, count);
-            }
-            return HexFormat.of().formatHex(digest.digest());
-        } catch (java.security.NoSuchAlgorithmException impossible) {
-            throw new AssertionError(impossible);
-        }
+        return com.darkmusic.client.tools.Hashes.sha256(file, LinkOption.NOFOLLOW_LINKS);
     }
 
     private void deletePermanently(Plan plan, Item item, ProcessRunner.Token token) throws Exception {

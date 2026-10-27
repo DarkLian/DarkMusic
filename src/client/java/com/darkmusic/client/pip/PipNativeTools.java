@@ -6,7 +6,6 @@ import com.google.gson.Gson;
 
 import java.io.*;
 import java.nio.file.*;
-import java.security.*;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
@@ -143,8 +142,8 @@ public final class PipNativeTools {
         }
     }
 
-    private static String hash(byte[] bytes) throws NoSuchAlgorithmException {
-        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+    private static String hash(byte[] bytes) {
+        return com.darkmusic.client.tools.Hashes.sha256(bytes);
     }
 
     public CompletableFuture<List<PipSource>> windows(ProcessRunner.Token token) {

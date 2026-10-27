@@ -11,8 +11,6 @@ import com.darkmusic.client.tools.DownloadDiagnostics;
 import com.darkmusic.client.tools.ProcessRunner;
 
 import java.nio.file.*;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Supplier;
@@ -845,11 +843,7 @@ public final class LyricsLookup implements AutoCloseable {
     }
 
     private static String hash(String value) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (Exception impossible) {
-            throw new IllegalStateException(impossible);
-        }
+        return com.darkmusic.client.tools.Hashes.sha256(value);
     }
 
     static <T> T read(Path path, Class<T> type) throws Exception {

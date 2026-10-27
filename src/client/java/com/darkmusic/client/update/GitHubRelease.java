@@ -6,8 +6,6 @@ import net.fabricmc.loader.api.Version;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.*;
-import java.security.MessageDigest;
-import java.util.HexFormat;
 import java.util.Optional;
 import java.util.zip.ZipFile;
 
@@ -41,13 +39,7 @@ public record GitHubRelease(String version, String name, URI url, long size, Str
     }
 
     public static String hash(Path path) throws Exception {
-        var digest = MessageDigest.getInstance("SHA-256");
-        try (var input = Files.newInputStream(path)) {
-            byte[] buffer = new byte[65536];
-            int read;
-            while ((read = input.read(buffer)) != -1) digest.update(buffer, 0, read);
-        }
-        return HexFormat.of().formatHex(digest.digest());
+        return com.darkmusic.client.tools.Hashes.sha256(path);
     }
 
     public void verify(Path jar) throws Exception {

@@ -6,7 +6,6 @@ import com.darkmusic.client.tools.ProcessRunner;
 
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -259,24 +258,11 @@ public final class DuplicateScanner implements AutoCloseable {
     }
 
     public static String digest(String text) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(text.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-        } catch (java.security.NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException(impossible);
-        }
+        return com.darkmusic.client.tools.Hashes.sha256(text);
     }
 
     static String hash(Path file, ProcessRunner.Token token) throws Exception {
-        var hash = MessageDigest.getInstance("SHA-256");
-        byte[] buffer = new byte[65536];
-        try (var input = Files.newInputStream(file)) {
-            int read;
-            while ((read = input.read(buffer)) != -1) {
-                token.check();
-                hash.update(buffer, 0, read);
-            }
-        }
-        return HexFormat.of().formatHex(hash.digest());
+        return com.darkmusic.client.tools.Hashes.sha256(file, token);
     }
 
     @Override
