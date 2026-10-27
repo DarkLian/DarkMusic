@@ -49,6 +49,19 @@ class MediaControlsTest {
             Hashes.sha256(zip), Hashes.sha256(helper));
     }
 
+    /**
+     * The shipped license texts must stay exact copies of PiP's; once the RTF was rewritten as a Word document.
+     */
+    @Test
+    void bundledLicensesMatchThePipHelpersCopies() throws Exception {
+        for (String name : List.of("CSWINRT-LICENSE.txt", "WINDOWS-SDK-LICENSE.rtf")) {
+            byte[] media = Files.readAllBytes(Path.of("src/mediaHelper/licenses", name));
+            assertArrayEquals(Files.readAllBytes(Path.of("src/pipHelper/licenses", name)), media, name);
+        }
+        assertTrue(new String(Files.readAllBytes(Path.of("src/mediaHelper/licenses/WINDOWS-SDK-LICENSE.rtf")), 0, 5,
+            StandardCharsets.US_ASCII).equals("{\\rtf"), "The license is an RTF document");
+    }
+
     @Test
     void manifestsMustNameThisVersionsPackageWithItsHashes() throws Exception {
         String good = "{\"schema\":1,\"version\":\"3.5.0\",\"name\":\"darkmusic-media-controls-3.5.0-windows-x64.zip\",\"size\":10,"
