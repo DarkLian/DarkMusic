@@ -6,6 +6,8 @@ Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed **621 tests
 
 Smoke checks at fullscreen 1920×1080, GUI scale 2, with SmoothFont: cleanup (English and Traditional Chinese, enforcing that no button label is shortened) and lyrics passed on the release commit; advanced (graphic EQ) and queue passed on the preceding menu commit. The lyrics run captured the Circular and Artwork HUDs and the lyrics HUD with the new text plates and Artwork caption. The default and preview smoke runs stop on collection items that fail on v3.1.2 as well (an unplayable track and an Ogg file served as `.mp3`), so the HUD smoke client, which captures the volume, speed and download notices, did not run. **Show HUD in Menus** has no automated in-game check; the user approved the release after manual review. Documentation screenshots in `docs/images` predate this release and are to be replaced.
 
+Publication: all four v3.2.0 assets are downloadable from the release; the downloaded JAR reports version 3.2.0 and contains the new HUD classes, SHA-256 `d64543760c46ad71faa54c45c20145c036aef171a76b36cde0aa254cdc9d80bd`.
+
 ## v3.1.2: Cubes Without Borders conflict and exclusive-fullscreen warning
 
 Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed **609 tests: 603 passed, six optional/environment skips**, zero failures/errors, using the private collection and existing managed tools. Localization, menu layout and packaged-JAR checks passed; the JAR declares `"conflicts": {"cwb": "*"}`. The PiP package checksum differs from v3.1.1, so existing PiP users install the matching package through the PiP menu.
