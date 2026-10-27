@@ -41,7 +41,7 @@ class PipReliabilityTest {
     }
 
     @Test
-    void legacyRuntimeDoesNotBlockOldZipPruningAndLockedFilesAreKept() throws Exception {
+    void busyAndYoungRuntimesAreKeptAndLockedFilesStayWhole() throws Exception {
         temp = temp.toRealPath();
         long now = System.currentTimeMillis() + 2L * 86_400_000;
         var token = new ProcessRunner.Token();
@@ -52,32 +52,49 @@ class PipReliabilityTest {
         Path busyFile = Files.writeString(legacy.resolve("DarkMusic.Pip.exe"), "Disposable runtime fixture");
         Path sibling = Files.writeString(legacy.resolve("runtime.dll"), "Keep this too while any file is busy");
         Files.setLastModifiedTime(young, java.nio.file.attribute.FileTime.fromMillis(now));
-        Path currentZip = Files.writeString(temp.resolve("dependencies-" + "a".repeat(64) + ".zip"), "current");
-        Path oldZip = Files.writeString(temp.resolve("dependencies-" + "b".repeat(64) + ".zip"), "referenced while busy");
-        Path orphanZip = Files.writeString(temp.resolve("dependencies-" + "c".repeat(64) + ".zip"), "legacy ZIP");
-        Path youngZip = Files.writeString(temp.resolve("dependencies-" + "d".repeat(64) + ".zip"), "new ZIP");
-        Files.setLastModifiedTime(youngZip, java.nio.file.attribute.FileTime.fromMillis(now));
-        try (var setup = PipStorage.setup(temp, token); var live = PipStorage.use(current, currentZip.getFileName().toString(), token)) {
-            var oldLease = PipStorage.use(old, oldZip.getFileName().toString(), token);
+        String currentZip = "dependencies-" + "a".repeat(64) + ".zip";
+        try (var setup = PipStorage.setup(temp, token); var live = PipStorage.use(current, currentZip, token)) {
+            var oldLease = PipStorage.use(old, "dependencies-" + "b".repeat(64) + ".zip", token);
             try (var channel = java.nio.channels.FileChannel.open(busyFile, StandardOpenOption.WRITE); var lock = channel.lock()) {
-                PipStorage.prune(temp, current, currentZip, now);
+                PipStorage.prune(temp, current, now);
                 assertTrue(Files.exists(old));
                 assertTrue(Files.exists(legacy));
                 assertEquals("Keep this too while any file is busy", Files.readString(sibling));
-                assertFalse(Files.exists(orphanZip), "A legacy directory cannot retain unrelated old ZIPs");
-                assertTrue(Files.exists(oldZip));
                 assertTrue(Files.exists(young));
-                assertTrue(Files.exists(youngZip));
             }
             oldLease.close();
-            PipStorage.prune(temp, current, currentZip, now);
+            PipStorage.prune(temp, current, now);
             assertFalse(Files.exists(old));
             assertFalse(Files.exists(legacy));
-            assertFalse(Files.exists(oldZip));
             assertTrue(Files.exists(current));
-            assertTrue(Files.exists(currentZip));
-            assertTrue(Files.exists(youngZip));
+            assertTrue(Files.exists(young));
         }
+    }
+
+    @Test
+    void onlyTheCurrentPackageIsKeptEvenWhileAnOlderRuntimeIsInUse() throws Exception {
+        temp = temp.toRealPath();
+        var token = new ProcessRunner.Token();
+        Path currentZip = Files.writeString(temp.resolve("dependencies-" + "a".repeat(64) + ".zip"), "current");
+        Path oldZip = Files.writeString(temp.resolve("dependencies-" + "b".repeat(64) + ".zip"), "runtime still running");
+        Path youngZip = Files.writeString(temp.resolve("dependencies-" + "c".repeat(64) + ".zip"), "downloaded minutes ago");
+        Path partial = Files.writeString(temp.resolve("runtime-8150342776105126411.download"), "interrupted download");
+        Path unrelated = Files.writeString(temp.resolve("notes.txt"), "not ours");
+        Path old = Files.createDirectory(temp.resolve("b".repeat(64)));
+        try (var setup = PipStorage.setup(temp, token); var oldLease = PipStorage.use(old, oldZip.getFileName().toString(), token)) {
+            PipStorage.removeOtherPackages(temp, currentZip);
+            assertTrue(Files.exists(currentZip));
+            assertFalse(Files.exists(oldZip), "A running runtime does not need its ZIP");
+            assertFalse(Files.exists(youngZip), "Age does not protect another version's package");
+            assertFalse(Files.exists(partial));
+            assertTrue(Files.exists(unrelated));
+            assertTrue(Files.exists(old), "The running runtime itself stays");
+        }
+        // Before this version's package is installed, every older package goes, leaving none.
+        Files.writeString(oldZip, "older version");
+        PipStorage.removeOtherPackages(temp, temp.resolve("dependencies-" + "d".repeat(64) + ".zip"));
+        assertFalse(Files.exists(oldZip));
+        assertFalse(Files.exists(currentZip));
     }
 
     @Test
@@ -88,13 +105,12 @@ class PipReliabilityTest {
         Path legacy = Files.createDirectory(temp.resolve("b".repeat(64)));
         Path exe = Files.writeString(legacy.resolve("DarkMusic.Pip.exe"), "Disposable executable placeholder");
         Path dll = Files.writeString(legacy.resolve("runtime.dll"), "Preserve siblings");
-        Path archive = Files.writeString(temp.resolve("dependencies-" + "a".repeat(64) + ".zip"), "current");
         try (var handle = Files.newByteChannel(exe, java.util.Set.of(StandardOpenOption.READ, com.sun.nio.file.ExtendedOpenOption.NOSHARE_WRITE))) {
-            PipStorage.prune(temp, current, archive, System.currentTimeMillis() + 2L * 86_400_000);
+            PipStorage.prune(temp, current, System.currentTimeMillis() + 2L * 86_400_000);
             assertTrue(Files.exists(exe));
             assertEquals("Preserve siblings", Files.readString(dll));
         }
-        PipStorage.prune(temp, current, archive, System.currentTimeMillis() + 2L * 86_400_000);
+        PipStorage.prune(temp, current, System.currentTimeMillis() + 2L * 86_400_000);
         assertFalse(Files.exists(legacy));
     }
 
@@ -106,7 +122,7 @@ class PipReliabilityTest {
         var token = new ProcessRunner.Token();
         try (var setup = PipStorage.setup(temp, token); var live = PipStorage.use(current, archive.getFileName().toString(), token)) {
             Path stale = Files.createFile(current.resolve(".lease-" + java.util.UUID.randomUUID()));
-            PipStorage.prune(temp, current, archive, System.currentTimeMillis());
+            PipStorage.prune(temp, current, System.currentTimeMillis());
             assertFalse(Files.exists(stale));
             try (var files = Files.list(current)) {
                 assertEquals(1, files.filter(f -> f.getFileName().toString().startsWith(".lease-")).count());

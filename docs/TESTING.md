@@ -1,5 +1,13 @@
 # Development and verification
 
+## One PiP package (unreleased)
+
+PiP setup used to keep older dependency ZIPs for at least 24 hours, and longer while their runtime was in use or recently used. Downloads interrupted by a crash were never removed. Each package is about 76 MB, and three accumulated in the development instance in one day.
+
+`PipStorage.removeOtherPackages` now runs at the start of every check and install, while the setup lock is held. It removes every `dependencies-*.zip` except the current version's, plus leftover `runtime-*.download` files, regardless of age. ZIPs are only read under that lock, so no other client can be using one, and a running runtime does not need its ZIP. `prune` now handles only extracted runtimes, which keep the 24-hour grace and their leases.
+
+`PipReliabilityTest.onlyTheCurrentPackageIsKeptEvenWhileAnOlderRuntimeIsInUse` covers an old ZIP whose runtime is leased, a young ZIP, a partial download and an unrelated file. `PipRuntimeTest` checks that a check removes the other version's ZIP and that exactly one ZIP remains after install. `gradlew test -PjavaOnly` passed 650 tests (112 skipped without the private collection).
+
 ## v3.4.0: Chat commands and update consent
 
 **Commands.** New commands control playback from chat: `play [song]`, `pause`, `stop`, `previous`, `next`, `now`, `queue <song>`, `volume [0–100]`, `mute`, `speed [0.5–3]`, `seek <time>`, `shuffle [on|off]`, `repeat [off|one|all]` and `keys`. `LocalCommands` holds the command tree. `ClientActions` runs each command with the same guards as the player's controls and refuses while DarkMusic is busy.

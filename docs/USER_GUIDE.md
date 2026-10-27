@@ -550,7 +550,7 @@ Rounded Bars uses rounded peak markers that appear only when more than two GUI p
 
 PiP drops mismatched resize frames instead of ending capture. If its optional audio route fails, it can retry twice without stopping video. A persistent audio error leaves video available; restarting PiP starts a fresh attempt. Unsupported audio capture does not repeatedly retry.
 
-Unused PiP dependencies and abandoned installation work become eligible for cleanup after 24 hours. Files in use are retained. If another Minecraft client is installing PiP, setup reports that contention separately from a download failure.
+Only one PiP dependency package is kept: the one for your DarkMusic version. Older packages and interrupted downloads are removed whenever PiP setup runs, such as when you open the PiP menu. Extracted runtimes that are no longer used are removed after 24 hours; a runtime another Minecraft client is still running is kept. If another Minecraft client is installing PiP, setup reports that contention separately from a download failure.
 
 Library status and Manage Audio Files show how many metadata recovery folders need review. These folders can contain retained originals: inspect them before manual cleanup. DarkMusic never automatically deletes their recovery audio.
 

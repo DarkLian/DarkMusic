@@ -336,10 +336,13 @@ class PipRuntimeTest {
             assertFalse(runtime.ready());
             assertEquals("pip.setup.required", runtime.status());
             assertEquals(0, downloads.get());
+            assertFalse(Files.exists(old), "This version never uses another version's package");
             runtime.install().get();
             assertTrue(runtime.ready(), runtime.status());
             assertEquals(1, downloads.get());
-            assertTrue(Files.exists(old));
+            try (var files = Files.list(root)) {
+                assertEquals(1, files.filter(f -> f.getFileName().toString().endsWith(".zip")).count());
+            }
             assertArrayEquals(new byte[]{9}, Files.readAllBytes(oldRuntime.resolve("DarkMusic.Pip.exe")));
         }
     }

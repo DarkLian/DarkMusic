@@ -96,9 +96,30 @@ final class PipStorage {
 
     private static final long GRACE_MILLIS = 86_400_000L;
 
-    static void prune(Path root, Path current, Path archive, long now) throws IOException {
-        var retained = new HashSet<String>();
-        retained.add(archive.getFileName().toString());
+    /**
+     * Keeps exactly one dependency package: this version's. Call while holding the setup lock. Packages are only read
+     * under that lock (to verify and extract them), so no other client can be using one; an extracted runtime that
+     * another client is running does not need its ZIP. Partial downloads left by a crash are removed too.
+     */
+    static void removeOtherPackages(Path root, Path archive) throws IOException {
+        try (var paths = Files.list(root)) {
+            for (Path file : paths.toList()) {
+                String name = file.getFileName().toString();
+                boolean other = name.matches("dependencies-[a-f0-9]{64}\\.zip") && !file.equals(archive);
+                boolean partial = name.matches("runtime-[0-9]+\\.download");
+                if ((other || partial) && Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) try {
+                    Files.deleteIfExists(file);
+                } catch (IOException busy) {
+                    deferred(file, busy);
+                }
+            }
+        }
+    }
+
+    /**
+     * Removes extracted runtimes that are neither current, in use by another client, nor younger than a day.
+     */
+    static void prune(Path root, Path current, long now) throws IOException {
         try (var paths = Files.list(root)) {
             for (Path path : paths.toList()) {
                 if (Files.isSymbolicLink(path)) continue;
@@ -112,29 +133,8 @@ final class PipStorage {
                 if (!name.matches("[a-f0-9]{64}")) continue;
                 // Inspect even the current/young runtime to reclaim leases from crashed clients.
                 boolean inUse = leased(path);
-                Path marker = path.resolve(".managed-runtime");
-                String dependency = "";
-                if (Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS) && Files.size(marker) <= 200) {
-                    String value = Files.readString(marker);
-                    if (value.matches("dependencies-[a-f0-9]{64}\\.zip")) dependency = value;
-                }
-                boolean keep = path.equals(current) || inUse || !old;
-                if (!keep) keep = !tryRemoveRuntime(root, path);
-                if (keep && !dependency.isEmpty()) retained.add(dependency);
+                if (!path.equals(current) && !inUse && old) tryRemoveRuntime(root, path);
             }
-        }
-        // An extracted legacy runtime does not need its ZIP for ongoing playback.
-        // Unknown legacy associations must not disable reclamation of every old archive.
-        try (var paths = Files.list(root)) {
-            for (Path file : paths.toList())
-                if (file.getFileName().toString().matches("dependencies-[a-f0-9]{64}\\.zip") && !retained.contains(file.getFileName().toString()) &&
-                    Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) && now - Files.getLastModifiedTime(file).toMillis() > GRACE_MILLIS) {
-                    try {
-                        Files.deleteIfExists(file);
-                    } catch (IOException busy) {
-                        deferred(file, busy);
-                    }
-                }
         }
     }
 

@@ -234,6 +234,11 @@ public final class PipRuntime implements AutoCloseable {
                 bundle = Bundle.parse(new String(resources.read("dependencies.json", 4096), StandardCharsets.UTF_8));
                 directory();
                 try (var setup = PipStorage.setup(root, request)) {
+                    try {
+                        PipStorage.removeOtherPackages(root, archive());
+                    } catch (IOException cleanup) {
+                        org.slf4j.LoggerFactory.getLogger("darkmusic-pip-setup").warn("Old PiP package cleanup deferred", cleanup);
+                    }
                     // A valid cached archive needs no download; a damaged one is replaced, never trusted.
                     if (install && !cached()) {
                         Path temporary = Files.createTempFile(root, "runtime-", ".download");
@@ -280,7 +285,7 @@ public final class PipRuntime implements AutoCloseable {
                     ready = true;
                     status = "pip.setup.ready";
                     try {
-                        PipStorage.prune(root, exe.getParent(), archive(), System.currentTimeMillis());
+                        PipStorage.prune(root, exe.getParent(), System.currentTimeMillis());
                     } catch (Exception cleanup) {
                         org.slf4j.LoggerFactory.getLogger("darkmusic-pip-setup").warn("Unused PiP runtime cleanup deferred", cleanup);
                     }
