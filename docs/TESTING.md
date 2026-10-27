@@ -18,6 +18,8 @@ Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed **623 tests
 - PiP setup (`check-setup`): passed.
 - Show HUD in Menus: passed.
 
+Release: clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed again on the release commit (**623 tests: 617 passed, six skips**). Publication: all four v3.3.0 assets are downloadable from the release; the downloaded JAR reports version 3.3.0, contains `CircularRotation` and no longer contains the separate Lyrics HUD menu, SHA-256 `aeab9f13b06929fc5a994006beadd0a9255515b26bfa24dbc4c39eec6982e15e`. Documentation screenshots are to be supplied after release.
+
 ## v3.2.0: menu and HUD refresh
 
 Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed **621 tests: 615 passed, six optional/environment skips**, zero failures/errors, using the private collection and existing managed tools. All four release archives were built; the local JAR reports version 3.2.0.
