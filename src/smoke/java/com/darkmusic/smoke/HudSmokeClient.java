@@ -1,7 +1,9 @@
 package com.darkmusic.smoke;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.config.*;
+import com.darkmusic.client.download.DownloadModels;
 import com.darkmusic.client.gui.*;
 import com.darkmusic.client.hud.*;
 import com.darkmusic.client.text.Text;
@@ -240,13 +242,13 @@ final class HudSmokeClient {
                 }
                 case 19 -> {
                     if (!playerSeeked) {
-                        if (app.playback.state().status() != com.darkmusic.client.audio.AudioBackend.Status.PLAYING)
+                        if (app.playback.state().status() != AudioBackend.Status.PLAYING)
                             return;
                         app.playback.seek(30);
                         playerSeeked = true;
                         return;
                     }
-                    if (app.playback.state().status() != com.darkmusic.client.audio.AudioBackend.Status.PLAYING || app.playback.state().position() < 30.25)
+                    if (app.playback.state().status() != AudioBackend.Status.PLAYING || app.playback.state().position() < 30.25)
                         return;
                     capture(mc, "expanded-player");
                     state++;
@@ -309,8 +311,8 @@ final class HudSmokeClient {
                     String link = "https://example.com/collection";
                     ((net.minecraft.client.gui.components.EditBox) field(downloads, "url")).setValue(link);
                     var track = app.library.snapshot().tracks().getFirst();
-                    var entry = new com.darkmusic.client.download.DownloadModels.Entry(1, (track.title() + " 日本語 中文 ").repeat(12) + "終點", link, "Generic", "one", true);
-                    set(app.downloads, "preview", new com.darkmusic.client.download.DownloadModels.Preview(link, "Collection", "Generic", true, false, 1, 1, false, java.util.List.of(entry)));
+                    var entry = new DownloadModels.Entry(1, (track.title() + " 日本語 中文 ").repeat(12) + "終點", link, "Generic", "one", true);
+                    set(app.downloads, "preview", new DownloadModels.Preview(link, "Collection", "Generic", true, false, 1, 1, false, java.util.List.of(entry)));
                     set(app.downloads, "message", ("Collection details: " + track.relativePath() + " ").repeat(10));
                     set(app.downloads, "published", null);
                     downloads.tick();
@@ -417,7 +419,7 @@ final class HudSmokeClient {
                     state++;
                 }
                 case 39 -> {
-                    if (app.playback.state().status() != com.darkmusic.client.audio.AudioBackend.Status.PAUSED) return;
+                    if (app.playback.state().status() != AudioBackend.Status.PAUSED) return;
                     app.playback.spectrum().copyTo(pausedStyleLevels);
                     state++;
                 }
@@ -528,7 +530,7 @@ final class HudSmokeClient {
                     state++;
                 }
                 case 50 -> {
-                    if (app.playback.state().status() != com.darkmusic.client.audio.AudioBackend.Status.PAUSED) return;
+                    if (app.playback.state().status() != AudioBackend.Status.PAUSED) return;
                     app.playback.spectrum().copyTo(pausedStyleLevels);
                     state++;
                 }
@@ -541,7 +543,7 @@ final class HudSmokeClient {
                     state++;
                 }
                 case 52 -> {
-                    if (app.playback.state().status() != com.darkmusic.client.audio.AudioBackend.Status.PLAYING || app.playback.state().position() < 35)
+                    if (app.playback.state().status() != AudioBackend.Status.PLAYING || app.playback.state().position() < 35)
                         return;
                     capture(mc, "circular-after-seek");
                     app.playback.stop();
@@ -571,7 +573,7 @@ final class HudSmokeClient {
                     state++;
                 }
                 case 56 -> {
-                    if (app.playback.state().status() != com.darkmusic.client.audio.AudioBackend.Status.PLAYING) return;
+                    if (app.playback.state().status() != AudioBackend.Status.PLAYING) return;
                     if (!playerSeeked) {
                         app.playback.seek(35);
                         playerSeeked = true;
@@ -614,7 +616,7 @@ final class HudSmokeClient {
                     state++;
                 }
                 case 61 -> {
-                    if (app.playback.state().status() != com.darkmusic.client.audio.AudioBackend.Status.PAUSED) return;
+                    if (app.playback.state().status() != AudioBackend.Status.PAUSED) return;
                     app.playback.spectrum().copyTo(pausedStyleLevels);
                     state++;
                 }
@@ -649,7 +651,7 @@ final class HudSmokeClient {
                     state++;
                 }
                 case 65 -> {
-                    if (app.playback.state().status() != com.darkmusic.client.audio.AudioBackend.Status.PLAYING) return;
+                    if (app.playback.state().status() != AudioBackend.Status.PLAYING) return;
                     capture(mc, "beveled-circular-bars");
                     s.circularSpectrumStyle = Settings.SpectrumStyle.FILLED_WAVE;
                     mc.gui.setScreen(new SettingsScreen(app, null));
@@ -705,7 +707,7 @@ final class HudSmokeClient {
                     s.circularRotation = Settings.Rotation.CLOCKWISE;
                     s.circularProgressRotation = Settings.Rotation.COUNTERCLOCKWISE;
                     s.circularRotationSeconds = 4;
-                    if (app.playback.state().status() != com.darkmusic.client.audio.AudioBackend.Status.PLAYING) {
+                    if (app.playback.state().status() != AudioBackend.Status.PLAYING) {
                         var tracks = app.library.snapshot().tracks();
                         app.playback.play(tracks, tracks.getFirst());
                     }
@@ -714,7 +716,7 @@ final class HudSmokeClient {
                 }
                 case 73 -> {
                     var playing = app.playback.state();
-                    if (playing.status() != com.darkmusic.client.audio.AudioBackend.Status.PLAYING || playing.duration() <= 0)
+                    if (playing.status() != AudioBackend.Status.PLAYING || playing.duration() <= 0)
                         return;
                     if (!rotationSeeked) {
                         // Half the ring filled shows which way the progress ring turns.
@@ -764,7 +766,7 @@ final class HudSmokeClient {
                 }
                 case 77, 78, 79, 80, 81, 82 -> {
                     // Beveled finish at the maximum bar count, one layout per step, with real music playing.
-                    if (app.playback.state().status() != com.darkmusic.client.audio.AudioBackend.Status.PLAYING) {
+                    if (app.playback.state().status() != AudioBackend.Status.PLAYING) {
                         var tracks = app.library.snapshot().tracks();
                         app.playback.play(tracks, tracks.getFirst());
                         return;

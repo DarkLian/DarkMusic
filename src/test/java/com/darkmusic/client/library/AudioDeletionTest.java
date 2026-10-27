@@ -1,9 +1,11 @@
 package com.darkmusic.client.library;
 
+import com.darkmusic.client.audio.AudioFormats;
 import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.testing.Await;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.api.Assumptions;
 
 import java.nio.file.*;
 import java.util.*;
@@ -21,7 +23,7 @@ class AudioDeletionTest {
         Assumptions.assumeTrue(Files.isDirectory(root), "Private real music unavailable");
         List<Path> files;
         try (var paths = Files.walk(root)) {
-            files = paths.filter(Files::isRegularFile).filter(com.darkmusic.client.audio.AudioFormats::candidate).toList();
+            files = paths.filter(Files::isRegularFile).filter(AudioFormats::candidate).toList();
         }
         if (Boolean.getBoolean("darkmusic.test.requireMusic"))
             assertFalse(files.isEmpty(), "Private real music required");
@@ -152,7 +154,7 @@ class AudioDeletionTest {
                 return service.delete(plan, AudioDeletion.Mode.PERMANENT, new ProcessRunner.Token(), p -> {
                 });
             });
-            com.darkmusic.client.testing.Await.until(java.time.Duration.ofSeconds(2),
+            Await.until(java.time.Duration.ofSeconds(2),
                 () -> worker.get() != null && worker.get().getState() == Thread.State.TIMED_WAITING, "Sharing-violation retry");
             assertTrue(Files.exists(track.file()));
             handle.close();

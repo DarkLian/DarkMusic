@@ -1,5 +1,7 @@
 package com.darkmusic.client.download;
 
+import com.darkmusic.client.text.Text;
+
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -18,7 +20,7 @@ public class ProcessRunner {
     public Result run(List<String> command, Path directory, Token token, Duration timeout, int maxOutput, Consumer<String> line) throws IOException, InterruptedException {
         token.check();
         if (maxOutput < 1)
-            throw new IllegalArgumentException(com.darkmusic.client.text.Text.get("text.darkmusic.output_limit_must_be_positive"));
+            throw new IllegalArgumentException(Text.get("text.darkmusic.output_limit_must_be_positive"));
         if (timeout.isNegative() || timeout.isZero()) throw new IllegalArgumentException("Timeout must be positive");
         ProcessBuilder builder = new ProcessBuilder(List.copyOf(command)).directory(directory.toFile()).redirectErrorStream(true);
         builder.environment().put("PYTHONIOENCODING", "utf-8");
@@ -34,7 +36,7 @@ public class ProcessRunner {
                     output.append((char) ch);
                     if (current.length() < Math.max(32_768, maxOutput)) current.append((char) ch);
                     else
-                        throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.tool_output_exceeded_the_allowed_line_length"));
+                        throw new IOException(Text.get("text.darkmusic.tool_output_exceeded_the_allowed_line_length"));
                     if (ch == '\n' || ch == '\r') {
                         line.accept(current.toString().strip());
                         current.setLength(0);
@@ -53,7 +55,7 @@ public class ProcessRunner {
                 token.check();
                 if (reader.isCompletedExceptionally()) reader.join();
                 if (System.nanoTime() > deadline)
-                    throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.tool_timed_out_check_your_connection_or_try_a_smaller_selection"));
+                    throw new IOException(Text.get("text.darkmusic.tool_timed_out_check_your_connection_or_try_a_smaller_selection"));
             }
             token.check();
             reader.get(5, TimeUnit.SECONDS);
@@ -63,7 +65,7 @@ public class ProcessRunner {
             return new Result(process.exitValue(), captured);
         } catch (ExecutionException | TimeoutException | CompletionException e) {
             Throwable cause = e.getCause() == null ? e : e.getCause();
-            throw new IOException(com.darkmusic.client.text.Text.get("download.error.unknown"), cause);
+            throw new IOException(Text.get("download.error.unknown"), cause);
         } finally {
             token.kill();
             try {

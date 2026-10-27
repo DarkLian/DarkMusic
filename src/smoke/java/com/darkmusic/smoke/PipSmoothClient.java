@@ -2,6 +2,8 @@ package com.darkmusic.smoke;
 
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.PlaybackController;
+import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.gui.PipEditorScreen;
 import com.darkmusic.client.gui.PipScreen;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
@@ -108,7 +110,7 @@ final class PipSmoothClient {
                 note("checked ready=" + setup.ready() + " status=" + setup.status());
                 return setup.ready() ? CompletableFuture.<Void>completedFuture(null) : setup.install();
             })
-            .thenCompose(done -> app.pip.tools.windows(new com.darkmusic.client.download.ProcessRunner.Token()))
+            .thenCompose(done -> app.pip.tools.windows(new ProcessRunner.Token()))
             .thenAccept(sources -> mc.execute(() -> {
                 var matches = sources.stream().filter(s -> s.Title().contains(sourceTitle)).toList();
                 note("windows=" + sources.size() + " matches=" + matches.size());
@@ -165,12 +167,12 @@ final class PipSmoothClient {
                 if (!sourceTitle.isEmpty() || Files.exists(folder.resolve("check-hud-menus"))) joinBenchmarkWorld(mc);
                 else mc.gui.setScreen(new PipScreen(app, null));
                 if (sourceTitle.isEmpty() && Boolean.getBoolean("darkmusic.pipBenchmark") && Files.exists(folder.resolve("select-fixture")))
-                    app.pip.tools.windows(new com.darkmusic.client.download.ProcessRunner.Token()).thenAccept(sources -> mc.execute(() -> {
+                    app.pip.tools.windows(new ProcessRunner.Token()).thenAccept(sources -> mc.execute(() -> {
                         var fixtures = sources.stream().filter(s -> s.App().equals("DarkMusic.Pip.BenchmarkSource")).toList();
                         if (fixtures.size() != 1)
                             throw new IllegalStateException("Expected one explicitly requested private capture fixture");
                         app.pip.select(fixtures.getFirst());
-                        mc.gui.setScreen(new com.darkmusic.client.gui.PipEditorScreen(app, new PipScreen(app, null), false));
+                        mc.gui.setScreen(new PipEditorScreen(app, new PipScreen(app, null), false));
                     }));
                 stage = 2;
             }

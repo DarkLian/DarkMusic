@@ -2,6 +2,7 @@ package com.darkmusic.client;
 
 import com.darkmusic.client.audio.JavaSoundBackend;
 import com.darkmusic.client.audio.PcmRateConverter;
+import com.darkmusic.client.config.AudioEnhancements;
 import com.darkmusic.client.config.AudioSettings;
 import com.darkmusic.client.library.Track;
 import org.junit.jupiter.api.Test;
@@ -86,7 +87,7 @@ class TransitionAudioTest {
                         options.neutral = neutral;
                         options.enhancements.preservePitch = preserve;
                         options.limiter = !neutral;
-                        options.enhancements.protection = com.darkmusic.client.config.AudioEnhancements.Protection.TRUE_PEAK;
+                        options.enhancements.protection = AudioEnhancements.Protection.TRUE_PEAK;
                         backend.speed(preserve ? .75 : 1.25);
                         options.crossfade = crossfade;
                         backend.configure(options);

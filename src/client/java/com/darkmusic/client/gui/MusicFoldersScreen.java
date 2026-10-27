@@ -1,6 +1,7 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.library.MusicFolders;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
@@ -33,7 +34,7 @@ public final class MusicFoldersScreen extends AudioPage {
         info("folders.scope");
         for (var entry : shown.entrySet()) {
             Path path = entry.getKey();
-            String name = com.darkmusic.client.library.MusicFolders.label(path, shown.keySet());
+            String name = MusicFolders.label(path, shown.keySet());
             var row = new SettingRow(formX, 0, formWidth, name + (path.equals(destination) ? " • " + Text.get("folders.default") : ""), () -> path.equals(app.library.root()), () -> app.folders.choose(path, () -> {
             })).accentLabel();
             place(row);

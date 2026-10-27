@@ -1,6 +1,10 @@
 package com.darkmusic.client.config;
 
+import com.darkmusic.client.library.ListeningHistory;
+import com.darkmusic.client.library.Track;
+import com.darkmusic.client.pip.PipSettings;
 import com.darkmusic.client.playlist.PlaylistStore;
+import com.darkmusic.client.text.Text;
 import com.google.gson.*;
 
 import java.io.*;
@@ -14,10 +18,10 @@ import java.util.zip.*;
  */
 public final class BackupArchive {
     public record Data(int version, String root, JsonObject settings, List<PlaylistStore.Playlist> playlists,
-                       Map<String, com.darkmusic.client.library.ListeningHistory.Entry> history,
+                       Map<String, ListeningHistory.Entry> history,
                        Map<String, String> rootNames) {
         public Data(int version, String root, JsonObject settings, List<PlaylistStore.Playlist> playlists,
-                    Map<String, com.darkmusic.client.library.ListeningHistory.Entry> history) {
+                    Map<String, ListeningHistory.Entry> history) {
             this(version, root, settings, playlists, history, Map.of());
         }
     }
@@ -27,7 +31,7 @@ public final class BackupArchive {
     }
 
     public record Restore(Settings settings, List<PlaylistStore.Playlist> playlists, Set<PlaylistStore.Entry> retained,
-                          Map<String, com.darkmusic.client.library.ListeningHistory.Entry> history, int unresolved,
+                          Map<String, ListeningHistory.Entry> history, int unresolved,
                           Selection selection) {
     }
 
@@ -36,7 +40,7 @@ public final class BackupArchive {
      */
     public record Export(String settingsJson, String root, List<PlaylistStore.Playlist> playlists,
                          Map<String, String> shortcuts,
-                         java.util.function.Supplier<Map<String, com.darkmusic.client.library.ListeningHistory.Entry>> history) {
+                         java.util.function.Supplier<Map<String, ListeningHistory.Entry>> history) {
         public Export {
             Objects.requireNonNull(settingsJson);
             Objects.requireNonNull(history);
@@ -57,7 +61,7 @@ public final class BackupArchive {
     }
 
     public static Data snapshot(Settings settings, String root, List<PlaylistStore.Playlist> playlists,
-                                Map<String, com.darkmusic.client.library.ListeningHistory.Entry> history) {
+                                Map<String, ListeningHistory.Entry> history) {
         JsonObject values = ConfigStore.JSON.toJsonTree(settings).getAsJsonObject();
         for (String name : List.of("musicDirectory", "musicFolders", "roots", "ytDlpPath", "ffmpegPath", "ffprobePath", "javascriptPath", "outputDevice"))
             values.remove(name);
@@ -122,7 +126,7 @@ public final class BackupArchive {
                     if (!ids.add(p.id()) || (entries += p.entries().size()) > 100_000)
                         throw new IllegalArgumentException();
                 }
-                com.darkmusic.client.library.ListeningHistory.validate(data.history);
+                ListeningHistory.validate(data.history);
                 return data;
             } catch (RuntimeException failure) {
                 throw new IOException("Invalid or unsupported DarkMusic backup", failure);
@@ -131,8 +135,8 @@ public final class BackupArchive {
     }
 
     public static Restore prepare(Data data, Selection selected, Settings current, String root,
-                                  List<com.darkmusic.client.library.Track> tracks, List<PlaylistStore.Playlist> existing,
-                                  Map<String, com.darkmusic.client.library.ListeningHistory.Entry> history,
+                                  List<Track> tracks, List<PlaylistStore.Playlist> existing,
+                                  Map<String, ListeningHistory.Entry> history,
                                   Set<PlaylistStore.Entry> retained) {
         var values = selected.settings ? ConfigStore.JSON.fromJson(data.settings, Settings.class)
             : ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(current), Settings.class);
@@ -151,7 +155,7 @@ public final class BackupArchive {
         values.lyricsDownloadLookup = current.lyricsDownloadLookup;
         values.lyricsLibraryLookup = current.lyricsLibraryLookup;
         values.updateNotifications = current.updateNotifications;
-        if (values.pip == null) values.pip = new com.darkmusic.client.pip.PipSettings();
+        if (values.pip == null) values.pip = new PipSettings();
         values.pip.enabled = current.pip.enabled;
         values.pip.audioAccess = current.pip.audioAccess;
         values.pip.audioSpectrum = current.pip.audioSpectrum;
@@ -200,12 +204,12 @@ public final class BackupArchive {
                 result.put(old.id(), new PlaylistStore.Playlist(old.id(), old.name(), List.copyOf(combined)));
             } else result.put(p.id(), new PlaylistStore.Playlist(p.id(), p.name(), List.copyOf(imported)));
         }
-        var stats = new LinkedHashMap<String, com.darkmusic.client.library.ListeningHistory.Entry>();
+        var stats = new LinkedHashMap<String, ListeningHistory.Entry>();
         if (!selected.history || !selected.replace) stats.putAll(history);
         if (selected.history) data.history.forEach((key, value) -> {
             int colon = key.indexOf(':');
             String mapped = remappedRoots.getOrDefault(key.substring(0, colon), key.substring(0, colon)) + key.substring(colon);
-            stats.merge(mapped, value, (a, b) -> new com.darkmusic.client.library.ListeningHistory.Entry(Math.max(a.plays(), b.plays()), Math.max(a.lastPlayed(), b.lastPlayed()), Math.max(a.seconds(), b.seconds())));
+            stats.merge(mapped, value, (a, b) -> new ListeningHistory.Entry(Math.max(a.plays(), b.plays()), Math.max(a.lastPlayed(), b.lastPlayed()), Math.max(a.seconds(), b.seconds())));
         });
         var referenced = new HashSet<PlaylistStore.Entry>();
         result.values().forEach(p -> referenced.addAll(p.entries()));
@@ -384,7 +388,7 @@ public final class BackupArchive {
 
     public static final class RecoveryConflict extends IOException {
         private RecoveryConflict(Path copies) {
-            super(com.darkmusic.client.text.Text.get("backup.recovery_conflict", copies));
+            super(Text.get("backup.recovery_conflict", copies));
         }
     }
 

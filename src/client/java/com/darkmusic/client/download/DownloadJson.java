@@ -1,5 +1,6 @@
 package com.darkmusic.client.download;
 
+import com.darkmusic.client.text.Text;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -28,7 +29,7 @@ public final class DownloadJson {
     }
 
     public static JsonObject object(String output) {
-        String line = output.lines().filter(s -> s.startsWith("{")).reduce((a, b) -> b).orElseThrow(() -> new IllegalArgumentException(com.darkmusic.client.text.Text.get("download.no_info")));
+        String line = output.lines().filter(s -> s.startsWith("{")).reduce((a, b) -> b).orElseThrow(() -> new IllegalArgumentException(Text.get("download.no_info")));
         return JsonParser.parseString(line).getAsJsonObject();
     }
 
@@ -48,7 +49,7 @@ public final class DownloadJson {
                 }
                 if (value.isJsonObject()) entries.add(entry(value.getAsJsonObject(), position, original));
                 else
-                    entries.add(new Entry(position, com.darkmusic.client.text.Text.get("format.darkmusic.unavailable_entry", position), "", "", "", false));
+                    entries.add(new Entry(position, Text.get("format.darkmusic.unavailable_entry", position), "", "", "", false));
                 index++;
                 offset++;
             }
@@ -78,31 +79,31 @@ public final class DownloadJson {
         }
         String title = text(json, "title");
         if (title.isBlank())
-            title = id.isBlank() ? com.darkmusic.client.text.Text.get("format.darkmusic.entry", position) : id;
+            title = id.isBlank() ? Text.get("format.darkmusic.entry", position) : id;
         if (title.equals("[Deleted video]") || title.equals("[Private video]")) available = false;
         return new Entry(position, title, link, extractor, id.isBlank() ? link : id, available);
     }
 
     public static String friendly(String details) {
-        if (com.darkmusic.client.text.Text.isMessage(details)) return details;
+        if (Text.isMessage(details)) return details;
         String s = details.toLowerCase(Locale.ROOT);
         if (s.matches("(?s).*\\bhttp(?: error| status| status code)?[ :]+429\\b.*") || s.contains("too many requests"))
-            return com.darkmusic.client.text.Text.get("text.darkmusic.the_site_is_rate_limiting_downloads_429_wait_before_retrying");
+            return Text.get("text.darkmusic.the_site_is_rate_limiting_downloads_429_wait_before_retrying");
         if (s.matches("(?s).*\\bhttp(?: error| status| status code)?[ :]+403\\b.*"))
-            return com.darkmusic.client.text.Text.get("text.darkmusic.the_site_refused_access_403_try_a_current_yt_dlp_version_or_another_public_entry");
+            return Text.get("text.darkmusic.the_site_refused_access_403_try_a_current_yt_dlp_version_or_another_public_entry");
         if (s.contains("not a bot") || s.contains("confirm you're not a bot") || s.contains("confirm you’re not a bot"))
-            return com.darkmusic.client.text.Text.get("download.error.bot_check");
+            return Text.get("download.error.bot_check");
         if (s.contains("video is private") || s.contains("private video") || s.contains("sign in to") || s.contains("login required") || s.matches("(?s).*\\bdrm\\b.*") || s.contains("age-restricted") || s.contains("requires authentication"))
-            return com.darkmusic.client.text.Text.get("text.darkmusic.this_entry_is_private_restricted_or_requires_authentication_access_controls_are_no");
+            return Text.get("text.darkmusic.this_entry_is_private_restricted_or_requires_authentication_access_controls_are_no");
         if (s.contains("unsupported url"))
-            return com.darkmusic.client.text.Text.get("text.darkmusic.yt_dlp_does_not_support_this_url_or_collection");
+            return Text.get("text.darkmusic.yt_dlp_does_not_support_this_url_or_collection");
         if (s.contains("no space") || s.contains("disk full") || s.contains("not enough space"))
-            return com.darkmusic.client.text.Text.get("text.darkmusic.not_enough_disk_space_free_space_in_the_music_and_temporary_directories");
+            return Text.get("text.darkmusic.not_enough_disk_space_free_space_in_the_music_and_temporary_directories");
         if (s.contains("javascript runtime") || s.contains("challenge solving failed") || s.contains("challenge solver") || s.contains("js runtime"))
-            return com.darkmusic.client.text.Text.get("text.darkmusic.youtube_needs_a_compatible_deno_node_runtime_and_current_yt_dlp_check_download_too");
+            return Text.get("text.darkmusic.youtube_needs_a_compatible_deno_node_runtime_and_current_yt_dlp_check_download_too");
         if (s.contains("timed out") || s.contains("timeout") || s.contains("network is unreachable") || s.contains("connection refused") || s.contains("unable to resolve") || s.contains("name resolution"))
-            return com.darkmusic.client.text.Text.get("text.darkmusic.network_request_timed_out_or_failed_check_your_connection_and_retry");
+            return Text.get("text.darkmusic.network_request_timed_out_or_failed_check_your_connection_and_retry");
         org.slf4j.LoggerFactory.getLogger("darkmusic-download").debug("Tool failure details: {}", details);
-        return com.darkmusic.client.text.Text.get("download.error.unknown");
+        return Text.get("download.error.unknown");
     }
 }

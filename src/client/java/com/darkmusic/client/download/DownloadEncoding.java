@@ -1,5 +1,7 @@
 package com.darkmusic.client.download;
 
+import com.darkmusic.client.library.OggArtwork;
+import com.darkmusic.client.text.Text;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -39,7 +41,7 @@ public final class DownloadEncoding {
             case "pcm_s64be" -> new Plan("wav", "pcm_s64le", "");
             case "pcm_f32be" -> new Plan("wav", "pcm_f32le", "");
             case "pcm_f64be" -> new Plan("wav", "pcm_f64le", "");
-            default -> new Plan("flac", "flac", com.darkmusic.client.text.Text.get("download.codec_fallback"));
+            default -> new Plan("flac", "flac", Text.get("download.codec_fallback"));
         };
     }
 
@@ -52,7 +54,7 @@ public final class DownloadEncoding {
         try {
             var array = JsonParser.parseString(r.output()).getAsJsonObject().getAsJsonArray("streams");
             if (array == null || array.isEmpty())
-                throw new java.io.IOException(com.darkmusic.client.text.Text.get("download.media_missing"));
+                throw new java.io.IOException(Text.get("download.media_missing"));
             return array.get(0).getAsJsonObject().get("codec_name").getAsString();
         } catch (RuntimeException | java.io.IOException invalid) {
             throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.OUTPUT_VALIDATION_FAILURE,
@@ -96,13 +98,13 @@ public final class DownloadEncoding {
         var converted = runner.run(List.of(tools.ffmpeg().toString(), "-nostdin", "-v", "error", "-y", "-protocol_whitelist", "file,pipe", "-i", cover.toString(), "-frames:v", "1", "-vf", "scale=1024:1024:force_original_aspect_ratio=decrease", jpeg.toString()), work, token, Duration.ofSeconds(30), 16_000, s -> {
         });
         if (converted.exit() != 0 || !java.nio.file.Files.isRegularFile(jpeg) || java.nio.file.Files.size(jpeg) > 8 * 1024 * 1024)
-            throw new java.io.IOException(com.darkmusic.client.text.Text.get("download.thumbnail_failed"));
+            throw new java.io.IOException(Text.get("download.thumbnail_failed"));
         byte[] bytes = java.nio.file.Files.readAllBytes(jpeg);
         var image = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(bytes));
         if (image == null)
-            throw new java.io.IOException(com.darkmusic.client.text.Text.get("download.thumbnail_failed"));
+            throw new java.io.IOException(Text.get("download.thumbnail_failed"));
         Path tags = work.resolve("artwork.ffmetadata");
-        java.nio.file.Files.writeString(tags, ";FFMETADATA1\nMETADATA_BLOCK_PICTURE=" + com.darkmusic.client.library.OggArtwork.picture(bytes, image.getWidth(), image.getHeight()) + "\n");
+        java.nio.file.Files.writeString(tags, ";FFMETADATA1\nMETADATA_BLOCK_PICTURE=" + OggArtwork.picture(bytes, image.getWidth(), image.getHeight()) + "\n");
         return tags;
     }
 }

@@ -1,7 +1,9 @@
 package com.darkmusic.client;
 
 import com.darkmusic.client.download.*;
+import com.darkmusic.client.library.MetadataReader;
 import com.darkmusic.client.library.MusicLibrary;
+import com.darkmusic.client.text.Text;
 import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -111,7 +113,7 @@ class DownloadTest {
         assertTrue(mix.videoAlso());
         assertEquals(-1, mix.total());
         assertTrue(DownloadJson.friendly("HTTP Error 429").contains("HTTP 429"));
-        assertEquals(com.darkmusic.client.text.Text.get("text.darkmusic.this_entry_is_private_restricted_or_requires_authentication_access_controls_are_no"), DownloadJson.friendly("DRM restricted private"));
+        assertEquals(Text.get("text.darkmusic.this_entry_is_private_restricted_or_requires_authentication_access_controls_are_no"), DownloadJson.friendly("DRM restricted private"));
     }
 
     @Test
@@ -270,7 +272,7 @@ class DownloadTest {
 
     static class FakeRunner extends ProcessRunner {
         final Path media = TestMusic.featured();
-        final byte[] artwork = new com.darkmusic.client.library.MetadataReader().artwork(media);
+        final byte[] artwork = new MetadataReader().artwork(media);
         final List<List<String>> commands = new CopyOnWriteArrayList<>();
         boolean failConversion, corruptProbe, noCover, badCover, hang;
         CountDownLatch entered = new CountDownLatch(1);

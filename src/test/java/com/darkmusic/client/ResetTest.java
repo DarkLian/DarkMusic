@@ -1,8 +1,13 @@
 package com.darkmusic.client;
 
+import com.darkmusic.client.audio.PlaybackController;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.ResetStorage;
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.download.DownloadModels;
+import com.darkmusic.client.download.DownloadPipeline;
+import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.download.Toolchain;
 import com.darkmusic.client.playlist.PlaylistStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -45,7 +50,7 @@ class ResetTest {
         old.hudBackgroundTransparency = 1;
         old.spectrumDirection = Settings.SpectrumDirection.DOWNWARD;
         old.spectrumPosition = Settings.SpectrumPosition.ABOVE;
-        old.repeat = com.darkmusic.client.audio.PlaybackController.Repeat.ALL;
+        old.repeat = PlaybackController.Repeat.ALL;
         old.ytDlpPath = old.ffmpegPath = old.ffprobePath = old.javascriptPath = "custom";
         old.shortcuts.put("key.darkmusic.next", "key.keyboard.n");
         old.roots.put("old music", "stable-playlist-id");
@@ -164,8 +169,8 @@ class ResetTest {
     @Test
     void activeDownloadBlocksCleanupAndCancellationReleasesItsLock() throws Exception {
         var entered = new java.util.concurrent.CountDownLatch(1);
-        var token = new com.darkmusic.client.download.ProcessRunner.Token();
-        var runner = new com.darkmusic.client.download.ProcessRunner() {
+        var token = new ProcessRunner.Token();
+        var runner = new ProcessRunner() {
             @Override
             public Result run(List<String> command, Path directory, Token cancellation, java.time.Duration timeout, int maximum, java.util.function.Consumer<String> output) {
                 entered.countDown();
@@ -177,9 +182,9 @@ class ResetTest {
         };
         var worker = Executors.newSingleThreadExecutor();
         try {
-            var pipeline = new com.darkmusic.client.download.DownloadPipeline(runner, temp);
-            var tools = new com.darkmusic.client.download.Toolchain(temp.resolve("yt-dlp"), temp.resolve("ffmpeg"), temp.resolve("ffprobe"), "", "");
-            var entry = new com.darkmusic.client.download.DownloadModels.Entry(1, "Authorized entry", "https://example.com/video", "generic", "one", true);
+            var pipeline = new DownloadPipeline(runner, temp);
+            var tools = new Toolchain(temp.resolve("yt-dlp"), temp.resolve("ffmpeg"), temp.resolve("ffprobe"), "", "");
+            var entry = new DownloadModels.Entry(1, "Authorized entry", "https://example.com/video", "generic", "one", true);
             var active = worker.submit(() -> {
                 try {
                     pipeline.execute(entry, temp.resolve("music"), tools, token, (status, detail) -> {

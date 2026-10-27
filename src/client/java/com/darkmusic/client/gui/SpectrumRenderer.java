@@ -2,6 +2,7 @@ package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
+import com.darkmusic.client.audio.SpectrumAnalyzer;
 import com.darkmusic.client.config.Settings;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
@@ -23,18 +24,18 @@ public final class SpectrumRenderer {
     private boolean sideBevel;
 
     private void fill(Settings settings, int left, int top, int right, int bottom, int color) {
-        if (settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.ROUNDED_BARS) {
+        if (settings.spectrumStyle == Settings.SpectrumStyle.ROUNDED_BARS) {
             mesh.rounded(left, top, right, bottom, color, settings.spectrumFinish);
             return;
         }
-        if (settings.spectrumFinish != com.darkmusic.client.config.Settings.SurfaceFinish.BEVELED || bottom - top < 2) {
+        if (settings.spectrumFinish != Settings.SurfaceFinish.BEVELED || bottom - top < 2) {
             rawFill(left, top, right, bottom, color);
             return;
         }
         rawFill(left, top, right, bottom, Bevel.shade(color, -.08));
         rawFill(left, top, right, top + 1, Bevel.shade(color, .32));
         rawFill(left, bottom - 1, right, bottom, Bevel.shade(color, -.28));
-        if (settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.BARS && sideBevel && bottom - top >= 3) {
+        if (settings.spectrumStyle == Settings.SpectrumStyle.BARS && sideBevel && bottom - top >= 3) {
             rawFill(left, top + 1, left + 1, bottom - 1, Bevel.shade(color, .16));
             rawFill(right - 1, top + 1, right, bottom - 1, Bevel.shade(color, -.25));
         }
@@ -55,7 +56,7 @@ public final class SpectrumRenderer {
         return update(app, settingsPreview, null, app.settings);
     }
 
-    private boolean update(DarkMusicClient app, boolean settingsPreview, com.darkmusic.client.audio.SpectrumAnalyzer external, Settings settings) {
+    private boolean update(DarkMusicClient app, boolean settingsPreview, SpectrumAnalyzer external, Settings settings) {
         var analyzer = external == null ? app.playback.spectrum() : external;
         var status = app.playback.state().status();
         boolean actual = external != null || settings == app.settings && (status == AudioBackend.Status.PLAYING || status == AudioBackend.Status.PAUSED);
@@ -102,11 +103,11 @@ public final class SpectrumRenderer {
         bars(app, g, x, y, width, height, downward, settingsPreview, hudHeight, null);
     }
 
-    public void bars(DarkMusicClient app, GuiGraphicsExtractor g, int x, int y, int width, int height, boolean downward, boolean settingsPreview, int hudHeight, com.darkmusic.client.audio.SpectrumAnalyzer external) {
+    public void bars(DarkMusicClient app, GuiGraphicsExtractor g, int x, int y, int width, int height, boolean downward, boolean settingsPreview, int hudHeight, SpectrumAnalyzer external) {
         bars(app, g, x, y, width, height, downward, settingsPreview, hudHeight, external, app.settings);
     }
 
-    public void bars(DarkMusicClient app, GuiGraphicsExtractor g, int x, int y, int width, int height, boolean downward, boolean settingsPreview, int hudHeight, com.darkmusic.client.audio.SpectrumAnalyzer external, Settings settings) {
+    public void bars(DarkMusicClient app, GuiGraphicsExtractor g, int x, int y, int width, int height, boolean downward, boolean settingsPreview, int hudHeight, SpectrumAnalyzer external, Settings settings) {
         if (width < 8 || height < 1) return;
         if (!update(app, settingsPreview, external, settings)) return;
         int bands = settings.visualizerBars;
@@ -118,10 +119,10 @@ public final class SpectrumRenderer {
             int columns = Math.min(width, settings.visualQuality.detail), previous = 0, previousPeak = 0;
             for (int i = 0; i < columns; i++) {
                 double position = columns == 1 ? 0 : i / (double) (columns - 1);
-                boolean spike = settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.SPIKE || settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.FILLED_SPIKE;
+                boolean spike = settings.spectrumStyle == Settings.SpectrumStyle.SPIKE || settings.spectrumStyle == Settings.SpectrumStyle.FILLED_SPIKE;
                 int h = barHeight(spike ? SpectrumCurve.spike(levels, bands, position) : SpectrumCurve.sample(levels, bands, position), height);
                 if (i == 0) previous = h;
-                boolean filled = settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.FILLED_WAVE || settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.FILLED_SPIKE;
+                boolean filled = settings.spectrumStyle == Settings.SpectrumStyle.FILLED_WAVE || settings.spectrumStyle == Settings.SpectrumStyle.FILLED_SPIKE;
                 int low = filled ? 0 : Math.max(0, Math.min(h, previous) - 2);
                 int high = filled ? h : Math.max(h, previous);
                 int left = x + i * width / columns, right = x + (i + 1) * width / columns;
@@ -162,17 +163,17 @@ public final class SpectrumRenderer {
                     peak = Math.max(peak, barHeight(peaks[j], height));
                 int color = (settings.spectrumColors.color(i / (double) Math.max(1, bars - 1)) & 0xffffff) | 0x22000000;
                 if (settings.visualQuality.trails) {
-                    if (settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.ROUNDED_BARS)
+                    if (settings.spectrumStyle == Settings.SpectrumStyle.ROUNDED_BARS)
                         mesh.rounded(left, downward ? y : y + height - peak, Math.max(left + 1, right), downward ? y + peak : y + height,
-                            color, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT);
+                            color, Settings.SurfaceFinish.FLAT);
                     else trail(left, Math.max(left + 1, right), y, height, h, peak, color, downward);
                 }
                 if (settings.visualQuality.peakHold && peak > 0) {
-                    if (settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.ROUNDED_BARS) {
+                    if (settings.spectrumStyle == Settings.SpectrumStyle.ROUNDED_BARS) {
                         if (SpectrumAppearance.detachedPeak(peak, h, 1))
                             mesh.rounded(left, downward ? y + peak - 2 : y + height - peak, Math.max(left + 1, right),
                                 downward ? y + peak : y + height - peak + 2, color | 0xff000000,
-                                com.darkmusic.client.config.Settings.SurfaceFinish.FLAT);
+                                Settings.SurfaceFinish.FLAT);
                     } else
                         rawFill(left, downward ? y + Math.max(0, peak - 1) : y + height - peak, Math.max(left + 1, right), downward ? y + peak : y + height - peak + 1, color | 0xff000000);
                 }

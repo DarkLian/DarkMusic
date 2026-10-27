@@ -2,9 +2,15 @@ package com.darkmusic.smoke;
 
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
+import com.darkmusic.client.audio.PlaybackController;
+import com.darkmusic.client.config.VisualColors;
 import com.darkmusic.client.gui.*;
+import com.darkmusic.client.gui.FolderTree;
+import com.darkmusic.client.gui.MusicFoldersScreen;
+import com.darkmusic.client.hud.HudLayout;
 import com.darkmusic.client.hud.NowPlayingHud;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.text.Text;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
@@ -46,12 +52,12 @@ public final class SmokeClient implements ClientModInitializer {
 
     private String translated(String label) {
         if (label.startsWith("View: "))
-            return com.darkmusic.client.text.Text.get("format.darkmusic.view", com.darkmusic.client.text.Text.get("view.darkmusic." + label.substring(6).toLowerCase(Locale.ROOT)));
+            return Text.get("format.darkmusic.view", Text.get("view.darkmusic." + label.substring(6).toLowerCase(Locale.ROOT)));
         try (var input = getClass().getResourceAsStream("/assets/darkmusic/lang/en_us.json")) {
             var catalog = com.google.gson.JsonParser.parseString(new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
             for (var entry : catalog.entrySet())
                 if (entry.getValue().getAsString().equals(label))
-                    return com.darkmusic.client.text.Text.get(entry.getKey());
+                    return Text.get(entry.getKey());
         } catch (java.io.IOException e) {
             throw new IllegalStateException(e);
         }
@@ -198,7 +204,7 @@ public final class SmokeClient implements ClientModInitializer {
     private void row(Minecraft mc, Object screen, String name, int index, boolean activate) throws Exception {
         var rows = (RowList) field(screen, name);
         if (!rows.visible && name.equals("navigation")) {
-            SmokeUi.click(mc, com.darkmusic.client.text.Text.get("ui.darkmusic.collections"));
+            SmokeUi.click(mc, Text.get("ui.darkmusic.collections"));
             rows = (RowList) field(screen, name);
         }
         int height = (int) field(rows, "rowHeight");
@@ -260,7 +266,7 @@ public final class SmokeClient implements ClientModInitializer {
         search.setValue("");
         app.playlists.add(playlistId, new Track(first.rootId(), "missing.mp3", first.file(), "Missing", "", "", 0, 0, 0, ""));
         player.tick();
-        require(field("playlistNotice").toString().equals(com.darkmusic.client.text.Text.get("format.darkmusic.missing_entries", 1)), "Missing entry notice absent");
+        require(field("playlistNotice").toString().equals(Text.get("format.darkmusic.missing_entries", 1)), "Missing entry notice absent");
         app.playlists.remove(playlistId, 2);
         String empty = app.playlists.create("Empty");
         player.tick();
@@ -295,11 +301,11 @@ public final class SmokeClient implements ClientModInitializer {
         var sourceField = app.playback.getClass().getDeclaredField("source");
         sourceField.setAccessible(true);
         var originalSource = app.playback.source();
-        for (var origin : List.of(new com.darkmusic.client.audio.PlaybackController.Source("All", "", "", app.library.rootId()),
-            new com.darkmusic.client.audio.PlaybackController.Source("All", current.relativePath().contains("/") ? current.relativePath().substring(0, current.relativePath().lastIndexOf('/')) : "", "", app.library.rootId()),
-            new com.darkmusic.client.audio.PlaybackController.Source("Playlists", playlistId, "", app.library.rootId()),
-            new com.darkmusic.client.audio.PlaybackController.Source("Artists", current.artist(), current.title(), app.library.rootId()),
-            new com.darkmusic.client.audio.PlaybackController.Source("Albums", current.album(), "", app.library.rootId()))) {
+        for (var origin : List.of(new PlaybackController.Source("All", "", "", app.library.rootId()),
+            new PlaybackController.Source("All", current.relativePath().contains("/") ? current.relativePath().substring(0, current.relativePath().lastIndexOf('/')) : "", "", app.library.rootId()),
+            new PlaybackController.Source("Playlists", playlistId, "", app.library.rootId()),
+            new PlaybackController.Source("Artists", current.artist(), current.title(), app.library.rootId()),
+            new PlaybackController.Source("Albums", current.album(), "", app.library.rootId()))) {
             sourceField.set(app.playback, origin);
             ((EditBox) field("search")).setValue("No matches before source jump");
             player.jumpToPlaying();
@@ -313,14 +319,14 @@ public final class SmokeClient implements ClientModInitializer {
             long count = origin.mode().equals("Playlists") ? app.playlists.resolve(origin.group(), tracks).size() : tracks.stream().filter(track -> switch (origin.mode()) {
                 case "Artists" -> track.artist().equals(origin.group());
                 case "Albums" -> track.album().equals(origin.group());
-                default -> com.darkmusic.client.gui.FolderTree.includes(origin.group(), track);
+                default -> FolderTree.includes(origin.group(), track);
             }).count();
             require(rows.get(groups.indexOf(origin.group())).title().endsWith(" (" + count + ")"), "Navigation count differs from total playable tracks: " + origin);
         }
         sourceField.set(app.playback, originalSource);
         player.jumpToPlaying();
         var list = (RowList) field("songs");
-        require(com.darkmusic.client.text.Text.get("text.darkmusic.scroll_long_text").equals("text.darkmusic.scroll_long_text"), "Long-text hover hint remains translated");
+        require(Text.get("text.darkmusic.scroll_long_text").equals("text.darkmusic.scroll_long_text"), "Long-text hover hint remains translated");
         var originalRows = (java.util.List<RowList.Row>) field(list, "rows");
         list.rows(java.util.stream.IntStream.range(0, 100).mapToObj(i -> new RowList.Row(current.title(), "")).toList());
         list.reveal(99);
@@ -334,7 +340,7 @@ public final class SmokeClient implements ClientModInitializer {
         click(mc, "Spectrum Colors");
         require(mc.gui.screen() instanceof ColorsScreen, "Spectrum colors did not open");
         click(mc, "Aurora Borealis");
-        require(app.settings.spectrumColors.preset == com.darkmusic.client.config.VisualColors.Preset.AURORA, "Preset did not apply");
+        require(app.settings.spectrumColors.preset == VisualColors.Preset.AURORA, "Preset did not apply");
         var start = (EditBox) field(mc.gui.screen(), "start");
         var end = (EditBox) field(mc.gui.screen(), "end");
         start.setValue("#55AAFF");
@@ -347,7 +353,7 @@ public final class SmokeClient implements ClientModInitializer {
         require(mc.gui.screen() == settings, "Colors Escape did not return to Settings");
         click(mc, "Progress Bar Colors");
         click(mc, "Neon Dream");
-        require(app.settings.progressColors.preset == com.darkmusic.client.config.VisualColors.Preset.NEON_DREAM && app.settings.spectrumColors.preset == com.darkmusic.client.config.VisualColors.Preset.MOONLIGHT, "Progress and spectrum colors are not independent");
+        require(app.settings.progressColors.preset == VisualColors.Preset.NEON_DREAM && app.settings.spectrumColors.preset == VisualColors.Preset.MOONLIGHT, "Progress and spectrum colors are not independent");
         click(mc, "Moonlight");
         escape(mc);
         escape(mc);
@@ -410,7 +416,7 @@ public final class SmokeClient implements ClientModInitializer {
 
                 app.configureVisualizer();
                 app.playback.shuffle(false);
-                app.playback.repeat(com.darkmusic.client.audio.PlaybackController.Repeat.OFF);
+                app.playback.repeat(PlaybackController.Repeat.OFF);
                 app.speed(1);
                 app.playback.volume(.05);
                 app.playback.play(app.library.snapshot().tracks(), app.library.snapshot().tracks().getFirst());
@@ -474,9 +480,9 @@ public final class SmokeClient implements ClientModInitializer {
                     app.speed(1.5);
                     require(app.playback.speed() == 1.5, "Speed did not apply");
                     app.playback.toggle();
-                    click(mc, com.darkmusic.client.text.Text.get("text.darkmusic.hud_artwork"));
+                    click(mc, Text.get("text.darkmusic.hud_artwork"));
                     require(!app.settings.hudArtwork, "Artwork toggle failed");
-                    click(mc, com.darkmusic.client.text.Text.get("text.darkmusic.hud_artwork"));
+                    click(mc, Text.get("text.darkmusic.hud_artwork"));
                     click(mc, "Edit HUD Layout");
                 }
                 case 3 -> {
@@ -490,7 +496,7 @@ public final class SmokeClient implements ClientModInitializer {
                     mc.gui.screen().mouseScrolled(resized.x() + 5, resized.y() + 5, 0, 1);
                     require(app.settings.hudScale == 1.1, "Scale did not change by 0.1");
                     require(mc.gui.screen().children().stream().noneMatch(x -> x instanceof ValueSlider), "HUD scale slider was not removed");
-                    var spectrum = com.darkmusic.client.hud.HudLayout.bounds(app.settings, mc.gui.screen().width, mc.gui.screen().height);
+                    var spectrum = HudLayout.bounds(app.settings, mc.gui.screen().width, mc.gui.screen().height);
                     double previousScale = app.settings.hudScale;
                     mc.gui.screen().mouseScrolled(spectrum.x() + spectrum.width() - 3, spectrum.y() + 3, 0, 1);
                     require(app.settings.hudScale == Math.round((previousScale + .1) * 10) / 10.0, "Combined editor did not scale the visualizer");
@@ -569,7 +575,7 @@ public final class SmokeClient implements ClientModInitializer {
                     view(mc, "Artists");
                     view(mc, "Albums");
                     view(mc, "All");
-                    click(mc, com.darkmusic.client.text.Text.get("key.darkmusic.normal_speed"));
+                    click(mc, Text.get("key.darkmusic.normal_speed"));
                     require(app.settings.speed == 1, "Speed reset failed");
                     // The player syncs its sliders from settings on the next screen tick.
                     mc.gui.screen().tick();
@@ -592,11 +598,11 @@ public final class SmokeClient implements ClientModInitializer {
                         closer.start();
                     });
                     // Folders are added from Settings > Music Folders.
-                    click(mc, com.darkmusic.client.text.Text.get("folders.title"));
-                    click(mc, com.darkmusic.client.text.Text.get("folders.add"));
+                    click(mc, Text.get("folders.title"));
+                    click(mc, Text.get("folders.add"));
                 }
                 case 12 -> {
-                    require(mc.gui.screen() instanceof com.darkmusic.client.gui.MusicFoldersScreen && !DesktopFolderPicker.isOpen(), "Folder dialog did not cancel back to Music Folders");
+                    require(mc.gui.screen() instanceof MusicFoldersScreen && !DesktopFolderPicker.isOpen(), "Folder dialog did not cancel back to Music Folders");
                     require(mc.getWindow().isFullscreen(), "Fullscreen was not restored after the desktop folder dialog");
                     escape(mc);
                     require(mc.gui.screen() instanceof SettingsScreen, "Music Folders Escape did not return to settings");
@@ -690,7 +696,7 @@ public final class SmokeClient implements ClientModInitializer {
                 }
                 case 23 -> click(mc, "Edit HUD Layout");
                 case 24 -> {
-                    var b = com.darkmusic.client.hud.HudLayout.bounds(app.settings, mc.gui.screen().width, mc.gui.screen().height);
+                    var b = HudLayout.bounds(app.settings, mc.gui.screen().width, mc.gui.screen().height);
                     mc.gui.screen().mouseClicked(mouse(b.x() + 4, b.y() + 4), false);
                     mc.gui.screen().mouseDragged(mouse(b.x() - 36, b.y() - 16), -40, -20);
                     mc.gui.screen().mouseReleased(mouse(b.x() - 36, b.y() - 16));

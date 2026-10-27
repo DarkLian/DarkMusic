@@ -1,5 +1,7 @@
 package com.darkmusic.client.lyrics;
 
+import com.darkmusic.client.library.RecordingVersions;
+
 import java.text.Normalizer;
 import java.util.Locale;
 import java.util.Set;
@@ -19,7 +21,7 @@ public final class LyricsMatcher {
     }
 
     private static Set<String> versions(String text) {
-        return com.darkmusic.client.library.RecordingVersions.WORDS
+        return RecordingVersions.WORDS
             .stream().filter(v -> normalized(text).matches(".*(?:^| )" + v + "(?: |$).*")).collect(Collectors.toSet());
     }
 

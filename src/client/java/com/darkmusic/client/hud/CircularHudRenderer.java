@@ -1,6 +1,9 @@
 package com.darkmusic.client.hud;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.audio.AudioBackend;
+import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.gui.SpectrumAppearance;
 import com.darkmusic.client.gui.SpectrumRenderer;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
@@ -58,7 +61,7 @@ public final class CircularHudRenderer {
         return turn == 0 ? pose : new Matrix3x2f(pose).rotateAbout((float) (turn * Math.PI * 2), layout.centerX(), layout.centerY());
     }
 
-    public void render(DarkMusicClient app, GuiGraphicsExtractor g, Track track, com.darkmusic.client.audio.AudioBackend.State audio, boolean preview, boolean settingsPreview) {
+    public void render(DarkMusicClient app, GuiGraphicsExtractor g, Track track, AudioBackend.State audio, boolean preview, boolean settingsPreview) {
         var settings = app.settings;
         boolean waveformEnabled = settings.waveformProgress && settings.hudProgress;
         var waveform = waveformEnabled && app.waveforms != null ? app.waveforms.get(track) : null;
@@ -71,7 +74,7 @@ public final class CircularHudRenderer {
         if (clip != null) bounds = clip.intersection(bounds);
         if (bounds == null) return;
         double turn = CircularRotation.advance(settings.circularRotationSeconds,
-            preview || audio.status() == com.darkmusic.client.audio.AudioBackend.Status.PLAYING);
+            preview || audio.status() == AudioBackend.Status.PLAYING);
         // Rotation stays inside the unrotated bounds: every layer is a circle around the same center.
         double spin = settings.circularRotation.sign() * turn, progressSpin = settings.circularProgressRotation.sign() * turn;
         var spinning = rotated(pose, layout, spin);
@@ -87,9 +90,9 @@ public final class CircularHudRenderer {
         if (analyzed && settings.hudVisualizer && (settings.visualQuality.trails || settings.visualQuality.peakHold)) {
             app.playback.spectrum().copyPeaks(peaks);
             if (settings.visualQuality.trails)
-                g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(spinning, clip, bounds, layout.centerX(), layout.centerY(), -1, peaks.clone(), settings.visualizerBars, settings.circularSpectrumStyle, 0, 0, com.darkmusic.client.gui.SpectrumAppearance.opacity(settings.spectrumColors.first() | 0xff000000, settings.spectrumOpacity), com.darkmusic.client.gui.SpectrumAppearance.opacity(settings.spectrumColors.last() | 0xff000000, settings.spectrumOpacity), com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, settings.visualQuality.detail, false, settings.circularSpectrumHeight, baseRadius));
+                g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(spinning, clip, bounds, layout.centerX(), layout.centerY(), -1, peaks.clone(), settings.visualizerBars, settings.circularSpectrumStyle, 0, 0, SpectrumAppearance.opacity(settings.spectrumColors.first() | 0xff000000, settings.spectrumOpacity), SpectrumAppearance.opacity(settings.spectrumColors.last() | 0xff000000, settings.spectrumOpacity), Settings.SurfaceFinish.FLAT, Settings.SurfaceFinish.FLAT, settings.visualQuality.detail, false, settings.circularSpectrumHeight, baseRadius));
             if (settings.visualQuality.peakHold)
-                g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(spinning, clip, bounds, layout.centerX(), layout.centerY(), -2, peaks.clone(), settings.visualizerBars, settings.circularSpectrumStyle, 0, 0, com.darkmusic.client.gui.SpectrumAppearance.opacity(settings.spectrumColors.first() | 0xff000000, settings.spectrumOpacity), com.darkmusic.client.gui.SpectrumAppearance.opacity(settings.spectrumColors.last() | 0xff000000, settings.spectrumOpacity), com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, settings.visualQuality.detail, false, settings.circularSpectrumHeight, baseRadius, progressInner, levels.clone()));
+                g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(spinning, clip, bounds, layout.centerX(), layout.centerY(), -2, peaks.clone(), settings.visualizerBars, settings.circularSpectrumStyle, 0, 0, SpectrumAppearance.opacity(settings.spectrumColors.first() | 0xff000000, settings.spectrumOpacity), SpectrumAppearance.opacity(settings.spectrumColors.last() | 0xff000000, settings.spectrumOpacity), Settings.SurfaceFinish.FLAT, Settings.SurfaceFinish.FLAT, settings.visualQuality.detail, false, settings.circularSpectrumHeight, baseRadius, progressInner, levels.clone()));
         }
         // Progress and spectrum are separate meshes so each can turn its own way.
         if (settings.hudProgress && waveform == null)
@@ -99,7 +102,7 @@ public final class CircularHudRenderer {
         if (analyzed && settings.hudVisualizer)
             g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(pose, clip, bounds, layout.centerX(), layout.centerY(),
                 -3, levels.clone(), settings.visualizerBars, settings.circularSpectrumStyle,
-                settings.progressColors.first(), settings.progressColors.last(), com.darkmusic.client.gui.SpectrumAppearance.opacity(settings.spectrumColors.first() | 0xff000000, settings.spectrumOpacity), com.darkmusic.client.gui.SpectrumAppearance.opacity(settings.spectrumColors.last() | 0xff000000, settings.spectrumOpacity), settings.spectrumFinish, settings.progressFinish, settings.visualQuality.detail, settings.visualQuality.glow, settings.circularSpectrumHeight, baseRadius, progressInner).rotated(spinning, spin));
+                settings.progressColors.first(), settings.progressColors.last(), SpectrumAppearance.opacity(settings.spectrumColors.first() | 0xff000000, settings.spectrumOpacity), SpectrumAppearance.opacity(settings.spectrumColors.last() | 0xff000000, settings.spectrumOpacity), settings.spectrumFinish, settings.progressFinish, settings.visualQuality.detail, settings.visualQuality.glow, settings.circularSpectrumHeight, baseRadius, progressInner).rotated(spinning, spin));
         if (waveform != null)
             g.guiRenderState.addGuiElement(new CircularHudMesh.ProgressWaveform(progressPose, clip, bounds, layout.centerX(), layout.centerY(),
                 CircularHudLayout.progress(audio.position(), audio.duration(), preview), waveform,

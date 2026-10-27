@@ -2,6 +2,7 @@ package com.darkmusic.smoke;
 
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.config.VisualColors;
 import com.darkmusic.client.download.DownloadModels;
 import com.darkmusic.client.download.ManagedTools;
 import com.darkmusic.client.gui.*;
@@ -131,12 +132,12 @@ final class MusicCaptureClient {
                 }
                 case 16 -> capture(mc, "reset-confirmation");
                 case 17 -> {
-                    app.settings.spectrumColors.preset = com.darkmusic.client.config.VisualColors.Preset.AURORA;
+                    app.settings.spectrumColors.preset = VisualColors.Preset.AURORA;
                     mc.gui.setScreen(new ColorsScreen(app, player, true));
                 }
                 case 18 -> capture(mc, "spectrum-colors");
                 case 19 -> {
-                    app.settings.spectrumColors.preset = com.darkmusic.client.config.VisualColors.Preset.MOONLIGHT;
+                    app.settings.spectrumColors.preset = VisualColors.Preset.MOONLIGHT;
                     app.save();
                 }
                 case 20 -> {

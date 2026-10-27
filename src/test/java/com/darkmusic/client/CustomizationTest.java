@@ -2,6 +2,8 @@ package com.darkmusic.client;
 
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.config.VisualColors;
+import com.darkmusic.client.gui.ColorSpectrum;
 import com.darkmusic.client.gui.UiTheme;
 import com.darkmusic.client.hud.ArtworkHudLayout;
 import com.darkmusic.client.hud.CircularHudLayout;
@@ -23,14 +25,14 @@ class CustomizationTest {
 
     @Test
     void colorSpectrumMapsHueSaturationAndBrightnessWithoutLosingHexPrecision() {
-        assertEquals(0xFF0000, com.darkmusic.client.gui.ColorSpectrum.rgb(0, 1, 1));
-        assertEquals(0x00FF00, com.darkmusic.client.gui.ColorSpectrum.rgb(1f / 3, 1, 1));
-        assertEquals(0x0000FF, com.darkmusic.client.gui.ColorSpectrum.rgb(2f / 3, 1, 1));
-        assertEquals(0xFFFFFF, com.darkmusic.client.gui.ColorSpectrum.rgb(.75f, 0, 1));
-        assertEquals(0, com.darkmusic.client.gui.ColorSpectrum.rgb(.75f, 1, 0));
+        assertEquals(0xFF0000, ColorSpectrum.rgb(0, 1, 1));
+        assertEquals(0x00FF00, ColorSpectrum.rgb(1f / 3, 1, 1));
+        assertEquals(0x0000FF, ColorSpectrum.rgb(2f / 3, 1, 1));
+        assertEquals(0xFFFFFF, ColorSpectrum.rgb(.75f, 0, 1));
+        assertEquals(0, ColorSpectrum.rgb(.75f, 1, 0));
         for (int color : new int[]{0x123456, 0xFFEECC, 0x578CFF, 0x888888}) {
             float[] hsv = java.awt.Color.RGBtoHSB(color >> 16 & 255, color >> 8 & 255, color & 255, null);
-            assertEquals(color, com.darkmusic.client.gui.ColorSpectrum.rgb(hsv[0], hsv[1], hsv[2]));
+            assertEquals(color, ColorSpectrum.rgb(hsv[0], hsv[1], hsv[2]));
         }
     }
 
@@ -43,7 +45,7 @@ class CustomizationTest {
         assertEquals(Settings.SurfaceFinish.BEVELED, settings.progressFinish);
         assertTrue(settings.visualQuality.frequencySmoothing && settings.visualQuality.peakHold && settings.visualQuality.trails && settings.visualQuality.glow);
         assertEquals(256, settings.visualQuality.detail);
-        assertEquals(com.darkmusic.client.config.VisualColors.Preset.OCEAN_DRIVE, settings.spectrumColors.preset);
+        assertEquals(VisualColors.Preset.OCEAN_DRIVE, settings.spectrumColors.preset);
         for (int height : new int[]{8, 32, 100})
             for (var position : Settings.SpectrumPosition.values()) {
                 settings.classicSpectrumHeight = height;
@@ -71,7 +73,7 @@ class CustomizationTest {
         stored.validate();
         assertTrue(stored.lyricsEnabled);
         assertEquals(Settings.SurfaceFinish.FLAT, stored.spectrumFinish);
-        assertEquals(com.darkmusic.client.config.VisualColors.Preset.MOONLIGHT, stored.spectrumColors.preset);
+        assertEquals(VisualColors.Preset.MOONLIGHT, stored.spectrumColors.preset);
     }
 
     @Test

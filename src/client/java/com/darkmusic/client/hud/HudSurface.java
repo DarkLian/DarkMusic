@@ -1,6 +1,7 @@
 package com.darkmusic.client.hud;
 
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.gui.UiTheme;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
@@ -49,9 +50,9 @@ public final class HudSurface {
         int a = tint(settings.hudBackgroundColors.first(), bevel);
         int b = settings.hudBackgroundGradient ? tint(settings.hudBackgroundColors.last(), bevel) : a;
         if (a == b) g.fill(left, top, right, bottom, alpha | a);
-        else com.darkmusic.client.gui.UiTheme.gradient(g, left, top, right - left, bottom - top,
-            alpha | (com.darkmusic.client.gui.UiTheme.mix(a, b, left / (float) width) & 0xFFFFFF),
-            alpha | (com.darkmusic.client.gui.UiTheme.mix(a, b, right / (float) width) & 0xFFFFFF));
+        else UiTheme.gradient(g, left, top, right - left, bottom - top,
+            alpha | (UiTheme.mix(a, b, left / (float) width) & 0xFFFFFF),
+            alpha | (UiTheme.mix(a, b, right / (float) width) & 0xFFFFFF));
     }
 
     private static int tint(int color, int bevel) {

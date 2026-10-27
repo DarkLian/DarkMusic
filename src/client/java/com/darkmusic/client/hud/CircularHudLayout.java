@@ -1,5 +1,6 @@
 package com.darkmusic.client.hud;
 
+import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.gui.SpectrumCurve;
 
 /**
@@ -25,19 +26,19 @@ public record CircularHudLayout(int width, int height, float centerX, float cent
         return measured(radius, text);
     }
 
-    public static float progressInner(com.darkmusic.client.config.Settings settings) {
+    public static float progressInner(Settings settings) {
         return ICON_RADIUS + ((settings.hudProgress || settings.hudVisualizer) ? settings.circularImageGap : 0);
     }
 
-    public static float spectrumBase(com.darkmusic.client.config.Settings settings) {
+    public static float spectrumBase(Settings settings) {
         return progressInner(settings) + (settings.hudProgress ? settings.waveformProgress ? settings.waveform.height : RING_OUTER - RING_INNER : 0);
     }
 
-    public static float outerRadius(com.darkmusic.client.config.Settings settings) {
+    public static float outerRadius(Settings settings) {
         return spectrumBase(settings) + (settings.hudVisualizer ? settings.circularSpectrumHeight : 0);
     }
 
-    public static CircularHudLayout of(com.darkmusic.client.config.Settings settings) {
+    public static CircularHudLayout of(Settings settings) {
         return measured((int) Math.ceil(outerRadius(settings) + FEATHER + 1), settings.circularText);
     }
 
@@ -54,12 +55,12 @@ public record CircularHudLayout(int width, int height, float centerX, float cent
         return 1 + .045f * energy / bass;
     }
 
-    public static float waveHeight(float[] levels, int bands, double turn, com.darkmusic.client.config.Settings.SpectrumStyle style) {
+    public static float waveHeight(float[] levels, int bands, double turn, Settings.SpectrumStyle style) {
         return waveHeight(levels, bands, turn, style, SPECTRUM_HEIGHT);
     }
 
-    public static float waveHeight(float[] levels, int bands, double turn, com.darkmusic.client.config.Settings.SpectrumStyle style, float height) {
-        if (style == com.darkmusic.client.config.Settings.SpectrumStyle.FILLED_SPIKE) {
+    public static float waveHeight(float[] levels, int bands, double turn, Settings.SpectrumStyle style, float height) {
+        if (style == Settings.SpectrumStyle.FILLED_SPIKE) {
             double cell = (turn - Math.floor(turn)) * bands;
             int index = (int) cell;
             double triangle = 1 - Math.abs(2 * (cell - index) - 1);

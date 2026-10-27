@@ -1,5 +1,6 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.config.Settings;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -35,7 +36,7 @@ class FocusRowsTest {
         }
         try {
             for (int value = 0; value <= 255; value += 17) {
-                var settings = new com.darkmusic.client.config.Settings();
+                var settings = new Settings();
                 settings.menuBackgroundColor = value << 16 | value << 8 | value;
                 settings.menuAccentColor = settings.menuBackgroundColor;
                 UiTheme.apply(settings);
@@ -44,7 +45,7 @@ class FocusRowsTest {
                 assertTrue(UiTheme.contrast(UiTheme.TEXT, UiTheme.RAISED) >= 4.5, "Controls on " + value);
             }
         } finally {
-            UiTheme.apply(new com.darkmusic.client.config.Settings());
+            UiTheme.apply(new Settings());
         }
     }
 }

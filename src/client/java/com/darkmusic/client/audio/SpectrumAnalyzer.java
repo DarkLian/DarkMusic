@@ -1,5 +1,7 @@
 package com.darkmusic.client.audio;
 
+import com.darkmusic.client.config.VisualQuality;
+
 import java.util.Arrays;
 
 /**
@@ -29,7 +31,7 @@ public final class SpectrumAnalyzer {
         for (int i = 0; i < SIZE; i++) window[i] = .5 - .5 * Math.cos(2 * Math.PI * i / (SIZE - 1));
     }
 
-    public void refine(com.darkmusic.client.config.VisualQuality quality) {
+    public void refine(VisualQuality quality) {
         refinements = new Refinements(quality.frequencySmoothing, quality.peakHold, quality.trails, quality.beatReactive);
     }
 

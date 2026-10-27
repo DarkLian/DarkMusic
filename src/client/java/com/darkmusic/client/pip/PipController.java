@@ -1,6 +1,10 @@
 package com.darkmusic.client.pip;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.gui.HorizontalText;
+import com.darkmusic.client.gui.SpectrumRenderer;
+import com.darkmusic.client.gui.UiStatus;
 import com.darkmusic.client.text.Text;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
@@ -17,9 +21,9 @@ public final class PipController implements AutoCloseable {
     private final DarkMusicClient app;
     public final PipNativeTools tools;
     private final PipTexture texture = new PipTexture(Identifier.fromNamespaceAndPath("darkmusic", "pip"));
-    private final com.darkmusic.client.gui.SpectrumRenderer audioSpectrum = new com.darkmusic.client.gui.SpectrumRenderer();
+    private final SpectrumRenderer audioSpectrum = new SpectrumRenderer();
     // Reused rendering adapter: never temporarily swap or edit the user's music preferences.
-    private final com.darkmusic.client.config.Settings spectrumAppearance = new com.darkmusic.client.config.Settings();
+    private final Settings spectrumAppearance = new Settings();
     private PipSource source;
     private PipSession session;
     private String state = "pip.idle";
@@ -195,7 +199,7 @@ public final class PipController implements AutoCloseable {
         if (!status().equals("pip.live")) {
             g.fill(b.x(), b.y(), b.x() + b.width(), b.y() + 12, 0xcc111420);
             var font = Minecraft.getInstance().font;
-            g.text(font, com.darkmusic.client.gui.HorizontalText.ellipsize(font, Text.get(status()), Math.max(1, b.width() - 6)), b.x() + 3, b.y() + 2, com.darkmusic.client.gui.UiStatus.color(com.darkmusic.client.gui.UiStatus.Tone.WARNING));
+            g.text(font, HorizontalText.ellipsize(font, Text.get(status()), Math.max(1, b.width() - 6)), b.x() + 3, b.y() + 2, UiStatus.color(UiStatus.Tone.WARNING));
         }
     }
 
@@ -208,9 +212,9 @@ public final class PipController implements AutoCloseable {
         var analyzer = captured != null && captured.available() ? captured.analyzer() : null;
         if (analyzer == null && !preview) return;
         s.applyTo(spectrumAppearance);
-        boolean downward = s.direction == com.darkmusic.client.config.Settings.SpectrumDirection.DOWNWARD;
+        boolean downward = s.direction == Settings.SpectrumDirection.DOWNWARD;
         if (s.sideways()) {
-            boolean left = s.position == com.darkmusic.client.config.Settings.ArtworkSpectrumPosition.LEFT;
+            boolean left = s.position == Settings.ArtworkSpectrumPosition.LEFT;
             g.pose().pushMatrix();
             try {
                 g.pose().translate(b.x() + (left ? 0 : b.width()), b.y() + (left ? b.height() : 0));

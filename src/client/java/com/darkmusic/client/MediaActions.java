@@ -1,8 +1,14 @@
 package com.darkmusic.client;
 
+import com.darkmusic.client.download.DownloadPipeline;
+import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.gui.DesktopWindowGuard;
 import com.darkmusic.client.library.AudioDeletion;
+import com.darkmusic.client.library.ImportHistory;
 import com.darkmusic.client.library.MediaFiles;
+import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 
 import java.util.concurrent.CompletableFuture;
@@ -20,12 +26,12 @@ public final class MediaActions {
     }
 
     private static IllegalStateException busy() {
-        return new IllegalStateException(com.darkmusic.client.text.Text.get("library.darkmusic.busy"));
+        return new IllegalStateException(Text.get("library.darkmusic.busy"));
     }
 
     public void importAudio(java.util.List<java.nio.file.Path> paths, String folder, String playlistId) {
         if (app.mediaBusy() || app.resetting() || !app.playlistsReady) {
-            app.warn(com.darkmusic.client.text.Text.get("library.darkmusic.busy"));
+            app.warn(Text.get("library.darkmusic.busy"));
             return;
         }
         var library = app.library;
@@ -37,7 +43,7 @@ public final class MediaActions {
             root = library.directory(rootId);
             folder = slash < 0 ? "" : folder.substring(slash + 1);
             if (root == null) {
-                app.warn(com.darkmusic.client.text.Text.get("library.status.unavailable"));
+                app.warn(Text.get("library.status.unavailable"));
                 return;
             }
         }
@@ -46,15 +52,15 @@ public final class MediaActions {
         final var destinationFolder = folder;
         var store = app.playlists;
         var scanned = app.library;
-        String target = store.get(playlistId) != null ? store.displayName(store.get(playlistId)) : folder.isBlank() ? com.darkmusic.client.text.Text.get("text.darkmusic.all_tracks") : folder;
+        String target = store.get(playlistId) != null ? store.displayName(store.get(playlistId)) : folder.isBlank() ? Text.get("text.darkmusic.all_tracks") : folder;
         String destination = root.toString() + " | " + target;
         long started = System.currentTimeMillis();
         app.mediaBusy = true;
-        var token = app.mediaToken = new com.darkmusic.client.download.ProcessRunner.Token();
+        var token = app.mediaToken = new ProcessRunner.Token();
         var accepted = java.util.List.copyOf(paths);
         if (accepted.size() > 1000) {
             app.mediaBusy = false;
-            app.warn(com.darkmusic.client.text.Text.get("library.darkmusic.import_limit"));
+            app.warn(Text.get("library.darkmusic.import_limit"));
             return;
         }
         app.importing = true;
@@ -63,24 +69,24 @@ public final class MediaActions {
             try {
                 var imported = new MediaFiles().importFiles(destinationRoot, destinationId, destinationFolder, accepted, token);
                 if (app.importHistory != null)
-                    app.importHistory.record(new com.darkmusic.client.library.ImportHistory.Batch(started, destination, accepted.size(), imported.entries(), ""));
+                    app.importHistory.record(new ImportHistory.Batch(started, destination, accepted.size(), imported.entries(), ""));
                 Minecraft.getInstance().execute(() -> {
                     app.importing = false;
                     app.mediaBusy = false;
                     if (app.closed() || app.resetting() || app.playlists != store) return;
                     if (store.get(playlistId) != null) store.addAll(playlistId, imported.tracks());
                     scanned.requestRescan();
-                    app.warn(com.darkmusic.client.text.Text.get("library.darkmusic.import_result", imported.tracks().size(), imported.errors().size()));
+                    app.warn(Text.get("library.darkmusic.import_result", imported.tracks().size(), imported.errors().size()));
                     if (!imported.errors().isEmpty())
                         org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Audio import: {}", imported.errors());
                 });
             } catch (Exception failure) {
                 if (app.importHistory != null)
-                    app.importHistory.record(new com.darkmusic.client.library.ImportHistory.Batch(started, destination, accepted.size(), java.util.List.of(), String.valueOf(failure.getMessage())));
+                    app.importHistory.record(new ImportHistory.Batch(started, destination, accepted.size(), java.util.List.of(), String.valueOf(failure.getMessage())));
                 Minecraft.getInstance().execute(() -> {
                     app.importing = false;
                     app.mediaBusy = false;
-                    app.warn(com.darkmusic.client.text.Text.failure(failure, "library.darkmusic.import_failed"));
+                    app.warn(Text.failure(failure, "library.darkmusic.import_failed"));
                 });
             }
         });
@@ -104,7 +110,7 @@ public final class MediaActions {
         if (app.mediaBusy() || app.resetting())
             return CompletableFuture.failedFuture(busy());
         app.mediaBusy = true;
-        var token = app.mediaToken = new com.darkmusic.client.download.ProcessRunner.Token();
+        var token = app.mediaToken = new ProcessRunner.Token();
         var player = app.playback;
         var store = app.playlists;
         var scanned = app.library;
@@ -115,7 +121,7 @@ public final class MediaActions {
             Exception problem = null;
             try {
                 if (!player.awaitIdle(10))
-                    throw new java.io.IOException(com.darkmusic.client.text.Text.get("library.darkmusic.file_busy"));
+                    throw new java.io.IOException(Text.get("library.darkmusic.file_busy"));
                 replacement = new MediaFiles().edit(track, original, fields, token);
             } catch (Exception e) {
                 problem = e;
@@ -149,7 +155,7 @@ public final class MediaActions {
 
     public CompletableFuture<AudioDeletion.Plan> prepareAudioDeletion(java.util.List<Track> tracks) {
         var result = new CompletableFuture<AudioDeletion.Plan>();
-        var window = new com.darkmusic.client.gui.DesktopWindowGuard();
+        var window = new DesktopWindowGuard();
         result.whenComplete((value, failure) -> Minecraft.getInstance().execute(window::close));
         var roots = app.library.roots();
         var selected = java.util.List.copyOf(tracks);
@@ -166,11 +172,11 @@ public final class MediaActions {
 
     public CompletableFuture<AudioDeletion.Result> deleteAudio(AudioDeletion.Plan plan, AudioDeletion.Mode mode,
                                                                java.util.function.Consumer<AudioDeletion.Progress> progress) {
-        return deleteAudio(plan, mode, new com.darkmusic.client.download.ProcessRunner.Token(), progress);
+        return deleteAudio(plan, mode, new ProcessRunner.Token(), progress);
     }
 
     public CompletableFuture<AudioDeletion.Result> deleteAudio(AudioDeletion.Plan plan, AudioDeletion.Mode mode,
-                                                               com.darkmusic.client.download.ProcessRunner.Token token,
+                                                               ProcessRunner.Token token,
                                                                java.util.function.Consumer<AudioDeletion.Progress> progress) {
         java.util.Objects.requireNonNull(mode);
         java.util.Objects.requireNonNull(token);
@@ -184,7 +190,7 @@ public final class MediaActions {
         var scanned = app.library;
         var resume = player.suspendForEdit();
         var result = new CompletableFuture<AudioDeletion.Result>();
-        var window = mode == AudioDeletion.Mode.TRASH || plan.trashCompanions() ? new com.darkmusic.client.gui.DesktopWindowGuard() : null;
+        var window = mode == AudioDeletion.Mode.TRASH || plan.trashCompanions() ? new DesktopWindowGuard() : null;
         result.whenComplete((value, failure) -> {
             if (window != null) Minecraft.getInstance().execute(window::close);
         });
@@ -193,12 +199,12 @@ public final class MediaActions {
             Exception problem = null;
             try {
                 if (!player.awaitIdle(10))
-                    throw new java.io.IOException(com.darkmusic.client.text.Text.get("library.darkmusic.file_busy"));
+                    throw new java.io.IOException(Text.get("library.darkmusic.file_busy"));
                 deleted = new AudioDeletion().delete(plan, mode, token, progress);
                 for (var track : deleted.removed()) {
                     try {
-                        com.darkmusic.client.library.SourceLinks.forget(track.file());
-                        com.darkmusic.client.download.DownloadPipeline.forgetRecorded(track.file());
+                        SourceLinks.forget(track.file());
+                        DownloadPipeline.forgetRecorded(track.file());
                     } catch (java.io.IOException cleanupFailure) {
                         org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Could not remove deleted-file provenance", cleanupFailure);
                     }

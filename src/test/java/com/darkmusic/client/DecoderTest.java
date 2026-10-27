@@ -1,6 +1,7 @@
 package com.darkmusic.client;
 
 import com.darkmusic.client.audio.PcmDecoder;
+import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.library.MetadataReader;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -68,6 +69,6 @@ class DecoderTest {
         Files.write(path, bytes);
         var track = new MetadataReader().read("real", "zero-rate.wav", path, bytes.length, 0);
         assertTrue(Double.isFinite(track.duration()) && track.duration() >= 0);
-        assertDoesNotThrow(() -> com.darkmusic.client.config.ConfigStore.JSON.toJson(track.duration()));
+        assertDoesNotThrow(() -> ConfigStore.JSON.toJson(track.duration()));
     }
 }

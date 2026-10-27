@@ -3,6 +3,9 @@ package com.darkmusic.client.gui;
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.audio.PlaybackController;
+import com.darkmusic.client.library.ArtworkCache;
+import com.darkmusic.client.library.ListeningHistory;
+import com.darkmusic.client.library.MusicFolders;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.playlist.PlaylistStore;
 import com.darkmusic.client.text.Text;
@@ -127,7 +130,7 @@ public final class MusicScreen extends LocalScreen {
     }
 
     private java.nio.file.Path browseDirectory() {
-        return com.darkmusic.client.library.MusicFolders.browseDirectory(app.library.roots(), app.library.root(), mode, group);
+        return MusicFolders.browseDirectory(app.library.roots(), app.library.root(), mode, group);
     }
 
     private Button transportIcon(String key, UiIcon icon, int x, int y, int width, Runnable action) {
@@ -446,7 +449,7 @@ public final class MusicScreen extends LocalScreen {
             default -> true;
         }).toList();
         songs.emptyMessage(app.library.snapshot().tracks().isEmpty() ? Text.get("ui.darkmusic.library_empty") : playlists && source.isEmpty() ? Text.get("text.darkmusic.no_playable_songs") : Text.get("text.darkmusic.no_matching_songs"));
-        var stats = mode.equals("History") ? app.listeningHistory.snapshot() : java.util.Map.<String, com.darkmusic.client.library.ListeningHistory.Entry>of();
+        var stats = mode.equals("History") ? app.listeningHistory.snapshot() : java.util.Map.<String, ListeningHistory.Entry>of();
         var displayed = visible;
         boolean history = mode.equals("History");
         songs.rows(displayed.size(), i -> {
@@ -461,7 +464,7 @@ public final class MusicScreen extends LocalScreen {
         songs.select(visible.indexOf(selected));
     }
 
-    private String historyDetails(Track track, java.util.Map<String, com.darkmusic.client.library.ListeningHistory.Entry> values) {
+    private String historyDetails(Track track, java.util.Map<String, ListeningHistory.Entry> values) {
         var stats = values.get(track.id());
         if (stats == null) return "";
         String date = HISTORY_DATE.format(java.time.Instant.ofEpochMilli(stats.lastPlayed()));
@@ -688,7 +691,7 @@ public final class MusicScreen extends LocalScreen {
         return Math.clamp((int) Math.round(sourceHeight * ratio), 1, maxHeight);
     }
 
-    private static int fittedHeight(com.darkmusic.client.library.ArtworkCache.Cover cover, int maxWidth, int maxHeight) {
+    private static int fittedHeight(ArtworkCache.Cover cover, int maxWidth, int maxHeight) {
         return fittedHeight(cover.contentWidth() - 2 * cover.menuInset(), cover.contentHeight(), maxWidth, maxHeight);
     }
 
@@ -708,7 +711,7 @@ public final class MusicScreen extends LocalScreen {
             int maxWidth = !standalone && landscape ? area.width() - 16 : size;
             // Wide covers keep their aspect ratio without leaving an empty band above or below.
             if (!standalone) drawnHeight = fittedHeight(cover, maxWidth, size);
-            com.darkmusic.client.library.ArtworkCache.drawMenu(g, cover,
+            ArtworkCache.drawMenu(g, cover,
                 !standalone && landscape ? area.x() + 8 : artX, artY, maxWidth, drawnHeight);
         } else UiIcon.MUSIC.draw(g, artX + size / 4, artY + size / 4, size / 2, UiTheme.MUTED);
         int x = standalone ? artX + size + 12 : area.x() + 8;

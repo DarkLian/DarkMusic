@@ -1,7 +1,13 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.config.WaveformSettings;
+import com.darkmusic.client.hud.HudLyricsLayout;
+import com.darkmusic.client.hud.HudPreview;
+import com.darkmusic.client.hud.HudScale;
+import com.darkmusic.client.hud.LyricsHud;
 import com.darkmusic.client.hud.NowPlayingHud;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -19,7 +25,7 @@ import java.util.function.DoubleFunction;
 /**
  * One scrollable settings form with a fixed, independently contained live preview.
  */
-public final class SettingsScreen extends LocalScreen implements com.darkmusic.client.hud.HudPreview {
+public final class SettingsScreen extends LocalScreen implements HudPreview {
     private final DarkMusicClient app;
     private ScrollBar scrollbar;
     private ValueSlider playerProgressPreview;
@@ -27,7 +33,7 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
     private final List<Placed> controls = new ArrayList<>();
     private final List<Section> sections = new ArrayList<>();
     private final List<Subsection> subsections = new ArrayList<>();
-    private com.darkmusic.client.hud.HudScale previewWheel = new com.darkmusic.client.hud.HudScale();
+    private HudScale previewWheel = new HudScale();
     private double previewScale = 1;
     private Settings shownSettings;
     private long scaleChanged;
@@ -120,7 +126,7 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
             previewScale = 1;
             scaleChanged = 0;
             scroll = 0;
-            previewWheel = new com.darkmusic.client.hud.HudScale();
+            previewWheel = new HudScale();
             java.util.Arrays.fill(sectionScroll, 0);
             selectedSection = 0;
         }
@@ -168,7 +174,7 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
                 previewOnly = !previewOnly;
                 rebuildWidgets();
             }).bounds(width - 120, 38, 108, 24).build());
-        if (previewVisible && (app.settings.hudEnabled || com.darkmusic.client.hud.LyricsHud.enabled(app.settings))) {
+        if (previewVisible && (app.settings.hudEnabled || LyricsHud.enabled(app.settings))) {
             int layoutButtonWidth = Math.min(previewWidth, font.width(Text.get("text.darkmusic.edit_hud_layout")) + 32);
             UiButton.icon(addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.edit_hud_layout"),
                     button -> show(new HudEditorScreen(app, this)))
@@ -208,7 +214,7 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
                 rebuildWidgets();
             }, "lyrics.darkmusic.hud_help");
         }
-        if (com.darkmusic.client.hud.LyricsHud.enabled(s)) {
+        if (LyricsHud.enabled(s)) {
             subsection("lyrics.hud.settings");
             toggle("lyrics.hud.next", () -> s.lyricsNextLine, v -> s.lyricsNextLine = v, "lyrics.hud.next.help");
             toggle("lyrics.hud.text_plate", () -> s.lyricsTextPlate, v -> s.lyricsTextPlate = v, "lyrics.hud.text_plate.help");
@@ -324,8 +330,8 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
         action("colors.darkmusic.progress", () -> show(new ColorsScreen(app, this, false)), "colors.darkmusic.help");
         if (s.waveformProgress) {
             action("waveform.style", () -> {
-                s.waveform.style = s.waveform.style == com.darkmusic.client.config.WaveformSettings.Style.FILLED
-                    ? com.darkmusic.client.config.WaveformSettings.Style.BARS : com.darkmusic.client.config.WaveformSettings.Style.FILLED;
+                s.waveform.style = s.waveform.style == WaveformSettings.Style.FILLED
+                    ? WaveformSettings.Style.BARS : WaveformSettings.Style.FILLED;
                 app.save();
                 rebuildWidgets();
             }, "waveform.style.help");
@@ -339,7 +345,7 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
                 v -> s.waveform.height = 6 + (int) Math.round(v * 12), 12, "waveform.height.help");
             waveformSlider((s.waveform.detail - 48) / 464.0, v -> Text.get("waveform.detail", s.waveform.detail),
                 v -> s.waveform.detail = 48 + (int) Math.round(v * 464), 464, "waveform.detail.help");
-            if (s.waveform.style == com.darkmusic.client.config.WaveformSettings.Style.BARS)
+            if (s.waveform.style == WaveformSettings.Style.BARS)
                 waveformSlider(s.waveform.spacing / 4.0, v -> Text.get("waveform.spacing", s.waveform.spacing),
                     v -> s.waveform.spacing = (int) Math.round(v * 4), 4, "waveform.spacing.help");
             waveformSlider(s.waveform.smoothing, v -> Text.get("waveform.smoothing", Math.round(s.waveform.smoothing * 100)),
@@ -349,7 +355,7 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
             waveformSlider((s.waveform.opacity - .15) / .85, v -> Text.get("waveform.opacity", Math.round(s.waveform.opacity * 100)),
                 v -> s.waveform.opacity = .15 + v * .85, 85, "waveform.opacity.help");
             action("waveform.reset", () -> {
-                s.waveform = new com.darkmusic.client.config.WaveformSettings();
+                s.waveform = new WaveformSettings();
                 app.save();
                 rebuildWidgets();
             }, "waveform.reset.help").destructive();
@@ -466,7 +472,7 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
     @Override
     public boolean mouseScrolled(double x, double y, double dx, double dy) {
         if (HorizontalText.horizontalIntent(dx, dy)) return super.mouseScrolled(x, y, dx, dy);
-        if (previewVisible && (lyricsPreview() ? com.darkmusic.client.hud.LyricsHud.enabled(app.settings) : app.settings.hudEnabled) && x >= previewX && x < previewX + previewWidth && y >= previewY + 20 && y < previewY + previewHeight - (progressPreview() ? 54 : 0) && dy != 0) {
+        if (previewVisible && (lyricsPreview() ? LyricsHud.enabled(app.settings) : app.settings.hudEnabled) && x >= previewX && x < previewX + previewWidth && y >= previewY + 20 && y < previewY + previewHeight - (progressPreview() ? 54 : 0) && dy != 0) {
             previewScale = previewWheel.scroll(previewScale, dy);
             fitPreview();
             scaleChanged = System.nanoTime();
@@ -488,7 +494,7 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
     private void fitPreview() {
         var layout = NowPlayingHud.content(app);
         int w = lyricsPreview() ? app.settings.lyricsHudWidth : layout.width();
-        int h = lyricsPreview() ? com.darkmusic.client.hud.HudLyricsLayout.height(app.settings.lyricsNextLine) : layout.height();
+        int h = lyricsPreview() ? HudLyricsLayout.height(app.settings.lyricsNextLine) : layout.height();
         double fit = Math.min((previewWidth - 16.0) / w, (previewHeight - 30.0 - (progressPreview() ? 54 : 0)) / h);
         previewScale = Math.min(previewScale, Math.max(.1, Math.floor(fit * 10) / 10));
     }
@@ -518,7 +524,7 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
             g.enableScissor(previewX + 2, previewY + 20, previewX + previewWidth - 2, previewY + previewHeight - 2);
             if (app.settings.hudEnabled || lyricsPreview()) fitPreview();
             if (lyricsPreview())
-                com.darkmusic.client.hud.LyricsHud.renderPreview(app, g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30, previewScale);
+                LyricsHud.renderPreview(app, g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30, previewScale);
             else if (!app.settings.hudEnabled) {
                 int available = previewHeight - 30 - (progressPreview() ? 54 : 0);
                 int spectrumHeight = Math.max(1, Math.min(60, available));
@@ -531,7 +537,7 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
                 g.fill(previewX + 6, divider, previewX + previewWidth - 6, divider + 1, UiTheme.BORDER);
                 longText.draw(g, font, "player_progress_preview", Text.get("progress.darkmusic.player_preview"), previewX + 10, divider + 7, previewWidth - 20, UiTheme.ACCENT);
                 var state = app.playback.state();
-                boolean actual = state.status() == com.darkmusic.client.audio.AudioBackend.Status.PLAYING || state.status() == com.darkmusic.client.audio.AudioBackend.Status.PAUSED;
+                boolean actual = state.status() == AudioBackend.Status.PLAYING || state.status() == AudioBackend.Status.PAUSED;
                 playerProgressPreview.syncNow(actual && state.duration() > 0 ? state.position() / state.duration() : .4);
                 playerProgressPreview.extractWidgetRenderState(g, Integer.MIN_VALUE, Integer.MIN_VALUE, delta);
             }

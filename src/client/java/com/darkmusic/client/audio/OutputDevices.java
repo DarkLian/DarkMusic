@@ -1,5 +1,7 @@
 package com.darkmusic.client.audio;
 
+import com.darkmusic.client.text.Text;
+
 import javax.sound.sampled.*;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -63,7 +65,7 @@ public final class OutputDevices implements JavaSoundBackend.Output {
     }
 
     public void reportFallback() {
-        notice.accept(com.darkmusic.client.text.Text.get("device.fallback"));
+        notice.accept(Text.get("device.fallback"));
     }
 
     @Override
@@ -78,7 +80,7 @@ public final class OutputDevices implements JavaSoundBackend.Output {
                 actual = "";
                 if (!warned) {
                     warned = true;
-                    notice.accept(com.darkmusic.client.text.Text.get("device.fallback"));
+                    notice.accept(Text.get("device.fallback"));
                 }
             } else {
                 resolved = matches.getFirst();

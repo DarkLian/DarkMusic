@@ -1,13 +1,21 @@
 package com.darkmusic.client.hud;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.audio.AudioBackend;
+import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.gui.ColorStrip;
+import com.darkmusic.client.gui.HorizontalText;
+import com.darkmusic.client.gui.MusicScreen;
+import com.darkmusic.client.gui.SpectrumRenderer;
+import com.darkmusic.client.gui.WaveformProgress;
+import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 public final class NowPlayingHud {
-    private static final com.darkmusic.client.gui.SpectrumRenderer LIVE = new com.darkmusic.client.gui.SpectrumRenderer();
-    private static final com.darkmusic.client.gui.SpectrumRenderer PREVIEW = new com.darkmusic.client.gui.SpectrumRenderer();
+    private static final SpectrumRenderer LIVE = new SpectrumRenderer();
+    private static final SpectrumRenderer PREVIEW = new SpectrumRenderer();
 
     private static final CircularHudRenderer LIVE_CIRCLE = new CircularHudRenderer(), PREVIEW_CIRCLE = new CircularHudRenderer();
 
@@ -32,7 +40,7 @@ public final class NowPlayingHud {
         var track = app.playback.state().track();
         if (track == null && !app.library.snapshot().tracks().isEmpty())
             track = app.library.snapshot().tracks().getFirst();
-        var cover = app.settings.hudStyle == com.darkmusic.client.config.Settings.HudStyle.ARTWORK ? HudImages.cover(app, track) : null;
+        var cover = app.settings.hudStyle == Settings.HudStyle.ARTWORK ? HudImages.cover(app, track) : null;
         return HudLayout.content(app.settings, Integer.MAX_VALUE, cover == null ? 1 : cover.contentWidth() - 2 * cover.menuInset(), cover == null ? 1 : cover.contentHeight());
     }
 
@@ -44,39 +52,39 @@ public final class NowPlayingHud {
         renderAt(app, g, b.x(), b.y(), b.scale(), preview, false, null);
     }
 
-    public static void render(DarkMusicClient app, GuiGraphicsExtractor g, com.darkmusic.client.gui.HorizontalText text) {
+    public static void render(DarkMusicClient app, GuiGraphicsExtractor g, HorizontalText text) {
         var b = bounds(app, g.guiWidth(), g.guiHeight());
         renderAt(app, g, b.x(), b.y(), b.scale(), true, false, text);
     }
 
-    public static void renderPreview(DarkMusicClient app, GuiGraphicsExtractor g, int x, int y, int width, int height, double previewScale, com.darkmusic.client.gui.HorizontalText text) {
+    public static void renderPreview(DarkMusicClient app, GuiGraphicsExtractor g, int x, int y, int width, int height, double previewScale, HorizontalText text) {
         if (!app.settings.hudEnabled) return;
         var layout = content(app);
         double scale = Math.min(previewScale, Math.min(width / (double) layout.width(), height / (double) layout.height()));
         renderAt(app, g, x + (width - layout.width() * scale) / 2, y + (height - layout.height() * scale) / 2, scale, true, true, text);
     }
 
-    private static void renderAt(DarkMusicClient app, GuiGraphicsExtractor g, double x, double y, double scale, boolean preview, boolean settingsPreview, com.darkmusic.client.gui.HorizontalText text) {
+    private static void renderAt(DarkMusicClient app, GuiGraphicsExtractor g, double x, double y, double scale, boolean preview, boolean settingsPreview, HorizontalText text) {
         var mc = Minecraft.getInstance();
         var state = app.playback.state();
         var track = state.track();
         if (track == null && !preview) return;
         if (track == null && !app.library.snapshot().tracks().isEmpty())
             track = app.library.snapshot().tracks().getFirst();
-        var art = (app.settings.hudStyle == com.darkmusic.client.config.Settings.HudStyle.ARTWORK || app.settings.hudStyle == com.darkmusic.client.config.Settings.HudStyle.CLASSIC && app.settings.hudArtwork) ? HudImages.cover(app, track) : null;
+        var art = (app.settings.hudStyle == Settings.HudStyle.ARTWORK || app.settings.hudStyle == Settings.HudStyle.CLASSIC && app.settings.hudArtwork) ? HudImages.cover(app, track) : null;
         var layout = content(app);
         int w = layout.width(), h = layout.height(), main = layout.mainY();
         g.pose().pushMatrix();
         try {
             g.pose().translate((float) x, (float) y);
             g.pose().scale((float) scale);
-            if (app.settings.hudStyle == com.darkmusic.client.config.Settings.HudStyle.SPECTRUM) {
+            if (app.settings.hudStyle == Settings.HudStyle.SPECTRUM) {
                 if (layout.spectrum())
                     (settingsPreview ? PREVIEW : LIVE).bars(app, g, 0, 0, w, layout.spectrumHeight(),
-                        app.settings.spectrumDirection == com.darkmusic.client.config.Settings.SpectrumDirection.DOWNWARD, settingsPreview);
+                        app.settings.spectrumDirection == Settings.SpectrumDirection.DOWNWARD, settingsPreview);
                 return;
             }
-            if (app.settings.hudStyle == com.darkmusic.client.config.Settings.HudStyle.ARTWORK) {
+            if (app.settings.hudStyle == Settings.HudStyle.ARTWORK) {
                 HudSurface.draw(g, app.settings, w, h);
                 var artworkLayout = ArtworkHudLayout.of(app.settings, art == null ? 1 : art.contentWidth() - 2 * art.menuInset(), art == null ? 1 : art.contentHeight());
                 g.pose().pushMatrix();
@@ -106,12 +114,12 @@ public final class NowPlayingHud {
                     String title = track == null ? Text.get("text.darkmusic.song_title") : track.title();
                     (preview ? PREVIEW_TITLE : LIVE_TITLE).draw(g, mc.font, title, left + 4, top + 4, Math.max(1, width - 8), 0xFFB5B0FF);
                     String artist = track == null ? Text.get("text.darkmusic.artist") : track.artist();
-                    g.text(mc.font, com.darkmusic.client.gui.HorizontalText.ellipsize(mc.font, artist, Math.max(1, width - 8)), left + 4, top + 15, 0xFFE0DDEE);
+                    g.text(mc.font, HorizontalText.ellipsize(mc.font, artist, Math.max(1, width - 8)), left + 4, top + 15, 0xFFE0DDEE);
                 }
                 if (layout.spectrum()) {
                     var renderer = settingsPreview ? PREVIEW : LIVE;
                     if (artworkLayout.sideways(app.settings)) {
-                        boolean left = app.settings.artworkSpectrumPosition == com.darkmusic.client.config.Settings.ArtworkSpectrumPosition.LEFT;
+                        boolean left = app.settings.artworkSpectrumPosition == Settings.ArtworkSpectrumPosition.LEFT;
                         g.pose().pushMatrix();
                         try {
                             g.pose().translate(artworkLayout.spectrumX() + (left ? 0 : app.settings.artworkSpectrumHeight),
@@ -123,11 +131,11 @@ public final class NowPlayingHud {
                         }
                     } else renderer.bars(app, g, artworkLayout.spectrumX(), artworkLayout.spectrumY(),
                         artworkLayout.artworkWidth(), app.settings.artworkSpectrumHeight,
-                        app.settings.spectrumDirection == com.darkmusic.client.config.Settings.SpectrumDirection.DOWNWARD, settingsPreview);
+                        app.settings.spectrumDirection == Settings.SpectrumDirection.DOWNWARD, settingsPreview);
                 }
                 return;
             }
-            if (app.settings.hudStyle == com.darkmusic.client.config.Settings.HudStyle.CIRCULAR) {
+            if (app.settings.hudStyle == Settings.HudStyle.CIRCULAR) {
                 var circle = CircularHudLayout.of(app.settings);
                 g.pose().pushMatrix();
                 try {
@@ -150,33 +158,33 @@ public final class NowPlayingHud {
             String artist = track == null ? Text.get("text.darkmusic.artist") : track.artist();
             // "Playing" is implied by a moving HUD; only a paused, stopped or preview state is worth the space.
             String status = state.track() == null ? Text.get("text.darkmusic.preview")
-                : state.status() == com.darkmusic.client.audio.AudioBackend.Status.PLAYING ? "" : com.darkmusic.client.gui.MusicScreen.label(state.status().name());
+                : state.status() == AudioBackend.Status.PLAYING ? "" : MusicScreen.label(state.status().name());
             String detail = status.isEmpty() ? artist : status + " | " + artist;
             if (text != null)
                 text.draw(g, mc.font, "hud_detail", detail, textX, main + 21, Math.max(1, w - textX - 6), 0xFFE0DDEE);
             else
-                g.text(mc.font, com.darkmusic.client.gui.HorizontalText.ellipsize(mc.font, detail, Math.max(1, w - textX - 6)), textX, main + 21, 0xFFE0DDEE);
+                g.text(mc.font, HorizontalText.ellipsize(mc.font, detail, Math.max(1, w - textX - 6)), textX, main + 21, 0xFFE0DDEE);
             if (app.settings.hudProgress) {
                 double progress = state.duration() > 0 ? Math.clamp(state.position() / state.duration(), 0, 1) : preview ? .4 : 0;
                 drawProgress(app, g, track, 6, main + 39, w - 12, progress);
             }
             if (layout.spectrum())
-                (settingsPreview ? PREVIEW : LIVE).bars(app, g, 0, layout.spectrumY(), w, layout.spectrumHeight(), app.settings.spectrumDirection == com.darkmusic.client.config.Settings.SpectrumDirection.DOWNWARD, settingsPreview, h);
+                (settingsPreview ? PREVIEW : LIVE).bars(app, g, 0, layout.spectrumY(), w, layout.spectrumHeight(), app.settings.spectrumDirection == Settings.SpectrumDirection.DOWNWARD, settingsPreview, h);
         } finally {
             if (text != null) text.transform(0, 0, 1);
             g.pose().popMatrix();
         }
     }
 
-    private static void drawProgress(DarkMusicClient app, GuiGraphicsExtractor g, com.darkmusic.client.library.Track track,
+    private static void drawProgress(DarkMusicClient app, GuiGraphicsExtractor g, Track track,
                                      int x, int y, int width, double progress) {
         int height = app.settings.waveformProgress ? app.settings.waveform.height + 2 : 3;
         var waveform = app.settings.waveformProgress && app.waveforms != null ? app.waveforms.get(track) : null;
-        if (com.darkmusic.client.gui.WaveformProgress.draw(g, waveform, app.settings.progressColors, app.settings.waveform, x, y + 1, width, Math.max(3, height - 2),
+        if (WaveformProgress.draw(g, waveform, app.settings.progressColors, app.settings.waveform, x, y + 1, width, Math.max(3, height - 2),
             progress, app.settings.progressFinish)) return;
         int railY = y + (height - 3) / 2;
-        com.darkmusic.client.gui.ColorStrip.track(g, x, railY, width, 3, app.settings.progressFinish);
-        com.darkmusic.client.gui.ColorStrip.draw(g, app.settings.progressColors, x, railY, width, 3,
+        ColorStrip.track(g, x, railY, width, 3, app.settings.progressFinish);
+        ColorStrip.draw(g, app.settings.progressColors, x, railY, width, 3,
             (int) (width * progress), app.settings.progressFinish);
     }
 

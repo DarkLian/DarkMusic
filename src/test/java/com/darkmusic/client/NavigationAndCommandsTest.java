@@ -1,9 +1,12 @@
 package com.darkmusic.client;
 
+import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.command.LocalCommands;
 import com.darkmusic.client.gui.FolderTree;
 import com.darkmusic.client.hud.TitleMarquee;
+import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.text.Text;
 import com.mojang.brigadier.CommandDispatcher;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.network.chat.Component;
@@ -46,7 +49,7 @@ class NavigationAndCommandsTest {
         java.nio.file.Files.createDirectories(music.resolve("Empty/Nested"));
         java.nio.file.Files.createDirectories(music.resolve("Music/Nested"));
         java.nio.file.Files.copy(TestMusic.featured(), music.resolve("Music/Nested/Track.mp3"));
-        try (var library = new com.darkmusic.client.library.MusicLibrary(temp.resolve("config"))) {
+        try (var library = new MusicLibrary(temp.resolve("config"))) {
             library.setRoot(music, "navigation");
             DownloadTest.await(() -> !library.snapshot().scanning());
             assertEquals(1, library.snapshot().tracks().size());
@@ -114,17 +117,17 @@ class NavigationAndCommandsTest {
     @Test
     void lyricsCommandValidatesReadinessEnabledStateAndActualPlayback() {
         var t = track("current.mp3");
-        var playing = new com.darkmusic.client.audio.AudioBackend.State(t, com.darkmusic.client.audio.AudioBackend.Status.PLAYING, 5, 180, "");
+        var playing = new AudioBackend.State(t, AudioBackend.Status.PLAYING, 5, 180, "");
         assertEquals("command.darkmusic.unavailable", LocalCommands.lyricsProblem(false, true, playing));
         assertEquals("lyrics.darkmusic.disabled", LocalCommands.lyricsProblem(true, false, playing));
         assertEquals("lyrics.darkmusic.disabled", LocalCommands.lyricsProblem(true, false, null));
         assertEquals("upnext.idle", LocalCommands.lyricsProblem(true, true, null));
-        for (var status : com.darkmusic.client.audio.AudioBackend.Status.values()) {
-            var state = new com.darkmusic.client.audio.AudioBackend.State(t, status, 5, 180, "");
-            assertEquals(status == com.darkmusic.client.audio.AudioBackend.Status.STOPPED || status == com.darkmusic.client.audio.AudioBackend.Status.ERROR
+        for (var status : AudioBackend.Status.values()) {
+            var state = new AudioBackend.State(t, status, 5, 180, "");
+            assertEquals(status == AudioBackend.Status.STOPPED || status == AudioBackend.Status.ERROR
                 ? "upnext.idle" : "", LocalCommands.lyricsProblem(true, true, state));
             assertEquals("upnext.idle", LocalCommands.lyricsProblem(true, true,
-                new com.darkmusic.client.audio.AudioBackend.State(null, status, 0, 0, "")));
+                new AudioBackend.State(null, status, 0, 0, "")));
         }
     }
 
@@ -152,7 +155,7 @@ class NavigationAndCommandsTest {
             for (String problem : List.of("lyrics.darkmusic.disabled", "upnext.idle", "command.darkmusic.unavailable")) {
                 result.set(problem);
                 assertEquals(0, dispatcher.execute(alias + " lyrics", source));
-                assertEquals(com.darkmusic.client.text.Text.get(problem), messages.getLast().getString());
+                assertEquals(Text.get(problem), messages.getLast().getString());
             }
             result.set("");
             int count = messages.size();

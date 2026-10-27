@@ -2,6 +2,7 @@ package com.darkmusic.client.playlist;
 
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.text.Text;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -128,13 +129,13 @@ public final class PlaylistStore {
                 }
                 if (skipped > 0) {
                     preserveInvalid = true;
-                    warning.accept(com.darkmusic.client.text.Text.get("playlist.status.recovered", skipped));
+                    warning.accept(Text.get("playlist.status.recovered", skipped));
                 }
                 return List.copyOf(result);
             }
         } catch (Exception e) {
             preserveInvalid = true;
-            warning.accept(com.darkmusic.client.text.Text.failure(e, "playlist.status.load_failed"));
+            warning.accept(Text.failure(e, "playlist.status.load_failed"));
         }
         return List.of();
     }
@@ -151,7 +152,7 @@ public final class PlaylistStore {
     }
 
     public String displayName(Playlist playlist) {
-        return playlist.id.equals(FAVORITES) ? com.darkmusic.client.text.Text.get("library.darkmusic.favorites") : playlist.name;
+        return playlist.id.equals(FAVORITES) ? Text.get("library.darkmusic.favorites") : playlist.name;
     }
 
     public boolean favorite(Track track) {
@@ -384,7 +385,7 @@ public final class PlaylistStore {
                 }
                 ConfigStore.atomicWrite(file, json);
             } catch (Exception e) {
-                warning.accept(com.darkmusic.client.text.Text.failure(e, "playlist.status.save_failed"));
+                warning.accept(Text.failure(e, "playlist.status.save_failed"));
             }
         }
     }

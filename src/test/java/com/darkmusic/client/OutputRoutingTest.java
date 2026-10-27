@@ -1,6 +1,9 @@
 package com.darkmusic.client;
 
 import com.darkmusic.client.audio.*;
+import com.darkmusic.client.config.AudioSettings;
+import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.config.SoundEnvironmentSettings;
 import com.darkmusic.client.library.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -205,7 +208,7 @@ class OutputRoutingTest {
         var results = LoudnessCache.class.getDeclaredField("results");
         results.setAccessible(true);
         var type = Class.forName("com.darkmusic.client.audio.LoudnessCache$Reading");
-        Object reading = com.darkmusic.client.config.ConfigStore.JSON.fromJson(com.darkmusic.client.config.ConfigStore.JSON.toJson(java.util.Map.of("lufs", lufs, "peakDb", -6, "source", "ANALYSIS")), type);
+        Object reading = ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(java.util.Map.of("lufs", lufs, "peakDb", -6, "source", "ANALYSIS")), type);
         ((java.util.Map<String, Object>) results.get(cache)).put(track.file().toAbsolutePath() + ":" + track.size() + ":" + track.modified() + ":TRACK", reading);
     }
 
@@ -220,11 +223,11 @@ class OutputRoutingTest {
         var clip = TestMusic.clip();
         var track = realTrack();
         String key = track.file().toAbsolutePath() + ":" + track.size() + ":" + track.modified() + ":TRACK";
-        Files.writeString(directory.resolve("loudness-cache.json"), com.darkmusic.client.config.ConfigStore.JSON.toJson(java.util.Map.of(key, java.util.Map.of("lufs", -8, "peakDb", -2, "source", "ANALYSIS"))));
+        Files.writeString(directory.resolve("loudness-cache.json"), ConfigStore.JSON.toJson(java.util.Map.of(key, java.util.Map.of("lufs", -8, "peakDb", -2, "source", "ANALYSIS"))));
         ExternalAudio.configure(() -> new ExternalAudio.Paths(directory, "", ""));
         var line = new AtomicReference<Line>();
         var errors = new AtomicReference<String>();
-        var settings = new com.darkmusic.client.config.AudioSettings();
+        var settings = new AudioSettings();
         settings.neutral = false;
         settings.normalization = true;
         try (var backend = new JavaSoundBackend(Runnable::run, p -> loop(clip), f -> {
@@ -233,7 +236,7 @@ class OutputRoutingTest {
             return opened.value;
         })) {
             backend.volume(1);
-            backend.configure(settings, new com.darkmusic.client.config.SoundEnvironmentSettings());
+            backend.configure(settings, new SoundEnvironmentSettings());
             backend.play(track, () -> {
             }, errors::set);
             StorageTest.await(() -> line.get() != null && line.get().first != null);
@@ -279,11 +282,11 @@ class OutputRoutingTest {
         var track = realTrack();
         ExternalAudio.configure(null);
         var errors = new AtomicReference<String>();
-        var settings = new com.darkmusic.client.config.AudioSettings();
+        var settings = new AudioSettings();
         settings.neutral = false;
         settings.normalization = true;
         try (var backend = new JavaSoundBackend(Runnable::run, p -> loop(clip), f -> new Line(f).value)) {
-            backend.configure(settings, new com.darkmusic.client.config.SoundEnvironmentSettings());
+            backend.configure(settings, new SoundEnvironmentSettings());
             backend.play(track, () -> {
             }, errors::set);
             StorageTest.await(() -> backend.state().status() == AudioBackend.Status.PLAYING && backend.state().position() > .1);
@@ -325,16 +328,16 @@ class OutputRoutingTest {
             var first = new Track("real", "first", data.resolve("first"), "", "", "", 4, 10, 20, "");
             var second = new Track("real", "second", data.resolve("second"), "", "", "", 4, 10, 20, "");
             String aKey = first.file().toAbsolutePath() + ":10:20:TRACK", bKey = second.file().toAbsolutePath() + ":10:20:TRACK";
-            Files.writeString(data.resolve("loudness-cache.json"), com.darkmusic.client.config.ConfigStore.JSON.toJson(
+            Files.writeString(data.resolve("loudness-cache.json"), ConfigStore.JSON.toJson(
                 java.util.Map.of(aKey, java.util.Map.of("lufs", -8, "peakDb", -6), bKey, java.util.Map.of("lufs", -6, "peakDb", -6))));
-            var settings = new com.darkmusic.client.config.AudioSettings();
+            var settings = new AudioSettings();
             settings.neutral = false;
             settings.normalization = true;
             settings.crossfade = fade;
             var started = new AtomicBoolean();
             var errors = new AtomicReference<String>();
             try (var backend = new JavaSoundBackend(Runnable::run, p -> clip.stream(), f -> new Line(f).value)) {
-                backend.configure(settings, new com.darkmusic.client.config.SoundEnvironmentSettings());
+                backend.configure(settings, new SoundEnvironmentSettings());
                 backend.play(first, () -> {
                 }, errors::set);
                 StorageTest.await(() -> backend.state().status() == AudioBackend.Status.PLAYING);

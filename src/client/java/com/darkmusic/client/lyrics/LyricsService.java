@@ -1,6 +1,13 @@
 package com.darkmusic.client.lyrics;
 
+import com.darkmusic.client.audio.AudioFormats;
+import com.darkmusic.client.audio.ExternalAudio;
+import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.download.DownloadLyrics;
+import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.library.OggArtwork;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.text.Text;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,13 +45,13 @@ public final class LyricsService implements AutoCloseable {
     private final Map<String, Track> backgroundVisited = new java.util.HashMap<>();
     private java.util.Set<String> backgroundRoots;
     private boolean libraryRun;
-    private com.darkmusic.client.download.ProcessRunner.Token libraryOwner;
+    private ProcessRunner.Token libraryOwner;
     private long libraryRequestStart;
 
     public void startLibraryLookup() {
         cancelLibraryLookup();
         libraryRun = true;
-        libraryOwner = new com.darkmusic.client.download.ProcessRunner.Token();
+        libraryOwner = new ProcessRunner.Token();
         backgroundActive = false;
         backgroundTracks = List.of();
         backgroundVisited.clear();
@@ -230,7 +237,7 @@ public final class LyricsService implements AutoCloseable {
             try {
                 lookup.load(track);
                 LyricsFiles.recover(track.file());
-                Path sidecar = com.darkmusic.client.download.DownloadLyrics.sidecar(track.file());
+                Path sidecar = DownloadLyrics.sidecar(track.file());
                 Fingerprint fingerprint = new Fingerprint(stamp(track.file()), stamp(sidecar), stamp(sidecar.resolveSibling(sidecar.getFileName() + ".darkmusic-backup")), stamp(sidecar.resolveSibling(sidecar.getFileName() + ".darkmusic.json")), lookup.encoding(track));
                 if (previous != null && fingerprint.equals(previous.fingerprint))
                     result = new Cached(fingerprint, previous.document, previous.info, System.nanoTime());
@@ -263,15 +270,15 @@ public final class LyricsService implements AutoCloseable {
         } else {
             if (fingerprint.audio.size < 0)
                 return new Cached(fingerprint, LyricsDocument.EMPTY, LyricsInfo.LOCAL_ERROR, System.nanoTime());
-            var container = com.darkmusic.client.audio.AudioFormats.detect(audio);
-            if (container == com.darkmusic.client.audio.AudioFormats.Container.OPUS || container == com.darkmusic.client.audio.AudioFormats.Container.VORBIS) {
-                var tags = com.darkmusic.client.library.OggArtwork.tags(audio);
+            var container = AudioFormats.detect(audio);
+            if (container == AudioFormats.Container.OPUS || container == AudioFormats.Container.VORBIS) {
+                var tags = OggArtwork.tags(audio);
                 text = tags.getOrDefault("lyrics", tags.getOrDefault("unsyncedlyrics", ""));
                 language = tags.getOrDefault("language", "und");
-            } else if (container == com.darkmusic.client.audio.AudioFormats.Container.AAC || container == com.darkmusic.client.audio.AudioFormats.Container.WEBM) {
+            } else if (container == AudioFormats.Container.AAC || container == AudioFormats.Container.WEBM) {
                 text = "";
                 try {
-                    var info = com.darkmusic.client.audio.ExternalAudio.probe(audio);
+                    var info = ExternalAudio.probe(audio);
                     var tags = new java.util.HashMap<String, String>();
                     if (info.has("format") && info.getAsJsonObject("format").has("tags"))
                         info.getAsJsonObject("format").getAsJsonObject("tags").entrySet().forEach(e -> tags.put(e.getKey().toLowerCase(java.util.Locale.ROOT), e.getValue().getAsString()));
@@ -302,7 +309,7 @@ public final class LyricsService implements AutoCloseable {
         Path provenance = sidecar.resolveSibling(sidecar.getFileName() + ".darkmusic.json");
         if (fingerprint.sidecar.size >= 0 && Files.isRegularFile(provenance, java.nio.file.LinkOption.NOFOLLOW_LINKS) && Files.size(provenance) <= 4_000_000)
             try {
-                var saved = com.darkmusic.client.config.ConfigStore.JSON.fromJson(new String(readLocal(provenance, 4_000_000), java.nio.charset.StandardCharsets.UTF_8), LyricsDocument.class);
+                var saved = ConfigStore.JSON.fromJson(new String(readLocal(provenance, 4_000_000), java.nio.charset.StandardCharsets.UTF_8), LyricsDocument.class);
                 if (saved != null && text.equals(saved.text()))
                     document = LyricsDocument.of(saved.provider(), saved.recordId(), saved.title(), saved.artist(), saved.album(), saved.duration(), saved.language(), saved.variant(), saved.generated(), saved.instrumental(), text);
             } catch (RuntimeException ignored) {
@@ -371,9 +378,9 @@ public final class LyricsService implements AutoCloseable {
     }
 
     public String status(Track track) {
-        String text = com.darkmusic.client.text.Text.get(info(track).key());
+        String text = Text.get(info(track).key());
         long retry = lookup.retrySeconds(track);
-        return retry == 0 ? text : text + " | " + com.darkmusic.client.text.Text.get("lyrics.retry_in", retry);
+        return retry == 0 ? text : text + " | " + Text.get("lyrics.retry_in", retry);
     }
 
     private synchronized boolean checking(Track track) {

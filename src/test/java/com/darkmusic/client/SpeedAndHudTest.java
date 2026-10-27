@@ -4,7 +4,9 @@ import com.darkmusic.client.audio.PcmRateConverter;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.hud.HudLayout;
+import com.darkmusic.client.hud.HudScale;
 import com.darkmusic.client.library.ArtworkCache;
+import com.darkmusic.client.library.MetadataReader;
 import org.junit.jupiter.api.Test;
 
 import javax.sound.sampled.AudioFormat;
@@ -26,7 +28,7 @@ class SpeedAndHudTest {
 
     @Test
     void hudWheelUsesTenthsAndClampsTheCombinedComponent() {
-        var wheel = new com.darkmusic.client.hud.HudScale();
+        var wheel = new HudScale();
         assertEquals(1.1, wheel.scroll(1, 1));
         assertEquals(1, wheel.scroll(1.1, -1));
         assertEquals(1, wheel.scroll(1, .4));
@@ -104,7 +106,7 @@ class SpeedAndHudTest {
 
     @Test
     void realEmbeddedArtworkIsLetterboxedWithoutStretching() throws Exception {
-        byte[] bytes = new com.darkmusic.client.library.MetadataReader().artwork(TestMusic.featured());
+        byte[] bytes = new MetadataReader().artwork(TestMusic.featured());
         var original = javax.imageio.ImageIO.read(new ByteArrayInputStream(bytes));
         var image = ArtworkCache.fitArtwork(original);
         assertEquals(Math.min(ArtworkCache.MAX_SIZE, Math.max(original.getWidth(), original.getHeight())), image.getWidth());

@@ -2,6 +2,7 @@ package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.VisualColors;
+import com.darkmusic.client.hud.HudPreview;
 import com.darkmusic.client.hud.NowPlayingHud;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -13,7 +14,7 @@ import java.util.Locale;
 /**
  * Color preferences save immediately, like the rest of Settings.
  */
-public final class ColorsScreen extends LocalScreen implements com.darkmusic.client.hud.HudPreview {
+public final class ColorsScreen extends LocalScreen implements HudPreview {
     private final DarkMusicClient app;
     private final VisualColors target;
     private Preview customPreview;

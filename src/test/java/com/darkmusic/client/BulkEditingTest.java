@@ -1,6 +1,7 @@
 package com.darkmusic.client;
 
 import com.darkmusic.client.gui.SongSelection;
+import com.darkmusic.client.playlist.PlaylistDrag;
 import com.darkmusic.client.playlist.PlaylistStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -20,14 +21,14 @@ class BulkEditingTest {
     @Test
     void connectedDragUsesOnlyTheGrabbedGroupAndInsertsWithoutReversing() {
         var keys = List.of("a", "b", "c", "d", "e", "f");
-        var drag = com.darkmusic.client.playlist.PlaylistDrag.connected(keys, Set.of("b", "c", "e"), 1);
+        var drag = PlaylistDrag.connected(keys, Set.of("b", "c", "e"), 1);
         assertEquals(1, drag.start());
         assertEquals(2, drag.count());
         assertEquals(List.of(0, 3, 4, 5, 1, 2), drag.atBoundary(6, 6).order(6));
         assertEquals(List.of(1, 2, 0, 3, 4, 5), drag.atBoundary(0, 6).order(6));
         assertEquals(List.of(0, 1, 2, 3, 4, 5), drag.atBoundary(2, 6).order(6));
-        assertEquals(1, com.darkmusic.client.playlist.PlaylistDrag.connected(keys, Set.of("b", "c", "e"), 4).count());
-        assertThrows(IllegalArgumentException.class, () -> new com.darkmusic.client.playlist.PlaylistDrag(5, 2, 0).order(6));
+        assertEquals(1, PlaylistDrag.connected(keys, Set.of("b", "c", "e"), 4).count());
+        assertThrows(IllegalArgumentException.class, () -> new PlaylistDrag(5, 2, 0).order(6));
     }
 
     @Test

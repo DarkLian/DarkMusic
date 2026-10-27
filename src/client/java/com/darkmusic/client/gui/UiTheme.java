@@ -1,5 +1,6 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.config.Settings;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
@@ -18,7 +19,7 @@ public final class UiTheme {
     public static int MUTED = 0xFF868DA7;
     public static int SUCCESS = 0xFF66DDB8, WARNING = 0xFFEBC37C, ERROR = 0xFFEF8798;
 
-    public static void apply(com.darkmusic.client.config.Settings settings) {
+    public static void apply(Settings settings) {
         int base = settings.menuBackgroundColor | 0xFF000000;
         ACCENT = settings.menuAccentColor | 0xFF000000;
         BACKGROUND = base;

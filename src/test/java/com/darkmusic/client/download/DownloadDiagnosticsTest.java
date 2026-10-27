@@ -1,5 +1,6 @@
 package com.darkmusic.client.download;
 
+import com.darkmusic.client.text.Text;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -106,7 +107,7 @@ class DownloadDiagnosticsTest {
     @Test
     void botVerificationIsNotPrivateContentAndKeepsManualRetryAvailable() {
         String text = "ERROR: Sign in to confirm you're not a bot";
-        assertEquals(com.darkmusic.client.text.Text.get("download.error.bot_check"), DownloadJson.friendly(text));
+        assertEquals(Text.get("download.error.bot_check"), DownloadJson.friendly(text));
         var result = diagnostic(text, Stage.ANALYSIS);
         assertEquals(Category.BOT_CHECK, result.category());
         assertTrue(result.canRetry());

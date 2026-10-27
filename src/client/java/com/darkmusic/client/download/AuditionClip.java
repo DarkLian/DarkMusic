@@ -1,5 +1,6 @@
 package com.darkmusic.client.download;
 
+import com.darkmusic.client.audio.AudioFormats;
 import com.darkmusic.client.library.Track;
 
 import java.io.IOException;
@@ -28,7 +29,7 @@ public record AuditionClip(Path directory, Track track) implements AutoCloseable
             if (result.exit() != 0) throw new IOException(DownloadJson.friendly(result.output()));
             Path source;
             try (var files = Files.list(directory)) {
-                source = files.filter(Files::isRegularFile).filter(p -> p.getFileName().toString().startsWith("source.")).filter(com.darkmusic.client.audio.AudioFormats::candidate).findFirst().orElseThrow(() -> new IOException("The site did not provide a usable short audio preview"));
+                source = files.filter(Files::isRegularFile).filter(p -> p.getFileName().toString().startsWith("source.")).filter(AudioFormats::candidate).findFirst().orElseThrow(() -> new IOException("The site did not provide a usable short audio preview"));
             }
             Path clip = directory.resolve("preview.mp3");
             if (!Files.isRegularFile(source) || Files.size(source) > 64_000_000)

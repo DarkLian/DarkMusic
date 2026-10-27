@@ -1,5 +1,6 @@
 package com.darkmusic.client.lyrics;
 
+import com.darkmusic.client.config.ConfigStore;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -17,10 +18,10 @@ class LyricsLocalReadTest {
         assertThrows(IllegalArgumentException.class, () -> LyricsDocument.of("import", "", "", "", "", 0, "und", null, false, false, legacy));
         var d = LyricsDocument.of("sidecar", "", "", "", "", 0, "und", null, false, false, LyricsDocument.localText(legacy));
         assertEquals("Words", d.timed().lines().getFirst().text());
-        String j = com.darkmusic.client.config.ConfigStore.JSON.toJson(d);
+        String j = ConfigStore.JSON.toJson(d);
         assertFalse(j.contains("\"timed\""));
         assertFalse(j.contains("\"plain\""));
-        assertEquals(d, com.darkmusic.client.config.ConfigStore.JSON.fromJson(j, LyricsDocument.class));
+        assertEquals(d, ConfigStore.JSON.fromJson(j, LyricsDocument.class));
     }
 
     @Test

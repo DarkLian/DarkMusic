@@ -1,5 +1,7 @@
 package com.darkmusic.client.download;
 
+import com.darkmusic.client.text.Text;
+
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.List;
@@ -14,14 +16,14 @@ public final class DownloadModels {
     public static String url(String value) {
         if (value != null) value = value.strip();
         if (value == null || value.length() > 4096 || value.chars().anyMatch(c -> c <= 32 || c == 127))
-            throw new IllegalArgumentException(com.darkmusic.client.text.Text.get("text.darkmusic.paste_a_single_http_or_https_video_collection_url"));
+            throw new IllegalArgumentException(Text.get("text.darkmusic.paste_a_single_http_or_https_video_collection_url"));
         try {
             URI uri = URI.create(value.strip());
             if (!("https".equalsIgnoreCase(uri.getScheme()) || "http".equalsIgnoreCase(uri.getScheme())) || uri.getHost() == null || uri.getUserInfo() != null)
                 throw new IllegalArgumentException();
             return uri.toASCIIString();
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(com.darkmusic.client.text.Text.get("text.darkmusic.enter_a_valid_http_or_https_url_without_login_credentials"));
+            throw new IllegalArgumentException(Text.get("text.darkmusic.enter_a_valid_http_or_https_url_without_login_credentials"));
         }
     }
 
@@ -40,7 +42,7 @@ public final class DownloadModels {
 
     public static List<Integer> range(int first, int last) {
         if (first < 1 || last < first || (long) last - first + 1 > MAX_BATCH)
-            throw new IllegalArgumentException(com.darkmusic.client.text.Text.get("download.range_invalid", MAX_BATCH));
+            throw new IllegalArgumentException(Text.get("download.range_invalid", MAX_BATCH));
         return java.util.stream.IntStream.rangeClosed(first, last).boxed().toList();
     }
 

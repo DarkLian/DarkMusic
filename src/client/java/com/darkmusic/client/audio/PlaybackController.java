@@ -1,6 +1,9 @@
 package com.darkmusic.client.audio;
 
+import com.darkmusic.client.config.AudioSettings;
+import com.darkmusic.client.config.SoundEnvironmentSettings;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.text.Text;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -25,8 +28,8 @@ public final class PlaybackController implements AutoCloseable {
     private boolean shuffle;
     private double speed = 1;
     private Repeat repeat = Repeat.OFF;
-    private com.darkmusic.client.config.AudioSettings configuredAudio;
-    private com.darkmusic.client.config.SoundEnvironmentSettings configuredEnvironment = new com.darkmusic.client.config.SoundEnvironmentSettings();
+    private AudioSettings configuredAudio;
+    private SoundEnvironmentSettings configuredEnvironment = new SoundEnvironmentSettings();
     private long sequence;
     private long orderVersion;
     private Source source = new Source("All", "", "", "");
@@ -71,7 +74,7 @@ public final class PlaybackController implements AutoCloseable {
         audio.volume(value);
     }
 
-    public void configure(com.darkmusic.client.config.AudioSettings settings) {
+    public void configure(AudioSettings settings) {
         configure(settings, configuredEnvironment);
     }
 
@@ -87,7 +90,7 @@ public final class PlaybackController implements AutoCloseable {
         return audio.normalization();
     }
 
-    public void configure(com.darkmusic.client.config.AudioSettings settings, com.darkmusic.client.config.SoundEnvironmentSettings environment) {
+    public void configure(AudioSettings settings, SoundEnvironmentSettings environment) {
         if (configuredAudio != null && configuredAudio.samePlayback(settings) && configuredEnvironment.samePlayback(environment))
             return;
         var snapshot = settings.playbackCopy();
@@ -216,7 +219,7 @@ public final class PlaybackController implements AutoCloseable {
         if (track == null) return false;
         settlePromotion();
         if (manual.size() >= QUEUE_LIMIT) {
-            warning.accept(com.darkmusic.client.text.Text.get("upnext.full", QUEUE_LIMIT));
+            warning.accept(Text.get("upnext.full", QUEUE_LIMIT));
             return false;
         }
         int index = Math.clamp(destination, 0, manual.size());
@@ -255,7 +258,7 @@ public final class PlaybackController implements AutoCloseable {
         if (track == null) return false;
         settlePromotion();
         if (manual.size() >= QUEUE_LIMIT) {
-            warning.accept(com.darkmusic.client.text.Text.get("upnext.full", QUEUE_LIMIT));
+            warning.accept(Text.get("upnext.full", QUEUE_LIMIT));
             return false;
         }
         if (first || manual.isEmpty()) invalidatePlan();
@@ -407,7 +410,7 @@ public final class PlaybackController implements AutoCloseable {
     private void failed(Playing point, long ticket, String message) {
         settlePromotion();
         if (ticket != sequence || current != point) return;
-        warning.accept(com.darkmusic.client.text.Text.get("audio.error.track", point.track.title(), message));
+        warning.accept(Text.get("audio.error.track", point.track.title(), message));
         if (!point.manual) failures++;
         if (manual.isEmpty() && failures >= Math.max(1, tracks.size())) stop();
         else advance(false);

@@ -4,6 +4,8 @@ import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.gui.SpectrumRenderer;
 import com.darkmusic.client.hud.HudLayout;
+import com.darkmusic.client.library.ArtworkCache;
+import com.darkmusic.client.library.MetadataReader;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -100,10 +102,10 @@ class CombinedHudTest {
 
     @Test
     void realArtworkRetainsItsAlphaAndTransparentLetterboxing() throws Exception {
-        byte[] bytes = new com.darkmusic.client.library.MetadataReader().artwork(TestMusic.featured());
+        byte[] bytes = new MetadataReader().artwork(TestMusic.featured());
         assertNotNull(bytes, "The private collection needs embedded artwork for this check");
         var original = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(bytes));
-        var fitted = com.darkmusic.client.library.ArtworkCache.fitArtwork(original);
+        var fitted = ArtworkCache.fitArtwork(original);
         assertEquals(original.getRGB(original.getWidth() / 2, original.getHeight() / 2) >>> 24, fitted.getRGB(fitted.getWidth() / 2, fitted.getHeight() / 2) >>> 24);
         if (original.getWidth() != original.getHeight()) assertEquals(0, fitted.getRGB(0, 0) >>> 24);
     }

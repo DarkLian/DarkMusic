@@ -1,6 +1,7 @@
 package com.darkmusic.client.library;
 
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.text.Text;
 import com.google.gson.reflect.TypeToken;
 
 import java.nio.file.Files;
@@ -63,7 +64,7 @@ public final class ImportHistory {
             }
         } catch (Exception e) {
             preserveInvalid = true;
-            warning.accept(com.darkmusic.client.text.Text.get("import.history.read_failed", e.getMessage()));
+            warning.accept(Text.get("import.history.read_failed", e.getMessage()));
         }
         revision++;
     }
@@ -92,7 +93,7 @@ public final class ImportHistory {
                     }
                     ConfigStore.atomicWrite(file, ConfigStore.JSON.toJson(batches));
                 } catch (Exception e) {
-                    warning.accept(com.darkmusic.client.text.Text.get("import.history.save_failed", e.getMessage()));
+                    warning.accept(Text.get("import.history.save_failed", e.getMessage()));
                 }
             });
         } catch (java.util.concurrent.RejectedExecutionException e) {

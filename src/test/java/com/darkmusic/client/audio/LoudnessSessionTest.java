@@ -1,6 +1,7 @@
 package com.darkmusic.client.audio;
 
 import com.darkmusic.client.config.AudioSettings;
+import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.library.Track;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -55,7 +56,7 @@ class LoudnessSessionTest {
     @Test
     void cachedReadingLoadsBeforeTheFirstDecisionAndRemainsPinned() throws Exception {
         var track = song();
-        Files.writeString(directory.resolve("loudness-cache.json"), com.darkmusic.client.config.ConfigStore.JSON.toJson(
+        Files.writeString(directory.resolve("loudness-cache.json"), ConfigStore.JSON.toJson(
             Map.of(key(track), new LoudnessCache.Reading(-8, -2, LoudnessCache.Source.ANALYSIS))));
         ExternalAudio.configure(() -> new ExternalAudio.Paths(directory, "", ""));
         var settings = settings();

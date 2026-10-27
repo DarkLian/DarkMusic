@@ -5,6 +5,7 @@ import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.audio.JavaSoundBackend;
 import com.darkmusic.client.download.AuditionClip;
 import com.darkmusic.client.download.AuditionPlayer;
+import com.darkmusic.client.download.DownloadEncoding;
 import com.darkmusic.client.download.DownloadModels;
 import com.darkmusic.client.download.ProcessRunner;
 import com.darkmusic.client.library.Track;
@@ -141,7 +142,7 @@ public final class DownloadScreen extends LocalScreen {
         Help.tip(first, Text.get("download.darkmusic.range_help"));
         Help.tip(last, Text.get("download.darkmusic.range_help"));
         format = action("audio.darkmusic.download", () -> {
-            var formats = com.darkmusic.client.download.DownloadEncoding.Format.values();
+            var formats = DownloadEncoding.Format.values();
             app.settings.downloadFormat = formats[(app.settings.downloadFormat.ordinal() + 1) % formats.length];
             app.save();
             updateButtons();

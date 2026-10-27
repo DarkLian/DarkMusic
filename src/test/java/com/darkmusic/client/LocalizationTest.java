@@ -3,6 +3,7 @@ package com.darkmusic.client;
 import com.darkmusic.client.audio.PlaybackController.Repeat;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.download.DownloadJson;
 import com.darkmusic.client.text.Text;
 import com.google.gson.JsonParser;
 import net.minecraft.locale.Language;
@@ -44,9 +45,9 @@ class LocalizationTest {
                 for (String key : List.of("download.queue_capacity", "download.history_read", "download.processing_failed", "tools.error.integrity", "audio.error.device", "preset.name_too_long")) {
                     String value = Text.get(key, 32);
                     assertTrue(Text.isMessage(value), key);
-                    assertEquals(value, com.darkmusic.client.download.DownloadJson.friendly(value));
+                    assertEquals(value, DownloadJson.friendly(value));
                 }
-                String unknown = com.darkmusic.client.download.DownloadJson.friendly("java.io.IOException: internal object failure");
+                String unknown = DownloadJson.friendly("java.io.IOException: internal object failure");
                 assertEquals(Text.get("download.error.unknown"), unknown);
                 assertFalse(unknown.contains("IOException"));
             }

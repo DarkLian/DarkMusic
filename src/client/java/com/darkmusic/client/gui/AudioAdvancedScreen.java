@@ -2,6 +2,7 @@ package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.*;
+import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
 final class AudioAdvancedScreen extends AudioPage {
@@ -78,7 +79,7 @@ final class AudioAdvancedScreen extends AudioPage {
         }
         slider("dsp.reverb_amount", e.reverbAmount, 0, 1, 100, v -> e.reverbAmount = v, "");
         if (a.reverb == AudioSettings.Reverb.DRY) info("audio.reverb_disabled");
-        info(() -> com.darkmusic.client.text.Text.get(app.settings.environment.ownsReverb() ? "environment.owns_reverb" : "environment.allows_reverb"));
+        info(() -> Text.get(app.settings.environment.ownsReverb() ? "environment.owns_reverb" : "environment.allows_reverb"));
         section("dsp.tempo");
         toggle("dsp.preserve_pitch", () -> e.preservePitch, v -> e.preservePitch = v);
     }

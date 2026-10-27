@@ -3,6 +3,7 @@ package com.darkmusic.client;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.download.DownloadJson;
+import com.darkmusic.client.download.DownloadModels;
 import com.darkmusic.client.gui.Help;
 import com.darkmusic.client.gui.ScrollBar;
 import com.darkmusic.client.library.Track;
@@ -82,7 +83,7 @@ class UiPolishTest {
         enriched.add("subtitles", JsonParser.parseString("{\"ja\":[{}]}"));
         enriched.add("automatic_captions", JsonParser.parseString("{\"en\":[{}]}"));
         assertEquals(DownloadJson.preview("https://example.com/song", 1, plain), DownloadJson.preview("https://example.com/song", 1, enriched));
-        assertTrue(java.util.Arrays.stream(com.darkmusic.client.download.DownloadModels.Entry.class.getRecordComponents()).noneMatch(field -> field.getName().equals("lyrics")));
+        assertTrue(java.util.Arrays.stream(DownloadModels.Entry.class.getRecordComponents()).noneMatch(field -> field.getName().equals("lyrics")));
     }
 
     @Test

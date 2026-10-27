@@ -1,5 +1,7 @@
 package com.darkmusic.client;
 
+import com.darkmusic.client.library.MusicFolders;
+import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 
 import java.nio.file.Files;
@@ -23,7 +25,7 @@ public final class FolderActions {
 
     void activate(Path path) {
         var settings = app.settings;
-        var roots = com.darkmusic.client.library.MusicFolders.resolve(settings, path);
+        var roots = MusicFolders.resolve(settings, path);
         var destination = settings.musicDirectory.isBlank() ? app.config.defaultMusic() : Path.of(settings.musicDirectory);
         app.library.setRoots(roots, destination);
         app.save();
@@ -31,7 +33,7 @@ public final class FolderActions {
 
     public void choose(Path directory, Runnable success) {
         if (app.mediaBusy()) {
-            app.warn(com.darkmusic.client.text.Text.get("library.darkmusic.busy"));
+            app.warn(Text.get("library.darkmusic.busy"));
             return;
         }
         long ticket = generation;
@@ -43,8 +45,8 @@ public final class FolderActions {
                 Minecraft.getInstance().execute(() -> {
                     if (!app.closed() && !app.resetting() && !app.mediaBusy() && ticket == generation) {
                         var library = app.library;
-                        if (!library.roots().containsKey(canonical) && com.darkmusic.client.library.MusicFolders.overlaps(library.roots().keySet(), canonical)) {
-                            app.warn(com.darkmusic.client.text.Text.get("folders.overlap"));
+                        if (!library.roots().containsKey(canonical) && MusicFolders.overlaps(library.roots().keySet(), canonical)) {
+                            app.warn(Text.get("folders.overlap"));
                             return;
                         }
                         var settings = app.settings;
@@ -57,7 +59,7 @@ public final class FolderActions {
                     }
                 });
             } catch (Exception e) {
-                app.warn(com.darkmusic.client.text.Text.failure(e, "error.folder"));
+                app.warn(Text.failure(e, "error.folder"));
             }
         });
     }
@@ -74,7 +76,7 @@ public final class FolderActions {
                     });
                 });
             } catch (Exception e) {
-                app.warn(com.darkmusic.client.text.Text.failure(e, "error.folder"));
+                app.warn(Text.failure(e, "error.folder"));
             }
         });
     }
@@ -88,8 +90,8 @@ public final class FolderActions {
                     throw new java.io.IOException("Unreadable music folder");
                 Minecraft.getInstance().execute(() -> {
                     if (app.closed() || app.resetting() || app.mediaBusy() || ticket != generation) return;
-                    if (com.darkmusic.client.library.MusicFolders.overlaps(app.library.roots().keySet(), canonical)) {
-                        app.warn(com.darkmusic.client.text.Text.get("folders.overlap"));
+                    if (MusicFolders.overlaps(app.library.roots().keySet(), canonical)) {
+                        app.warn(Text.get("folders.overlap"));
                         return;
                     }
                     var settings = app.settings;
@@ -99,14 +101,14 @@ public final class FolderActions {
                     activate(app.library.root());
                 });
             } catch (Exception e) {
-                app.warn(com.darkmusic.client.text.Text.failure(e, "error.folder"));
+                app.warn(Text.failure(e, "error.folder"));
             }
         });
     }
 
     public boolean remove(Path directory) {
         if (app.mediaBusy() || app.resetting()) {
-            app.warn(com.darkmusic.client.text.Text.get("library.darkmusic.busy"));
+            app.warn(Text.get("library.darkmusic.busy"));
             return false;
         }
         if (directory.equals(app.library.root())) return false;
@@ -126,7 +128,7 @@ public final class FolderActions {
                     throw new java.io.IOException("The configured music directory is unavailable");
                 net.minecraft.util.Util.getPlatform().openPath(directory);
             } catch (Exception e) {
-                app.warn(com.darkmusic.client.text.Text.failure(e, "error.folder"));
+                app.warn(Text.failure(e, "error.folder"));
             }
         });
     }

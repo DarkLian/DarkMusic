@@ -1,8 +1,10 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
-import com.darkmusic.client.pip.PipSource;
 import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.pip.PipNativeTools;
+import com.darkmusic.client.pip.PipPreview;
+import com.darkmusic.client.pip.PipSource;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -10,7 +12,7 @@ import net.minecraft.client.gui.screens.Screen;
 
 import java.util.*;
 
-public final class PipSourcesScreen extends LocalScreen implements com.darkmusic.client.pip.PipPreview {
+public final class PipSourcesScreen extends LocalScreen implements PipPreview {
     private final DarkMusicClient app;
     private List<PipSource> sources = List.of();
     private ProcessRunner.Token token;
@@ -61,7 +63,7 @@ public final class PipSourcesScreen extends LocalScreen implements com.darkmusic
         app.pip.tools.windows(request).whenComplete((windows, error) -> Minecraft.getInstance().execute(() -> {
             if (!isCurrent() || request != token || request.cancelled()) return;
             if (error != null) {
-                status = com.darkmusic.client.pip.PipNativeTools.failure(error);
+                status = PipNativeTools.failure(error);
                 if (status.equals("pip.capture_error")) status = "pip.windows_error";
                 return;
             }

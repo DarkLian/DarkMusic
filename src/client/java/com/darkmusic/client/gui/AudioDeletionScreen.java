@@ -1,6 +1,7 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.download.ProcessRunner;
 import com.darkmusic.client.library.AudioDeletion;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
@@ -22,7 +23,7 @@ public final class AudioDeletionScreen extends LocalScreen {
     private AudioDeletion.Result result;
     private volatile AudioDeletion.Progress progress;
     private boolean preparing, busy;
-    private com.darkmusic.client.download.ProcessRunner.Token cancellation;
+    private ProcessRunner.Token cancellation;
     private String error = "";
     private RowList rows;
     private Button trash, permanent, back;
@@ -115,7 +116,7 @@ public final class AudioDeletionScreen extends LocalScreen {
         if (plan == null || busy || result != null)
             return CompletableFuture.failedFuture(new IllegalStateException(Text.get("library.darkmusic.busy")));
         busy = true;
-        cancellation = new com.darkmusic.client.download.ProcessRunner.Token();
+        cancellation = new ProcessRunner.Token();
         error = "";
         updateButtons();
         var finished = new CompletableFuture<Void>();

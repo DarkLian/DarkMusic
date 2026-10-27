@@ -1,8 +1,14 @@
 package com.darkmusic.client.lyrics;
 
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.download.DownloadDiagnostics;
+import com.darkmusic.client.download.DownloadLyrics;
+import com.darkmusic.client.download.LyricsLanguages;
 import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.library.MetadataReader;
+import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.text.Text;
 
 import java.nio.file.*;
 import java.nio.charset.StandardCharsets;
@@ -246,9 +252,9 @@ public final class LyricsLookup implements AutoCloseable {
 
     private static String language(String value) {
         if (value == null || value.strip().equalsIgnoreCase("auto")) return "auto";
-        String result = com.darkmusic.client.download.LyricsLanguages.normalize(value);
+        String result = LyricsLanguages.normalize(value);
         if (result.contains(","))
-            throw new IllegalArgumentException(com.darkmusic.client.text.Text.get("lyrics.darkmusic.language_invalid"));
+            throw new IllegalArgumentException(Text.get("lyrics.darkmusic.language_invalid"));
         return LyricsDocument.normalizeLanguage(result);
     }
 
@@ -369,9 +375,9 @@ public final class LyricsLookup implements AutoCloseable {
             Path normalized = file.toAbsolutePath().normalize();
             var root = roots.entrySet().stream().filter(e -> normalized.startsWith(e.getKey()))
                 .max(Comparator.comparingInt(e -> e.getKey().getNameCount())).orElse(null);
-            if (root == null || Files.exists(com.darkmusic.client.download.DownloadLyrics.sidecar(normalized))) return;
+            if (root == null || Files.exists(DownloadLyrics.sidecar(normalized))) return;
             var attributes = Files.readAttributes(normalized, java.nio.file.attribute.BasicFileAttributes.class);
-            var track = new com.darkmusic.client.library.MetadataReader().read(root.getValue(), root.getKey().relativize(normalized).toString().replace('\\', '/'), normalized, attributes.size(), attributes.lastModifiedTime().toMillis());
+            var track = new MetadataReader().read(root.getValue(), root.getKey().relativize(normalized).toString().replace('\\', '/'), normalized, attributes.size(), attributes.lastModifiedTime().toMillis());
             // Existing embedded text remains authoritative even if it has no timing.
             try {
                 var tags = org.jaudiotagger.audio.AudioFileIO.read(normalized.toFile()).getTag();
@@ -538,8 +544,8 @@ public final class LyricsLookup implements AutoCloseable {
     private List<LyricsProvider.Candidate> captionCandidates(Track track, String preferences, boolean generated, ProcessRunner.Token token, boolean refresh) throws Exception {
         if (captions == null) return List.of();
         String wanted = choice(track).language.equals("auto") ? preferences : choice(track).language;
-        String source = refresh ? com.darkmusic.client.library.SourceLinks.resolve(track.file())
-            : CaptionUrls.automatic(com.darkmusic.client.library.SourceLinks.read(track.file()));
+        String source = refresh ? SourceLinks.resolve(track.file())
+            : CaptionUrls.automatic(SourceLinks.read(track.file()));
         String key = hash("captions:1:" + track.id() + ":" + track.size() + ":" + track.modified() + ":" + source + ":" + wanted + ":" + generated);
         Cached prior = refresh ? null : cached(key);
         if (prior != null) return prior.candidates;
@@ -590,7 +596,7 @@ public final class LyricsLookup implements AutoCloseable {
                     List<LyricsProvider.Candidate> found = search.run(token);
                     token.check();
                     if (!sameFile(track)) throw new CancellationException();
-                    boolean sidecarExists = Files.exists(com.darkmusic.client.download.DownloadLyrics.sidecar(track.file()));
+                    boolean sidecarExists = Files.exists(DownloadLyrics.sidecar(track.file()));
                     synchronized (this) {
                         if (pending.get(track.id()) != token || token.cancelled() || closed || !enabled || !online)
                             return;
@@ -652,9 +658,9 @@ public final class LyricsLookup implements AutoCloseable {
         if (failure instanceof LrclibProvider.Failure provider) return Status.valueOf(provider.problem.name());
         if (failure instanceof java.net.UnknownHostException || failure instanceof java.net.ConnectException || failure instanceof java.net.SocketTimeoutException)
             return Status.NETWORK;
-        if (failure instanceof com.darkmusic.client.download.DownloadDiagnostics.Failure) {
-            var category = com.darkmusic.client.download.DownloadDiagnostics.classify(failure,
-                com.darkmusic.client.download.DownloadDiagnostics.Stage.OPTIONAL, "", 0, 1, "").category();
+        if (failure instanceof DownloadDiagnostics.Failure) {
+            var category = DownloadDiagnostics.classify(failure,
+                DownloadDiagnostics.Stage.OPTIONAL, "", 0, 1, "").category();
             return switch (category) {
                 case RATE_LIMITED -> Status.RATE_LIMITED;
                 case NETWORK_FAILURE, NETWORK_TIMEOUT -> Status.NETWORK;
@@ -700,7 +706,7 @@ public final class LyricsLookup implements AutoCloseable {
         submit(() -> {
             token.check();
             if (!enabled || !online || closed || !sameFile(track) || choice(track).selected != null
-                || Files.exists(com.darkmusic.client.download.DownloadLyrics.sidecar(track.file()))) return;
+                || Files.exists(DownloadLyrics.sidecar(track.file()))) return;
             Choice previous = choice(track);
             Choice next = new Choice(document, previous.offset, previous.language, false);
             if (directory != null)
@@ -755,7 +761,7 @@ public final class LyricsLookup implements AutoCloseable {
     public CompletableFuture<Void> save(Track track, LyricsDocument document, boolean replace) {
         return submit(() -> {
             if (!sameFile(track) || !document.available())
-                throw new java.io.IOException(com.darkmusic.client.text.Text.get("lyrics.file_changed"));
+                throw new java.io.IOException(Text.get("lyrics.file_changed"));
             LyricsFiles.save(track.file(), document, replace);
             publish(track, new Snapshot(Status.SAVED, snapshot(track).candidates));
         });
@@ -768,7 +774,7 @@ public final class LyricsLookup implements AutoCloseable {
     public CompletableFuture<Void> restore(Track track) {
         return submit(() -> {
             if (!sameFile(track))
-                throw new java.io.IOException(com.darkmusic.client.text.Text.get("lyrics.file_changed"));
+                throw new java.io.IOException(Text.get("lyrics.file_changed"));
             LyricsFiles.restore(track.file());
         });
     }
@@ -845,7 +851,8 @@ public final class LyricsLookup implements AutoCloseable {
         }
     }
 
-    record CacheFile(Path path, long size, java.nio.file.attribute.FileTime modified, Object fileKey) { }
+    record CacheFile(Path path, long size, java.nio.file.attribute.FileTime modified, Object fileKey) {
+    }
 
     static CacheFile cacheFile(Path path) throws java.io.IOException {
         var a = Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
@@ -868,12 +875,19 @@ public final class LyricsLookup implements AutoCloseable {
                 long limit = (name.equals("misses") ? 16L : 64L) * 1024 * 1024;
                 try (var files = Files.list(retained)) {
                     var all = files.filter(p -> p.getFileName().toString().matches("[a-f0-9]{64}\\.json")).map(p -> {
-                        try { return cacheFile(p); } catch (java.io.IOException vanished) { return null; }
+                        try {
+                            return cacheFile(p);
+                        } catch (java.io.IOException vanished) {
+                            return null;
+                        }
                     }).filter(java.util.Objects::nonNull).sorted(Comparator.comparing(CacheFile::modified)).toList();
                     long bytes = all.stream().mapToLong(CacheFile::size).sum(), count = all.size();
                     for (CacheFile file : all) {
                         if (count <= 256_000 && bytes <= limit) break;
-                        if (discardCacheFile(file)) { bytes -= file.size; count--; }
+                        if (discardCacheFile(file)) {
+                            bytes -= file.size;
+                            count--;
+                        }
                     }
                 }
             }

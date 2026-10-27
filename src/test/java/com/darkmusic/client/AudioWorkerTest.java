@@ -2,6 +2,11 @@ package com.darkmusic.client;
 
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.audio.JavaSoundBackend;
+import com.darkmusic.client.audio.PcmDecoder;
+import com.darkmusic.client.library.MetadataReader;
+import com.darkmusic.client.library.Track;
+import com.darkmusic.client.testing.Await;
+import com.darkmusic.client.text.Text;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -41,11 +46,11 @@ class AudioWorkerTest {
                 backend.play(track, () -> {
                 }, failure::set);
                 if (recover) {
-                    com.darkmusic.client.testing.Await.until(java.time.Duration.ofSeconds(5), () -> backend.state().position() > .01 || failure.get() != null, "Priming ends");
+                    Await.until(java.time.Duration.ofSeconds(5), () -> backend.state().position() > .01 || failure.get() != null, "Priming ends");
                     assertNull(failure.get());
                     assertTrue(reads.get() > 4);
                 } else {
-                    com.darkmusic.client.testing.Await.until(java.time.Duration.ofSeconds(5), () -> failure.get() != null, "Empty decoder is bounded");
+                    Await.until(java.time.Duration.ofSeconds(5), () -> failure.get() != null, "Empty decoder is bounded");
                     assertEquals(AudioBackend.Status.ERROR, backend.state().status());
                     assertTrue(reads.get() > 1);
                     assertTrue(backend.awaitIdle(3));
@@ -59,8 +64,8 @@ class AudioWorkerTest {
         var lines = new CopyOnWriteArrayList<AtomicBoolean>();
         var failure = new AtomicReference<String>();
         Path file = TestMusic.featured();
-        var track = new com.darkmusic.client.library.MetadataReader().read("real", file.getFileName().toString(), file, java.nio.file.Files.size(file), 0);
-        try (var backend = new JavaSoundBackend(Runnable::run, path -> com.darkmusic.client.audio.PcmDecoder.open(path), f -> output(lines))) {
+        var track = new MetadataReader().read("real", file.getFileName().toString(), file, java.nio.file.Files.size(file), 0);
+        try (var backend = new JavaSoundBackend(Runnable::run, path -> PcmDecoder.open(path), f -> output(lines))) {
             for (int i = 0; i < 8; i++) {
                 backend.playFrom(track, 30 + i * .1, true, () -> fail("Unexpected completion"), failure::set);
                 StorageTest.await(() -> backend.state().status() == AudioBackend.Status.PAUSED);
@@ -115,7 +120,7 @@ class AudioWorkerTest {
         var backend = new JavaSoundBackend(Runnable::run, path -> {
             AtomicBoolean closed = new AtomicBoolean();
             streams.add(closed);
-            var decoded = com.darkmusic.client.audio.PcmDecoder.open(path);
+            var decoded = PcmDecoder.open(path);
             return new AudioInputStream(decoded, decoded.getFormat(), decoded.getFrameLength()) {
                 @Override
                 public void close() throws IOException {
@@ -125,7 +130,7 @@ class AudioWorkerTest {
             };
         }, f -> output(lines));
         try {
-            var track = new com.darkmusic.client.library.MetadataReader().read("real", source.getFileName().toString(), source, java.nio.file.Files.size(source), 0);
+            var track = new MetadataReader().read("real", source.getFileName().toString(), source, java.nio.file.Files.size(source), 0);
             AtomicReference<String> failure = new AtomicReference<>();
             backend.play(track, () -> {
             }, failure::set);
@@ -216,7 +221,7 @@ class AudioWorkerTest {
             StorageTest.await(() -> failure.get() != null);
             assertTrue(streamClosed.get());
             assertEquals(AudioBackend.Status.ERROR, backend.state().status());
-            assertEquals(com.darkmusic.client.text.Text.get("audio.error.device"), failure.get());
+            assertEquals(Text.get("audio.error.device"), failure.get());
             assertFalse(failure.get().contains("LineUnavailableException"));
         }
     }
@@ -287,7 +292,7 @@ class AudioWorkerTest {
         var device = (SourceDataLine) Proxy.newProxyInstance(getClass().getClassLoader(), new Class[]{SourceDataLine.class}, (proxy, method, args) -> method.getName().equals("getFormat") ? target : method.invoke(delegate, args));
         var sourceFormat = new AudioFormat(192_000, 16, target.getChannels(), true, false);
         var failure = new AtomicReference<String>();
-        var track = new com.darkmusic.client.library.Track("real", "high-rate", TestMusic.featured(), "Real music", "", "", .001, 0, 0, "");
+        var track = new Track("real", "high-rate", TestMusic.featured(), "Real music", "", "", .001, 0, 0, "");
         try (var backend = new JavaSoundBackend(Runnable::run, path -> new AudioInputStream(new ByteArrayInputStream(TestMusic.clip().bytes()), sourceFormat, TestMusic.clip().bytes().length / sourceFormat.getFrameSize()), f -> {
             if (f.getFrameRate() != 48_000) throw new LineUnavailableException("Unsupported rate");
             return device;

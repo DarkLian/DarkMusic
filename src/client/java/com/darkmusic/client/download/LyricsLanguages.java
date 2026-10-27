@@ -1,5 +1,6 @@
 package com.darkmusic.client.download;
 
+import com.darkmusic.client.lyrics.LyricsDocument;
 import com.darkmusic.client.text.Text;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -49,7 +50,7 @@ public final class LyricsLanguages {
      */
     public static String preferSongLanguage(String preferences, String language) {
         if (!normalize(preferences).equals("auto")) return preferences;
-        String tag = com.darkmusic.client.lyrics.LyricsDocument.normalizeLanguage(language);
+        String tag = LyricsDocument.normalizeLanguage(language);
         if (tag.equals("und") || tag.equals("mul")) return preferences;
         try {
             return normalize(tag + ", auto");

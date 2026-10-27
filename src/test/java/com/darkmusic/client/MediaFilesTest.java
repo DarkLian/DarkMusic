@@ -6,6 +6,7 @@ import com.darkmusic.client.download.DownloadLyrics;
 import com.darkmusic.client.download.ProcessRunner;
 import com.darkmusic.client.library.MediaFiles;
 import com.darkmusic.client.library.MetadataReader;
+import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.playlist.PlaylistStore;
 import org.junit.jupiter.api.AfterEach;
@@ -185,14 +186,14 @@ class MediaFilesTest {
             });
         assertEquals(0, result.exit(), result.output());
         try (var worker = Executors.newSingleThreadExecutor()) {
-            var links = new com.darkmusic.client.library.SourceLinks(worker);
+            var links = new SourceLinks(worker);
             var track = track(file);
             assertEquals("", links.get(track));
             worker.submit(() -> {
             }).get();
             assertEquals(url, links.get(track));
         }
-        var unavailable = new com.darkmusic.client.library.SourceLinks(task -> {
+        var unavailable = new SourceLinks(task -> {
             throw new java.util.concurrent.RejectedExecutionException();
         });
         assertEquals("", unavailable.get(track(file)));
@@ -203,13 +204,13 @@ class MediaFilesTest {
         Path source = Files.copy(TestMusic.featured(), temp.resolve("source.mp3"));
         byte[] original = Files.readAllBytes(source);
         String url = "https://www.youtube.com/watch?v=abcdefghijk";
-        com.darkmusic.client.library.SourceLinks.record(source, url);
+        SourceLinks.record(source, url);
         Path root = Files.createDirectory(temp.resolve("imported"));
         var imported = files.importFiles(root, "root", "", List.of(source), new ProcessRunner.Token()).tracks().getFirst();
-        assertEquals(url, com.darkmusic.client.library.SourceLinks.read(imported.file()));
+        assertEquals(url, SourceLinks.read(imported.file()));
         var fields = files.fields(imported);
         var renamed = files.edit(imported, fields, new MediaFiles.Fields(fields.title(), fields.artist(), fields.album(), "renamed", fields.extension()), new ProcessRunner.Token());
-        assertEquals(url, com.darkmusic.client.library.SourceLinks.read(renamed.file()));
+        assertEquals(url, SourceLinks.read(renamed.file()));
         assertArrayEquals(original, Files.readAllBytes(source));
     }
 

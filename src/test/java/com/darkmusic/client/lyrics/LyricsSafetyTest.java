@@ -2,9 +2,11 @@ package com.darkmusic.client.lyrics;
 
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.download.LyricsLanguages;
+import com.darkmusic.client.download.ProcessRunner;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
-import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.testing.Await;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -18,9 +20,9 @@ import static org.junit.jupiter.api.Assertions.*;
 class LyricsSafetyTest {
     @Test
     void songLanguageTagsBreakAutoTiesWithoutReplacingExplicitPreferences() {
-        assertEquals("ja, auto", com.darkmusic.client.download.LyricsLanguages.preferSongLanguage("auto", "jpn"));
-        assertEquals("en, zh-Hant", com.darkmusic.client.download.LyricsLanguages.preferSongLanguage("en, zh-Hant", "ja"));
-        assertEquals("auto", com.darkmusic.client.download.LyricsLanguages.preferSongLanguage("auto", "und"));
+        assertEquals("ja, auto", LyricsLanguages.preferSongLanguage("auto", "jpn"));
+        assertEquals("en, zh-Hant", LyricsLanguages.preferSongLanguage("en, zh-Hant", "ja"));
+        assertEquals("auto", LyricsLanguages.preferSongLanguage("auto", "und"));
     }
 
     @TempDir
@@ -62,7 +64,7 @@ class LyricsSafetyTest {
             lookup.captions((t, p, g, token) -> caption);
             lookup.load(track);
             lookup.automatic(track, false);
-            com.darkmusic.client.testing.Await.until(java.time.Duration.ofSeconds(5), () -> caption.equals(lookup.choice(track).selected()), "Caption fallback applies a reliable result");
+            Await.until(java.time.Duration.ofSeconds(5), () -> caption.equals(lookup.choice(track).selected()), "Caption fallback applies a reliable result");
             assertEquals(2, lookup.snapshot(track).candidates().size());
             assertTrue(lookup.snapshot(track).candidates().stream().anyMatch(c -> c.document().equals(weak) && !c.reliable()));
         }
@@ -98,7 +100,7 @@ class LyricsSafetyTest {
             } finally {
                 release.countDown();
             }
-            com.darkmusic.client.testing.Await.until(java.time.Duration.ofSeconds(5),
+            Await.until(java.time.Duration.ofSeconds(5),
                 () -> lookup.snapshot(track).status() == LyricsLookup.Status.NOT_FOUND, "Final miss follows completed caption fallback");
             assertEquals(LyricsInfo.State.UNAVAILABLE, LyricsInfo.lookup(lookup.snapshot(track).status()).state());
             assertNull(lookup.choice(track).selected());
@@ -137,7 +139,7 @@ class LyricsSafetyTest {
             lookup.automatic(second, false);
             lookup.search(manual, LyricsProvider.Query.of(manual), true);
             release.countDown();
-            com.darkmusic.client.testing.Await.until(java.time.Duration.ofSeconds(5), () -> order.size() == 3, "Requests complete");
+            Await.until(java.time.Duration.ofSeconds(5), () -> order.size() == 3, "Requests complete");
             assertEquals(List.of(first.title(), manual.title(), second.title()), List.copyOf(order));
         } finally {
             release.countDown();

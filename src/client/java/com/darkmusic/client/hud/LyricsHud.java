@@ -3,6 +3,7 @@ package com.darkmusic.client.hud;
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.lyrics.Lrc;
+import com.darkmusic.client.lyrics.LyricsLookup;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -71,7 +72,7 @@ public final class LyricsHud {
             var document = app.lyrics.document(track);
             // Local reads and provider requests are asynchronous; neither implies missing lyrics.
             String key = !app.lyrics.inspected(track) || app.lyrics.lookup.snapshot(track).status()
-                == com.darkmusic.client.lyrics.LyricsLookup.Status.SEARCHING ? "lyrics.status.searching"
+                == LyricsLookup.Status.SEARCHING ? "lyrics.status.searching"
                 : document.instrumental() ? "lyrics.instrumental"
                 : document.available() ? "lyrics.plain" : "lyrics.darkmusic.missing";
             current = Text.get(key);

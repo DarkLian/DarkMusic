@@ -160,7 +160,7 @@ final class QueueSmokeClient {
                     var searchBox = (net.minecraft.client.gui.components.EditBox) field(queue, "search");
                     searchBox.setValue(term.substring(0, Math.min(6, term.length())));
                     queue.tick();
-                    @SuppressWarnings("unchecked") var matches = (List<com.darkmusic.client.library.Track>) field(queue, "source");
+                    @SuppressWarnings("unchecked") var matches = (List<Track>) field(queue, "source");
                     check(!matches.isEmpty() && matches.stream().allMatch(track -> track.matches(term.substring(0, Math.min(6, term.length())).toLowerCase(java.util.Locale.ROOT))), "Search did not filter All Songs");
                     var found = (RowList) field(queue, "automatic");
                     var hit = new MouseButtonEvent(found.getX() + 48, found.getY() + 8, new MouseButtonInfo(0, 0));

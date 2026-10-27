@@ -1,7 +1,9 @@
 package com.darkmusic.client.library;
 
+import com.darkmusic.client.audio.AudioFormats;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.text.Text;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -20,7 +22,7 @@ class ReviewReliabilityTest {
         var fields = new MediaFiles.Fields("T", "A", "", "file", ".mp3");
         for (String name : List.of("a\r\nb", "a\nb\nc", "x\u0085y\u0085z")) {
             var error = assertThrows(java.io.IOException.class, () -> new MediaFiles().edit(track, fields, new MediaFiles.Fields("T", "A", "", name, ".mp3"), new ProcessRunner.Token()));
-            assertEquals(com.darkmusic.client.text.Text.get("library.darkmusic.invalid_filename"), error.getMessage());
+            assertEquals(Text.get("library.darkmusic.invalid_filename"), error.getMessage());
         }
     }
 
@@ -54,7 +56,7 @@ class ReviewReliabilityTest {
     void unsupportedImageBrandsAndVideoExtensionsDoNotBecomeLibrarySongs() throws Exception {
         for (String brand : List.of("heic", "avif", "mif1", "qt  ")) {
             Path file = Files.write(temp.resolve(brand.strip() + ".bin"), java.nio.ByteBuffer.allocate(24).putInt(24).put("ftyp".getBytes()).put(brand.getBytes()).array());
-            assertEquals(com.darkmusic.client.audio.AudioFormats.Container.UNKNOWN, com.darkmusic.client.audio.AudioFormats.detect(file));
+            assertEquals(AudioFormats.Container.UNKNOWN, AudioFormats.detect(file));
             assertFalse(MusicLibrary.supported(file));
         }
         assertFalse(MusicLibrary.supported(temp.resolve("video.mkv")));

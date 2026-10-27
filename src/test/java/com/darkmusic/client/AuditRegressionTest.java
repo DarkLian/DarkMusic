@@ -1,10 +1,13 @@
 package com.darkmusic.client;
 
+import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.download.DownloadJson;
 import com.darkmusic.client.download.DownloadModels;
 import com.darkmusic.client.download.DownloadService;
 import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.playlist.PlaylistStore;
+import com.darkmusic.client.text.Text;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -28,7 +31,7 @@ class AuditRegressionTest {
     @Test
     void validationAndUnrelatedNumbersAreNotAuthenticationOrHttpErrors() throws Exception {
         String unrelated = DownloadJson.friendly("Track 429 is private network music");
-        assertEquals(com.darkmusic.client.text.Text.get("download.error.unknown"), unrelated);
+        assertEquals(Text.get("download.error.unknown"), unrelated);
         assertFalse(unrelated.contains("HTTP 429"));
         assertFalse(unrelated.contains("authentication"));
         assertTrue(DownloadJson.friendly("HTTP Error 429: Too Many Requests").contains("HTTP 429"));
@@ -94,7 +97,7 @@ class AuditRegressionTest {
         Files.copy(TestMusic.featured(), song);
         Path data = temp.resolve("data");
         Path cache = data.resolve("library-cache.json");
-        try (var library = new com.darkmusic.client.library.MusicLibrary(data)) {
+        try (var library = new MusicLibrary(data)) {
             library.setRoot(root, "root");
             DownloadTest.await(() -> !library.snapshot().scanning() && library.snapshot().tracks().size() == 1);
             String original = Files.readString(cache);
@@ -163,17 +166,17 @@ class AuditRegressionTest {
         Path directory = Files.createDirectories(temp.resolve("config/darkmusic"));
         Files.writeString(temp.resolve("options.txt"), "key_key.darkmusic.volume_up:key.keyboard.f10\nkey_key.other.mod:key.keyboard.f9\n");
         try (var io = Executors.newSingleThreadExecutor()) {
-            var store = new com.darkmusic.client.config.ConfigStore(directory, io, message -> fail(message));
+            var store = new ConfigStore(directory, io, message -> fail(message));
             var settings = io.submit(store::load).get();
             assertEquals(Set.of("key.darkmusic.volume_up"), settings.nativeShortcutNames);
-            assertFalse(com.darkmusic.client.config.ConfigStore.JSON.toJson(settings).contains("nativeShortcutNames"));
+            assertFalse(ConfigStore.JSON.toJson(settings).contains("nativeShortcutNames"));
         }
     }
 
     @Test
     void internalWatcherEventsAreIgnoredButSupportedHiddenSongsAreDiscovered() throws Exception {
         Path root = Files.createDirectories(temp.resolve("music"));
-        try (var library = new com.darkmusic.client.library.MusicLibrary(temp.resolve("data"))) {
+        try (var library = new MusicLibrary(temp.resolve("data"))) {
             library.setRoot(root, "root");
             DownloadTest.await(() -> !library.snapshot().scanning());
             long revision = library.snapshot().revision();

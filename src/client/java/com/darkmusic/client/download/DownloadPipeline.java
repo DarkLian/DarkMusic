@@ -1,6 +1,10 @@
 package com.darkmusic.client.download;
 
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.library.LibraryFiles;
+import com.darkmusic.client.library.SourceLinks;
+import com.darkmusic.client.lyrics.LyricsFiles;
+import com.darkmusic.client.text.Text;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -37,11 +41,11 @@ public final class DownloadPipeline {
     private static JsonObject readArchive(Path history) throws IOException {
         if (!Files.exists(history)) return new JsonObject();
         if (Files.size(history) > 16_000_000)
-            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.download_history_is_too_large_preserve_it_and_choose_another_folder"));
+            throw new IOException(Text.get("text.darkmusic.download_history_is_too_large_preserve_it_and_choose_another_folder"));
         try (var reader = Files.newBufferedReader(history)) {
             return JsonParser.parseReader(reader).getAsJsonObject();
         } catch (RuntimeException e) {
-            throw new IOException(com.darkmusic.client.text.Text.get("download.history_read"), e);
+            throw new IOException(Text.get("download.history_read"), e);
         }
     }
 
@@ -135,7 +139,7 @@ public final class DownloadPipeline {
         if (!archive.has(identity)) return null;
         Path prior = destination.resolve(archive.get(identity).getAsString()).normalize();
         return prior.getParent().equals(destination.toAbsolutePath().normalize()) && Files.isRegularFile(prior) && Files.size(prior) > 0
-            && com.darkmusic.client.library.SourceLinks.matchesArchive(prior, identity) ? prior : null;
+            && SourceLinks.matchesArchive(prior, identity) ? prior : null;
     }
 
     synchronized void prepare() throws IOException {
@@ -198,7 +202,7 @@ public final class DownloadPipeline {
             synchronized (historyLock) {
                 Path prior = previous(readArchive(history), identity, destination);
                 if (prior != null)
-                    return new Saved(prior, true, com.darkmusic.client.text.Text.get("download.already_saved"));
+                    return new Saved(prior, true, Text.get("download.already_saved"));
             }
             Path scratchRoot = data.resolve("downloads/work");
             Files.createDirectories(scratchRoot);
@@ -209,7 +213,7 @@ public final class DownloadPipeline {
                 tool = DownloadDiagnostics.Tool.YT_DLP;
                 var command = tools.base();
                 command.addAll(List.of("--no-playlist", "--playlist-items", "1", "--no-overwrites", "--newline", "--progress", "--progress-delta", "1", "--progress-template", "download:DM_PROGRESS:%(progress._percent_str)s", "--format", "bestaudio/best", "--write-info-json", "--write-thumbnail", "--paths", work.toString(), "--output", "source.%(ext)s", "--", url(entry.url())));
-                progress.accept(Status.DOWNLOADING, com.darkmusic.client.text.Text.get("download.darkmusic.starting"));
+                progress.accept(Status.DOWNLOADING, Text.get("download.darkmusic.starting"));
                 var result = runner.run(command, work, token, Duration.ofMinutes(30), 128_000, s -> {
                     if (s.startsWith("DM_PROGRESS:")) progress.accept(Status.DOWNLOADING, s.substring(12).strip());
                     else if (!s.isBlank())
@@ -221,7 +225,7 @@ public final class DownloadPipeline {
                 tool = DownloadDiagnostics.Tool.NONE;
                 Path source;
                 try (var files = Files.list(work)) {
-                    source = files.filter(Files::isRegularFile).filter(p -> p.getFileName().toString().startsWith("source.")).filter(p -> !p.toString().matches("(?i).*\\.(json|jpg|jpeg|png|webp|avif|gif|part|ytdl)$")).findFirst().orElseThrow(() -> new IOException(com.darkmusic.client.text.Text.get("download.media_missing")));
+                    source = files.filter(Files::isRegularFile).filter(p -> p.getFileName().toString().startsWith("source.")).filter(p -> !p.toString().matches("(?i).*\\.(json|jpg|jpeg|png|webp|avif|gif|part|ytdl)$")).findFirst().orElseThrow(() -> new IOException(Text.get("download.media_missing")));
                 }
                 JsonObject metadata = new JsonObject();
                 Path info = work.resolve("source.info.json");
@@ -239,8 +243,8 @@ public final class DownloadPipeline {
                 String sourceCodec = DownloadEncoding.codec(runner, tools, source, work, token);
                 var plan = format == DownloadEncoding.Format.MP3 ? new DownloadEncoding.Plan("mp3", "libmp3lame", "") : DownloadEncoding.plan(sourceCodec);
                 Path converted = work.resolve("converted." + plan.extension());
-                progress.accept(Status.CONVERTING, com.darkmusic.client.text.Text.get("download.darkmusic.converting"));
-                String warning = cover == null ? com.darkmusic.client.text.Text.get("download.no_thumbnail") : "";
+                progress.accept(Status.CONVERTING, Text.get("download.darkmusic.converting"));
+                String warning = cover == null ? Text.get("download.no_thumbnail") : "";
                 stage = DownloadDiagnostics.Stage.PROCESSING;
                 tool = DownloadDiagnostics.Tool.FFMPEG;
                 Path pictureTags = null;
@@ -250,14 +254,14 @@ public final class DownloadPipeline {
                     } catch (Exception unavailable) {
                         token.check();
                         org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Cannot prepare embedded artwork", unavailable);
-                        warning = com.darkmusic.client.text.Text.get("download.thumbnail_failed");
+                        warning = Text.get("download.thumbnail_failed");
                     }
                     cover = null;
                 }
                 boolean coverSupported = java.util.Set.of("mp3", "m4a", "flac").contains(plan.extension());
                 if (!coverSupported && cover != null) {
                     cover = null;
-                    warning = com.darkmusic.client.text.Text.get("download.artwork_unsupported");
+                    warning = Text.get("download.artwork_unsupported");
                 }
                 var conversion = format == DownloadEncoding.Format.MP3 ? convert(tools, source, converted, cover, metadata, entry) : DownloadEncoding.remux(tools, source, converted, cover, metadata, entry, plan);
                 if (pictureTags != null) conversion = DownloadEncoding.withPictureComment(conversion, pictureTags);
@@ -265,7 +269,7 @@ public final class DownloadPipeline {
                 });
                 if (result.exit() != 0 && (cover != null || pictureTags != null)) {
                     token.check();
-                    warning = com.darkmusic.client.text.Text.get("download.thumbnail_failed");
+                    warning = Text.get("download.thumbnail_failed");
                     result = runner.run(format == DownloadEncoding.Format.MP3 ? convert(tools, source, converted, null, metadata, entry) : DownloadEncoding.remux(tools, source, converted, null, metadata, entry, plan), work, token, Duration.ofMinutes(20), 64_000, s -> {
                     });
                 }
@@ -286,7 +290,7 @@ public final class DownloadPipeline {
                 if (lyricsEnabled.getAsBoolean()) {
                     stage = DownloadDiagnostics.Stage.OPTIONAL;
                     tool = DownloadDiagnostics.Tool.YT_DLP;
-                    progress.accept(Status.CONVERTING, com.darkmusic.client.text.Text.get("lyrics.darkmusic.downloading"));
+                    progress.accept(Status.CONVERTING, Text.get("lyrics.darkmusic.downloading"));
                     lyrics = DownloadLyrics.fetch(runner, tools, entry, metadata, work, token, lyricsLanguages.get(), autoCaptions.getAsBoolean());
                     if (!lyrics.warning().isBlank())
                         warning = (warning + "; " + lyrics.warning()).replaceFirst("^; ", "");
@@ -297,7 +301,7 @@ public final class DownloadPipeline {
                 String title = text(metadata, "title");
                 if (title.isBlank()) title = entry.title();
                 String name = filename(title, identity, plan.extension());
-                incoming = com.darkmusic.client.library.LibraryFiles.incoming(destination, ".darkmusic-");
+                incoming = LibraryFiles.incoming(destination, ".darkmusic-");
                 try (var input = Files.newInputStream(converted); var output = Files.newOutputStream(incoming)) {
                     byte[] buffer = new byte[32_768];
                     int read;
@@ -312,20 +316,20 @@ public final class DownloadPipeline {
                     JsonObject archive = readArchive(history);
                     Path prior = previous(archive, identity, destination);
                     if (prior != null)
-                        return new Saved(prior, true, com.darkmusic.client.text.Text.get("download.already_saved"));
+                        return new Saved(prior, true, Text.get("download.already_saved"));
                     Path target = destination.resolve(name);
-                    for (int suffix = 2; Files.exists(target) || com.darkmusic.client.lyrics.LyricsFiles.companions(target).stream().anyMatch(p -> Files.exists(p, java.nio.file.LinkOption.NOFOLLOW_LINKS)); suffix++)
+                    for (int suffix = 2; Files.exists(target) || LyricsFiles.companions(target).stream().anyMatch(p -> Files.exists(p, java.nio.file.LinkOption.NOFOLLOW_LINKS)); suffix++)
                         target = destination.resolve(name.substring(0, name.lastIndexOf('.')) + " (" + suffix + ")." + plan.extension());
                     DownloadCommit.prepare(incoming, target, identity, entry.url());
                     Files.move(incoming, target);
                     incoming = null;
-                    if (!com.darkmusic.client.library.SourceLinks.record(target, entry.url(), identity))
-                        warning = (warning + "; " + com.darkmusic.client.text.Text.get("download.provenance_write")).replaceFirst("^; ", "");
+                    if (!SourceLinks.record(target, entry.url(), identity))
+                        warning = (warning + "; " + Text.get("download.provenance_write")).replaceFirst("^; ", "");
                     if (lyricsEnabled.getAsBoolean() && !lyrics.text().isBlank()) {
                         try {
-                            com.darkmusic.client.lyrics.LyricsFiles.save(target, DownloadLyrics.document(lyrics), false);
+                            LyricsFiles.save(target, DownloadLyrics.document(lyrics), false);
                         } catch (Exception failure) {
-                            warning = (warning + "; " + com.darkmusic.client.text.Text.get("lyrics.darkmusic.save_failed")).replaceFirst("^; ", "");
+                            warning = (warning + "; " + Text.get("lyrics.darkmusic.save_failed")).replaceFirst("^; ", "");
                             org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not save lyric companions; audio remains saved", failure);
                         }
                     }
@@ -335,7 +339,7 @@ public final class DownloadPipeline {
                         DownloadCommit.finish(target, identity);
                     } catch (IOException e) {
                         org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not save download history {}", history, e);
-                        warning = (warning + "; " + com.darkmusic.client.text.Text.get("download.history_write")).replaceFirst("^; ", "");
+                        warning = (warning + "; " + Text.get("download.history_write")).replaceFirst("^; ", "");
                     }
                     return new Saved(target, false, warning);
                 }

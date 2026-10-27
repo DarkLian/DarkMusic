@@ -2,6 +2,7 @@ package com.darkmusic.client;
 
 import com.darkmusic.client.download.DownloadModels;
 import com.darkmusic.client.download.DownloadService;
+import com.darkmusic.client.text.Text;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -35,7 +36,7 @@ class ToolOperationTest {
             service.cancelTools();
             DownloadTest.await(() -> !service.snapshot().analyzing());
             assertFalse(service.toolsBusy());
-            assertEquals(com.darkmusic.client.text.Text.get("download.darkmusic.tools_cancelled"), service.snapshot().message());
+            assertEquals(Text.get("download.darkmusic.tools_cancelled"), service.snapshot().message());
         }
     }
 

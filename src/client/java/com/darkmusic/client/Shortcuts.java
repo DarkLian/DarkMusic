@@ -1,5 +1,7 @@
 package com.darkmusic.client;
 
+import com.darkmusic.client.gui.MusicScreen;
+import com.darkmusic.client.text.Text;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.KeyMapping;
@@ -60,7 +62,7 @@ public final class Shortcuts {
                 key.setKey(InputConstants.getKey(saved));
             } catch (IllegalArgumentException e) {
                 key.setKey(InputConstants.UNKNOWN);
-                app.warn(com.darkmusic.client.text.Text.get("error.shortcut_invalid"));
+                app.warn(Text.get("error.shortcut_invalid"));
             }
         }
         migrateSpeedBindings();
@@ -85,7 +87,7 @@ public final class Shortcuts {
                 app.config.resetShortcuts(updated);
             } catch (Exception failure) {
                 org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Cannot migrate default speed bindings", failure);
-                Minecraft.getInstance().execute(() -> app.warn(com.darkmusic.client.text.Text.get("error.shortcut_migrate")));
+                Minecraft.getInstance().execute(() -> app.warn(Text.get("error.shortcut_migrate")));
             }
         });
     }
@@ -94,11 +96,11 @@ public final class Shortcuts {
         if (key.isUnbound()) return false;
         for (KeyMapping other : Minecraft.getInstance().options.keyMappings)
             if (other != key && key.same(other)) {
-                if (Minecraft.getInstance().gui.screen() instanceof com.darkmusic.client.gui.MusicScreen
+                if (Minecraft.getInstance().gui.screen() instanceof MusicScreen
                     && !other.getName().startsWith("key.darkmusic.")) continue;
                 if (System.nanoTime() - conflictWarning > TimeUnit.SECONDS.toNanos(2)) {
                     conflictWarning = System.nanoTime();
-                    app.warn(com.darkmusic.client.text.Text.get("error.shortcut_conflict"));
+                    app.warn(Text.get("error.shortcut_conflict"));
                 }
                 return true;
             }
@@ -146,7 +148,7 @@ public final class Shortcuts {
         else if (key == stop) playback.stop();
         else if (key == jump) {
             app.open();
-            if (Minecraft.getInstance().gui.screen() instanceof com.darkmusic.client.gui.MusicScreen screen)
+            if (Minecraft.getInstance().gui.screen() instanceof MusicScreen screen)
                 screen.jumpToPlaying();
         }
     }

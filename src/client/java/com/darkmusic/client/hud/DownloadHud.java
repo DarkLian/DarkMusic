@@ -3,6 +3,8 @@ package com.darkmusic.client.hud;
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.download.DownloadModels;
 import com.darkmusic.client.download.DownloadService;
+import com.darkmusic.client.gui.HorizontalText;
+import com.darkmusic.client.gui.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
@@ -71,19 +73,19 @@ public final class DownloadHud {
                 y = (int) Math.ceil(b.y() + b.height()) + 4;
         }
         y = Math.max(4, Math.min(y, g.guiHeight() - height - 4));
-        int alpha = (int) (opacity * 255), color = HudText.themed(com.darkmusic.client.gui.UiTheme.TEXT, alpha);
-        g.fill(x, y, x + width, y + height, HudText.themed(com.darkmusic.client.gui.UiTheme.BACKGROUND, (int) (opacity * 220)));
-        g.text(font, com.darkmusic.client.gui.HorizontalText.ellipsize(font, Text.get("hud.darkmusic.downloads", progress.finished(), progress.total(), Math.round(progress.fraction() * 100), progress.failed()), width - 12), x + 6, y + 5, color);
-        g.fill(x + 6, y + 17, x + width - 6, y + 20, HudText.themed(com.darkmusic.client.gui.UiTheme.BORDER, alpha));
-        g.fill(x + 6, y + 17, x + 6 + (int) ((width - 12) * progress.fraction()), y + 20, HudText.themed(com.darkmusic.client.gui.UiTheme.ACCENT, alpha));
+        int alpha = (int) (opacity * 255), color = HudText.themed(UiTheme.TEXT, alpha);
+        g.fill(x, y, x + width, y + height, HudText.themed(UiTheme.BACKGROUND, (int) (opacity * 220)));
+        g.text(font, HorizontalText.ellipsize(font, Text.get("hud.darkmusic.downloads", progress.finished(), progress.total(), Math.round(progress.fraction() * 100), progress.failed()), width - 12), x + 6, y + 5, color);
+        g.fill(x + 6, y + 17, x + width - 6, y + 20, HudText.themed(UiTheme.BORDER, alpha));
+        g.fill(x + 6, y + 17, x + 6 + (int) ((width - 12) * progress.fraction()), y + 20, HudText.themed(UiTheme.ACCENT, alpha));
         int rowY = y + 25;
         for (var item : rows) {
             String percent = item.progress() >= 0 ? " " + Math.round(item.progress() * 100) + "%" : "";
             String label = Text.get("state.darkmusic." + item.status().name().toLowerCase(java.util.Locale.ROOT)) + percent + ": " + item.title();
-            g.text(font, com.darkmusic.client.gui.HorizontalText.ellipsize(font, label, width - 12), x + 6, rowY, color);
+            g.text(font, HorizontalText.ellipsize(font, label, width - 12), x + 6, rowY, color);
             rowY += 12;
         }
         if (showNotice)
-            g.text(font, com.darkmusic.client.gui.HorizontalText.ellipsize(font, notice, width - 12), x + 6, rowY, HudText.themed(failure ? com.darkmusic.client.gui.UiTheme.WARNING : com.darkmusic.client.gui.UiTheme.ACCENT, alpha));
+            g.text(font, HorizontalText.ellipsize(font, notice, width - 12), x + 6, rowY, HudText.themed(failure ? UiTheme.WARNING : UiTheme.ACCENT, alpha));
     }
 }

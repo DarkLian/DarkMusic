@@ -1,6 +1,7 @@
 package com.darkmusic.smoke;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.audio.AudioFormats;
 import com.darkmusic.client.config.*;
 import com.darkmusic.client.gui.*;
 import com.darkmusic.client.text.Text;
@@ -98,7 +99,7 @@ final class ResetSmokeClient {
                     }
                     // The private collection is Opus; copies keep the real extension and play through the managed ffmpeg.
                     try (var files = Files.list(Path.of(System.getProperty("darkmusic.music")))) {
-                        source = files.filter(com.darkmusic.client.audio.AudioFormats::candidate).sorted().findFirst().orElseThrow();
+                        source = files.filter(AudioFormats::candidate).sorted().findFirst().orElseThrow();
                     }
                     Path managed = Path.of(System.getProperty("darkmusic.downloadTools"));
                     String ext = System.getProperty("os.name").startsWith("Windows") ? ".exe" : "";

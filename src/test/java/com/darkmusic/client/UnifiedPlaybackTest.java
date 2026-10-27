@@ -2,6 +2,7 @@ package com.darkmusic.client;
 
 import com.darkmusic.client.audio.*;
 import com.darkmusic.client.config.*;
+import com.darkmusic.client.library.MetadataReader;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -87,7 +88,7 @@ class UnifiedPlaybackTest {
             controller.configure(a, e);
             backend.diagnostics().panels(AudioDiagnostics.ALL);
             var file = TestMusic.featured();
-            var track = new com.darkmusic.client.library.MetadataReader().read("live", file.getFileName().toString(), file, java.nio.file.Files.size(file), 0);
+            var track = new MetadataReader().read("live", file.getFileName().toString(), file, java.nio.file.Files.size(file), 0);
             controller.play(java.util.List.of(track), track);
             StorageTest.await(() -> counts[0].sum() > 4000);
             assertEquals(0, error[0].sum() / counts[0].sum(), 1e-7);

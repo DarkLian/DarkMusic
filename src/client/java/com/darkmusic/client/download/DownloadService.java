@@ -1,5 +1,10 @@
 package com.darkmusic.client.download;
 
+import com.darkmusic.client.cleanup.LibrarySourceIndex;
+import com.darkmusic.client.library.SourceLinks;
+import com.darkmusic.client.library.Track;
+import com.darkmusic.client.lyrics.CaptionUrls;
+import com.darkmusic.client.lyrics.LyricsDocument;
 import com.darkmusic.client.text.Text;
 
 import java.io.IOException;
@@ -45,17 +50,17 @@ public final class DownloadService implements AutoCloseable {
     private ProcessRunner.Token analysisToken = new ProcessRunner.Token();
     private Tools settings = new Tools("", "", "", "");
     private DownloadEncoding.Format format = DownloadEncoding.Format.ORIGINAL;
-    private volatile com.darkmusic.client.cleanup.LibrarySourceIndex awareness;
+    private volatile LibrarySourceIndex awareness;
 
     public record DuplicateChoice(long id, List<Entry> entries, Path destination, Tools tools,
                                   DownloadEncoding.Format format,
-                                  java.util.Map<String, List<com.darkmusic.client.cleanup.LibrarySourceIndex.Existing>> matches) {
+                                  java.util.Map<String, List<LibrarySourceIndex.Existing>> matches) {
     }
 
     private DuplicateChoice duplicateChoice;
     private long choiceIds;
 
-    public void awareness(com.darkmusic.client.cleanup.LibrarySourceIndex value) {
+    public void awareness(LibrarySourceIndex value) {
         awareness = value;
     }
 
@@ -118,24 +123,24 @@ public final class DownloadService implements AutoCloseable {
     /**
      * Explicit lyric lookup for existing music, using configured tools without installing anything.
      */
-    public com.darkmusic.client.lyrics.LyricsDocument fetchLyrics(com.darkmusic.client.library.Track track, String preferences, boolean generated, ProcessRunner.Token token) throws Exception {
-        String link = com.darkmusic.client.lyrics.CaptionUrls.automatic(com.darkmusic.client.library.SourceLinks.read(track.file()));
+    public LyricsDocument fetchLyrics(Track track, String preferences, boolean generated, ProcessRunner.Token token) throws Exception {
+        String link = CaptionUrls.automatic(SourceLinks.read(track.file()));
         return fetchLyrics(track, link, preferences, generated, token);
     }
 
-    public com.darkmusic.client.lyrics.LyricsDocument fetchSourceLyrics(com.darkmusic.client.library.Track track, String preferences, boolean generated, ProcessRunner.Token token) throws Exception {
-        String source = com.darkmusic.client.library.SourceLinks.resolve(track.file());
-        String canonical = com.darkmusic.client.lyrics.CaptionUrls.automatic(source);
+    public LyricsDocument fetchSourceLyrics(Track track, String preferences, boolean generated, ProcessRunner.Token token) throws Exception {
+        String source = SourceLinks.resolve(track.file());
+        String canonical = CaptionUrls.automatic(source);
         if (!source.isBlank() && canonical.isBlank())
             throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.UNSUPPORTED_URL, DownloadDiagnostics.Stage.OPTIONAL,
                 DownloadDiagnostics.Tool.YT_DLP, null, "", null);
         return fetchLyrics(track, canonical, preferences, generated, token);
     }
 
-    private com.darkmusic.client.lyrics.LyricsDocument fetchLyrics(com.darkmusic.client.library.Track track, String link, String preferences, boolean generated, ProcessRunner.Token token) throws Exception {
+    private LyricsDocument fetchLyrics(Track track, String link, String preferences, boolean generated, ProcessRunner.Token token) throws Exception {
         if (link.isBlank()) return null;
         try {
-            link = com.darkmusic.client.lyrics.CaptionUrls.publicUrl(link);
+            link = CaptionUrls.publicUrl(link);
         } catch (java.net.UnknownHostException network) {
             throw network;
         } catch (java.io.IOException rejected) {
@@ -386,7 +391,7 @@ public final class DownloadService implements AutoCloseable {
                 throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Stage.ANALYSIS, DownloadDiagnostics.Tool.YT_DLP, result.exit(), result.output()).versions(verified.versions());
             Preview one = DownloadJson.preview(link, 1, DownloadJson.object(result.output()));
             if (one.entries().isEmpty())
-                throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.no_video_was_found_at_this_url"));
+                throw new IOException(Text.get("text.darkmusic.no_video_was_found_at_this_url"));
             token.check();
             add(List.of(one.entries().getFirst()), destination, selected, token);
         });
@@ -406,7 +411,7 @@ public final class DownloadService implements AutoCloseable {
                 int from = (int) position;
                 Preview page = inspect(expected.url(), from, (int) Math.min(last, position + PAGE_SIZE - 1), chain, token, DownloadDiagnostics.Stage.COLLECTION);
                 if (!page.collection())
-                    throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.this_url_is_not_a_supported_collection_choose_this_video_only"));
+                    throw new IOException(Text.get("text.darkmusic.this_url_is_not_a_supported_collection_choose_this_video_only"));
                 entries.addAll(page.entries());
                 if (page.entries().isEmpty() || !page.hasMore()) break;
             }
@@ -435,7 +440,7 @@ public final class DownloadService implements AutoCloseable {
             requested = format;
         }
         if (index != null) {
-            var found = new java.util.LinkedHashMap<String, List<com.darkmusic.client.cleanup.LibrarySourceIndex.Existing>>();
+            var found = new java.util.LinkedHashMap<String, List<LibrarySourceIndex.Existing>>();
             for (Entry entry : entries) {
                 token.check();
                 var matches = index.verified(entry);
@@ -457,7 +462,7 @@ public final class DownloadService implements AutoCloseable {
         token.check();
         if (closed || token != analysisToken) throw new CancellationException();
         if (entries.isEmpty())
-            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.there_are_no_entries_in_that_selection"));
+            throw new IOException(Text.get("text.darkmusic.there_are_no_entries_in_that_selection"));
         if (entries.size() > MAX_BATCH || work.size() + entries.size() > MAX_BATCH)
             throw new IOException(Text.get("download.queue_capacity", MAX_BATCH));
         Path target = destination.toAbsolutePath().normalize();

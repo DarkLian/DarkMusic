@@ -271,7 +271,7 @@ public final class AudioProcessor {
     }
 
     public double truePeak() {
-        return !settings.neutral && settings.limiter && settings.enhancements.protection == com.darkmusic.client.config.AudioEnhancements.Protection.TRUE_PEAK ? estimatedPeak : Double.NaN;
+        return !settings.neutral && settings.limiter && settings.enhancements.protection == AudioEnhancements.Protection.TRUE_PEAK ? estimatedPeak : Double.NaN;
     }
 
     public int latencyFrames() {

@@ -1,5 +1,9 @@
 package com.darkmusic.client.library;
 
+import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.lyrics.LyricsDocument;
+import com.darkmusic.client.lyrics.LyricsLookup;
+import com.darkmusic.client.lyrics.LyricsProvider;
 import com.darkmusic.client.testing.Await;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -23,17 +27,17 @@ class PartialRootScopeTest {
         Path missing = root.resolve("gone.dat");
         var gone = new Track("r", "gone.dat", missing, "Gone", "", "", 0, 0, 0, "");
         Path prefs = temp.resolve("preferences");
-        var provider = new com.darkmusic.client.lyrics.LyricsProvider() {
+        var provider = new LyricsProvider() {
             public String id() {
                 return "offline";
             }
 
-            public List<Candidate> search(Query q, com.darkmusic.client.download.ProcessRunner.Token token) {
+            public List<Candidate> search(Query q, ProcessRunner.Token token) {
                 return List.of();
             }
         };
-        var document = com.darkmusic.client.lyrics.LyricsDocument.of("import", "1", "Song", "Artist", "", 180, "ja", com.darkmusic.client.lyrics.LyricsDocument.Variant.ORIGINAL, false, false, "[00:01]Retained");
-        try (var lyrics = new com.darkmusic.client.lyrics.LyricsLookup(prefs, provider)) {
+        var document = LyricsDocument.of("import", "1", "Song", "Artist", "", 180, "ja", LyricsDocument.Variant.ORIGINAL, false, false, "[00:01]Retained");
+        try (var lyrics = new LyricsLookup(prefs, provider)) {
             lyrics.select(kept, document).get(5, java.util.concurrent.TimeUnit.SECONDS);
             lyrics.offset(kept, 650).get(5, java.util.concurrent.TimeUnit.SECONDS);
             lyrics.language(kept, "ja").get(5, java.util.concurrent.TimeUnit.SECONDS);
@@ -42,7 +46,7 @@ class PartialRootScopeTest {
         }
         try (var library = new MusicLibrary(temp.resolve("no-index-data"), p -> {
         }, 2000, p -> !p.equals(denied));
-             var lyrics = new com.darkmusic.client.lyrics.LyricsLookup(prefs, provider)) {
+             var lyrics = new LyricsLookup(prefs, provider)) {
             library.setRoot(root, "r");
             Await.until(Duration.ofSeconds(5), () -> !library.snapshot().scanning(), "No-index scan completes");
             var scan = library.snapshot();

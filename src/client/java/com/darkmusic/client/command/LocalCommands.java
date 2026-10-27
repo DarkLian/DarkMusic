@@ -1,6 +1,7 @@
 package com.darkmusic.client.command;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.text.Text;
 import com.mojang.brigadier.CommandDispatcher;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -73,11 +74,11 @@ public final class LocalCommands {
                 })));
     }
 
-    public static String lyricsProblem(boolean ready, boolean enabled, com.darkmusic.client.audio.AudioBackend.State state) {
+    public static String lyricsProblem(boolean ready, boolean enabled, AudioBackend.State state) {
         if (!ready) return "command.darkmusic.unavailable";
         if (!enabled) return "lyrics.darkmusic.disabled";
-        if (state == null || state.track() == null || state.status() == com.darkmusic.client.audio.AudioBackend.Status.STOPPED
-            || state.status() == com.darkmusic.client.audio.AudioBackend.Status.ERROR) return "upnext.idle";
+        if (state == null || state.track() == null || state.status() == AudioBackend.Status.STOPPED
+            || state.status() == AudioBackend.Status.ERROR) return "upnext.idle";
         return "";
     }
 

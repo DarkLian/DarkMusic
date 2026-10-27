@@ -1,6 +1,7 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.audio.PlaybackController;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -49,7 +50,7 @@ public final class SongActionsScreen extends AudioPage {
         feedbackTone = accepted ? UiStatus.Tone.SUCCESS : UiStatus.Tone.WARNING;
         if (accepted)
             feedback = Text.get(first ? "upnext.added_next" : "upnext.added", track.title());
-        else feedback = Text.get("upnext.full", com.darkmusic.client.audio.PlaybackController.QUEUE_LIMIT);
+        else feedback = Text.get("upnext.full", PlaybackController.QUEUE_LIMIT);
     }
 
     @Override

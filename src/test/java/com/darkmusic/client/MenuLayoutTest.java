@@ -1,8 +1,11 @@
 package com.darkmusic.client;
 
 import com.darkmusic.client.gui.PlayerLayout;
+import com.darkmusic.client.gui.RowList;
 import com.darkmusic.client.gui.UiButton;
+import com.darkmusic.client.gui.UiIcon;
 import com.darkmusic.client.gui.UiInput;
+import com.darkmusic.client.library.ArtworkCache;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -47,12 +50,12 @@ class MenuLayoutTest {
 
     @Test
     void collectionDescriptionsOmitEmptyLinesAndNarrationSeparators() {
-        var collection = new com.darkmusic.client.gui.RowList.Row("All Tracks (30)", "");
+        var collection = new RowList.Row("All Tracks (30)", "");
         assertEquals("All Tracks (30)", collection.text("\n"));
         assertEquals("All Tracks (30)", collection.text(", "));
-        var detailOnly = new com.darkmusic.client.gui.RowList.Row("Favorite Music", "  ", "30 tracks");
+        var detailOnly = new RowList.Row("Favorite Music", "  ", "30 tracks");
         assertEquals("Favorite Music\n30 tracks", detailOnly.text("\n"));
-        var full = new com.darkmusic.client.gui.RowList.Row("Title", "Artist", "Album");
+        var full = new RowList.Row("Title", "Artist", "Album");
         assertEquals("Title\nArtist\nAlbum", full.text("\n"));
     }
 
@@ -88,10 +91,10 @@ class MenuLayoutTest {
 
     @Test
     void artworkFitRecordsOnlyGeneratedGuttersWithoutCroppingOrUpscalingSource() {
-        assertEquals(new com.darkmusic.client.library.ArtworkCache.Fit(1024, 1024, 576), com.darkmusic.client.library.ArtworkCache.fit(1024, 576));
-        assertEquals(new com.darkmusic.client.library.ArtworkCache.Fit(960, 640, 960), com.darkmusic.client.library.ArtworkCache.fit(640, 960));
-        assertEquals(new com.darkmusic.client.library.ArtworkCache.Fit(1024, 1024, 512), com.darkmusic.client.library.ArtworkCache.fit(4096, 2048));
-        assertEquals(new com.darkmusic.client.library.ArtworkCache.Fit(32, 32, 32), com.darkmusic.client.library.ArtworkCache.fit(32, 32));
+        assertEquals(new ArtworkCache.Fit(1024, 1024, 576), ArtworkCache.fit(1024, 576));
+        assertEquals(new ArtworkCache.Fit(960, 640, 960), ArtworkCache.fit(640, 960));
+        assertEquals(new ArtworkCache.Fit(1024, 1024, 512), ArtworkCache.fit(4096, 2048));
+        assertEquals(new ArtworkCache.Fit(32, 32, 32), ArtworkCache.fit(32, 32));
     }
 
     @Test
@@ -101,19 +104,19 @@ class MenuLayoutTest {
             assertNotNull(entry, "The shared icon atlas must ship in the client JAR");
             try (var input = jar.getInputStream(entry)) {
                 var atlas = javax.imageio.ImageIO.read(input);
-                assertEquals(com.darkmusic.client.gui.UiIcon.values().length * com.darkmusic.client.gui.UiIcon.CELL, atlas.getWidth());
-                assertEquals(com.darkmusic.client.gui.UiIcon.CELL, atlas.getHeight());
-                for (var icon : com.darkmusic.client.gui.UiIcon.values()) {
+                assertEquals(UiIcon.values().length * UiIcon.CELL, atlas.getWidth());
+                assertEquals(UiIcon.CELL, atlas.getHeight());
+                for (var icon : UiIcon.values()) {
                     boolean visible = false;
-                    for (int y = 0; y < com.darkmusic.client.gui.UiIcon.CELL; y++)
-                        for (int x = 0; x < com.darkmusic.client.gui.UiIcon.CELL; x++)
-                            visible |= (atlas.getRGB(icon.ordinal() * com.darkmusic.client.gui.UiIcon.CELL + x, y) >>> 24) != 0;
+                    for (int y = 0; y < UiIcon.CELL; y++)
+                        for (int x = 0; x < UiIcon.CELL; x++)
+                            visible |= (atlas.getRGB(icon.ordinal() * UiIcon.CELL + x, y) >>> 24) != 0;
                     assertTrue(visible, icon + " must have a visible, font-independent sprite");
-                    for (int p = 0; p < com.darkmusic.client.gui.UiIcon.CELL; p++) {
-                        int left = icon.ordinal() * com.darkmusic.client.gui.UiIcon.CELL;
-                        int right = left + com.darkmusic.client.gui.UiIcon.CELL - 1;
+                    for (int p = 0; p < UiIcon.CELL; p++) {
+                        int left = icon.ordinal() * UiIcon.CELL;
+                        int right = left + UiIcon.CELL - 1;
                         assertEquals(0, atlas.getRGB(left + p, 0) >>> 24, "Top atlas gutter");
-                        assertEquals(0, atlas.getRGB(left + p, com.darkmusic.client.gui.UiIcon.CELL - 1) >>> 24, "Bottom atlas gutter");
+                        assertEquals(0, atlas.getRGB(left + p, UiIcon.CELL - 1) >>> 24, "Bottom atlas gutter");
                         assertEquals(0, atlas.getRGB(left, p) >>> 24, "Left atlas gutter");
                         assertEquals(0, atlas.getRGB(right, p) >>> 24, "Right atlas gutter");
                     }

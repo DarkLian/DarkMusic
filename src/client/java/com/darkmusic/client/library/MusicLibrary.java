@@ -1,5 +1,6 @@
 package com.darkmusic.client.library;
 
+import com.darkmusic.client.audio.AudioFormats;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.text.Text;
 
@@ -82,10 +83,10 @@ public final class MusicLibrary implements AutoCloseable {
     public static boolean supported(Path file) {
         String n = file.getFileName().toString().toLowerCase(Locale.ROOT);
         if (n.matches(".*\\.(heic|heif|avif|mov|mkv)$")) return false;
-        if (com.darkmusic.client.audio.AudioFormats.candidate(file)) return true;
+        if (AudioFormats.candidate(file)) return true;
         if (n.startsWith(".") || !Files.isRegularFile(file)) return false;
         try {
-            return com.darkmusic.client.audio.AudioFormats.detect(file) != com.darkmusic.client.audio.AudioFormats.Container.UNKNOWN;
+            return AudioFormats.detect(file) != AudioFormats.Container.UNKNOWN;
         } catch (IOException ignored) {
             return false;
         }

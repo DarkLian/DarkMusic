@@ -1,8 +1,13 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.audio.AudioComparison;
+import com.darkmusic.client.audio.AudioProcessor;
+import com.darkmusic.client.audio.LoudnessCache;
+import com.darkmusic.client.config.AudioEnhancements;
 import com.darkmusic.client.config.AudioSettings;
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.config.PresetNames;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -125,7 +130,7 @@ public final class AudioSettingsScreen extends LocalScreen {
         var a = app.settings.audio;
         section("audio.darkmusic.section_playback");
         row("device.title", null, () -> show(new OutputDeviceScreen(app, this)), "device.help");
-        row("analyzer.title", null, () -> show(new AudioAnalyzerScreen(app, this, com.darkmusic.client.audio.AudioComparison.Mode.AUDIO_OPTIONS)), "analyzer.help");
+        row("analyzer.title", null, () -> show(new AudioAnalyzerScreen(app, this, AudioComparison.Mode.AUDIO_OPTIONS)), "analyzer.help");
         row("dsp.advanced", null, () -> show(new AudioAdvancedScreen(app, this)), "dsp.advanced.help");
         toggle("audio.darkmusic.neutral", () -> a.neutral, v -> a.neutral = v, "audio.darkmusic.neutral_help");
         // The Neutral note explains the toggle above it; otherwise the hint introduces the Profile row below.
@@ -165,8 +170,8 @@ public final class AudioSettingsScreen extends LocalScreen {
             } catch (IllegalArgumentException ignored) {
             }
             choice("audio.darkmusic.eq_preset", preset, AudioSettings.Equalizer.values(), a::equalizer, "audio.darkmusic.eq_preset_help");
-            if (a.enhancements.eqMode == com.darkmusic.client.config.AudioEnhancements.EqMode.GRAPHIC) {
-                var graph = new EqualizerGraph(formX, 0, formWidth, com.darkmusic.client.audio.AudioProcessor.FREQUENCIES,
+            if (a.enhancements.eqMode == AudioEnhancements.EqMode.GRAPHIC) {
+                var graph = new EqualizerGraph(formX, 0, formWidth, AudioProcessor.FREQUENCIES,
                     band -> a.bands[band], (band, db) -> {
                     a.bands[band] = db;
                     a.eqPreset = "CUSTOM";
@@ -210,7 +215,7 @@ public final class AudioSettingsScreen extends LocalScreen {
         row("audio.darkmusic.save_profile", null, () -> show(PresetDialogs.save(this, "audio.darkmusic.save_profile", a.savedProfiles, Integer.MAX_VALUE, 100, (name, replace) -> {
             var copy = ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(a), AudioSettings.class);
             copy.savedProfiles.clear();
-            com.darkmusic.client.config.PresetNames.save(a.savedProfiles, name, ConfigStore.JSON.toJson(copy), Integer.MAX_VALUE, replace, 100);
+            PresetNames.save(a.savedProfiles, name, ConfigStore.JSON.toJson(copy), Integer.MAX_VALUE, replace, 100);
             notice = Text.get("preset.saved");
             app.save();
         })), "audio.darkmusic.save_profile_help").runs();
@@ -228,7 +233,7 @@ public final class AudioSettingsScreen extends LocalScreen {
             }, "audio.darkmusic.load_profile_help").runs();
             rows.getLast().setMessage(Component.literal(Text.get("audio.darkmusic.load_profile") + ": " + name));
             row("preset.rename", null, () -> show(TextPromptScreen.validated(this, Text.get("preset.rename"), name, 256, renamed -> {
-                com.darkmusic.client.config.PresetNames.rename(a.savedProfiles, name, renamed, 100);
+                PresetNames.rename(a.savedProfiles, name, renamed, 100);
                 notice = Text.get("preset.renamed");
                 app.save();
                 return true;
@@ -332,7 +337,7 @@ public final class AudioSettingsScreen extends LocalScreen {
         }
         if (normalizationY >= 0) {
             String label = LoudnessStatusText.describe(app.playback.normalization());
-            longText.draw(g, font, "normalization", label, formX + 4, 40 + normalizationY - scroll, formWidth - 8, UiStatus.color(app.playback.normalization().state() == com.darkmusic.client.audio.LoudnessCache.State.FAILED ? UiStatus.Tone.ERROR : app.playback.normalization().peakLimited() ? UiStatus.Tone.WARNING : UiStatus.Tone.INFO));
+            longText.draw(g, font, "normalization", label, formX + 4, 40 + normalizationY - scroll, formWidth - 8, UiStatus.color(app.playback.normalization().state() == LoudnessCache.State.FAILED ? UiStatus.Tone.ERROR : app.playback.normalization().peakLimited() ? UiStatus.Tone.WARNING : UiStatus.Tone.INFO));
         }
         // Panels clipped by the viewport fade out instead of ending at a hard cut.
         UiTheme.edgeFades(g, formX - 2, 36, formWidth + 4, height - 48, scroll > 0, scroll < cursor - (height - 48), UiTheme.BACKGROUND);

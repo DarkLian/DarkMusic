@@ -1,6 +1,8 @@
 package com.darkmusic.client.library;
 
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.playlist.PlaylistStore;
+import com.darkmusic.client.text.Text;
 import com.google.gson.reflect.TypeToken;
 
 import java.nio.file.*;
@@ -103,7 +105,7 @@ public final class ListeningHistory {
             }
             org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Cannot load listening history", e);
             // Preserve unreadable data until an explicit clear or import replaces it.
-            warning.accept(com.darkmusic.client.text.Text.get("history.load_failed"));
+            warning.accept(Text.get("history.load_failed"));
         }
     }
 
@@ -113,7 +115,7 @@ public final class ListeningHistory {
             int colon = key.indexOf(':');
             if (colon <= 0 || colon == key.length() - 1 || e == null || e.plays < 0 || e.lastPlayed < 0 || !Double.isFinite(e.seconds) || e.seconds < 0)
                 throw new IllegalArgumentException("Invalid listening entry");
-            new com.darkmusic.client.playlist.PlaylistStore.Entry(key.substring(0, colon), key.substring(colon + 1));
+            new PlaylistStore.Entry(key.substring(0, colon), key.substring(colon + 1));
         });
     }
 
@@ -207,7 +209,7 @@ public final class ListeningHistory {
                     if (notify) lastWriteWarning = failedAt;
                 }
                 org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Cannot save listening history", e);
-                if (notify) warning.accept(com.darkmusic.client.text.Text.get("history.save_failed"));
+                if (notify) warning.accept(Text.get("history.save_failed"));
             }
         });
     }

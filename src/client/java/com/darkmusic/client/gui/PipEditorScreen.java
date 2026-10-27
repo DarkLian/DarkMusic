@@ -1,6 +1,7 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.pip.PipPreview;
 import com.darkmusic.client.pip.PipSettings;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -10,7 +11,7 @@ import net.minecraft.client.input.*;
 /**
  * Placement preserves source aspect ratio. Cropping changes UV coordinates, never the source window.
  */
-public final class PipEditorScreen extends LocalScreen implements com.darkmusic.client.pip.PipPreview {
+public final class PipEditorScreen extends LocalScreen implements PipPreview {
     private final DarkMusicClient app;
     private final boolean crop;
     private boolean dragging, resizing;

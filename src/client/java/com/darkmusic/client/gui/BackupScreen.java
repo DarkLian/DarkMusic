@@ -2,6 +2,8 @@ package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.BackupArchive;
+import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
@@ -89,7 +91,7 @@ public final class BackupScreen extends AudioPage {
     private CompletableFuture<BackupArchive.Restore> prepare() {
         var input = data;
         var selected = new BackupArchive.Selection(settings, playlists, shortcuts, history, replace, remap);
-        var current = com.darkmusic.client.config.ConfigStore.JSON.fromJson(com.darkmusic.client.config.ConfigStore.JSON.toJson(app.settings), com.darkmusic.client.config.Settings.class);
+        var current = ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(app.settings), Settings.class);
         current.nativeShortcutNames = app.settings.nativeShortcutNames;
         var root = app.library.rootId();
         var tracks = app.library.snapshot().tracks();

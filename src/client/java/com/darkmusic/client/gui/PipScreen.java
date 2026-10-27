@@ -1,16 +1,20 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.pip.PipAudio;
+import com.darkmusic.client.pip.PipController;
 import com.darkmusic.client.pip.PipNativeTools;
+import com.darkmusic.client.pip.PipPreview;
+import com.darkmusic.client.pip.PipSettings;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
 /**
  * Uses the existing scrollable settings rows at both wide and compact scales.
  */
-public final class PipScreen extends AudioPage implements com.darkmusic.client.pip.PipPreview {
+public final class PipScreen extends AudioPage implements PipPreview {
     private boolean shownActive;
-    private com.darkmusic.client.pip.PipAudio shownAudio;
+    private PipAudio shownAudio;
     private String shownSetup = "";
     private boolean shownBusy, shownReady, shownEnabled;
 
@@ -65,7 +69,7 @@ public final class PipScreen extends AudioPage implements com.darkmusic.client.p
             return;
         }
         status(() -> Text.get("pip.platform_notice"), () -> UiStatus.Tone.INFO);
-        if (com.darkmusic.client.pip.PipController.exclusiveFullscreen())
+        if (PipController.exclusiveFullscreen())
             status(() -> Text.get("pip.exclusive_warning"), () -> UiStatus.Tone.WARNING);
         labeledAction(Text.get("pip.choose"), Text.get("pip.choose.help"), () -> show(new PipSourcesScreen(app, this)));
         labeledAction(Text.get(pip.active() ? "pip.stop" : "pip.start"), Text.get("pip.start.help"), () -> {
@@ -98,7 +102,7 @@ public final class PipScreen extends AudioPage implements com.darkmusic.client.p
         int monitorRate = pip.monitorRefreshRate();
         info(() -> monitorRate > 0 ? Text.get("pip.monitor_rate", monitorRate) : Text.get("pip.monitor_unknown"));
         labeledAction(s.frameRate == 0 ? Text.get("pip.fps.monitor", s.effectiveFrameRate(monitorRate)) : Text.get("pip.fps", s.frameRate), Text.get("pip.fps.help"), () -> {
-            int[] caps = com.darkmusic.client.pip.PipSettings.frameRateOptions(pip.monitorRefreshRate());
+            int[] caps = PipSettings.frameRateOptions(pip.monitorRefreshRate());
             int next = 0;
             while (next < caps.length && caps[next] <= s.frameRate) next++;
             s.frameRate = caps[next % caps.length];
@@ -130,7 +134,7 @@ public final class PipScreen extends AudioPage implements com.darkmusic.client.p
         int key = focus ? s.focusKey : s.returnKey;
         do {
             key = key >= 135 ? 112 : key + 1;
-        } while (!com.darkmusic.client.pip.PipSettings.validKey(key) || key == (focus ? s.returnKey : s.focusKey));
+        } while (!PipSettings.validKey(key) || key == (focus ? s.returnKey : s.focusKey));
         if (focus) s.focusKey = key;
         else s.returnKey = key;
         changed();

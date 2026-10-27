@@ -1,6 +1,9 @@
 package com.darkmusic.client.lyrics;
 
+import com.darkmusic.client.audio.AudioFormats;
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.download.DownloadLyrics;
+import com.darkmusic.client.text.Text;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -25,7 +28,7 @@ public final class LyricsFiles {
     }
 
     public static List<Path> companions(Path audio) {
-        Path lrc = com.darkmusic.client.download.DownloadLyrics.sidecar(audio);
+        Path lrc = DownloadLyrics.sidecar(audio);
         return List.of(lrc, lrc.resolveSibling(lrc.getFileName() + ".darkmusic.json"), lrc.resolveSibling(lrc.getFileName() + ".darkmusic-backup"));
     }
 
@@ -33,7 +36,7 @@ public final class LyricsFiles {
         var owners = new HashMap<Path, Set<Path>>();
         try (var entries = Files.newDirectoryStream(directory)) {
             for (Path file : entries) {
-                if (!com.darkmusic.client.audio.AudioFormats.candidate(file) || !Files.exists(file, LinkOption.NOFOLLOW_LINKS))
+                if (!AudioFormats.candidate(file) || !Files.exists(file, LinkOption.NOFOLLOW_LINKS))
                     continue;
                 Path audio = file.toAbsolutePath().normalize();
                 owners.computeIfAbsent(companions(audio).getFirst(), ignored -> new HashSet<>()).add(audio);
@@ -182,7 +185,7 @@ public final class LyricsFiles {
                 if (prior != null && prior.length > LIMIT) throw new IOException("Oversized lyric recovery data");
                 String current = hash(read(path));
                 if (!data.committed && !Objects.equals(current, hash(prior)) && !Objects.equals(current, change.afterHash))
-                    throw new IOException(com.darkmusic.client.text.Text.get("lyrics.recovery.conflict", pending));
+                    throw new IOException(Text.get("lyrics.recovery.conflict", pending));
             }
             if (!data.committed) for (Change change : data.changes) {
                 Path path = pending.resolveSibling(change.name);

@@ -1,7 +1,9 @@
 package com.darkmusic.client.pip;
 
-import org.junit.jupiter.api.Test;
+import com.darkmusic.client.download.ManagedTools;
+import com.darkmusic.client.download.ProcessRunner;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.*;
@@ -33,7 +35,7 @@ class PipRuntimeTest {
                 if (bytes.length > max) throw new IOException("Oversized published PiP resource");
                 return bytes;
             }
-        }, com.darkmusic.client.download.ManagedTools::download, null, PipRuntime::graphics)) {
+        }, ManagedTools::download, null, PipRuntime::graphics)) {
             runtime.check().get(30, TimeUnit.SECONDS);
             assertTrue(runtime.compatible(), runtime.status());
             assertFalse(runtime.ready());
@@ -132,7 +134,7 @@ class PipRuntimeTest {
             assertFalse(runtime.ready());
             assertEquals("pip.bundle_damaged", runtime.status());
         }
-        var request = new com.darkmusic.client.download.ProcessRunner.Token();
+        var request = new ProcessRunner.Token();
         request.cancel();
         assertThrows(Exception.class, () -> transfer.fetch(java.net.URI.create("https://example.invalid"), temp.resolve("cancelled"), deps.length, request, n -> {
         }));

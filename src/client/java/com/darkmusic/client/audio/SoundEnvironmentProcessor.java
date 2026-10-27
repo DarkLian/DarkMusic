@@ -1,5 +1,6 @@
 package com.darkmusic.client.audio;
 
+import com.darkmusic.client.config.AudioEnhancements;
 import com.darkmusic.client.config.AudioEnhancements.Type;
 import com.darkmusic.client.config.SoundEnvironmentSettings;
 import com.darkmusic.client.config.SoundEnvironmentSettings.Parameters;
@@ -78,7 +79,7 @@ public final class SoundEnvironmentProcessor {
 
     public int convolutionState() {
         if (!requested.active() || !requested.parameters.acoustic || requested.parameters.wet == 0
-            || requested.parameters.reverbEngine != com.darkmusic.client.config.AudioEnhancements.ReverbEngine.CONVOLUTION)
+            || requested.parameters.reverbEngine != AudioEnhancements.ReverbEngine.CONVOLUTION)
             return 0;
         if (!ready || applied == null) return 1;
         var e = engines[transitioning ? 1 - current : current];
@@ -190,7 +191,7 @@ public final class SoundEnvironmentProcessor {
             room.configure(p, snap);
             echoFrames = Math.max(1, (int) (rate * p.echoTime));
             if (snap || convolution == null) {
-                convolution = p.acoustic && p.wet > 0 && p.reverbEngine == com.darkmusic.client.config.AudioEnhancements.ReverbEngine.CONVOLUTION
+                convolution = p.acoustic && p.wet > 0 && p.reverbEngine == AudioEnhancements.ReverbEngine.CONVOLUTION
                     ? new ConvolutionReverb(rate, ConvolutionReverb.Impulse.valueOf(p.impulse.name())) : null;
                 convolutionReady = false;
             }

@@ -1,6 +1,7 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.download.DownloadModels;
+import com.darkmusic.client.lyrics.LyricsInfo;
 import com.darkmusic.client.lyrics.LyricsLookup;
 
 /**
@@ -48,14 +49,14 @@ public final class UiStatus {
         };
     }
 
-    public static int lyricsColor(com.darkmusic.client.lyrics.LyricsInfo info) {
+    public static int lyricsColor(LyricsInfo info) {
         // A confirmed absence (none found, or instrumental) is information, not a problem.
         if (LyricsStatusIcon.kind(info) == LyricsStatusIcon.Kind.NONE || LyricsStatusIcon.kind(info) == LyricsStatusIcon.Kind.INSTRUMENTAL)
             return UiTheme.SECONDARY;
-        var tone = info.state() == com.darkmusic.client.lyrics.LyricsInfo.State.AVAILABLE ? Tone.SUCCESS
-            : info.evidence() == com.darkmusic.client.lyrics.LyricsInfo.Evidence.FAILED
+        var tone = info.state() == LyricsInfo.State.AVAILABLE ? Tone.SUCCESS
+            : info.evidence() == LyricsInfo.Evidence.FAILED
             ? ("lyrics.status.rate_limited".equals(info.lookupKey()) ? Tone.WARNING : Tone.ERROR)
-            : info.evidence() == com.darkmusic.client.lyrics.LyricsInfo.Evidence.LOOKUP ? Tone.INFO : Tone.WARNING;
+            : info.evidence() == LyricsInfo.Evidence.LOOKUP ? Tone.INFO : Tone.WARNING;
         return color(tone);
     }
 

@@ -1,6 +1,7 @@
 package com.darkmusic.client.lyrics;
 
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.download.ProcessRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -20,7 +21,7 @@ class CacheTrimIdentityTest {
                 return "offline";
             }
 
-            public List<Candidate> search(Query q, com.darkmusic.client.download.ProcessRunner.Token t) {
+            public List<Candidate> search(Query q, ProcessRunner.Token t) {
                 return List.of();
             }
         };

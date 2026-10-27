@@ -1,5 +1,6 @@
 package com.darkmusic.client.update;
 
+import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.hud.HudLayout;
 import org.junit.jupiter.api.Test;
@@ -90,7 +91,7 @@ class UpdateTest {
 
     @Test
     void oldSettingsRetainPreferencesWhileNewOptionsReceiveDefaults() {
-        var old = com.darkmusic.client.config.ConfigStore.JSON.fromJson("{\"volume\":0.35,\"hudScale\":1.6,\"hudStyle\":\"ARTWORK\",\"musicDirectory\":\"custom-library\",\"lyricsEnabled\":true}", Settings.class);
+        var old = ConfigStore.JSON.fromJson("{\"volume\":0.35,\"hudScale\":1.6,\"hudStyle\":\"ARTWORK\",\"musicDirectory\":\"custom-library\",\"lyricsEnabled\":true}", Settings.class);
         old.validate();
         assertTrue(old.updateNotifications);
         assertEquals(.35, old.volume);
@@ -99,7 +100,7 @@ class UpdateTest {
         assertEquals("custom-library", old.musicDirectory);
         assertTrue(old.lyricsEnabled);
         old.updateNotifications = false;
-        var roundTrip = com.darkmusic.client.config.ConfigStore.JSON.fromJson(com.darkmusic.client.config.ConfigStore.JSON.toJson(old), Settings.class);
+        var roundTrip = ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(old), Settings.class);
         roundTrip.validate();
         assertFalse(roundTrip.updateNotifications);
         assertEquals(.35, roundTrip.volume);

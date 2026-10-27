@@ -3,6 +3,7 @@ package com.darkmusic.client.audio;
 import com.darkmusic.client.download.ManagedTools;
 import com.darkmusic.client.download.ProcessRunner;
 import com.darkmusic.client.download.Toolchain;
+import com.darkmusic.client.text.Text;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -52,7 +53,7 @@ public final class ExternalAudio {
     public static Path tool(boolean probe) throws IOException {
         var supplier = configuration;
         if (supplier == null)
-            throw new IOException(com.darkmusic.client.text.Text.get("audio.error.tools"));
+            throw new IOException(Text.get("audio.error.tools"));
         Paths p = supplier.get();
         Path managed = ManagedTools.current(p.data());
         Path directory = managed == null ? p.data().resolve("tools") : managed;
@@ -79,7 +80,7 @@ public final class ExternalAudio {
         var result = new ProcessRunner().run(args, absolute.getParent(), token, Duration.ofSeconds(15), 128_000, s -> {
         });
         if (result.exit() != 0)
-            throw new IOException(com.darkmusic.client.text.Text.get("audio.error.inspection"), new IOException(result.output()));
+            throw new IOException(Text.get("audio.error.inspection"), new IOException(result.output()));
         return JsonParser.parseString(result.output()).getAsJsonObject();
     }
 
@@ -92,11 +93,11 @@ public final class ExternalAudio {
         JsonObject info = probe(file, false);
         var streams = info.getAsJsonArray("streams");
         if (streams == null || streams.isEmpty())
-            throw new IOException(com.darkmusic.client.text.Text.get("audio.error.stream"));
+            throw new IOException(Text.get("audio.error.stream"));
         var audio = streams.get(0).getAsJsonObject();
         int rate = audio.get("sample_rate").getAsInt(), originalChannels = audio.get("channels").getAsInt();
         if (rate < 8000 || rate > 384000 || originalChannels < 1 || originalChannels > 32)
-            throw new IOException(com.darkmusic.client.text.Text.get("audio.error.layout"));
+            throw new IOException(Text.get("audio.error.layout"));
         int channels = Math.min(2, originalChannels);
         var command = new ArrayList<>(List.of(tool(false).toString(), "-nostdin", "-v", "error", "-protocol_whitelist", "file,pipe", "-i", file.toAbsolutePath().toString(), "-map", "0:a:0", "-vn", "-sn", "-dn", "-ac", Integer.toString(channels), "-c:a", "pcm_f32le", "-f", "f32le", "pipe:1"));
         double offset = Math.floor(seconds * rate) / rate;
@@ -147,7 +148,7 @@ public final class ExternalAudio {
                                 if (exited) drain.join(500);
                                 if (!exited || process.exitValue() != 0) {
                                     synchronized (errors) {
-                                        throw new IOException(com.darkmusic.client.text.Text.get("audio.error.decode"), new IOException(errors.toString()));
+                                        throw new IOException(Text.get("audio.error.decode"), new IOException(errors.toString()));
                                     }
                                 }
                             } catch (InterruptedException e) {

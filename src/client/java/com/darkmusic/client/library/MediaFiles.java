@@ -2,7 +2,9 @@ package com.darkmusic.client.library;
 
 import com.darkmusic.client.audio.AudioFormats;
 import com.darkmusic.client.audio.ExternalAudio;
+import com.darkmusic.client.download.DownloadPipeline;
 import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.lyrics.LyricsFiles;
 import com.darkmusic.client.text.Text;
 import org.jaudiotagger.audio.AudioFileIO;
 import org.jaudiotagger.tag.FieldKey;
@@ -63,7 +65,7 @@ public final class MediaFiles {
                         throw new IOException(Text.get("library.darkmusic.not_audio"));
                     int dot = name.lastIndexOf('.');
                     String stem = dot > 0 ? name.substring(0, dot) : name, extension = dot > 0 ? name.substring(dot) : "";
-                    for (int number = 2; Files.exists(target) || com.darkmusic.client.lyrics.LyricsFiles.companions(target).stream().anyMatch(p -> Files.exists(p, LinkOption.NOFOLLOW_LINKS)); number++) {
+                    for (int number = 2; Files.exists(target) || LyricsFiles.companions(target).stream().anyMatch(p -> Files.exists(p, LinkOption.NOFOLLOW_LINKS)); number++) {
                         if (number > 10000) throw new IOException(Text.get("library.darkmusic.name_collision"));
                         target = destination.resolve(stem + " (" + number + ")" + extension);
                     }
@@ -133,9 +135,9 @@ public final class MediaFiles {
         boolean caseAlias = rename && source.getFileName().toString().equalsIgnoreCase(target.getFileName().toString()) && Files.exists(target) && Files.isSameFile(source, target);
         if (rename && Files.exists(target) && !caseAlias)
             throw new IOException(Text.get("library.darkmusic.name_collision"));
-        com.darkmusic.client.lyrics.LyricsFiles.recover(source);
-        var companions = com.darkmusic.client.lyrics.LyricsFiles.companions(source);
-        var nextCompanions = com.darkmusic.client.lyrics.LyricsFiles.companions(target);
+        LyricsFiles.recover(source);
+        var companions = LyricsFiles.companions(source);
+        var nextCompanions = LyricsFiles.companions(target);
         for (int i = 0; rename && i < companions.size(); i++) {
             Path old = companions.get(i), next = nextCompanions.get(i);
             if (Files.isSymbolicLink(old) || Files.isSymbolicLink(next)
@@ -186,7 +188,7 @@ public final class MediaFiles {
             beforeCommit.run();
             try {
                 edit.claim();
-                boolean sharedLyrics = rename && com.darkmusic.client.lyrics.LyricsFiles.shared(source);
+                boolean sharedLyrics = rename && LyricsFiles.shared(source);
                 for (int i = 0; rename && i < companions.size(); i++) {
                     Path old = companions.get(i), next = nextCompanions.get(i);
                     if (!Files.exists(old, LinkOption.NOFOLLOW_LINKS)) continue;
@@ -198,13 +200,13 @@ public final class MediaFiles {
                     movedCompanions.add(i);
                 }
                 if (rename)
-                    com.darkmusic.client.download.DownloadPipeline.renameRecorded(source, target, () -> edit.install(staged));
+                    DownloadPipeline.renameRecorded(source, target, () -> edit.install(staged));
                 else edit.install(staged);
                 try {
                     SourceLinks.renamed(source, target, verifiedSource, edit.installedHash());
                 } catch (IOException provenanceFailure) {
                     if (rename)
-                        com.darkmusic.client.download.DownloadPipeline.renameRecorded(target, source, edit::rollback);
+                        DownloadPipeline.renameRecorded(target, source, edit::rollback);
                     else edit.rollback();
                     throw provenanceFailure;
                 }

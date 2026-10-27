@@ -1,6 +1,8 @@
 package com.darkmusic.client.library;
 
+import com.darkmusic.client.audio.ExternalAudio;
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.text.Text;
 import com.google.gson.*;
 
 import java.nio.file.*;
@@ -72,7 +74,7 @@ public final class SourceLinks implements AutoCloseable {
         String url = read(audio);
         if (url.isEmpty()) url = legacy(audio);
         if (url.isEmpty()) try {
-            var info = com.darkmusic.client.audio.ExternalAudio.probe(audio);
+            var info = ExternalAudio.probe(audio);
             if (info.has("format")) url = tags(info.getAsJsonObject("format"));
             if (url.isEmpty() && info.has("streams")) for (var stream : info.getAsJsonArray("streams")) {
                 url = tags(stream.getAsJsonObject());
@@ -301,7 +303,7 @@ public final class SourceLinks implements AutoCloseable {
                 String identity = o.has("identity") ? o.get("identity").getAsString() : "";
                 var next = binding(target, o.get("url").getAsString(), identity);
                 if (expectedHash != null && !expectedHash.equals(next.get("sha256").getAsString()))
-                    throw new java.io.IOException(com.darkmusic.client.text.Text.get("library.darkmusic.file_changed"));
+                    throw new java.io.IOException(Text.get("library.darkmusic.file_changed"));
                 data.add(target.getFileName().toString(), next);
             } else if (prior.isJsonPrimitive()) data.add(target.getFileName().toString(), prior);
             ConfigStore.atomicWrite(file, ConfigStore.JSON.toJson(data));

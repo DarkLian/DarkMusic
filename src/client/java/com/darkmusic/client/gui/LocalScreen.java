@@ -1,5 +1,7 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -30,7 +32,7 @@ public abstract class LocalScreen extends Screen {
     }
 
     protected final net.minecraft.client.gui.components.Button backButton(int x, int y, int width) {
-        var button = addRenderableWidget(UiButton.builder(com.darkmusic.client.text.Text.component("phase2.back"), b -> onClose())
+        var button = addRenderableWidget(UiButton.builder(Text.component("phase2.back"), b -> onClose())
             .bounds(x, y, width, 20).build());
         UiButton.icon(button, UiIcon.BACK, width < 40);
         return button;
@@ -81,7 +83,7 @@ public abstract class LocalScreen extends Screen {
             else if (child instanceof ScrollBar bar) bar.cancel();
             else if (child instanceof ToolCards cards) cards.setFocused(false);
         }
-        var app = com.darkmusic.client.DarkMusicClient.INSTANCE;
+        var app = DarkMusicClient.INSTANCE;
         if (app != null) app.save();
     }
 

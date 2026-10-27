@@ -1,6 +1,14 @@
 package com.darkmusic.client.lyrics;
 
+import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.download.DownloadDiagnostics;
+import com.darkmusic.client.download.DownloadLyrics;
+import com.darkmusic.client.download.DownloadModels;
+import com.darkmusic.client.download.LyricsLanguages;
 import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.download.Toolchain;
+import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -95,10 +103,10 @@ class MultilingualLyricsTest {
         try (var lookup = new LyricsLookup(temp.resolve("provider-and-source-prefs"), p, now::get)) {
             lookup.configure(true, true);
             lookup.captions((t, languages, generated, token) -> {
-                throw new com.darkmusic.client.download.DownloadDiagnostics.Failure(
-                    com.darkmusic.client.download.DownloadDiagnostics.Category.TOOL_MISSING,
-                    com.darkmusic.client.download.DownloadDiagnostics.Stage.OPTIONAL,
-                    com.darkmusic.client.download.DownloadDiagnostics.Tool.YT_DLP, null, "", null);
+                throw new DownloadDiagnostics.Failure(
+                    DownloadDiagnostics.Category.TOOL_MISSING,
+                    DownloadDiagnostics.Stage.OPTIONAL,
+                    DownloadDiagnostics.Tool.YT_DLP, null, "", null);
             });
             lookup.load(track);
             lookup.automatic(track, false);
@@ -390,11 +398,11 @@ class MultilingualLyricsTest {
 
     @Test
     void defaultAutomationKeepsExplicitlyDisabledPreferencesAndCleansOnlyTitleDecorations() {
-        var defaults = new com.darkmusic.client.config.Settings();
+        var defaults = new Settings();
         assertFalse(defaults.lyricsEnabled);
         assertFalse(defaults.lyricsOnline || defaults.lyricsLibraryLookup);
         assertTrue(defaults.lyricsAutomaticLookup && defaults.lyricsDownloadLookup);
-        var old = com.darkmusic.client.config.ConfigStore.JSON.fromJson("{\"lyricsOnline\":false,\"lyricsAutomaticLookup\":false}", com.darkmusic.client.config.Settings.class);
+        var old = ConfigStore.JSON.fromJson("{\"lyricsOnline\":false,\"lyricsAutomaticLookup\":false}", Settings.class);
         assertFalse(old.lyricsOnline || old.lyricsAutomaticLookup);
         var track = new Track("root", "file", Path.of("file"), "Artist - Song (Official Lyric Video)", "Artist", "", 180, 0, 0, "");
         assertEquals("Song", LyricsProvider.Query.of(track).title());
@@ -536,7 +544,7 @@ class MultilingualLyricsTest {
     void slowSourceCaptionsDoNotBlockOtherProviderLookupsOrOverwriteLocalLyrics() throws Exception {
         Track a = identity("slow-caption"), originalB = identity("provider-continues");
         Track b = new Track(originalB.rootId(), originalB.relativePath(), originalB.file(), "Other Song", originalB.artist(), originalB.album(), originalB.duration(), originalB.size(), originalB.modified(), "");
-        com.darkmusic.client.library.SourceLinks.record(a.file(), "https://www.youtube.com/watch?v=abcdefghijk");
+        SourceLinks.record(a.file(), "https://www.youtube.com/watch?v=abcdefghijk");
         var entered = new CountDownLatch(1);
         var release = new CountDownLatch(1);
         var calls = new AtomicInteger();
@@ -555,7 +563,7 @@ class MultilingualLyricsTest {
             assertTrue(entered.await(2, TimeUnit.SECONDS));
             lookup.automatic(b, false);
             await(() -> lookup.choice(b).selected() != null);
-            Files.writeString(com.darkmusic.client.download.DownloadLyrics.sidecar(a.file()), "[00:01]User lyrics");
+            Files.writeString(DownloadLyrics.sidecar(a.file()), "[00:01]User lyrics");
             release.countDown();
             await(() -> lookup.snapshot(a).status() == LyricsLookup.Status.READY);
             assertNull(lookup.choice(a).selected());
@@ -696,7 +704,7 @@ class MultilingualLyricsTest {
     @Test
     void safeSavePreservesExistingAndReplacementCanRestorePrevious() throws Exception {
         Track track = identity("save");
-        Path lrc = com.darkmusic.client.download.DownloadLyrics.sidecar(track.file());
+        Path lrc = DownloadLyrics.sidecar(track.file());
         Files.writeString(lrc, "[00:01]Original");
         byte[] audio = Files.readAllBytes(track.file());
         try (var lookup = new LyricsLookup(temp.resolve("prefs"), provider(q -> List.of()))) {
@@ -713,7 +721,7 @@ class MultilingualLyricsTest {
     @Test
     void plainLocalSidecarRemainsAvailableAndOffsetIsAppliedOnceToPlaybackClock() throws Exception {
         Track track = identity("local");
-        Path lrc = com.darkmusic.client.download.DownloadLyrics.sidecar(track.file());
+        Path lrc = DownloadLyrics.sidecar(track.file());
         Files.writeString(lrc, "[00:01]First\n[00:03]Second");
         try (var service = new LyricsService(temp.resolve("prefs"))) {
             service.request(track);
@@ -871,8 +879,8 @@ class MultilingualLyricsTest {
     @Test
     void autogeneratedCaptionsAreExplicitAndRemainLabeled() throws Exception {
         var metadata = com.google.gson.JsonParser.parseString("{\"automatic_captions\":{\"ja\":[{\"kind\":\"asr\"}],\"en\":[{\"is_translated\":true}]}}").getAsJsonObject();
-        assertEquals("", com.darkmusic.client.download.LyricsLanguages.select(metadata, List.of("auto")));
-        assertEquals("ja", com.darkmusic.client.download.LyricsLanguages.select(metadata, List.of("auto"), true));
+        assertEquals("", LyricsLanguages.select(metadata, List.of("auto")));
+        assertEquals("ja", LyricsLanguages.select(metadata, List.of("auto"), true));
         var runner = new ProcessRunner() {
             @Override
             public Result run(List<String> args, Path dir, Token token, java.time.Duration timeout, int max, java.util.function.Consumer<String> line) throws java.io.IOException {
@@ -883,10 +891,10 @@ class MultilingualLyricsTest {
                 return new Result(0, "");
             }
         };
-        var result = com.darkmusic.client.download.DownloadLyrics.fetch(runner,
-            new com.darkmusic.client.download.Toolchain(temp.resolve("yt-dlp"), temp.resolve("ffmpeg"), temp.resolve("ffprobe"), "", ""),
-            new com.darkmusic.client.download.DownloadModels.Entry(1, "Song", "https://example.com/song", "test", "song", true), metadata, temp, new ProcessRunner.Token(), List.of("auto"), true);
-        var d = com.darkmusic.client.download.DownloadLyrics.document(result);
+        var result = DownloadLyrics.fetch(runner,
+            new Toolchain(temp.resolve("yt-dlp"), temp.resolve("ffmpeg"), temp.resolve("ffprobe"), "", ""),
+            new DownloadModels.Entry(1, "Song", "https://example.com/song", "test", "song", true), metadata, temp, new ProcessRunner.Token(), List.of("auto"), true);
+        var d = DownloadLyrics.document(result);
         assertTrue(d.generated());
         assertEquals("ja", d.language());
         assertEquals("captions", d.provider());
@@ -957,7 +965,7 @@ class MultilingualLyricsTest {
             service.lookup.automatic(track, false);
             await(() -> service.lookup.choice(track).selected() != null);
             assertFalse(service.lookup.choice(track).pinned());
-            Files.writeString(com.darkmusic.client.download.DownloadLyrics.sidecar(track.file()), "[00:01]Local");
+            Files.writeString(DownloadLyrics.sidecar(track.file()), "[00:01]Local");
             service.enabled(false);
             service.enabled(true);
             service.request(track);

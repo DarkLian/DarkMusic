@@ -1,5 +1,6 @@
 package com.darkmusic.client.config;
 
+import com.darkmusic.client.text.Text;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 
@@ -54,20 +55,20 @@ public final class ResetStorage {
         Path file = data.resolve(relative);
         for (Path ancestor = file.getParent(); !ancestor.equals(data); ancestor = ancestor.getParent())
             if (Files.exists(ancestor, LinkOption.NOFOLLOW_LINKS) && !local(ancestor))
-                throw new IOException(com.darkmusic.client.text.Text.get("reset.darkmusic.linked", ancestor));
+                throw new IOException(Text.get("reset.darkmusic.linked", ancestor));
         Files.createDirectories(file.getParent());
         if (!local(file.getParent()) || Files.isSymbolicLink(file)
             || Files.exists(file, LinkOption.NOFOLLOW_LINKS) && (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) || Files.size(file) != 0))
-            throw new IOException(com.darkmusic.client.text.Text.get("reset.darkmusic.lock_unsafe", file));
+            throw new IOException(Text.get("reset.darkmusic.lock_unsafe", file));
         var channel = FileChannel.open(file, StandardOpenOption.CREATE, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
         try {
             var lock = channel.tryLock();
             if (lock == null)
-                throw new IOException(com.darkmusic.client.text.Text.get("reset.darkmusic.lock_busy"));
+                throw new IOException(Text.get("reset.darkmusic.lock_busy"));
             return new Locked(channel, lock);
         } catch (Exception e) {
             channel.close();
-            throw new IOException(com.darkmusic.client.text.Text.get("reset.darkmusic.lock_failed"), e);
+            throw new IOException(Text.get("reset.darkmusic.lock_failed"), e);
         }
     }
 

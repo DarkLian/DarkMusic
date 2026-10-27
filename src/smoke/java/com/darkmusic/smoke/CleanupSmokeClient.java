@@ -138,7 +138,7 @@ final class CleanupSmokeClient {
                 if (ticks - since < 100) return;
                 check(app.playback.state().status() == AudioBackend.Status.PAUSED, "Main music paused during preview");
                 check(queue.equals(app.playback.upNextSnapshot().manual()), "Preview preserves Up Next");
-                var output = (com.darkmusic.client.audio.AudioBackend) SmokeUi.field(audition, "preview");
+                var output = (AudioBackend) SmokeUi.field(audition, "preview");
                 previewPosition = output.state().position();
                 check(previewPosition > 3, "Preview advanced before pause");
                 SmokeUi.click(mc, Text.get("cleanup.pause_a"));
@@ -146,21 +146,21 @@ final class CleanupSmokeClient {
                 stage = 5;
             } else if (stage == 5) {
                 if (ticks - since < 20) return;
-                var output = (com.darkmusic.client.audio.AudioBackend) SmokeUi.field(audition, "preview");
+                var output = (AudioBackend) SmokeUi.field(audition, "preview");
                 check(output.state().status() == AudioBackend.Status.PAUSED, "Preview pauses");
                 previewPosition = output.state().position();
                 since = ticks;
                 stage = 6;
             } else if (stage == 6) {
                 if (ticks - since < 20) return;
-                var output = (com.darkmusic.client.audio.AudioBackend) SmokeUi.field(audition, "preview");
+                var output = (AudioBackend) SmokeUi.field(audition, "preview");
                 check(Math.abs(output.state().position() - previewPosition) < .1, "Paused preview position is stable");
                 SmokeUi.click(mc, Text.get("cleanup.play_a"));
                 since = ticks;
                 stage = 7;
             } else if (stage == 7) {
                 if (ticks - since < 20) return;
-                var output = (com.darkmusic.client.audio.AudioBackend) SmokeUi.field(audition, "preview");
+                var output = (AudioBackend) SmokeUi.field(audition, "preview");
                 check(output.state().status() == AudioBackend.Status.PLAYING && output.state().position() > previewPosition + .25, "Preview resumes from paused position");
                 SmokeUi.click(mc, Text.get("cleanup.play_b"));
                 since = ticks;

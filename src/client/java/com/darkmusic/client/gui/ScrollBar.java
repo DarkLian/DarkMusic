@@ -1,5 +1,6 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -31,7 +32,7 @@ public final class ScrollBar extends AbstractWidget {
     private double grab;
 
     public ScrollBar(IntSupplier offset, IntConsumer change) {
-        super(0, 0, 8, 1, com.darkmusic.client.text.Text.component("ui.darkmusic.scroll"));
+        super(0, 0, 8, 1, Text.component("ui.darkmusic.scroll"));
         this.offset = offset;
         this.change = change;
         visible = false;

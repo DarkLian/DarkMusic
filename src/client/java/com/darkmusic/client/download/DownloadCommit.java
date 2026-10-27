@@ -1,5 +1,6 @@
 package com.darkmusic.client.download;
 
+import com.darkmusic.client.cleanup.DuplicateScanner;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.library.SourceLinks;
 import com.google.gson.JsonObject;
@@ -16,7 +17,7 @@ final class DownloadCommit {
     }
 
     private static Path file(Path destination, String identity) {
-        return destination.resolve(".darkmusic-download-commit-" + com.darkmusic.client.cleanup.DuplicateScanner.digest(identity) + ".json");
+        return destination.resolve(".darkmusic-download-commit-" + DuplicateScanner.digest(identity) + ".json");
     }
 
     private static final java.util.concurrent.ConcurrentHashMap<Path, Long> pruned = new java.util.concurrent.ConcurrentHashMap<>();

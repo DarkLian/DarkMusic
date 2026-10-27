@@ -1,5 +1,7 @@
 package com.darkmusic.client.download;
 
+import com.darkmusic.client.text.Text;
+
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
@@ -22,21 +24,21 @@ final class DownloadWorkspace implements AutoCloseable {
         Path directory = data.resolve("downloads");
         Files.createDirectories(directory);
         if (Files.isSymbolicLink(directory))
-            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.download_workspace_must_not_be_a_symbolic_link"));
+            throw new IOException(Text.get("text.darkmusic.download_workspace_must_not_be_a_symbolic_link"));
         channel = FileChannel.open(directory.resolve("workspace.lock"), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
         try {
             lock = channel.tryLock();
             if (lock == null)
-                throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.another_minecraft_instance_is_using_these_download_tools_close_it_before_downloadi"));
+                throw new IOException(Text.get("text.darkmusic.another_minecraft_instance_is_using_these_download_tools_close_it_before_downloadi"));
         } catch (IOException | OverlappingFileLockException e) {
             channel.close();
-            throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.another_minecraft_instance_is_using_these_download_tools_close_it_before_downloadi"), e);
+            throw new IOException(Text.get("text.darkmusic.another_minecraft_instance_is_using_these_download_tools_close_it_before_downloadi"), e);
         }
         try {
             Path root = directory.resolve("work");
             Files.createDirectories(root);
             if (Files.isSymbolicLink(root))
-                throw new IOException(com.darkmusic.client.text.Text.get("text.darkmusic.download_scratch_folder_must_not_be_a_symbolic_link"));
+                throw new IOException(Text.get("text.darkmusic.download_scratch_folder_must_not_be_a_symbolic_link"));
             if (recover) try (var children = Files.list(root)) {
                 for (Path child : children.filter(p -> p.getFileName().toString().startsWith("item-")).toList()) {
                     if (Files.isSymbolicLink(child) || !Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS)) continue;

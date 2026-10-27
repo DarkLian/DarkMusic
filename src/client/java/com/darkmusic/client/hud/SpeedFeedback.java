@@ -1,6 +1,8 @@
 package com.darkmusic.client.hud;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.gui.HorizontalText;
+import com.darkmusic.client.gui.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -36,7 +38,7 @@ public final class SpeedFeedback {
         var font = Minecraft.getInstance().font;
         String label = Text.get("format.darkmusic.speed", String.format(java.util.Locale.ROOT, "%.1f", speed));
         int width = Math.min(g.guiWidth() - 16, font.width(label) + 24), x = (g.guiWidth() - width) / 2, y = Math.max(8, g.guiHeight() - 94);
-        g.fill(x, y, x + width, y + 22, HudText.themed(com.darkmusic.client.gui.UiTheme.BACKGROUND, (int) (opacity * 210)));
-        g.text(font, com.darkmusic.client.gui.HorizontalText.ellipsize(font, label, width - 12), x + 12, y + 7, HudText.themed(com.darkmusic.client.gui.UiTheme.TEXT, alpha));
+        g.fill(x, y, x + width, y + 22, HudText.themed(UiTheme.BACKGROUND, (int) (opacity * 210)));
+        g.text(font, HorizontalText.ellipsize(font, label, width - 12), x + 12, y + 7, HudText.themed(UiTheme.TEXT, alpha));
     }
 }

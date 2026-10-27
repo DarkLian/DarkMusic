@@ -1,6 +1,7 @@
 package com.darkmusic.client;
 
 import com.darkmusic.client.download.DownloadService;
+import com.darkmusic.client.hud.DownloadHud;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -85,7 +86,7 @@ class DownloadRetryTest {
             assertEquals(1, service.snapshot().items().size());
             assertEquals(Status.FAILED, service.snapshot().items().getFirst().status());
             assertTrue(service.failedEntry(bad, temp.resolve("music")));
-            var hud = new com.darkmusic.client.hud.DownloadHud();
+            var hud = new DownloadHud();
             hud.update(service, System.nanoTime());
             var notice = hud.getClass().getDeclaredField("notice");
             notice.setAccessible(true);

@@ -1,7 +1,8 @@
 package com.darkmusic.client.cleanup;
 
-import com.darkmusic.client.library.Track;
 import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.library.RecordingVersions;
+import com.darkmusic.client.library.Track;
 
 import java.net.URI;
 import java.net.URLDecoder;
@@ -34,7 +35,7 @@ public final class DuplicateMatcher {
     }
 
     private static final Set<String> DECORATIONS = Set.of("official", "audio", "video", "music", "mv", "pv", "hd", "hq", "4k", "1080p", "lyrics", "lyric", "visualizer", "youtube", "bilibili");
-    private static final Set<String> VERSIONS = com.darkmusic.client.library.RecordingVersions.WORDS;
+    private static final Set<String> VERSIONS = RecordingVersions.WORDS;
     private static final Set<String> GENERIC_TITLES = Set.of("home", "intro", "outro", "interlude", "untitled", "opening", "ending");
 
     public static String normalize(String value) {

@@ -2,6 +2,7 @@ package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.pip.PipPreview;
 import com.darkmusic.client.pip.PipSettings;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -14,7 +15,7 @@ import java.util.function.DoubleFunction;
 /**
  * Artwork-style spectrum controls, scoped exclusively to PiP.
  */
-public final class PipSpectrumScreen extends AudioPage implements com.darkmusic.client.pip.PipPreview {
+public final class PipSpectrumScreen extends AudioPage implements PipPreview {
     private int previewY;
 
     public PipSpectrumScreen(DarkMusicClient app, Screen parent) {

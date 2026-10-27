@@ -1,8 +1,12 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.library.ArtworkCache;
+import com.darkmusic.client.library.Track;
+import com.darkmusic.client.lyrics.LyricsInfo;
+import com.darkmusic.client.lyrics.LyricsService;
 import com.darkmusic.client.playlist.PlaylistDrag;
 import com.darkmusic.client.text.Text;
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -76,19 +80,19 @@ public final class RowList extends AbstractWidget {
     }
 
     private java.util.function.IntUnaryOperator tint = i -> UiTheme.SECONDARY;
-    private java.util.function.IntFunction<com.darkmusic.client.library.Track> artwork;
-    private com.darkmusic.client.library.ArtworkCache artworkCache;
-    private com.darkmusic.client.lyrics.LyricsService lyricsService;
-    private java.util.function.IntFunction<com.darkmusic.client.lyrics.LyricsInfo> lyrics;
+    private java.util.function.IntFunction<Track> artwork;
+    private ArtworkCache artworkCache;
+    private LyricsService lyricsService;
+    private java.util.function.IntFunction<LyricsInfo> lyrics;
     private java.util.function.BooleanSupplier lyricsEnabled = () -> false;
-    private com.darkmusic.client.lyrics.LyricsInfo hoveredLyrics;
+    private LyricsInfo hoveredLyrics;
 
-    public void lyrics(com.darkmusic.client.lyrics.LyricsService service, java.util.function.BooleanSupplier enabled) {
+    public void lyrics(LyricsService service, java.util.function.BooleanSupplier enabled) {
         lyricsService = service;
         lyrics(i -> service.info(artwork == null ? null : artwork.apply(i)), enabled);
     }
 
-    public void lyrics(java.util.function.IntFunction<com.darkmusic.client.lyrics.LyricsInfo> info, java.util.function.BooleanSupplier enabled) {
+    public void lyrics(java.util.function.IntFunction<LyricsInfo> info, java.util.function.BooleanSupplier enabled) {
         lyrics = info;
         lyricsEnabled = enabled;
     }
@@ -100,7 +104,7 @@ public final class RowList extends AbstractWidget {
             lyricsService.inspect(artwork.apply(i));
     }
 
-    private com.darkmusic.client.lyrics.LyricsInfo lyricInfo(int index) {
+    private LyricsInfo lyricInfo(int index) {
         return lyrics != null && lyricsEnabled.getAsBoolean() && index >= 0 && index < rows.size() ? lyrics.apply(index) : null;
     }
 
@@ -123,7 +127,7 @@ public final class RowList extends AbstractWidget {
     private java.util.function.IntToDoubleFunction progress;
     private int hoveredRow = -2;
 
-    public void artwork(com.darkmusic.client.library.ArtworkCache cache, java.util.function.IntFunction<com.darkmusic.client.library.Track> tracks) {
+    public void artwork(ArtworkCache cache, java.util.function.IntFunction<Track> tracks) {
         rowTooltips(false);
         artworkCache = cache;
         artwork = tracks;
@@ -390,7 +394,7 @@ public final class RowList extends AbstractWidget {
             int size = Math.min(28, rowHeight - 6);
             var cover = artworkCache.thumbnail(artwork.apply(i));
             if (cover != null)
-                com.darkmusic.client.library.ArtworkCache.drawMenu(g, cover, getX() + inset, y + 3, size);
+                ArtworkCache.drawMenu(g, cover, getX() + inset, y + 3, size);
             else UiIcon.MUSIC.draw(g, getX() + inset + 4, y + 7, size - 8, UiTheme.MUTED);
             inset += size + 7;
         } else if (icons != null) {
@@ -496,7 +500,7 @@ public final class RowList extends AbstractWidget {
             reorder.accept(drag);
         } catch (RuntimeException failure) {
             org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Playlist reorder failed", failure);
-            var app = com.darkmusic.client.DarkMusicClient.INSTANCE;
+            var app = DarkMusicClient.INSTANCE;
             if (app != null) app.warn(Text.failure(failure, "playlist.status.save_failed"));
         } finally {
             if (dropping != null) cancelDrag();

@@ -1,6 +1,9 @@
 package com.darkmusic.smoke;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.audio.AudioBackend;
+import com.darkmusic.client.gui.MusicScreen;
+import com.darkmusic.client.gui.SettingsScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -19,9 +22,9 @@ final class HudMenusSmoke {
         if (System.nanoTime() > deadline) throw new IllegalStateException("HUD in menus smoke timed out at " + stage);
         if (mc.level == null || mc.player == null) return false;
         var status = app.playback.state().status();
-        if (status == com.darkmusic.client.audio.AudioBackend.Status.ERROR)
+        if (status == AudioBackend.Status.ERROR)
             throw new IllegalStateException("Playback failed: " + app.playback.state().error());
-        if (stage == 0 && status != com.darkmusic.client.audio.AudioBackend.Status.PLAYING) return false;
+        if (stage == 0 && status != AudioBackend.Status.PLAYING) return false;
         if (++waited < (stage == 0 ? 100 : SETTLE)) return false;
         waited = 0;
         var settings = app.settings;
@@ -41,12 +44,12 @@ final class HudMenusSmoke {
                 // The player opens only from gameplay, not over the pause menu.
                 mc.gui.setScreen(null);
                 app.open();
-                if (!(mc.gui.screen() instanceof com.darkmusic.client.gui.MusicScreen))
+                if (!(mc.gui.screen() instanceof MusicScreen))
                     throw new IllegalStateException("DarkMusic player did not open");
             }
             case 3 -> {
                 require(mc, app, false, "HUD drew over the DarkMusic player");
-                mc.gui.setScreen(new com.darkmusic.client.gui.SettingsScreen(app, mc.gui.screen()));
+                mc.gui.setScreen(new SettingsScreen(app, mc.gui.screen()));
             }
             case 4 -> {
                 require(mc, app, false, "HUD drew over DarkMusic Settings");

@@ -1,7 +1,9 @@
 package com.darkmusic.client.hud;
 
+import com.darkmusic.client.audio.TrackWaveform;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.config.WaveformSettings;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import org.joml.Matrix3x2f;
@@ -297,9 +299,9 @@ class CircularHudTest {
 
     @Test
     void waveformRingStaysWithinMeasuredBoundsAndFillsOnlyThePlayedPart() {
-        float[] envelope = new float[com.darkmusic.client.audio.TrackWaveform.BINS];
+        float[] envelope = new float[TrackWaveform.BINS];
         for (int i = 0; i < envelope.length; i++) envelope[i] = i / (float) envelope.length;
-        var waveform = new com.darkmusic.client.audio.TrackWaveform(envelope, 200);
+        var waveform = new TrackWaveform(envelope, 200);
         var settings = new Settings();
         settings.hudVisualizer = false;
         settings.waveformProgress = true;
@@ -320,13 +322,13 @@ class CircularHudTest {
             return proxy;
         });
         new CircularHudMesh.ProgressWaveform(new Matrix3x2f(), null, null, layout.centerX(), layout.centerY(),
-            0, waveform, 0xff12ab34, 0xff12ab34, Settings.SurfaceFinish.FLAT, new com.darkmusic.client.config.WaveformSettings().look()).buildVertices(consumer);
+            0, waveform, 0xff12ab34, 0xff12ab34, Settings.SurfaceFinish.FLAT, new WaveformSettings().look()).buildVertices(consumer);
         assertTrue(!points.isEmpty());
         assertTrue(!colors.contains(0xff12ab34), "Nothing is highlighted at the start");
         points.clear();
         colors.clear();
         new CircularHudMesh.ProgressWaveform(new Matrix3x2f(), null, null, layout.centerX(), layout.centerY(),
-            .5, waveform, 0xff12ab34, 0xff12ab34, Settings.SurfaceFinish.FLAT, new com.darkmusic.client.config.WaveformSettings().look()).buildVertices(consumer);
+            .5, waveform, 0xff12ab34, 0xff12ab34, Settings.SurfaceFinish.FLAT, new WaveformSettings().look()).buildVertices(consumer);
         assertTrue(colors.contains(0xff12ab34));
         assertTrue(colors.contains(0xff555d78), "Unplayed audio remains visible");
     }

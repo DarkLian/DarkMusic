@@ -2,8 +2,10 @@ package com.darkmusic.client;
 
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.download.DownloadDiagnostics;
 import com.darkmusic.client.download.DownloadLyrics;
 import com.darkmusic.client.download.DownloadModels;
+import com.darkmusic.client.download.LyricsLanguages;
 import com.darkmusic.client.download.ProcessRunner;
 import com.darkmusic.client.download.Toolchain;
 import com.darkmusic.client.hud.HudLayout;
@@ -27,7 +29,7 @@ class LyricsTest {
     @Test
     void choosesOneManualLanguageAndNeverRequestsAutomaticCaptionsOrChat() {
         var metadata = JsonParser.parseString("{\"language\":\"ja\",\"subtitles\":{\"live_chat\":[{}],\"ja\":[{}],\"en\":[{}]},\"automatic_captions\":{\"fr\":[{}]}}").getAsJsonObject();
-        assertEquals("ja", com.darkmusic.client.download.LyricsLanguages.select(metadata, List.of("ja")));
+        assertEquals("ja", LyricsLanguages.select(metadata, List.of("ja")));
         metadata.remove("subtitles");
         assertEquals("", DownloadLyrics.language(metadata));
     }
@@ -58,7 +60,7 @@ class LyricsTest {
         };
         var failedCaptions = DownloadLyrics.fetch(failed, tools, entry, metadata, temp, new ProcessRunner.Token());
         assertFalse(failedCaptions.warning().isBlank());
-        assertEquals(com.darkmusic.client.download.DownloadDiagnostics.Category.RATE_LIMITED, failedCaptions.failure());
+        assertEquals(DownloadDiagnostics.Category.RATE_LIMITED, failedCaptions.failure());
         var cancelled = new ProcessRunner.Token();
         cancelled.cancel();
         assertThrows(Exception.class, () -> DownloadLyrics.fetch(runner, tools, entry, metadata, temp, cancelled));

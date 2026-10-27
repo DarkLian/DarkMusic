@@ -1,5 +1,7 @@
 package com.darkmusic.client.audio;
 
+import com.darkmusic.client.config.AudioSettings;
+import com.darkmusic.client.config.SoundEnvironmentSettings;
 import com.darkmusic.client.library.Track;
 
 import java.util.function.Consumer;
@@ -38,10 +40,10 @@ public interface AudioBackend extends AutoCloseable {
 
     void speed(double speed);
 
-    default void configure(com.darkmusic.client.config.AudioSettings settings) {
+    default void configure(AudioSettings settings) {
     }
 
-    default void configure(com.darkmusic.client.config.AudioSettings settings, com.darkmusic.client.config.SoundEnvironmentSettings environment) {
+    default void configure(AudioSettings settings, SoundEnvironmentSettings environment) {
         configure(settings);
     }
 

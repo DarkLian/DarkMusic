@@ -1,5 +1,6 @@
 package com.darkmusic.client;
 
+import com.darkmusic.client.audio.PlaybackController;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.library.MusicLibrary;
@@ -86,7 +87,7 @@ class StorageTest {
         settings.hudPosition = "bad";
         settings.validate();
         assertEquals(1, settings.volume);
-        assertEquals(com.darkmusic.client.audio.PlaybackController.Repeat.OFF, settings.repeat);
+        assertEquals(PlaybackController.Repeat.OFF, settings.repeat);
         assertEquals("TOP_LEFT", settings.hudPosition);
     }
 

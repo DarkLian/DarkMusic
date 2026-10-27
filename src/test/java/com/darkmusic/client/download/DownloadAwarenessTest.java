@@ -1,6 +1,7 @@
 package com.darkmusic.client.download;
 
 import com.darkmusic.client.cleanup.LibrarySourceIndex;
+import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.testing.Await;
 import org.junit.jupiter.api.Test;
@@ -81,7 +82,7 @@ class DownloadAwarenessTest {
         Path root = Files.createDirectories(temp.resolve("registered"));
         Path p = Files.writeString(root.resolve("renamed.txt"), "Disposable index fixture, not an audio asset");
         Files.writeString(root.resolve(".darkmusic-downloads.json"), "{\"Youtube:abcDEFG_123:original\":\"renamed.txt\"}");
-        com.darkmusic.client.library.SourceLinks.record(p, "https://youtu.be/abcDEFG_123", "Youtube:abcDEFG_123:original");
+        SourceLinks.record(p, "https://youtu.be/abcDEFG_123", "Youtube:abcDEFG_123:original");
         return new Track("root", "renamed.txt", p, "Existing title", "", "", 180, Files.size(p), Files.getLastModifiedTime(p).toMillis(), "");
     }
 

@@ -1,6 +1,9 @@
 package com.darkmusic.client.config;
 
 import com.darkmusic.client.audio.PlaybackController.Repeat;
+import com.darkmusic.client.lyrics.LyricsDocument;
+import com.darkmusic.client.lyrics.LyricsDocumentAdapter;
+import com.darkmusic.client.text.Text;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.TypeAdapter;
@@ -36,8 +39,8 @@ public final class ConfigStore {
                 } else reader.skipValue();
                 return Repeat.OFF;
             }
-        }).registerTypeAdapter(com.darkmusic.client.lyrics.LyricsDocument.class,
-        new com.darkmusic.client.lyrics.LyricsDocumentAdapter()).create();
+        }).registerTypeAdapter(LyricsDocument.class,
+        new LyricsDocumentAdapter()).create();
     private final Path directory;
     private final ExecutorService io;
     private final Consumer<String> warning;
@@ -95,7 +98,7 @@ public final class ConfigStore {
         try {
             recovered = BackupArchive.recover(directory);
             if (recovered)
-                warning.accept(com.darkmusic.client.text.Text.get("backup.recovered"));
+                warning.accept(Text.get("backup.recovered"));
         } catch (IOException failure) {
             // Never load or save partially restored data when recovery cannot finish.
             throw new java.util.concurrent.CompletionException(failure);
@@ -112,11 +115,11 @@ public final class ConfigStore {
                 } catch (Exception e) {
                     preserveInvalid = true;
                     settings = new Settings();
-                    warning.accept(com.darkmusic.client.text.Text.failure(e, "error.config_load"));
+                    warning.accept(Text.failure(e, "error.config_load"));
                 }
             }
         } catch (IOException e) {
-            warning.accept(com.darkmusic.client.text.Text.failure(e, "error.music_folder_create"));
+            warning.accept(Text.failure(e, "error.music_folder_create"));
         }
         settings.validate();
         Path game = directory.toAbsolutePath().getParent().getParent();
@@ -131,7 +134,7 @@ public final class ConfigStore {
                 settings.shortcuts.put(binding.substring(4, colon), binding.substring(colon + 1));
             }
         } catch (IOException e) {
-            warning.accept(com.darkmusic.client.text.Text.failure(e, "error.shortcut_load"));
+            warning.accept(Text.failure(e, "error.shortcut_load"));
         }
         snapshotJson = JSON.toJson(settings);
         return settings;
@@ -144,7 +147,7 @@ public final class ConfigStore {
         Path options = directory.toAbsolutePath().getParent().getParent().resolve("options.txt");
         if (Files.isSymbolicLink(options) || Files.exists(options, LinkOption.NOFOLLOW_LINKS)
             && (!Files.isRegularFile(options, LinkOption.NOFOLLOW_LINKS) || Files.size(options) > 16_000_000))
-            throw new IOException(com.darkmusic.client.text.Text.get("reset.darkmusic.options_unsafe"));
+            throw new IOException(Text.get("reset.darkmusic.options_unsafe"));
         atomicWrite(options, shortcutsContents(defaults));
     }
 
@@ -201,7 +204,7 @@ public final class ConfigStore {
                 }
                 atomicWrite(directory.resolve("config.json"), json);
             } catch (Exception e) {
-                warning.accept(com.darkmusic.client.text.Text.failure(e, "error.save_settings"));
+                warning.accept(Text.failure(e, "error.save_settings"));
             }
         }
     }

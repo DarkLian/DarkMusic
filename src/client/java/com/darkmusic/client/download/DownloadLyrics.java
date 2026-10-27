@@ -1,6 +1,8 @@
 package com.darkmusic.client.download;
 
 import com.darkmusic.client.lyrics.Lrc;
+import com.darkmusic.client.lyrics.LyricsDocument;
+import com.darkmusic.client.text.Text;
 import com.google.gson.JsonObject;
 
 import java.nio.file.Files;
@@ -49,7 +51,7 @@ public final class DownloadLyrics {
             generated = !language.isEmpty();
         }
         if (language.isEmpty())
-            return new Result("", com.darkmusic.client.text.Text.get("lyrics.darkmusic.no_preferred_captions"));
+            return new Result("", Text.get("lyrics.darkmusic.no_preferred_captions"));
         try {
             var args = tools.base();
             args.addAll(List.of("--skip-download", "--no-playlist", "--playlist-items", "1", generated ? "--no-write-subs" : "--write-subs", generated ? "--write-auto-subs" : "--no-write-auto-subs", "--extractor-args", "youtube:skip=translated_subs", "--sub-langs", "^" + language + "$", "--sub-format", "lrc/vtt/srt/best", "--convert-subs", "lrc", "--paths", work.toString(), "--output", "lyrics.%(ext)s", "--", link));
@@ -64,19 +66,19 @@ public final class DownloadLyrics {
                     if (!Lrc.parse(text).lines().isEmpty()) return new Result(text, "", language, generated);
                 }
             }
-            return new Result("", com.darkmusic.client.text.Text.get("lyrics.darkmusic.no_timed_captions"));
+            return new Result("", Text.get("lyrics.darkmusic.no_timed_captions"));
         } catch (Exception failure) {
             token.check();
             if (failure instanceof InterruptedException) throw failure;
             org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Optional lyric captions could not be downloaded", failure);
             var category = DownloadDiagnostics.classify(failure, DownloadDiagnostics.Stage.OPTIONAL, link, 0, 1, "").category();
-            return new Result("", com.darkmusic.client.text.Text.get("lyrics.darkmusic.download_failed"), "und", false, category);
+            return new Result("", Text.get("lyrics.darkmusic.download_failed"), "und", false, category);
         }
     }
 
-    public static com.darkmusic.client.lyrics.LyricsDocument document(Result result) {
-        return com.darkmusic.client.lyrics.LyricsDocument.of("captions", "", "", "", "", 0, result.language(),
-            com.darkmusic.client.lyrics.LyricsDocument.Variant.UNKNOWN, result.generated(), false, result.text());
+    public static LyricsDocument document(Result result) {
+        return LyricsDocument.of("captions", "", "", "", "", 0, result.language(),
+            LyricsDocument.Variant.UNKNOWN, result.generated(), false, result.text());
     }
 
     public static Path sidecar(Path audio) {

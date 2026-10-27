@@ -1,5 +1,6 @@
 package com.darkmusic.client.pip;
 
+import com.darkmusic.client.download.ProcessRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -85,11 +86,11 @@ class PipBundleTest {
             assertTrue(Files.size(exe.resolveSibling("DOTNET-LICENSE.TXT")) > 100);
             assertTrue(Files.size(exe.resolveSibling("licenses/CSWINRT-LICENSE.txt")) > 100);
             if (PipNativeTools.supported()) {
-                var result = new com.darkmusic.client.download.ProcessRunner().run(java.util.List.of(exe.toString(), "--pacer-test"), exe.getParent(), new com.darkmusic.client.download.ProcessRunner.Token(), java.time.Duration.ofSeconds(10), 1024, line -> {
+                var result = new ProcessRunner().run(java.util.List.of(exe.toString(), "--pacer-test"), exe.getParent(), new ProcessRunner.Token(), java.time.Duration.ofSeconds(10), 1024, line -> {
                 });
                 assertEquals(0, result.exit(), result.output());
                 assertEquals("pass", result.output().strip());
-                var reliability = new com.darkmusic.client.download.ProcessRunner().run(java.util.List.of(exe.toString(), "--reliability-test"), exe.getParent(), new com.darkmusic.client.download.ProcessRunner.Token(), java.time.Duration.ofSeconds(15), 2048, line -> {
+                var reliability = new ProcessRunner().run(java.util.List.of(exe.toString(), "--reliability-test"), exe.getParent(), new ProcessRunner.Token(), java.time.Duration.ofSeconds(15), 2048, line -> {
                 });
                 assertEquals(0, reliability.exit(), reliability.output());
                 assertEquals("pass", reliability.output().strip());

@@ -1,5 +1,6 @@
 package com.darkmusic.client.cleanup;
 
+import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -40,8 +41,8 @@ class DuplicateStorageTest {
         var a = file("alpha-reference", "First disposable document");
         var b = file("beta-document", "Second unrelated-size disposable document");
         Files.writeString(temp.resolve(".darkmusic-downloads.json"), "{\"SoundCloud:12345:original\":\"alpha-reference\",\"soundcloud:12345\":\"beta-document\"}");
-        com.darkmusic.client.library.SourceLinks.record(a.file(), "https://soundcloud.com/artist/song", "SoundCloud:12345:original");
-        com.darkmusic.client.library.SourceLinks.record(b.file(), "https://soundcloud.com/artist/song", "soundcloud:12345");
+        SourceLinks.record(a.file(), "https://soundcloud.com/artist/song", "SoundCloud:12345:original");
+        SourceLinks.record(b.file(), "https://soundcloud.com/artist/song", "soundcloud:12345");
         try (var scanner = new DuplicateScanner(temp.resolve("data"))) {
             scanner.start(List.of(a, b), DuplicatePolicy.STRICT, false);
             scanner.settled().get(10, TimeUnit.SECONDS);
@@ -55,7 +56,7 @@ class DuplicateStorageTest {
         var genuine = file("genuine", "Original disposable recording identity");
         var replaced = file("reused", "Different bytes and different size");
         Files.writeString(temp.resolve(".darkmusic-downloads.json"), "{\"YouTube:abcdefghijk\":\"reused\"}");
-        com.darkmusic.client.library.SourceLinks.record(genuine.file(), "https://www.youtube.com/watch?v=abcdefghijk");
+        SourceLinks.record(genuine.file(), "https://www.youtube.com/watch?v=abcdefghijk");
         // Also include an old cached source: matching file attributes do not upgrade an unverified filename.
         var cache = new DuplicateCache(temp.resolve("legacy-data"));
         cache.put(replaced.id(), DuplicateScanner.stamp(replaced, DuplicateScanner.attributes(replaced)), "", "https://www.youtube.com/watch?v=abcdefghijk", new int[0]);

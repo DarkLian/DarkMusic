@@ -1,7 +1,8 @@
 package com.darkmusic.client;
 
-import com.darkmusic.client.pip.PipAudio;
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.pip.PipAudio;
+import com.darkmusic.client.pip.PipSpectrumSettings;
 import org.junit.jupiter.api.Test;
 
 import java.io.*;
@@ -46,7 +47,7 @@ class PipAudioTest {
             data.write(pcm, pos, 4096);
         }
         try (var audio = new PipAudio()) {
-            audio.configure(new com.darkmusic.client.pip.PipSpectrumSettings());
+            audio.configure(new PipSpectrumSettings());
             audio.read(new ByteArrayInputStream(data.toByteArray()));
             assertTrue(audio.available());
             assertEquals(sequence, audio.packets());
@@ -61,7 +62,7 @@ class PipAudioTest {
             data.write(header(1024, 0, sequence));
             data.write(pcm, 0, 4096);
             try (var second = new PipAudio()) {
-                second.configure(new com.darkmusic.client.pip.PipSpectrumSettings());
+                second.configure(new PipSpectrumSettings());
                 assertThrows(IOException.class, () -> second.read(new ByteArrayInputStream(data.toByteArray())));
             }
             audio.close();

@@ -1,5 +1,9 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.audio.TrackWaveform;
+import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.config.VisualColors;
+import com.darkmusic.client.config.WaveformSettings;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -82,18 +86,18 @@ public final class ValueSlider extends AbstractSliderButton {
         trackOnly = value;
     }
 
-    private java.util.function.Supplier<com.darkmusic.client.audio.TrackWaveform> waveform;
+    private java.util.function.Supplier<TrackWaveform> waveform;
 
-    private java.util.function.Supplier<com.darkmusic.client.config.WaveformSettings> waveformOptions;
+    private java.util.function.Supplier<WaveformSettings> waveformOptions;
 
-    public void waveform(java.util.function.Supplier<com.darkmusic.client.audio.TrackWaveform> source,
-                         java.util.function.Supplier<com.darkmusic.client.config.WaveformSettings> options) {
+    public void waveform(java.util.function.Supplier<TrackWaveform> source,
+                         java.util.function.Supplier<WaveformSettings> options) {
         waveform = source;
         waveformOptions = options;
     }
 
-    private java.util.function.Supplier<com.darkmusic.client.config.VisualColors> colors;
-    private java.util.function.Supplier<com.darkmusic.client.config.Settings.SurfaceFinish> finish = () -> com.darkmusic.client.config.Settings.SurfaceFinish.FLAT;
+    private java.util.function.Supplier<VisualColors> colors;
+    private java.util.function.Supplier<Settings.SurfaceFinish> finish = () -> Settings.SurfaceFinish.FLAT;
 
     public ValueSlider(int x, int y, int width, double value, DoubleFunction<String> label, DoubleConsumer changed, Runnable committed) {
         this(x, y, width, value, label, changed, committed, 0);
@@ -108,11 +112,11 @@ public final class ValueSlider extends AbstractSliderButton {
         updateMessage();
     }
 
-    public void colors(java.util.function.Supplier<com.darkmusic.client.config.VisualColors> value) {
+    public void colors(java.util.function.Supplier<VisualColors> value) {
         colors = value;
     }
 
-    public void finish(java.util.function.Supplier<com.darkmusic.client.config.Settings.SurfaceFinish> value) {
+    public void finish(java.util.function.Supplier<Settings.SurfaceFinish> value) {
         finish = value;
     }
 
@@ -147,7 +151,7 @@ public final class ValueSlider extends AbstractSliderButton {
             }
             g.fill(getX(), getY() + 8, getRight(), getY() + 12, UiTheme.SURFACE);
             ColorStrip.draw(g, colors.get(), getX(), getY() + 8, getWidth(), 4,
-                (int) Math.round(getWidth() * value), com.darkmusic.client.config.Settings.SurfaceFinish.FLAT);
+                (int) Math.round(getWidth() * value), Settings.SurfaceFinish.FLAT);
             return;
         }
         int handle = getX() + (int) Math.round(value * (getWidth() - 8));
@@ -173,7 +177,7 @@ public final class ValueSlider extends AbstractSliderButton {
         if (colors != null) {
             int width = Math.max(1, getWidth() - 4);
             if (trackOnly) g.fill(getX() + 2, getBottom() - 4, getRight() - 2, getBottom() - 2, UiTheme.BORDER);
-            if (finish.get() == com.darkmusic.client.config.Settings.SurfaceFinish.BEVELED)
+            if (finish.get() == Settings.SurfaceFinish.BEVELED)
                 ColorStrip.track(g, getX() + 2, getBottom() - 4, width, 2, finish.get());
             ColorStrip.draw(g, colors.get(), getX() + 2, getBottom() - 4, width, 2, (int) Math.round(width * value), finish.get());
         }

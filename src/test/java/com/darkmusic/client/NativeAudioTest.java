@@ -6,6 +6,9 @@ import com.darkmusic.client.audio.PcmDecoder;
 import com.darkmusic.client.audio.PcmRateConverter;
 import com.darkmusic.client.download.*;
 import com.darkmusic.client.library.MetadataReader;
+import com.darkmusic.client.library.MusicLibrary;
+import com.darkmusic.client.library.Track;
+import com.darkmusic.client.lyrics.LyricsService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -71,7 +74,7 @@ class NativeAudioTest {
         }
         Path disguised = Files.copy(source, temp.resolve("real-audio.bin"));
         assertEquals(AudioFormats.Container.WAVE, AudioFormats.detect(disguised));
-        assertTrue(com.darkmusic.client.library.MusicLibrary.supported(disguised));
+        assertTrue(MusicLibrary.supported(disguised));
         try (var pcm = PcmDecoder.openPrecise(disguised)) {
             assertTrue(pcm.readNBytes(4096).length > 0);
         }
@@ -183,7 +186,7 @@ class NativeAudioTest {
                 assertTrue(pcm.readNBytes(4096).length > 0);
             }
         }
-        try (var library = new com.darkmusic.client.library.MusicLibrary(temp.resolve("library-config"))) {
+        try (var library = new MusicLibrary(temp.resolve("library-config"))) {
             library.setRoot(temp.resolve("music"), "pcm-downloads");
             StorageTest.await(() -> !library.snapshot().scanning() && library.snapshot().tracks().size() == 3);
         }
@@ -252,8 +255,8 @@ class NativeAudioTest {
             assertTrue(result.warning().isBlank(), result.warning());
             assertTrue(result.text().contains("Caption timing check"), result.text());
             Files.writeString(DownloadLyrics.sidecar(audio), result.text());
-            var track = new com.darkmusic.client.library.Track("test", audio.getFileName().toString(), audio, "Private excerpt", "", "", 4, Files.size(audio), 0, "");
-            try (var service = new com.darkmusic.client.lyrics.LyricsService()) {
+            var track = new Track("test", audio.getFileName().toString(), audio, "Private excerpt", "", "", 4, Files.size(audio), 0, "");
+            try (var service = new LyricsService()) {
                 service.request(track);
                 StorageTest.await(() -> !service.get(track).lines().isEmpty());
                 var lyrics = service.get(track);
@@ -305,7 +308,7 @@ class NativeAudioTest {
             }
             assertArrayEquals(original, Files.readAllBytes(input));
         }
-        try (var library = new com.darkmusic.client.library.MusicLibrary(temp.resolve("matrix-config"))) {
+        try (var library = new MusicLibrary(temp.resolve("matrix-config"))) {
             library.setRoot(destination, "format-matrix");
             StorageTest.await(() -> !library.snapshot().scanning() && library.snapshot().tracks().size() == 7);
             assertTrue(library.snapshot().tracks().stream().allMatch(t -> t.title().equals("音樂 test")));
@@ -351,7 +354,7 @@ class NativeAudioTest {
                 assertTrue(decoded.readNBytes(4096).length > 0, "Mid-track decoding failed: " + format[0]);
             }
         }
-        try (var library = new com.darkmusic.client.library.MusicLibrary(temp.resolve("library-config"))) {
+        try (var library = new MusicLibrary(temp.resolve("library-config"))) {
             library.setRoot(temp.resolve("music"), "format-matrix");
             StorageTest.await(() -> !library.snapshot().scanning() && library.snapshot().tracks().size() == formats.size());
             assertTrue(library.snapshot().tracks().stream().allMatch(t -> t.title().equals("Tagged track")));

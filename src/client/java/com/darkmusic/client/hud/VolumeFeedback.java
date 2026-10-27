@@ -1,6 +1,9 @@
 package com.darkmusic.client.hud;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.gui.HorizontalText;
+import com.darkmusic.client.gui.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -25,7 +28,7 @@ public final class VolumeFeedback {
     }
 
     public void show(double value, long now) {
-        volume = com.darkmusic.client.config.Settings.clampVolume(value);
+        volume = Settings.clampVolume(value);
         timer.show(now);
     }
 
@@ -40,9 +43,9 @@ public final class VolumeFeedback {
         var font = Minecraft.getInstance().font;
         String label = volume == 0 ? Text.get("hud.darkmusic.muted") : Text.get("format.darkmusic.volume", Math.round(volume * 100));
         int width = Math.min(g.guiWidth() - 16, font.width(label) + 24), x = (g.guiWidth() - width) / 2, y = Math.max(8, g.guiHeight() - 66);
-        g.fill(x, y, x + width, y + 24, HudText.themed(com.darkmusic.client.gui.UiTheme.BACKGROUND, (int) (opacity * 210)));
-        g.text(font, com.darkmusic.client.gui.HorizontalText.ellipsize(font, label, width - 12), x + 12, y + 4, HudText.themed(com.darkmusic.client.gui.UiTheme.TEXT, alpha));
-        g.fill(x + 8, y + 17, x + width - 8, y + 20, HudText.themed(com.darkmusic.client.gui.UiTheme.BORDER, alpha));
-        g.fill(x + 8, y + 17, x + 8 + (int) ((width - 16) * volume), y + 20, HudText.themed(com.darkmusic.client.gui.UiTheme.ACCENT, alpha));
+        g.fill(x, y, x + width, y + 24, HudText.themed(UiTheme.BACKGROUND, (int) (opacity * 210)));
+        g.text(font, HorizontalText.ellipsize(font, label, width - 12), x + 12, y + 4, HudText.themed(UiTheme.TEXT, alpha));
+        g.fill(x + 8, y + 17, x + width - 8, y + 20, HudText.themed(UiTheme.BORDER, alpha));
+        g.fill(x + 8, y + 17, x + 8 + (int) ((width - 16) * volume), y + 20, HudText.themed(UiTheme.ACCENT, alpha));
     }
 }

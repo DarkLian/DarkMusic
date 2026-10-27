@@ -3,6 +3,7 @@ package com.darkmusic.client.gui;
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.lyrics.LyricsDocument;
+import com.darkmusic.client.lyrics.LyricsLookup;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -105,8 +106,8 @@ public final class LyricsScreen extends LocalScreen {
         if (!app.settings.lyricsEnabled || !document.available() || document.instrumental()) {
             var status = app.lyrics.lookup.snapshot(track).status();
             String key = !app.settings.lyricsEnabled ? "lyrics.darkmusic.disabled" : document.instrumental() ? "lyrics.instrumental"
-                : !app.lyrics.inspected(track) || status == com.darkmusic.client.lyrics.LyricsLookup.Status.SEARCHING ? "lyrics.status.searching"
-                : status != com.darkmusic.client.lyrics.LyricsLookup.Status.IDLE && status != com.darkmusic.client.lyrics.LyricsLookup.Status.DISABLED
+                : !app.lyrics.inspected(track) || status == LyricsLookup.Status.SEARCHING ? "lyrics.status.searching"
+                : status != LyricsLookup.Status.IDLE && status != LyricsLookup.Status.DISABLED
                 ? "lyrics.status." + status.name().toLowerCase(java.util.Locale.ROOT) : "lyrics.find_prompt";
             g.centeredText(font, Text.get(key), width / 2, Math.max(90, height / 2), UiStatus.color(!app.settings.lyricsEnabled ? UiStatus.Tone.WARNING : document.instrumental() ? UiStatus.Tone.SUCCESS : UiStatus.lyrics(status)));
         } else if (document.synchronizedLyrics()) {

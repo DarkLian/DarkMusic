@@ -1,6 +1,9 @@
 package com.darkmusic.client.audio;
 
+import com.darkmusic.client.config.AudioSettings;
+import com.darkmusic.client.config.SoundEnvironmentSettings;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.text.Text;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
@@ -17,7 +20,7 @@ import java.util.function.Consumer;
 public final class JavaSoundBackend implements AudioBackend {
     private static final class OutputFailure extends java.io.IOException {
         OutputFailure(String key) {
-            super(com.darkmusic.client.text.Text.get(key));
+            super(Text.get(key));
         }
     }
 
@@ -25,11 +28,11 @@ public final class JavaSoundBackend implements AudioBackend {
     private final AtomicLong generation = new AtomicLong();
     private final SpectrumAnalyzer spectrum = new SpectrumAnalyzer();
     private final AudioProcessor processor = new AudioProcessor();
-    private volatile com.darkmusic.client.config.SoundEnvironmentSettings environment = new com.darkmusic.client.config.SoundEnvironmentSettings();
+    private volatile SoundEnvironmentSettings environment = new SoundEnvironmentSettings();
     private volatile AudioComparison comparison = AudioComparison.OFF;
     private boolean protectionFlushed;
     private volatile LoudnessCache.Status normalizationStatus = LoudnessCache.Status.OFF;
-    private volatile com.darkmusic.client.config.AudioSettings options = new com.darkmusic.client.config.AudioSettings();
+    private volatile AudioSettings options = new AudioSettings();
     private volatile LoudnessCache loudness;
     private final AtomicReference<NextAudio> upcoming = new AtomicReference<>();
     private final java.util.concurrent.ConcurrentLinkedQueue<java.util.concurrent.CompletableFuture<Void>> closingDecoders = new java.util.concurrent.ConcurrentLinkedQueue<>();
@@ -212,7 +215,7 @@ public final class JavaSoundBackend implements AudioBackend {
     }
 
     @Override
-    public void configure(com.darkmusic.client.config.AudioSettings value) {
+    public void configure(AudioSettings value) {
         var previous = options;
         options = value.playbackCopy();
         if (!options.neutral && options.normalization) loudnessCache();
@@ -224,7 +227,7 @@ public final class JavaSoundBackend implements AudioBackend {
         }
     }
 
-    public void analyzeLibrary(java.util.List<Track> tracks, com.darkmusic.client.config.AudioSettings settings) {
+    public void analyzeLibrary(java.util.List<Track> tracks, AudioSettings settings) {
         var cache = loudnessCache();
         if (cache != null) cache.analyzeLibrary(tracks, settings);
     }
@@ -245,7 +248,7 @@ public final class JavaSoundBackend implements AudioBackend {
     }
 
     @Override
-    public void configure(com.darkmusic.client.config.AudioSettings value, com.darkmusic.client.config.SoundEnvironmentSettings space) {
+    public void configure(AudioSettings value, SoundEnvironmentSettings space) {
         environment = space.playbackCopy();
         configure(value);
     }
@@ -352,7 +355,7 @@ public final class JavaSoundBackend implements AudioBackend {
             if (read < 0) break;
             if (read == 0) {
                 if (++emptyReads >= 8)
-                    throw new java.io.IOException(com.darkmusic.client.text.Text.get("audio.error.decoder_stalled"));
+                    throw new java.io.IOException(Text.get("audio.error.decoder_stalled"));
                 Thread.sleep(2);
                 continue;
             }
@@ -498,7 +501,7 @@ public final class JavaSoundBackend implements AudioBackend {
                             emptyConverter = converter;
                             decoderEmptySince = now;
                         } else if (now - decoderEmptySince > decoderStallNanos)
-                            throw new java.io.IOException(com.darkmusic.client.text.Text.get("audio.error.decoder_stalled"));
+                            throw new java.io.IOException(Text.get("audio.error.decoder_stalled"));
                     } else decoderEmptySince = 0;
                     // Time spent decoding must not consume the output device's stall budget.
                     progressedAt = System.nanoTime();
@@ -649,7 +652,7 @@ public final class JavaSoundBackend implements AudioBackend {
         }
     }
 
-    private LoudnessCache.Session normalization(Track track, com.darkmusic.client.config.AudioSettings selected, boolean incoming) {
+    private LoudnessCache.Session normalization(Track track, AudioSettings selected, boolean incoming) {
         var session = incoming ? incomingSession : normalizationSession;
         if (session == null || !session.matches(selected)) {
             var cache = loudnessCache();
@@ -744,8 +747,8 @@ public final class JavaSoundBackend implements AudioBackend {
         active = null;
         if (!current(request)) return;
         org.slf4j.LoggerFactory.getLogger("darkmusic-audio").warn("Playback failed for {}", request.track.file(), exception);
-        String message = com.darkmusic.client.text.Text.isMessage(exception.getMessage()) ? exception.getMessage()
-            : com.darkmusic.client.text.Text.get(exception instanceof javax.sound.sampled.LineUnavailableException ? "audio.error.device" : "audio.error.playback");
+        String message = Text.isMessage(exception.getMessage()) ? exception.getMessage()
+            : Text.get(exception instanceof javax.sound.sampled.LineUnavailableException ? "audio.error.device" : "audio.error.playback");
         state = new State(request.track, Status.ERROR, 0, request.track.duration(), message);
         callbacks.execute(() -> {
             if (current(request)) request.failed.accept(message);

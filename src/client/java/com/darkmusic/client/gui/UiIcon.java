@@ -1,5 +1,6 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
@@ -24,7 +25,7 @@ public enum UiIcon {
         UiIcon[] icons = {ADD, DELETE, EDIT, ADD, CHECK, BACK, TOOLS, SEARCH, DOWNLOAD, PLAY, STOP,
             VOLUME, VOLUME, LYRICS, FOLDER, EDIT, WARNING};
         for (int i = 0; i < keys.length; i++) {
-            String text = com.darkmusic.client.text.Text.get(keys[i]);
+            String text = Text.get(keys[i]);
             if (label.equals(text) || label.startsWith(text + ":")) return icons[i];
         }
         return null;

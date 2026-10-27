@@ -1,5 +1,6 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.DarkMusicClient;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.network.chat.Component;
@@ -37,7 +38,7 @@ public final class Help {
     }
 
     public static void extract(AbstractWidget widget, net.minecraft.client.gui.GuiGraphicsExtractor g, int mouseX, int mouseY) {
-        var app = com.darkmusic.client.DarkMusicClient.INSTANCE;
+        var app = DarkMusicClient.INSTANCE;
         var hover = HOVERS.get(widget);
         if (hover == null || app == null || !app.settings.showHoverInfo) return;
         var mc = net.minecraft.client.Minecraft.getInstance();

@@ -1,11 +1,14 @@
 package com.darkmusic.client;
 
+import com.darkmusic.client.audio.PcmDecoder;
+import com.darkmusic.client.download.AuditionClip;
 import com.darkmusic.client.download.DownloadJson;
 import com.darkmusic.client.download.DownloadPipeline;
 import com.darkmusic.client.download.ProcessRunner;
 import com.darkmusic.client.download.Toolchain;
 import com.darkmusic.client.library.MetadataReader;
 import com.darkmusic.client.library.MusicLibrary;
+import com.darkmusic.client.text.Text;
 import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Assumptions;
@@ -45,7 +48,7 @@ class DownloadIntegrationTest {
             var result = runner.run(List.of(selected.ffmpeg(), "-nostdin", "-v", "error", "-ss", "30", "-i", source.toString(), "-t", "2", "-vn", "-c:a", codec, "-sample_fmt", format.equals("ogg") ? "fltp" : format.equals("flac24") ? "s32" : "s16", file.toString()), temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 32000, line -> {
             });
             assertEquals(0, result.exit(), result.output());
-            try (var pcm = com.darkmusic.client.audio.PcmDecoder.open(file)) {
+            try (var pcm = PcmDecoder.open(file)) {
                 assertTrue(pcm.readNBytes(32768).length > 0);
             }
             assertTrue(new MetadataReader().read("real", file.getFileName().toString(), file, Files.size(file), 0).duration() > 1);
@@ -94,8 +97,8 @@ class DownloadIntegrationTest {
             assertEquals(0, info.exit(), info.output());
             var preview = DownloadJson.preview(url, 1, DownloadJson.object(info.output()));
             assertFalse(preview.collection());
-            try (var audition = com.darkmusic.client.download.AuditionClip.fetch(preview.entries().getFirst(), settings, data, runner, new ProcessRunner.Token())) {
-                try (var pcm = com.darkmusic.client.audio.PcmDecoder.open(audition.track().file())) {
+            try (var audition = AuditionClip.fetch(preview.entries().getFirst(), settings, data, runner, new ProcessRunner.Token())) {
+                try (var pcm = PcmDecoder.open(audition.track().file())) {
                     assertTrue(pcm.readNBytes(10000).length > 0);
                 }
                 assertFalse(audition.track().file().startsWith(destination));
@@ -108,7 +111,7 @@ class DownloadIntegrationTest {
             library.rescan();
             DownloadTest.await(() -> !library.snapshot().scanning() && library.snapshot().tracks().size() == 1);
             assertTrue(library.snapshot().tracks().getFirst().duration() > 1);
-            try (var pcm = com.darkmusic.client.audio.PcmDecoder.open(saved.file())) {
+            try (var pcm = PcmDecoder.open(saved.file())) {
                 assertTrue(pcm.readNBytes(10000).length > 0);
             }
             assertTrue(new DownloadPipeline(runner, data).execute(preview.entries().getFirst(), destination, chain, token, (a, b) -> {
@@ -153,7 +156,7 @@ class DownloadIntegrationTest {
             for (var future : futures) {
                 var saved = future.get(60, java.util.concurrent.TimeUnit.SECONDS);
                 assertFalse(saved.skipped());
-                try (var pcm = com.darkmusic.client.audio.PcmDecoder.open(saved.file())) {
+                try (var pcm = PcmDecoder.open(saved.file())) {
                     assertTrue(pcm.readNBytes(10000).length > 0);
                 }
             }
@@ -212,6 +215,6 @@ class DownloadIntegrationTest {
         });
         var json = JsonParser.parseString(tags.output()).getAsJsonObject().getAsJsonObject("format").getAsJsonObject("tags");
         for (String key : List.of("artist", "album", "track")) assertFalse(json.has(key), tags.output());
-        assertEquals(com.darkmusic.client.text.Text.get("download.no_thumbnail"), untagged.warning());
+        assertEquals(Text.get("download.no_thumbnail"), untagged.warning());
     }
 }

@@ -1,5 +1,6 @@
 package com.darkmusic.client;
 
+import com.darkmusic.client.audio.JavaSoundBackend;
 import com.darkmusic.client.audio.SpectrumAnalyzer;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.hud.HudLayout;
@@ -11,7 +12,7 @@ class SpectrumTest {
     private static byte[] music(int frames, double volume) throws Exception {
         var clip = TestMusic.clip();
         byte[] pcm = java.util.Arrays.copyOf(clip.bytes(), frames * clip.format().getFrameSize());
-        com.darkmusic.client.audio.JavaSoundBackend.scale(pcm, pcm.length, volume);
+        JavaSoundBackend.scale(pcm, pcm.length, volume);
         return pcm;
     }
 

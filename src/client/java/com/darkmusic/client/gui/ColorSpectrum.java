@@ -1,5 +1,6 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -77,7 +78,7 @@ public final class ColorSpectrum extends AbstractWidget {
     @Override
     protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
         UiTheme.gradient(g, getX(), getY(), width, 64, 0xFFFFFFFF, 0xFF000000 | rgb(hue, 1, 1));
-        shade.begin(width, 0, com.darkmusic.client.config.Settings.HudShape.RECTANGLE);
+        shade.begin(width, 0, Settings.HudShape.RECTANGLE);
         shade.gradient(getX(), getY(), getRight(), getY() + 64, 0x00000000, 0xFF000000);
         shade.submit(g);
         for (int i = 0; i < 6; i++) {

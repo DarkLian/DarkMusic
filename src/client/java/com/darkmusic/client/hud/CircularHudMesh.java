@@ -1,7 +1,10 @@
 package com.darkmusic.client.hud;
 
+import com.darkmusic.client.audio.TrackWaveform;
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.config.WaveformSettings;
 import com.darkmusic.client.gui.Bevel;
+import com.darkmusic.client.gui.SpectrumAppearance;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
@@ -177,11 +180,11 @@ final class CircularHudMesh {
                     float base = baseRadius, feather = CircularHudLayout.FEATHER;
                     boolean beveled = spectrumFinish == Settings.SurfaceFinish.BEVELED;
                     boolean trail = progress == -1;
-                    int outer0 = trail ? com.darkmusic.client.gui.SpectrumAppearance.alpha(first, 0x10) : beveled ? Bevel.shade(first, Bevel.circularLight(a + rotation) * .34) : first;
-                    int outer1 = trail ? com.darkmusic.client.gui.SpectrumAppearance.alpha(last, 0x10) : beveled ? Bevel.shade(last, Bevel.circularLight(b + rotation) * .34) : last;
+                    int outer0 = trail ? SpectrumAppearance.alpha(first, 0x10) : beveled ? Bevel.shade(first, Bevel.circularLight(a + rotation) * .34) : first;
+                    int outer1 = trail ? SpectrumAppearance.alpha(last, 0x10) : beveled ? Bevel.shade(last, Bevel.circularLight(b + rotation) * .34) : last;
                     point(v, pose, cx, cy, base + h0, a, outer0);
-                    point(v, pose, cx, cy, peakOnly() ? base + Math.max(0, h0 - .75f) : base, a, trail ? com.darkmusic.client.gui.SpectrumAppearance.alpha(first, 0x58) : beveled ? Bevel.shade(first, -.22) : first);
-                    point(v, pose, cx, cy, peakOnly() ? base + Math.max(0, h1 - .75f) : base, b, trail ? com.darkmusic.client.gui.SpectrumAppearance.alpha(last, 0x58) : beveled ? Bevel.shade(last, -.22) : last);
+                    point(v, pose, cx, cy, peakOnly() ? base + Math.max(0, h0 - .75f) : base, a, trail ? SpectrumAppearance.alpha(first, 0x58) : beveled ? Bevel.shade(first, -.22) : first);
+                    point(v, pose, cx, cy, peakOnly() ? base + Math.max(0, h1 - .75f) : base, b, trail ? SpectrumAppearance.alpha(last, 0x58) : beveled ? Bevel.shade(last, -.22) : last);
                     point(v, pose, cx, cy, base + h1, b, outer1);
                     if (beveled) {
                         point(v, pose, cx, cy, base + h0, a, outer0);
@@ -196,8 +199,8 @@ final class CircularHudMesh {
                     if (glow) {
                         // Follow both endpoints of the true contour: a constant maximum radius detaches from slopes.
                         point(v, pose, cx, cy, base + h0 + 1.6f, a, first & 0xffffff);
-                        point(v, pose, cx, cy, base + h0, a, com.darkmusic.client.gui.SpectrumAppearance.alpha(first, 0x33));
-                        point(v, pose, cx, cy, base + h1, b, com.darkmusic.client.gui.SpectrumAppearance.alpha(last, 0x33));
+                        point(v, pose, cx, cy, base + h0, a, SpectrumAppearance.alpha(first, 0x33));
+                        point(v, pose, cx, cy, base + h1, b, SpectrumAppearance.alpha(last, 0x33));
                         point(v, pose, cx, cy, base + h1 + 1.6f, b, last & 0xffffff);
                     }
                 }
@@ -210,7 +213,7 @@ final class CircularHudMesh {
                 // The innermost radius is always the ring's outer edge, never the icon.
                 int color = mix(spectrumStart, spectrumEnd, 1 - Math.abs(2 * turn - 1));
                 if (style == Settings.SpectrumStyle.ROUNDED_BARS) {
-                    if (peakOnly() && liveLevels != null && !com.darkmusic.client.gui.SpectrumAppearance.detachedPeak(
+                    if (peakOnly() && liveLevels != null && !SpectrumAppearance.detachedPeak(
                         CircularHudLayout.magnitude(levels, bands, turn), CircularHudLayout.magnitude(liveLevels, bands, turn), spectrumHeight))
                         continue;
                     roundedBar(v, turn, half, height, color);
@@ -221,13 +224,13 @@ final class CircularHudMesh {
                     if (progress == -1)
                         strip(v, pose, cx, cy, baseRadius, baseRadius + height,
                             turn - half + 2 * half * slice / slices, turn - half + 2 * half * (slice + 1) / slices,
-                            com.darkmusic.client.gui.SpectrumAppearance.alpha(color, 0x58), com.darkmusic.client.gui.SpectrumAppearance.alpha(color, 0x10),
-                            com.darkmusic.client.gui.SpectrumAppearance.alpha(color, 0x58), com.darkmusic.client.gui.SpectrumAppearance.alpha(color, 0x10));
+                            SpectrumAppearance.alpha(color, 0x58), SpectrumAppearance.alpha(color, 0x10),
+                            SpectrumAppearance.alpha(color, 0x58), SpectrumAppearance.alpha(color, 0x10));
                     else
                         surfaceArc(v, pose, cx, cy, peakOnly() ? baseRadius + Math.max(0, height - .75f) : baseRadius, baseRadius + height,
                             turn - half + 2 * half * slice / slices, turn - half + 2 * half * (slice + 1) / slices, color, color, spectrumFinish, false, rotation);
                 if (glow)
-                    strip(v, pose, cx, cy, baseRadius + height, baseRadius + height + 1.6f, turn - half, turn + half, com.darkmusic.client.gui.SpectrumAppearance.alpha(color, 0x33), color & 0xffffff, com.darkmusic.client.gui.SpectrumAppearance.alpha(color, 0x33), color & 0xffffff);
+                    strip(v, pose, cx, cy, baseRadius + height, baseRadius + height + 1.6f, turn - half, turn + half, SpectrumAppearance.alpha(color, 0x33), color & 0xffffff, SpectrumAppearance.alpha(color, 0x33), color & 0xffffff);
             }
         }
 
@@ -244,8 +247,8 @@ final class CircularHudMesh {
                 float outer0 = baseRadius + height - cut0, outer1 = baseRadius + height - cut1;
                 float inner0 = markerBase + cut0;
                 float inner1 = markerBase + cut1;
-                int low = progress == -1 ? com.darkmusic.client.gui.SpectrumAppearance.alpha(color, 0x58) : spectrumFinish == Settings.SurfaceFinish.BEVELED ? Bevel.shade(color, -.16 + light * .10) : color;
-                int high = progress == -1 ? com.darkmusic.client.gui.SpectrumAppearance.alpha(color, 0x10) : spectrumFinish == Settings.SurfaceFinish.BEVELED ? Bevel.shade(color, .22 + light * .12) : color;
+                int low = progress == -1 ? SpectrumAppearance.alpha(color, 0x58) : spectrumFinish == Settings.SurfaceFinish.BEVELED ? Bevel.shade(color, -.16 + light * .10) : color;
+                int high = progress == -1 ? SpectrumAppearance.alpha(color, 0x10) : spectrumFinish == Settings.SurfaceFinish.BEVELED ? Bevel.shade(color, .22 + light * .12) : color;
                 point(v, pose, cx, cy, outer0, a, high);
                 point(v, pose, cx, cy, inner0, a, low);
                 point(v, pose, cx, cy, inner1, b, low);
@@ -260,8 +263,8 @@ final class CircularHudMesh {
                 point(v, pose, cx, cy, inner1, b, low);
                 if (glow) {
                     point(v, pose, cx, cy, outer0 + 1.6f, a, color & 0xffffff);
-                    point(v, pose, cx, cy, outer0, a, com.darkmusic.client.gui.SpectrumAppearance.alpha(color, 0x33));
-                    point(v, pose, cx, cy, outer1, b, com.darkmusic.client.gui.SpectrumAppearance.alpha(color, 0x33));
+                    point(v, pose, cx, cy, outer0, a, SpectrumAppearance.alpha(color, 0x33));
+                    point(v, pose, cx, cy, outer1, b, SpectrumAppearance.alpha(color, 0x33));
                     point(v, pose, cx, cy, outer1 + 1.6f, b, color & 0xffffff);
                 }
             }
@@ -269,13 +272,13 @@ final class CircularHudMesh {
     }
 
     record ProgressWaveform(Matrix3x2fc pose, ScreenRectangle scissorArea, ScreenRectangle bounds, float cx, float cy,
-                            double progress, com.darkmusic.client.audio.TrackWaveform waveform, int first, int last,
+                            double progress, TrackWaveform waveform, int first, int last,
                             Settings.SurfaceFinish finish,
-                            com.darkmusic.client.config.WaveformSettings.Look look,
+                            WaveformSettings.Look look,
                             float innerRadius) implements GuiElementRenderState {
         ProgressWaveform(Matrix3x2fc pose, ScreenRectangle scissorArea, ScreenRectangle bounds, float cx, float cy,
-                         double progress, com.darkmusic.client.audio.TrackWaveform waveform, int first, int last,
-                         Settings.SurfaceFinish finish, com.darkmusic.client.config.WaveformSettings.Look look) {
+                         double progress, TrackWaveform waveform, int first, int last,
+                         Settings.SurfaceFinish finish, WaveformSettings.Look look) {
             this(pose, scissorArea, bounds, cx, cy, progress, waveform, first, last, finish, look, CircularHudLayout.ICON_RADIUS);
         }
 
@@ -293,7 +296,7 @@ final class CircularHudMesh {
         public void buildVertices(VertexConsumer v) {
             int count = Math.min(384, look.detail());
             int alpha = (int) Math.round(look.opacity() * 255) << 24;
-            boolean bars = look.style() == com.darkmusic.client.config.WaveformSettings.Style.BARS;
+            boolean bars = look.style() == WaveformSettings.Style.BARS;
             double gap = bars ? Math.min(.6, look.spacing() / (Math.PI * 2 * CircularHudLayout.RING_OUTER / count)) : 0;
             for (int i = 0; i < count; i++) {
                 double start = i / (double) count, end = (i + 1 - gap) / count;

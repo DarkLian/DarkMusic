@@ -1,6 +1,7 @@
 package com.darkmusic.client.audio;
 
 import com.darkmusic.client.config.AudioSettings;
+import com.darkmusic.client.library.Track;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -16,7 +17,7 @@ class PlaybackConfigurationTest {
                 return state;
             }
 
-            public void play(com.darkmusic.client.library.Track t, Runnable ended, java.util.function.Consumer<String> failed) {
+            public void play(Track t, Runnable ended, java.util.function.Consumer<String> failed) {
                 state = new State(t, Status.PLAYING, 0, 10, "");
             }
 
@@ -45,14 +46,14 @@ class PlaybackConfigurationTest {
                 configurations++;
             }
 
-            public void nextTrack(com.darkmusic.client.library.Track t, Runnable started, Runnable ended, java.util.function.Consumer<String> failed) {
+            public void nextTrack(Track t, Runnable started, Runnable ended, java.util.function.Consumer<String> failed) {
                 preparations++;
             }
         }
         var backend = new Backend();
         var controller = new PlaybackController(backend, message -> fail(message));
         var settings = new AudioSettings();
-        var track = new com.darkmusic.client.library.Track("test", "reference.mp3", java.nio.file.Path.of("reference.mp3"), "", "", "", 10, 0, 0, "");
+        var track = new Track("test", "reference.mp3", java.nio.file.Path.of("reference.mp3"), "", "", "", 10, 0, 0, "");
         controller.configure(settings);
         controller.play(java.util.List.of(track), track);
         int prepared = backend.preparations;

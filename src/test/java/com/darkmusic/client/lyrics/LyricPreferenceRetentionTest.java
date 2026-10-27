@@ -1,12 +1,13 @@
 package com.darkmusic.client.lyrics;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.library.Track;
 
 import java.nio.file.*;
 import java.util.*;
 
-import com.darkmusic.client.library.Track;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -23,7 +24,7 @@ class LyricPreferenceRetentionTest {
                 return "offline";
             }
 
-            public List<Candidate> search(Query q, com.darkmusic.client.download.ProcessRunner.Token t) {
+            public List<Candidate> search(Query q, ProcessRunner.Token t) {
                 return List.of();
             }
         };

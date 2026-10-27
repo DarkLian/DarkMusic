@@ -1,6 +1,7 @@
 package com.darkmusic.client.cleanup;
 
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.library.Track;
 import com.google.gson.Gson;
 
 import java.nio.file.*;
@@ -118,9 +119,9 @@ public final class DuplicateReviewStore {
         if (ready && ignored.values().removeIf(v -> ids.contains(v.a) || ids.contains(v.b))) changed();
     }
 
-    public void prune(List<com.darkmusic.client.library.Track> tracks, Set<String> registered, Set<String> complete) {
+    public void prune(List<Track> tracks, Set<String> registered, Set<String> complete) {
         executor.execute(() -> {
-            var current = new HashMap<String, com.darkmusic.client.library.Track>();
+            var current = new HashMap<String, Track>();
             for (var track : tracks) current.put(track.id(), track);
             synchronized (this) {
                 if (!ready) return;
@@ -131,7 +132,7 @@ public final class DuplicateReviewStore {
         });
     }
 
-    private static boolean stale(String id, long size, long modified, Map<String, com.darkmusic.client.library.Track> current,
+    private static boolean stale(String id, long size, long modified, Map<String, Track> current,
                                  Set<String> registered, Set<String> complete) {
         var track = current.get(id);
         if (track != null) return size > 0 && (size != track.size() || modified != track.modified());

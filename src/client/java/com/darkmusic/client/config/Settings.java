@@ -1,5 +1,12 @@
 package com.darkmusic.client.config;
 
+import com.darkmusic.client.audio.PcmRateConverter;
+import com.darkmusic.client.audio.PlaybackController;
+import com.darkmusic.client.download.DownloadEncoding;
+import com.darkmusic.client.download.LyricsLanguages;
+import com.darkmusic.client.hud.HudScale;
+import com.darkmusic.client.pip.PipSettings;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -17,14 +24,14 @@ public final class Settings {
     public double volume = 1;
     public double lastAudibleVolume = 1;
     public boolean shuffle;
-    public com.darkmusic.client.audio.PlaybackController.Repeat repeat = com.darkmusic.client.audio.PlaybackController.Repeat.OFF;
+    public PlaybackController.Repeat repeat = PlaybackController.Repeat.OFF;
     public boolean autoplay;
     public boolean showHoverInfo = true;
     public boolean updateNotifications = true;
     public double speed = 1;
     public boolean hudEnabled = true;
     public boolean hudInMenus;
-    public com.darkmusic.client.pip.PipSettings pip = new com.darkmusic.client.pip.PipSettings();
+    public PipSettings pip = new PipSettings();
     public String hudPosition = "TOP_LEFT";
     public Double hudX, hudY;
     public double hudScale = 1;
@@ -61,7 +68,7 @@ public final class Settings {
     public double visualizerSensitivity = 1, visualizerSmoothing = .6;
     public double spectrumOpacity = 1;
     public String ytDlpPath = "", ffmpegPath = "", ffprobePath = "", javascriptPath = "";
-    public com.darkmusic.client.download.DownloadEncoding.Format downloadFormat = com.darkmusic.client.download.DownloadEncoding.Format.ORIGINAL;
+    public DownloadEncoding.Format downloadFormat = DownloadEncoding.Format.ORIGINAL;
     public AudioSettings audio = new AudioSettings();
     public SoundEnvironmentSettings environment = new SoundEnvironmentSettings();
     public boolean lyricsEnabled;
@@ -95,7 +102,7 @@ public final class Settings {
     }
 
     public void validate() {
-        if (pip == null) pip = new com.darkmusic.client.pip.PipSettings();
+        if (pip == null) pip = new PipSettings();
         pip.validate();
         if (classicImage == null) classicImage = HudImage.ARTWORK;
         if (circularImage == null) circularImage = HudImage.ARTWORK;
@@ -116,7 +123,7 @@ public final class Settings {
         if (hudBackgroundColors == null) hudBackgroundColors = backgroundColors();
         hudBackgroundColors.validate();
         try {
-            lyricsLanguages = com.darkmusic.client.download.LyricsLanguages.normalize(lyricsLanguages);
+            lyricsLanguages = LyricsLanguages.normalize(lyricsLanguages);
         } catch (IllegalArgumentException e) {
             lyricsLanguages = "auto";
         }
@@ -132,17 +139,17 @@ public final class Settings {
         if (ffmpegPath == null) ffmpegPath = "";
         if (ffprobePath == null) ffprobePath = "";
         if (javascriptPath == null) javascriptPath = "";
-        if (downloadFormat == null) downloadFormat = com.darkmusic.client.download.DownloadEncoding.Format.ORIGINAL;
+        if (downloadFormat == null) downloadFormat = DownloadEncoding.Format.ORIGINAL;
         if (audio == null) audio = new AudioSettings();
         audio.validate();
         if (environment == null) environment = new SoundEnvironmentSettings();
         environment.validate();
         if (visualQuality == null) visualQuality = defaultVisualQuality();
         visualQuality.validate();
-        if (repeat == null) repeat = com.darkmusic.client.audio.PlaybackController.Repeat.OFF;
+        if (repeat == null) repeat = PlaybackController.Repeat.OFF;
         if (!java.util.Set.of("TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT").contains(hudPosition == null ? "" : hudPosition))
             hudPosition = "TOP_LEFT";
-        speed = com.darkmusic.client.audio.PcmRateConverter.clamp(speed);
+        speed = PcmRateConverter.clamp(speed);
         if (spectrumColors == null) spectrumColors = defaultVisualColors();
         if (progressColors == null) progressColors = defaultVisualColors();
         spectrumColors.validate();
@@ -164,8 +171,8 @@ public final class Settings {
         if (spectrumPosition == null) spectrumPosition = SpectrumPosition.BELOW;
         if (spectrumDirection == null) spectrumDirection = SpectrumDirection.UPWARD;
         hudBackgroundTransparency = Double.isFinite(hudBackgroundTransparency) ? Math.clamp(hudBackgroundTransparency, 0, 1) : 1;
-        hudScale = com.darkmusic.client.hud.HudScale.clamp(hudScale);
-        lyricsHudScale = com.darkmusic.client.hud.HudScale.clamp(lyricsHudScale);
+        hudScale = HudScale.clamp(hudScale);
+        lyricsHudScale = HudScale.clamp(lyricsHudScale);
         lyricsHudX = Double.isFinite(lyricsHudX) ? Math.clamp(lyricsHudX, 0, 1) : .5;
         lyricsHudY = Double.isFinite(lyricsHudY) ? Math.clamp(lyricsHudY, 0, 1) : .9;
         lyricsHudWidth = Math.clamp(lyricsHudWidth, 120, 600);

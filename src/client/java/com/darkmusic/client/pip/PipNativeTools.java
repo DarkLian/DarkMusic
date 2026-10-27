@@ -1,6 +1,7 @@
 package com.darkmusic.client.pip;
 
 import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.update.GitHubRelease;
 import com.google.gson.Gson;
 
 import java.io.*;
@@ -70,7 +71,7 @@ public final class PipNativeTools {
 
     static Path unpack(Path archive, String expected, Path directory, Runnable beforePublish) throws Exception {
         if (Files.isSymbolicLink(archive) || !Files.isRegularFile(archive, LinkOption.NOFOLLOW_LINKS) ||
-            Files.size(archive) > 100_000_000 || !com.darkmusic.client.update.GitHubRelease.hash(archive).equals(expected))
+            Files.size(archive) > 100_000_000 || !GitHubRelease.hash(archive).equals(expected))
             throw new IOException("pip.bundle_damaged");
         return unpackArchives(List.of(() -> Files.newInputStream(archive)), expected, directory, beforePublish);
     }
