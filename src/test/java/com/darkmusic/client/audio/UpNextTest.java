@@ -1,5 +1,6 @@
 package com.darkmusic.client.audio;
 
+import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.library.Track;
 import org.junit.jupiter.api.Test;
 
@@ -215,21 +216,21 @@ class UpNextTest {
 
     @Test
     void repeatAndManualNavigationPreserveTheSpecifiedPriorities() {
-        for (var repeat : PlaybackController.Repeat.values()) {
+        for (var repeat : Repeat.values()) {
             player.repeat(repeat);
             player.play(source, source.getLast(), origin);
             player.addToQueue(x);
             audio.ended.run();
-            assertEquals(repeat == PlaybackController.Repeat.ONE ? source.getLast() : x, audio.state.track());
-            if (repeat == PlaybackController.Repeat.ONE) {
+            assertEquals(repeat == Repeat.ONE ? source.getLast() : x, audio.state.track());
+            if (repeat == Repeat.ONE) {
                 assertEquals(1, player.upNextSnapshot().manual().size());
                 player.next();
                 assertEquals(x, audio.state.track());
-                player.repeat(PlaybackController.Repeat.OFF);
+                player.repeat(Repeat.OFF);
             }
             audio.ended.run();
-            assertEquals(repeat == PlaybackController.Repeat.ALL ? AudioBackend.Status.PLAYING : AudioBackend.Status.STOPPED, audio.state.status());
-            if (repeat == PlaybackController.Repeat.ALL) assertEquals(source.getFirst(), audio.state.track());
+            assertEquals(repeat == Repeat.ALL ? AudioBackend.Status.PLAYING : AudioBackend.Status.STOPPED, audio.state.status());
+            if (repeat == Repeat.ALL) assertEquals(source.getFirst(), audio.state.track());
         }
     }
 
@@ -283,7 +284,7 @@ class UpNextTest {
 
     @Test
     void failedManualEntriesAreConsumedAndDoNotLoopUnderRepeatAll() {
-        player.repeat(PlaybackController.Repeat.ALL);
+        player.repeat(Repeat.ALL);
         start();
         player.addToQueue(x);
         player.addToQueue(y);
@@ -343,7 +344,7 @@ class UpNextTest {
     void preloadedRepeatOneAndOutputChangesRetainQueueAndIgnoreStalePlans() {
         start();
         player.addToQueue(x);
-        player.repeat(PlaybackController.Repeat.ONE);
+        player.repeat(Repeat.ONE);
         assertEquals(source.getFirst(), audio.prepared.track());
         assertTrue(audio.promote(audio.prepared, false));
         assertEquals(1, player.upNextSnapshot().manual().size());
@@ -449,7 +450,7 @@ class UpNextTest {
         start();
         player.addToQueue(x);
         player.next();
-        player.repeat(PlaybackController.Repeat.ONE);
+        player.repeat(Repeat.ONE);
         assertEquals(x, audio.prepared.track());
         assertEquals(source.subList(1, source.size()), player.upNextSnapshot().automatic());
     }
@@ -457,7 +458,7 @@ class UpNextTest {
     @Test
     void previewDoesNotInventAnUnpreparedShuffleCycleBehindManualSongs() {
         player.play(source, source.getLast(), origin);
-        player.repeat(PlaybackController.Repeat.ALL);
+        player.repeat(Repeat.ALL);
         player.shuffle(true);
         // With shuffle enabled the anchor is first; advance to the final source entry.
         player.next();

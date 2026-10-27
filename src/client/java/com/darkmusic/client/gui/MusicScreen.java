@@ -3,6 +3,7 @@ package com.darkmusic.client.gui;
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.audio.PlaybackController;
+import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.library.ArtworkCache;
 import com.darkmusic.client.library.ListeningHistory;
 import com.darkmusic.client.library.MusicFolders;
@@ -146,7 +147,7 @@ public final class MusicScreen extends LocalScreen {
 
     private void repeat() {
         if (app.mediaBusy()) return;
-        var values = PlaybackController.Repeat.values();
+        var values = Repeat.values();
         var next = values[(app.playback.repeat().ordinal() + 1) % values.length];
         app.settings.repeat = next;
         app.playback.repeat(next);
@@ -358,7 +359,7 @@ public final class MusicScreen extends LocalScreen {
             icon("text.darkmusic.refresh_library", UiIcon.REFRESH, 140, contextY, 24, true, () -> app.library.rescan());
         }
         if (shuffle != null) UiButton.selected(shuffle, () -> app.playback.shuffle());
-        if (repeat != null) UiButton.selected(repeat, () -> app.playback.repeat() != PlaybackController.Repeat.OFF);
+        if (repeat != null) UiButton.selected(repeat, () -> app.playback.repeat() != Repeat.OFF);
         refresh();
         songs.scrollOffset(songScroll);
         navigation.scrollOffset(collectionScroll);
@@ -609,7 +610,7 @@ public final class MusicScreen extends LocalScreen {
             shuffle.setMessage(Component.literal(app.playback.shuffle() ? Text.get("text.darkmusic.shuffle_on") : Text.get("text.darkmusic.shuffle_off")));
         if (repeat != null) {
             repeat.setMessage(Text.component("format.darkmusic.repeat", label(app.playback.repeat().name())));
-            UiButton.icon(repeat, app.playback.repeat() == PlaybackController.Repeat.ONE ? UiIcon.REPEAT_ONE : app.playback.repeat() == PlaybackController.Repeat.ALL ? UiIcon.REPEAT_ALL : UiIcon.REPEAT, true);
+            UiButton.icon(repeat, app.playback.repeat() == Repeat.ONE ? UiIcon.REPEAT_ONE : app.playback.repeat() == Repeat.ALL ? UiIcon.REPEAT_ALL : UiIcon.REPEAT, true);
         }
     }
 

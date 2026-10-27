@@ -1,6 +1,7 @@
 package com.darkmusic.client.audio;
 
 import com.darkmusic.client.config.AudioSettings;
+import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.config.SoundEnvironmentSettings;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
@@ -699,8 +700,6 @@ public final class PlaybackController implements AutoCloseable {
     public boolean awaitStopped(long seconds) throws InterruptedException {
         return audio.awaitStopped(seconds);
     }
-
-    public enum Repeat {OFF, ONE, ALL}
 
     /**
      * Immutable origin of the actual repeat/shuffle queue, retained across track changes.

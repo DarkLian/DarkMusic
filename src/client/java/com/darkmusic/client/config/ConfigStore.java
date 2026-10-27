@@ -1,6 +1,5 @@
 package com.darkmusic.client.config;
 
-import com.darkmusic.client.audio.PlaybackController.Repeat;
 import com.darkmusic.client.text.Text;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;

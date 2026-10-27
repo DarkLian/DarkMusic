@@ -3,6 +3,7 @@ package com.darkmusic.client;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.audio.JavaSoundBackend;
 import com.darkmusic.client.audio.PlaybackController;
+import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.library.Track;
 import org.junit.jupiter.api.Test;
 
@@ -18,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class PlaybackTest {
     @Test
     void manualNavigationWrapsTheCollectionRegardlessOfRepeatOrExhaustedHistory() {
-        for (var repeat : PlaybackController.Repeat.values()) {
+        for (var repeat : Repeat.values()) {
             var audio = new Fake();
             var controller = new PlaybackController(audio, message -> fail(message));
             var tracks = tracks();
@@ -113,16 +114,16 @@ class PlaybackTest {
         assertEquals(AudioBackend.Status.PAUSED, audio.state.status());
         controller.toggle();
         assertEquals(AudioBackend.Status.PLAYING, audio.state.status());
-        controller.repeat(PlaybackController.Repeat.ONE);
+        controller.repeat(Repeat.ONE);
         audio.ended.run();
         assertEquals(tracks.getFirst(), audio.state.track());
         controller.next();
         assertEquals(tracks.get(1), audio.state.track());
-        controller.repeat(PlaybackController.Repeat.OFF);
+        controller.repeat(Repeat.OFF);
         controller.play(tracks, tracks.getLast());
         audio.ended.run();
         assertEquals(AudioBackend.Status.STOPPED, audio.state.status());
-        controller.repeat(PlaybackController.Repeat.ALL);
+        controller.repeat(Repeat.ALL);
         controller.play(tracks, tracks.getLast());
         audio.ended.run();
         assertEquals(tracks.getFirst(), audio.state.track());
@@ -153,7 +154,7 @@ class PlaybackTest {
         List<String> warnings = new ArrayList<>();
         var controller = new PlaybackController(audio, warnings::add);
         var tracks = tracks();
-        controller.repeat(PlaybackController.Repeat.ALL);
+        controller.repeat(Repeat.ALL);
         controller.play(tracks, tracks.getFirst());
         for (int i = 0; i < tracks.size(); i++) audio.failed.accept("Corrupt file");
         assertEquals(AudioBackend.Status.STOPPED, audio.state.status());
@@ -168,7 +169,7 @@ class PlaybackTest {
         var tracks = tracks();
         for (var source : List.of(new PlaybackController.Source("All", "E1/Nested", "", "root"), new PlaybackController.Source("All", "", "", "root"), new PlaybackController.Source("Playlists", "casual-id", "", "root"), new PlaybackController.Source("Artists", "Artist", "search", "root"), new PlaybackController.Source("Albums", "Album", "", "root"))) {
             controller.play(tracks, tracks.getFirst(), source);
-            controller.repeat(PlaybackController.Repeat.ALL);
+            controller.repeat(Repeat.ALL);
             controller.next();
             controller.previous();
             controller.shuffle(true);

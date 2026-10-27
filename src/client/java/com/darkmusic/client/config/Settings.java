@@ -1,7 +1,6 @@
 package com.darkmusic.client.config;
 
 import com.darkmusic.client.audio.PcmRateConverter;
-import com.darkmusic.client.audio.PlaybackController;
 import com.darkmusic.client.download.DownloadEncoding;
 import com.darkmusic.client.download.LyricsLanguages;
 import com.darkmusic.client.hud.HudScale;
@@ -24,7 +23,7 @@ public final class Settings {
     public double volume = 1;
     public double lastAudibleVolume = 1;
     public boolean shuffle;
-    public PlaybackController.Repeat repeat = PlaybackController.Repeat.OFF;
+    public Repeat repeat = Repeat.OFF;
     public boolean autoplay;
     public boolean showHoverInfo = true;
     public boolean updateNotifications = true;
@@ -146,7 +145,7 @@ public final class Settings {
         environment.validate();
         if (visualQuality == null) visualQuality = defaultVisualQuality();
         visualQuality.validate();
-        if (repeat == null) repeat = PlaybackController.Repeat.OFF;
+        if (repeat == null) repeat = Repeat.OFF;
         if (!java.util.Set.of("TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT").contains(hudPosition == null ? "" : hudPosition))
             hudPosition = "TOP_LEFT";
         speed = PcmRateConverter.clamp(speed);

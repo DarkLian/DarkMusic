@@ -3,6 +3,7 @@ package com.darkmusic.smoke;
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.audio.PlaybackController;
+import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.config.VisualColors;
 import com.darkmusic.client.gui.*;
 import com.darkmusic.client.gui.FolderTree;
@@ -416,7 +417,7 @@ public final class SmokeClient implements ClientModInitializer {
 
                 app.configureVisualizer();
                 app.playback.shuffle(false);
-                app.playback.repeat(PlaybackController.Repeat.OFF);
+                app.playback.repeat(Repeat.OFF);
                 app.speed(1);
                 app.playback.volume(.05);
                 app.playback.play(app.library.snapshot().tracks(), app.library.snapshot().tracks().getFirst());

@@ -2,6 +2,7 @@ package com.darkmusic.smoke;
 
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.*;
+import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.download.*;
 import com.darkmusic.client.gui.*;
 import com.darkmusic.client.library.Track;
@@ -183,7 +184,7 @@ final class QueueSmokeClient {
                     var left = app.playback.upNextSnapshot().manual();
                     check(left.size() == 1 && left.getFirst().id() == kept, "Bulk remove left " + left.size() + " entries");
                     activate(mc, "upnext.clear");
-                    app.playback.repeat(PlaybackController.Repeat.OFF);
+                    app.playback.repeat(Repeat.OFF);
                     app.playback.shuffle(false);
                     app.playback.play(List.of(a, b), a);
                     for (int width : new int[]{320, 426, 960}) {
@@ -240,7 +241,7 @@ final class QueueSmokeClient {
                     app.settings.audio.gapless = true;
                     app.settings.audio.crossfade = .15;
                     app.playback.configure(app.settings.audio, app.settings.environment);
-                    app.playback.repeat(PlaybackController.Repeat.OFF);
+                    app.playback.repeat(Repeat.OFF);
                     app.playback.shuffle(false);
                     app.playback.play(List.of(a, b), a);
                     app.playback.addToQueue(x);

@@ -1,7 +1,7 @@
 package com.darkmusic.client;
 
-import com.darkmusic.client.audio.PlaybackController;
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.config.ResetStorage;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.download.DownloadModels;
@@ -50,7 +50,7 @@ class ResetTest {
         old.hudBackgroundTransparency = 1;
         old.spectrumDirection = Settings.SpectrumDirection.DOWNWARD;
         old.spectrumPosition = Settings.SpectrumPosition.ABOVE;
-        old.repeat = PlaybackController.Repeat.ALL;
+        old.repeat = Repeat.ALL;
         old.ytDlpPath = old.ffmpegPath = old.ffprobePath = old.javascriptPath = "custom";
         old.shortcuts.put("key.darkmusic.next", "key.keyboard.n");
         old.roots.put("old music", "stable-playlist-id");

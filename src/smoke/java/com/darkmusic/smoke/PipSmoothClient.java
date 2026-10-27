@@ -1,7 +1,7 @@
 package com.darkmusic.smoke;
 
 import com.darkmusic.client.DarkMusicClient;
-import com.darkmusic.client.audio.PlaybackController;
+import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.download.ProcessRunner;
 import com.darkmusic.client.gui.PipEditorScreen;
 import com.darkmusic.client.gui.PipScreen;
@@ -161,7 +161,7 @@ final class PipSmoothClient {
                 var track = app.library.snapshot().tracks().getFirst();
                 if (Boolean.getBoolean("darkmusic.pipBenchmark")) app.playback.stop();
                 else {
-                    app.playback.repeat(PlaybackController.Repeat.ONE);
+                    app.playback.repeat(Repeat.ONE);
                     app.playback.play(List.of(track), track);
                 }
                 if (!sourceTitle.isEmpty() || Files.exists(folder.resolve("check-hud-menus"))) joinBenchmarkWorld(mc);

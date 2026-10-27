@@ -2,6 +2,7 @@ package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.PlaybackController;
+import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -156,7 +157,7 @@ public final class UpNextScreen extends LocalScreen {
             automatic.rows(source.size(), i -> row(source.get(i)));
             automatic.emptyMessage(Text.get(!needle.isEmpty() ? "text.darkmusic.no_matching_songs"
                 : allSongs ? "upnext.no_songs"
-                : snapshot.shuffle() && snapshot.repeat() == PlaybackController.Repeat.ALL && snapshot.sourceSize() > 0 ? "upnext.shuffle_pending" : "upnext.no_source"));
+                : snapshot.shuffle() && snapshot.repeat() == Repeat.ALL && snapshot.sourceSize() > 0 ? "upnext.shuffle_pending" : "upnext.no_source"));
         }
         controls();
     }
@@ -224,7 +225,7 @@ public final class UpNextScreen extends LocalScreen {
         UiTheme.background(g, width, height);
         UiTheme.header(g, font, getTitle(), UiIcon.PLAYLIST);
         g.text(font, Text.get("upnext.now"), 14, 34, UiTheme.ACCENT);
-        longText.draw(g, font, "queue_scope", Text.get(snapshot.repeat() == PlaybackController.Repeat.ONE ? "upnext.hold" : "upnext.temporary"), 14, 86, width - 28, UiTheme.MUTED);
+        longText.draw(g, font, "queue_scope", Text.get(snapshot.repeat() == Repeat.ONE ? "upnext.hold" : "upnext.temporary"), 14, 86, width - 28, UiTheme.MUTED);
         longText.draw(g, font, "manual_heading", Text.get("upnext.count", snapshot.manual().size()), 14, manualTitleY, listWidth - 4, UiTheme.ACCENT);
         longText.draw(g, font, "source_heading", allSongs ? Text.get("upnext.all_songs", source.size()) : Text.get("upnext.automatic"), automaticX + 2, automaticTitleY, listWidth - 4, UiTheme.SECONDARY);
         super.extractRenderState(g, x, y, delta);

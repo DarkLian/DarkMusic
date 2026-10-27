@@ -1,6 +1,6 @@
 package com.darkmusic.client;
 
-import com.darkmusic.client.audio.PlaybackController.Repeat;
+import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.download.DownloadJson;
