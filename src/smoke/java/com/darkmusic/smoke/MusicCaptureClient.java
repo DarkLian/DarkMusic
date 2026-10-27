@@ -72,7 +72,7 @@ final class MusicCaptureClient {
                 app.settings = Settings.defaults(app.settings);
                 app.volume(app.settings.volume);
                 app.speed(app.settings.speed);
-                app.chooseDirectory(Path.of(System.getProperty("darkmusic.music")), () -> choosing = true);
+                app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> choosing = true);
                 step++;
                 return;
             }

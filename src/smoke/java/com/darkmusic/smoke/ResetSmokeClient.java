@@ -90,7 +90,7 @@ final class ResetSmokeClient {
                         expected.musicFolders = List.of(app.config.defaultMusic().toAbsolutePath().normalize().toString());
                         require(ConfigStore.JSON.toJson(expected).equals(ConfigStore.JSON.toJson(app.settings)), "Defaults did not survive a client restart");
                         require(app.library.root().equals(app.config.defaultMusic().toAbsolutePath().normalize()), "Default folder was not persisted");
-                        for (var key : app.bindings())
+                        for (var key : app.shortcuts.bindings())
                             require(key.isDefault(), "Default key did not survive restart: " + key.getName());
                         require(app.playlists.all().size() == 1, "Preserved playlist was not persisted");
                         stage = 20;
@@ -133,7 +133,7 @@ final class ResetSmokeClient {
                     if (!prepared.isDone()) return;
                     prepared.join();
                     app.settings.roots.clear();
-                    app.chooseDirectory(custom, () -> {
+                    app.folders.choose(custom, () -> {
                     });
                     stage++;
                 }
@@ -150,7 +150,7 @@ final class ResetSmokeClient {
                     app.settings.hudX = .7;
                     app.settings.speed = 2.3;
                     app.settings.volume = .1;
-                    app.next.setKey(com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.n"));
+                    app.shortcuts.next.setKey(com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.n"));
                     net.minecraft.client.KeyMapping.resetMapping();
                     jumpKey = mc.options.keyJump.saveString();
                     app.playback.play(app.library.snapshot().tracks(), app.library.snapshot().tracks().getFirst());
@@ -224,7 +224,8 @@ final class ResetSmokeClient {
                     expected.musicFolders = List.of(app.config.defaultMusic().toAbsolutePath().normalize().toString());
                     require(ConfigStore.JSON.toJson(expected).equals(ConfigStore.JSON.toJson(app.settings)), "Not all settings restored to defaults: " + differences(expected, app.settings));
                     require(app.library.root().equals(app.config.defaultMusic().toAbsolutePath().normalize()), "Default music directory not restored");
-                    for (var key : app.bindings()) require(key.isDefault(), "Shortcut not reset: " + key.getName());
+                    for (var key : app.shortcuts.bindings())
+                        require(key.isDefault(), "Shortcut not reset: " + key.getName());
                     require(mc.options.keyJump.saveString().equals(jumpKey), "Reset changed a Minecraft shortcut");
                     require(mc.options.guiScale().get() == 2, "Reset changed Minecraft GUI scale");
                     require(app.playback.state().track() == null, "Old track/queue survived reset");

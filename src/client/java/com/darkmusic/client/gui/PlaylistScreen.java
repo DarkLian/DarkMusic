@@ -46,7 +46,7 @@ public final class PlaylistScreen extends LocalScreen {
 
     @Override
     public void onFilesDrop(List<java.nio.file.Path> files) {
-        app.importAudio(files, "", selected() == null ? "" : selectedId);
+        app.media.importAudio(files, "", selected() == null ? "" : selectedId);
     }
 
     @Override

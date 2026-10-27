@@ -28,20 +28,20 @@ public final class MusicFoldersScreen extends AudioPage {
         shown = app.library.roots();
         destination = app.library.root();
         action("folders.add", this::choose).runs();
-        action("settings.darkmusic.default_folder", app::resetMusicFolder).runs();
+        action("settings.darkmusic.default_folder", app.folders::reset).runs();
         action("delete_audio.manage", () -> show(new LibraryManagerScreen(app, this)));
         info("folders.scope");
         for (var entry : shown.entrySet()) {
             Path path = entry.getKey();
             String name = com.darkmusic.client.library.MusicFolders.label(path, shown.keySet());
-            var row = new SettingRow(formX, 0, formWidth, name + (path.equals(destination) ? " • " + Text.get("folders.default") : ""), () -> path.equals(app.library.root()), () -> app.chooseDirectory(path, () -> {
+            var row = new SettingRow(formX, 0, formWidth, name + (path.equals(destination) ? " • " + Text.get("folders.default") : ""), () -> path.equals(app.library.root()), () -> app.folders.choose(path, () -> {
             })).accentLabel();
             place(row);
             Help.tip(row, path.toString());
             row.active = !path.equals(destination);
             var remove = labeledAction(Text.get("folders.remove_action"), Text.get("folders.remove_help"), () -> show(new ConfirmationScreen(this,
                 Text.component("folders.remove", name), Text.component("folders.remove_help"), Text.component("folders.remove_action"), () -> {
-                if (!app.removeMusicFolder(path))
+                if (!app.folders.remove(path))
                     return CompletableFuture.failedFuture(new IllegalStateException(Text.get(app.mediaBusy ? "library.darkmusic.busy" : "folders.remove_blocked")));
                 return CompletableFuture.completedFuture(null);
             })));
@@ -56,7 +56,7 @@ public final class MusicFoldersScreen extends AudioPage {
             if (fullscreen && !minecraft.getWindow().isFullscreen()) minecraft.getWindow().toggleFullScreen();
             if (!isCurrent()) return;
             if (failure != null) app.warn(Text.failure(failure, "error.folder"));
-            else if (path != null) app.addMusicFolder(path);
+            else if (path != null) app.folders.add(path);
         }));
     }
 

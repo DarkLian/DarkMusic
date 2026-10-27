@@ -58,7 +58,7 @@ public final class MetadataScreen extends LocalScreen {
         save.active = original != null && !saving;
         if (!loading && original == null) {
             loading = true;
-            app.readMetadata(track).whenComplete((fields, failure) -> minecraft.execute(() -> {
+            app.media.readMetadata(track).whenComplete((fields, failure) -> minecraft.execute(() -> {
                 if (failure != null) {
                     error = message(failure);
                     return;
@@ -95,7 +95,7 @@ public final class MetadataScreen extends LocalScreen {
         save.active = false;
         error = "";
         var draft = new MediaFiles.Fields(song.getValue(), artist.getValue(), album.getValue(), filename.getValue(), original.extension());
-        app.editMetadata(track, original, draft).whenComplete((edited, failure) -> minecraft.execute(() -> {
+        app.media.editMetadata(track, original, draft).whenComplete((edited, failure) -> minecraft.execute(() -> {
             saving = false;
             if (failure != null) {
                 error = message(failure);

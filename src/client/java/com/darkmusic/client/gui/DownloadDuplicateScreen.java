@@ -54,7 +54,7 @@ public final class DownloadDuplicateScreen extends LocalScreen {
     }
 
     private void open() {
-        if (selected >= 0 && selected < files.size()) app.openFolder(files.get(selected).track().file().getParent());
+        if (selected >= 0 && selected < files.size()) app.folders.open(files.get(selected).track().file().getParent());
     }
 
     @Override

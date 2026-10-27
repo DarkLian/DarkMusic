@@ -74,7 +74,7 @@ public final class AudioDeletionScreen extends LocalScreen {
         setInitialFocus(back);
         if (!preparing && plan == null && error.isEmpty()) {
             preparing = true;
-            app.prepareAudioDeletion(requested).whenComplete((prepared, failure) -> minecraft.execute(() -> {
+            app.media.prepareAudioDeletion(requested).whenComplete((prepared, failure) -> minecraft.execute(() -> {
                 preparing = false;
                 if (failure != null) error = Text.failure(failure, "delete_audio.failed");
                 else plan = prepared;
@@ -119,7 +119,7 @@ public final class AudioDeletionScreen extends LocalScreen {
         error = "";
         updateButtons();
         var finished = new CompletableFuture<Void>();
-        app.deleteAudio(plan.trashCompanions(trashCompanions), mode, cancellation, value -> progress = value).whenComplete((deleted, failure) -> minecraft.execute(() -> {
+        app.media.deleteAudio(plan.trashCompanions(trashCompanions), mode, cancellation, value -> progress = value).whenComplete((deleted, failure) -> minecraft.execute(() -> {
             busy = false;
             if (failure != null) error = Text.failure(failure, "delete_audio.failed");
             else result = deleted;

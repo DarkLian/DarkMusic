@@ -70,7 +70,7 @@ public final class DuplicateComparisonScreen extends LocalScreen {
             var play = button(i == 0 ? "cleanup.play_a" : "cleanup.play_b", x, height - 68, w, () -> play(index));
             playback[i] = play;
             UiButton.icon(play, UiIcon.PLAY, false);
-            var location = button("cleanup.location", x + w + 4, height - 68, w, () -> app.openFolder(track(index).file().getParent()));
+            var location = button("cleanup.location", x + w + 4, height - 68, w, () -> app.folders.open(track(index).file().getParent()));
             var delete = button(i == 0 ? "cleanup.delete_a" : "cleanup.delete_b", x + (w + 4) * 2, height - 68, columnWidth - (w + 4) * 2, () -> {
                 if (app.mediaBusy) return;
                 closePreview();

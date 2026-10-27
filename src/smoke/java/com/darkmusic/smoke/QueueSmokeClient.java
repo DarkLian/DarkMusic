@@ -72,7 +72,7 @@ final class QueueSmokeClient {
                 String ext = System.getProperty("os.name").startsWith("Windows") ? ".exe" : "";
                 app.settings.ffmpegPath = tools.resolve("ffmpeg" + ext).toString();
                 app.settings.ffprobePath = tools.resolve("ffprobe" + ext).toString();
-                app.chooseDirectory(Path.of(System.getProperty("darkmusic.music")), () -> {
+                app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> {
                 });
                 stage = -1;
                 return;

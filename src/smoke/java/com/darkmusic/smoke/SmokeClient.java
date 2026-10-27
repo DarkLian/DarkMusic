@@ -85,28 +85,28 @@ public final class SmokeClient implements ClientModInitializer {
     }
 
     private void checkVolumeBindings(Minecraft mc, DarkMusicClient app) throws Exception {
-        require(app.bindings().length == 14, "Expected fourteen native bindings");
-        require(app.open.getDefaultKey().getValue() == 66 && app.mute.getDefaultKey().getValue() == 77 && app.toggle.getDefaultKey().getValue() == 92, "Open/mute/play defaults are wrong");
-        require(app.slower.getDefaultKey().getValue() == 45 && app.faster.getDefaultKey().getValue() == 61 && app.normalSpeed.getDefaultKey().getValue() == 320, "Speed defaults are wrong");
-        require(app.seekBack.getDefaultKey().getValue() == 263 && app.seekForward.getDefaultKey().getValue() == 262, "Seek arrow defaults are wrong");
-        require(app.stop.getDefaultKey().getValue() == 80 && app.jump.getDefaultKey().getValue() == 79, "Stop/locate defaults are wrong");
-        require(app.next.getDefaultKey().getValue() == 93 && app.previous.getDefaultKey().getValue() == 91, "Track bracket defaults are wrong");
-        require(app.volumeUp.getDefaultKey().getValue() == 265 && app.volumeDown.getDefaultKey().getValue() == 264, "Volume arrow defaults are wrong");
+        require(app.shortcuts.bindings().length == 14, "Expected fourteen native bindings");
+        require(app.shortcuts.open.getDefaultKey().getValue() == 66 && app.shortcuts.mute.getDefaultKey().getValue() == 77 && app.shortcuts.toggle.getDefaultKey().getValue() == 92, "Open/mute/play defaults are wrong");
+        require(app.shortcuts.slower.getDefaultKey().getValue() == 45 && app.shortcuts.faster.getDefaultKey().getValue() == 61 && app.shortcuts.normalSpeed.getDefaultKey().getValue() == 320, "Speed defaults are wrong");
+        require(app.shortcuts.seekBack.getDefaultKey().getValue() == 263 && app.shortcuts.seekForward.getDefaultKey().getValue() == 262, "Seek arrow defaults are wrong");
+        require(app.shortcuts.stop.getDefaultKey().getValue() == 80 && app.shortcuts.jump.getDefaultKey().getValue() == 79, "Stop/locate defaults are wrong");
+        require(app.shortcuts.next.getDefaultKey().getValue() == 93 && app.shortcuts.previous.getDefaultKey().getValue() == 91, "Track bracket defaults are wrong");
+        require(app.shortcuts.volumeUp.getDefaultKey().getValue() == 265 && app.shortcuts.volumeDown.getDefaultKey().getValue() == 264, "Volume arrow defaults are wrong");
         var up = com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.up");
         var down = com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.down");
-        var oldMute = app.mute.saveString();
-        var oldUp = app.volumeUp.saveString();
-        var oldDown = app.volumeDown.saveString();
-        var oldToggle = app.toggle.saveString();
+        var oldMute = app.shortcuts.mute.saveString();
+        var oldUp = app.shortcuts.volumeUp.saveString();
+        var oldDown = app.shortcuts.volumeDown.saveString();
+        var oldToggle = app.shortcuts.toggle.saveString();
         double oldVolume = app.settings.volume;
         var tick = DarkMusicClient.class.getDeclaredMethod("tick", Minecraft.class, boolean.class);
         tick.setAccessible(true);
         try {
-            app.volumeUp.setKey(up);
-            app.volumeDown.setKey(down);
-            app.toggle.setKey(com.mojang.blaze3d.platform.InputConstants.UNKNOWN);
+            app.shortcuts.volumeUp.setKey(up);
+            app.shortcuts.volumeDown.setKey(down);
+            app.shortcuts.toggle.setKey(com.mojang.blaze3d.platform.InputConstants.UNKNOWN);
             net.minecraft.client.KeyMapping.resetMapping();
-            app.mute.setKey(com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f8"));
+            app.shortcuts.mute.setKey(com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f8"));
             var muteKey = com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f8");
             net.minecraft.client.KeyMapping.resetMapping();
             app.volume(.5);
@@ -138,29 +138,29 @@ public final class SmokeClient implements ClientModInitializer {
             tick.invoke(app, mc, true);
             require(app.settings.volume == 0, "Volume dropped below zero");
             app.volume(.5);
-            app.toggle.setKey(up);
+            app.shortcuts.toggle.setKey(up);
             net.minecraft.client.KeyMapping.resetMapping();
             net.minecraft.client.KeyMapping.click(up);
             tick.invoke(app, mc, true);
             require(app.settings.volume == .5, "Conflicting volume shortcut fired");
             require(app.warning.contains("Shortcut conflict"), "Conflicting shortcut needs a visible warning");
             app.warning = "";
-            app.toggle.setKey(com.mojang.blaze3d.platform.InputConstants.UNKNOWN);
-            app.volumeUp.setKey(com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f10"));
+            app.shortcuts.toggle.setKey(com.mojang.blaze3d.platform.InputConstants.UNKNOWN);
+            app.shortcuts.volumeUp.setKey(com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f10"));
             app.save();
-            require(app.volumeUp.saveString().equals("key.keyboard.f10"), "Native volume binding did not change");
+            require(app.shortcuts.volumeUp.saveString().equals("key.keyboard.f10"), "Native volume binding did not change");
         } finally {
-            app.mute.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldMute));
-            app.volumeUp.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldUp));
-            app.volumeDown.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldDown));
-            app.toggle.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldToggle));
+            app.shortcuts.mute.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldMute));
+            app.shortcuts.volumeUp.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldUp));
+            app.shortcuts.volumeDown.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldDown));
+            app.shortcuts.toggle.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldToggle));
             net.minecraft.client.KeyMapping.resetMapping();
             app.volume(oldVolume);
         }
     }
 
     private void checkSpeedBindings(Minecraft mc, DarkMusicClient app) throws Exception {
-        String oldUp = app.faster.saveString(), oldDown = app.slower.saveString(), oldNormal = app.normalSpeed.saveString();
+        String oldUp = app.shortcuts.faster.saveString(), oldDown = app.shortcuts.slower.saveString(), oldNormal = app.shortcuts.normalSpeed.saveString();
         double old = app.settings.speed;
         var up = com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f13");
         var down = com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f14");
@@ -168,9 +168,9 @@ public final class SmokeClient implements ClientModInitializer {
         var tick = DarkMusicClient.class.getDeclaredMethod("tick", Minecraft.class, boolean.class);
         tick.setAccessible(true);
         try {
-            app.faster.setKey(up);
-            app.slower.setKey(down);
-            app.normalSpeed.setKey(normal);
+            app.shortcuts.faster.setKey(up);
+            app.shortcuts.slower.setKey(down);
+            app.shortcuts.normalSpeed.setKey(normal);
             net.minecraft.client.KeyMapping.resetMapping();
             app.speed(1);
             net.minecraft.client.KeyMapping.click(up);
@@ -187,9 +187,9 @@ public final class SmokeClient implements ClientModInitializer {
             tick.invoke(app, mc, true);
             require(app.settings.speed == 1 && app.speedFeedback.opacity(System.nanoTime()) > 0, "Reset-speed feedback missing");
         } finally {
-            app.faster.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldUp));
-            app.slower.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldDown));
-            app.normalSpeed.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldNormal));
+            app.shortcuts.faster.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldUp));
+            app.shortcuts.slower.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldDown));
+            app.shortcuts.normalSpeed.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldNormal));
             net.minecraft.client.KeyMapping.resetMapping();
             app.speed(old);
         }
@@ -378,7 +378,7 @@ public final class SmokeClient implements ClientModInitializer {
                     app.settings.ffmpegPath = tools.resolve("ffmpeg" + ext).toString();
                     app.settings.ffprobePath = tools.resolve("ffprobe" + ext).toString();
                 }
-                app.chooseDirectory(Path.of(System.getProperty("darkmusic.music")), () -> {
+                app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> {
                 });
                 return;
             }
@@ -392,7 +392,7 @@ public final class SmokeClient implements ClientModInitializer {
             if (stage == -1) {
                 require(mc.level == null && mc.player == null, "Smoke test stays at title screen");
                 if (Boolean.getBoolean("darkmusic.testNativeBindings"))
-                    require(app.volumeUp.saveString().equals("key.keyboard.f10"), "Legacy config overrode the native controls binding");
+                    require(app.shortcuts.volumeUp.saveString().equals("key.keyboard.f10"), "Legacy config overrode the native controls binding");
                 mc.gui.setScreen(new TitleScreen());
                 app.open();
                 player = (MusicScreen) mc.gui.screen();
@@ -490,13 +490,13 @@ public final class SmokeClient implements ClientModInitializer {
                     require(mc.gui.screen() instanceof SettingsScreen, "Escape did not return from HUD editor");
                 }
                 case 5 -> {
-                    require(Arrays.asList(mc.options.keyMappings).containsAll(Arrays.asList(app.bindings())), "Native controls are missing DarkMusic bindings");
+                    require(Arrays.asList(mc.options.keyMappings).containsAll(Arrays.asList(app.shortcuts.bindings())), "Native controls are missing DarkMusic bindings");
                     checkVolumeBindings(mc, app);
                     checkSpeedBindings(mc, app);
-                    app.faster.setKey(com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f9"));
+                    app.shortcuts.faster.setKey(com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f9"));
                     app.save();
-                    require(app.faster.saveString().equals("key.keyboard.f9"), "Native speed binding did not change");
-                    app.faster.setKey(com.mojang.blaze3d.platform.InputConstants.UNKNOWN);
+                    require(app.shortcuts.faster.saveString().equals("key.keyboard.f9"), "Native speed binding did not change");
+                    app.shortcuts.faster.setKey(com.mojang.blaze3d.platform.InputConstants.UNKNOWN);
                     net.minecraft.client.KeyMapping.resetMapping();
                     app.save();
                     escape(mc);

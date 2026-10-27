@@ -59,7 +59,7 @@ final class AdvancedSmokeClient {
                 case -1 -> {
                     Path source = Path.of(System.getProperty("darkmusic.music"));
                     if (!source.equals(app.library.root())) {
-                        app.chooseDirectory(source, () -> {
+                        app.folders.choose(source, () -> {
                         });
                         return;
                     }

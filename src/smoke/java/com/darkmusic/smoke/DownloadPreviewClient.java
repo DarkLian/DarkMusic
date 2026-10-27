@@ -190,7 +190,7 @@ final class DownloadPreviewClient {
             }
             if (!selecting) {
                 selecting = true;
-                app.chooseDirectory(Path.of(System.getProperty("darkmusic.music")), () -> {
+                app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> {
                 });
                 return;
             }

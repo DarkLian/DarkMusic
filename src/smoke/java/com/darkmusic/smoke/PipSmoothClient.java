@@ -138,7 +138,7 @@ final class PipSmoothClient {
                 return;
             if (stage == 0) {
                 app.settings.lyricsEnabled = app.settings.lyricsOnline = app.settings.waveformProgress = false;
-                app.chooseDirectory(Path.of(System.getProperty("darkmusic.music")), () -> {
+                app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> {
                 });
                 stage = 1;
             } else if (stage == 1 && !app.library.snapshot().scanning() && !app.library.snapshot().tracks().isEmpty()) {

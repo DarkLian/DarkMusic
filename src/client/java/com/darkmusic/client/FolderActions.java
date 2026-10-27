@@ -1,0 +1,133 @@
+package com.darkmusic.client;
+
+import net.minecraft.client.Minecraft;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+/**
+ * Music folder choices from menus. Checks run on the browse pool; settings change on the client thread only.
+ */
+public final class FolderActions {
+    private final DarkMusicClient app;
+    // Reset bumps this so a folder check that finishes afterwards cannot apply a stale choice.
+    private long generation;
+
+    FolderActions(DarkMusicClient app) {
+        this.app = app;
+    }
+
+    void invalidate() {
+        generation++;
+    }
+
+    void activate(Path path) {
+        var settings = app.settings;
+        var roots = com.darkmusic.client.library.MusicFolders.resolve(settings, path);
+        var destination = settings.musicDirectory.isBlank() ? app.config.defaultMusic() : Path.of(settings.musicDirectory);
+        app.library.setRoots(roots, destination);
+        app.save();
+    }
+
+    public void choose(Path directory, Runnable success) {
+        if (app.mediaBusy) {
+            app.warn(com.darkmusic.client.text.Text.get("library.darkmusic.busy"));
+            return;
+        }
+        long ticket = generation;
+        app.browse(() -> {
+            try {
+                if (!Files.isDirectory(directory) || !Files.isReadable(directory))
+                    throw new java.io.IOException("Directory unavailable or unreadable");
+                Path canonical = directory.toRealPath();
+                Minecraft.getInstance().execute(() -> {
+                    if (!app.closed() && !app.resetting() && !app.mediaBusy && ticket == generation) {
+                        var library = app.library;
+                        if (!library.roots().containsKey(canonical) && com.darkmusic.client.library.MusicFolders.overlaps(library.roots().keySet(), canonical)) {
+                            app.warn(com.darkmusic.client.text.Text.get("folders.overlap"));
+                            return;
+                        }
+                        var settings = app.settings;
+                        var folders = new java.util.ArrayList<>(settings.musicFolders);
+                        if (!folders.contains(canonical.toString())) folders.add(canonical.toString());
+                        settings.musicFolders = java.util.List.copyOf(folders);
+                        settings.musicDirectory = canonical.toString();
+                        activate(canonical);
+                        success.run();
+                    }
+                });
+            } catch (Exception e) {
+                app.warn(com.darkmusic.client.text.Text.failure(e, "error.folder"));
+            }
+        });
+    }
+
+    public void reset() {
+        app.browse(() -> {
+            try {
+                Files.createDirectories(app.config.defaultMusic());
+                Minecraft.getInstance().execute(() -> {
+                    if (app.closed() || app.resetting()) return;
+                    choose(app.config.defaultMusic(), () -> {
+                        app.settings.musicDirectory = "";
+                        app.save();
+                    });
+                });
+            } catch (Exception e) {
+                app.warn(com.darkmusic.client.text.Text.failure(e, "error.folder"));
+            }
+        });
+    }
+
+    public void add(Path directory) {
+        long ticket = generation;
+        app.browse(() -> {
+            try {
+                var canonical = directory.toRealPath();
+                if (!Files.isDirectory(canonical) || !Files.isReadable(canonical))
+                    throw new java.io.IOException("Unreadable music folder");
+                Minecraft.getInstance().execute(() -> {
+                    if (app.closed() || app.resetting() || app.mediaBusy || ticket != generation) return;
+                    if (com.darkmusic.client.library.MusicFolders.overlaps(app.library.roots().keySet(), canonical)) {
+                        app.warn(com.darkmusic.client.text.Text.get("folders.overlap"));
+                        return;
+                    }
+                    var settings = app.settings;
+                    var folders = new java.util.ArrayList<>(settings.musicFolders);
+                    folders.add(canonical.toString());
+                    settings.musicFolders = java.util.List.copyOf(folders);
+                    activate(app.library.root());
+                });
+            } catch (Exception e) {
+                app.warn(com.darkmusic.client.text.Text.failure(e, "error.folder"));
+            }
+        });
+    }
+
+    public boolean remove(Path directory) {
+        if (app.mediaBusy || app.resetting()) {
+            app.warn(com.darkmusic.client.text.Text.get("library.darkmusic.busy"));
+            return false;
+        }
+        if (directory.equals(app.library.root())) return false;
+        app.settings.musicFolders = app.settings.musicFolders.stream().filter(p -> !Path.of(p).equals(directory)).toList();
+        activate(app.library.root());
+        return true;
+    }
+
+    public void open() {
+        open(app.library.root());
+    }
+
+    public void open(Path directory) {
+        app.browse(() -> {
+            try {
+                if (!Files.isDirectory(directory))
+                    throw new java.io.IOException("The configured music directory is unavailable");
+                net.minecraft.util.Util.getPlatform().openPath(directory);
+            } catch (Exception e) {
+                app.warn(com.darkmusic.client.text.Text.failure(e, "error.folder"));
+            }
+        });
+    }
+}

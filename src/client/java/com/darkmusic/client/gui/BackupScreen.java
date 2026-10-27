@@ -138,7 +138,7 @@ public final class BackupScreen extends AudioPage {
 
     private void transfer(Path path, boolean export) {
         var bindings = new java.util.LinkedHashMap<String, String>();
-        if (export) for (var key : app.bindings()) bindings.put(key.getName(), key.saveString());
+        if (export) for (var key : app.shortcuts.bindings()) bindings.put(key.getName(), key.saveString());
         var job = export ? new BackupArchive.Export(app.config.snapshotJson(), app.library.rootId(), app.playlists.all(),
             bindings, app.listeningHistory.snapshotSource()) : null;
         CompletableFuture.supplyAsync(() -> {

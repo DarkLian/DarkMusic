@@ -151,7 +151,7 @@ final class LyricsSmokeClient {
                 app.settings.lyricsOnline = false;
                 app.settings.lyricsConsentVersion = 1;
                 app.save();
-                app.chooseDirectory(Path.of(System.getProperty("darkmusic.music")), () -> {
+                app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> {
                 });
                 stage = -1;
                 return;

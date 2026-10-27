@@ -109,13 +109,13 @@ public final class MusicScreen extends LocalScreen {
         var button = UiButton.icon(button(Text.get(key), x, y, w, action), icon, only);
         if (only) UiButton.style(button, UiButton.Style.TRANSPORT);
         var binding = switch (icon) {
-            case PLAY -> app.toggle;
-            case PREVIOUS -> app.previous;
-            case NEXT -> app.next;
-            case SEEK_BACK -> app.seekBack;
-            case SEEK_FORWARD -> app.seekForward;
-            case STOP -> app.stop;
-            case LOCATE -> app.jump;
+            case PLAY -> app.shortcuts.toggle;
+            case PREVIOUS -> app.shortcuts.previous;
+            case NEXT -> app.shortcuts.next;
+            case SEEK_BACK -> app.shortcuts.seekBack;
+            case SEEK_FORWARD -> app.shortcuts.seekForward;
+            case STOP -> app.shortcuts.stop;
+            case LOCATE -> app.shortcuts.jump;
             default -> null;
         };
         return binding == null ? button : UiButton.shortcuts(button, binding);
@@ -205,7 +205,7 @@ public final class MusicScreen extends LocalScreen {
             icon("ui.darkmusic.collections", UiIcon.FOLDER, 12, contextY, 110, false, () -> pane(Pane.COLLECTIONS));
         else {
             int utilityWidth = layout.navigationUtilityWidth();
-            openFolder = icon("text.darkmusic.open_folder", UiIcon.FOLDER, 12, contextY, utilityWidth, true, () -> app.openFolder(browseDirectory()));
+            openFolder = icon("text.darkmusic.open_folder", UiIcon.FOLDER, 12, contextY, utilityWidth, true, () -> app.folders.open(browseDirectory()));
             icon("import.darkmusic.history", UiIcon.PLAYLIST, 16 + utilityWidth, contextY, utilityWidth, true, () -> show(new ImportHistoryScreen(app, this)));
             icon("text.darkmusic.refresh_library", UiIcon.REFRESH, 20 + utilityWidth * 2, contextY, utilityWidth, true, () -> app.library.rescan());
             icon("delete_audio.manage", UiIcon.TOOLS, 24 + utilityWidth * 3, contextY, utilityWidth, true, () -> show(new LibraryManagerScreen(app, this)));
@@ -305,11 +305,11 @@ public final class MusicScreen extends LocalScreen {
         speed = addRenderableWidget(Help.tip(new ValueSlider(x, transportY, sliderWidth, (app.settings.speed - .5) / 2.5,
                 v -> Text.get("format.darkmusic.speed", String.format(Locale.ROOT, "%.1f", app.settings.speed)),
                 v -> app.speed(.5 + v * 2.5), app::save, 25),
-            Help.withKeys(Text.get("text.darkmusic.playback_speed_0_5x_to_3_0x_in_0_1x_steps_faster_raises_pitch_slower_lowers_it"), app.slower, app.faster)));
+            Help.withKeys(Text.get("text.darkmusic.playback_speed_0_5x_to_3_0x_in_0_1x_steps_faster_raises_pitch_slower_lowers_it"), app.shortcuts.slower, app.shortcuts.faster)));
         speed.media(true, v -> String.format(Locale.ROOT, "%.1f×", .5 + v * 2.5));
         speed.mediaLabelLeft(true);
         x += sliderWidth + gap;
-        UiButton.shortcuts(transportIcon("key.darkmusic.normal_speed", UiIcon.REFRESH, x, transportY, buttonWidth, () -> app.speed(1)), app.normalSpeed);
+        UiButton.shortcuts(transportIcon("key.darkmusic.normal_speed", UiIcon.REFRESH, x, transportY, buttonWidth, () -> app.speed(1)), app.shortcuts.normalSpeed);
         x += buttonWidth + gap;
         shuffle = transportIcon("text.darkmusic.shuffle", UiIcon.SHUFFLE, x, transportY, buttonWidth, this::shuffle);
         x += buttonWidth + gap;
@@ -335,12 +335,12 @@ public final class MusicScreen extends LocalScreen {
         x += buttonWidth + gap;
         repeat = transportIcon("text.darkmusic.repeat", UiIcon.REPEAT, x, transportY, buttonWidth, this::repeat);
         x += buttonWidth + gap;
-        mute = UiButton.shortcuts(transportIcon("key.darkmusic.mute", app.settings.volume == 0 ? UiIcon.MUTED : UiIcon.VOLUME, x, transportY, buttonWidth, app::toggleMute), app.mute);
+        mute = UiButton.shortcuts(transportIcon("key.darkmusic.mute", app.settings.volume == 0 ? UiIcon.MUTED : UiIcon.VOLUME, x, transportY, buttonWidth, app::toggleMute), app.shortcuts.mute);
         UiButton.selected(mute, () -> app.settings.volume == 0);
         x += buttonWidth + gap;
         volume = addRenderableWidget(Help.tip(new ValueSlider(x, transportY, sliderWidth, app.settings.volume,
                 v -> Text.get("format.darkmusic.volume", Math.round(v * 100)), app::volume, app::save),
-            Help.withKeys(Text.get("text.darkmusic.darkmusic_volume_independent_of_minecraft_sound_sliders"), app.volumeDown, app.volumeUp)));
+            Help.withKeys(Text.get("text.darkmusic.darkmusic_volume_independent_of_minecraft_sound_sliders"), app.shortcuts.volumeDown, app.shortcuts.volumeUp)));
         volume.media(true, v -> Math.round(v * 100) + "%");
         progress = addRenderableWidget(new ValueSlider(layout.dock().x() + 4, layout.seekY(), layout.dock().width() - 8, 0,
             v -> time(progress != null && progress.editing() ? v * app.playback.state().duration() : app.playback.state().position()) + " / " + time(app.playback.state().duration()),
@@ -350,7 +350,7 @@ public final class MusicScreen extends LocalScreen {
             }, this::commitSeek));
         PlayerProgress.configure(progress, app, () -> app.playback.state().track());
         if (drawer) {
-            icon("text.darkmusic.open_folder", UiIcon.FOLDER, 84, contextY, 24, true, app::openFolder);
+            icon("text.darkmusic.open_folder", UiIcon.FOLDER, 84, contextY, 24, true, app.folders::open);
             icon("import.darkmusic.history", UiIcon.PLAYLIST, 112, contextY, 24, true, () -> show(new ImportHistoryScreen(app, this)));
             icon("text.darkmusic.refresh_library", UiIcon.REFRESH, 140, contextY, 24, true, () -> app.library.rescan());
         }
@@ -614,7 +614,7 @@ public final class MusicScreen extends LocalScreen {
     public void onFilesDrop(java.util.List<java.nio.file.Path> files) {
         String folder = mode.equals("All") ? group : "";
         String playlist = mode.equals("Playlists") && app.playlists.get(group) != null ? group : "";
-        app.importAudio(files, folder, playlist);
+        app.media.importAudio(files, folder, playlist);
     }
 
     @Override
@@ -652,17 +652,17 @@ public final class MusicScreen extends LocalScreen {
                 }
                 return true;
             }
-            for (var binding : app.bindings())
+            for (var binding : app.shortcuts.bindings())
                 if (binding.matches(event)) {
                     while (binding.consumeClick()) {
                     }
-                    if (binding == app.open) {
-                        if (!app.conflicts(binding)) onClose();
-                    } else if (binding == app.toggle) {
-                        if (!app.conflicts(binding)) playPause();
-                    } else if (binding == app.jump) {
-                        if (!app.conflicts(binding)) jumpToPlaying();
-                    } else app.playbackShortcut(binding);
+                    if (binding == app.shortcuts.open) {
+                        if (!app.shortcuts.conflicts(binding)) onClose();
+                    } else if (binding == app.shortcuts.toggle) {
+                        if (!app.shortcuts.conflicts(binding)) playPause();
+                    } else if (binding == app.shortcuts.jump) {
+                        if (!app.shortcuts.conflicts(binding)) jumpToPlaying();
+                    } else app.shortcuts.perform(binding);
                     return true;
                 }
         }
