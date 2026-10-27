@@ -4,6 +4,7 @@ import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.gui.SpectrumRenderer;
 import com.darkmusic.client.hud.HudLayout;
+import com.darkmusic.client.hud.HudSurface;
 import com.darkmusic.client.library.ArtworkCache;
 import com.darkmusic.client.library.MetadataReader;
 import org.junit.jupiter.api.Test;
@@ -91,13 +92,13 @@ class CombinedHudTest {
         var s = new Settings();
         for (double value : new double[]{0, .5, 1}) {
             s.hudBackgroundTransparency = value;
-            int color = HudLayout.background(s);
+            int color = HudSurface.background(s);
             assertEquals((int) Math.round((1 - value) * 255), color >>> 24);
             assertEquals(0x111420, color & 0xFFFFFF);
         }
         s.hudBackgroundTransparency = Double.NaN;
         s.validate();
-        assertEquals(0, HudLayout.background(s) >>> 24);
+        assertEquals(0, HudSurface.background(s) >>> 24);
     }
 
     @Test

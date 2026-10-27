@@ -85,9 +85,6 @@ public final class MusicScreen extends LocalScreen {
         return "%d:%02d".formatted(value / 60, value % 60);
     }
 
-    public static String label(String constant) {
-        return Text.get("state.darkmusic." + constant.toLowerCase(Locale.ROOT));
-    }
 
     private Button button(String text, int x, int y, int w, Runnable action) {
         var button = addRenderableWidget(UiButton.builder(Component.literal(text), b -> action.run()).bounds(x, y, w, 20).build());
@@ -609,7 +606,7 @@ public final class MusicScreen extends LocalScreen {
         if (shuffle != null)
             shuffle.setMessage(Component.literal(app.playback.shuffle() ? Text.get("text.darkmusic.shuffle_on") : Text.get("text.darkmusic.shuffle_off")));
         if (repeat != null) {
-            repeat.setMessage(Text.component("format.darkmusic.repeat", label(app.playback.repeat().name())));
+            repeat.setMessage(Text.component("format.darkmusic.repeat", UiStatus.label(app.playback.repeat().name())));
             UiButton.icon(repeat, app.playback.repeat() == Repeat.ONE ? UiIcon.REPEAT_ONE : app.playback.repeat() == Repeat.ALL ? UiIcon.REPEAT_ALL : UiIcon.REPEAT, true);
         }
     }

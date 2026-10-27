@@ -5,8 +5,8 @@ import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.gui.ColorStrip;
 import com.darkmusic.client.gui.HorizontalText;
-import com.darkmusic.client.gui.MusicScreen;
 import com.darkmusic.client.gui.SpectrumRenderer;
+import com.darkmusic.client.gui.UiStatus;
 import com.darkmusic.client.gui.WaveformProgress;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
@@ -158,7 +158,7 @@ public final class NowPlayingHud {
             String artist = track == null ? Text.get("text.darkmusic.artist") : track.artist();
             // "Playing" is implied by a moving HUD; only a paused, stopped or preview state is worth the space.
             String status = state.track() == null ? Text.get("text.darkmusic.preview")
-                : state.status() == AudioBackend.Status.PLAYING ? "" : MusicScreen.label(state.status().name());
+                : state.status() == AudioBackend.Status.PLAYING ? "" : UiStatus.label(state.status().name());
             String detail = status.isEmpty() ? artist : status + " | " + artist;
             if (text != null)
                 text.draw(g, mc.font, "hud_detail", detail, textX, main + 21, Math.max(1, w - textX - 6), 0xFFE0DDEE);

@@ -8,6 +8,7 @@ import com.darkmusic.client.gui.UiTheme;
 import com.darkmusic.client.hud.ArtworkHudLayout;
 import com.darkmusic.client.hud.CircularHudLayout;
 import com.darkmusic.client.hud.HudLayout;
+import com.darkmusic.client.hud.HudSurface;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.playlist.PlaylistStore;
 import org.junit.jupiter.api.Test;
@@ -130,7 +131,7 @@ class CustomizationTest {
     void customizationsPersistAndDefaultsKeepExistingAppearance() {
         var settings = new Settings();
         settings.validate();
-        assertEquals(0x00111420, HudLayout.background(settings));
+        assertEquals(0x00111420, HudSurface.background(settings));
         assertEquals(CircularHudLayout.of(true, true), CircularHudLayout.of(true, true, settings.circularSpectrumHeight));
         settings.menuBackgroundColor = 0x224433;
         settings.menuAccentColor = 0xEECCCC;
@@ -142,7 +143,7 @@ class CustomizationTest {
         loaded.validate();
         assertTrue(loaded.hudBackgroundGradient);
         assertEquals(0x884422, loaded.hudBackgroundColors.last());
-        assertEquals(128, HudLayout.background(loaded) >>> 24);
+        assertEquals(128, HudSurface.background(loaded) >>> 24);
         try {
             UiTheme.apply(loaded);
             assertEquals(0xFF224433, UiTheme.BACKGROUND);

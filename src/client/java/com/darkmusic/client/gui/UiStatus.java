@@ -3,6 +3,9 @@ package com.darkmusic.client.gui;
 import com.darkmusic.client.download.DownloadModels;
 import com.darkmusic.client.lyrics.LyricsInfo;
 import com.darkmusic.client.lyrics.LyricsLookup;
+import com.darkmusic.client.text.Text;
+
+import java.util.Locale;
 
 /**
  * Semantic status colors, independent of the user's decorative accent.
@@ -67,5 +70,9 @@ public final class UiStatus {
             case READY, SAVED -> Tone.SUCCESS;
             default -> Tone.INFO;
         };
+    }
+
+    public static String label(String constant) {
+        return Text.get("state.darkmusic." + constant.toLowerCase(Locale.ROOT));
     }
 }

@@ -68,9 +68,6 @@ public final class HudLayout {
         return Math.clamp((coordinate - 8) / Math.max(1, screenSize - 16.0 - size), 0, 1);
     }
 
-    public static int background(Settings settings) {
-        return ((int) Math.round((1 - settings.hudBackgroundTransparency) * 255) << 24) | settings.hudBackgroundColors.first();
-    }
 
     /**
      * A see-through or light card leaves title text competing with the world behind it; a soft dark

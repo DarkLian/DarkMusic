@@ -21,7 +21,7 @@ public final class HudSurface {
     }
 
     public static void draw(GuiGraphicsExtractor g, Settings settings, int width, int height) {
-        draw(g, settings, width, height, HudLayout.background(settings) & 0xFF000000);
+        draw(g, settings, width, height, background(settings) & 0xFF000000);
     }
 
     public static void draw(GuiGraphicsExtractor g, Settings settings, int width, int height, int alpha) {
@@ -96,5 +96,9 @@ public final class HudSurface {
             next = next >= 6 && next < height - 6 ? Math.min(bottom, height - 6) : next + 1;
         }
         return next;
+    }
+
+    public static int background(Settings settings) {
+        return ((int) Math.round((1 - settings.hudBackgroundTransparency) * 255) << 24) | settings.hudBackgroundColors.first();
     }
 }
