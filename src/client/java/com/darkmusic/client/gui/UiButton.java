@@ -138,19 +138,42 @@ public final class UiButton extends Button {
             g.fill(getX() + 1, getY() + 1, getX() + 3, getBottom() - 1, active ? UiTheme.ACCENT : UiTheme.BORDER);
         if (first != null)
             UiTheme.gradient(g, getX() + 5, getBottom() - (height > 20 ? 6 : 3), width - 10, height > 20 ? 3 : 2, first.getAsInt() | 0xFF000000, last.getAsInt() | 0xFF000000);
-        // Native scrolling labels preserve full translated labels, including narrow controls.
         if (icon != null)
             icon.draw(g, iconOnly ? getX() + (width - 12) / 2 : getX() + 6, getY() + (height - 12) / 2, 12, active ? UiTheme.ACCENT : UiTheme.MUTED);
-        if (!iconOnly) {
-            if (icon == null)
-                extractDefaultLabel(g.textRendererForWidget(this, GuiGraphicsExtractor.HoveredTextEffects.NONE));
-            else {
-                g.textRendererForWidget(this, GuiGraphicsExtractor.HoveredTextEffects.NONE).acceptScrollingWithDefaultCenter(
-                    getMessage(), getX() + 23, getRight() - 6, getY(), getBottom());
-            }
-        }
+        if (!iconOnly) label(g);
         if (!active) g.fill(getX() + 1, getY() + 1, getRight() - 1, getBottom() - 1, 0x55111420);
     }
+
+    /**
+     * Static, centered label; a label that cannot fit ends with an ellipsis and its tooltip shows it whole.
+     * Labels never animate: only the HUD song title loops.
+     */
+    private int labelLeft() {
+        return getX() + (icon == null ? 4 : 23);
+    }
+
+    private int labelRight() {
+        return getRight() - (icon == null ? 4 : 6);
+    }
+
+    /**
+     * True when the visible label is shortened; smoke checks use it to keep common labels whole.
+     */
+    public boolean labelTruncated() {
+        var font = net.minecraft.client.Minecraft.getInstance().font;
+        return !iconOnly && font.width(getMessage().getString()) > labelRight() - labelLeft();
+    }
+
+    private void label(GuiGraphicsExtractor g) {
+        var font = net.minecraft.client.Minecraft.getInstance().font;
+        int left = labelLeft(), right = labelRight();
+        String message = getMessage().getString();
+        String shown = HorizontalText.ellipsize(font, message, Math.max(0, right - left));
+        if (!shown.equals(message) && !Help.hasInfo(this)) actionTooltip();
+        int textWidth = font.width(shown);
+        g.text(font, shown, left + (right - left - textWidth) / 2, getY() + (height - 8) / 2, active ? UiTheme.TEXT : UiTheme.MUTED);
+    }
+
 
     public static Builder builder(Component message, OnPress press) {
         return new Builder(message, press);

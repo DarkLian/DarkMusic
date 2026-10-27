@@ -31,16 +31,27 @@ public enum UiIcon {
     }
 
     /**
-     * The Back glyph turned by quarter turns: 0 left, 1 up, 2 right, 3 down.
+     * A pixel-aligned chevron in a size-by-size box: 0 left, 1 up, 2 right, 3 down.
+     * Drawn from whole-pixel steps rather than a rotated texture, so small arrows stay crisp.
      */
-    public static void chevron(GuiGraphicsExtractor g, int x, int y, int size, int color, int quarterTurns) {
-        g.pose().pushMatrix();
-        try {
-            g.pose().translate(x + size / 2f, y + size / 2f);
-            g.pose().rotate((float) (Math.PI / 2 * quarterTurns));
-            BACK.draw(g, -size / 2, -size / 2, size, color);
-        } finally {
-            g.pose().popMatrix();
+    public static void chevron(GuiGraphicsExtractor g, int x, int y, int size, int color, int direction) {
+        int arm = Math.max(1, (size - 1) / 2), span = 2 * arm + 1, thickness = size >= 9 ? 2 : 1;
+        int depth = arm + thickness;
+        boolean horizontal = direction % 2 == 0;
+        // Center the glyph's real extent in the box.
+        int ox = x + (size - (horizontal ? depth : span)) / 2, oy = y + (size - (horizontal ? span : depth)) / 2;
+        for (int k = 0; k <= arm; k++) {
+            int along = switch (direction) {
+                case 0, 1 -> arm - k;
+                default -> k;
+            };
+            if (horizontal) {
+                g.fill(ox + along, oy + k, ox + along + thickness, oy + k + 1, color);
+                g.fill(ox + along, oy + span - 1 - k, ox + along + thickness, oy + span - k, color);
+            } else {
+                g.fill(ox + k, oy + along, ox + k + 1, oy + along + thickness, color);
+                g.fill(ox + span - 1 - k, oy + along, ox + span - k, oy + along + thickness, color);
+            }
         }
     }
 

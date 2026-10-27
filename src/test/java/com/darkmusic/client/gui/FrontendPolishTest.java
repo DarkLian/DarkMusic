@@ -70,6 +70,11 @@ class FrontendPolishTest {
     }
 
     @Test
+    void menusDefaultToABlackBackground() {
+        assertEquals(0x000000, new Settings().menuBackgroundColor);
+    }
+
+    @Test
     void hudTextScrimFollowsCardTransparencyAndLightness() {
         var settings = new Settings();
         settings.hudBackgroundTransparency = 0;

@@ -198,7 +198,7 @@ public final class SettingsScreen extends LocalScreen {
             action("lyrics.hud.settings", () -> show(new LyricsHudSettingsScreen(app, this)), "lyrics.hud.settings.help");
         }
         section("settings.appearance_section");
-        action("settings.darkmusic.menu_background", () -> show(new ColorPickerScreen(this, s.menuBackgroundColor, 0x111420, color -> {
+        action("settings.darkmusic.menu_background", () -> show(new ColorPickerScreen(this, s.menuBackgroundColor, 0x000000, color -> {
             s.menuBackgroundColor = color;
             app.save();
         })), "settings.darkmusic.menu_background_help");

@@ -47,7 +47,7 @@ public final class Settings {
     public double hudBackgroundTransparency = 1;
     public boolean hudBackgroundGradient;
     public VisualColors hudBackgroundColors = backgroundColors();
-    public int menuBackgroundColor = 0x111420, menuAccentColor = 0xB8A8FA;
+    public int menuBackgroundColor = 0x000000, menuAccentColor = 0xB8A8FA;
     public int classicSpectrumHeight = 32, circularSpectrumHeight = 18, artworkSpectrumHeight = 40;
     public ArtworkSpectrumPosition artworkSpectrumPosition = ArtworkSpectrumPosition.BELOW;
     public VisualColors spectrumColors = defaultVisualColors(), progressColors = defaultVisualColors();

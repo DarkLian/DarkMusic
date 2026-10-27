@@ -267,7 +267,7 @@ Downloads run in the background, including when the menu is closed. Up to three 
 
 Queue search covers titles, status, errors, and destination folders. **Retry Selected** retries one failed job; **Retry Failed** retries all failed jobs. Automatic retries for temporary failures, including HTTP 503 Service Unavailable, run after pending work, up to three retries per job. Clear Finished keeps failed jobs; Clear Failed removes their queue records. Cancellation stops active/queued work; completed files remain.
 
-Completed files go into the currently configured music folder and appear in the library. The **Download Audio Format** button on the Downloads screen chooses Original / Best Available or Convert to MP3. Available title, uploader/artist, album, track number, and artwork are embedded where supported. Duplicate tracking reduces repeat downloads.
+Completed files go into the currently configured music folder and appear in the library. The **Format** button on the Downloads screen chooses Original (best available) or MP3. Available title, uploader/artist, album, track number, and artwork are embedded where supported. Duplicate tracking reduces repeat downloads.
 
 ### Music already in your library
 

@@ -320,8 +320,11 @@ public final class DownloadScreen extends LocalScreen {
         place(last, 96, modeY + 26, 76, !queueView && mode == Mode.RANGE);
         place(download, 16, modeY + (mode == Mode.RANGE ? 56 : 30), side, !queueView);
         place(format, 16, modeY + (mode == Mode.RANGE ? 82 : 56), side, !queueView);
-        place(search, rightX, searchY, rightWidth - (queueView ? 0 : 112), true);
-        place(listen, width - 112, searchY, 72, !queueView);
+        // Wide enough for its longest state, so the label never needs shortening.
+        int listenWidth = Math.clamp(java.util.stream.Stream.of("download.darkmusic.listen", "text.darkmusic.pause", "text.darkmusic.resume")
+            .mapToInt(key -> font.width(Text.get(key))).max().orElse(0) + 33, 72, 160);
+        place(search, rightX, searchY, rightWidth - (queueView ? 0 : listenWidth + 40), true);
+        place(listen, width - 40 - listenWidth, searchY, listenWidth, !queueView);
         place(stopListening, width - 36, searchY, 24, !queueView);
         place(previous, rightX, pageY, 24, !queueView);
         place(next, rightX + 28, pageY, 24, !queueView);
@@ -513,7 +516,7 @@ public final class DownloadScreen extends LocalScreen {
         download.active = !queueView && !snapshot.analyzing() && valid;
         modeButton.active = !queueView && valid && !single(p);
         modeButton.setMessage(Component.literal(Text.get("format.darkmusic.mode", mode.label())));
-        format.setMessage(Component.literal(Text.get("audio.darkmusic.download") + ": " + Text.get("audio.darkmusic.value." + app.settings.downloadFormat.name().toLowerCase(Locale.ROOT))));
+        format.setMessage(Text.component("download.darkmusic.format", Text.get("download.darkmusic.format." + app.settings.downloadFormat.name().toLowerCase(Locale.ROOT))));
         format.active = !queueView && !snapshot.analyzing();
         first.visible = last.visible = !queueView && mode == Mode.RANGE;
         first.active = last.active = !queueView && valid && mode == Mode.RANGE && !snapshot.analyzing();

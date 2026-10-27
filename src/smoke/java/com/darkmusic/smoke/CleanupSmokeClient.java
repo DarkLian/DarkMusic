@@ -54,6 +54,15 @@ final class CleanupSmokeClient {
         }
     }
 
+    /**
+     * Button labels never animate; at the documented 1920x1080 / GUI scale 2 size, none should need shortening.
+     */
+    private static List<String> truncatedLabels(Screen screen) {
+        screen.init(960, 540);
+        return screen.children().stream().filter(c -> c instanceof UiButton b && b.visible && b.labelTruncated())
+            .map(c -> screen.getClass().getSimpleName() + " | " + ((UiButton) c).getMessage().getString() + " | " + ((UiButton) c).getWidth()).toList();
+    }
+
     private void tick(Minecraft mc) {
         if (stage == 99) return;
         try {
@@ -97,6 +106,18 @@ final class CleanupSmokeClient {
                     mc.gui.setScreen(page);
                     for (int width : new int[]{320, 426, 960}) bounds(page, width, width == 960 ? 540 : 240);
                 }
+                var truncated = new ArrayList<String>();
+                for (var page : List.<Screen>of(new MusicScreen(app, results), new SettingsScreen(app, results), new DownloadScreen(app, results), new DownloadToolsScreen(app, results),
+                    new DownloadPathsScreen(app, results), new UpNextScreen(app, results), new PlaylistScreen(app, results), new LibraryManagerScreen(app, results), results, comparison, ignored,
+                    new ImportHistoryScreen(app, results), new HudEditorScreen(app, results), new PipSourcesScreen(app, results), new PipEditorScreen(app, results, false), new PipEditorScreen(app, results, true),
+                    new ColorsScreen(app, results, true), new ColorsScreen(app, results, false), new LyricsScreen(app, results, a), new LyricsSearchScreen(app, results, a),
+                    new MetadataScreen(app, results, a, t -> {
+                    }), new AudioDeletionScreen(app, results, List.of(a), results), new DownloadDuplicateScreen(app, results, choice))) {
+                    mc.gui.setScreen(page);
+                    truncated.addAll(truncatedLabels(page));
+                }
+                mc.gui.setScreen(results);
+                check(truncated.isEmpty(), "Shortened button labels at 960x540: " + truncated);
                 app.playback.play(List.of(a, b), a);
                 app.playback.addToQueue(b);
                 queue = app.playback.upNextSnapshot().manual();
