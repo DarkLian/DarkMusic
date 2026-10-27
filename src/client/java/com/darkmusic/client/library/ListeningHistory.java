@@ -1,7 +1,6 @@
 package com.darkmusic.client.library;
 
 import com.darkmusic.client.config.ConfigStore;
-import com.darkmusic.client.playlist.PlaylistStore;
 import com.darkmusic.client.text.Text;
 import com.google.gson.reflect.TypeToken;
 
@@ -115,7 +114,7 @@ public final class ListeningHistory {
             int colon = key.indexOf(':');
             if (colon <= 0 || colon == key.length() - 1 || e == null || e.plays < 0 || e.lastPlayed < 0 || !Double.isFinite(e.seconds) || e.seconds < 0)
                 throw new IllegalArgumentException("Invalid listening entry");
-            new PlaylistStore.Entry(key.substring(0, colon), key.substring(colon + 1));
+            Track.checkReference(key.substring(0, colon), key.substring(colon + 1));
         });
     }
 

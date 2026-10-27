@@ -392,8 +392,7 @@ public final class PlaylistStore {
 
     public record Entry(String rootId, String path) {
         public Entry {
-            if (rootId == null || rootId.isBlank() || path == null || path.isBlank() || path.startsWith("/") || path.contains("\\") || Arrays.asList(path.split("/")).contains(".."))
-                throw new IllegalArgumentException("Invalid playlist file reference");
+            Track.checkReference(rootId, path);
         }
 
         public static Entry of(Track track) {

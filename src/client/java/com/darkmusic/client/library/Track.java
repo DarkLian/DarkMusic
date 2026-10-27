@@ -1,6 +1,7 @@
 package com.darkmusic.client.library;
 
 import java.nio.file.Path;
+import java.util.Arrays;
 
 public final class Track {
     private final String rootId, relativePath, title, artist, album, problem;
@@ -11,6 +12,14 @@ public final class Track {
     private static final ThreadLocal<Query> QUERY = new ThreadLocal<>();
 
     private record Query(String raw, String normalized) {
+    }
+
+    /**
+     * Rejects a stored reference that could point outside its music folder.
+     */
+    public static void checkReference(String rootId, String path) {
+        if (rootId == null || rootId.isBlank() || path == null || path.isBlank() || path.startsWith("/") || path.contains("\\") || Arrays.asList(path.split("/")).contains(".."))
+            throw new IllegalArgumentException("Invalid playlist file reference");
     }
 
     public Track(String rootId, String relativePath, Path file, String title, String artist, String album, double duration, long size, long modified, String problem) {
