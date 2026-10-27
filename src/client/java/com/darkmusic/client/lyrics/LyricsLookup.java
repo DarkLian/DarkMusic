@@ -41,10 +41,8 @@ public final class LyricsLookup implements AutoCloseable {
                          boolean pinned, boolean reviewRequired, String rootId, String trackId, String encoding) {
     }
 
-    private record Cached(int schema, long expires, List<LyricsProvider.Candidate> candidates) {
-    }
-
     private final Path directory;
+    final LyricsResultCache results;
     private final LyricsProvider provider;
     private final LinkedBlockingDeque<Runnable> networkQueue = new LinkedBlockingDeque<>(16);
     private final ThreadPoolExecutor worker = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
@@ -99,9 +97,6 @@ public final class LyricsLookup implements AutoCloseable {
         return cacheRevision;
     }
 
-    private final LinkedHashMap<String, Cached> results = new LinkedHashMap<>(16, .75f, true);
-    private long nextCacheTrim, bytesSinceCacheTrim;
-    private final Object cacheFiles = new Object();
     private volatile boolean enabled = true, online, closed;
     private volatile Captions captions;
     private volatile Captions manualCaptions;
@@ -122,6 +117,7 @@ public final class LyricsLookup implements AutoCloseable {
         this.directory = directory;
         this.provider = provider;
         this.clock = clock;
+        results = new LyricsResultCache(directory, task -> submit(task::run));
         worker.prestartCoreThread();
     }
 
@@ -246,7 +242,7 @@ public final class LyricsLookup implements AutoCloseable {
         }
     }
 
-    private static LyricsDocument validated(LyricsDocument d) {
+    static LyricsDocument validated(LyricsDocument d) {
         return LyricsDocument.of(d.provider(), d.recordId(), d.title(), d.artist(), d.album(), d.duration(), d.language(), d.variant(), d.generated(), d.instrumental(), d.text());
     }
 
@@ -527,12 +523,12 @@ public final class LyricsLookup implements AutoCloseable {
 
     private List<LyricsProvider.Candidate> discover(Track track, LyricsProvider.Query query, boolean refresh, boolean automatic, ProcessRunner.Token token) throws Exception {
         String key = hash(signature(track, query) + (automatic ? "a" : "m"));
-        Cached cached = refresh ? null : cached(key);
+        List<LyricsProvider.Candidate> cached = refresh ? null : results.get(key);
         // An explicit version search is a superset of an automatic lookup of the same metadata.
-        if (cached == null && !refresh && automatic) cached = cached(hash(signature(track, query) + "m"));
-        List<LyricsProvider.Candidate> found = cached == null ? (automatic ? provider.search(query, token) : provider.alternatives(query, token)) : cached.candidates;
+        if (cached == null && !refresh && automatic) cached = results.get(hash(signature(track, query) + "m"));
+        List<LyricsProvider.Candidate> found = cached == null ? (automatic ? provider.search(query, token) : provider.alternatives(query, token)) : cached;
         token.check();
-        if (cached == null) cache(key, found);
+        if (cached == null) results.put(key, found);
         return found;
     }
 
@@ -547,13 +543,13 @@ public final class LyricsLookup implements AutoCloseable {
         String source = refresh ? SourceLinks.resolve(track.file())
             : CaptionUrls.automatic(SourceLinks.read(track.file()));
         String key = hash("captions:1:" + track.id() + ":" + track.size() + ":" + track.modified() + ":" + source + ":" + wanted + ":" + generated);
-        Cached prior = refresh ? null : cached(key);
-        if (prior != null) return prior.candidates;
+        List<LyricsProvider.Candidate> prior = refresh ? null : results.get(key);
+        if (prior != null) return prior;
         var document = (refresh ? manualCaptions : captions).fetch(track, wanted, generated, token);
         token.check();
         var result = document == null || !document.available() ? List.<LyricsProvider.Candidate>of()
             : List.of(new LyricsProvider.Candidate(document, true, "lyrics.match.source"));
-        cache(key, result);
+        results.put(key, result);
         return result;
     }
 
@@ -781,123 +777,10 @@ public final class LyricsLookup implements AutoCloseable {
 
     public CompletableFuture<Void> clearCache() {
         latestOperations.values().forEach(ProcessRunner.Token::cancel);
-        return submitNetwork(() -> {
-            synchronized (results) {
-                results.clear();
-                automatic.clear();
-                cacheRevision++;
-                if (directory != null) for (String name : List.of("cache", "misses")) {
-                    if (!Files.isDirectory(directory.resolve(name), LinkOption.NOFOLLOW_LINKS)) continue;
-                    try (var files = Files.list(directory.resolve(name))) {
-                        for (Path p : files.filter(p -> p.getFileName().toString().matches("[a-f0-9]{64}\\.json")).toList())
-                            Files.deleteIfExists(p);
-                    }
-                }
-            }
-        });
-    }
-
-    private Cached cached(String key) {
-        Cached value;
-        synchronized (results) {
-            value = results.get(key);
-        }
-        Cached initial = value;
-        if (value == null && directory != null) try {
-            Path miss = directory.resolve("misses").resolve(key + ".json");
-            value = read(Files.isRegularFile(miss, LinkOption.NOFOLLOW_LINKS) ? miss : directory.resolve("cache").resolve(key + ".json"), Cached.class);
-        } catch (Exception ignored) {
-        }
-        if (value == null || value.schema != 1 || value.expires < System.currentTimeMillis() || value.candidates == null || value.candidates.size() > 20)
-            return null;
-        try {
-            var checked = value.candidates.stream().map(c -> new LyricsProvider.Candidate(validated(c.document()), c.reliable(), c.evidence())).toList();
-            value = new Cached(1, value.expires, checked);
-            synchronized (results) {
-                Cached newer = results.get(key);
-                if (newer == null || newer == initial) results.put(key, value);
-                else value = newer;
-                trim();
-            }
-            return value;
-        } catch (Exception invalid) {
-            return null;
-        }
-    }
-
-    private void cache(String key, List<LyricsProvider.Candidate> candidates) {
-        var value = new Cached(1, System.currentTimeMillis() + TimeUnit.DAYS.toMillis(candidates.isEmpty() ? 14 : 90), candidates);
-        synchronized (results) {
-            results.put(key, value);
-            trim();
-        }
-        if (directory == null) return;
-        try {
-            String json = ConfigStore.JSON.toJson(value);
-            Path folder = directory.resolve(candidates.isEmpty() ? "misses" : "cache");
-            synchronized (cacheFiles) {
-                ConfigStore.atomicWrite(folder.resolve(key + ".json"), json);
-                Files.deleteIfExists(directory.resolve(candidates.isEmpty() ? "cache" : "misses").resolve(key + ".json"));
-            }
-            synchronized (results) {
-                bytesSinceCacheTrim += json.getBytes(StandardCharsets.UTF_8).length;
-                if (System.nanoTime() < nextCacheTrim && bytesSinceCacheTrim < 4L * 1024 * 1024) return;
-                nextCacheTrim = System.nanoTime() + TimeUnit.MINUTES.toNanos(30);
-                bytesSinceCacheTrim = 0;
-            }
-            submit(this::trimDiskCache);
-        } catch (Exception failure) {
-            LOG.warn("Could not save lyric lookup cache", failure);
-        }
-    }
-
-    record CacheFile(Path path, long size, java.nio.file.attribute.FileTime modified, Object fileKey) {
-    }
-
-    static CacheFile cacheFile(Path path) throws java.io.IOException {
-        var a = Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-        return a.isRegularFile() ? new CacheFile(path, a.size(), a.lastModifiedTime(), a.fileKey()) : null;
-    }
-
-    boolean discardCacheFile(CacheFile candidate) throws java.io.IOException {
-        synchronized (cacheFiles) {
-            CacheFile current = cacheFile(candidate.path);
-            if (!candidate.equals(current)) return false; // A refresh won the race; keep its new result.
-            return Files.deleteIfExists(candidate.path);
-        }
-    }
-
-    private void trimDiskCache() {
-        try {
-            for (String name : List.of("cache", "misses")) {
-                Path retained = directory.resolve(name);
-                if (!Files.isDirectory(retained, LinkOption.NOFOLLOW_LINKS)) continue;
-                long limit = (name.equals("misses") ? 16L : 64L) * 1024 * 1024;
-                try (var files = Files.list(retained)) {
-                    var all = files.filter(p -> p.getFileName().toString().matches("[a-f0-9]{64}\\.json")).map(p -> {
-                        try {
-                            return cacheFile(p);
-                        } catch (java.io.IOException vanished) {
-                            return null;
-                        }
-                    }).filter(java.util.Objects::nonNull).sorted(Comparator.comparing(CacheFile::modified)).toList();
-                    long bytes = all.stream().mapToLong(CacheFile::size).sum(), count = all.size();
-                    for (CacheFile file : all) {
-                        if (count <= 256_000 && bytes <= limit) break;
-                        if (discardCacheFile(file)) {
-                            bytes -= file.size;
-                            count--;
-                        }
-                    }
-                }
-            }
-        } catch (Exception failure) {
-            LOG.warn("Could not trim lyric lookup cache", failure);
-        }
-    }
-
-    private void trim() {
-        while (results.size() > 128) results.remove(results.keySet().iterator().next());
+        return submitNetwork(() -> results.clear(() -> {
+            automatic.clear();
+            cacheRevision++;
+        }));
     }
 
     private static boolean sameFile(Track track) {
@@ -969,7 +852,7 @@ public final class LyricsLookup implements AutoCloseable {
         }
     }
 
-    private static <T> T read(Path path, Class<T> type) throws Exception {
+    static <T> T read(Path path, Class<T> type) throws Exception {
         if (Files.size(path) > 8_000_000) throw new java.io.IOException("Lyric record too large");
         return ConfigStore.JSON.fromJson(Files.readString(path), type);
     }

@@ -27,11 +27,11 @@ class CacheTrimIdentityTest {
         };
         try (var service = new LyricsService(temp.resolve("prefs"), provider, System::nanoTime)) {
             Path file = Files.writeString(temp.resolve("cache.json"), "old cache fixture");
-            var old = LyricsLookup.cacheFile(file);
+            var old = LyricsResultCache.file(file);
             ConfigStore.atomicWrite(file, "newer, refreshed cache fixture");
-            assertFalse(service.lookup.discardCacheFile(old));
+            assertFalse(service.lookup.results.discard(old));
             assertEquals("newer, refreshed cache fixture", Files.readString(file));
-            assertTrue(service.lookup.discardCacheFile(LyricsLookup.cacheFile(file)));
+            assertTrue(service.lookup.results.discard(LyricsResultCache.file(file)));
             assertFalse(Files.exists(file));
         }
     }
