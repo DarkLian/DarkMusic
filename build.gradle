@@ -110,7 +110,8 @@ if (providers.gradleProperty('smoke').isPresent()) {
                 vmArg "-Ddarkmusic.queueSmoke=${providers.gradleProperty('queueSmoke').isPresent()}"
                 vmArg "-Ddarkmusic.testNativeBindings=${providers.gradleProperty('nativeBindingsSmoke').isPresent()}"
                 vmArg "-Ddarkmusic.privateImages=${file('docs/images_private').absolutePath}"
-                if (providers.gradleProperty('lyricsSmoke').isPresent() || providers.gradleProperty('cleanupSmoke').isPresent() || providers.gradleProperty('queueSmoke').isPresent() || providers.gradleProperty('captureMusic').isPresent() || providers.gradleProperty('previewSmoke').isPresent() || providers.gradleProperty('advancedSmoke').isPresent()) vmArg "-Ddarkmusic.downloadTools=${downloadToolsDirectory.absolutePath}"
+                // The private collection is Opus, so every playback check needs the managed ffmpeg.
+                if (providers.gradleProperty('downloadToolsDirectory').isPresent() || providers.gradleProperty('lyricsSmoke').isPresent() || providers.gradleProperty('cleanupSmoke').isPresent() || providers.gradleProperty('queueSmoke').isPresent() || providers.gradleProperty('captureMusic').isPresent() || providers.gradleProperty('previewSmoke').isPresent() || providers.gradleProperty('advancedSmoke').isPresent()) vmArg "-Ddarkmusic.downloadTools=${downloadToolsDirectory.absolutePath}"
             }
         }
     }
