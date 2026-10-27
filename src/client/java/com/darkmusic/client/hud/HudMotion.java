@@ -43,6 +43,13 @@ public final class HudMotion {
     }
 
     /**
+     * The last value {@link #hidden} returned.
+     */
+    public double amount() {
+        return hidden;
+    }
+
+    /**
      * 0 just after the song changed, rising to 1 when its fade-in is done.
      */
     public double arrival(long now) {

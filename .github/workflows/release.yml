@@ -77,7 +77,7 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           version="${RELEASE_TAG#v}"
-          for file in "darkmusic-$version.jar" "darkmusic-$version-sources.jar" "darkmusic-$version-third-party-sources.zip" "darkmusic-pip-dependencies-$version-windows-x64.zip"; do
+          for file in "darkmusic-$version.jar" "darkmusic-$version-sources.jar" "darkmusic-$version-third-party-sources.zip" "darkmusic-pip-dependencies-$version-windows-x64.zip" "darkmusic-media-controls-$version-windows-x64.zip"; do
             test -s "release-files/$file"
           done
           notes="docs/releases/RELEASE-$version.md"
@@ -91,9 +91,12 @@ jobs:
           deps = folder / f'darkmusic-pip-dependencies-{version}-windows-x64.zip'
           with (folder / 'release-notes.md').open('a') as notes:
               notes.write(f'\n\nPiP native package (helper and runtime) SHA-256: `{hashlib.sha256(deps.read_bytes()).hexdigest()}`\n')
+              media = folder / f'darkmusic-media-controls-{version}-windows-x64.zip'
+              notes.write(f'\nMedia Controls package SHA-256: `{hashlib.sha256(media.read_bytes()).hexdigest()}`\n')
           PY
           gh release create "$RELEASE_TAG" --verify-tag --latest --title "DarkMusic $RELEASE_TAG" --notes-file release-files/release-notes.md \
             "release-files/darkmusic-$version.jar" \
             "release-files/darkmusic-$version-sources.jar" \
             "release-files/darkmusic-$version-third-party-sources.zip" \
-            "release-files/darkmusic-pip-dependencies-$version-windows-x64.zip"
+            "release-files/darkmusic-pip-dependencies-$version-windows-x64.zip" \
+            "release-files/darkmusic-media-controls-$version-windows-x64.zip"

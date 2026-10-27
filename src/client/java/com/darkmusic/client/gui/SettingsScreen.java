@@ -49,6 +49,12 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
     private static final String[] SECTION_KEYS = {"phase2.section.0", "settings.audio_section", "lyrics.section", "settings.appearance_section", "phase2.section.1", "phase2.section.2", "phase2.section.5"};
     private final int[] sectionScroll = new int[SECTION_KEYS.length];
     private boolean previewOnly, previewVisible;
+    // Search filters rows from every section; it survives rebuilds such as a toggled option.
+    private String query = "";
+    private String subsectionTitle = "";
+    private UiInput search;
+    private final List<Section> searchHeadings = new ArrayList<>();
+    private final java.util.Map<AbstractWidget, Integer> searchRows = new java.util.HashMap<>();
 
     public SettingsScreen(DarkMusicClient app, Screen parent) {
         super(Text.component("text.darkmusic.darkmusic_settings"), parent);
@@ -56,13 +62,15 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
     }
 
     private void section(String key) {
+        subsectionTitle = "";
         sections.add(new Section(Text.get(key), cursor));
         buildingSection++;
         cursor += 24;
     }
 
     private void subsection(String key) {
-        subsections.add(new Subsection(Text.get(key), cursor, buildingSection));
+        subsectionTitle = Text.get(key);
+        subsections.add(new Subsection(subsectionTitle, cursor, buildingSection));
         cursor += 24;
     }
 
@@ -73,7 +81,8 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
 
     private void put(AbstractWidget widget, String help) {
         if (!help.isEmpty()) Help.tip(widget, help);
-        controls.add(new Placed(addRenderableWidget(widget), cursor, buildingSection));
+        String context = (sections.isEmpty() ? "" : sections.getLast().title()) + " " + subsectionTitle;
+        controls.add(new Placed(addRenderableWidget(widget), cursor, buildingSection, help + " " + context));
         cursor += 26;
     }
 
@@ -171,12 +180,24 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
             var tracks = app.library.snapshot().tracks();
             return tracks.isEmpty() ? null : tracks.getFirst();
         });
-        top = wide ? 44 : 68;
+        int searchY = wide ? 44 : 68;
+        top = searchY + 26;
         bottom = height - 12;
+        search = addRenderableWidget(new UiInput(font, formX, searchY, formWidth, 20, Text.component("settings.search")));
+        search.setMaxLength(100);
+        search.setHint(Text.component("settings.search_hint"));
+        search.setValue(query);
+        search.setResponder(text -> {
+            query = text;
+            scroll = 0;
+            position();
+        });
+        search.visible = !previewOnly;
         for (int i = 0; i < SECTION_KEYS.length; i++) {
             final int index = i;
             if (wide || i == selectedSection) {
                 var button = addRenderableWidget(UiButton.builder(Text.component(SECTION_KEYS[i]), b -> {
+                    query = "";
                     sectionScroll[selectedSection] = scroll;
                     selectedSection = wide ? index : (selectedSection + 1) % SECTION_KEYS.length;
                     scroll = sectionScroll[selectedSection];
@@ -184,7 +205,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                     rebuildWidgets();
                 }).bounds(12, wide ? 44 + i * 28 : 38, wide ? 112 : 140, 24).build());
                 if (SECTION_KEYS[i].equals("lyrics.section")) UiButton.icon(button, null, false);
-                UiButton.selected(button, () -> selectedSection == index);
+                UiButton.selected(button, () -> selectedSection == index && !searching());
             }
         }
         if (!wide)
@@ -223,6 +244,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
             if (s.discordShowTitle)
                 toggle("discord.darkmusic.artwork", () -> s.discordArtwork, v -> s.discordArtwork = v, "discord.darkmusic.artwork_help");
         }
+        mediaControlsRows(s);
         action("backup.title", () -> show(new BackupScreen(app, this)), "backup.scope");
         action("history.clear", () -> show(new ConfirmationScreen(this, Text.component("history.clear"), Text.component("history.clear_help"), Text.component("history.clear"), () -> {
             app.listeningHistory.replace(java.util.Map.of());
@@ -498,7 +520,61 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         app.configureVisualizer();
     }
 
+    private boolean searching() {
+        return !query.isBlank();
+    }
+
+    /**
+     * Every word of the search must appear in the row's label, help text, or section and group names.
+     */
+    static boolean matches(String query, String label, String details) {
+        String haystack = (label + " " + details).toLowerCase(Locale.ROOT);
+        for (String word : query.toLowerCase(Locale.ROOT).strip().split("\\s+"))
+            if (!word.isEmpty() && !haystack.contains(word)) return false;
+        return true;
+    }
+
+    private boolean matches(Placed p) {
+        return matches(query, p.widget().getMessage().getString(), p.details());
+    }
+
+    /**
+     * Matching rows from all sections in order, each section introduced by its heading.
+     */
+    private void positionSearch() {
+        searchHeadings.clear();
+        searchRows.clear();
+        int y = 0, lastSection = -1;
+        for (var p : controls) {
+            if (!matches(p)) continue;
+            if (p.section() != lastSection) {
+                searchHeadings.add(new Section(sections.get(p.section()).title(), y));
+                y += 24;
+                lastSection = p.section();
+            }
+            searchRows.put(p.widget(), y);
+            y += 26;
+        }
+        scroll = Math.clamp(scroll, 0, Math.max(0, y - (bottom - top)));
+        if (scrollbar != null) {
+            scrollbar.configure(formX + formWidth + 3, top, bottom - top, y, bottom - top);
+            scrollbar.visible &= !previewOnly;
+        }
+        for (var p : controls) {
+            Integer row = searchRows.get(p.widget());
+            int at = top + (row == null ? 0 : row) - scroll;
+            p.widget().setX(formX);
+            p.widget().setY(at);
+            p.widget().visible = !previewOnly && row != null && at >= top && at + 20 <= bottom;
+            if (!p.widget().visible && getFocused() == p.widget()) setFocused(null);
+        }
+    }
+
     private void position() {
+        if (searching()) {
+            positionSearch();
+            return;
+        }
         int origin = sections.get(selectedSection).y();
         int end = selectedSection < sections.size() - 1 ? sections.get(selectedSection + 1).y() : cursor;
         scroll = Math.clamp(scroll, 0, Math.max(0, end - origin - (bottom - top)));
@@ -518,13 +594,13 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
 
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
-        var rows = controls.stream().filter(p -> p.section() == selectedSection).toList();
+        var rows = controls.stream().filter(p -> searching() ? searchRows.containsKey(p.widget()) : p.section() == selectedSection).toList();
         int current = java.util.stream.IntStream.range(0, rows.size()).filter(i -> rows.get(i).widget() == getFocused()).findFirst().orElse(-1);
         if (!previewOnly && event.key() == 258 && current >= 0) {
             int next = FocusRows.next(rows.stream().map(p -> p.widget().active).toList(), current, event.hasShiftDown(), false);
             if (next >= 0) {
                 var row = rows.get(next);
-                int y = row.y() - sections.get(selectedSection).y();
+                int y = searching() ? searchRows.get(row.widget()) : row.y() - sections.get(selectedSection).y();
                 if (y < scroll || y + 20 > scroll + bottom - top) scroll = Math.max(0, y - (bottom - top - 24) / 2);
                 position();
                 setFocused(row.widget());
@@ -554,6 +630,54 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
     @Override
     public void tick() {
         if (!folderPath.equals(app.library.root().toString())) rebuildWidgets();
+        // The Media Controls row shows installation progress and the connection as they change.
+        String media = mediaSignature();
+        if (!media.equals(shownMedia)) rebuildWidgets();
+    }
+
+    private String shownMedia = "";
+
+    private String mediaSignature() {
+        var media = app.mediaPackage;
+        return media.state() + ":" + (media.size() > 0 ? media.downloaded() * 20 / media.size() : 0) + ":" + app.mediaControls.connected();
+    }
+
+    /**
+     * Windows x64 only: Install while missing, progress while installing, then an on/off switch with its status.
+     */
+    private void mediaControlsRows(Settings s) {
+        var media = app.mediaPackage;
+        shownMedia = mediaSignature();
+        if (!media.available()) return;
+        long megabytes = Math.max(1, Math.round(media.size() / 1_048_576.0));
+        switch (media.state()) {
+            case READY ->
+                put(new SettingRow(12, 0, formWidth, Text.get("media.darkmusic.enabled"), () -> s.mediaControls, () -> {
+                    s.mediaControls = !s.mediaControls;
+                    app.save();
+                    rebuildWidgets();
+                }), Text.get("media.darkmusic.enabled_help") + (s.mediaControls
+                    ? " " + Text.get(app.mediaControls.connected() ? "media.darkmusic.state.connected" : "media.darkmusic.state.starting") : ""));
+            case INSTALLING -> {
+                var row = action("media.darkmusic.install", () -> {
+                }, "media.darkmusic.install_help");
+                row.active = false;
+                row.setMessage(net.minecraft.network.chat.Component.literal(Text.get("media.darkmusic.installing",
+                    media.size() > 0 ? Math.round(media.downloaded() * 100.0 / media.size()) : 0)));
+            }
+            default -> {
+                var row = action("media.darkmusic.install", () -> show(new ConfirmationScreen(this, Text.component("media.darkmusic.install"),
+                    Text.component("media.darkmusic.install_body", megabytes), Text.component("media.darkmusic.install_confirm"),
+                    () -> media.install().thenRun(() -> net.minecraft.client.Minecraft.getInstance().execute(() -> {
+                        if (media.state() == com.darkmusic.client.systemmedia.MediaControlsPackage.State.READY) {
+                            s.mediaControls = true;
+                            app.save();
+                        }
+                    })))), "media.darkmusic.install_help");
+                if (media.state() == com.darkmusic.client.systemmedia.MediaControlsPackage.State.FAILED)
+                    Help.tip(row, Text.get("media.darkmusic.install_help") + " " + Text.get(media.failure()));
+            }
+        }
     }
 
     private void fitPreview() {
@@ -612,7 +736,13 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                 g.text(font, scale, previewX + previewWidth - font.width(scale) - 8, previewY + 6, UiTheme.ACCENT);
             }
         }
-        if (!previewOnly) {
+        if (!previewOnly && searching()) {
+            g.enableScissor(formX, top, formX + formWidth, bottom);
+            for (var heading : searchHeadings) heading(g, heading.title(), top + heading.y() - scroll);
+            if (searchHeadings.isEmpty())
+                g.text(font, HorizontalText.ellipsize(font, Text.get("settings.search_none", query.strip()), formWidth - 8), formX + 4, top + 6, UiTheme.MUTED);
+            g.disableScissor();
+        } else if (!previewOnly) {
             g.enableScissor(formX, top, formX + formWidth, bottom);
             var section = sections.get(selectedSection);
             int sy = top - scroll;
@@ -637,7 +767,10 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         app.configureVisualizer();
     }
 
-    private record Placed(AbstractWidget widget, int y, int section) {
+    /**
+     * A row and, for search, its help text with its section and group names.
+     */
+    private record Placed(AbstractWidget widget, int y, int section, String details) {
     }
 
     private record Subsection(String title, int y, int section) {

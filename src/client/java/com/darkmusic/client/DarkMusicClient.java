@@ -233,6 +233,9 @@ public class DarkMusicClient implements ClientModInitializer {
     public AuditionPlayer audition;
     public UpdateService updates;
     public final com.darkmusic.client.presence.DiscordPresence discord = new com.darkmusic.client.presence.DiscordPresence();
+    public final com.darkmusic.client.systemmedia.MediaControlsPackage mediaPackage = new com.darkmusic.client.systemmedia.MediaControlsPackage(config.directory());
+    public final com.darkmusic.client.systemmedia.MediaControls mediaControls = new com.darkmusic.client.systemmedia.MediaControls(
+        config.directory().resolve("media-native"), action -> Minecraft.getInstance().execute(() -> mediaAction(action)));
     public final LyricsService lyrics = new LyricsService(config.directory().resolve("lyrics"));
     public boolean playlistsReady;
     // Set while an import, edit, deletion or backup restore owns the music files; menus read it to disable actions.
@@ -353,6 +356,35 @@ public class DarkMusicClient implements ClientModInitializer {
         } else if (left < SLEEP_FADE && playing) {
             sleepFading = true;
             playback.volume(settings.volume * left / (double) SLEEP_FADE);
+        }
+    }
+
+    /**
+     * A media key, headset button or Windows media flyout button, on the client thread.
+     */
+    private void mediaAction(com.darkmusic.client.systemmedia.MediaControls.Action action) {
+        if (!idle() || settings == null || playback == null || library == null || !settings.mediaControls) return;
+        var state = playback.state();
+        switch (action.button()) {
+            case "play" -> {
+                if (state.track() == null) {
+                    var tracks = library.snapshot().tracks();
+                    if (!resumeLast(false) && !tracks.isEmpty()) playback.play(tracks, tracks.getFirst());
+                } else if (state.status() == com.darkmusic.client.audio.AudioBackend.Status.PAUSED) playback.resume();
+                else if (state.status() != com.darkmusic.client.audio.AudioBackend.Status.PLAYING) playback.toggle();
+            }
+            case "pause" -> {
+                if (state.status() == com.darkmusic.client.audio.AudioBackend.Status.PLAYING) playback.pause();
+            }
+            case "next" -> playback.next();
+            case "previous" -> playback.previous();
+            case "stop" -> playback.stop();
+            case "seek" -> {
+                if (state.track() != null && state.duration() > 0)
+                    playback.seek(Math.clamp(action.position(), 0, state.duration()));
+            }
+            default -> {
+            }
         }
     }
 
@@ -602,6 +634,8 @@ public class DarkMusicClient implements ClientModInitializer {
                     ? com.darkmusic.client.presence.DiscordPresence.artwork(sourceLinks.get(playing)) : "";
                 discord.update(current.discordStatus, current.discordShowTitle, playback.state(), current.speed, artwork);
             } else discord.update(false, true, null, 1, "");
+            boolean media = current != null && current.mediaControls && playback != null && !resetting;
+            mediaControls.update(media ? mediaPackage.executable() : null, media ? playback.state() : null, System.nanoTime());
             boolean allowed = !resetting && settings != null && client.gui.screen() == null && client.gui.overlay() == null && client.player != null && client.player.isAlive();
             boolean pressed = false;
             while (shortcuts.open.consumeClick()) pressed = true;
@@ -613,6 +647,8 @@ public class DarkMusicClient implements ClientModInitializer {
             if (settings != null && playback != null && !resetting) recordResume(false);
             updates.close();
             discord.close();
+            mediaControls.close();
+            mediaPackage.close();
             save();
             closed = true;
             shutdown();

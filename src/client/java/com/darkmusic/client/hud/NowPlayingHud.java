@@ -51,6 +51,13 @@ public final class NowPlayingHud {
     }
 
     /**
+     * How far the live HUD has hidden while idle, 0 to 1, or 0 when the player HUD is off and so never hides.
+     */
+    public static double idleAmount(Settings settings) {
+        return settings.hudEnabled && settings.hudIdleHide > 0 ? MOTION.amount() : 0;
+    }
+
+    /**
      * Preview stand-in. One snapshot read: a rescan may publish an empty library between two reads.
      */
     private static Track firstTrack(DarkMusicClient app) {

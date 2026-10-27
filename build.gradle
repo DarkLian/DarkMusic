@@ -235,6 +235,51 @@ if (!providers.gradleProperty('javaOnly').isPresent()) {
         exclude 'assets/darkmusic/pip/windows-x64/helper.zip', 'assets/darkmusic/pip/windows-x64/helper.sha256'
     }
     tasks.named('test') { systemProperty 'darkmusic.test.pipDependencies', dependencyFile.get().asFile.absolutePath }
+
+    // Media Controls: an optional single-file helper, installed in game on request like PiP. Only its manifest enters the JAR.
+    def mediaFolder = layout.buildDirectory.dir('media-helper')
+    def mediaResources = layout.buildDirectory.dir('generated/media-manifest-resources/assets/darkmusic/media/windows-x64')
+    tasks.register('publishMediaHelper', Exec) {
+        inputs.files(fileTree('src/mediaHelper') { include '*.cs', '*.csproj', 'global.json', 'packages.lock.json' })
+        inputs.dir('src/mediaHelper/licenses')
+        outputs.dir(mediaFolder)
+        workingDir file('src/mediaHelper')
+        environment 'DOTNET_CLI_TELEMETRY_OPTOUT', '1'
+        commandLine 'dotnet', 'publish', 'MediaHelper.csproj', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '-p:RestoreLockedMode=true', '-o', mediaFolder.get().asFile.absolutePath,
+                "-p:BaseIntermediateOutputPath=${layout.buildDirectory.dir('media-helper-obj').get().asFile.absolutePath}/", "-p:BaseOutputPath=${layout.buildDirectory.dir('media-helper-bin').get().asFile.absolutePath}/", '--nologo'
+    }
+    def mediaFile = layout.buildDirectory.file("libs/darkmusic-media-controls-${pipVersion}-windows-x64.zip")
+    def mediaPackage = tasks.register('mediaControlsPackage', Zip) {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+        dependsOn tasks.named('publishMediaHelper')
+        from(mediaFolder)
+        archiveFileName = "darkmusic-media-controls-${project.version}-windows-x64.zip"
+        destinationDirectory = layout.buildDirectory.dir('libs')
+    }
+    tasks.register('bundleMediaHelper') {
+        dependsOn mediaPackage
+        inputs.file(mediaFile)
+        inputs.property 'version', pipVersion
+        outputs.file(mediaResources.map { it.file('media-controls.json') })
+        doLast {
+            def zip = mediaFile.get().asFile
+            def exe = new File(mediaFolder.get().asFile, 'DarkMusic.Media.exe')
+            def digest = { File file -> java.security.MessageDigest.getInstance('SHA-256').digest(file.bytes).encodeHex().toString() }
+            def output = mediaResources.get().asFile
+            output.mkdirs()
+            new File(output, 'media-controls.json').setText(groovy.json.JsonOutput.toJson([
+                    schema: 1, version: pipVersion, name: zip.name, size: zip.length(), sha256: digest(zip),
+                    executableSha256: digest(exe)
+            ]), 'UTF-8')
+        }
+    }
+    sourceSets.client.resources.srcDir(layout.buildDirectory.dir('generated/media-manifest-resources'))
+    loom.runs.named('client') {
+        vmArg "-Ddarkmusic.mediaControls=${mediaFile.get().asFile.absolutePath}"
+    }
+    tasks.named('processClientResources') { dependsOn tasks.named('bundleMediaHelper') }
+    tasks.named('test') { systemProperty 'darkmusic.test.mediaControls', mediaFile.get().asFile.absolutePath }
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -252,7 +297,7 @@ java {
 }
 
 jar {
-    if (providers.gradleProperty('javaOnly').isPresent()) exclude 'assets/darkmusic/pip/**'
+    if (providers.gradleProperty('javaOnly').isPresent()) exclude 'assets/darkmusic/pip/**', 'assets/darkmusic/media/**'
     def projectName = project.name
     inputs.property "projectName", projectName
 
@@ -262,10 +307,14 @@ jar {
 }
 
 tasks.named('sourcesJar', Jar) {
-    exclude 'assets/darkmusic/pip/**'
+    exclude 'assets/darkmusic/pip/**', 'assets/darkmusic/media/**'
     from('src/pipHelper') {
         include '*.cs', '*.csproj', 'global.json', 'packages.lock.json', 'licenses/**';
         into 'pip-helper'
+    }
+    from('src/mediaHelper') {
+        include '*.cs', '*.csproj', 'global.json', 'packages.lock.json', 'licenses/**'
+        into 'media-helper'
     }
     def projectName = project.name
     inputs.property "projectName", projectName

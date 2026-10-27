@@ -41,6 +41,8 @@ Other everyday tools:
 - **Pick up where you left off.** DarkMusic remembers the last song, its collection, and the position, and continues from there when you press Play.
 - **Sleep timer.** `/da sleep 30` pauses after 30 minutes with a gentle fade; `/da stopafter` stops when the current song ends.
 - **Discord status (opt-in).** Show what you're listening to on your Discord profile. Nothing signs in; you can hide song titles.
+- **Media keys (optional, Windows x64).** Keyboard media keys, headset buttons and the Windows media flyout control DarkMusic through a small extension you install from Settings.
+- **Search in Settings.** Type in the box above the settings to find any option across all sections.
 - **Backup and restore.** Export settings, playlists, key bindings, and listening history to a ZIP, then preview and choose what to restore. Your audio files are never included or changed.
 - **Manage Audio Files.** Review files individually or in bulk and move them to Trash. Permanent deletion needs its own confirmation.
 
@@ -113,6 +115,10 @@ Turn on **PiP Audio Spectrum** to visualize that application's sound with its ow
 ![Picture-in-Picture window inside Minecraft](docs/images/pip.png)
 
 PiP follows the frame limit you choose; on one tested system a 144 FPS limit delivered about 143 FPS. Smoothness still depends on Windows, the source application, and your graphics hardware, so no particular frame rate is promised. It needs Windows build 19041 or later (20348 or later for the audio spectrum). Details are in the [setup guide](docs/PIP-OPTIONAL-INSTALLATION.md), [verification notes](docs/PIP-VERIFICATION.md), and [performance measurements](docs/PIP-PERFORMANCE.md). The native helper and runtime are installed together only when you approve PiP installation; the main JAR contains their installation manifest. Do not put the optional dependency ZIP from the release page in `mods`; use the in-game installer.
+
+## Media keys and Windows media controls (optional)
+
+On Windows x64, **Settings → General → Install Media Controls** adds a small extension (about 6 MB to download). Keyboard Play/Pause, Next and Previous keys, headset buttons and the Windows media flyout then control DarkMusic, and the flyout shows the song and its artwork. Like PiP, it is downloaded only when you install it, checked against a fingerprint built into the mod, kept outside `mods`, and run as a separate program only while **Media Keys and Windows Controls** is on. Each DarkMusic version installs its matching package.
 
 ## Updates
 

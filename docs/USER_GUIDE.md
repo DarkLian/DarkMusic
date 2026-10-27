@@ -301,6 +301,18 @@ Use Retry when appropriate, or the existing queue retry controls. Automatic retr
 
 Tool-related reports link to **Download Tools**. Check Tools validates the chosen executables; Install / Update Tools retrieves managed releases only after your action. Advanced Paths may select executables instead of the managed ones. Updating tools may help with website changes, but does not guarantee that a source will work. A website can break a yt-dlp extractor without a DarkMusic change; not every website failure can be identified reliably. DarkMusic does not bypass authentication or DRM.
 
+## Media keys and Windows media controls
+
+On Windows x64, **Settings → General → Install Media Controls** downloads the optional Media Controls extension (about 6 MB; about 11 MB once installed). After it installs, **Media Keys and Windows Controls** turns on:
+
+- Keyboard **Play/Pause**, **Next**, **Previous** and **Stop** keys control DarkMusic, also while Minecraft is not the active window.
+- Headset buttons work the same way.
+- The Windows media flyout (it appears with the volume keys) shows the song, artist and artwork, with working buttons and a timeline you can drag.
+
+With nothing playing, Play continues Resume Where You Left Off, or starts your library. When another app such as a browser is also playing, Windows sends the keys to whichever played most recently; pausing DarkMusic hands them back. Minecraft's own key bindings and DarkMusic's shortcuts are unaffected.
+
+The extension is a separate program, `DarkMusic.Media.exe`, in `config/darkmusic/media-native`. It is downloaded from DarkMusic's GitHub release only when you install it, checked against the size and fingerprints built into this DarkMusic version, and started only while the option is on; it exits when you turn the option off or close Minecraft. Each DarkMusic version installs its matching package, and older versions are removed. Hover over the option to see whether it is connected.
+
 ## Discord status
 
 **Settings → General → Discord Status** (off by default) shows "Listening to DarkMusic" on your Discord profile, with the song, artist and a progress bar. It talks to the Discord desktop app running on this computer: nothing signs in, and DarkMusic never sees your Discord account. Discord in a web browser cannot show it.
@@ -319,11 +331,11 @@ A completed download is announced in client-side chat. Close Minecraft and wait 
 
 ![HUD and spectrum settings with live artwork preview](images/settings.png)
 
-Settings contains General, Audio, HUD, Spectrum, and Reset sections. Most changes save immediately. The preview shows current playback data, or sample visualization when no song is playing.
+Settings contains General, Audio, HUD, Spectrum, and Reset sections. Type in **Search all settings** above the list to show matching options from every section, under their section names; every word must appear in an option's name, its help text or its group. Choosing a section clears the search. Most changes save immediately. The preview shows current playback data, or sample visualization when no song is playing.
 
 The HUD section groups its options into **Appearance**, **Visibility and Motion**, **Song Change Card** and **Progress Bar**.
 
-**Hide When Idle** hides the HUD after music has been paused or stopped for the time on its slider, from 1 second to 2 minutes. **Idle Animation** chooses how: **Slide** moves it off the screen, **Fade** fades it out slowly. Either way it comes back quickly when playback resumes or the song changes. **Song Change Animation** (on by default) fades in the new title, artist and artwork. **Show Next Song** (Appearance, Classic only) adds a "Next:" line with the song from Up Next or the collection that plays next. **Show Time** (Progress Bar, Classic only) shows the song's position and length. **Time Position** puts them **Below Progress Bar**, position under its start and length under its end like the player, or on the **Artist Line** as 1:23 / 3:45, which keeps the HUD shorter. Without a progress bar the time uses the artist line.
+**Hide When Idle** hides the HUD after music has been paused or stopped for the time on its slider, from 1 second to 2 minutes. **Idle Animation** chooses how: **Slide** moves it off the screen, **Fade** fades it out slowly. Either way it comes back quickly when playback resumes or the song changes. The lyrics HUD fades out and back with it. **Song Change Animation** (on by default) fades in the new title, artist and artwork. **Show Next Song** (Appearance, Classic only) adds a "Next:" line with the song from Up Next or the collection that plays next. **Show Time** (Progress Bar, Classic only) shows the song's position and length. **Time Position** puts them **Below Progress Bar**, position under its start and length under its end like the player, or on the **Artist Line** as 1:23 / 3:45, which keeps the HUD shorter. Without a progress bar the time uses the artist line.
 
 **Song Change Card** briefly shows the new song's title, artist and artwork when the song changes: **When HUD Is Hidden**, or **Always**. **Card Animation** is **Slide** (in and out) or **Fade** (fades in, holds, then fades out slowly). Until you move it, the card appears beside the HUD, or in the HUD's place when the HUD is off or hidden, which keeps it clear of boss bars and advancement pop-ups. **Position Song Card** opens Edit HUD Layout with the card selected: drag it anywhere and scroll to resize it. **Reset Selected** puts it back beside the HUD.
 

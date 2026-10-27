@@ -25,7 +25,8 @@ public final class LyricsHud {
     public static void register(DarkMusicClient app) {
         HudLayer.add(app, "lyrics", g -> {
             if (app.settings != null && enabled(app.settings) && app.playback != null && app.playback.state().track() != null)
-                render(app, g, false);
+                // Hides with the player HUD when idle; fading suits a centered line better than sliding.
+                com.darkmusic.client.render.HudFade.run(1 - NowPlayingHud.idleAmount(app.settings), () -> render(app, g, false));
         });
     }
 

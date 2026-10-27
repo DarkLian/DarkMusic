@@ -31,6 +31,8 @@ public final class Settings {
     public boolean discordStatus, discordShowTitle = true;
     // Artwork comes from the song's public source thumbnail; it is shown only with the song itself.
     public boolean discordArtwork = true;
+    // Media keys and Windows media controls, through the optional Media Controls extension.
+    public boolean mediaControls;
     public double speed = 1;
     public boolean hudEnabled = true;
     public boolean hudInMenus;
