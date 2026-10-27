@@ -173,7 +173,8 @@ public final class ValueSlider extends AbstractSliderButton {
             int labelWidth = Math.max(1, getWidth() - 12 - (valueWidth > 0 ? valueWidth + 8 : 0));
             g.text(font, HorizontalText.ellipsize(font, parts[0], labelWidth), getX() + 6, getY() + 4, active ? UiTheme.TEXT : UiTheme.MUTED);
             if (valueWidth > 0)
-                g.text(font, parts[1], getRight() - 6 - valueWidth, getY() + 4, active ? UiTheme.ACCENT : UiTheme.MUTED);
+                // Ends at the right edge of the checkbox column in setting rows.
+                g.text(font, parts[1], getRight() - SettingRow.ICON_INSET + 12 - valueWidth, getY() + 4, active ? UiTheme.ACCENT : UiTheme.MUTED);
         } else
             g.fill(handle + 2, getBottom() - 7, handle + 6, getBottom() - 2, active ? UiTheme.ACCENT : UiTheme.BORDER);
         handleCursor(g);

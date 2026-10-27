@@ -33,6 +33,10 @@ public final class SettingRow extends AbstractWidget {
     private final Runnable action;
     private final BooleanSupplier checked;
     private final UiIcon icon;
+    /**
+     * Checkboxes, choice arrows and page chevrons share one 12-pixel column this far from the row's right edge.
+     */
+    static final int ICON_INSET = 19;
     private String cachedMessage = "", optionLabel = "", optionValue = "";
     private String description = "";
     private boolean accentedLabel;
@@ -138,26 +142,27 @@ public final class SettingRow extends AbstractWidget {
             int detailX = left + labelWidth + 12;
             horizontal.draw(g, font, "description", description, detailX, getY() + 6, Math.max(1, getRight() - 27 - detailX), active ? UiTheme.SECONDARY : UiTheme.MUTED);
         } else if (!optionValue.isEmpty()) {
-            // A cycling value carries a small up/down hint; a page link keeps room for its chevron.
+            // A cycling value carries a small up/down hint; a page link keeps room for its chevron. Both sit in the
+            // same right-hand column as the checkboxes, with the value ending just before it.
             boolean cycles = kind == Kind.AUTO;
-            int reserved = cycles ? 18 : kind == Kind.NAVIGATE ? 24 : 8;
+            int reserved = cycles || kind == Kind.NAVIGATE ? ICON_INSET + 4 : 8;
             int valueWidth = Math.min(font.width(optionValue), Math.max(1, width / 2 - 10));
             int valueX = getRight() - reserved - valueWidth;
             horizontal.draw(g, font, "label", optionLabel, left, getY() + 6, Math.max(1, valueX - left - 12), labelColor);
             horizontal.draw(g, font, "value", optionValue, valueX, getY() + 6, valueWidth, active ? UiTheme.ACCENT : UiTheme.MUTED);
             if (cycles) {
                 int hint = active ? UiTheme.SECONDARY : UiTheme.MUTED;
-                UiIcon.chevron(g, getRight() - 13, getY() + 3, 7, hint, 1);
-                UiIcon.chevron(g, getRight() - 13, getY() + 10, 7, hint, 3);
+                UiIcon.chevron(g, getRight() - ICON_INSET + 3, getY() + 3, 7, hint, 1);
+                UiIcon.chevron(g, getRight() - ICON_INSET + 3, getY() + 10, 7, hint, 3);
             }
         } else
             horizontal.draw(g, font, "label", message, left, getY() + 6, width - (icon == null ? 36 : 53), highlighted ? UiTheme.ACCENT : labelColor);
-        int right = getRight() - 19, top = getY() + 4;
+        int right = getRight() - ICON_INSET, top = getY() + 4;
         if (checked != null) UiTheme.checkbox(g, right, top, 12, checked.getAsBoolean(), active);
         else if (kind == Kind.OPTION) {
             if (chosen) UiIcon.CHECK.draw(g, right, top, 12, active ? UiTheme.ACCENT : UiTheme.MUTED);
         } else if (kind == Kind.NAVIGATE || optionValue.isEmpty())
-            UiIcon.chevron(g, right + 2, top + 1, 10, active ? UiTheme.ACCENT : UiTheme.MUTED, 2);
+            UiIcon.chevron(g, right + 1, top + 1, 10, active ? UiTheme.ACCENT : UiTheme.MUTED, 2);
     }
 
     /**
