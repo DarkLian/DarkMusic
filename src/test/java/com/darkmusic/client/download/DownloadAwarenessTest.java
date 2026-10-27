@@ -5,6 +5,8 @@ import com.darkmusic.client.config.DownloadFormat;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.testing.Await;
+import com.darkmusic.client.tools.ProcessRunner;
+import com.darkmusic.client.tools.ToolPaths;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -70,9 +72,9 @@ class DownloadAwarenessTest {
         }
     }
 
-    Tools tools() {
+    ToolPaths tools() {
         String java = Path.of(System.getProperty("java.home"), "bin", System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java").toString();
-        return new Tools(java, java, java, "");
+        return new ToolPaths(java, java, java, "");
     }
 
     Entry entry() {

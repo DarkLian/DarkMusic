@@ -1,7 +1,5 @@
 package com.darkmusic.client.config;
 
-import com.darkmusic.client.download.LyricsLanguages;
-import com.darkmusic.client.pip.PipSettings;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

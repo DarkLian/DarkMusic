@@ -1,13 +1,14 @@
 package com.darkmusic.client.lyrics;
 
 import com.darkmusic.client.config.ConfigStore;
-import com.darkmusic.client.download.DownloadDiagnostics;
-import com.darkmusic.client.download.LyricsLanguages;
-import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.config.LyricsLanguages;
+import com.darkmusic.client.library.LyricsFiles;
 import com.darkmusic.client.library.MetadataReader;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.DownloadDiagnostics;
+import com.darkmusic.client.tools.ProcessRunner;
 
 import java.nio.file.*;
 import java.nio.charset.StandardCharsets;

@@ -1,5 +1,8 @@
 package com.darkmusic.client.audio;
 
+import com.darkmusic.client.media.AudioFormats;
+import com.darkmusic.client.media.ExternalAudio;
+import com.darkmusic.client.media.OpenedAudio;
 import javazoom.spi.mpeg.sampled.convert.MpegFormatConversionProvider;
 import javazoom.spi.mpeg.sampled.file.MpegAudioFileReader;
 import javazoom.spi.vorbis.sampled.convert.VorbisFormatConversionProvider;
@@ -18,15 +21,12 @@ import java.util.Locale;
  * No URL overloads or network sources are exposed.
  */
 public final class PcmDecoder {
-    public record Opened(AudioInputStream stream, double offset) {
-    }
-
-    public static Opened openAt(Path file, double seconds) throws Exception {
+    public static OpenedAudio openAt(Path file, double seconds) throws Exception {
         try {
             ExternalAudio.tool(false);
             ExternalAudio.tool(true);
         } catch (java.io.IOException unavailable) {
-            return new Opened(openPrecise(file), 0);
+            return new OpenedAudio(openPrecise(file), 0);
         }
         return ExternalAudio.openAt(file, seconds);
     }

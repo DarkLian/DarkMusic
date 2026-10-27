@@ -1,6 +1,6 @@
 package com.darkmusic.client;
 
-import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.gui.DesktopWindowGuard;
 import com.darkmusic.client.library.AudioDeletion;
 import com.darkmusic.client.library.DownloadArchive;

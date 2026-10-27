@@ -1,5 +1,6 @@
 package com.darkmusic.client.library;
 
+import com.darkmusic.client.backup.BackupArchive;
 import com.darkmusic.client.config.*;
 import com.darkmusic.client.gui.FolderTree;
 import com.darkmusic.client.playlist.PlaylistStore;

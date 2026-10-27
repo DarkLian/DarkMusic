@@ -2,9 +2,9 @@ package com.darkmusic.client;
 
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
-import com.darkmusic.client.gui.SpectrumRenderer;
+import com.darkmusic.client.render.SpectrumRenderer;
 import com.darkmusic.client.hud.HudLayout;
-import com.darkmusic.client.hud.HudSurface;
+import com.darkmusic.client.render.HudSurface;
 import com.darkmusic.client.library.ArtworkCache;
 import com.darkmusic.client.library.MetadataReader;
 import org.junit.jupiter.api.Test;

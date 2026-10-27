@@ -1,7 +1,10 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
-import com.darkmusic.client.download.DownloadModels.Tools;
+import com.darkmusic.client.tools.ToolPaths;
+import com.darkmusic.client.render.UiIcon;
+import com.darkmusic.client.render.UiStatus;
+import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -50,7 +53,7 @@ public final class DownloadToolsScreen extends LocalScreen {
     }
 
     private void persist() {
-        app.downloads.configure(new Tools(app.settings.ytDlpPath, app.settings.ffmpegPath, app.settings.ffprobePath, app.settings.javascriptPath));
+        app.downloads.configure(new ToolPaths(app.settings.ytDlpPath, app.settings.ffmpegPath, app.settings.ffprobePath, app.settings.javascriptPath));
     }
 
     @Override

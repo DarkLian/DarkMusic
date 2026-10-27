@@ -1,13 +1,12 @@
 package com.darkmusic.smoke;
 
 import com.darkmusic.client.DarkMusicClient;
-import com.darkmusic.client.audio.AudioFormats;
+import com.darkmusic.client.media.AudioFormats;
 import com.darkmusic.client.config.*;
 import com.darkmusic.client.gui.*;
 import com.darkmusic.client.text.Text;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.input.*;
 
 import java.nio.file.*;

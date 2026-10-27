@@ -1,8 +1,7 @@
 package com.darkmusic.client;
 
-import com.darkmusic.client.audio.ExternalAudio;
 import com.darkmusic.client.cleanup.*;
-import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.tools.ProcessRunner;
 import org.junit.jupiter.api.*;
 
 import java.nio.file.*;

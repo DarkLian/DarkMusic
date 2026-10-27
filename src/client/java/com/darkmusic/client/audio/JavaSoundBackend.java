@@ -3,6 +3,8 @@ package com.darkmusic.client.audio;
 import com.darkmusic.client.config.AudioSettings;
 import com.darkmusic.client.config.SoundEnvironmentSettings;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.media.ExternalAudio;
+import com.darkmusic.client.media.OpenedAudio;
 import com.darkmusic.client.text.Text;
 
 import javax.sound.sampled.AudioFormat;
@@ -105,7 +107,7 @@ public final class JavaSoundBackend implements AudioBackend {
                 return PcmDecoder.openPrecise(path);
             }
 
-            public PcmDecoder.Opened openAt(java.nio.file.Path path, double seconds) throws Exception {
+            public OpenedAudio openAt(java.nio.file.Path path, double seconds) throws Exception {
                 return PcmDecoder.openAt(path, seconds);
             }
         }, format -> {
@@ -924,8 +926,8 @@ public final class JavaSoundBackend implements AudioBackend {
     public interface Decoder {
         AudioInputStream open(java.nio.file.Path path) throws Exception;
 
-        default PcmDecoder.Opened openAt(java.nio.file.Path path, double seconds) throws Exception {
-            return new PcmDecoder.Opened(open(path), 0);
+        default OpenedAudio openAt(java.nio.file.Path path, double seconds) throws Exception {
+            return new OpenedAudio(open(path), 0);
         }
     }
 

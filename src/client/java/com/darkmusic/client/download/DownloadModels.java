@@ -2,6 +2,7 @@ package com.darkmusic.client.download;
 
 import com.darkmusic.client.cleanup.LibrarySourceIndex;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.SourceUrls;
 
 import java.net.URI;
 import java.nio.file.Path;
@@ -15,24 +16,11 @@ public final class DownloadModels {
     }
 
     public static String url(String value) {
-        if (value != null) value = value.strip();
-        if (value == null || value.length() > 4096 || value.chars().anyMatch(c -> c <= 32 || c == 127))
-            throw new IllegalArgumentException(Text.get("text.darkmusic.paste_a_single_http_or_https_video_collection_url"));
-        try {
-            URI uri = URI.create(value.strip());
-            if (!("https".equalsIgnoreCase(uri.getScheme()) || "http".equalsIgnoreCase(uri.getScheme())) || uri.getHost() == null || uri.getUserInfo() != null)
-                throw new IllegalArgumentException();
-            return uri.toASCIIString();
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(Text.get("text.darkmusic.enter_a_valid_http_or_https_url_without_login_credentials"));
-        }
+        return SourceUrls.url(value);
     }
 
     public static String source(String value) {
-        String host = URI.create(url(value)).getHost().toLowerCase(Locale.ROOT);
-        if (host.equals("youtu.be") || host.equals("youtube.com") || host.endsWith(".youtube.com")) return "YouTube";
-        if (host.equals("b23.tv") || host.equals("bilibili.com") || host.endsWith(".bilibili.com")) return "Bilibili";
-        return "yt-dlp: " + host;
+        return SourceUrls.source(value);
     }
 
     public static boolean videoAlso(String value) {
@@ -53,9 +41,6 @@ public final class DownloadModels {
         public boolean finished() {
             return ordinal() >= SAVED.ordinal();
         }
-    }
-
-    public record Tools(String ytDlp, String ffmpeg, String ffprobe, String javascript) {
     }
 
     public record Entry(int index, String title, String url, String extractor, String mediaId,

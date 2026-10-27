@@ -7,9 +7,13 @@ import com.darkmusic.client.config.DownloadFormat;
 import com.darkmusic.client.download.AuditionClip;
 import com.darkmusic.client.download.AuditionPlayer;
 import com.darkmusic.client.download.DownloadModels;
-import com.darkmusic.client.download.ProcessRunner;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.render.UiIcon;
+import com.darkmusic.client.render.UiStatus;
+import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.ProcessRunner;
+import com.darkmusic.client.tools.ToolPaths;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -448,7 +452,7 @@ public final class DownloadScreen extends LocalScreen {
             app.playback.pause();
         }
         auditionEntry = listeningEntry;
-        audition.play(listeningEntry, new Tools(app.settings.ytDlpPath, app.settings.ffmpegPath, app.settings.ffprobePath, app.settings.javascriptPath), app.settings.volume);
+        audition.play(listeningEntry, new ToolPaths(app.settings.ytDlpPath, app.settings.ffmpegPath, app.settings.ffprobePath, app.settings.javascriptPath), app.settings.volume);
     }
 
     private void resumeMusic() {

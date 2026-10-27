@@ -2,9 +2,9 @@ package com.darkmusic.client;
 
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
-import com.darkmusic.client.gui.SpectrumCurve;
+import com.darkmusic.client.render.SpectrumCurve;
 import com.darkmusic.client.hud.HudLayout;
-import com.darkmusic.client.hud.HudSurface;
+import com.darkmusic.client.render.HudSurface;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

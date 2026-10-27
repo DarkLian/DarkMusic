@@ -1,9 +1,9 @@
 package com.darkmusic.client;
 
-import com.darkmusic.client.audio.ExternalAudio;
+import com.darkmusic.client.media.ExternalAudio;
 import com.darkmusic.client.audio.LoudnessCache;
 import com.darkmusic.client.config.AudioSettings;
-import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.library.MetadataReader;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;

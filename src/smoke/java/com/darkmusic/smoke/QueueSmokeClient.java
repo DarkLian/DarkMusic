@@ -7,6 +7,7 @@ import com.darkmusic.client.download.*;
 import com.darkmusic.client.gui.*;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.DownloadDiagnostics;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;

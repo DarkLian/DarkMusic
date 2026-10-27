@@ -1,9 +1,9 @@
 package com.darkmusic.client;
 
-import com.darkmusic.client.download.DownloadModels;
-import com.darkmusic.client.download.ManagedTools;
-import com.darkmusic.client.download.ProcessRunner;
-import com.darkmusic.client.download.Toolchain;
+import com.darkmusic.client.tools.ManagedTools;
+import com.darkmusic.client.tools.ProcessRunner;
+import com.darkmusic.client.tools.ToolPaths;
+import com.darkmusic.client.tools.Toolchain;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -29,13 +29,13 @@ class ManagedToolsIntegrationTest {
         var chain = new ManagedTools(data).install(runner, new ProcessRunner.Token(), text -> {
         });
         assertNotNull(ManagedTools.current(data));
-        var automatic = Toolchain.resolve(new DownloadModels.Tools("", "", "", ""), data, runner, new ProcessRunner.Token());
+        var automatic = Toolchain.resolve(new ToolPaths("", "", "", ""), data, runner, new ProcessRunner.Token());
         assertEquals(chain.ytDlp(), automatic.ytDlp());
         assertFalse(automatic.runtime().isBlank());
-        var settings = new DownloadModels.Tools(chain.ytDlp().toString(), chain.ffmpeg().toString(), chain.ffprobe().toString(), chain.runtime().substring("deno:".length()));
+        var settings = new ToolPaths(chain.ytDlp().toString(), chain.ffmpeg().toString(), chain.ffprobe().toString(), chain.runtime().substring("deno:".length()));
         var checks = new DownloadIntegrationTest() {
             @Override
-            DownloadModels.Tools settings() {
+            ToolPaths settings() {
                 return settings;
             }
         };

@@ -1,7 +1,7 @@
 package com.darkmusic.client.pip;
 
-import com.darkmusic.client.download.ManagedTools;
-import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.tools.ManagedTools;
+import com.darkmusic.client.tools.ProcessRunner;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

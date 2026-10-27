@@ -1,5 +1,7 @@
 package com.darkmusic.client.pip;
 
+import com.darkmusic.client.config.PipSettings;
+import com.darkmusic.client.config.PipSpectrumSettings;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.config.VisualColors;
 import com.google.gson.Gson;

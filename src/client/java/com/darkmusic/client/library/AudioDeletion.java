@@ -1,8 +1,7 @@
 package com.darkmusic.client.library;
 
-import com.darkmusic.client.audio.AudioFormats;
-import com.darkmusic.client.download.ProcessRunner;
-import com.darkmusic.client.lyrics.LyricsFiles;
+import com.darkmusic.client.media.AudioFormats;
+import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.text.Text;
 
 import java.io.IOException;

@@ -1,7 +1,7 @@
 package com.darkmusic.client.library;
 
-import com.darkmusic.client.audio.AudioFormats;
-import com.darkmusic.client.audio.ExternalAudio;
+import com.darkmusic.client.media.AudioFormats;
+import com.darkmusic.client.media.ExternalAudio;
 import com.darkmusic.client.text.Text;
 import org.jaudiotagger.audio.AudioFileIO;
 import org.jaudiotagger.tag.FieldKey;

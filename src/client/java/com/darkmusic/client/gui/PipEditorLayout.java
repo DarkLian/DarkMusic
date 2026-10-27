@@ -1,6 +1,6 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.pip.PipSettings.Bounds;
+import com.darkmusic.client.config.PipSettings.Bounds;
 
 /**
  * Keep editor buttons away from both the captured image and its spectrum.

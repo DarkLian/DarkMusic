@@ -1,6 +1,6 @@
 package com.darkmusic.client.lyrics;
 
-import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.testing.Await;
 import org.junit.jupiter.api.Test;

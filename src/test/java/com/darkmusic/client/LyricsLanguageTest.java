@@ -1,8 +1,11 @@
 package com.darkmusic.client;
 
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.config.LyricsLanguages;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.download.*;
+import com.darkmusic.client.tools.ProcessRunner;
+import com.darkmusic.client.tools.Toolchain;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;

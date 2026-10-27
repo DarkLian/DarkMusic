@@ -1,6 +1,7 @@
 package com.darkmusic.client.pip;
 
 import com.darkmusic.client.audio.SpectrumAnalyzer;
+import com.darkmusic.client.config.PipSpectrumSettings;
 
 import java.io.*;
 import java.nio.ByteBuffer;

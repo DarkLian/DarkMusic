@@ -3,6 +3,7 @@ package com.darkmusic.client.audio;
 import com.darkmusic.client.config.AudioSettings;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.media.ExternalAudio;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

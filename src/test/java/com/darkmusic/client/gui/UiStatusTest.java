@@ -3,6 +3,8 @@ package com.darkmusic.client.gui;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.download.DownloadModels;
 import com.darkmusic.client.lyrics.LyricsLookup;
+import com.darkmusic.client.render.UiStatus;
+import com.darkmusic.client.render.UiTheme;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;

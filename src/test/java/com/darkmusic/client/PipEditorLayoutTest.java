@@ -1,7 +1,7 @@
 package com.darkmusic.client;
 
 import com.darkmusic.client.gui.PipEditorLayout;
-import com.darkmusic.client.pip.PipSettings.Bounds;
+import com.darkmusic.client.config.PipSettings.Bounds;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

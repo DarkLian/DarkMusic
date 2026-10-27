@@ -1,12 +1,13 @@
 package com.darkmusic.client.lyrics;
 
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.config.LyricsLanguages;
 import com.darkmusic.client.config.Settings;
-import com.darkmusic.client.download.LyricsLanguages;
-import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.library.LyricsFiles;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.testing.Await;
+import com.darkmusic.client.tools.ProcessRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -193,43 +194,6 @@ class LyricsSafetyTest {
         assertEquals("original", Files.readString(p.getFirst()));
         assertFalse(Files.exists(p.get(1)));
         assertEquals("original", Files.readString(p.get(2)));
-    }
-
-    @Test
-    void rollbackAndRestartRecoveryPreserveOriginalBytes() throws Exception {
-        Path audio = temp.resolve("identity.dat");
-        var p = LyricsFiles.companions(audio);
-        Files.writeString(p.getFirst(), "original");
-        var desired = new LinkedHashMap<Path, byte[]>();
-        desired.put(p.getFirst(), "new".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        desired.put(p.get(1), "{}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        assertThrows(java.io.IOException.class, () -> LyricsFiles.transaction(audio, desired, () -> {
-            throw new IllegalStateException("failure");
-        }));
-        assertEquals("original", Files.readString(p.getFirst()));
-        assertFalse(Files.exists(p.get(1)));
-        assertThrows(AssertionError.class, () -> LyricsFiles.transaction(audio, desired, () -> {
-            throw new AssertionError("simulated interruption");
-        }));
-        LyricsFiles.recover(audio);
-        assertEquals("original", Files.readString(p.getFirst()));
-        assertFalse(Files.exists(p.get(1)));
-    }
-
-    @Test
-    void collisionsAndUnexpectedRecoveryEditsAreNeverOverwritten() throws Exception {
-        Path audio = temp.resolve("identity.dat");
-        var p = LyricsFiles.companions(audio);
-        Files.writeString(p.getFirst(), "original");
-        assertThrows(FileAlreadyExistsException.class, () -> document("new").save(audio, false));
-        var desired = new LinkedHashMap<Path, byte[]>();
-        desired.put(p.getFirst(), "new".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        assertThrows(AssertionError.class, () -> LyricsFiles.transaction(audio, desired, () -> {
-            throw new AssertionError();
-        }));
-        Files.writeString(p.getFirst(), "external edit");
-        assertThrows(java.io.IOException.class, () -> LyricsFiles.recover(audio));
-        assertEquals("external edit", Files.readString(p.getFirst()));
     }
 
     @Test

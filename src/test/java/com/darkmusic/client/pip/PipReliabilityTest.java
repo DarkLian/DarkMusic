@@ -1,12 +1,13 @@
 package com.darkmusic.client.pip;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import com.darkmusic.client.config.PipSettings;
+import com.darkmusic.client.tools.ProcessRunner;
 
 import java.nio.file.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.darkmusic.client.download.ProcessRunner;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.*;
 

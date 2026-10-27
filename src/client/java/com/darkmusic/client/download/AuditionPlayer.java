@@ -1,6 +1,8 @@
 package com.darkmusic.client.download;
 
 import com.darkmusic.client.audio.AudioBackend;
+import com.darkmusic.client.tools.ProcessRunner;
+import com.darkmusic.client.tools.ToolPaths;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
@@ -35,7 +37,7 @@ public final class AuditionPlayer implements AutoCloseable {
         return state;
     }
 
-    public synchronized void play(DownloadModels.Entry entry, DownloadModels.Tools tools, double volume) {
+    public synchronized void play(DownloadModels.Entry entry, ToolPaths tools, double volume) {
         if (closed) return;
         token.cancel();
         var request = new ProcessRunner.Token();
@@ -137,7 +139,7 @@ public final class AuditionPlayer implements AutoCloseable {
 
     @FunctionalInterface
     public interface Fetcher {
-        AuditionClip fetch(DownloadModels.Entry entry, DownloadModels.Tools tools, ProcessRunner.Token token) throws Exception;
+        AuditionClip fetch(DownloadModels.Entry entry, ToolPaths tools, ProcessRunner.Token token) throws Exception;
     }
 
     public record Snapshot(Status status, String title, String error) {

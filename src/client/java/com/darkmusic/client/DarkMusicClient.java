@@ -1,6 +1,5 @@
 package com.darkmusic.client;
 
-import com.darkmusic.client.audio.ExternalAudio;
 import com.darkmusic.client.audio.JavaSoundBackend;
 import com.darkmusic.client.audio.LoudnessCache;
 import com.darkmusic.client.audio.OutputDevices;
@@ -8,25 +7,23 @@ import com.darkmusic.client.audio.PcmDecoder;
 import com.darkmusic.client.audio.PcmRateConverter;
 import com.darkmusic.client.audio.PlaybackController;
 import com.darkmusic.client.audio.WaveformCache;
+import com.darkmusic.client.backup.BackupArchive;
 import com.darkmusic.client.cleanup.DuplicateResult;
 import com.darkmusic.client.cleanup.DuplicateReviewStore;
 import com.darkmusic.client.cleanup.DuplicateScanner;
 import com.darkmusic.client.cleanup.LibrarySourceIndex;
 import com.darkmusic.client.command.LocalCommands;
-import com.darkmusic.client.config.BackupArchive;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.ResetStorage;
+import com.darkmusic.client.config.RestoreJournal;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.download.AuditionPlayer;
-import com.darkmusic.client.download.DownloadModels;
 import com.darkmusic.client.download.DownloadService;
-import com.darkmusic.client.download.ProcessRunner;
 import com.darkmusic.client.gui.DesktopFolderPicker;
 import com.darkmusic.client.gui.HudEditorScreen;
 import com.darkmusic.client.gui.LyricsScreen;
 import com.darkmusic.client.gui.MusicScreen;
 import com.darkmusic.client.gui.PipScreen;
-import com.darkmusic.client.gui.UiTheme;
 import com.darkmusic.client.hud.DownloadHud;
 import com.darkmusic.client.hud.HudPreview;
 import com.darkmusic.client.hud.LyricsHud;
@@ -39,9 +36,13 @@ import com.darkmusic.client.library.ListeningHistory;
 import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.lyrics.LyricsService;
+import com.darkmusic.client.media.ExternalAudio;
 import com.darkmusic.client.pip.PipController;
 import com.darkmusic.client.playlist.PlaylistStore;
+import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.ProcessRunner;
+import com.darkmusic.client.tools.ToolPaths;
 import com.darkmusic.client.update.UpdateService;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.api.ClientModInitializer;
@@ -183,7 +184,7 @@ public class DarkMusicClient implements ClientModInitializer {
                     contents.put("listening-history.json", ListeningHistory.json(restored.history()));
 
                 if (bindings) contents.put("options.txt", config.shortcutsContents(keys));
-                BackupArchive.install(config.directory(), contents);
+                RestoreJournal.install(config.directory(), contents);
                 if (contents.containsKey("config.json")) config.committedSnapshot(contents.get("config.json"));
             } catch (Exception failure) {
                 throw new java.util.concurrent.CompletionException(failure);
@@ -215,7 +216,7 @@ public class DarkMusicClient implements ClientModInitializer {
                 save();
                 finished.complete(null);
             } finally {
-                mediaBusy = restoring = BackupArchive.recoveryPending(config.directory());
+                mediaBusy = restoring = RestoreJournal.recoveryPending(config.directory());
                 listeningHistory.suspended(restoring);
             }
         }));
@@ -414,7 +415,7 @@ public class DarkMusicClient implements ClientModInitializer {
             org.slf4j.LoggerFactory.getLogger("darkmusic").error("Could not recover or load user data", failure);
             Throwable cause = failure;
             while (cause.getCause() != null) cause = cause.getCause();
-            String message = cause instanceof BackupArchive.RecoveryConflict
+            String message = cause instanceof RestoreJournal.RecoveryConflict
                 ? cause.getMessage() : Text.get("backup.recovery_failed");
             Minecraft.getInstance().execute(() -> warn(message));
             return null;
@@ -472,7 +473,7 @@ public class DarkMusicClient implements ClientModInitializer {
         autoplayPending = settings.autoplay;
         library = new MusicLibrary(config.directory());
         downloads = new DownloadService(config.directory(), () -> library.requestRescan());
-        downloads.configure(new DownloadModels.Tools(settings.ytDlpPath, settings.ffmpegPath, settings.ffprobePath, settings.javascriptPath));
+        downloads.configure(new ToolPaths(settings.ytDlpPath, settings.ffmpegPath, settings.ffprobePath, settings.javascriptPath));
         downloads.format(settings.downloadFormat);
         lyrics.lookup.captions(downloads::fetchLyrics, downloads::fetchSourceLyrics);
         lyrics.lookup.captionPreferences(settings.lyricsLanguages, settings.lyricsAutoCaptions);
@@ -673,7 +674,7 @@ public class DarkMusicClient implements ClientModInitializer {
             waveforms = new WaveformCache(config.directory());
             library = new MusicLibrary(config.directory());
             downloads = new DownloadService(config.directory(), () -> library.requestRescan());
-            downloads.configure(new DownloadModels.Tools(settings.ytDlpPath, settings.ffmpegPath, settings.ffprobePath, settings.javascriptPath));
+            downloads.configure(new ToolPaths(settings.ytDlpPath, settings.ffmpegPath, settings.ffprobePath, settings.javascriptPath));
             resetting = false;
             playback.volume(settings.volume);
             playback.speed(settings.speed);

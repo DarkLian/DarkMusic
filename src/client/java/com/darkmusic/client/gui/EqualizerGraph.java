@@ -1,5 +1,6 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;

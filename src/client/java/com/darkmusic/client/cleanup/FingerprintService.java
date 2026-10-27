@@ -1,8 +1,8 @@
 package com.darkmusic.client.cleanup;
 
 import com.darkmusic.client.audio.AudioFft;
-import com.darkmusic.client.audio.ExternalAudio;
-import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.media.ExternalAudio;
+import com.darkmusic.client.tools.ProcessRunner;
 
 import java.nio.*;
 import java.nio.file.*;

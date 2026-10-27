@@ -1,6 +1,7 @@
 package com.darkmusic.client.lyrics;
 
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.library.LyricsFiles;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

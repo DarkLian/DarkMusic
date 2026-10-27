@@ -1,13 +1,13 @@
 package com.darkmusic.client;
 
-import com.darkmusic.client.audio.ExternalAudio;
+import com.darkmusic.client.media.ExternalAudio;
 import com.darkmusic.client.audio.PcmDecoder;
-import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.library.MediaFiles;
 import com.darkmusic.client.library.MetadataReader;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
-import com.darkmusic.client.lyrics.LyricsFiles;
+import com.darkmusic.client.library.LyricsFiles;
 import com.darkmusic.client.playlist.PlaylistStore;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;

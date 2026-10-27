@@ -1,7 +1,8 @@
 package com.darkmusic.client.lyrics;
 
 import com.darkmusic.client.config.ConfigStore;
-import com.darkmusic.client.download.LyricsLanguages;
+import com.darkmusic.client.config.LyricsLanguages;
+import com.darkmusic.client.library.LyricsFiles;
 import com.google.gson.annotations.JsonAdapter;
 
 import java.io.IOException;

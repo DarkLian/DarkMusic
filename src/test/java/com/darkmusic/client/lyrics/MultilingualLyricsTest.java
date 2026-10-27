@@ -1,15 +1,16 @@
 package com.darkmusic.client.lyrics;
 
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.config.LyricsLanguages;
 import com.darkmusic.client.config.Settings;
-import com.darkmusic.client.download.DownloadDiagnostics;
 import com.darkmusic.client.download.DownloadLyrics;
 import com.darkmusic.client.download.DownloadModels;
-import com.darkmusic.client.download.LyricsLanguages;
-import com.darkmusic.client.download.ProcessRunner;
-import com.darkmusic.client.download.Toolchain;
+import com.darkmusic.client.library.LyricsFiles;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.tools.DownloadDiagnostics;
+import com.darkmusic.client.tools.ProcessRunner;
+import com.darkmusic.client.tools.Toolchain;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

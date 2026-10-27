@@ -2,6 +2,9 @@ package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.render.UiIcon;
+import com.darkmusic.client.render.UiStatus;
+import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;

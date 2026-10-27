@@ -1,11 +1,13 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.config.PipSettings;
 import com.darkmusic.client.pip.PipAudio;
 import com.darkmusic.client.pip.PipController;
 import com.darkmusic.client.pip.PipNativeTools;
 import com.darkmusic.client.pip.PipPreview;
-import com.darkmusic.client.pip.PipSettings;
+import com.darkmusic.client.render.UiIcon;
+import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 

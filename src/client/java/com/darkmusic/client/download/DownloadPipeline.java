@@ -2,11 +2,15 @@ package com.darkmusic.client.download;
 
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.DownloadFormat;
+import com.darkmusic.client.config.LyricsLanguages;
 import com.darkmusic.client.library.DownloadArchive;
 import com.darkmusic.client.library.LibraryFiles;
+import com.darkmusic.client.library.LyricsFiles;
 import com.darkmusic.client.library.SourceLinks;
-import com.darkmusic.client.lyrics.LyricsFiles;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.DownloadDiagnostics;
+import com.darkmusic.client.tools.ProcessRunner;
+import com.darkmusic.client.tools.Toolchain;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 

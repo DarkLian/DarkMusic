@@ -1,12 +1,13 @@
 package com.darkmusic.client.lyrics;
 
-import com.darkmusic.client.audio.AudioFormats;
-import com.darkmusic.client.audio.ExternalAudio;
 import com.darkmusic.client.config.ConfigStore;
-import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.library.LyricsFiles;
 import com.darkmusic.client.library.OggArtwork;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.media.AudioFormats;
+import com.darkmusic.client.media.ExternalAudio;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.ProcessRunner;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

@@ -1,6 +1,7 @@
 package com.darkmusic.client.hud;
 
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.render.HudSurface;
 import org.junit.jupiter.api.Test;
 
 import java.util.Random;

@@ -1,6 +1,6 @@
 package com.darkmusic.client.library;
 
-import com.darkmusic.client.audio.AudioFormats;
+import com.darkmusic.client.media.AudioFormats;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.text.Text;
 

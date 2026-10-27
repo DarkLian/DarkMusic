@@ -4,6 +4,10 @@ import com.darkmusic.client.download.*;
 import com.darkmusic.client.library.MetadataReader;
 import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.DownloadDiagnostics;
+import com.darkmusic.client.tools.ProcessRunner;
+import com.darkmusic.client.tools.ToolPaths;
+import com.darkmusic.client.tools.Toolchain;
 import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -32,9 +36,9 @@ class DownloadTest {
         assertTrue(condition.getAsBoolean(), "Timed out");
     }
 
-    Tools tools() throws Exception {
+    ToolPaths tools() throws Exception {
         String executable = Path.of(System.getProperty("java.home"), "bin", System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java").toString();
-        return new Tools(executable, executable, executable, "");
+        return new ToolPaths(executable, executable, executable, "");
     }
 
     Entry entry(String id) {
@@ -233,7 +237,7 @@ class DownloadTest {
     void missingToolsAndCorruptHistoryFailWithoutOverwritingExistingData() throws Exception {
         var fake = new FakeRunner();
         var token = new ProcessRunner.Token();
-        var missing = new Tools(temp.resolve("missing.exe").toString(), "", "", "");
+        var missing = new ToolPaths(temp.resolve("missing.exe").toString(), "", "", "");
         assertThrows(IOException.class, () -> Toolchain.resolve(missing, temp, fake, token));
         var chain = Toolchain.resolve(tools(), temp, fake, token);
         Path destination = Files.createDirectories(temp.resolve("music"));

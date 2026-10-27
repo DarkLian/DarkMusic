@@ -1,6 +1,6 @@
 package com.darkmusic.client.library;
 
-import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.lyrics.LyricsDocument;
 import com.darkmusic.client.lyrics.LyricsLookup;
 import com.darkmusic.client.lyrics.LyricsProvider;

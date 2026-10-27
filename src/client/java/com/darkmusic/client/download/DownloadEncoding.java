@@ -2,6 +2,9 @@ package com.darkmusic.client.download;
 
 import com.darkmusic.client.library.OggArtwork;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.DownloadDiagnostics;
+import com.darkmusic.client.tools.ProcessRunner;
+import com.darkmusic.client.tools.Toolchain;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 

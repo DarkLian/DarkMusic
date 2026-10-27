@@ -2,7 +2,7 @@ package com.darkmusic.client;
 
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.pip.PipAudio;
-import com.darkmusic.client.pip.PipSpectrumSettings;
+import com.darkmusic.client.config.PipSpectrumSettings;
 import org.junit.jupiter.api.Test;
 
 import java.io.*;

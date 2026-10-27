@@ -2,6 +2,7 @@ package com.darkmusic.client;
 
 import com.darkmusic.client.download.DownloadService;
 import com.darkmusic.client.hud.DownloadProgress;
+import com.darkmusic.client.tools.ToolPaths;
 import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -49,7 +50,7 @@ class DownloadParallelTest {
         Path music = temp.resolve("music");
         try (var service = new DownloadService(temp.resolve("data"), () -> {
         }, runner)) {
-            service.configure(new Tools(executable, executable, executable, ""));
+            service.configure(new ToolPaths(executable, executable, executable, ""));
             var entries = java.util.stream.IntStream.range(0, 8).mapToObj(i -> new Entry(i, "Track " + i, "https://example.com/" + i, "Test", "id" + i, true)).toList();
             service.enqueueSelected(entries, music);
             assertTrue(threeStarted.await(10, TimeUnit.SECONDS), "Three independent downloads must reach the runner together");

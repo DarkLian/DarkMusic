@@ -1,5 +1,6 @@
 package com.darkmusic.client.config;
 
+import com.darkmusic.client.backup.BackupArchive;
 import com.darkmusic.client.library.ListeningHistory;
 import com.darkmusic.client.playlist.PlaylistStore;
 import org.junit.jupiter.api.Test;

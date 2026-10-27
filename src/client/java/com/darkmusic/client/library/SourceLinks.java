@@ -1,6 +1,6 @@
 package com.darkmusic.client.library;
 
-import com.darkmusic.client.audio.ExternalAudio;
+import com.darkmusic.client.media.ExternalAudio;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.text.Text;
 import com.google.gson.*;

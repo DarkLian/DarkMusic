@@ -4,11 +4,12 @@ import com.darkmusic.client.audio.PcmDecoder;
 import com.darkmusic.client.download.AuditionClip;
 import com.darkmusic.client.download.DownloadJson;
 import com.darkmusic.client.download.DownloadPipeline;
-import com.darkmusic.client.download.ProcessRunner;
-import com.darkmusic.client.download.Toolchain;
 import com.darkmusic.client.library.MetadataReader;
 import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.ProcessRunner;
+import com.darkmusic.client.tools.ToolPaths;
+import com.darkmusic.client.tools.Toolchain;
 import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Assumptions;
@@ -35,7 +36,7 @@ class DownloadIntegrationTest {
 
     @Test
     void realMusicDecodesAcrossSupportedConvertedFormats() throws Exception {
-        Tools selected = settings();
+        ToolPaths selected = settings();
         var runner = new ProcessRunner();
         Path source = TestMusic.featured();
         for (String format : List.of("wav", "flac", "ogg", "flac24")) {
@@ -55,14 +56,14 @@ class DownloadIntegrationTest {
         }
     }
 
-    Tools settings() {
+    ToolPaths settings() {
         Assumptions.assumeTrue(System.getProperty("darkmusic.test.ytdlp") != null, "Enable -PdownloadIntegration with development tools installed");
-        return new Tools(System.getProperty("darkmusic.test.ytdlp"), System.getProperty("darkmusic.test.ffmpeg"), System.getProperty("darkmusic.test.ffprobe"), "");
+        return new ToolPaths(System.getProperty("darkmusic.test.ytdlp"), System.getProperty("darkmusic.test.ffmpeg"), System.getProperty("darkmusic.test.ffprobe"), "");
     }
 
     @Test
     void realYtDlpDownloadsAndConvertsAuthorizedAudioAndLibraryFindsItImmediately() throws Exception {
-        Tools settings = settings();
+        ToolPaths settings = settings();
         var runner = new ProcessRunner();
         var token = new ProcessRunner.Token();
         Path data = temp.resolve("instance");
@@ -174,7 +175,7 @@ class DownloadIntegrationTest {
 
     @Test
     void realFfmpegPreservesUnicodeMetadataAndArtworkWithoutInventingMissingAlbum() throws Exception {
-        Tools settings = settings();
+        ToolPaths settings = settings();
         var runner = new ProcessRunner();
         var token = new ProcessRunner.Token();
         Path data = Files.createDirectories(temp.resolve("instance"));

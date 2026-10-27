@@ -2,6 +2,7 @@ package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.*;
+import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 

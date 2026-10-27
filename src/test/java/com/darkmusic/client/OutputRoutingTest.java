@@ -5,6 +5,7 @@ import com.darkmusic.client.config.AudioSettings;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.SoundEnvironmentSettings;
 import com.darkmusic.client.library.*;
+import com.darkmusic.client.media.ExternalAudio;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;

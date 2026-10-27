@@ -1,6 +1,7 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.render.UiTheme;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

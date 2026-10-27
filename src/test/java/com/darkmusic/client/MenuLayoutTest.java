@@ -3,7 +3,7 @@ package com.darkmusic.client;
 import com.darkmusic.client.gui.PlayerLayout;
 import com.darkmusic.client.gui.RowList;
 import com.darkmusic.client.gui.UiButton;
-import com.darkmusic.client.gui.UiIcon;
+import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.gui.UiInput;
 import com.darkmusic.client.library.ArtworkCache;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -158,7 +158,7 @@ class MenuLayoutTest {
 
     @Test
     void wideGradientIsStillOneQuadWithExactEndpointColors() throws Exception {
-        var type = Class.forName("com.darkmusic.client.gui.UiTheme$Gradient");
+        var type = Class.forName("com.darkmusic.client.render.UiTheme$Gradient");
         var constructor = type.getDeclaredConstructors()[0];
         constructor.setAccessible(true);
         var build = type.getDeclaredMethod("buildVertices", VertexConsumer.class);

@@ -1,5 +1,6 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.render.UiTheme;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;

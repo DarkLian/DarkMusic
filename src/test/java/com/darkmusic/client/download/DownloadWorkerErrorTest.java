@@ -1,6 +1,8 @@
 package com.darkmusic.client.download;
 
 import com.darkmusic.client.testing.Await;
+import com.darkmusic.client.tools.ProcessRunner;
+import com.darkmusic.client.tools.ToolPaths;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -33,7 +35,7 @@ class DownloadWorkerErrorTest {
         String executable = Path.of(System.getProperty("java.home"), "bin", System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java").toString();
         try (var service = new DownloadService(temp, () -> {
         }, runner)) {
-            service.configure(new Tools(executable, executable, executable, ""));
+            service.configure(new ToolPaths(executable, executable, executable, ""));
             var entries = List.of(new Entry(1, "A", "https://youtu.be/a", "Youtube", "a", true), new Entry(2, "B", "https://youtu.be/b", "Youtube", "b", true), new Entry(3, "C", "https://youtu.be/c", "Youtube", "c", true));
             for (int batch = 0; batch < 2; batch++) {
                 service.enqueueSelected(entries, temp.resolve("music"));

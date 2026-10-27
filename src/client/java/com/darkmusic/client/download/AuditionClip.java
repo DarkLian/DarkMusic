@@ -1,7 +1,11 @@
 package com.darkmusic.client.download;
 
-import com.darkmusic.client.audio.AudioFormats;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.media.AudioFormats;
+import com.darkmusic.client.tools.FileTrees;
+import com.darkmusic.client.tools.ProcessRunner;
+import com.darkmusic.client.tools.ToolPaths;
+import com.darkmusic.client.tools.Toolchain;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -13,7 +17,7 @@ import java.util.List;
  * A bounded temporary excerpt; never published to the library or download history.
  */
 public record AuditionClip(Path directory, Track track) implements AutoCloseable {
-    public static AuditionClip fetch(DownloadModels.Entry entry, DownloadModels.Tools selected, Path data,
+    public static AuditionClip fetch(DownloadModels.Entry entry, ToolPaths selected, Path data,
                                      ProcessRunner runner, ProcessRunner.Token token) throws Exception {
         if (!entry.available()) throw new IOException("This preview entry is unavailable");
         Path directory = Files.createTempDirectory("darkmusic-audition-");
@@ -43,13 +47,13 @@ public record AuditionClip(Path directory, Track track) implements AutoCloseable
                 throw new IOException("Could not convert this audio preview");
             return new AuditionClip(directory, new Track("audition", "preview.mp3", clip, entry.title(), "", "", 30, Files.size(clip), 0, ""));
         } catch (Exception e) {
-            DownloadWorkspace.remove(directory);
+            FileTrees.remove(directory);
             throw e;
         }
     }
 
     @Override
     public void close() throws IOException {
-        DownloadWorkspace.remove(directory);
+        FileTrees.remove(directory);
     }
 }

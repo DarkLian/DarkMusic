@@ -4,6 +4,7 @@ import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.download.AuditionClip;
 import com.darkmusic.client.download.AuditionPlayer;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.tools.ToolPaths;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -17,7 +18,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static com.darkmusic.client.download.DownloadModels.Entry;
-import static com.darkmusic.client.download.DownloadModels.Tools;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AuditionPlayerTest {
@@ -54,7 +54,7 @@ class AuditionPlayerTest {
         };
         try (var player = new AuditionPlayer((entry, tools, token) -> excerpt, () -> backend, Runnable::run, () -> {
         })) {
-            player.play(entry("1"), new Tools("", "", "", ""), .2);
+            player.play(entry("1"), new ToolPaths("", "", "", ""), .2);
             try {
                 assertTrue(entered.await(5, TimeUnit.SECONDS));
                 assertEquals(AuditionPlayer.Status.LOADING, player.snapshot().status());
@@ -78,7 +78,7 @@ class AuditionPlayerTest {
             audio.add(a);
             return a;
         }, callbacks::add, finished::incrementAndGet)) {
-            var tools = new Tools("", "", "", "");
+            var tools = new ToolPaths("", "", "", "");
             player.play(entry("1"), tools, .2);
             DownloadTest.await(() -> player.snapshot().status() == AuditionPlayer.Status.PLAYING);
             player.stop();
@@ -113,7 +113,7 @@ class AuditionPlayerTest {
             return new Audio();
         }, Runnable::run, () -> {
         })) {
-            player.play(entry("1"), new Tools("", "", "", ""), .2);
+            player.play(entry("1"), new ToolPaths("", "", "", ""), .2);
             assertTrue(started.await(3, TimeUnit.SECONDS));
             player.stop();
             release.countDown();
@@ -125,7 +125,7 @@ class AuditionPlayerTest {
             throw new java.io.IOException("HTTP Error 403");
         }, Audio::new, Runnable::run, () -> {
         })) {
-            player.play(entry("bad"), new Tools("", "", "", ""), .2);
+            player.play(entry("bad"), new ToolPaths("", "", "", ""), .2);
             DownloadTest.await(() -> player.snapshot().status() == AuditionPlayer.Status.ERROR);
             assertTrue(player.snapshot().error().contains("403"));
         }
@@ -142,7 +142,7 @@ class AuditionPlayerTest {
             return excerpt;
         },
             () -> backend, Runnable::run, finished::incrementAndGet)) {
-            player.play(entry("1"), new Tools("", "", "", ""), .5);
+            player.play(entry("1"), new ToolPaths("", "", "", ""), .5);
             DownloadTest.await(() -> player.snapshot().status() == AuditionPlayer.Status.PLAYING);
             player.pause();
             assertEquals(AuditionPlayer.Status.PAUSED, player.snapshot().status());

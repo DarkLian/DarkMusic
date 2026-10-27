@@ -92,7 +92,7 @@ public final class ConfigStore {
     public Settings load() {
         boolean recovered;
         try {
-            recovered = BackupArchive.recover(directory);
+            recovered = RestoreJournal.recover(directory);
             if (recovered)
                 warning.accept(Text.get("backup.recovered"));
         } catch (IOException failure) {

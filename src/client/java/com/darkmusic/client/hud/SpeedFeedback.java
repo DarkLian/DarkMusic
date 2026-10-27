@@ -1,8 +1,8 @@
 package com.darkmusic.client.hud;
 
 import com.darkmusic.client.DarkMusicClient;
-import com.darkmusic.client.gui.HorizontalText;
-import com.darkmusic.client.gui.UiTheme;
+import com.darkmusic.client.render.HorizontalText;
+import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;

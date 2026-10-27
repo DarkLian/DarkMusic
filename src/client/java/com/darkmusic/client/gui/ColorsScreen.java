@@ -4,6 +4,8 @@ import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.VisualColors;
 import com.darkmusic.client.hud.HudPreview;
 import com.darkmusic.client.hud.NowPlayingHud;
+import com.darkmusic.client.render.UiIcon;
+import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;

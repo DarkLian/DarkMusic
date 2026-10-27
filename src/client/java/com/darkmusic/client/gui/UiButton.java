@@ -1,5 +1,8 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.render.HorizontalText;
+import com.darkmusic.client.render.UiIcon;
+import com.darkmusic.client.render.UiTheme;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;

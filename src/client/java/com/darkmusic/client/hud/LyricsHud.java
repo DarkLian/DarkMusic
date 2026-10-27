@@ -4,6 +4,7 @@ import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.lyrics.Lrc;
 import com.darkmusic.client.lyrics.LyricsLookup;
+import com.darkmusic.client.render.HudSurface;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;

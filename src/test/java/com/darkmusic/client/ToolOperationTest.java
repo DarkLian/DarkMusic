@@ -1,8 +1,8 @@
 package com.darkmusic.client;
 
-import com.darkmusic.client.download.DownloadModels;
 import com.darkmusic.client.download.DownloadService;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.ToolPaths;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -19,9 +19,9 @@ class ToolOperationTest {
     @TempDir
     Path temporary;
 
-    private DownloadModels.Tools tools() {
+    private ToolPaths tools() {
         String java = Path.of(System.getProperty("java.home"), "bin", System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java").toString();
-        return new DownloadModels.Tools(java, java, java, "");
+        return new ToolPaths(java, java, java, "");
     }
 
     @Test

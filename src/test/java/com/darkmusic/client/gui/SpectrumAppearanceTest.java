@@ -2,6 +2,7 @@ package com.darkmusic.client.gui;
 
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.render.SpectrumAppearance;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

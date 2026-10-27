@@ -1,10 +1,11 @@
 package com.darkmusic.client.pip;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.config.PipSettings;
 import com.darkmusic.client.config.Settings;
-import com.darkmusic.client.gui.HorizontalText;
-import com.darkmusic.client.gui.SpectrumRenderer;
-import com.darkmusic.client.gui.UiStatus;
+import com.darkmusic.client.render.HorizontalText;
+import com.darkmusic.client.render.SpectrumRenderer;
+import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;

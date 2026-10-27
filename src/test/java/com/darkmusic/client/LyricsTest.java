@@ -2,12 +2,12 @@ package com.darkmusic.client;
 
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
-import com.darkmusic.client.download.DownloadDiagnostics;
+import com.darkmusic.client.tools.DownloadDiagnostics;
 import com.darkmusic.client.download.DownloadLyrics;
 import com.darkmusic.client.download.DownloadModels;
-import com.darkmusic.client.download.LyricsLanguages;
-import com.darkmusic.client.download.ProcessRunner;
-import com.darkmusic.client.download.Toolchain;
+import com.darkmusic.client.config.LyricsLanguages;
+import com.darkmusic.client.tools.ProcessRunner;
+import com.darkmusic.client.tools.Toolchain;
 import com.darkmusic.client.hud.HudLayout;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.lyrics.LyricsService;

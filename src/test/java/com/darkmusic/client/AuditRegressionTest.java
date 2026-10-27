@@ -4,10 +4,11 @@ import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.download.DownloadJson;
 import com.darkmusic.client.download.DownloadModels;
 import com.darkmusic.client.download.DownloadService;
-import com.darkmusic.client.download.ProcessRunner;
 import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.playlist.PlaylistStore;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.ProcessRunner;
+import com.darkmusic.client.tools.ToolPaths;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -52,7 +53,7 @@ class AuditRegressionTest {
         String executable = Path.of(System.getProperty("java.home"), "bin", System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java").toString();
         try (var service = new DownloadService(temp, () -> {
         }, runner)) {
-            service.configure(new DownloadModels.Tools(executable, executable, executable, ""));
+            service.configure(new ToolPaths(executable, executable, executable, ""));
             service.checkTools();
             DownloadTest.await(() -> !service.snapshot().analyzing());
             int first = runner.versions.get();
@@ -130,9 +131,9 @@ class AuditRegressionTest {
             tokenField.setAccessible(true);
             var token = (ProcessRunner.Token) tokenField.get(service);
             service.cancelAll();
-            var add = DownloadService.class.getDeclaredMethod("add", List.class, Path.class, DownloadModels.Tools.class, ProcessRunner.Token.class);
+            var add = DownloadService.class.getDeclaredMethod("add", List.class, Path.class, ToolPaths.class, ProcessRunner.Token.class);
             add.setAccessible(true);
-            var failure = assertThrows(java.lang.reflect.InvocationTargetException.class, () -> add.invoke(service, List.of(new DownloadModels.Entry(1, "Entry", "https://example.com/a", "Test", "a", true)), temp, new DownloadModels.Tools("", "", "", ""), token));
+            var failure = assertThrows(java.lang.reflect.InvocationTargetException.class, () -> add.invoke(service, List.of(new DownloadModels.Entry(1, "Entry", "https://example.com/a", "Test", "a", true)), temp, new ToolPaths("", "", "", ""), token));
             assertInstanceOf(CancellationException.class, failure.getCause());
             assertTrue(service.snapshot().items().isEmpty());
         }
@@ -144,7 +145,7 @@ class AuditRegressionTest {
         String executable = Path.of(System.getProperty("java.home"), "bin", System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java").toString();
         try (var service = new DownloadService(temp, () -> {
         }, runner)) {
-            service.configure(new DownloadModels.Tools(executable, executable, executable, ""));
+            service.configure(new ToolPaths(executable, executable, executable, ""));
             var entries = java.util.stream.IntStream.range(0, 1000).mapToObj(i -> new DownloadModels.Entry(i + 1, "Unavailable " + i, "", "Test", "" + i, false)).toList();
             service.enqueueSelected(entries, temp.resolve("music"));
             DownloadTest.await(() -> !service.snapshot().analyzing());

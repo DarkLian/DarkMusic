@@ -1,6 +1,6 @@
 package com.darkmusic.client.cleanup;
 
-import com.darkmusic.client.audio.ExternalAudio;
+import com.darkmusic.client.media.ExternalAudio;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
 import com.google.gson.JsonObject;

@@ -1,8 +1,10 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
-import com.darkmusic.client.download.DownloadDiagnostics;
+import com.darkmusic.client.render.UiIcon;
+import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.DownloadDiagnostics;
 import net.minecraft.client.gui.screens.Screen;
 
 /**

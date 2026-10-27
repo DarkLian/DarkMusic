@@ -1,5 +1,6 @@
 package com.darkmusic.client.pip;
 
+import com.darkmusic.client.config.PipSettings;
 import com.google.gson.JsonParser;
 
 import java.io.*;

@@ -1,6 +1,7 @@
 package com.darkmusic.client.audio;
 
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.media.ExternalAudio;
 
 import javax.sound.sampled.AudioInputStream;
 import java.util.concurrent.Future;

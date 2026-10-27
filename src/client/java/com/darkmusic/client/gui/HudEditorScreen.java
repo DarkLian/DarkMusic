@@ -6,6 +6,8 @@ import com.darkmusic.client.hud.HudPreview;
 import com.darkmusic.client.hud.HudScale;
 import com.darkmusic.client.hud.LyricsHud;
 import com.darkmusic.client.hud.NowPlayingHud;
+import com.darkmusic.client.render.HorizontalText;
+import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;

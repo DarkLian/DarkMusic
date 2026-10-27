@@ -1,8 +1,8 @@
 package com.darkmusic.client.library;
 
-import com.darkmusic.client.audio.AudioFormats;
+import com.darkmusic.client.media.AudioFormats;
 import com.darkmusic.client.config.ConfigStore;
-import com.darkmusic.client.download.ProcessRunner;
+import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.text.Text;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

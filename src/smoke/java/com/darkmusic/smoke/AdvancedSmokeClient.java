@@ -7,6 +7,7 @@ import com.darkmusic.client.download.*;
 import com.darkmusic.client.gui.*;
 import com.darkmusic.client.gui.EqualizerGraph;
 import com.darkmusic.client.library.*;
+import com.darkmusic.client.tools.ProcessRunner;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;

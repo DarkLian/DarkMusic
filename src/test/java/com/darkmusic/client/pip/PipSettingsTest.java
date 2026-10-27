@@ -1,5 +1,6 @@
 package com.darkmusic.client.pip;
 
+import com.darkmusic.client.config.PipSettings;
 import com.darkmusic.client.config.Settings;
 import com.google.gson.Gson;
 import org.junit.jupiter.api.Test;

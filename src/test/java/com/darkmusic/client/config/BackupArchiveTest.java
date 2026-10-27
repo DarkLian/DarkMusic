@@ -1,5 +1,6 @@
 package com.darkmusic.client.config;
 
+import com.darkmusic.client.backup.BackupArchive;
 import com.darkmusic.client.library.*;
 import com.darkmusic.client.playlist.PlaylistStore;
 import org.junit.jupiter.api.Test;
@@ -137,7 +138,7 @@ class BackupArchiveTest {
         contents.put("config.json", "replacement");
         contents.put("playlists.json", "replacement");
         var writes = new java.util.concurrent.atomic.AtomicInteger();
-        assertThrows(java.io.IOException.class, () -> BackupArchive.install(directory, contents, (path, value) -> {
+        assertThrows(java.io.IOException.class, () -> RestoreJournal.install(directory, contents, (path, value) -> {
             if (writes.incrementAndGet() == 2) throw new java.io.IOException("Injected full disk");
             ConfigStore.atomicWrite(path, value);
         }));
@@ -146,7 +147,7 @@ class BackupArchiveTest {
         try (var files = Files.walk(directory.resolve("backups"))) {
             assertEquals(2, files.filter(Files::isRegularFile).count());
         }
-        assertThrows(java.io.IOException.class, () -> BackupArchive.install(directory, Map.of("../other", "bad")));
+        assertThrows(java.io.IOException.class, () -> RestoreJournal.install(directory, Map.of("../other", "bad")));
     }
 
     @Test
@@ -202,7 +203,7 @@ class BackupArchiveTest {
                 Files.writeString(name.equals("options.txt") ? options : root.resolve(name), "original " + name);
             var count = new java.util.concurrent.atomic.AtomicInteger();
             int selected = failAt;
-            assertThrows(java.io.IOException.class, () -> BackupArchive.install(root, replacement, (path, value) -> {
+            assertThrows(java.io.IOException.class, () -> RestoreJournal.install(root, replacement, (path, value) -> {
                 if (count.incrementAndGet() == selected) {
                     if (selected % 2 == 0) throw new AccessDeniedException(path.toString());
                     throw new FileSystemException(path.toString(), null, "No space left on device");
@@ -212,7 +213,7 @@ class BackupArchiveTest {
             for (String name : replacement.keySet())
                 assertEquals("original " + name,
                     Files.readString(name.equals("options.txt") ? options : root.resolve(name)));
-            assertFalse(BackupArchive.recoveryPending(root));
+            assertFalse(RestoreJournal.recoveryPending(root));
         }
     }
 
@@ -232,11 +233,11 @@ class BackupArchiveTest {
         update.put("listening-history.json", "newly created");
         update.put("options.txt", "changed");
         var count = new java.util.concurrent.atomic.AtomicInteger();
-        assertThrows(AssertionError.class, () -> BackupArchive.install(root, update, (path, value) -> {
+        assertThrows(AssertionError.class, () -> RestoreJournal.install(root, update, (path, value) -> {
             ConfigStore.atomicWrite(path, value);
             if (count.incrementAndGet() == 4) throw new AssertionError("Simulated process termination");
         }));
-        assertTrue(BackupArchive.recoveryPending(root));
+        assertTrue(RestoreJournal.recoveryPending(root));
         try (var io = java.util.concurrent.Executors.newSingleThreadExecutor()) {
             var warnings = new ArrayList<String>();
             var config = new ConfigStore(root, io, warnings::add);
@@ -249,8 +250,8 @@ class BackupArchiveTest {
         }
         assertEquals("key_key.darkmusic.open:key.keyboard.k\n", Files.readString(options));
         assertFalse(Files.exists(root.resolve("listening-history.json")));
-        assertFalse(BackupArchive.recoveryPending(root));
-        assertFalse(BackupArchive.recover(root), "Recovery is idempotent");
+        assertFalse(RestoreJournal.recoveryPending(root));
+        assertFalse(RestoreJournal.recover(root), "Recovery is idempotent");
     }
 
     @Test
@@ -266,9 +267,9 @@ class BackupArchiveTest {
         Files.writeString(directory.resolve("config.json"), "keep");
         Files.writeString(directory.resolve("restore-pending.json"),
             "{\"version\":1,\"backup\":\"../../outside\",\"existed\":{\"config.json\":true}}");
-        assertThrows(java.io.IOException.class, () -> BackupArchive.recover(directory));
+        assertThrows(java.io.IOException.class, () -> RestoreJournal.recover(directory));
         assertEquals("keep", Files.readString(directory.resolve("config.json")));
-        assertTrue(BackupArchive.recoveryPending(directory));
+        assertTrue(RestoreJournal.recoveryPending(directory));
     }
 
     @Test
@@ -283,7 +284,7 @@ class BackupArchiveTest {
         var replacements = new LinkedHashMap<String, String>();
         replacements.put("config.json", "changed");
         replacements.put("playlists.json", "changed");
-        var failure = assertThrows(java.io.IOException.class, () -> BackupArchive.install(root, replacements, (path, value) -> {
+        var failure = assertThrows(java.io.IOException.class, () -> RestoreJournal.install(root, replacements, (path, value) -> {
             if (path.getFileName().toString().equals("playlists.json")) {
                 Files.delete(path);
                 Files.createDirectory(path);
@@ -292,17 +293,17 @@ class BackupArchiveTest {
             ConfigStore.atomicWrite(path, value);
         }));
         assertTrue(failure.getSuppressed().length > 0);
-        assertTrue(BackupArchive.recoveryPending(root));
+        assertTrue(RestoreJournal.recoveryPending(root));
         try (var io = java.util.concurrent.Executors.newSingleThreadExecutor()) {
             var store = new ConfigStore(root, io, message -> fail("Partial user data must not be loaded"));
             assertThrows(java.util.concurrent.CompletionException.class, store::load);
             Files.delete(root.resolve("playlists.json"));
-            assertTrue(BackupArchive.recover(root));
+            assertTrue(RestoreJournal.recover(root));
             assertEquals(.42, store.load().volume);
         }
         assertEquals(original, Files.readString(root.resolve("config.json")));
         assertEquals("[]", Files.readString(root.resolve("playlists.json")));
-        assertFalse(BackupArchive.recoveryPending(root));
+        assertFalse(RestoreJournal.recoveryPending(root));
     }
 
     @Test
@@ -326,17 +327,17 @@ class BackupArchiveTest {
         var update = new LinkedHashMap<String, String>();
         update.put("config.json", "transaction config");
         update.put("playlists.json", "transaction playlists");
-        assertThrows(AssertionError.class, () -> BackupArchive.install(root, update, (path, value) -> {
+        assertThrows(AssertionError.class, () -> RestoreJournal.install(root, update, (path, value) -> {
             ConfigStore.atomicWrite(path, value);
             if (path.getFileName().toString().equals("playlists.json"))
                 throw new AssertionError("Simulated termination");
         }));
         Files.writeString(root.resolve("config.json"), "external newer config");
         Files.writeString(root.resolve("playlists.json"), "external newly created playlists");
-        assertThrows(java.io.IOException.class, () -> BackupArchive.recover(root));
+        assertThrows(java.io.IOException.class, () -> RestoreJournal.recover(root));
         assertEquals("external newer config", Files.readString(root.resolve("config.json")));
         assertEquals("external newly created playlists", Files.readString(root.resolve("playlists.json")));
-        assertTrue(BackupArchive.recoveryPending(root));
+        assertTrue(RestoreJournal.recoveryPending(root));
         try (var paths = Files.walk(root.resolve("backups"))) {
             assertTrue(paths.filter(Files::isRegularFile).anyMatch(p -> {
                 try {
@@ -349,7 +350,7 @@ class BackupArchiveTest {
         // An explicit user resolution to a recognized state permits recovery to resume.
         Files.writeString(root.resolve("config.json"), "transaction config");
         Files.writeString(root.resolve("playlists.json"), "transaction playlists");
-        assertTrue(BackupArchive.recover(root));
+        assertTrue(RestoreJournal.recover(root));
         assertEquals("original config", Files.readString(root.resolve("config.json")));
         assertFalse(Files.exists(root.resolve("playlists.json")));
     }
@@ -362,24 +363,24 @@ class BackupArchiveTest {
         Files.writeString(directory.resolve("config.json"), "unrecognized");
         Files.writeString(directory.resolve("restore-pending.json"),
             "{\"version\":1,\"backup\":\"" + id + "\",\"existed\":{\"config.json\":true}}");
-        assertThrows(java.io.IOException.class, () -> BackupArchive.recover(directory));
+        assertThrows(java.io.IOException.class, () -> RestoreJournal.recover(directory));
         assertEquals("unrecognized", Files.readString(directory.resolve("config.json")));
     }
 
     @Test
     void recoveryResumesAfterClaimingARecognizedReplacement() throws Exception {
         Files.writeString(directory.resolve("config.json"), "original");
-        assertThrows(AssertionError.class, () -> BackupArchive.install(directory, Map.of("config.json", "replacement"), (path, value) -> {
+        assertThrows(AssertionError.class, () -> RestoreJournal.install(directory, Map.of("config.json", "replacement"), (path, value) -> {
             ConfigStore.atomicWrite(path, value);
             throw new AssertionError("Interrupted");
         }));
         var journal = com.google.gson.JsonParser.parseString(Files.readString(directory.resolve("restore-pending.json"))).getAsJsonObject();
         Path originals = directory.resolve("backups").resolve(journal.get("backup").getAsString());
         Files.move(directory.resolve("config.json"), originals.resolve("recover-config.json"));
-        assertTrue(BackupArchive.recover(directory));
+        assertTrue(RestoreJournal.recover(directory));
         assertEquals("original", Files.readString(directory.resolve("config.json")));
         assertFalse(Files.exists(originals.resolve("recover-config.json")));
-        assertFalse(BackupArchive.recoveryPending(directory));
+        assertFalse(RestoreJournal.recoveryPending(directory));
     }
 
 }

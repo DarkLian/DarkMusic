@@ -1,7 +1,6 @@
 package com.darkmusic.client.library;
 
-import com.darkmusic.client.download.ProcessRunner;
-import com.darkmusic.client.lyrics.LyricsFiles;
+import com.darkmusic.client.tools.ProcessRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

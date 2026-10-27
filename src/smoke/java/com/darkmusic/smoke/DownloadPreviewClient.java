@@ -4,11 +4,12 @@ import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.download.*;
 import com.darkmusic.client.gui.*;
+import com.darkmusic.client.tools.ToolPaths;
+import com.sun.net.httpserver.HttpServer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.*;
 import net.minecraft.client.input.*;
-import com.sun.net.httpserver.HttpServer;
 
 import java.net.InetSocketAddress;
 import java.nio.file.*;
@@ -210,7 +211,7 @@ final class DownloadPreviewClient {
                 if (!serving.isDone()) return;
                 address = serving.join();
                 Path tools = Path.of(System.getProperty("darkmusic.downloadTools"));
-                app.downloads.configure(new DownloadModels.Tools(tools.resolve("yt-dlp.exe").toString(), tools.resolve("ffmpeg.exe").toString(), tools.resolve("ffprobe.exe").toString(), ""));
+                app.downloads.configure(new ToolPaths(tools.resolve("yt-dlp.exe").toString(), tools.resolve("ffmpeg.exe").toString(), tools.resolve("ffprobe.exe").toString(), ""));
                 app.settings.ytDlpPath = tools.resolve("yt-dlp.exe").toString();
                 app.settings.ffmpegPath = tools.resolve("ffmpeg.exe").toString();
                 app.settings.ffprobePath = tools.resolve("ffprobe.exe").toString();

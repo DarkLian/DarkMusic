@@ -2,11 +2,18 @@ package com.darkmusic.client.download;
 
 import com.darkmusic.client.cleanup.LibrarySourceIndex;
 import com.darkmusic.client.config.DownloadFormat;
+import com.darkmusic.client.config.LyricsLanguages;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.lyrics.CaptionUrls;
 import com.darkmusic.client.lyrics.LyricsDocument;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.DownloadDiagnostics;
+import com.darkmusic.client.tools.ManagedTools;
+import com.darkmusic.client.tools.ProcessRunner;
+import com.darkmusic.client.tools.RetryPolicy;
+import com.darkmusic.client.tools.ToolPaths;
+import com.darkmusic.client.tools.Toolchain;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -49,11 +56,11 @@ public final class DownloadService implements AutoCloseable {
     private long previewRevision;
     private ProcessRunner.Token previewToken;
     private ProcessRunner.Token analysisToken = new ProcessRunner.Token();
-    private Tools settings = new Tools("", "", "", "");
+    private ToolPaths settings = new ToolPaths("", "", "", "");
     private DownloadFormat format = DownloadFormat.ORIGINAL;
     private volatile LibrarySourceIndex awareness;
 
-    public record DuplicateChoice(long id, List<Entry> entries, Path destination, Tools tools,
+    public record DuplicateChoice(long id, List<Entry> entries, Path destination, ToolPaths tools,
                                   DownloadFormat format,
                                   java.util.Map<String, List<LibrarySourceIndex.Existing>> matches) {
     }
@@ -148,7 +155,7 @@ public final class DownloadService implements AutoCloseable {
             throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.UNSUPPORTED_URL, DownloadDiagnostics.Stage.OPTIONAL,
                 DownloadDiagnostics.Tool.YT_DLP, null, "", rejected);
         }
-        Tools selected;
+        ToolPaths selected;
         synchronized (this) {
             selected = settings;
         }
@@ -199,7 +206,7 @@ public final class DownloadService implements AutoCloseable {
         for (int i = 0; i < PARALLEL_DOWNLOADS; i++) downloads.execute(this::drain);
     }
 
-    public synchronized void configure(Tools value) {
+    public synchronized void configure(ToolPaths value) {
         settings = value;
     }
 
@@ -234,7 +241,7 @@ public final class DownloadService implements AutoCloseable {
                 }
             });
             cache = null;
-            Tools selected;
+            ToolPaths selected;
             synchronized (this) {
                 selected = settings;
             }
@@ -248,7 +255,7 @@ public final class DownloadService implements AutoCloseable {
 
     public void checkTools() {
         start(Text.get("download.darkmusic.tools_checking"), true, token -> {
-            Tools selected;
+            ToolPaths selected;
             synchronized (this) {
                 selected = settings;
             }
@@ -270,7 +277,7 @@ public final class DownloadService implements AutoCloseable {
         });
     }
 
-    private Toolchain tools(Tools selected, ProcessRunner.Token token) throws Exception {
+    private Toolchain tools(ToolPaths selected, ProcessRunner.Token token) throws Exception {
         synchronized (toolResolutionLock) {
             Cache cached = cache;
             token.check();
@@ -347,7 +354,7 @@ public final class DownloadService implements AutoCloseable {
         start(Text.get("download.darkmusic.analyzing"), token -> {
             token.check();
             int first = Math.addExact(Math.multiplyExact(Math.max(0, page), PAGE_SIZE), 1);
-            Tools selected;
+            ToolPaths selected;
             synchronized (this) {
                 selected = settings;
             }
@@ -378,7 +385,7 @@ public final class DownloadService implements AutoCloseable {
     public void enqueueVideo(String value, Path destination) {
         start(Text.get("download.darkmusic.preparing_video"), token -> {
             String link = url(value);
-            Tools selected;
+            ToolPaths selected;
             synchronized (this) {
                 selected = settings;
             }
@@ -401,7 +408,7 @@ public final class DownloadService implements AutoCloseable {
     public void enqueueRange(Preview expected, int first, int last, Path destination) {
         start(Text.get("download.darkmusic.preparing_collection"), token -> {
             range(first, last);
-            Tools selected;
+            ToolPaths selected;
             synchronized (this) {
                 selected = settings;
             }
@@ -422,7 +429,7 @@ public final class DownloadService implements AutoCloseable {
     }
 
     public void enqueueSelected(List<Entry> entries, Path destination) {
-        Tools selected;
+        ToolPaths selected;
         synchronized (this) {
             selected = settings;
         }
@@ -433,7 +440,7 @@ public final class DownloadService implements AutoCloseable {
         });
     }
 
-    private void add(List<Entry> entries, Path destination, Tools selected, ProcessRunner.Token token) throws IOException {
+    private void add(List<Entry> entries, Path destination, ToolPaths selected, ProcessRunner.Token token) throws IOException {
         if (entries.size() > MAX_BATCH) throw new IOException(Text.get("download.queue_capacity", MAX_BATCH));
         var index = awareness;
         DownloadFormat requested;
@@ -459,7 +466,7 @@ public final class DownloadService implements AutoCloseable {
         commit(entries, destination, selected, token, requested, java.util.Set.of());
     }
 
-    private synchronized void commit(List<Entry> entries, Path destination, Tools selected, ProcessRunner.Token token, DownloadFormat requested, java.util.Set<String> skipped) throws IOException {
+    private synchronized void commit(List<Entry> entries, Path destination, ToolPaths selected, ProcessRunner.Token token, DownloadFormat requested, java.util.Set<String> skipped) throws IOException {
         token.check();
         if (closed || token != analysisToken) throw new CancellationException();
         if (entries.isEmpty())
@@ -751,7 +758,7 @@ public final class DownloadService implements AutoCloseable {
         final long id;
         final Entry entry;
         final Path destination;
-        Tools tools;
+        ToolPaths tools;
         DownloadFormat format = DownloadFormat.ORIGINAL;
         ProcessRunner.Token token = new ProcessRunner.Token();
         int attempts;
@@ -761,7 +768,7 @@ public final class DownloadService implements AutoCloseable {
         String message = Text.get("download.waiting");
         DownloadDiagnostics.Diagnostic diagnostic;
 
-        Work(long id, Entry entry, Path destination, Tools tools) {
+        Work(long id, Entry entry, Path destination, ToolPaths tools) {
             this.id = id;
             this.entry = entry;
             this.destination = destination;
@@ -776,6 +783,6 @@ public final class DownloadService implements AutoCloseable {
     private record ActiveKey(Path directory, String media, DownloadFormat format) {
     }
 
-    private record Cache(Tools settings, Toolchain tools) {
+    private record Cache(ToolPaths settings, Toolchain tools) {
     }
 }

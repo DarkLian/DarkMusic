@@ -1,13 +1,13 @@
 package com.darkmusic.client.download;
 
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.FileTrees;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.*;
-import java.nio.file.attribute.BasicFileAttributes;
 
 /**
  * An instance-wide lock prevents recovery from deleting another client's active work.
@@ -43,7 +43,7 @@ final class DownloadWorkspace implements AutoCloseable {
                 for (Path child : children.filter(p -> p.getFileName().toString().startsWith("item-")).toList()) {
                     if (Files.isSymbolicLink(child) || !Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS)) continue;
                     try {
-                        remove(child);
+                        FileTrees.remove(child);
                     } catch (IOException e) {
                         org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not remove stale download workspace {}", child, e);
                     }
@@ -53,23 +53,6 @@ final class DownloadWorkspace implements AutoCloseable {
             close();
             throw e;
         }
-    }
-
-    static void remove(Path directory) throws IOException {
-        Files.walkFileTree(directory, new SimpleFileVisitor<>() {
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                Files.delete(file);
-                return FileVisitResult.CONTINUE;
-            }
-
-            @Override
-            public FileVisitResult postVisitDirectory(Path dir, IOException failure) throws IOException {
-                if (failure != null) throw failure;
-                Files.delete(dir);
-                return FileVisitResult.CONTINUE;
-            }
-        });
     }
 
     @Override

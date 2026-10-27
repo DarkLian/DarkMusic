@@ -1,7 +1,7 @@
 package com.darkmusic.client.hud;
 
 import com.darkmusic.client.config.Settings;
-import com.darkmusic.client.gui.SpectrumCurve;
+import com.darkmusic.client.render.SpectrumCurve;
 
 /**
  * Fixed local proportions shared by the renderer, preview, and layout editor.

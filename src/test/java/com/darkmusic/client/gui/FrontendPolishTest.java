@@ -7,6 +7,9 @@ import com.darkmusic.client.hud.HudLayout;
 import com.darkmusic.client.hud.HudText;
 import com.darkmusic.client.lyrics.LyricsInfo;
 import com.darkmusic.client.lyrics.LyricsLookup;
+import com.darkmusic.client.render.LyricsStatusIcon;
+import com.darkmusic.client.render.UiStatus;
+import com.darkmusic.client.render.UiTheme;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

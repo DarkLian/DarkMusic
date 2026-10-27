@@ -1,5 +1,6 @@
 package com.darkmusic.client.download;
 
+import com.darkmusic.client.tools.RetryPolicy;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;

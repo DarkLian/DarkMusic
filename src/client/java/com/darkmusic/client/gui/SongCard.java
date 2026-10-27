@@ -3,6 +3,9 @@ package com.darkmusic.client.gui;
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.library.ArtworkCache;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.render.HorizontalText;
+import com.darkmusic.client.render.UiIcon;
+import com.darkmusic.client.render.UiTheme;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 

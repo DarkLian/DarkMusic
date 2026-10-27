@@ -10,6 +10,8 @@ import com.darkmusic.client.hud.LyricsHud;
 import com.darkmusic.client.library.ArtworkCache;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.lyrics.*;
+import com.darkmusic.client.render.UiStatus;
+import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;

@@ -1,7 +1,8 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
-import com.darkmusic.client.download.LyricsLanguages;
+import com.darkmusic.client.config.LyricsLanguages;
+import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 

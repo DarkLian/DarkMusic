@@ -1,6 +1,8 @@
 package com.darkmusic.client.download;
 
 import com.darkmusic.client.testing.Await;
+import com.darkmusic.client.tools.ProcessRunner;
+import com.darkmusic.client.tools.ToolPaths;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -12,7 +14,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static com.darkmusic.client.download.DownloadModels.*;
-import static com.darkmusic.client.download.DownloadDiagnostics.*;
+import static com.darkmusic.client.tools.DownloadDiagnostics.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DownloadDiagnosticServiceTest {
@@ -37,9 +39,9 @@ class DownloadDiagnosticServiceTest {
         }
     }
 
-    private Tools tools() {
+    private ToolPaths tools() {
         String java = Path.of(System.getProperty("java.home"), "bin", System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java").toString();
-        return new Tools(java, java, java, "");
+        return new ToolPaths(java, java, java, "");
     }
 
     private void idle(DownloadService service) throws Exception {
@@ -61,7 +63,7 @@ class DownloadDiagnosticServiceTest {
             assertEquals(Source.BILIBILI, first.source());
             assertTrue(service.lastAnalyzedUrl().contains("token=secret"));
             assertFalse(first.report("2.5.1").contains("secret"));
-            service.configure(new Tools(directory.resolve("custom-missing-executable").toString(), "", "", ""));
+            service.configure(new ToolPaths(directory.resolve("custom-missing-executable").toString(), "", "", ""));
             service.checkTools();
             idle(service);
             assertSame(first, service.analysisDiagnostic(), "Checking tools must retain the prior analysis diagnostic");
