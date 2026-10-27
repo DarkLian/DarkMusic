@@ -414,7 +414,9 @@ final class LyricsSmokeClient {
                 }
                 app.settings.waveform.style = WaveformSettings.Style.FILLED;
                 waveformSettings.init(960, 540);
-                var groups = (List<?>) SmokeUi.field(waveformSettings, "subsections");
+                // Other sections have subsections of their own (Lyrics HUD); only the HUD section's count.
+                var groups = ((List<?>) SmokeUi.field(waveformSettings, "subsections")).stream()
+                    .filter(group -> (int) SmokeUi.field(group, "section") == 4).toList();
                 check(groups.size() == 1, "Progress uses the shared category heading renderer");
                 int groupY = (int) SmokeUi.field(groups.getFirst(), "y");
                 var placed = (List<?>) SmokeUi.field(waveformSettings, "controls");
