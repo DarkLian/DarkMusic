@@ -79,6 +79,105 @@ class SpectrumMeshTest {
         assertTrue(softened, "The cap must not remain a square rectangle");
     }
 
+    /**
+     * {left, top, right, bottom, topColor, bottomColor} per batched rectangle.
+     */
+    private static int[][] rectangles(SpectrumMesh mesh) throws Exception {
+        var countField = SpectrumMesh.class.getDeclaredField("count");
+        countField.setAccessible(true);
+        var dataField = SpectrumMesh.class.getDeclaredField("rectangles");
+        dataField.setAccessible(true);
+        var bottomField = SpectrumMesh.class.getDeclaredField("bottomColors");
+        bottomField.setAccessible(true);
+        int count = (int) countField.get(mesh);
+        int[] data = (int[]) dataField.get(mesh), bottoms = (int[]) bottomField.get(mesh);
+        var result = new int[count / 5][];
+        for (int i = 0; i < count; i += 5)
+            result[i / 5] = new int[]{data[i], data[i + 1], data[i + 2], data[i + 3], data[i + 4], bottoms[i / 5]};
+        return result;
+    }
+
+    private static int brightness(int color) {
+        return (color >> 16 & 255) + (color >> 8 & 255) + (color & 255);
+    }
+
+    // Mean brightness over every covered pixel, averaging each gradient's two ends.
+    private static double meanBrightness(int[][] rectangles) {
+        double sum = 0, area = 0;
+        for (int[] r : rectangles) {
+            int pixels = (r[2] - r[0]) * (r[3] - r[1]);
+            sum += pixels * (brightness(r[4]) + brightness(r[5])) / 2.0;
+            area += pixels;
+        }
+        return sum / area;
+    }
+
+    @Test
+    void beveledWaveLinesFollowTheSlopeInsteadOfCancellingOut() throws Exception {
+        int color = 0xff6070c0;
+        var mesh = new SpectrumMesh();
+        mesh.begin(100, 0, Settings.HudShape.RECTANGLE);
+        mesh.contour(10, 40, 11, 43, color, 0, false, Settings.SurfaceFinish.FLAT);
+        var flat = rectangles(mesh);
+        assertEquals(1, flat.length);
+        assertEquals(color, flat[0][4]);
+        double[] means = new double[3];
+        double[] slopes = {-2, 0, 2};
+        for (int i = 0; i < slopes.length; i++) {
+            mesh.begin(100, 0, Settings.HudShape.RECTANGLE);
+            mesh.contour(10, 40, 11, 43, color, slopes[i], false, Settings.SurfaceFinish.BEVELED);
+            var lit = rectangles(mesh);
+            assertTrue(brightness(lit[0][4]) > brightness(color), "The top row carries a highlight");
+            means[i] = meanBrightness(lit);
+        }
+        assertTrue(means[0] < means[1] && means[1] < means[2], "Rising edges are lit, falling edges shaded");
+        assertTrue(means[2] - means[0] > 120, "Slope lighting must be clearly visible: " + means[0] + " to " + means[2]);
+        // A level stretch of line is two pixels thick; its highlight must not average back to the flat color.
+        mesh.begin(100, 0, Settings.HudShape.RECTANGLE);
+        mesh.contour(10, 40, 11, 42, color, 0, false, Settings.SurfaceFinish.BEVELED);
+        assertTrue(meanBrightness(rectangles(mesh)) - brightness(color) > 25);
+    }
+
+    @Test
+    void beveledFilledWavesShadeTheirBodyTowardTheBase() throws Exception {
+        int color = 0xff6070c0;
+        var mesh = new SpectrumMesh();
+        mesh.begin(100, 0, Settings.HudShape.RECTANGLE);
+        mesh.contour(10, 20, 11, 80, color, 0, true, Settings.SurfaceFinish.BEVELED);
+        var lit = rectangles(mesh);
+        int[] body = null;
+        for (int[] r : lit) if (r[3] - r[1] > 1) body = r;
+        assertTrue(body != null && body[1] == 21 && body[3] == 79);
+        assertTrue(brightness(body[4]) > brightness(color) && brightness(body[5]) < brightness(color),
+            "The body fades from lit near the edge to shaded at the base");
+        mesh.begin(100, 0, Settings.HudShape.RECTANGLE);
+        mesh.contour(10, 20, 11, 80, color, 3, true, Settings.SurfaceFinish.BEVELED);
+        double rising = meanBrightness(rectangles(mesh));
+        mesh.begin(100, 0, Settings.HudShape.RECTANGLE);
+        mesh.contour(10, 20, 11, 80, color, -3, true, Settings.SurfaceFinish.BEVELED);
+        assertTrue(rising > meanBrightness(rectangles(mesh)));
+    }
+
+    @Test
+    void beveledRoundedBarsGetLitAndShadedSidesLikeSquareBars() throws Exception {
+        int color = 0xff6070c0;
+        var mesh = new SpectrumMesh();
+        mesh.begin(100, 0, Settings.HudShape.RECTANGLE);
+        mesh.rounded(10, 10, 16, 80, color, Settings.SurfaceFinish.BEVELED, true);
+        int left = 0, right = 0;
+        for (int[] r : rectangles(mesh)) {
+            if (r[3] - r[1] < 10) continue;
+            if (r[0] == 10 && r[2] == 11) left = r[4];
+            if (r[0] == 15 && r[2] == 16) right = r[4];
+        }
+        assertTrue(brightness(left) > brightness(color), "Left side is lit");
+        assertTrue(right != 0 && brightness(right) < brightness(color), "Right side is shaded");
+        mesh.begin(100, 0, Settings.HudShape.RECTANGLE);
+        mesh.rounded(10, 10, 16, 80, color, Settings.SurfaceFinish.FLAT, true);
+        for (int[] r : rectangles(mesh))
+            if (r[3] - r[1] >= 10) assertEquals(color, r[4], "Flat bodies stay one color");
+    }
+
     @Test
     void clippedTrailGradientsKeepTheirAlphaAndBoundedGeometry() throws Exception {
         for (var shape : Settings.HudShape.values()) {

@@ -43,6 +43,13 @@ public final class SpectrumMesh {
      * Rounded caps reuse the bounded batch and the existing HUD shape clipping.
      */
     void rounded(int left, int top, int right, int bottom, int color, Settings.SurfaceFinish finish) {
+        rounded(left, top, right, bottom, color, finish, false);
+    }
+
+    /**
+     * Beveled bodies match square Bars: a slightly darker face, with lit and shaded side columns when wide enough.
+     */
+    void rounded(int left, int top, int right, int bottom, int color, Settings.SurfaceFinish finish, boolean sides) {
         if (right <= left || bottom <= top) return;
         float radius = Math.min(3, Math.min(right - left, bottom - top) / 2f);
         int rows = (int) Math.ceil(radius);
@@ -56,7 +63,35 @@ public final class SpectrumMesh {
             roundedRow(left, top + row, right, trim, edge, upper);
             if (bottom - row - 1 != top + row) roundedRow(left, bottom - row - 1, right, trim, edge, lower);
         }
-        gradient(left, top + rows, right, bottom - rows, color, color);
+        if (finish != Settings.SurfaceFinish.BEVELED) {
+            gradient(left, top + rows, right, bottom - rows, color, color);
+            return;
+        }
+        int face = Bevel.shade(color, -.08);
+        if (sides && right - left >= 3) {
+            fill(left, top + rows, left + 1, bottom - rows, Bevel.shade(color, .16));
+            fill(left + 1, top + rows, right - 1, bottom - rows, face);
+            fill(right - 1, top + rows, right, bottom - rows, Bevel.shade(color, -.25));
+        } else fill(left, top + rows, right, bottom - rows, face);
+    }
+
+    /**
+     * Waves and spikes have no side edges, so light follows the curve's slope (rise per pixel) instead: rising
+     * edges face the upper-left light that Bars use, falling edges turn away from it. Lines keep no dark bottom
+     * row, which would cancel their highlight at two or three pixels thick.
+     */
+    void contour(int left, int top, int right, int bottom, int color, double slope, boolean filled, Settings.SurfaceFinish finish) {
+        if (finish != Settings.SurfaceFinish.BEVELED || bottom - top < 2) {
+            fill(left, top, right, bottom, color);
+            return;
+        }
+        double tilt = slope / Math.sqrt(1 + slope * slope);
+        fill(left, top, right, top + 1, Bevel.shade(color, .30 + .16 * tilt));
+        if (filled) {
+            gradient(left, top + 1, right, bottom - 1, Bevel.shade(color, .12 + .12 * tilt), Bevel.shade(color, -.24 + .06 * tilt));
+            fill(left, bottom - 1, right, bottom, Bevel.shade(color, -.30));
+        } else
+            gradient(left, top + 1, right, bottom, Bevel.shade(color, -.02 + .28 * tilt), Bevel.shade(color, -.16 + .28 * tilt));
     }
 
     private void roundedRow(int left, int y, int right, int trim, float coverage, int color) {

@@ -1,5 +1,22 @@
 # Development and verification
 
+## v3.3.4: Beveled waves, spikes and Rounded Bars
+
+Beveled used to look almost the same as Flat for every linear spectrum style except Bars.
+
+**Waves and spikes.** These are drawn as one-pixel columns, so they have no side edges to shade. `SpectrumMesh.contour` lights each column by the slope of the unrounded curve instead: rising edges face the upper-left light that Bars use, and falling edges are shaded.
+- Smooth Wave and Spike no longer get a dark bottom row, which cancelled the highlight on lines two or three pixels thick.
+- Filled Wave and Filled Spike fade from lit just below the edge to shaded at the base.
+
+**Rounded Bars.** The straight part of each bar now matches Bars: a lit left side, a shaded right side and a slightly darker face, with side columns only where Bars would have them.
+
+The circular HUD is unchanged. `SpectrumMeshTest` adds three tests:
+- rising, level and falling line segments differ clearly in brightness;
+- a level two-pixel line stays brighter than Flat;
+- filled bodies fade toward the base, and beveled Rounded Bars get their side columns.
+
+`scripts/verify.ps1 -Clean -DesktopIntegration` passed 640 tests (6 skipped). It was released at the user's request without an in-game check of the new shading.
+
 ## v3.3.3: Repository review fixes
 
 These fixes come from a review of the whole repository. One of the review's findings was withdrawn because the fields it flagged were already `volatile`.

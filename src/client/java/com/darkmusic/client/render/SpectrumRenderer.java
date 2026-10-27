@@ -23,9 +23,10 @@ public final class SpectrumRenderer {
     // Side edges need three pixels; decided once per row so bars rounded to 2 or 3 pixels look alike.
     private boolean sideBevel;
 
+    // Bars only; waves and spikes use SpectrumMesh.contour.
     private void fill(Settings settings, int left, int top, int right, int bottom, int color) {
         if (settings.spectrumStyle == Settings.SpectrumStyle.ROUNDED_BARS) {
-            mesh.rounded(left, top, right, bottom, color, settings.spectrumFinish);
+            mesh.rounded(left, top, right, bottom, color, settings.spectrumFinish, sideBevel);
             return;
         }
         if (settings.spectrumFinish != Settings.SurfaceFinish.BEVELED || bottom - top < 2) {
@@ -35,7 +36,7 @@ public final class SpectrumRenderer {
         rawFill(left, top, right, bottom, Bevel.shade(color, -.08));
         rawFill(left, top, right, top + 1, Bevel.shade(color, .32));
         rawFill(left, bottom - 1, right, bottom, Bevel.shade(color, -.28));
-        if (settings.spectrumStyle == Settings.SpectrumStyle.BARS && sideBevel && bottom - top >= 3) {
+        if (sideBevel && bottom - top >= 3) {
             rawFill(left, top + 1, left + 1, bottom - 1, Bevel.shade(color, .16));
             rawFill(right - 1, top + 1, right, bottom - 1, Bevel.shade(color, -.25));
         }
@@ -128,11 +129,18 @@ public final class SpectrumRenderer {
         if (!settings.spectrumStyle.bars()) {
             // At most 384 columns, even on large windows. Reuse the analysis snapshot above.
             int columns = Math.min(width, settings.visualQuality.detail), previous = 0, previousPeak = 0;
+            float previousExact = 0;
             for (int i = 0; i < columns; i++) {
                 double position = columns == 1 ? 0 : i / (double) (columns - 1);
                 boolean spike = settings.spectrumStyle == Settings.SpectrumStyle.SPIKE || settings.spectrumStyle == Settings.SpectrumStyle.FILLED_SPIKE;
-                int h = barHeight(spike ? SpectrumCurve.spike(levels, bands, position) : SpectrumCurve.sample(levels, bands, position), height);
-                if (i == 0) previous = h;
+                float value = spike ? SpectrumCurve.spike(levels, bands, position) : SpectrumCurve.sample(levels, bands, position);
+                int h = barHeight(value, height);
+                // Slope from the unrounded curve, so gentle slopes shade smoothly instead of flickering at each pixel step.
+                float exact = Float.isFinite(value) ? Math.clamp(value, 0, 1) * height : 0;
+                if (i == 0) {
+                    previous = h;
+                    previousExact = exact;
+                }
                 boolean filled = settings.spectrumStyle == Settings.SpectrumStyle.FILLED_WAVE || settings.spectrumStyle == Settings.SpectrumStyle.FILLED_SPIKE;
                 int low = filled ? 0 : Math.max(0, Math.min(h, previous) - 2);
                 int high = filled ? h : Math.max(h, previous);
@@ -153,8 +161,10 @@ public final class SpectrumRenderer {
                         rawFill(left, downward ? y + peak - 1 : y + height - peak, right, downward ? y + peak : y + height - peak + 1, settings.spectrumColors.color(position));
                 }
                 if (h > 0)
-                    fill(settings, left, top, right, bottom, settings.spectrumColors.color(position));
+                    mesh.contour(left, top, right, bottom, settings.spectrumColors.color(position),
+                        (exact - previousExact) * columns / (double) width, filled, settings.spectrumFinish);
                 previous = h;
+                previousExact = exact;
                 previousPeak = peak;
             }
             mesh.submit(g);

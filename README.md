@@ -6,9 +6,9 @@ Your own music library, inside Minecraft. Browse and play your collection, build
 
 ## Install
 
-DarkMusic **v3.3.3** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v3.3.4** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-3.3.3.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-3.3.4.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Add your songs under **Settings → General → Music Folders**, drag audio files into the player, or copy them to `config/darkmusic/music` in your instance.
@@ -116,6 +116,8 @@ PiP follows the frame limit you choose; on one tested system a 144 FPS limit del
 Automatic update checks are on by default: they run after joining a world/server and every six hours while connected. Notifications appear once per launch after you join a world or server. Click **Update** to approve a download, then close Minecraft to finish installing. You can also use **Settings → General → Check for Updates**. Your settings, library, playlists, and assets are kept. If installation fails, the next launch tells you and offers the log.
 
 ## What's new
+
+**v3.3.4** makes the Beveled spectrum finish clearly visible on Smooth Wave, Filled Wave, Spike, Filled Spike and Rounded Bars, not just Bars ([release notes](docs/releases/RELEASE-3.3.4.md)).
 
 **v3.3.3** fixes lyric lookup for downloads after Reset to Defaults, settings loading with a non-UTF-8 `options.txt`, lost "already in library" download reviews, self-update rollback, and tempo clicks at low sample rates ([release notes](docs/releases/RELEASE-3.3.3.md)).
 
