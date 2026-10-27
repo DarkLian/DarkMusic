@@ -1,5 +1,33 @@
 # Development and verification
 
+## v3.4.0: Chat commands and update consent
+
+**Commands.** New commands control playback from chat: `play [song]`, `pause`, `stop`, `previous`, `next`, `now`, `queue <song>`, `volume [0–100]`, `mute`, `speed [0.5–3]`, `seek <time>`, `shuffle [on|off]`, `repeat [off|one|all]` and `keys`. `LocalCommands` holds the command tree. `ClientActions` runs each command with the same guards as the player's controls and refuses while DarkMusic is busy.
+
+**Help.** `/da help` fits in open chat: 20 lines, grouped as Playback, Screens and More. Each command inserts itself on click and explains itself on hover. `ChatPalette` uses the menu accent, lightened until it reaches 4.5:1 contrast on chat's dark backdrop. `/da keys` shows the current bindings, says "Not bound" for unbound keys, and has a button that opens Key Binds.
+
+**Update consent.** `/da update` used to download as soon as it found a release. It now only checks, then offers **Download and Install** (`/da update install`) and **Release Notes**. The update notice's button also runs `/da update install`.
+
+**Clicked commands.** Since v1.0.3 the commands required typed ("attended") input. Fabric runs clicked chat buttons unattended, so every click opened Minecraft's confirmation dialog. Clicks now run directly. Only installing an update still checks: it is accepted when typed, or when clicked from DarkMusic's own button, which carries a random code made for this session. A link sent by a server cannot start a download.
+
+**Screens from chat.** Screens requested from chat (player, HUD layout, lyrics, PiP, Key Binds) waited for no screen to be open. A button clicked in chat leaves chat open, so **[Change Keys]** and **[Lyrics]** never appeared. The requested screen now replaces chat, and closing it returns to the game.
+
+**Seek limits.** An exact time past the end of the song is refused with the song's length, instead of jumping to the end. Moves with `+` or `-` stop at the start or end. Times are parsed as decimals, so a number like `99999999999:00` no longer overflows.
+
+**Smoke runs.** `prepareSmokeClient` writes `pauseOnLostFocus:false`, so switching away from a borderless smoke run no longer opens the pause menu.
+
+`LocalCommandsTest` covers:
+- argument routing for both aliases;
+- out-of-range values rejected before they reach playback;
+- `/da update` checking without installing;
+- song suggestions;
+- the key list and its button;
+- song matching order;
+- seek parsing;
+- palette contrast.
+
+`NavigationAndCommandsTest` checks the 20-line help and its click targets. `LocalCommandsTest` also checks that clicked commands parse without confirmation and that install refuses clicks without the right code. `gradlew test -PjavaOnly` passed 649 tests (112 skipped without the private collection), and the smoke source set compiles. It was released at the user's request; the commands were tried in game during development, but no full play session was recorded for this build.
+
 ## v3.3.4: Beveled waves, spikes and Rounded Bars
 
 Beveled used to look almost the same as Flat for every linear spectrum style except Bars.

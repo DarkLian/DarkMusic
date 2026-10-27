@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v3.3.4 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v3.4.0 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Picture-in-Picture (Windows x64)
 
@@ -453,13 +453,32 @@ In download rows, status appears first in color, followed by neutral file inform
 
 Volume changes in 5% steps and speed in 0.1× steps. Volume, mute, and speed shortcuts briefly show a HUD notification. Rebind controls in Minecraft's Key Binds menu under DarkMusic.
 
+Every command works with `/da` or `/darkmusic`. `[ ]` marks an optional value and `< >` a required one.
+
 | Command | Action |
 |---|---|
-| `/da` or `/darkmusic` | Open player |
-| `/da gui` or `/darkmusic gui` | Edit HUD layout |
-| `/da lyrics` or `/darkmusic lyrics` | Open lyrics for the current song, including while paused |
-| `/da update` or `/darkmusic update` | Check for updates and download an available update |
-| `/da help` or `/darkmusic help` | Show grouped commands, shortcut guidance, and links |
+| `/da play [song]` | Without a song, resume playback, or start your library when nothing is loaded. With a song, play the closest title match. |
+| `/da pause`, `/da stop` | Pause or stop playback |
+| `/da previous`, `/da next` | Previous or next song; next plays Up Next first |
+| `/da now` | Show the current song, position, volume and speed, with Previous, Play, Pause, Next, Stop and Lyrics buttons. When nothing is playing, it offers Play. |
+| `/da queue <song>` | Add the closest title match to the end of Up Next |
+| `/da volume [0–100]` | Show the volume, or set it |
+| `/da mute` | Mute, or restore the volume from before muting |
+| `/da speed [0.5–3]` | Show the playback speed, or set it in steps of 0.1 |
+| `/da seek <time>` | Jump to a time such as `1:30` or `90`, or move by `+10` or `-10` seconds. A time past the end of the song is refused; a move stops at the start or end. |
+| `/da shuffle [on\|off]` | Switch shuffle, or turn it on or off |
+| `/da repeat [off\|one\|all]` | Cycle repeat like the player's button, or choose a mode |
+| `/da` | Open the player |
+| `/da gui` | Edit the HUD layout |
+| `/da lyrics` | Open lyrics for the current song, including while paused |
+| `/da pip` | Open Picture-in-Picture |
+| `/da keys` | List your current DarkMusic shortcuts, with a **Change Keys** button that opens Key Binds |
+| `/da update` | Check for an update. When one is available, click **Download and Install** to download it; it installs after you close Minecraft. |
+| `/da help` | List every command with links to this guide, releases and issue reporting |
+
+For `play` and `queue`, press Tab while typing to see matching song titles. An exact title wins, then a title that starts with what you typed, then one that contains it, then a match on artist, album or file name.
+
+In `/da help`, click a command to put it in the chat box and hover over it for details. The help uses your menu accent color.
 
 The lyrics command leaves playback and the temporary queue unchanged. Lyrics must be enabled in Settings; online lookup is optional. If nothing is playing, the client is busy, or lyrics are disabled, a local message explains why the menu cannot open. A paused song is still eligible. The song is rechecked after chat closes, and pending menu requests are canceled when the world changes. Click a command in `/da help` to put it into chat before running it.
 

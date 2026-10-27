@@ -280,7 +280,7 @@ public class DarkMusicClient implements ClientModInitializer {
         return idle() && !outputChanging;
     }
 
-    private enum RequestedScreen {PLAYER, HUD, LYRICS, PIP}
+    private enum RequestedScreen {PLAYER, HUD, LYRICS, PIP, KEYS}
 
     private RequestedScreen requestedScreen;
     private Object requestedWorld;
@@ -351,7 +351,7 @@ public class DarkMusicClient implements ClientModInitializer {
 
     public void open() {
         var client = Minecraft.getInstance();
-        var screen = client.gui.screen();
+        var screen = chatless(client.gui.screen());
         if (alive() && settings != null && library != null && client.gui.overlay() == null && client.gui.canInterruptScreen()
             && (screen == null || screen instanceof TitleScreen) && (client.player == null || client.player.isAlive()))
             client.gui.setScreen(new MusicScreen(this, screen));
@@ -378,6 +378,22 @@ public class DarkMusicClient implements ClientModInitializer {
         requestUntil = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
     }
 
+    /**
+     * Minecraft's Key Binds screen, where DarkMusic's shortcuts are changed.
+     */
+    public void requestKeyBinds() {
+        requestedScreen = RequestedScreen.KEYS;
+        requestedWorld = Minecraft.getInstance().level;
+        requestUntil = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+    }
+
+    /**
+     * A button clicked in chat leaves chat open. The requested screen replaces it, and closing returns to the game.
+     */
+    private static net.minecraft.client.gui.screens.Screen chatless(net.minecraft.client.gui.screens.Screen screen) {
+        return screen instanceof net.minecraft.client.gui.screens.ChatScreen ? null : screen;
+    }
+
     private String lyricsCommandProblem() {
         return LocalCommands.lyricsProblem(
             idle() && settings != null && library != null && playback != null,
@@ -390,7 +406,7 @@ public class DarkMusicClient implements ClientModInitializer {
             requestedScreen = null;
             return;
         }
-        var screen = client.gui.screen();
+        var screen = chatless(client.gui.screen());
         if (settings == null || library == null || client.gui.overlay() != null || !client.gui.canInterruptScreen()
             || screen != null && !(screen instanceof TitleScreen)) return;
         var requested = requestedScreen;
@@ -401,6 +417,8 @@ public class DarkMusicClient implements ClientModInitializer {
             else client.gui.setScreen(new LyricsScreen(this, screen));
         } else if (requested == RequestedScreen.PIP)
             client.gui.setScreen(new PipScreen(this, screen));
+        else if (requested == RequestedScreen.KEYS)
+            client.gui.setScreen(new net.minecraft.client.gui.screens.options.controls.KeyBindsScreen(screen, client.options));
         else if (requested == RequestedScreen.HUD)
             client.gui.setScreen(new HudEditorScreen(this, screen));
         else open();

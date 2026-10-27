@@ -133,7 +133,7 @@ if (providers.gradleProperty('smoke').isPresent()) {
             else logger.lifecycle('SmoothFont unavailable: running functional smoke checks with the vanilla font; visual captures remain disabled.')
             def options = new File(runFolder, 'options.txt')
             def values = options.isFile() ? options.readLines('UTF-8') : []
-            def display = [guiScale: '2', overrideWidth: '1280', overrideHeight: '720', fullscreen: 'true', exclusiveFullscreen: smokeExclusive, fullscreenResolution: pipSmoke ? '1920x1080@144:24' : '1920x1080@60:24', resourcePacks: font.isFile() && !vanillaFontSmoke ? '["vanilla","file/SmoothFont_1.21.zip"]' : '["vanilla"]', incompatibleResourcePacks: font.isFile() && !vanillaFontSmoke ? '["file/SmoothFont_1.21.zip"]' : '[]']
+            def display = [pauseOnLostFocus: 'false', guiScale: '2', overrideWidth: '1280', overrideHeight: '720', fullscreen: 'true', exclusiveFullscreen: smokeExclusive, fullscreenResolution: pipSmoke ? '1920x1080@144:24' : '1920x1080@60:24', resourcePacks: font.isFile() && !vanillaFontSmoke ? '["vanilla","file/SmoothFont_1.21.zip"]' : '["vanilla"]', incompatibleResourcePacks: font.isFile() && !vanillaFontSmoke ? '["file/SmoothFont_1.21.zip"]' : '[]']
             if (smokeLanguage != null) display.lang = smokeLanguage
             values = values.findAll { !display.containsKey(it.takeWhile { c -> c != ':' }) }
             display.each { key, value -> values.add("$key:$value") }

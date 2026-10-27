@@ -69,14 +69,8 @@ class NavigationAndCommandsTest {
         assertEquals(12, TitleMarquee.offset(100, 40, 7_000_000_000L), .00001);
     }
 
-    @Test
-    void aliasesRunOnlyClientActionsAndHelpProducesLocalFeedbackLinks() throws Exception {
-        var dispatcher = new CommandDispatcher<FabricClientCommandSource>();
-        var player = new AtomicInteger();
-        var layout = new AtomicInteger();
-        var pip = new AtomicInteger();
-        var messages = new ArrayList<Component>();
-        FabricClientCommandSource source = (FabricClientCommandSource) Proxy.newProxyInstance(getClass().getClassLoader(), new Class[]{FabricClientCommandSource.class}, (proxy, method, args) -> {
+    private static FabricClientCommandSource source(List<Component> messages) {
+        return (FabricClientCommandSource) Proxy.newProxyInstance(NavigationAndCommandsTest.class.getClassLoader(), new Class[]{FabricClientCommandSource.class}, (proxy, method, args) -> {
             return switch (method.getName()) {
                 case "attended" -> true;
                 case "sendFeedback" -> {
@@ -86,8 +80,32 @@ class NavigationAndCommandsTest {
                 default -> throw new AssertionError("Unexpected command interaction: " + method.getName());
             };
         });
-        LocalCommands.register(dispatcher, player::incrementAndGet, layout::incrementAndGet, () -> {
-        }, () -> "", pip::incrementAndGet);
+    }
+
+    @Test
+    void aliasesRunOnlyClientActionsAndHelpProducesLocalFeedbackLinks() throws Exception {
+        var dispatcher = new CommandDispatcher<FabricClientCommandSource>();
+        var player = new AtomicInteger();
+        var layout = new AtomicInteger();
+        var pip = new AtomicInteger();
+        var messages = new ArrayList<Component>();
+        var source = source(messages);
+        LocalCommands.register(dispatcher, new LocalCommands.Actions() {
+            @Override
+            public void player() {
+                player.incrementAndGet();
+            }
+
+            @Override
+            public void layout() {
+                layout.incrementAndGet();
+            }
+
+            @Override
+            public void pip() {
+                pip.incrementAndGet();
+            }
+        });
         for (String alias : List.of("da", "darkmusic")) {
             assertEquals(1, dispatcher.execute(alias, source));
             assertEquals(1, dispatcher.execute(alias + " gui", source));
@@ -97,21 +115,23 @@ class NavigationAndCommandsTest {
         assertEquals(2, player.get());
         assertEquals(2, layout.get());
         assertEquals(2, pip.get());
-        assertEquals(24, messages.size());
-        for (int start : List.of(0, 12)) {
-            assertEquals("Commands", messages.get(start + 1).getString());
-            for (int i = 0; i < 6; i++) {
-                var event = assertInstanceOf(net.minecraft.network.chat.ClickEvent.SuggestCommand.class,
-                    messages.get(start + 2 + i).getStyle().getClickEvent());
-                assertEquals(List.of("/da", "/da gui", "/da lyrics", "/da pip", "/da update", "/da help").get(i), event.command());
-                assertNotNull(messages.get(start + 2 + i).getStyle().getHoverEvent());
-            }
-        }
-        var links = messages.get(11).getSiblings().stream().filter(c -> c.getStyle().getClickEvent() != null).toList();
-        assertEquals(2, links.size());
-        assertInstanceOf(net.minecraft.network.chat.ClickEvent.OpenUrl.class, messages.get(11).getStyle().getClickEvent());
-        for (var link : links)
-            assertInstanceOf(net.minecraft.network.chat.ClickEvent.OpenUrl.class, link.getStyle().getClickEvent());
+        // Title, three section headings, fifteen command lines and the links: 20 lines, the height of open chat.
+        assertEquals(40, messages.size());
+        // A command and its argument hint are separate text parts sharing one click.
+        var clicks = new java.util.LinkedHashSet<String>();
+        for (var message : messages.subList(0, 20))
+            for (var part : message.toFlatList())
+                if (part.getStyle().getClickEvent() instanceof net.minecraft.network.chat.ClickEvent.SuggestCommand suggest) {
+                    clicks.add(suggest.command());
+                    assertNotNull(part.getStyle().getHoverEvent());
+                }
+        assertEquals(List.of("/da play ", "/da pause", "/da stop", "/da previous", "/da next", "/da now", "/da queue ",
+            "/da volume ", "/da mute", "/da speed ", "/da seek ", "/da shuffle ", "/da repeat ", "/da", "/da gui",
+            "/da lyrics", "/da pip", "/da keys", "/da update"), List.copyOf(clicks));
+        var links = messages.get(19).toFlatList().stream()
+            .map(part -> part.getStyle().getClickEvent()).filter(java.util.Objects::nonNull).distinct().toList();
+        assertEquals(3, links.size());
+        for (var link : links) assertInstanceOf(net.minecraft.network.chat.ClickEvent.OpenUrl.class, link);
     }
 
     @Test
@@ -137,19 +157,28 @@ class NavigationAndCommandsTest {
         var result = new java.util.concurrent.atomic.AtomicReference<>("lyrics.darkmusic.disabled");
         var requested = new AtomicInteger();
         var messages = new ArrayList<Component>();
-        FabricClientCommandSource source = (FabricClientCommandSource) Proxy.newProxyInstance(getClass().getClassLoader(), new Class[]{FabricClientCommandSource.class}, (proxy, method, args) -> {
-            return switch (method.getName()) {
-                case "attended" -> true;
-                case "sendFeedback" -> {
-                    messages.add((Component) args[0]);
-                    yield null;
-                }
-                default -> throw new AssertionError("Unexpected command interaction: " + method.getName());
-            };
-        });
-        LocalCommands.register(dispatcher, () -> fail("Must not open player"), () -> fail("Must not edit HUD"), () -> fail("Must not update"), () -> {
-            requested.incrementAndGet();
-            return result.get();
+        var source = source(messages);
+        LocalCommands.register(dispatcher, new LocalCommands.Actions() {
+            @Override
+            public void player() {
+                fail("Must not open player");
+            }
+
+            @Override
+            public void layout() {
+                fail("Must not edit HUD");
+            }
+
+            @Override
+            public void installUpdate() {
+                fail("Must not update");
+            }
+
+            @Override
+            public String lyrics() {
+                requested.incrementAndGet();
+                return result.get();
+            }
         });
         for (String alias : List.of("da", "darkmusic")) {
             for (String problem : List.of("lyrics.darkmusic.disabled", "upnext.idle", "command.darkmusic.unavailable")) {

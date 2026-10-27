@@ -1,6 +1,7 @@
 package com.darkmusic.client.update;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.command.ChatPalette;
 import com.darkmusic.client.text.Text;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.ChatFormatting;
@@ -25,6 +26,9 @@ public final class UpdateService implements AutoCloseable {
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger("darkmusic-update");
     private final DarkMusicClient app;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-update").factory());
+    // Install buttons carry this code, so only DarkMusic's own buttons install without the command being typed.
+    private final String installCode = java.util.HexFormat.of().formatHex(randomBytes());
+    private final String install = "/da update install " + installCode;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15)).followRedirects(HttpClient.Redirect.NEVER).build();
     private final Path installed, directory;
     private final String current;
@@ -75,9 +79,10 @@ public final class UpdateService implements AutoCloseable {
         if (!checking && (checkedAt == 0 || System.nanoTime() - checkedAt > TimeUnit.HOURS.toNanos(6))) check();
         if (release != null && !notified && pending == null) {
             notified = true;
-            var update = Text.component("update.action").withStyle(style -> style.withColor(ChatFormatting.GREEN).withUnderlined(true)
-                .withClickEvent(new ClickEvent.RunCommand("/darkmusic update")));
-            mc.gui.hud.getChat().addClientSystemMessage(Text.component("update.available", release.version()).append(Component.literal(" ")).append(update));
+            var palette = palette();
+            mc.gui.hud.getChat().addClientSystemMessage(palette.info("update.available", palette.plain(release.version(), palette.accent()))
+                .append(Component.literal(" ")).append(palette.button("update.action", install, palette.success()))
+                .append(Component.literal(" ")).append(palette.link("update.notes", notes(release))));
         }
     }
 
@@ -147,6 +152,54 @@ public final class UpdateService implements AutoCloseable {
         }));
     }
 
+    /**
+     * "/da update": check only, then offer the download. Nothing downloads until the offer is accepted.
+     */
+    public void checkFromCommand() {
+        if (closed) return;
+        if (pending != null) {
+            message("update.ready");
+            return;
+        }
+        message("update.checking");
+        checkNow(status -> {
+            if ("update.found".equals(status) && release != null) offer(release);
+            else message(status);
+        });
+    }
+
+    private void offer(GitHubRelease found) {
+        var palette = palette();
+        var line = palette.info("update.found_current", palette.plain(found.version(), palette.accent()), palette.plain(current, palette.text()));
+        if (canInstall())
+            line.append(Component.literal(" ")).append(palette.button("update.install_action", install, palette.success()));
+        line.append(Component.literal(" ")).append(palette.link("update.notes", notes(found)));
+        Minecraft.getInstance().gui.hud.getChat().addClientSystemMessage(line);
+        if (!canInstall()) message("update.development");
+    }
+
+    private static byte[] randomBytes() {
+        byte[] bytes = new byte[16];
+        new java.security.SecureRandom().nextBytes(bytes);
+        return bytes;
+    }
+
+    public boolean installCode(String code) {
+        return installCode.equals(code);
+    }
+
+    private static String notes(GitHubRelease found) {
+        return "https://github.com/DarkLian/DarkMusic/releases/tag/v" + found.version();
+    }
+
+    private ChatPalette palette() {
+        var settings = app.settings;
+        return ChatPalette.of(settings == null ? ChatPalette.DEFAULT_ACCENT : settings.menuAccentColor);
+    }
+
+    /**
+     * "/da update install" and the notice's button: the user's consent to download and stage the update.
+     */
     public void requestUpdate() {
         if (release != null && canInstall()) {
             download();
@@ -277,7 +330,9 @@ public final class UpdateService implements AutoCloseable {
     }
 
     private void message(String key) {
-        Minecraft.getInstance().gui.hud.getChat().addClientSystemMessage(Text.component(key));
+        var palette = palette();
+        boolean failure = key.equals("update.failed") || key.equals("update.check_failed");
+        Minecraft.getInstance().gui.hud.getChat().addClientSystemMessage(failure ? palette.error(key) : palette.info(key));
     }
 
     @Override
