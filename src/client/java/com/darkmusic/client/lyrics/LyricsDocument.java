@@ -1,11 +1,14 @@
 package com.darkmusic.client.lyrics;
 
+import com.google.gson.annotations.JsonAdapter;
+
 import java.util.List;
 import java.util.Locale;
 
 /**
  * Immutable lyric content; timing and provenance never depend on the interface language.
  */
+@JsonAdapter(value = LyricsDocumentAdapter.class, nullSafe = false)
 public record LyricsDocument(String provider, String recordId, String title, String artist, String album,
                              double duration, String language, Variant variant, boolean generated,
                              boolean instrumental, String text, Lrc timed, List<String> plain, LyricsScript script) {

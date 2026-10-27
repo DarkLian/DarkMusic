@@ -40,7 +40,12 @@ class LyricsSafetyTest {
         assertEquals(words, LyricsService.decode(big5, "Big5"));
         assertThrows(java.nio.charset.CharacterCodingException.class, () -> LyricsService.decode(big5));
         var d = document(words);
-        String legacy = new com.google.gson.Gson().toJson(d);
+        // Older files also stored the derived fields, which reading ignores and rebuilds.
+        var tree = ConfigStore.JSON.toJsonTree(d).getAsJsonObject();
+        tree.add("timed", com.google.gson.JsonParser.parseString("{\"lines\":[{\"time\":1000,\"text\":\"stale\"}]}"));
+        tree.add("plain", com.google.gson.JsonParser.parseString("[\"stale\"]"));
+        tree.addProperty("script", "LATIN");
+        String legacy = tree.toString();
         assertTrue(legacy.contains("\"timed\""));
         assertEquals(d, ConfigStore.JSON.fromJson(legacy, LyricsDocument.class));
     }

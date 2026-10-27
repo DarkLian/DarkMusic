@@ -1,8 +1,6 @@
 package com.darkmusic.client.config;
 
 import com.darkmusic.client.audio.PlaybackController.Repeat;
-import com.darkmusic.client.lyrics.LyricsDocument;
-import com.darkmusic.client.lyrics.LyricsDocumentAdapter;
 import com.darkmusic.client.text.Text;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -39,8 +37,7 @@ public final class ConfigStore {
                 } else reader.skipValue();
                 return Repeat.OFF;
             }
-        }).registerTypeAdapter(LyricsDocument.class,
-        new LyricsDocumentAdapter()).create();
+        }).create();
     private final Path directory;
     private final ExecutorService io;
     private final Consumer<String> warning;
