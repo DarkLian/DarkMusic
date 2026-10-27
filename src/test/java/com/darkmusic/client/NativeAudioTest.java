@@ -4,6 +4,7 @@ import com.darkmusic.client.audio.AudioFormats;
 import com.darkmusic.client.audio.ExternalAudio;
 import com.darkmusic.client.audio.PcmDecoder;
 import com.darkmusic.client.audio.PcmRateConverter;
+import com.darkmusic.client.config.DownloadFormat;
 import com.darkmusic.client.download.*;
 import com.darkmusic.client.library.MetadataReader;
 import com.darkmusic.client.library.MusicLibrary;
@@ -122,13 +123,13 @@ class NativeAudioTest {
             };
             var entry = new DownloadModels.Entry(1, "Cover test", "https://example.com/audio", "test", codec[1], true);
             var saved = new DownloadPipeline(runner, temp.resolve("data")).execute(entry, temp.resolve("music"), tools, token, (s, d) -> {
-            }, DownloadEncoding.Format.ORIGINAL, () -> true);
+            }, DownloadFormat.ORIGINAL, () -> true);
             assertFalse(saved.warning().contains("without artwork"), saved.warning());
             assertEquals("[00:01.00]Caption timing check", Files.readString(DownloadLyrics.sidecar(saved.file())));
             assertEquals(1, captionCalls.get());
             var disabledEntry = new DownloadModels.Entry(1, "Cover test", "https://example.com/audio", "test", codec[1] + "-disabled", true);
             var disabled = new DownloadPipeline(runner, temp.resolve("data")).execute(disabledEntry, temp.resolve("music"), tools, token, (s, d) -> {
-            }, DownloadEncoding.Format.ORIGINAL, () -> false);
+            }, DownloadFormat.ORIGINAL, () -> false);
             assertEquals(1, captionCalls.get(), "Disabled lyrics must not request captions");
             assertFalse(Files.exists(DownloadLyrics.sidecar(disabled.file())));
             byte[] embedded = new MetadataReader().artwork(saved.file());
@@ -174,7 +175,7 @@ class NativeAudioTest {
             };
             var entry = new DownloadModels.Entry(1, "Private PCM excerpt", "https://example.com/audio", "test", codec, true);
             var saved = new DownloadPipeline(supplied, temp.resolve("data")).execute(entry, temp.resolve("music"), chain, token, (s, d) -> {
-            }, DownloadEncoding.Format.ORIGINAL);
+            }, DownloadFormat.ORIGINAL);
             String littleEndian = codec.replace("be", "le");
             assertEquals(littleEndian, DownloadEncoding.codec(real, chain, saved.file(), temp, token));
             Path before = temp.resolve(codec + "-before.bin"), after = temp.resolve(codec + "-after.bin");
@@ -215,7 +216,7 @@ class NativeAudioTest {
             var tools = new Toolchain(Path.of(yt), ff, ExternalAudio.tool(true), "", "");
             var entry = new DownloadModels.Entry(1, "Authorized local excerpt", "http://127.0.0.1:" + server.getAddress().getPort() + "/authorized.m4a", "Generic", "real", true);
             var saved = new DownloadPipeline(runner, temp.resolve("data")).execute(entry, temp.resolve("music"), tools, token, (s, d) -> {
-            }, DownloadEncoding.Format.ORIGINAL);
+            }, DownloadFormat.ORIGINAL);
             assertTrue(saved.file().toString().endsWith(".m4a"));
             assertEquals("aac", DownloadEncoding.codec(runner, tools, saved.file(), temp, token));
             Path before = temp.resolve("before.aac"), after = temp.resolve("after.aac");
@@ -295,7 +296,7 @@ class NativeAudioTest {
             };
             var entry = new DownloadModels.Entry(1, "Private excerpt", "https://example.com/audio", "test", format[0], true);
             var saved = new DownloadPipeline(supplied, temp.resolve("data")).execute(entry, destination, chain, token, (s, d) -> {
-            }, DownloadEncoding.Format.ORIGINAL);
+            }, DownloadFormat.ORIGINAL);
             var metadata = new MetadataReader().read("test", saved.file().getFileName().toString(), saved.file(), Files.size(saved.file()), 0);
             assertEquals("音樂 test", metadata.title(), format[0]);
             assertEquals("Artist", metadata.artist(), format[0]);
@@ -342,7 +343,7 @@ class NativeAudioTest {
             };
             var entry = new DownloadModels.Entry(1, "Tagged track", "https://example.com/audio", "test", format[0], true);
             var saved = new DownloadPipeline(supplied, temp.resolve("data")).execute(entry, temp.resolve("music"), chain, token, (s, d) -> {
-            }, DownloadEncoding.Format.ORIGINAL);
+            }, DownloadFormat.ORIGINAL);
             var metadata = new MetadataReader().read("test", saved.file().getFileName().toString(), saved.file(), Files.size(saved.file()), 0);
             assertEquals("Tagged track", metadata.title(), format[0]);
             assertEquals("Tagged artist", metadata.artist(), format[0]);

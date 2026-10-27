@@ -1,5 +1,7 @@
 package com.darkmusic.client.audio;
 
+import com.darkmusic.client.config.Settings;
+
 import javax.sound.sampled.AudioInputStream;
 import java.io.IOException;
 
@@ -35,7 +37,7 @@ public final class PcmRateConverter {
     }
 
     public static double clamp(double value) {
-        return Double.isFinite(value) ? Math.round(Math.clamp(value, .5, 3) * 10) / 10.0 : 1;
+        return Settings.clampStep(value);
     }
 
     public double positionFrames() {

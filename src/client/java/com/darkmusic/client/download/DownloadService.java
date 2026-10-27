@@ -1,6 +1,7 @@
 package com.darkmusic.client.download;
 
 import com.darkmusic.client.cleanup.LibrarySourceIndex;
+import com.darkmusic.client.config.DownloadFormat;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.lyrics.CaptionUrls;
@@ -49,11 +50,11 @@ public final class DownloadService implements AutoCloseable {
     private ProcessRunner.Token previewToken;
     private ProcessRunner.Token analysisToken = new ProcessRunner.Token();
     private Tools settings = new Tools("", "", "", "");
-    private DownloadEncoding.Format format = DownloadEncoding.Format.ORIGINAL;
+    private DownloadFormat format = DownloadFormat.ORIGINAL;
     private volatile LibrarySourceIndex awareness;
 
     public record DuplicateChoice(long id, List<Entry> entries, Path destination, Tools tools,
-                                  DownloadEncoding.Format format,
+                                  DownloadFormat format,
                                   java.util.Map<String, List<LibrarySourceIndex.Existing>> matches) {
     }
 
@@ -180,7 +181,7 @@ public final class DownloadService implements AutoCloseable {
         }
     }
 
-    public synchronized void format(DownloadEncoding.Format value) {
+    public synchronized void format(DownloadFormat value) {
         format = java.util.Objects.requireNonNull(value);
     }
 
@@ -435,7 +436,7 @@ public final class DownloadService implements AutoCloseable {
     private void add(List<Entry> entries, Path destination, Tools selected, ProcessRunner.Token token) throws IOException {
         if (entries.size() > MAX_BATCH) throw new IOException(Text.get("download.queue_capacity", MAX_BATCH));
         var index = awareness;
-        DownloadEncoding.Format requested;
+        DownloadFormat requested;
         synchronized (this) {
             requested = format;
         }
@@ -458,7 +459,7 @@ public final class DownloadService implements AutoCloseable {
         commit(entries, destination, selected, token, requested, java.util.Set.of());
     }
 
-    private synchronized void commit(List<Entry> entries, Path destination, Tools selected, ProcessRunner.Token token, DownloadEncoding.Format requested, java.util.Set<String> skipped) throws IOException {
+    private synchronized void commit(List<Entry> entries, Path destination, Tools selected, ProcessRunner.Token token, DownloadFormat requested, java.util.Set<String> skipped) throws IOException {
         token.check();
         if (closed || token != analysisToken) throw new CancellationException();
         if (entries.isEmpty())
@@ -672,7 +673,7 @@ public final class DownloadService implements AutoCloseable {
                 }, item.format, () -> false, () -> lyricsLanguages, () -> autoCaptions);
                 update(item, result.skipped() ? Status.SKIPPED : Status.SAVED, 1, result.file().getFileName() + (result.warning().isBlank() ? "" : " — " + result.warning()));
                 if (awareness != null) awareness.saved(item.entry, result.file(), item.format);
-                String commitIdentity = item.entry.key() + (item.format == DownloadEncoding.Format.ORIGINAL ? ":original" : "");
+                String commitIdentity = item.entry.key() + (item.format == DownloadFormat.ORIGINAL ? ":original" : "");
                 if (DownloadCommit.pending(result.file().getParent(), commitIdentity))
                     repairBookkeeping(result.file().getParent(), commitIdentity, 0);
                 if (!result.skipped()) try {
@@ -751,7 +752,7 @@ public final class DownloadService implements AutoCloseable {
         final Entry entry;
         final Path destination;
         Tools tools;
-        DownloadEncoding.Format format = DownloadEncoding.Format.ORIGINAL;
+        DownloadFormat format = DownloadFormat.ORIGINAL;
         ProcessRunner.Token token = new ProcessRunner.Token();
         int attempts;
         boolean retryAllowed = true;
@@ -772,7 +773,7 @@ public final class DownloadService implements AutoCloseable {
         }
     }
 
-    private record ActiveKey(Path directory, String media, DownloadEncoding.Format format) {
+    private record ActiveKey(Path directory, String media, DownloadFormat format) {
     }
 
     private record Cache(Tools settings, Toolchain tools) {

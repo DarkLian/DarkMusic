@@ -1,6 +1,5 @@
 package com.darkmusic.client.download;
 
-import com.darkmusic.client.lyrics.LyricsDocument;
 import com.darkmusic.client.text.Text;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -50,7 +49,7 @@ public final class LyricsLanguages {
      */
     public static String preferSongLanguage(String preferences, String language) {
         if (!normalize(preferences).equals("auto")) return preferences;
-        String tag = LyricsDocument.normalizeLanguage(language);
+        String tag = normalizeLanguage(language);
         if (tag.equals("und") || tag.equals("mul")) return preferences;
         try {
             return normalize(tag + ", auto");
@@ -161,5 +160,23 @@ public final class LyricsLanguages {
             default -> "";
         };
         return "";
+    }
+
+    public static String normalizeLanguage(String language) {
+        if (language == null || language.isBlank()) return "und";
+        String tag = language.strip().replace('_', '-');
+        tag = switch (tag.toLowerCase(Locale.ROOT)) {
+            case "eng" -> "en";
+            case "jpn" -> "ja";
+            case "kor" -> "ko";
+            case "zho", "chi" -> "zh";
+            case "mul" -> "mul";
+            default -> tag;
+        };
+        try {
+            return new Locale.Builder().setLanguageTag(tag).build().toLanguageTag();
+        } catch (java.util.IllformedLocaleException invalid) {
+            return "und";
+        }
     }
 }

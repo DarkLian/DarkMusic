@@ -1,9 +1,9 @@
 package com.darkmusic.client.lyrics;
 
+import com.darkmusic.client.download.LyricsLanguages;
 import com.google.gson.annotations.JsonAdapter;
 
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Immutable lyric content; timing and provenance never depend on the interface language.
@@ -45,7 +45,7 @@ public record LyricsDocument(String provider, String recordId, String title, Str
         if (!timed.lines().isEmpty()) plain = timed.lines().stream().map(Lrc.Line::text).toList();
         if (plain.stream().allMatch(String::isBlank)) plain = List.of();
         return new LyricsDocument(provider, id, title, artist, album, duration,
-            normalizeLanguage(language), variant == null ? Variant.UNKNOWN : variant, generated, instrumental, text, timed, plain, LyricsScript.detect(timed.lines().isEmpty() ? text : timed.lines().stream().map(Lrc.Line::text).collect(java.util.stream.Collectors.joining("\n"))));
+            LyricsLanguages.normalizeLanguage(language), variant == null ? Variant.UNKNOWN : variant, generated, instrumental, text, timed, plain, LyricsScript.detect(timed.lines().isEmpty() ? text : timed.lines().stream().map(Lrc.Line::text).collect(java.util.stream.Collectors.joining("\n"))));
     }
 
     public boolean synchronizedLyrics() {
@@ -58,23 +58,5 @@ public record LyricsDocument(String provider, String recordId, String title, Str
 
     public boolean available() {
         return instrumental || !plain.isEmpty();
-    }
-
-    public static String normalizeLanguage(String language) {
-        if (language == null || language.isBlank()) return "und";
-        String tag = language.strip().replace('_', '-');
-        tag = switch (tag.toLowerCase(Locale.ROOT)) {
-            case "eng" -> "en";
-            case "jpn" -> "ja";
-            case "kor" -> "ko";
-            case "zho", "chi" -> "zh";
-            case "mul" -> "mul";
-            default -> tag;
-        };
-        try {
-            return new Locale.Builder().setLanguageTag(tag).build().toLanguageTag();
-        } catch (java.util.IllformedLocaleException invalid) {
-            return "und";
-        }
     }
 }

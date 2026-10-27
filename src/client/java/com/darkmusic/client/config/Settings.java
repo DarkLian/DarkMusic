@@ -1,9 +1,6 @@
 package com.darkmusic.client.config;
 
-import com.darkmusic.client.audio.PcmRateConverter;
-import com.darkmusic.client.download.DownloadEncoding;
 import com.darkmusic.client.download.LyricsLanguages;
-import com.darkmusic.client.hud.HudScale;
 import com.darkmusic.client.pip.PipSettings;
 
 import java.util.LinkedHashMap;
@@ -67,7 +64,7 @@ public final class Settings {
     public double visualizerSensitivity = 1, visualizerSmoothing = .6;
     public double spectrumOpacity = 1;
     public String ytDlpPath = "", ffmpegPath = "", ffprobePath = "", javascriptPath = "";
-    public DownloadEncoding.Format downloadFormat = DownloadEncoding.Format.ORIGINAL;
+    public DownloadFormat downloadFormat = DownloadFormat.ORIGINAL;
     public AudioSettings audio = new AudioSettings();
     public SoundEnvironmentSettings environment = new SoundEnvironmentSettings();
     public boolean lyricsEnabled;
@@ -98,6 +95,13 @@ public final class Settings {
 
     public static double clampVolume(double value) {
         return Double.isFinite(value) ? Math.round(Math.clamp(value, 0, 1) * 100) / 100.0 : 1;
+    }
+
+    /**
+     * Playback speed and HUD scales share one range: 0.5 to 3 in steps of 0.1.
+     */
+    public static double clampStep(double value) {
+        return Double.isFinite(value) ? Math.round(Math.clamp(value, .5, 3) * 10) / 10.0 : 1;
     }
 
     public void validate() {
@@ -138,7 +142,7 @@ public final class Settings {
         if (ffmpegPath == null) ffmpegPath = "";
         if (ffprobePath == null) ffprobePath = "";
         if (javascriptPath == null) javascriptPath = "";
-        if (downloadFormat == null) downloadFormat = DownloadEncoding.Format.ORIGINAL;
+        if (downloadFormat == null) downloadFormat = DownloadFormat.ORIGINAL;
         if (audio == null) audio = new AudioSettings();
         audio.validate();
         if (environment == null) environment = new SoundEnvironmentSettings();
@@ -148,7 +152,7 @@ public final class Settings {
         if (repeat == null) repeat = Repeat.OFF;
         if (!java.util.Set.of("TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT").contains(hudPosition == null ? "" : hudPosition))
             hudPosition = "TOP_LEFT";
-        speed = PcmRateConverter.clamp(speed);
+        speed = clampStep(speed);
         if (spectrumColors == null) spectrumColors = defaultVisualColors();
         if (progressColors == null) progressColors = defaultVisualColors();
         spectrumColors.validate();
@@ -170,8 +174,8 @@ public final class Settings {
         if (spectrumPosition == null) spectrumPosition = SpectrumPosition.BELOW;
         if (spectrumDirection == null) spectrumDirection = SpectrumDirection.UPWARD;
         hudBackgroundTransparency = Double.isFinite(hudBackgroundTransparency) ? Math.clamp(hudBackgroundTransparency, 0, 1) : 1;
-        hudScale = HudScale.clamp(hudScale);
-        lyricsHudScale = HudScale.clamp(lyricsHudScale);
+        hudScale = clampStep(hudScale);
+        lyricsHudScale = clampStep(lyricsHudScale);
         lyricsHudX = Double.isFinite(lyricsHudX) ? Math.clamp(lyricsHudX, 0, 1) : .5;
         lyricsHudY = Double.isFinite(lyricsHudY) ? Math.clamp(lyricsHudY, 0, 1) : .9;
         lyricsHudWidth = Math.clamp(lyricsHudWidth, 120, 600);

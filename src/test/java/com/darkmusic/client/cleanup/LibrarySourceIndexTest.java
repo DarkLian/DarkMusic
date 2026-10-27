@@ -1,5 +1,6 @@
 package com.darkmusic.client.cleanup;
 
+import com.darkmusic.client.config.DownloadFormat;
 import com.darkmusic.client.download.*;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
@@ -60,8 +61,8 @@ class LibrarySourceIndexTest {
             index.settled().get(10, TimeUnit.SECONDS);
             assertEquals(2, index.verified(entry).size());
             assertTrue(index.lookup(entry).complete());
-            assertTrue(index.verified(entry).stream().anyMatch(e -> e.sameFormat(DownloadEncoding.Format.ORIGINAL)));
-            assertFalse(index.verified(entry).stream().anyMatch(e -> e.sameFormat(DownloadEncoding.Format.MP3)));
+            assertTrue(index.verified(entry).stream().anyMatch(e -> e.sameFormat(DownloadFormat.ORIGINAL)));
+            assertFalse(index.verified(entry).stream().anyMatch(e -> e.sameFormat(DownloadFormat.MP3)));
             Files.delete(a.file());
             assertEquals(1, index.verified(entry).size());
             index.deleted(Set.of(a.id()));
@@ -78,9 +79,9 @@ class LibrarySourceIndexTest {
     @Test
     void formatAwarenessAndFuzzyEvidenceRemainDifferentFromSourceIdentity() throws Exception {
         var a = file(temp.resolve("r"), "one.txt");
-        var existing = new LibrarySourceIndex.Existing(a, "mp3", Set.of(DownloadEncoding.Format.MP3), "s");
-        assertTrue(existing.sameFormat(DownloadEncoding.Format.MP3));
-        assertFalse(existing.sameFormat(DownloadEncoding.Format.ORIGINAL));
+        var existing = new LibrarySourceIndex.Existing(a, "mp3", Set.of(DownloadFormat.MP3), "s");
+        assertTrue(existing.sameFormat(DownloadFormat.MP3));
+        assertFalse(existing.sameFormat(DownloadFormat.ORIGINAL));
         try (var index = new LibrarySourceIndex(temp.resolve("data"))) {
             index.evidence(List.of(new DuplicateResult("p", a, a, "s", "s", Set.of(DuplicateResult.Evidence.FILENAME), DuplicateResult.Strength.POSSIBLE)));
             var e = new DownloadModels.Entry(1, a.title(), "https://youtu.be/another_123", "Youtube", "another_123", true);

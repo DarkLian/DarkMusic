@@ -255,7 +255,7 @@ public final class LyricsLookup implements AutoCloseable {
         String result = LyricsLanguages.normalize(value);
         if (result.contains(","))
             throw new IllegalArgumentException(Text.get("lyrics.darkmusic.language_invalid"));
-        return LyricsDocument.normalizeLanguage(result);
+        return LyricsLanguages.normalizeLanguage(result);
     }
 
     public CompletableFuture<Void> select(Track track, LyricsDocument selected) {

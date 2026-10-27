@@ -1,6 +1,7 @@
 package com.darkmusic.client.download;
 
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.config.DownloadFormat;
 import com.darkmusic.client.library.LibraryFiles;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.lyrics.LyricsFiles;
@@ -159,22 +160,22 @@ public final class DownloadPipeline {
     }
 
     public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress) throws Exception {
-        return execute(entry, destination, tools, token, progress, DownloadEncoding.Format.MP3);
+        return execute(entry, destination, tools, token, progress, DownloadFormat.MP3);
     }
 
-    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadEncoding.Format format) throws Exception {
+    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format) throws Exception {
         return execute(entry, destination, tools, token, progress, format, () -> false);
     }
 
-    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadEncoding.Format format, java.util.function.BooleanSupplier lyricsEnabled) throws Exception {
+    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format, java.util.function.BooleanSupplier lyricsEnabled) throws Exception {
         return execute(entry, destination, tools, token, progress, format, lyricsEnabled, () -> LyricsLanguages.resolve("auto"));
     }
 
-    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadEncoding.Format format, java.util.function.BooleanSupplier lyricsEnabled, java.util.function.Supplier<List<String>> lyricsLanguages) throws Exception {
+    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format, java.util.function.BooleanSupplier lyricsEnabled, java.util.function.Supplier<List<String>> lyricsLanguages) throws Exception {
         return execute(entry, destination, tools, token, progress, format, lyricsEnabled, lyricsLanguages, () -> false);
     }
 
-    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadEncoding.Format format, java.util.function.BooleanSupplier lyricsEnabled, java.util.function.Supplier<List<String>> lyricsLanguages, java.util.function.BooleanSupplier autoCaptions) throws Exception {
+    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format, java.util.function.BooleanSupplier lyricsEnabled, java.util.function.Supplier<List<String>> lyricsLanguages, java.util.function.BooleanSupplier autoCaptions) throws Exception {
         token.check();
         DownloadDiagnostics.at(DownloadDiagnostics.Stage.COMMIT, DownloadDiagnostics.Tool.NONE, () -> {
             prepare();
@@ -187,7 +188,7 @@ public final class DownloadPipeline {
         }
     }
 
-    private Saved download(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadEncoding.Format format, java.util.function.BooleanSupplier lyricsEnabled, java.util.function.Supplier<List<String>> lyricsLanguages, java.util.function.BooleanSupplier autoCaptions) throws Exception {
+    private Saved download(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format, java.util.function.BooleanSupplier lyricsEnabled, java.util.function.Supplier<List<String>> lyricsLanguages, java.util.function.BooleanSupplier autoCaptions) throws Exception {
         DownloadDiagnostics.Stage stage = DownloadDiagnostics.Stage.COMMIT;
         DownloadDiagnostics.Tool tool = DownloadDiagnostics.Tool.NONE;
         try {
@@ -198,7 +199,7 @@ public final class DownloadPipeline {
             if (Files.getFileStore(destination).getUsableSpace() < 16 * 1024 * 1024)
                 throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.STORAGE_FAILURE, stage, tool, null, "Insufficient disk space", null);
             Path history = destination.resolve(".darkmusic-downloads.json");
-            String identity = entry.key() + (format == DownloadEncoding.Format.ORIGINAL ? ":original" : "");
+            String identity = entry.key() + (format == DownloadFormat.ORIGINAL ? ":original" : "");
             synchronized (historyLock) {
                 Path prior = previous(readArchive(history), identity, destination);
                 if (prior != null)
@@ -241,7 +242,7 @@ public final class DownloadPipeline {
                 stage = DownloadDiagnostics.Stage.VALIDATION;
                 tool = DownloadDiagnostics.Tool.FFPROBE;
                 String sourceCodec = DownloadEncoding.codec(runner, tools, source, work, token);
-                var plan = format == DownloadEncoding.Format.MP3 ? new DownloadEncoding.Plan("mp3", "libmp3lame", "") : DownloadEncoding.plan(sourceCodec);
+                var plan = format == DownloadFormat.MP3 ? new DownloadEncoding.Plan("mp3", "libmp3lame", "") : DownloadEncoding.plan(sourceCodec);
                 Path converted = work.resolve("converted." + plan.extension());
                 progress.accept(Status.CONVERTING, Text.get("download.darkmusic.converting"));
                 String warning = cover == null ? Text.get("download.no_thumbnail") : "";
@@ -263,14 +264,14 @@ public final class DownloadPipeline {
                     cover = null;
                     warning = Text.get("download.artwork_unsupported");
                 }
-                var conversion = format == DownloadEncoding.Format.MP3 ? convert(tools, source, converted, cover, metadata, entry) : DownloadEncoding.remux(tools, source, converted, cover, metadata, entry, plan);
+                var conversion = format == DownloadFormat.MP3 ? convert(tools, source, converted, cover, metadata, entry) : DownloadEncoding.remux(tools, source, converted, cover, metadata, entry, plan);
                 if (pictureTags != null) conversion = DownloadEncoding.withPictureComment(conversion, pictureTags);
                 result = runner.run(conversion, work, token, Duration.ofMinutes(20), 64_000, s -> {
                 });
                 if (result.exit() != 0 && (cover != null || pictureTags != null)) {
                     token.check();
                     warning = Text.get("download.thumbnail_failed");
-                    result = runner.run(format == DownloadEncoding.Format.MP3 ? convert(tools, source, converted, null, metadata, entry) : DownloadEncoding.remux(tools, source, converted, null, metadata, entry, plan), work, token, Duration.ofMinutes(20), 64_000, s -> {
+                    result = runner.run(format == DownloadFormat.MP3 ? convert(tools, source, converted, null, metadata, entry) : DownloadEncoding.remux(tools, source, converted, null, metadata, entry, plan), work, token, Duration.ofMinutes(20), 64_000, s -> {
                     });
                 }
                 if (result.exit() != 0)

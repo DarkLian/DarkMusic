@@ -1,6 +1,7 @@
 package com.darkmusic.client.download;
 
 import com.darkmusic.client.cleanup.LibrarySourceIndex;
+import com.darkmusic.client.config.DownloadFormat;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.testing.Await;
@@ -40,11 +41,11 @@ class DownloadAwarenessTest {
         try (var service = new DownloadService(temp.resolve("service"), () -> {
         }, runner)) {
             service.configure(tools());
-            service.format(DownloadEncoding.Format.ORIGINAL);
+            service.format(DownloadFormat.ORIGINAL);
             service.enqueueSelected(List.of(entry(), entry()), temp.resolve("downloads"));
             assertTrue(entered.await(10, TimeUnit.SECONDS));
             assertEquals(1, service.snapshot().items().size(), "Repeated Mix entries share one active same-format job");
-            service.format(DownloadEncoding.Format.MP3);
+            service.format(DownloadFormat.MP3);
             service.enqueueSelected(List.of(entry()), temp.resolve("downloads"));
             Await.until(Duration.ofSeconds(10), () -> service.snapshot().items().size() == 2, "A different requested format is not suppressed");
             release.countDown();
@@ -96,7 +97,7 @@ class DownloadAwarenessTest {
             index.settled().get(10, TimeUnit.SECONDS);
             service.awareness(index);
             service.configure(tools());
-            service.format(DownloadEncoding.Format.ORIGINAL);
+            service.format(DownloadFormat.ORIGINAL);
             service.enqueueSelected(List.of(entry(), entry()), temp.resolve("another-folder"));
             Await.until(Duration.ofSeconds(10), () -> !service.snapshot().analyzing(), "Preparation");
             var choice = service.duplicateChoice();
@@ -121,7 +122,7 @@ class DownloadAwarenessTest {
             index.settled().get(10, TimeUnit.SECONDS);
             service.awareness(index);
             service.configure(tools());
-            service.format(DownloadEncoding.Format.MP3);
+            service.format(DownloadFormat.MP3);
             service.enqueueSelected(List.of(entry()), temp.resolve("new-folder"));
             Await.until(Duration.ofSeconds(10), () -> !service.snapshot().analyzing(), "Preparing format warning");
             assertNotNull(service.duplicateChoice());
@@ -129,7 +130,7 @@ class DownloadAwarenessTest {
             Await.until(Duration.ofSeconds(10), () -> service.snapshot().items().stream().anyMatch(i -> i.status() == Status.FAILED), "Different format reaches downloader");
             assertTrue(service.snapshot().items().stream().noneMatch(i -> i.status() == Status.SKIPPED));
             service.clearFailed();
-            service.format(DownloadEncoding.Format.ORIGINAL);
+            service.format(DownloadFormat.ORIGINAL);
             service.enqueueSelected(List.of(entry()), temp.resolve("new-folder"));
             Await.until(Duration.ofSeconds(10), () -> !service.snapshot().analyzing(), "Preparing second warning");
             var choice = service.duplicateChoice();

@@ -3,6 +3,7 @@ package com.darkmusic.smoke;
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.cleanup.*;
+import com.darkmusic.client.config.DownloadFormat;
 import com.darkmusic.client.download.*;
 import com.darkmusic.client.gui.*;
 import com.darkmusic.client.library.Track;
@@ -100,8 +101,8 @@ final class CleanupSmokeClient {
                 var comparison = new DuplicateComparisonScreen(app, results, pair);
                 var ignored = new IgnoredMatchesScreen(app, results);
                 var entry = new DownloadModels.Entry(1, a.title(), "https://youtu.be/abcDEFG_123", "Youtube", "abcDEFG_123", true);
-                var existing = new LibrarySourceIndex.Existing(a, "mp3", Set.of(DownloadEncoding.Format.MP3), "layout");
-                var choice = new DownloadService.DuplicateChoice(1, List.of(entry), app.library.root(), null, DownloadEncoding.Format.MP3, Map.of(entry.key(), List.of(existing)));
+                var existing = new LibrarySourceIndex.Existing(a, "mp3", Set.of(DownloadFormat.MP3), "layout");
+                var choice = new DownloadService.DuplicateChoice(1, List.of(entry), app.library.root(), null, DownloadFormat.MP3, Map.of(entry.key(), List.of(existing)));
                 for (var page : List.of(results, comparison, ignored, new DownloadDuplicateScreen(app, results, choice), new ExistingDownloadsScreen(app, results, entry), new DownloadScreen(app, results))) {
                     mc.gui.setScreen(page);
                     for (int width : new int[]{320, 426, 960}) bounds(page, width, width == 960 ? 540 : 240);

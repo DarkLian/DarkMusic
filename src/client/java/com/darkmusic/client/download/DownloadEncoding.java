@@ -14,8 +14,6 @@ import java.util.List;
  * Codec-preserving remux plans. Unknown codecs fall back to lossless PCM preservation, never MP3 silently.
  */
 public final class DownloadEncoding {
-    public enum Format {ORIGINAL, MP3}
-
     public record Plan(String extension, String codec, String warning) {
     }
 

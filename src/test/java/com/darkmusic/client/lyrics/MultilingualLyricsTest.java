@@ -355,9 +355,9 @@ class MultilingualLyricsTest {
         assertEquals(3, d.plain().size());
         assertEquals(-1, d.timed().current(60));
         assertEquals("und", d.language());
-        assertEquals("ja", LyricsDocument.normalizeLanguage("jpn"));
-        assertEquals("zh-Hant", LyricsDocument.normalizeLanguage("zh_Hant"));
-        assertEquals("und", LyricsDocument.normalizeLanguage("../en"));
+        assertEquals("ja", LyricsLanguages.normalizeLanguage("jpn"));
+        assertEquals("zh-Hant", LyricsLanguages.normalizeLanguage("zh_Hant"));
+        assertEquals("und", LyricsLanguages.normalizeLanguage("../en"));
     }
 
     @Test

@@ -1,5 +1,7 @@
 package com.darkmusic.client.hud;
 
+import com.darkmusic.client.config.Settings;
+
 /**
  * Shared wheel behavior for every on-screen HUD editor.
  */
@@ -7,7 +9,7 @@ public final class HudScale {
     private double remainder;
 
     public static double clamp(double value) {
-        return Double.isFinite(value) ? Math.round(Math.clamp(value, .5, 3) * 10) / 10.0 : 1;
+        return Settings.clampStep(value);
     }
 
     public double scroll(double scale, double delta) {

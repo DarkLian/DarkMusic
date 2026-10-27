@@ -1,7 +1,7 @@
 package com.darkmusic.client.cleanup;
 
 import com.darkmusic.client.config.ConfigStore;
-import com.darkmusic.client.download.DownloadEncoding;
+import com.darkmusic.client.config.DownloadFormat;
 import com.darkmusic.client.download.DownloadModels;
 import com.darkmusic.client.library.*;
 import com.google.gson.*;
@@ -14,9 +14,9 @@ import java.util.concurrent.*;
  * Shared, local-only source identities. Indexing and live existence checks never run in rendering.
  */
 public final class LibrarySourceIndex implements AutoCloseable {
-    public record Existing(Track track, String format, Set<DownloadEncoding.Format> requested, String stamp) {
-        public boolean sameFormat(DownloadEncoding.Format value) {
-            return value == DownloadEncoding.Format.MP3 ? format.equals("mp3") : requested.contains(value);
+    public record Existing(Track track, String format, Set<DownloadFormat> requested, String stamp) {
+        public boolean sameFormat(DownloadFormat value) {
+            return value == DownloadFormat.MP3 ? format.equals("mp3") : requested.contains(value);
         }
     }
 
@@ -115,7 +115,7 @@ public final class LibrarySourceIndex implements AutoCloseable {
                     synchronized (this) {
                         if (deleted.containsKey(t.id()) && !deleted.get(t.id()).equals(stamp)) deleted.remove(t.id());
                     }
-                    var modes = new HashSet<DownloadEncoding.Format>();
+                    var modes = new HashSet<DownloadFormat>();
                     var ids = new HashSet<String>();
                     String sourceId = DuplicateMatcher.sourceId(source);
                     if (!sourceId.isEmpty()) ids.add(sourceId);
@@ -127,7 +127,7 @@ public final class LibrarySourceIndex implements AutoCloseable {
                         if (original) key = key.substring(0, key.length() - 9);
                         int split = key.indexOf(':');
                         if (split > 0) ids.add(identity(key.substring(0, split), key.substring(split + 1), source));
-                        modes.add(original ? DownloadEncoding.Format.ORIGINAL : DownloadEncoding.Format.MP3);
+                        modes.add(original ? DownloadFormat.ORIGINAL : DownloadFormat.MP3);
                     }
                     cache.put(t.id(), new Cached(t.id(), stamp, source));
                     String name = t.file().getFileName().toString();
@@ -222,7 +222,7 @@ public final class LibrarySourceIndex implements AutoCloseable {
         }).toList();
     }
 
-    public void saved(DownloadModels.Entry entry, Path path, DownloadEncoding.Format format) {
+    public void saved(DownloadModels.Entry entry, Path path, DownloadFormat format) {
         if (closed) return;
         try {
             worker.execute(() -> {
