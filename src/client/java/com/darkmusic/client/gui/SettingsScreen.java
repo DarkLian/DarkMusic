@@ -532,8 +532,8 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
             else if (!app.settings.hudEnabled) {
                 int available = previewHeight - 30 - (progressPreview() ? 54 : 0);
                 int spectrumHeight = Math.max(1, Math.min(60, available));
-                playerSpectrumPreview.bars(app, g, previewX + 12, previewY + 22 + (available - spectrumHeight) / 2,
-                    previewWidth - 24, spectrumHeight, false, true);
+                playerSpectrumPreview.bars(app, g, SpectrumRenderer.Bars.at(previewX + 12, previewY + 22 + (available - spectrumHeight) / 2,
+                    previewWidth - 24, spectrumHeight, false, true));
             } else
                 NowPlayingHud.renderPreview(app, g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30 - (progressPreview() ? 54 : 0), previewScale, longText);
             if (progressPreview()) {

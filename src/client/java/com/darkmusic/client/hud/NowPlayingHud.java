@@ -81,8 +81,8 @@ public final class NowPlayingHud {
             g.pose().scale((float) scale);
             if (app.settings.hudStyle == Settings.HudStyle.SPECTRUM) {
                 if (layout.spectrum())
-                    (settingsPreview ? PREVIEW : LIVE).bars(app, g, 0, 0, w, layout.spectrumHeight(),
-                        app.settings.spectrumDirection == Settings.SpectrumDirection.DOWNWARD, settingsPreview);
+                    (settingsPreview ? PREVIEW : LIVE).bars(app, g, SpectrumRenderer.Bars.at(0, 0, w, layout.spectrumHeight(),
+                        app.settings.spectrumDirection == Settings.SpectrumDirection.DOWNWARD, settingsPreview));
                 return;
             }
             if (app.settings.hudStyle == Settings.HudStyle.ARTWORK) {
@@ -126,13 +126,14 @@ public final class NowPlayingHud {
                             g.pose().translate(artworkLayout.spectrumX() + (left ? 0 : app.settings.artworkSpectrumHeight),
                                 artworkLayout.spectrumY() + (left ? artworkLayout.artworkHeight() : 0));
                             g.pose().rotate((float) (left ? -Math.PI / 2 : Math.PI / 2));
-                            renderer.bars(app, g, 0, 0, artworkLayout.artworkHeight(), app.settings.artworkSpectrumHeight, false, settingsPreview);
+                            renderer.bars(app, g, SpectrumRenderer.Bars.at(0, 0, artworkLayout.artworkHeight(), app.settings.artworkSpectrumHeight, false, settingsPreview));
                         } finally {
                             g.pose().popMatrix();
                         }
-                    } else renderer.bars(app, g, artworkLayout.spectrumX(), artworkLayout.spectrumY(),
-                        artworkLayout.artworkWidth(), app.settings.artworkSpectrumHeight,
-                        app.settings.spectrumDirection == Settings.SpectrumDirection.DOWNWARD, settingsPreview);
+                    } else
+                        renderer.bars(app, g, SpectrumRenderer.Bars.at(artworkLayout.spectrumX(), artworkLayout.spectrumY(),
+                            artworkLayout.artworkWidth(), app.settings.artworkSpectrumHeight,
+                            app.settings.spectrumDirection == Settings.SpectrumDirection.DOWNWARD, settingsPreview));
                 }
                 return;
             }
@@ -170,7 +171,7 @@ public final class NowPlayingHud {
                 drawProgress(app, g, track, 6, main + 39, w - 12, progress);
             }
             if (layout.spectrum())
-                (settingsPreview ? PREVIEW : LIVE).bars(app, g, 0, layout.spectrumY(), w, layout.spectrumHeight(), app.settings.spectrumDirection == Settings.SpectrumDirection.DOWNWARD, settingsPreview, h);
+                (settingsPreview ? PREVIEW : LIVE).bars(app, g, SpectrumRenderer.Bars.at(0, layout.spectrumY(), w, layout.spectrumHeight(), app.settings.spectrumDirection == Settings.SpectrumDirection.DOWNWARD, settingsPreview).inHud(h));
         } finally {
             if (text != null) text.transform(0, 0, 1);
             g.pose().popMatrix();

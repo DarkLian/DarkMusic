@@ -220,12 +220,12 @@ public final class PipController implements AutoCloseable {
             try {
                 g.pose().translate(b.x() + (left ? 0 : b.width()), b.y() + (left ? b.height() : 0));
                 g.pose().rotate((float) (left ? -Math.PI / 2 : Math.PI / 2));
-                audioSpectrum.bars(app, g, 0, 0, b.height(), b.width(), false, preview, 0, analyzer, spectrumAppearance);
+                audioSpectrum.bars(app, g, SpectrumRenderer.Bars.at(0, 0, b.height(), b.width(), false, preview).from(analyzer, spectrumAppearance));
             } finally {
                 g.pose().popMatrix();
             }
         } else
-            audioSpectrum.bars(app, g, b.x(), b.y(), b.width(), b.height(), downward, preview, 0, analyzer, spectrumAppearance);
+            audioSpectrum.bars(app, g, SpectrumRenderer.Bars.at(b.x(), b.y(), b.width(), b.height(), downward, preview).from(analyzer, spectrumAppearance));
     }
 
     @Override

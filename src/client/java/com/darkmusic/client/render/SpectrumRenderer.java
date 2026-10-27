@@ -89,25 +89,36 @@ public final class SpectrumRenderer {
     }
 
     public void render(DarkMusicClient app, GuiGraphicsExtractor g, int x, int y, int width, int height) {
-        bars(app, g, x + 2, y + 2, width - 4, height - 4, false, false);
+        bars(app, g, Bars.at(x + 2, y + 2, width - 4, height - 4, false, false));
+    }
+
+    /**
+     * Where to draw and what to read. hudHeight is 0 outside the HUD; a null analyzer reads playback and null
+     * settings use the app's.
+     */
+    public record Bars(int x, int y, int width, int height, boolean downward, boolean settingsPreview, int hudHeight,
+                       SpectrumAnalyzer analyzer, Settings settings) {
+        public static Bars at(int x, int y, int width, int height, boolean downward, boolean settingsPreview) {
+            return new Bars(x, y, width, height, downward, settingsPreview, 0, null, null);
+        }
+
+        public Bars inHud(int hudHeight) {
+            return new Bars(x, y, width, height, downward, settingsPreview, hudHeight, analyzer, settings);
+        }
+
+        public Bars from(SpectrumAnalyzer analyzer, Settings settings) {
+            return new Bars(x, y, width, height, downward, settingsPreview, hudHeight, analyzer, settings);
+        }
     }
 
     /**
      * No background and no audio mutations. Synthetic data is limited to the settings preview.
      */
-    public void bars(DarkMusicClient app, GuiGraphicsExtractor g, int x, int y, int width, int height, boolean downward, boolean settingsPreview) {
-        bars(app, g, x, y, width, height, downward, settingsPreview, 0);
-    }
-
-    public void bars(DarkMusicClient app, GuiGraphicsExtractor g, int x, int y, int width, int height, boolean downward, boolean settingsPreview, int hudHeight) {
-        bars(app, g, x, y, width, height, downward, settingsPreview, hudHeight, null);
-    }
-
-    public void bars(DarkMusicClient app, GuiGraphicsExtractor g, int x, int y, int width, int height, boolean downward, boolean settingsPreview, int hudHeight, SpectrumAnalyzer external) {
-        bars(app, g, x, y, width, height, downward, settingsPreview, hudHeight, external, app.settings);
-    }
-
-    public void bars(DarkMusicClient app, GuiGraphicsExtractor g, int x, int y, int width, int height, boolean downward, boolean settingsPreview, int hudHeight, SpectrumAnalyzer external, Settings settings) {
+    public void bars(DarkMusicClient app, GuiGraphicsExtractor g, Bars request) {
+        int x = request.x(), y = request.y(), width = request.width(), height = request.height(), hudHeight = request.hudHeight();
+        boolean downward = request.downward(), settingsPreview = request.settingsPreview();
+        SpectrumAnalyzer external = request.analyzer();
+        Settings settings = request.settings() == null ? app.settings : request.settings();
         if (width < 8 || height < 1) return;
         if (!update(app, settingsPreview, external, settings)) return;
         int bands = settings.visualizerBars;
