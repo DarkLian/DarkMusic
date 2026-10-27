@@ -5,10 +5,8 @@ import com.darkmusic.client.download.DownloadModels;
 import com.darkmusic.client.download.DownloadService;
 import com.darkmusic.client.text.Text;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.resources.Identifier;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -29,10 +27,7 @@ public final class DownloadHud {
     public static void register(DarkMusicClient app) {
         var hud = new DownloadHud();
         ClientTickEvents.END_CLIENT_TICK.register(client -> hud.update(app.downloads, System.nanoTime()));
-        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("darkmusic", "downloads"), (g, delta) -> {
-            var mc = Minecraft.getInstance();
-            if (mc.level != null && mc.gui.screen() == null && !mc.gui.hud.isHidden()) hud.render(app, g);
-        });
+        HudLayer.add(app, "downloads", g -> hud.render(app, g));
     }
 
     public void update(DownloadService current, long now) {
@@ -76,11 +71,11 @@ public final class DownloadHud {
                 y = (int) Math.ceil(b.y() + b.height()) + 4;
         }
         y = Math.max(4, Math.min(y, g.guiHeight() - height - 4));
-        int alpha = (int) (opacity * 255), color = (alpha << 24) | 0xE0DDEE;
-        g.fill(x, y, x + width, y + height, ((int) (opacity * 220) << 24) | 0x111420);
+        int alpha = (int) (opacity * 255), color = HudText.themed(com.darkmusic.client.gui.UiTheme.TEXT, alpha);
+        g.fill(x, y, x + width, y + height, HudText.themed(com.darkmusic.client.gui.UiTheme.BACKGROUND, (int) (opacity * 220)));
         g.text(font, com.darkmusic.client.gui.HorizontalText.ellipsize(font, Text.get("hud.darkmusic.downloads", progress.finished(), progress.total(), Math.round(progress.fraction() * 100), progress.failed()), width - 12), x + 6, y + 5, color);
-        g.fill(x + 6, y + 17, x + width - 6, y + 20, (alpha << 24) | 0x34394F);
-        g.fill(x + 6, y + 17, x + 6 + (int) ((width - 12) * progress.fraction()), y + 20, (alpha << 24) | 0xB5B0FF);
+        g.fill(x + 6, y + 17, x + width - 6, y + 20, HudText.themed(com.darkmusic.client.gui.UiTheme.BORDER, alpha));
+        g.fill(x + 6, y + 17, x + 6 + (int) ((width - 12) * progress.fraction()), y + 20, HudText.themed(com.darkmusic.client.gui.UiTheme.ACCENT, alpha));
         int rowY = y + 25;
         for (var item : rows) {
             String percent = item.progress() >= 0 ? " " + Math.round(item.progress() * 100) + "%" : "";
@@ -89,6 +84,6 @@ public final class DownloadHud {
             rowY += 12;
         }
         if (showNotice)
-            g.text(font, com.darkmusic.client.gui.HorizontalText.ellipsize(font, notice, width - 12), x + 6, rowY, (alpha << 24) | (failure ? 0xFFBC80 : 0xB5B0FF));
+            g.text(font, com.darkmusic.client.gui.HorizontalText.ellipsize(font, notice, width - 12), x + 6, rowY, HudText.themed(failure ? com.darkmusic.client.gui.UiTheme.WARNING : com.darkmusic.client.gui.UiTheme.ACCENT, alpha));
     }
 }

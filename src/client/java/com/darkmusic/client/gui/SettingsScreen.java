@@ -211,6 +211,7 @@ public final class SettingsScreen extends LocalScreen {
             s.hudEnabled = v;
             rebuildWidgets();
         }, "hud.darkmusic.master_help");
+        toggle("hud.darkmusic.in_menus", () -> s.hudInMenus, v -> s.hudInMenus = v, "hud.darkmusic.in_menus_help");
         boolean classic = s.hudStyle == Settings.HudStyle.CLASSIC;
         boolean artwork = s.hudStyle == Settings.HudStyle.ARTWORK;
         boolean spectrumOnly = s.hudStyle == Settings.HudStyle.SPECTRUM;
@@ -261,8 +262,10 @@ public final class SettingsScreen extends LocalScreen {
                 controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("style.darkmusic.shape") + ": " + Text.get("style.darkmusic.shape." + s.hudShape.name().toLowerCase(Locale.ROOT))));
                 toggle("style.darkmusic.raised", () -> s.hudRaised, v -> s.hudRaised = v, "style.darkmusic.raised_help");
             }
-            if (artwork)
+            if (artwork) {
+                toggle("circle.darkmusic.text", () -> s.artworkText, v -> s.artworkText = v, "hud.darkmusic.artwork_text_help");
                 toggle("hud.darkmusic.artwork_reactive", () -> s.artworkReactive, v -> s.artworkReactive = v, "hud.darkmusic.artwork_reactive_help");
+            }
             if (linear && !spectrumOnly) {
                 slider(s.hudBackgroundTransparency, v -> Text.get("hud.darkmusic.transparency", Math.round(s.hudBackgroundTransparency * 100)), v -> s.hudBackgroundTransparency = v, 100, "hud.darkmusic.transparency_help");
                 toggle("hud.darkmusic.background_gradient", () -> s.hudBackgroundGradient, v -> s.hudBackgroundGradient = v, "hud.darkmusic.background_gradient_help");

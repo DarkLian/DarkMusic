@@ -23,6 +23,7 @@ public final class Settings {
     public boolean updateNotifications = true;
     public double speed = 1;
     public boolean hudEnabled = true;
+    public boolean hudInMenus;
     public com.darkmusic.client.pip.PipSettings pip = new com.darkmusic.client.pip.PipSettings();
     public String hudPosition = "TOP_LEFT";
     public Double hudX, hudY;
@@ -37,7 +38,7 @@ public final class Settings {
     public HudStyle hudStyle = HudStyle.CLASSIC;
     public SpectrumStyle circularSpectrumStyle = SpectrumStyle.BARS;
     public boolean circularText = true, circularIconPulse = true;
-    public boolean artworkReactive;
+    public boolean artworkReactive, artworkText = true;
     public SpectrumStyle spectrumStyle = SpectrumStyle.BARS;
     public SurfaceFinish spectrumFinish = SurfaceFinish.BEVELED, progressFinish = SurfaceFinish.BEVELED;
     public HudShape hudShape = HudShape.RECTANGLE;

@@ -20,7 +20,10 @@ public final class HudSurface {
     }
 
     public static void draw(GuiGraphicsExtractor g, Settings settings, int width, int height) {
-        int alpha = HudLayout.background(settings) & 0xFF000000;
+        draw(g, settings, width, height, HudLayout.background(settings) & 0xFF000000);
+    }
+
+    public static void draw(GuiGraphicsExtractor g, Settings settings, int width, int height, int alpha) {
         for (int row = 0; row < height; ) {
             int inset = inset(settings.hudShape, width, height, row);
             int next = spanBottom(settings.hudShape, width, height, 0, width, row, height);

@@ -75,6 +75,38 @@ class FrontendPolishTest {
     }
 
     @Test
+    void hudStaysHiddenInMenusUnlessEnabled() {
+        assertFalse(new Settings().hudInMenus);
+    }
+
+    @Test
+    void artworkCaptionSitsBelowTheArtworkAndCanBeRemoved() {
+        var settings = new Settings();
+        settings.hudStyle = Settings.HudStyle.ARTWORK;
+        for (var position : Settings.ArtworkSpectrumPosition.values()) {
+            settings.artworkSpectrumPosition = position;
+            settings.artworkText = true;
+            var art = com.darkmusic.client.hud.ArtworkHudLayout.of(settings, 1920, 1080);
+            assertTrue(art.captionY() >= art.progressY() + 3, position.name());
+            assertTrue(art.captionY() + com.darkmusic.client.hud.ArtworkHudLayout.CAPTION <= art.height(), position.name());
+            if (position == Settings.ArtworkSpectrumPosition.BELOW)
+                assertTrue(art.spectrumY() >= art.captionY() + com.darkmusic.client.hud.ArtworkHudLayout.CAPTION);
+            settings.artworkText = false;
+            var bare = com.darkmusic.client.hud.ArtworkHudLayout.of(settings, 1920, 1080);
+            assertEquals(-1, bare.captionY());
+            assertEquals(art.height() - com.darkmusic.client.hud.ArtworkHudLayout.CAPTION, bare.height(), position.name());
+        }
+    }
+
+    @Test
+    void lyricsPlatesFadeAsTheLyricsBackgroundCarriesTheText() {
+        assertEquals(com.darkmusic.client.hud.HudText.PLATE, com.darkmusic.client.hud.HudText.lyricsPlate(0));
+        assertTrue(com.darkmusic.client.hud.HudText.lyricsPlate(.25) >>> 24 < com.darkmusic.client.hud.HudText.PLATE >>> 24);
+        assertEquals(0, com.darkmusic.client.hud.HudText.lyricsPlate(.5));
+        assertEquals(0, com.darkmusic.client.hud.HudText.lyricsPlate(1));
+    }
+
+    @Test
     void hudTextScrimFollowsCardTransparencyAndLightness() {
         var settings = new Settings();
         settings.hudBackgroundTransparency = 0;

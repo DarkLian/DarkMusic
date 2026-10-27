@@ -307,12 +307,12 @@ A completed download is announced in client-side chat. Close Minecraft and wait 
 
 Settings contains General, Audio, HUD, Spectrum, and Reset sections. Most changes save immediately. The preview shows current playback data, or sample visualization when no song is playing.
 
-**Now-Playing HUD** enables the whole in-game component:
+**Now-Playing HUD** enables the whole in-game component. DarkMusic HUD elements hide while chat or another menu is open; **Show HUD in Menus** keeps the player card, lyrics, and volume, speed, and download notices visible above menus. Circular and lyrics text sits on a soft dark plate so it stays readable over bright scenery.
 
-- **Classic:** song information with optional artwork, progress, and spectrum.
+- **Classic:** song information with optional artwork, progress, and spectrum. The second line shows the artist, with Paused or Stopped in front of it only when music is not playing.
 - **Circular:** the DarkMusic icon, optional circular progress, outward spectrum, and optional title/artist text. Disabling progress removes the ring rail and anchors the spectrum directly to the icon.
 - **Spectrum Only:** the audio-reactive spectrum without artwork, track text, progress, or a background. It uses the same spectrum colors, effects, direction, height, and layout editor.
-- **Artwork:** larger, aspect-preserving artwork and spectrum. An optional progress bar touches the bottom of the image. Position the spectrum above, below, left, or right; side spectra grow horizontally away from the image. Audio-Reactive Artwork optionally pulses the image with the music without stretching it. The whole layout moves and scales as one HUD.
+- **Artwork:** larger, aspect-preserving artwork and spectrum. An optional progress bar touches the bottom of the image. Position the spectrum above, below, left, or right; side spectra grow horizontally away from the image. Audio-Reactive Artwork optionally pulses the image with the music without stretching it. **Song Information** shows the title and artist below the artwork. The whole layout moves and scales as one HUD.
 
 Choose a spectrum style, bar count, sensitivity, smoothing, and height in every layout. Above/below spectra support upward or downward growth. HUD contains background transparency, progress appearance, and other layout options. Spectrum contains its style, direction, finish, effects, colors, and sliders. Classic and Artwork share solid/gradient background controls; background transparency does not fade the artwork or other foreground content. Frequency smoothing, peak hold, trails, and glow have individual switches in Spectrum.
 

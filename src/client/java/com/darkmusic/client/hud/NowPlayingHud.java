@@ -2,10 +2,8 @@ package com.darkmusic.client.hud;
 
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.text.Text;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.resources.Identifier;
 
 public final class NowPlayingHud {
     private static final com.darkmusic.client.gui.SpectrumRenderer LIVE = new com.darkmusic.client.gui.SpectrumRenderer();
@@ -20,11 +18,9 @@ public final class NowPlayingHud {
     }
 
     public static void register(DarkMusicClient app) {
-        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("darkmusic", "now_playing"), (g, delta) -> {
-            var mc = Minecraft.getInstance();
-            if (app.settings == null || !app.settings.hudEnabled || app.playback == null || mc.gui.hud.isHidden() || mc.level == null || mc.gui.screen() != null)
-                return;
-            if (app.playback.state().track() != null) render(app, g, false);
+        HudLayer.add(app, "now_playing", g -> {
+            if (app.settings != null && app.settings.hudEnabled && app.playback != null && app.playback.state().track() != null)
+                render(app, g, false);
         });
     }
 
@@ -103,6 +99,15 @@ public final class NowPlayingHud {
                     double progress = CircularHudLayout.progress(state.position(), state.duration(), preview);
                     drawProgress(app, g, track, artworkLayout.artworkX(), artworkLayout.progressY(), artworkLayout.artworkWidth(), progress);
                 }
+                if (artworkLayout.captionY() >= 0) {
+                    int left = artworkLayout.artworkX(), top = artworkLayout.captionY(), width = artworkLayout.artworkWidth();
+                    int scrim = HudLayout.textScrim(app.settings);
+                    if (scrim != 0) g.fill(left, top + 1, left + width, top + ArtworkHudLayout.CAPTION, scrim);
+                    String title = track == null ? Text.get("text.darkmusic.song_title") : track.title();
+                    (preview ? PREVIEW_TITLE : LIVE_TITLE).draw(g, mc.font, title, left + 4, top + 4, Math.max(1, width - 8), 0xFFB5B0FF);
+                    String artist = track == null ? Text.get("text.darkmusic.artist") : track.artist();
+                    g.text(mc.font, com.darkmusic.client.gui.HorizontalText.ellipsize(mc.font, artist, Math.max(1, width - 8)), left + 4, top + 15, 0xFFE0DDEE);
+                }
                 if (layout.spectrum()) {
                     var renderer = settingsPreview ? PREVIEW : LIVE;
                     if (artworkLayout.sideways(app.settings)) {
@@ -142,7 +147,11 @@ public final class NowPlayingHud {
             String title = track == null ? Text.get("text.darkmusic.song_title") : track.title();
             if (text != null) text.transform(x, y, scale);
             (preview ? PREVIEW_TITLE : LIVE_TITLE).draw(g, mc.font, title, textX, main + 6, Math.max(1, w - textX - 6), 0xFFB5B0FF);
-            String detail = (state.track() == null ? Text.get("text.darkmusic.preview") : com.darkmusic.client.gui.MusicScreen.label(state.status().name())) + " | " + (track == null ? Text.get("text.darkmusic.artist") : track.artist());
+            String artist = track == null ? Text.get("text.darkmusic.artist") : track.artist();
+            // "Playing" is implied by a moving HUD; only a paused, stopped or preview state is worth the space.
+            String status = state.track() == null ? Text.get("text.darkmusic.preview")
+                : state.status() == com.darkmusic.client.audio.AudioBackend.Status.PLAYING ? "" : com.darkmusic.client.gui.MusicScreen.label(state.status().name());
+            String detail = status.isEmpty() ? artist : status + " | " + artist;
             if (text != null)
                 text.draw(g, mc.font, "hud_detail", detail, textX, main + 21, Math.max(1, w - textX - 6), 0xFFE0DDEE);
             else

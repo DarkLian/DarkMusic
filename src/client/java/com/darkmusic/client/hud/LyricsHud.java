@@ -4,10 +4,8 @@ import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.lyrics.Lrc;
 import com.darkmusic.client.text.Text;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.resources.Identifier;
 
 /**
  * Lyrics have their own screen anchor and scale, independent of the player card.
@@ -23,11 +21,9 @@ public final class LyricsHud {
     }
 
     public static void register(DarkMusicClient app) {
-        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("darkmusic", "lyrics"), (g, delta) -> {
-            var mc = Minecraft.getInstance();
-            if (app.settings == null || !enabled(app.settings) || app.playback == null || mc.gui.hud.isHidden()
-                || mc.level == null || mc.gui.screen() != null || app.playback.state().track() == null) return;
-            render(app, g, false);
+        HudLayer.add(app, "lyrics", g -> {
+            if (app.settings != null && enabled(app.settings) && app.playback != null && app.playback.state().track() != null)
+                render(app, g, false);
         });
     }
 
@@ -90,10 +86,11 @@ public final class LyricsHud {
             g.pose().translate(b.x(), b.y());
             g.pose().scale((float) b.scale());
             int h = HudLyricsLayout.height(s.lyricsNextLine);
+            // Same shape, gradient and bevel as the player card, at the lyrics' own opacity.
             if (s.lyricsHudOpacity > 0)
-                g.fill(0, 0, s.lyricsHudWidth, h, ((int) Math.round(s.lyricsHudOpacity * 255) << 24) | s.hudBackgroundColors.first());
+                HudSurface.draw(g, s, s.lyricsHudWidth, h, (int) Math.round(s.lyricsHudOpacity * 255) << 24);
             (preview ? PREVIEW : LIVE).draw(g, Minecraft.getInstance().font, current, next, s.lyricsHudWidth, 0,
-                s.lyricsNextLine, s.lyricsHudColor, s.lyricsHudNextColor);
+                s.lyricsNextLine, s.lyricsHudColor, s.lyricsHudNextColor, HudText.lyricsPlate(s.lyricsHudOpacity));
         } finally {
             g.pose().popMatrix();
         }

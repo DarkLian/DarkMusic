@@ -17,35 +17,24 @@ import java.util.function.ToIntFunction;
  * A single HUD: original icon, clockwise progress, outward audio bands, and two text lines.
  */
 public final class CircularHudRenderer {
+    private static final int TITLE = 0xFFF0EEFF, ARTIST = 0xFFC4C1D6;
     private final SpectrumRenderer spectrum = new SpectrumRenderer();
     private final float[] levels = new float[64];
     private final float[] peaks = new float[64];
     private final TitleMarquee title = new TitleMarquee();
 
-    private void title(GuiGraphicsExtractor g, Font font, String text, int width, int lineWidth, int y) {
-        float scale = 1.1f;
-        int available = Math.max(1, (int) ((lineWidth - 8) / scale));
-        g.pose().pushMatrix();
-        try {
-            g.pose().translate(width / 2f, y);
-            g.pose().scale(scale);
-            if (font.width(text) <= available) g.text(font, text, -font.width(text) / 2, 0, 0xFFDDD9FF);
-            else title.draw(g, font, text, -available / 2, 0, available, 0xFFDDD9FF);
-        } finally {
-            g.pose().popMatrix();
-        }
-    }
-
-    private static void centered(GuiGraphicsExtractor g, Font font, String text, int width, int lineWidth, int y, float scale, int color) {
-        String fitted = ellipsis(text, (int) ((lineWidth - 8) / scale), font::width);
-        g.pose().pushMatrix();
-        try {
-            g.pose().translate(width / 2f, y);
-            g.pose().scale(scale);
-            g.text(font, fitted, -font.width(fitted) / 2, 0, color);
-        } finally {
-            g.pose().popMatrix();
-        }
+    /**
+     * Whole-pixel scale and position keep the pixel font's strokes even; the plate carries it over bright scenery.
+     */
+    private void text(GuiGraphicsExtractor g, Font font, String titleText, String artistText, int width, int lineWidth, int titleY, int artistY) {
+        int available = Math.max(1, lineWidth - 8);
+        String artist = ellipsis(artistText, available, font::width);
+        int titleWidth = Math.min(font.width(titleText), available), artistWidth = font.width(artist);
+        int plate = Math.max(titleWidth, artistWidth) + 10, left = (width - plate) / 2;
+        HudText.plate(g, left, titleY - 3, left + plate, artistY + 11, HudText.PLATE);
+        if (font.width(titleText) <= available) g.text(font, titleText, (width - titleWidth) / 2, titleY, TITLE);
+        else title.draw(g, font, titleText, (width - available) / 2, titleY, available, TITLE);
+        g.text(font, artist, (width - artistWidth) / 2, artistY, ARTIST);
     }
 
     /**
@@ -103,7 +92,7 @@ public final class CircularHudRenderer {
         if (!settings.circularText) return;
         var font = Minecraft.getInstance().font;
         int lineWidth = Math.round(CircularHudLayout.outerRadius(settings) * 2) + 8;
-        title(g, font, track == null ? Text.get("text.darkmusic.song_title") : track.title(), layout.width(), lineWidth, layout.titleY());
-        centered(g, font, track == null ? Text.get("text.darkmusic.artist") : track.artist(), layout.width(), lineWidth, layout.artistY(), .85f, 0xFFB0ADC2);
+        text(g, font, track == null ? Text.get("text.darkmusic.song_title") : track.title(),
+            track == null ? Text.get("text.darkmusic.artist") : track.artist(), layout.width(), lineWidth, layout.titleY(), layout.artistY());
     }
 }

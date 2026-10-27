@@ -9,7 +9,6 @@ import java.util.function.ToIntFunction;
 public final class HudLyricsLayout {
     public static final int WIDTH = 300, PADDING = 6, LINES = 2;
     public static final int CURRENT_STEP = 13, NEXT_STEP = 11, GAP = 4;
-    public static final float CURRENT_SCALE = 1.1f;
 
     private HudLyricsLayout() {
     }
