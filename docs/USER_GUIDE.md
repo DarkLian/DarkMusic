@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v3.2.0 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v3.3.0 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Picture-in-Picture (Windows x64)
 

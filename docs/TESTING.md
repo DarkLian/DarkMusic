@@ -1,6 +1,6 @@
 # Development and verification
 
-## After v3.2.0: check repairs, Circular HUD rotation and Show HUD in Menus check
+## v3.3.0: Circular HUD rotation, settings reorganization and check repairs
 
 The default and reset in-game checks had drifted from the menus and were repaired. The default check configures ffmpeg/ffprobe from `-PdownloadToolsDirectory` (the private collection is Opus-only), reads playback through Up Next and waits for the player's progress bar to become seekable before dragging it. That wait fixes the old intermittent "Seek release must issue exactly one command" failure, which happened when the first track was still starting. The reset check copies tools from the managed bundle and requires installed tools and music folders to survive Reset to Defaults.
 

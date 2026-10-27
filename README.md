@@ -6,9 +6,9 @@ Your own music library, inside Minecraft. Browse and play your collection, build
 
 ## Install
 
-DarkMusic **v3.2.0** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v3.3.0** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-3.2.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-3.3.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Add your songs under **Settings → General → Music Folders**, drag audio files into the player, or copy them to `config/darkmusic/music` in your instance.
@@ -116,6 +116,8 @@ PiP follows the frame limit you choose; on one tested system a 144 FPS limit del
 Automatic update checks are on by default: they run after joining a world/server and every six hours while connected. Notifications appear once per launch after you join a world or server. Click **Update** to approve a download, then close Minecraft to finish installing. You can also use **Settings → General → Check for Updates**. Your settings, library, playlists, and assets are kept. If installation fails, the next launch tells you and offers the log.
 
 ## What's new
+
+**v3.3.0** adds Circular HUD rotation (image and spectrum, plus a separately directed progress ring, kept in step), moves the Lyrics HUD controls into Settings → Lyrics, lets you turn off the text backdrops, keeps Show HUD in Menus out of DarkMusic's own screens, and fixes the Settings waveform preview and a Downloads button overlap ([release notes](docs/RELEASE-3.3.0.md)).
 
 **v3.2.0** refreshes menus and the HUD: static button labels, clearer setting rows and sliders, a graphic EQ, a black default menu background, sharper Circular and lyrics text on a readable plate, an Artwork HUD title caption, and an optional **Show HUD in Menus** ([release notes](docs/RELEASE-3.2.0.md)).
 
