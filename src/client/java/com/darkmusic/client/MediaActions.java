@@ -30,7 +30,7 @@ public final class MediaActions {
     }
 
     public void importAudio(java.util.List<java.nio.file.Path> paths, String folder, String playlistId) {
-        if (app.mediaBusy() || app.resetting() || !app.playlistsReady) {
+        if (!app.idle() || !app.playlistsReady) {
             app.warn(Text.get("library.darkmusic.busy"));
             return;
         }
@@ -73,7 +73,7 @@ public final class MediaActions {
                 Minecraft.getInstance().execute(() -> {
                     app.importing = false;
                     app.mediaBusy = false;
-                    if (app.closed() || app.resetting() || app.playlists != store) return;
+                    if (!app.alive() || app.playlists != store) return;
                     if (store.get(playlistId) != null) store.addAll(playlistId, imported.tracks());
                     scanned.requestRescan();
                     app.warn(Text.get("library.darkmusic.import_result", imported.tracks().size(), imported.errors().size()));
@@ -107,7 +107,7 @@ public final class MediaActions {
     }
 
     public CompletableFuture<Track> editMetadata(Track track, MediaFiles.Fields original, MediaFiles.Fields fields) {
-        if (app.mediaBusy() || app.resetting())
+        if (!app.idle())
             return CompletableFuture.failedFuture(busy());
         app.mediaBusy = true;
         var token = app.mediaToken = new ProcessRunner.Token();
@@ -130,7 +130,7 @@ public final class MediaActions {
             var failure = problem;
             Minecraft.getInstance().execute(() -> {
                 app.mediaBusy = false;
-                if (app.closed() || app.resetting() || app.playback != player) {
+                if (!app.alive() || app.playback != player) {
                     result.completeExceptionally(busy());
                     return;
                 }
@@ -180,7 +180,7 @@ public final class MediaActions {
                                                                java.util.function.Consumer<AudioDeletion.Progress> progress) {
         java.util.Objects.requireNonNull(mode);
         java.util.Objects.requireNonNull(token);
-        if (app.closed() || app.mediaBusy() || app.resetting() || app.outputChanging || !app.playlistsReady || !plan.roots().equals(app.library.roots()))
+        if (!app.accepting() || !app.playlistsReady || !plan.roots().equals(app.library.roots()))
             return CompletableFuture.failedFuture(busy());
         app.mediaBusy = true;
         app.autoplayPending = false;
@@ -222,7 +222,7 @@ public final class MediaActions {
                 } catch (RuntimeException storageClosed) {
                     org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Deleted files require playlist reconciliation on restart", storageClosed);
                 }
-                if (app.closed() || app.resetting() || app.playback != player) {
+                if (!app.alive() || app.playback != player) {
                     if (completed != null) result.complete(completed);
                     else result.completeExceptionally(failure != null ? failure : busy());
                     return;

@@ -127,7 +127,7 @@ public final class Shortcuts {
     }
 
     public void perform(KeyMapping key) {
-        if (app.resetting() || app.mediaBusy() || app.settings == null || app.playback == null || conflicts(key))
+        if (!app.idle() || app.settings == null || app.playback == null || conflicts(key))
             return;
         var playback = app.playback;
         var library = app.library;

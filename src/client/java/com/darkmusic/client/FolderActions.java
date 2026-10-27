@@ -43,7 +43,7 @@ public final class FolderActions {
                     throw new java.io.IOException("Directory unavailable or unreadable");
                 Path canonical = directory.toRealPath();
                 Minecraft.getInstance().execute(() -> {
-                    if (!app.closed() && !app.resetting() && !app.mediaBusy() && ticket == generation) {
+                    if (app.idle() && ticket == generation) {
                         var library = app.library;
                         if (!library.roots().containsKey(canonical) && MusicFolders.overlaps(library.roots().keySet(), canonical)) {
                             app.warn(Text.get("folders.overlap"));
@@ -69,7 +69,7 @@ public final class FolderActions {
             try {
                 Files.createDirectories(app.config.defaultMusic());
                 Minecraft.getInstance().execute(() -> {
-                    if (app.closed() || app.resetting()) return;
+                    if (!app.alive()) return;
                     choose(app.config.defaultMusic(), () -> {
                         app.settings.musicDirectory = "";
                         app.save();
@@ -89,7 +89,7 @@ public final class FolderActions {
                 if (!Files.isDirectory(canonical) || !Files.isReadable(canonical))
                     throw new java.io.IOException("Unreadable music folder");
                 Minecraft.getInstance().execute(() -> {
-                    if (app.closed() || app.resetting() || app.mediaBusy() || ticket != generation) return;
+                    if (!app.idle() || ticket != generation) return;
                     if (MusicFolders.overlaps(app.library.roots().keySet(), canonical)) {
                         app.warn(Text.get("folders.overlap"));
                         return;
@@ -107,7 +107,7 @@ public final class FolderActions {
     }
 
     public boolean remove(Path directory) {
-        if (app.mediaBusy() || app.resetting()) {
+        if (!app.idle()) {
             app.warn(Text.get("library.darkmusic.busy"));
             return false;
         }

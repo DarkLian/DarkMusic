@@ -77,7 +77,7 @@ public class DarkMusicClient implements ClientModInitializer {
     public PlaybackController playback;
     private JavaSoundBackend backend;
     public ListeningHistory listeningHistory;
-    boolean outputChanging;
+    private boolean outputChanging;
     DuplicateScanner cleanupScanner;
     DuplicateReviewStore cleanupReviews;
     LibrarySourceIndex sourceIndex;
@@ -129,14 +129,14 @@ public class DarkMusicClient implements ClientModInitializer {
     }
 
     public void analyzeLibraryLoudness() {
-        if (backend == null || library == null || closed || resetting) return;
+        if (backend == null || library == null || !alive()) return;
         if (backend.analysisProgress().running()) backend.cancelAnalysis();
         else if (!library.snapshot().scanning()) backend.analyzeLibrary(library.snapshot().tracks(), settings.audio);
     }
 
     public CompletableFuture<Boolean> selectOutputDevice(String id) {
         var result = new CompletableFuture<Boolean>();
-        if (backend == null || mediaBusy || resetting || outputChanging) {
+        if (backend == null || !accepting()) {
             result.complete(false);
             return result;
         }
@@ -156,7 +156,7 @@ public class DarkMusicClient implements ClientModInitializer {
     }
 
     public CompletableFuture<Void> restoreBackup(BackupArchive.Restore restored, boolean bindings) {
-        if (closed || mediaBusy || resetting || outputChanging || !playlistsReady || !listeningHistory.ready())
+        if (!accepting() || !playlistsReady || !listeningHistory.ready())
             return CompletableFuture.failedFuture(new IllegalStateException(Text.get("library.darkmusic.busy")));
         var keys = new java.util.LinkedHashMap<String, String>();
         if (bindings) for (var key : shortcuts.bindings()) {
@@ -253,18 +253,31 @@ public class DarkMusicClient implements ClientModInitializer {
     private long queuedLibraryRevision = -1;
 
     public boolean canEditQueue() {
-        return !closed && !resetting && !mediaBusy && !outputChanging && playback != null;
+        return accepting() && playback != null;
     }
 
     private volatile boolean closed;
     private boolean resetting;
 
-    boolean resetting() {
-        return resetting;
+    /**
+     * Not shutting down and not resetting storage.
+     */
+    boolean alive() {
+        return !closed && !resetting;
     }
 
-    boolean closed() {
-        return closed;
+    /**
+     * Alive, with no import, restore or other media operation in progress.
+     */
+    public boolean idle() {
+        return alive() && !mediaBusy;
+    }
+
+    /**
+     * Idle and not switching the output device: free to start another exclusive operation.
+     */
+    boolean accepting() {
+        return idle() && !outputChanging;
     }
 
     private enum RequestedScreen {PLAYER, HUD, LYRICS, PIP}
@@ -289,7 +302,7 @@ public class DarkMusicClient implements ClientModInitializer {
     }
 
     public void seekRelative(double seconds) {
-        if (!resetting && !mediaBusy && playback != null) playback.seekRelative(seconds);
+        if (idle() && playback != null) playback.seekRelative(seconds);
     }
 
     public void speed(double value) {
@@ -311,7 +324,7 @@ public class DarkMusicClient implements ClientModInitializer {
     }
 
     public void save() {
-        if (!closed && !resetting && !restoring && settings != null) {
+        if (alive() && !restoring && settings != null) {
             configureVisualizer();
             config.save(settings);
         }
@@ -339,7 +352,7 @@ public class DarkMusicClient implements ClientModInitializer {
     public void open() {
         var client = Minecraft.getInstance();
         var screen = client.gui.screen();
-        if (!closed && !resetting && settings != null && library != null && client.gui.overlay() == null && client.gui.canInterruptScreen()
+        if (alive() && settings != null && library != null && client.gui.overlay() == null && client.gui.canInterruptScreen()
             && (screen == null || screen instanceof TitleScreen) && (client.player == null || client.player.isAlive()))
             client.gui.setScreen(new MusicScreen(this, screen));
     }
@@ -367,13 +380,13 @@ public class DarkMusicClient implements ClientModInitializer {
 
     private String lyricsCommandProblem() {
         return LocalCommands.lyricsProblem(
-            !closed && !resetting && !mediaBusy && settings != null && library != null && playback != null,
+            idle() && settings != null && library != null && playback != null,
             settings != null && settings.lyricsEnabled, playback == null ? null : playback.state());
     }
 
     private void openRequestedScreen(Minecraft client) {
         if (requestedScreen == null) return;
-        if (closed || resetting || client.level != requestedWorld || System.nanoTime() > requestUntil || client.player != null && !client.player.isAlive()) {
+        if (!alive() || client.level != requestedWorld || System.nanoTime() > requestUntil || client.player != null && !client.player.isAlive()) {
             requestedScreen = null;
             return;
         }
@@ -528,7 +541,7 @@ public class DarkMusicClient implements ClientModInitializer {
             var result = missing;
             Minecraft.getInstance().execute(() -> {
                 playlistCleanupPending = false;
-                if (closed || resetting || mediaBusy || playlists != store || store.revision() != revision
+                if (!idle() || playlists != store || store.revision() != revision
                     || !roots.equals(library.roots())) return;
                 var current = library.snapshot();
                 var present = store.index(current.tracks());
@@ -607,7 +620,7 @@ public class DarkMusicClient implements ClientModInitializer {
      * Called on the client thread only, after explicit confirmation.
      */
     public CompletableFuture<Void> resetDefaults() {
-        if (closed || resetting || mediaBusy)
+        if (!idle())
             return CompletableFuture.failedFuture(new IllegalStateException(Text.get("reset.darkmusic.busy")));
         resetting = true;
         if (cleanupScanner != null) {
