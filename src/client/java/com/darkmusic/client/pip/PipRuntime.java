@@ -162,6 +162,16 @@ public final class PipRuntime implements AutoCloseable {
         return root.resolve("dependencies-" + bundle.sha256 + ".zip");
     }
 
+    private boolean cached() throws Exception {
+        if (!Files.exists(archive(), LinkOption.NOFOLLOW_LINKS)) return false;
+        try {
+            bundle.verify(archive());
+            return true;
+        } catch (IOException damaged) {
+            return false;
+        }
+    }
+
     private void directory() throws IOException {
         for (Path path = root.toAbsolutePath(); path != null; path = path.getParent())
             if (Files.isSymbolicLink(path)) throw new IOException("pip.bundle_damaged");
@@ -224,18 +234,14 @@ public final class PipRuntime implements AutoCloseable {
                 bundle = Bundle.parse(new String(resources.read("dependencies.json", 4096), StandardCharsets.UTF_8));
                 directory();
                 try (var setup = PipStorage.setup(root, request)) {
-                    if (install) {
+                    // A valid cached archive needs no download; a damaged one is replaced, never trusted.
+                    if (install && !cached()) {
                         Path temporary = Files.createTempFile(root, "runtime-", ".download");
                         try {
                             download.fetch(bundle.url(), temporary, bundle.size, request, n -> downloaded = n);
                             bundle.verify(temporary);
                             request.check();
-                            if (Files.exists(archive(), LinkOption.NOFOLLOW_LINKS)) bundle.verify(archive());
-                            else try {
-                                Files.move(temporary, archive());
-                            } catch (FileAlreadyExistsException raced) {
-                                bundle.verify(archive());
-                            }
+                            Files.move(temporary, archive(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
                         } finally {
                             Files.deleteIfExists(temporary);
                         }
@@ -246,7 +252,22 @@ public final class PipRuntime implements AutoCloseable {
                     }
                     bundle.verify(archive());
                     request.check();
-                    var exe = PipNativeTools.unpack(archive(), bundle.sha256, root);
+                    Path exe;
+                    try {
+                        exe = PipNativeTools.unpack(archive(), bundle.sha256, root);
+                    } catch (IOException damaged) {
+                        // The archive was just verified, so the mismatch is in the extracted copy. Install extracts it again.
+                        Path runtime = root.resolve(bundle.sha256);
+                        if (!install || !"pip.bundle_damaged".equals(damaged.getMessage()) || !Files.isDirectory(runtime, LinkOption.NOFOLLOW_LINKS))
+                            throw damaged;
+                        if (lease != null) {
+                            lease.close();
+                            lease = null;
+                        }
+                        PipStorage.discard(root, runtime);
+                        request.check();
+                        exe = PipNativeTools.unpack(archive(), bundle.sha256, root);
+                    }
                     request.check();
                     if (!graphics.supported(exe, request)) {
                         status = "pip.setup.graphics_failed";

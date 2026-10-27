@@ -1641,6 +1641,7 @@
   "lyrics.recovery.keep": "保留目前的歌詞檔案",
   "lyrics.recovery.help": "保留磁碟上目前的檔案以解決復原衝突。復原日誌會封存於歌曲旁，保留原始歌詞供手動復原。不會刪除或還原任何歌詞。",
   "pip.setup.busy": "另一個 Minecraft 用戶端正在設定子母畫面。請等候完成後再試。",
+  "pip.setup.runtime_in_use": "已安裝的子母畫面執行環境已損壞，但另一個 Minecraft 用戶端正在使用。請關閉該用戶端後再安裝。",
   "library.status.recovery_folders": "有 %s 個中繼資料復原資料夾需要檢查。原始檔案已保留。",
   "download.error.bot_check": "網站要求機器人驗證。請在下載工具中檢查 yt-dlp 與 JavaScript 執行環境，或稍後、改用其他網路重試。這不代表影片為私人影片。",
   "download.diag.summary.bot_check": "網站要求機器人驗證。",

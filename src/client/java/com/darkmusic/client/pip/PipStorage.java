@@ -77,6 +77,23 @@ final class PipStorage {
         }
     }
 
+    /**
+     * Moves a damaged extracted runtime aside so it can be extracted again. A runtime another client is using stays.
+     */
+    static void discard(Path root, Path runtime) throws IOException {
+        if (Files.isSymbolicLink(runtime) || !Files.isDirectory(runtime, LinkOption.NOFOLLOW_LINKS))
+            throw new IOException("pip.bundle_damaged");
+        if (leased(runtime)) throw new IOException("pip.setup.runtime_in_use");
+        Path claimed = root.resolve("prepare-damaged-" + UUID.randomUUID());
+        Files.move(runtime, claimed);
+        try {
+            removeTree(root, claimed);
+        } catch (IOException busy) {
+            // prune removes leftover prepare-* directories later.
+            deferred(claimed, busy);
+        }
+    }
+
     private static final long GRACE_MILLIS = 86_400_000L;
 
     static void prune(Path root, Path current, Path archive, long now) throws IOException {

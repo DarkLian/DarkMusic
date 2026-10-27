@@ -199,6 +199,65 @@ class PipRuntimeTest {
     }
 
     @Test
+    void installReplacesADamagedCacheAndReusesAValidOne() throws Exception {
+        byte[] deps = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1}, "runtime.dll", new byte[]{2}));
+        Path archive = temp.resolve("pip-native/dependencies-" + hash(deps) + ".zip");
+        Files.createDirectories(archive.getParent());
+        Files.write(archive, new byte[]{7});
+        var downloads = new AtomicInteger();
+        PipRuntime.Download fetch = (u, p, m, t, progress) -> {
+            downloads.incrementAndGet();
+            Files.write(p, deps);
+        };
+        try (var runtime = new PipRuntime(temp, resources(deps), fetch, t -> 26300, (e, t) -> true)) {
+            runtime.check().get();
+            assertFalse(runtime.ready());
+            assertEquals("pip.bundle_damaged", runtime.status());
+            runtime.install().get();
+            assertTrue(runtime.ready(), runtime.status());
+            assertArrayEquals(deps, Files.readAllBytes(archive));
+            assertEquals(1, downloads.get());
+            runtime.install().get();
+            assertTrue(runtime.ready(), runtime.status());
+            assertEquals(1, downloads.get(), "A valid cached archive is reused");
+        }
+    }
+
+    @Test
+    void installReextractsADamagedRuntimeUnlessAnotherClientUsesIt() throws Exception {
+        byte[] deps = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1}, "runtime.dll", new byte[]{2}));
+        Path dll = temp.resolve("pip-native/" + hash(deps) + "/runtime.dll");
+        var downloads = new AtomicInteger();
+        PipRuntime.Download fetch = (u, p, m, t, progress) -> {
+            downloads.incrementAndGet();
+            Files.write(p, deps);
+        };
+        try (var runtime = new PipRuntime(temp, resources(deps), fetch, t -> 26300, (e, t) -> true)) {
+            runtime.check().get();
+            runtime.install().get();
+            assertTrue(runtime.ready(), runtime.status());
+        }
+        Files.write(dll, new byte[]{8});
+        try (var runtime = new PipRuntime(temp, resources(deps), fetch, t -> 26300, (e, t) -> true)) {
+            runtime.check().get();
+            assertEquals("pip.bundle_damaged", runtime.status());
+            try (var other = PipStorage.use(dll.getParent(), "dependencies-" + hash(deps) + ".zip", new ProcessRunner.Token())) {
+                runtime.install().get();
+                assertFalse(runtime.ready());
+                assertEquals("pip.setup.runtime_in_use", runtime.status());
+                assertArrayEquals(new byte[]{8}, Files.readAllBytes(dll), "A runtime in use is left in place");
+            }
+            runtime.install().get();
+            assertTrue(runtime.ready(), runtime.status());
+            assertArrayEquals(new byte[]{2}, Files.readAllBytes(dll));
+            assertEquals(1, downloads.get(), "The verified archive is reused");
+            try (var entries = Files.list(temp.resolve("pip-native"))) {
+                assertTrue(entries.noneMatch(p -> p.getFileName().toString().startsWith("prepare-")), "The damaged copy is removed");
+            }
+        }
+    }
+
+    @Test
     void cancellationAndBadDownloadsNeverActivateRuntime() throws Exception {
         byte[] deps = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1}, "runtime.dll", new byte[]{2}));
         var entered = new CountDownLatch(1);
