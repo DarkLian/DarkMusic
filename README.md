@@ -37,7 +37,10 @@ Other everyday tools:
 
 - **Edit song details.** Change title, artist, album, and filename with the pencil button. Open or copy a song's source link when one is available.
 - **Import.** Drag audio files into the player or playlist manager. Review results in Import History.
-- **Listening history.** The clock icon beside Manage Playlists shows Recently Played, Most Played, play counts, and listening time.
+- **Listening history.** The clock icon beside Manage Playlists shows Recently Played, Most Played, Recently Added, Never Played, play counts, and listening time.
+- **Pick up where you left off.** DarkMusic remembers the last song, its collection, and the position, and continues from there when you press Play.
+- **Sleep timer.** `/da sleep 30` pauses after 30 minutes with a gentle fade; `/da stopafter` stops when the current song ends.
+- **Discord status (opt-in).** Show what you're listening to on your Discord profile. Nothing signs in; you can hide song titles.
 - **Backup and restore.** Export settings, playlists, key bindings, and listening history to a ZIP, then preview and choose what to restore. Your audio files are never included or changed.
 - **Manage Audio Files.** Review files individually or in bulk and move them to Trash. Permanent deletion needs its own confirmation.
 
@@ -55,7 +58,7 @@ Open Song Actions on a song to choose **Play Next** or **Add to Queue**. Open **
 
 ## Show your music in the game
 
-Choose a **Classic**, **Circular**, **Artwork**, or **Spectrum Only** HUD. Pick bars, waves, or spikes, add gradients, glow, trails, and peak markers, and optionally turn on a **waveform progress bar** that shows the real shape of the song (**Settings → HUD → Progress Bar**). Move and resize everything in **Edit HUD Layout**, and turn on **Show HUD in Menus** to keep it visible over chat and other menus.
+Choose a **Classic**, **Circular**, **Artwork**, or **Spectrum Only** HUD. Pick bars, waves, or spikes, add gradients, glow, trails, and peak markers, and optionally turn on a **waveform progress bar** that shows the real shape of the song (**Settings → HUD → Progress Bar**). Move and resize everything in **Edit HUD Layout**, and turn on **Show HUD in Menus** to keep it visible over chat and other menus. The HUD can slide away while music is paused, show a short card when the song changes, and preview the next song.
 
 ![Classic Now-Playing HUD during gameplay](docs/images/classic-hud.png)
 

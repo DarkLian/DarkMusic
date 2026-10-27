@@ -147,6 +147,17 @@ public final class LocalCommands {
         default Component repeat(Repeat mode) {
             return null;
         }
+
+        /**
+         * A null value reports the timer; 0 turns it off.
+         */
+        default Component sleep(Integer minutes) {
+            return null;
+        }
+
+        default Component stopAfter() {
+            return null;
+        }
     }
 
     /**
@@ -186,15 +197,17 @@ public final class LocalCommands {
             line("command.darkmusic.speed", new Entry("/da speed", " [0.5–3]", "command.darkmusic.speed_details")),
             line("command.darkmusic.seek", new Entry("/da seek", " <time>", "command.darkmusic.seek_details")),
             line("command.darkmusic.shuffle_repeat", new Entry("/da shuffle", " [on|off]", "command.darkmusic.shuffle_details"),
-                new Entry("/da repeat", " [off|one|all]", "command.darkmusic.repeat_details")))),
+                new Entry("/da repeat", " [off|one|all]", "command.darkmusic.repeat_details")),
+            line("command.darkmusic.sleep", new Entry("/da sleep", " [minutes|off]", "command.darkmusic.sleep_details"),
+                new Entry("/da stopafter", "", "command.darkmusic.stopafter_details")))),
         new Group("command.darkmusic.section.screens", List.of(
             line("command.darkmusic.player", new Entry("/da", "", "command.darkmusic.player_details")),
             line("command.darkmusic.layout", new Entry("/da gui", "", "command.darkmusic.layout_details")),
             line("command.darkmusic.lyrics", new Entry("/da lyrics", "", "command.darkmusic.lyrics_details")),
             line("command.darkmusic.pip", new Entry("/da pip", "", "command.darkmusic.pip_details")))),
         new Group("command.darkmusic.section.more", List.of(
-            line("command.darkmusic.keys", new Entry("/da keys", "", "command.darkmusic.keys_details")),
-            line("command.darkmusic.update", new Entry("/da update", "", "command.darkmusic.update_details")))));
+            line("command.darkmusic.keys_update", new Entry("/da keys", "", "command.darkmusic.keys_details"),
+                new Entry("/da update", "", "command.darkmusic.update_details")))));
 
     public static void register(DarkMusicClient app) {
         var actions = new ClientActions(app);
@@ -257,6 +270,12 @@ public final class LocalCommands {
                     .then(ClientCommands.literal("off").executes(context -> reply(context, () -> actions.repeat(Repeat.OFF))))
                     .then(ClientCommands.literal("one").executes(context -> reply(context, () -> actions.repeat(Repeat.ONE))))
                     .then(ClientCommands.literal("all").executes(context -> reply(context, () -> actions.repeat(Repeat.ALL)))))
+                .then(ClientCommands.literal("sleep")
+                    .executes(context -> reply(context, () -> actions.sleep(null)))
+                    .then(ClientCommands.literal("off").executes(context -> reply(context, () -> actions.sleep(0))))
+                    .then(ClientCommands.argument("minutes", IntegerArgumentType.integer(1, 720))
+                        .executes(context -> reply(context, () -> actions.sleep(IntegerArgumentType.getInteger(context, "minutes"))))))
+                .then(simple("stopafter", actions::stopAfter))
                 .then(ClientCommands.literal("keys")
                     .executes(context -> {
                         keys(context.getSource(), actions);
@@ -406,8 +425,6 @@ public final class LocalCommands {
     }
 
     public static String time(double seconds) {
-        long total = Double.isFinite(seconds) ? Math.max(0, Math.round(Math.floor(seconds))) : 0;
-        return total >= 3600 ? String.format(Locale.ROOT, "%d:%02d:%02d", total / 3600, total / 60 % 60, total % 60)
-            : String.format(Locale.ROOT, "%d:%02d", total / 60, total % 60);
+        return com.darkmusic.client.text.Clock.format(seconds);
     }
 }

@@ -115,7 +115,9 @@ public class DarkMusicClient implements ClientModInitializer {
             if (listeningHistory != null) listeningHistory.heard(track, session, seconds);
         });
         var controller = new PlaybackController(backend, this::warn);
-        controller.onSourceChanged((source, queue) -> listeningHistory.playbackSource(source.rootId(), source.mode().equals("History") ? source.group() : null,
+        // Only the play-ranked lists freeze their order while they play; Recently Added and Never Played do not rank by plays.
+        controller.onSourceChanged((source, queue) -> listeningHistory.playbackSource(source.rootId(),
+            source.mode().equals("History") && java.util.Set.of("recent", "most").contains(source.group()) ? source.group() : null,
             queue, library.snapshot().tracks()));
         return controller;
     }
@@ -230,6 +232,7 @@ public class DarkMusicClient implements ClientModInitializer {
     public DownloadService downloads;
     public AuditionPlayer audition;
     public UpdateService updates;
+    public final com.darkmusic.client.presence.DiscordPresence discord = new com.darkmusic.client.presence.DiscordPresence();
     public final LyricsService lyrics = new LyricsService(config.directory().resolve("lyrics"));
     public boolean playlistsReady;
     // Set while an import, edit, deletion or backup restore owns the music files; menus read it to disable actions.
@@ -318,6 +321,53 @@ public class DarkMusicClient implements ClientModInitializer {
         save();
     }
 
+    private long sleepAt;
+    private boolean sleepFading;
+    private static final long SLEEP_FADE = TimeUnit.SECONDS.toNanos(30);
+
+    /**
+     * Pauses playback after {@code minutes}, fading out over the last 30 seconds; 0 cancels. Not saved across launches.
+     */
+    public void sleepTimer(int minutes) {
+        sleepAt = minutes > 0 ? Math.max(1, System.nanoTime() + TimeUnit.MINUTES.toNanos(minutes)) : 0;
+        if (sleepFading && playback != null && settings != null) playback.volume(settings.volume);
+        sleepFading = false;
+    }
+
+    /**
+     * Seconds until the sleep timer pauses playback, or -1 when it is off.
+     */
+    public long sleepRemaining() {
+        return sleepAt == 0 ? -1 : Math.max(0, TimeUnit.NANOSECONDS.toSeconds(sleepAt - System.nanoTime()));
+    }
+
+    private void tickSleep() {
+        if (sleepAt == 0) return;
+        long left = sleepAt - System.nanoTime();
+        boolean playing = playback.state().status() == com.darkmusic.client.audio.AudioBackend.Status.PLAYING;
+        if (left <= 0) {
+            sleepAt = 0;
+            sleepFading = false;
+            if (playing) playback.pause();
+            playback.volume(settings.volume);
+        } else if (left < SLEEP_FADE && playing) {
+            sleepFading = true;
+            playback.volume(settings.volume * left / (double) SLEEP_FADE);
+        }
+    }
+
+    public void shuffle(boolean on) {
+        settings.shuffle = on;
+        playback.shuffle(on);
+        save();
+    }
+
+    public void repeat(com.darkmusic.client.config.Repeat mode) {
+        settings.repeat = mode;
+        playback.repeat(mode);
+        save();
+    }
+
     public void toggleMute() {
         volume(settings.volume > 0 ? 0 : settings.lastAudibleVolume);
         volumeFeedback.show(settings.volume);
@@ -355,6 +405,91 @@ public class DarkMusicClient implements ClientModInitializer {
         if (alive() && settings != null && library != null && client.gui.overlay() == null && client.gui.canInterruptScreen()
             && (screen == null || screen instanceof TitleScreen) && (client.player == null || client.player.isAlive()))
             client.gui.setScreen(new MusicScreen(this, screen));
+    }
+
+    /**
+     * The songs of one player collection: a folder ("All" with a folder group), playlist, artist, album or history list.
+     */
+    public static final int RECENTLY_ADDED = 100;
+
+    public java.util.List<com.darkmusic.client.library.Track> collection(String mode, String group) {
+        var tracks = library.snapshot().tracks();
+        if (mode.equals("History")) return switch (group) {
+            case "most" -> listeningHistory.collection(tracks, true);
+            case "added" -> com.darkmusic.client.library.ListeningHistory.recentlyAdded(tracks, RECENTLY_ADDED);
+            case "never" -> listeningHistory.neverPlayed(tracks);
+            default -> listeningHistory.collection(tracks, false);
+        };
+        var source = mode.equals("Playlists") ? playlists.resolve(group, tracks) : tracks;
+        return source.stream().filter(t -> switch (mode) {
+            case "All" -> com.darkmusic.client.gui.FolderTree.includes(group, t);
+            case "Artists" -> t.artist().equals(group);
+            case "Albums" -> t.album().equals(group);
+            default -> true;
+        }).toList();
+    }
+
+    /**
+     * Resume Where You Left Off: plays the remembered song from its position, in the collection it came from, or in
+     * the whole library when that collection no longer has it. Returns false when there is nothing to resume.
+     */
+    public boolean resumeLast(boolean paused) {
+        var point = settings == null || !settings.resumeLast ? null : settings.resume;
+        if (point == null || library == null || playback == null || !idle()) return false;
+        var tracks = collection(point.mode, point.group);
+        var source = new PlaybackController.Source(point.mode, point.group, "", "");
+        var track = tracks.stream().filter(t -> t.id().equals(point.track)).findFirst().orElse(null);
+        if (track == null) {
+            tracks = library.snapshot().tracks();
+            source = new PlaybackController.Source("All", "", "", "");
+            track = tracks.stream().filter(t -> t.id().equals(point.track)).findFirst().orElse(null);
+        }
+        if (track == null) return false;
+        // Within the last few seconds the song would end at once; start it over instead.
+        double position = track.duration() > 0 && point.position > track.duration() - 5 ? 0 : point.position;
+        playback.play(tracks, track, source, position, paused);
+        return true;
+    }
+
+    /**
+     * Whether Play on this song should continue it from the remembered position.
+     */
+    public boolean resumes(com.darkmusic.client.library.Track track) {
+        var point = settings == null || !settings.resumeLast ? null : settings.resume;
+        return point != null && track != null && point.track.equals(track.id());
+    }
+
+    private String resumeTrack = "";
+    private com.darkmusic.client.audio.AudioBackend.Status resumeStatus;
+    private long resumeSavedAt;
+
+    /**
+     * Remembers what is playing for Resume Where You Left Off: on a song change, pause or stop at once, and every
+     * 30 seconds while playing, so a crash loses little. Stopping keeps the song but starts it over next time.
+     */
+    private void recordResume(boolean persist) {
+        var state = playback.state();
+        var status = state.status();
+        var track = state.track();
+        long now = System.nanoTime();
+        boolean active = track != null && (status == com.darkmusic.client.audio.AudioBackend.Status.PLAYING
+            || status == com.darkmusic.client.audio.AudioBackend.Status.PAUSED);
+        boolean stopped = status == com.darkmusic.client.audio.AudioBackend.Status.STOPPED;
+        if (active) {
+            boolean changed = !track.id().equals(resumeTrack) || status != resumeStatus;
+            if (!changed && persist && (status != com.darkmusic.client.audio.AudioBackend.Status.PLAYING
+                || now - resumeSavedAt < TimeUnit.SECONDS.toNanos(30))) return;
+            var source = playback.playingSource();
+            settings.resume = new Settings.Resume(source.mode(), source.group(), track.id(),
+                Double.isFinite(state.position()) ? Math.max(0, state.position()) : 0);
+            resumeTrack = track.id();
+        } else if (stopped && resumeStatus != null && resumeStatus != status && settings.resume != null) {
+            var point = settings.resume;
+            settings.resume = new Settings.Resume(point.mode, point.group, point.track, 0);
+        } else return;
+        resumeStatus = status;
+        resumeSavedAt = now;
+        if (persist && alive() && !restoring) config.save(settings);
     }
 
     public void requestScreen(boolean layout) {
@@ -431,6 +566,7 @@ public class DarkMusicClient implements ClientModInitializer {
         LocalCommands.register(this);
         NowPlayingHud.register(this);
         LyricsHud.register(this);
+        com.darkmusic.client.hud.SongCard.register(this);
         VolumeFeedback.register(this);
         SpeedFeedback.register(this);
         DownloadHud.register(this);
@@ -458,6 +594,14 @@ public class DarkMusicClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (pip != null) pip.tick();
             updates.tick(client);
+            var current = settings;
+            if (current != null && playback != null && !resetting) {
+                var playing = playback.state().track();
+                // Source links resolve in the background; the status gains the artwork once the link is known.
+                String artwork = current.discordStatus && current.discordShowTitle && current.discordArtwork && playing != null
+                    ? com.darkmusic.client.presence.DiscordPresence.artwork(sourceLinks.get(playing)) : "";
+                discord.update(current.discordStatus, current.discordShowTitle, playback.state(), current.speed, artwork);
+            } else discord.update(false, true, null, 1, "");
             boolean allowed = !resetting && settings != null && client.gui.screen() == null && client.gui.overlay() == null && client.player != null && client.player.isAlive();
             boolean pressed = false;
             while (shortcuts.open.consumeClick()) pressed = true;
@@ -466,7 +610,9 @@ public class DarkMusicClient implements ClientModInitializer {
             openRequestedScreen(client);
         });
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
+            if (settings != null && playback != null && !resetting) recordResume(false);
             updates.close();
+            discord.close();
             save();
             closed = true;
             shutdown();
@@ -650,8 +796,11 @@ public class DarkMusicClient implements ClientModInitializer {
         var startup = library.snapshot();
         if (autoplayPending && !mediaBusy && playlistsClean && !startup.scanning()) {
             autoplayPending = false;
-            if (!startup.tracks().isEmpty()) playback.play(startup.tracks(), startup.tracks().getFirst());
+            if (!resumeLast(false) && !startup.tracks().isEmpty())
+                playback.play(startup.tracks(), startup.tracks().getFirst());
         }
+        if (!autoplayPending && !mediaBusy) recordResume(true);
+        tickSleep();
     }
 
     /**

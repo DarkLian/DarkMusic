@@ -126,7 +126,7 @@ class NavigationAndCommandsTest {
                     assertNotNull(part.getStyle().getHoverEvent());
                 }
         assertEquals(List.of("/da play ", "/da pause", "/da stop", "/da previous", "/da next", "/da now", "/da queue ",
-            "/da volume ", "/da mute", "/da speed ", "/da seek ", "/da shuffle ", "/da repeat ", "/da", "/da gui",
+            "/da volume ", "/da mute", "/da speed ", "/da seek ", "/da shuffle ", "/da repeat ", "/da sleep ", "/da stopafter", "/da", "/da gui",
             "/da lyrics", "/da pip", "/da keys", "/da update"), List.copyOf(clicks));
         var links = messages.get(19).toFlatList().stream()
             .map(part -> part.getStyle().getClickEvent()).filter(java.util.Objects::nonNull).distinct().toList();

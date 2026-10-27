@@ -91,7 +91,11 @@ final class ClientActions implements LocalCommands.Actions {
             shortcut("key.darkmusic.normal_speed", keys.normalSpeed),
             shortcut("command.darkmusic.keys.seek", keys.seekBack, keys.seekForward),
             shortcut("key.darkmusic.stop", keys.stop),
-            shortcut("key.darkmusic.jump", keys.jump));
+            shortcut("key.darkmusic.jump", keys.jump),
+            shortcut("key.darkmusic.toggle_hud", keys.hud),
+            shortcut("key.darkmusic.toggle_lyrics", keys.lyrics),
+            shortcut("key.darkmusic.favorite", keys.favorite),
+            shortcut("command.darkmusic.keys.shuffle_repeat", keys.shuffle, keys.repeat));
     }
 
     private static LocalCommands.Shortcut shortcut(String label, KeyMapping... keys) {
@@ -133,6 +137,10 @@ final class ClientActions implements LocalCommands.Actions {
         var state = app.playback.state();
         if (state.status() == AudioBackend.Status.PLAYING) return palette.info("command.darkmusic.already_playing");
         if (state.track() == null) {
+            if (app.resumeLast(false)) {
+                var resumed = app.playback.state().track();
+                return resumed == null ? null : palette.value("command.darkmusic.playing", resumed.title());
+            }
             if (tracks.isEmpty()) return palette.error("command.darkmusic.no_songs");
             app.playback.play(tracks, tracks.getFirst());
             return palette.value("command.darkmusic.playing", tracks.getFirst().title());
@@ -198,6 +206,11 @@ final class ClientActions implements LocalCommands.Actions {
             .append(palette.plain(speed(app.settings.speed), palette.secondary()));
         if (app.playback.shuffle())
             status.append(palette.plain(" · ", palette.muted())).append(palette.key("text.darkmusic.shuffle", palette.secondary()));
+        if (app.playback.stopAfterCurrent())
+            status.append(palette.plain(" · ", palette.muted())).append(palette.key("command.darkmusic.stopafter_short", palette.warning()));
+        long sleep = app.sleepRemaining();
+        if (sleep >= 0)
+            status.append(palette.plain(" · ", palette.muted())).append(palette.key("command.darkmusic.sleep_short", palette.warning(), LocalCommands.time(sleep)));
         if (app.playback.repeat() != Repeat.OFF)
             status.append(palette.plain(" · ", palette.muted()))
                 .append(palette.key("command.darkmusic.repeat_now", palette.secondary(), Text.get(repeatKey(app.playback.repeat()))));
@@ -277,9 +290,7 @@ final class ClientActions implements LocalCommands.Actions {
     public Component shuffle(Boolean on) {
         if (!ready()) return unavailable();
         boolean value = on == null ? !app.playback.shuffle() : on;
-        app.settings.shuffle = value;
-        app.playback.shuffle(value);
-        app.save();
+        app.shuffle(value);
         return palette().info(value ? "text.darkmusic.shuffle_on" : "text.darkmusic.shuffle_off");
     }
 
@@ -288,10 +299,25 @@ final class ClientActions implements LocalCommands.Actions {
         if (!ready()) return unavailable();
         var values = Repeat.values();
         Repeat value = mode != null ? mode : values[(app.playback.repeat().ordinal() + 1) % values.length];
-        app.settings.repeat = value;
-        app.playback.repeat(value);
-        app.save();
+        app.repeat(value);
         return palette().value("command.darkmusic.repeat_now", Text.get(repeatKey(value)));
+    }
+
+    @Override
+    public Component sleep(Integer minutes) {
+        if (!ready()) return unavailable();
+        if (minutes != null) app.sleepTimer(minutes);
+        long left = app.sleepRemaining();
+        return left < 0 ? palette().info("command.darkmusic.sleep_off")
+            : palette().value("command.darkmusic.sleep_in", LocalCommands.time(left));
+    }
+
+    @Override
+    public Component stopAfter() {
+        if (!ready()) return unavailable();
+        if (!active(app.playback.state())) return palette().info("upnext.idle");
+        app.playback.stopAfterCurrent(!app.playback.stopAfterCurrent());
+        return palette().info(app.playback.stopAfterCurrent() ? "command.darkmusic.stopafter_on" : "command.darkmusic.stopafter_off");
     }
 
     private static String repeatKey(Repeat value) {

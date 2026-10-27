@@ -16,6 +16,8 @@ import java.util.concurrent.TimeUnit;
 public final class Shortcuts {
     private final DarkMusicClient app;
     public KeyMapping open, toggle, next, previous, faster, slower, normalSpeed, volumeUp, volumeDown, mute, seekBack, seekForward, stop, jump;
+    // Unbound by default, so they never take a key another mod or Minecraft already uses.
+    public KeyMapping hud, lyrics, favorite, shuffle, repeat;
     private long conflictWarning;
 
     Shortcuts(DarkMusicClient app) {
@@ -41,6 +43,11 @@ public final class Shortcuts {
         volumeUp = binding("volume_up", org.lwjgl.glfw.GLFW.GLFW_KEY_UP, category);
         volumeDown = binding("volume_down", org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN, category);
         mute = binding("mute", org.lwjgl.glfw.GLFW.GLFW_KEY_M, category);
+        hud = binding("toggle_hud", org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN, category);
+        lyrics = binding("toggle_lyrics", org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN, category);
+        favorite = binding("favorite", org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN, category);
+        shuffle = binding("shuffle", org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN, category);
+        repeat = binding("repeat", org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN, category);
     }
 
     private KeyMapping binding(String name, int key, KeyMapping.Category category) {
@@ -48,7 +55,8 @@ public final class Shortcuts {
     }
 
     public KeyMapping[] bindings() {
-        return new KeyMapping[]{open, toggle, next, previous, faster, slower, normalSpeed, volumeUp, volumeDown, mute, seekBack, seekForward, stop, jump};
+        return new KeyMapping[]{open, toggle, next, previous, faster, slower, normalSpeed, volumeUp, volumeDown, mute, seekBack, seekForward, stop, jump,
+            hud, lyrics, favorite, shuffle, repeat};
     }
 
     /**
@@ -124,6 +132,11 @@ public final class Shortcuts {
         while (seekForward.consumeClick()) if (allowed) perform(seekForward);
         while (stop.consumeClick()) if (allowed) perform(stop);
         while (jump.consumeClick()) if (allowed) perform(jump);
+        while (hud.consumeClick()) if (allowed) perform(hud);
+        while (lyrics.consumeClick()) if (allowed) perform(lyrics);
+        while (favorite.consumeClick()) if (allowed) perform(favorite);
+        while (shuffle.consumeClick()) if (allowed) perform(shuffle);
+        while (repeat.consumeClick()) if (allowed) perform(repeat);
     }
 
     public void perform(KeyMapping key) {
@@ -133,8 +146,9 @@ public final class Shortcuts {
         var library = app.library;
         if (key == toggle) {
             var tracks = library.snapshot().tracks();
-            if (playback.state().track() == null && !tracks.isEmpty()) playback.play(tracks, tracks.getFirst());
-            else playback.toggle();
+            if (playback.state().track() == null) {
+                if (!app.resumeLast(false) && !tracks.isEmpty()) playback.play(tracks, tracks.getFirst());
+            } else playback.toggle();
         } else if (key == next) playback.next();
         else if (key == previous) playback.previous();
         else if (key == faster) speed(app.settings.speed + .1);
@@ -150,7 +164,41 @@ public final class Shortcuts {
             app.open();
             if (Minecraft.getInstance().gui.screen() instanceof MusicScreen screen)
                 screen.jumpToPlaying();
+        } else if (key == hud) {
+            app.settings.hudEnabled = !app.settings.hudEnabled;
+            app.save();
+            notice(app.settings.hudEnabled ? "shortcut.darkmusic.hud_on" : "shortcut.darkmusic.hud_off");
+        } else if (key == lyrics) {
+            if (!app.settings.lyricsEnabled) notice("shortcut.darkmusic.lyrics_disabled");
+            else {
+                app.settings.lyricsHud = !app.settings.lyricsHud;
+                app.save();
+                notice(app.settings.lyricsHud ? "shortcut.darkmusic.lyrics_on" : "shortcut.darkmusic.lyrics_off");
+            }
+        } else if (key == favorite) {
+            var track = playback.state().track();
+            if (track == null) notice("upnext.idle");
+            else if (!app.playlistsReady) notice("text.darkmusic.playlists_are_still_loading");
+            else {
+                boolean was = app.playlists.favorite(track);
+                app.playlists.toggleFavorite(track);
+                notice(was ? "shortcut.darkmusic.unfavorited" : "shortcut.darkmusic.favorited", track.title());
+            }
+        } else if (key == shuffle) {
+            app.shuffle(!playback.shuffle());
+            notice(playback.shuffle() ? "text.darkmusic.shuffle_on" : "text.darkmusic.shuffle_off");
+        } else if (key == repeat) {
+            var values = com.darkmusic.client.config.Repeat.values();
+            app.repeat(values[(playback.repeat().ordinal() + 1) % values.length]);
+            notice("command.darkmusic.repeat_now", Text.get("command.darkmusic.repeat_" + playback.repeat().name().toLowerCase(java.util.Locale.ROOT)));
         }
+    }
+
+    /**
+     * A short message above the hotbar, where Minecraft shows its own action-bar text.
+     */
+    private static void notice(String key, Object... args) {
+        Minecraft.getInstance().gui.hud.setOverlayMessage(Text.component(key, args), false);
     }
 
     private void speed(double value) {

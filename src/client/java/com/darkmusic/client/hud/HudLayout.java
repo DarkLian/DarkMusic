@@ -28,11 +28,27 @@ public final class HudLayout {
             return new Content(Math.max(1, Math.min(circle.width(), maximumWidth)), circle.height(), 0, circle.height(), 0, settings.hudVisualizer);
         }
         int width = Math.max(1, Math.min(settings.hudArtwork ? 220 : 184, maximumWidth));
-        int mainHeight = settings.hudProgress ? (settings.waveformProgress ? 42 + settings.waveform.height : 46) : 38;
+        int mainHeight = (settings.hudProgress ? (settings.waveformProgress ? 42 + settings.waveform.height : 46) : 38) + nextLine(settings) + timeLine(settings);
         boolean above = settings.hudVisualizer && settings.spectrumPosition == Settings.SpectrumPosition.ABOVE;
         int extra = settings.hudVisualizer ? GAP + settings.classicSpectrumHeight : 0;
         return new Content(width, mainHeight + extra, above ? extra : 0, mainHeight,
             above ? 0 : mainHeight + GAP, settings.hudVisualizer, settings.classicSpectrumHeight);
+    }
+
+    /**
+     * Height of the Classic HUD's time line under the progress bar. Without a progress bar the time stays on the
+     * artist line.
+     */
+    public static int timeLine(Settings settings) {
+        return settings.hudStyle == Settings.HudStyle.CLASSIC && settings.hudTime && settings.hudProgress
+            && settings.hudTimePosition == Settings.TimePosition.BELOW_BAR ? 10 : 0;
+    }
+
+    /**
+     * Height of the Classic HUD's "Next:" line.
+     */
+    public static int nextLine(Settings settings) {
+        return settings.hudStyle == Settings.HudStyle.CLASSIC && settings.hudNextSong ? 11 : 0;
     }
 
     /**

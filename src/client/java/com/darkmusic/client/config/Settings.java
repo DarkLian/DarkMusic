@@ -20,11 +20,36 @@ public final class Settings {
     public boolean shuffle;
     public Repeat repeat = Repeat.OFF;
     public boolean autoplay;
+    public boolean resumeLast = true;
+    /**
+     * The song to continue with Resume Where You Left Off, or null.
+     */
+    public Resume resume;
     public boolean showHoverInfo = true;
     public boolean updateNotifications = true;
+    // Discord status is opt-in: it shares song titles with the player's Discord friends.
+    public boolean discordStatus, discordShowTitle = true;
+    // Artwork comes from the song's public source thumbnail; it is shown only with the song itself.
+    public boolean discordArtwork = true;
     public double speed = 1;
     public boolean hudEnabled = true;
     public boolean hudInMenus;
+    /**
+     * Seconds of pause or stop before the HUD hides, up to two minutes; 0 keeps it.
+     */
+    public int hudIdleHide;
+    public Motion hudIdleAnimation = Motion.SLIDE;
+    public SongCard songCard = SongCard.OFF;
+    public Motion songCardAnimation = Motion.SLIDE;
+    /**
+     * Where the song card sits once moved in Edit HUD Layout; null keeps it beside the HUD.
+     */
+    public Double songCardX, songCardY;
+    public double songCardScale = 1;
+    public boolean hudNextSong, hudTransitions = true;
+    // Classic HUD time: under the progress bar like the player, or "1:23 / 3:45" at the end of the artist line.
+    public boolean hudTime;
+    public TimePosition hudTimePosition = TimePosition.BELOW_BAR;
     public PipSettings pip = new PipSettings();
     public String hudPosition = "TOP_LEFT";
     public Double hudX, hudY;
@@ -122,7 +147,31 @@ public final class Settings {
         if (shortcuts == null) shortcuts = new LinkedHashMap<>();
     }
 
+    /**
+     * The collection a song was playing from (the player's mode and group), the song's id, and the position in seconds.
+     */
+    public static final class Resume {
+        public String mode = "All", group = "", track = "";
+        public double position;
+
+        public Resume() {
+        }
+
+        public Resume(String mode, String group, String track, double position) {
+            this.mode = mode;
+            this.group = group;
+            this.track = track;
+            this.position = position;
+        }
+
+        boolean valid() {
+            return mode != null && mode.length() <= 64 && group != null && group.length() <= 16384 && track != null && !track.isBlank()
+                && track.length() <= 16384 && Double.isFinite(position) && position >= 0;
+        }
+    }
+
     private void validatePlayback() {
+        if (resume != null && !resume.valid()) resume = null;
         volume = Double.isFinite(volume) ? Math.clamp(volume, 0, 1) : 1;
         lastAudibleVolume = volume > 0 ? volume : Double.isFinite(lastAudibleVolume) && lastAudibleVolume > 0 ? Math.clamp(lastAudibleVolume, .01, 1) : 1;
         if (outputDevice == null || !outputDevice.matches("[0-9a-f]{64}|")) outputDevice = "";
@@ -182,6 +231,18 @@ public final class Settings {
         if (hudStyle == null) hudStyle = HudStyle.CLASSIC;
         if (progressFinish == null) progressFinish = SurfaceFinish.BEVELED;
         if (hudShape == null) hudShape = HudShape.RECTANGLE;
+        if (songCard == null) songCard = SongCard.OFF;
+        if (hudIdleAnimation == null) hudIdleAnimation = Motion.SLIDE;
+        if (hudTimePosition == null) hudTimePosition = TimePosition.BELOW_BAR;
+        if (songCardAnimation == null) songCardAnimation = Motion.SLIDE;
+        hudIdleHide = Math.clamp(hudIdleHide, 0, IDLE_HIDE_MAX);
+        if (songCardX == null || songCardY == null || !Double.isFinite(songCardX) || !Double.isFinite(songCardY))
+            songCardX = songCardY = null;
+        else {
+            songCardX = Math.clamp(songCardX, 0, 1);
+            songCardY = Math.clamp(songCardY, 0, 1);
+        }
+        songCardScale = clampStep(songCardScale);
         if (circularRotation == null) circularRotation = Rotation.OFF;
         if (circularProgressRotation == null) circularProgressRotation = Rotation.OFF;
         circularRotationSeconds = Math.clamp(circularRotationSeconds, 4, 120);
@@ -249,6 +310,14 @@ public final class Settings {
     }
 
     public enum HudImage {ARTWORK, ICON}
+
+    public enum SongCard {OFF, HIDDEN_HUD, ALWAYS}
+
+    public enum Motion {SLIDE, FADE}
+
+    public enum TimePosition {BELOW_BAR, ARTIST_LINE}
+
+    public static final int IDLE_HIDE_MAX = 120;
 
     public enum HudStyle {CLASSIC, CIRCULAR, ARTWORK, SPECTRUM}
 

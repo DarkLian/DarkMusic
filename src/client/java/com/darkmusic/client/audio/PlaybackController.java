@@ -107,6 +107,22 @@ public final class PlaybackController implements AutoCloseable {
         }
     }
 
+    private boolean stopAfter;
+
+    public boolean stopAfterCurrent() {
+        return stopAfter;
+    }
+
+    /**
+     * Stops when the song playing now ends, instead of continuing. Applies to whichever song is playing when it
+     * ends; stopping clears it.
+     */
+    public void stopAfterCurrent(boolean value) {
+        stopAfter = value;
+        invalidatePlan();
+        refreshNext();
+    }
+
     public void repeat(Repeat value) {
         invalidatePlan();
         repeat = Objects.requireNonNullElse(value, Repeat.OFF);
@@ -144,6 +160,13 @@ public final class PlaybackController implements AutoCloseable {
     }
 
     public void play(List<Track> queue, Track selected, Source origin) {
+        play(queue, selected, origin, 0, false);
+    }
+
+    /**
+     * Starts {@code selected} at {@code position} seconds, optionally paused there.
+     */
+    public void play(List<Track> queue, Track selected, Source origin, double position, boolean paused) {
         if (!queue.contains(selected)) return;
         invalidatePlan();
         manual.clear();
@@ -156,7 +179,7 @@ public final class PlaybackController implements AutoCloseable {
         int index = tracks.indexOf(selected);
         if (index < 0) return;
         rebuildOrder(index);
-        start(index);
+        start(index, Double.isFinite(position) ? Math.max(0, position) : 0, paused);
     }
 
     public record Queued(long id, Track track) {
@@ -345,6 +368,17 @@ public final class PlaybackController implements AutoCloseable {
         return new Source("All", "@" + track.rootId() + folder, "", track.rootId());
     }
 
+    /**
+     * The song that plays after this one: Up Next first, then the collection. Null when playback stops instead.
+     */
+    public Track upcoming() {
+        if (stopAfter || current == null) return null;
+        if (repeat == Repeat.ONE) return current.track;
+        var snapshot = upNextSnapshot();
+        if (!snapshot.manual().isEmpty()) return snapshot.manual().getFirst().track();
+        return snapshot.automatic().isEmpty() ? null : snapshot.automatic().getFirst();
+    }
+
     public UpNextSnapshot upNextSnapshot() {
         settlePromotion();
         if (queueSnapshot == null) {
@@ -404,7 +438,8 @@ public final class PlaybackController implements AutoCloseable {
         settlePromotion();
         if (ticket != sequence || current != point) return;
         failures = 0;
-        if (repeat == Repeat.ONE) start(new Playing(point.track, point.manual), 0, false, false);
+        if (stopAfter) stop();
+        else if (repeat == Repeat.ONE) start(new Playing(point.track, point.manual), 0, false, false);
         else advance(false);
     }
 
@@ -421,6 +456,15 @@ public final class PlaybackController implements AutoCloseable {
         settlePromotion();
         changedQueue();
         if (current == null) return;
+        if (stopAfter) {
+            // Nothing to preload: gapless playback or crossfade would otherwise start the next song early.
+            invalidatePlan();
+            audio.nextTrack(null, () -> {
+            }, () -> {
+            }, s -> {
+            });
+            return;
+        }
         boolean hold = repeat == Repeat.ONE;
         var queued = !hold && !manual.isEmpty() ? manual.getFirst() : null;
         long manualId = queued == null ? 0 : queued.id;
@@ -582,6 +626,7 @@ public final class PlaybackController implements AutoCloseable {
     }
 
     public void stop() {
+        stopAfter = false;
         settlePromotion();
         invalidatePlan();
         changedQueue();

@@ -1,11 +1,13 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.hud.HudLayout;
 import com.darkmusic.client.hud.HudPreview;
 import com.darkmusic.client.hud.HudScale;
 import com.darkmusic.client.hud.LyricsHud;
 import com.darkmusic.client.hud.NowPlayingHud;
+import com.darkmusic.client.hud.SongCard;
 import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
@@ -13,40 +15,87 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
- * Independent player and lyrics placement with shared snapping and wheel behavior.
+ * Independent placement of the player HUD, lyrics and song change card, with shared snapping and wheel behavior.
  */
 public class HudEditorScreen extends LocalScreen implements HudPreview {
+    public enum Element {
+        PLAYER("lyrics.hud.player"), LYRICS("lyrics.hud.element"), CARD("hud.darkmusic.card_element");
+
+        final String label;
+
+        Element(String label) {
+            this.label = label;
+        }
+    }
+
     private final DarkMusicClient app;
-    private final HudScale wheel = new HudScale(), lyricsWheel = new HudScale();
-    private boolean lyricsSelected;
+    private final HudScale wheel = new HudScale(), lyricsWheel = new HudScale(), cardWheel = new HudScale();
+    private Element selected;
     private boolean dragging;
     private double dragX, dragY;
     private long scaleChanged;
     private net.minecraft.client.gui.components.AbstractWidget reset, help, back, select;
 
     public HudEditorScreen(DarkMusicClient app, Screen parent) {
+        this(app, parent, Element.PLAYER);
+    }
+
+    public HudEditorScreen(DarkMusicClient app, Screen parent, Element selected) {
         super(Text.component("hud.darkmusic.layout"), parent);
         this.app = app;
+        this.selected = selected;
+    }
+
+    private boolean available(Element element) {
+        return switch (element) {
+            case PLAYER -> true;
+            case LYRICS -> LyricsHud.enabled(app.settings);
+            case CARD -> app.settings.songCard != Settings.SongCard.OFF;
+        };
+    }
+
+    private List<Element> elements() {
+        return Arrays.stream(Element.values()).filter(this::available).toList();
+    }
+
+    private HudLayout.Bounds bounds(Element element) {
+        return switch (element) {
+            case PLAYER -> NowPlayingHud.bounds(app, width, height);
+            case LYRICS -> LyricsHud.bounds(app.settings, width, height);
+            case CARD -> SongCard.bounds(app, width, height);
+        };
     }
 
     @Override
     protected void init() {
         dragging = false;
-        if (!LyricsHud.enabled(app.settings)) lyricsSelected = false;
-        select = addRenderableWidget(UiButton.builder(Text.component(lyricsSelected ? "lyrics.hud.element" : "lyrics.hud.player"), b -> {
-            lyricsSelected = !lyricsSelected;
-            select.setMessage(Text.component(lyricsSelected ? "lyrics.hud.element" : "lyrics.hud.player"));
+        if (!available(selected)) selected = Element.PLAYER;
+        select = addRenderableWidget(UiButton.builder(Text.component(selected.label), b -> {
+            var choices = elements();
+            selected = choices.get((choices.indexOf(selected) + 1) % choices.size());
+            select.setMessage(Text.component(selected.label));
         }).bounds(8, 8, 100, 20).build());
-        select.active = LyricsHud.enabled(app.settings);
+        select.active = elements().size() > 1;
         reset = addRenderableWidget(Help.tip(UiButton.builder(Text.component("hud.darkmusic.reset_selected"), b -> {
-            if (lyricsSelected) {
-                app.settings.lyricsHudX = .5;
-                app.settings.lyricsHudY = .9;
-                app.settings.lyricsHudScale = 1;
-            } else {
-                app.settings.hudX = app.settings.hudY = 0.0;
-                app.settings.hudScale = 1;
+            switch (selected) {
+                case LYRICS -> {
+                    app.settings.lyricsHudX = .5;
+                    app.settings.lyricsHudY = .9;
+                    app.settings.lyricsHudScale = 1;
+                }
+                case CARD -> {
+                    // Back beside the HUD.
+                    app.settings.songCardX = app.settings.songCardY = null;
+                    app.settings.songCardScale = 1;
+                }
+                case PLAYER -> {
+                    app.settings.hudX = app.settings.hudY = 0.0;
+                    app.settings.hudScale = 1;
+                }
             }
             scaleChanged = System.nanoTime();
             app.save();
@@ -57,13 +106,11 @@ public class HudEditorScreen extends LocalScreen implements HudPreview {
     }
 
     private void positionToolbar() {
-        var player = NowPlayingHud.bounds(app, width, height);
-        var lyrics = LyricsHud.bounds(app.settings, width, height);
         int[][] corners = {{width - 280, 8}, {8, 8}, {width - 280, height - 32}, {8, height - 32}};
         for (int i = 0; i < corners.length; i++) {
             var corner = corners[i];
             int x = corner[0], y = corner[1];
-            if (i < corners.length - 1 && (overlaps(player, x, y) || LyricsHud.enabled(app.settings) && overlaps(lyrics, x, y)))
+            if (i < corners.length - 1 && elements().stream().anyMatch(element -> overlaps(bounds(element), x, y)))
                 continue;
             select.setX(x + 4);
             select.setY(y + 2);
@@ -86,13 +133,8 @@ public class HudEditorScreen extends LocalScreen implements HudPreview {
         if (!dragging) positionToolbar();
     }
 
-    private HudLayout.Bounds bounds() {
-        return lyricsSelected ? LyricsHud.bounds(app.settings, width, height) : NowPlayingHud.bounds(app, width, height);
-    }
-
     private boolean target(double x, double y) {
-        return NowPlayingHud.bounds(app, width, height).contains(x, y)
-            || LyricsHud.enabled(app.settings) && LyricsHud.bounds(app.settings, width, height).contains(x, y);
+        return elements().stream().anyMatch(element -> bounds(element).contains(x, y));
     }
 
     @Override
@@ -100,7 +142,7 @@ public class HudEditorScreen extends LocalScreen implements HudPreview {
         if (super.mouseClicked(event, twice)) return true;
         if (event.button() != 0 || !target(event.x(), event.y())) return false;
         choose(event.x(), event.y());
-        var b = bounds();
+        var b = bounds(selected);
         dragging = true;
         dragX = event.x() - b.x();
         dragY = event.y() - b.y();
@@ -108,10 +150,10 @@ public class HudEditorScreen extends LocalScreen implements HudPreview {
     }
 
     private void choose(double x, double y) {
-        // The toolbar can select either element when their bounds overlap.
-        if (!bounds().contains(x, y)) lyricsSelected = LyricsHud.enabled(app.settings)
-            && LyricsHud.bounds(app.settings, width, height).contains(x, y);
-        select.setMessage(Text.component(lyricsSelected ? "lyrics.hud.element" : "lyrics.hud.player"));
+        // The toolbar can select any element when their bounds overlap; a click keeps the current one if it is under it.
+        if (!bounds(selected).contains(x, y))
+            selected = elements().stream().filter(element -> bounds(element).contains(x, y)).findFirst().orElse(selected);
+        select.setMessage(Text.component(selected.label));
     }
 
     @Override
@@ -120,17 +162,33 @@ public class HudEditorScreen extends LocalScreen implements HudPreview {
         if (HorizontalText.horizontalIntent(dx, dy)) return super.mouseScrolled(x, y, dx, dy);
         if (dy == 0 || !target(x, y)) return super.mouseScrolled(x, y, dx, dy);
         choose(x, y);
-        if (lyricsSelected) app.settings.lyricsHudScale = lyricsWheel.scroll(app.settings.lyricsHudScale, dy);
-        else app.settings.hudScale = wheel.scroll(app.settings.hudScale, dy);
+        switch (selected) {
+            case LYRICS -> app.settings.lyricsHudScale = lyricsWheel.scroll(app.settings.lyricsHudScale, dy);
+            case CARD -> {
+                pinCard();
+                app.settings.songCardScale = cardWheel.scroll(app.settings.songCardScale, dy);
+            }
+            case PLAYER -> app.settings.hudScale = wheel.scroll(app.settings.hudScale, dy);
+        }
         scaleChanged = System.nanoTime();
         app.save();
         return true;
     }
 
+    /**
+     * A card that still follows the HUD gets its own position where it is now, before being moved or scaled.
+     */
+    private void pinCard() {
+        if (app.settings.songCardX != null && app.settings.songCardY != null) return;
+        var b = SongCard.bounds(app, width, height);
+        app.settings.songCardX = HudLayout.normalized(b.x(), width, b.width());
+        app.settings.songCardY = HudLayout.normalized(b.y(), height, b.height());
+    }
+
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
         if (!dragging) return super.mouseDragged(event, dx, dy);
-        var b = bounds();
+        var b = bounds(selected);
         double left = event.x() - dragX;
         double top = event.y() - dragY;
         boolean snap = !HorizontalText.shiftDown();
@@ -138,12 +196,19 @@ public class HudEditorScreen extends LocalScreen implements HudPreview {
             ? .5 : HudLayout.normalized(left, width, b.width());
         double y = snap && Math.abs(top + b.height() / 2.0 - height / 2.0) <= 4
             ? .5 : HudLayout.normalized(top, height, b.height());
-        if (lyricsSelected) {
-            app.settings.lyricsHudX = x;
-            app.settings.lyricsHudY = y;
-        } else {
-            app.settings.hudX = x;
-            app.settings.hudY = y;
+        switch (selected) {
+            case LYRICS -> {
+                app.settings.lyricsHudX = x;
+                app.settings.lyricsHudY = y;
+            }
+            case CARD -> {
+                app.settings.songCardX = x;
+                app.settings.songCardY = y;
+            }
+            case PLAYER -> {
+                app.settings.hudX = x;
+                app.settings.hudY = y;
+            }
         }
         return true;
     }
@@ -156,11 +221,19 @@ public class HudEditorScreen extends LocalScreen implements HudPreview {
         return true;
     }
 
+    private double scale(Element element) {
+        return switch (element) {
+            case PLAYER -> app.settings.hudScale;
+            case LYRICS -> app.settings.lyricsHudScale;
+            case CARD -> app.settings.songCardScale;
+        };
+    }
+
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
         longText.begin();
         g.fill(0, 0, width, height, 0xCC111420);
-        var b = bounds();
+        var b = bounds(selected);
         boolean centeredX = Math.abs(b.x() + b.width() / 2.0 - width / 2.0) <= .5;
         boolean centeredY = Math.abs(b.y() + b.height() / 2.0 - height / 2.0) <= .5;
         int subdued = (UiTheme.ACCENT & 0x00FFFFFF) | 0x35000000;
@@ -168,11 +241,15 @@ public class HudEditorScreen extends LocalScreen implements HudPreview {
         g.fill(0, height / 2, width, height / 2 + 1, centeredY ? UiTheme.ACCENT : subdued);
         NowPlayingHud.render(app, g, longText);
         LyricsHud.render(app, g, true);
-        var other = lyricsSelected ? NowPlayingHud.bounds(app, width, height) : LyricsHud.bounds(app.settings, width, height);
-        if (LyricsHud.enabled(app.settings)) g.outline(other.x(), other.y(), other.width(), other.height(), subdued);
+        if (available(Element.CARD)) SongCard.renderPreview(app, g);
+        for (var element : elements())
+            if (element != selected) {
+                var other = bounds(element);
+                g.outline(other.x(), other.y(), other.width(), other.height(), subdued);
+            }
         g.outline(b.x(), b.y(), b.width(), b.height(), UiTheme.ACCENT);
         if (System.nanoTime() - scaleChanged < 2_000_000_000L)
-            g.centeredText(font, Text.get("hud.darkmusic.scale", Math.round((lyricsSelected ? app.settings.lyricsHudScale : app.settings.hudScale) * 100)), width / 2, 36, UiTheme.ACCENT);
+            g.centeredText(font, Text.get("hud.darkmusic.scale", Math.round(scale(selected) * 100)), width / 2, 36, UiTheme.ACCENT);
         super.extractRenderState(g, x, y, delta);
     }
 }

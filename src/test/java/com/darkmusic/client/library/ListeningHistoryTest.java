@@ -41,6 +41,19 @@ class ListeningHistoryTest {
     }
 
     @Test
+    void recentlyAddedIsNewestFileFirstAndNeverPlayedSkipsCountedPlays() {
+        var old = new Track("root", "old.mp3", directory.resolve("old.mp3"), "Old", "", "", 60, 1, 1_000, "");
+        var fresh = new Track("root", "new.mp3", directory.resolve("new.mp3"), "New", "", "", 60, 1, 9_000, "");
+        var middle = new Track("root", "mid.mp3", directory.resolve("mid.mp3"), "Mid", "", "", 60, 1, 5_000, "");
+        var library = List.of(old, fresh, middle);
+        assertEquals(List.of(fresh, middle, old), ListeningHistory.recentlyAdded(library, 10));
+        assertEquals(List.of(fresh, middle), ListeningHistory.recentlyAdded(library, 2));
+        var h = history();
+        h.replace(Map.of(old.id(), new ListeningHistory.Entry(3, 100, 180), middle.id(), new ListeningHistory.Entry(0, 50, 5)));
+        assertEquals(List.of(fresh, middle), h.neverPlayed(library), "A song only started, without a counted play, is still never played");
+    }
+
+    @Test
     void historyPlaybackKeepsBothViewsStableUntilAnotherCollectionStarts() {
         var h = history();
         var a = track("a.opus", 60);

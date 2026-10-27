@@ -115,6 +115,16 @@ class LocalCommandsTest {
             }
 
             @Override
+            public Component sleep(Integer minutes) {
+                return record("sleep " + minutes);
+            }
+
+            @Override
+            public Component stopAfter() {
+                return record("stopafter");
+            }
+
+            @Override
             public void checkUpdate() {
                 calls.add("check");
             }
@@ -155,12 +165,12 @@ class LocalCommandsTest {
         for (String alias : List.of("da", "darkmusic")) {
             for (String command : List.of("play", "play  Midnight Drive ", "pause", "stop", "next", "previous", "now", "queue Drive Home",
                 "volume", "volume 40", "mute", "speed", "speed 1.5", "seek 1:30", "seek -10", "shuffle", "shuffle on", "shuffle off",
-                "repeat", "repeat one", "repeat all", "repeat off"))
+                "repeat", "repeat one", "repeat all", "repeat off", "sleep", "sleep 30", "sleep off", "stopafter"))
                 assertEquals(1, dispatcher.execute(alias + " " + command, source));
         }
         var expected = List.of("play null", "play  Midnight Drive ", "pause", "stop", "next", "previous", "now", "queue Drive Home",
             "volume null", "volume 40", "mute", "speed null", "speed 1.5", "seek 1:30", "seek -10", "shuffle null", "shuffle true",
-            "shuffle false", "repeat null", "repeat ONE", "repeat ALL", "repeat OFF");
+            "shuffle false", "repeat null", "repeat ONE", "repeat ALL", "repeat OFF", "sleep null", "sleep 30", "sleep 0", "stopafter");
         var both = new ArrayList<>(expected);
         both.addAll(expected);
         assertEquals(both, calls);
@@ -171,7 +181,7 @@ class LocalCommandsTest {
     void outOfRangeValuesAreRejectedBeforeReachingPlayback() {
         var dispatcher = dispatcher();
         var source = source();
-        for (String command : List.of("da volume 101", "da volume -1", "da speed 0.4", "da speed 3.5", "da shuffle maybe", "da repeat twice", "da queue"))
+        for (String command : List.of("da volume 101", "da volume -1", "da speed 0.4", "da speed 3.5", "da shuffle maybe", "da repeat twice", "da queue", "da sleep 0", "da sleep 721"))
             assertThrows(CommandSyntaxException.class, () -> dispatcher.execute(command, source), command);
         assertEquals(List.of(), calls);
     }
@@ -275,6 +285,8 @@ class LocalCommandsTest {
         assertEquals("0:00", LocalCommands.time(Double.NaN));
         assertEquals("1:05", LocalCommands.time(65.9));
         assertEquals("1:01:01", LocalCommands.time(3661));
+        assertEquals("1:23 / 3:45", com.darkmusic.client.text.Clock.progress(83.9, 225));
+        assertEquals("0:07", com.darkmusic.client.text.Clock.progress(7, Double.NaN), "Unknown length shows only the position");
     }
 
     @Test

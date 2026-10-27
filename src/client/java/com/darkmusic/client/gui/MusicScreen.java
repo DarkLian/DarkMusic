@@ -142,18 +142,13 @@ public final class MusicScreen extends LocalScreen {
 
     private void shuffle() {
         if (app.mediaBusy()) return;
-        app.settings.shuffle = !app.playback.shuffle();
-        app.playback.shuffle(app.settings.shuffle);
-        app.save();
+        app.shuffle(!app.playback.shuffle());
     }
 
     private void repeat() {
         if (app.mediaBusy()) return;
         var values = Repeat.values();
-        var next = values[(app.playback.repeat().ordinal() + 1) % values.length];
-        app.settings.repeat = next;
-        app.playback.repeat(next);
-        app.save();
+        app.repeat(values[(app.playback.repeat().ordinal() + 1) % values.length]);
     }
 
     @Override
@@ -368,6 +363,7 @@ public final class MusicScreen extends LocalScreen {
         if (revealOnEntry) {
             revealOnEntry = false;
             if (app.playback.state().track() != null) jumpToPlaying();
+            else revealResume();
         }
     }
 
@@ -384,7 +380,7 @@ public final class MusicScreen extends LocalScreen {
         }
         folderRows = folders.visible(expandedFolders);
         groups = switch (mode) {
-            case "History" -> List.of("recent", "most");
+            case "History" -> List.of("recent", "most", "added", "never");
             case "Playlists" -> app.playlists.all().stream().map(p -> p.id()).toList();
             case "Artists" ->
                 tracks.stream().map(Track::artist).distinct().sorted(String.CASE_INSENSITIVE_ORDER).toList();
@@ -410,7 +406,7 @@ public final class MusicScreen extends LocalScreen {
         navigation.rows(java.util.stream.IntStream.range(0, groups.size()).mapToObj(i -> {
             String key = groups.get(i);
             String label = mode.equals("All") ? i == 0 ? Text.get("text.darkmusic.all_tracks") : folderRows.get(i - 1).name() : mode.equals("History") ? Text.get("history." + key) : mode.equals("Playlists") ? app.playlists.displayName(app.playlists.get(key)) : key.isBlank() ? Text.get(mode.equals("Artists") ? "library.artist.unknown" : "library.album.unknown") : key;
-            int count = mode.equals("History") ? app.listeningHistory.collection(tracks, key.equals("most")).size() : mode.equals("Playlists") ? app.playlists.resolve(key, tracks).size() : counts.getOrDefault(key, 0);
+            int count = mode.equals("History") ? app.collection("History", key).size() : mode.equals("Playlists") ? app.playlists.resolve(key, tracks).size() : counts.getOrDefault(key, 0);
             return new RowList.Row(label + " (" + count + ")", "");
         }).toList());
         navigation.select(groups.indexOf(group));
@@ -418,15 +414,7 @@ public final class MusicScreen extends LocalScreen {
     }
 
     private List<Track> collectionTracks() {
-        var tracks = app.library.snapshot().tracks();
-        if (mode.equals("History")) return app.listeningHistory.collection(tracks, group.equals("most"));
-        var source = mode.equals("Playlists") ? app.playlists.resolve(group, tracks) : tracks;
-        return source.stream().filter(t -> switch (mode) {
-            case "All" -> FolderTree.includes(group, t);
-            case "Artists" -> t.artist().equals(group);
-            case "Albums" -> t.album().equals(group);
-            default -> true;
-        }).toList();
+        return app.collection(mode, group);
     }
 
     private void refreshSongs() {
@@ -485,13 +473,24 @@ public final class MusicScreen extends LocalScreen {
     public void jumpToPlaying() {
         var current = app.playback.state().track();
         if (current == null) return;
-        var source = app.playback.playingSource();
+        reveal(current.id(), app.playback.playingSource(), true);
+    }
+
+    /**
+     * With nothing playing, opens on the song Resume Where You Left Off would continue, in its collection.
+     */
+    private void revealResume() {
+        var point = app.settings.resumeLast ? app.settings.resume : null;
+        if (point != null) reveal(point.track, new PlaybackController.Source(point.mode, point.group, "", ""), false);
+    }
+
+    private void reveal(String id, PlaybackController.Source source, boolean warn) {
         if (!source.rootId().isEmpty() && app.library.directory(source.rootId()) == null) {
-            app.warn(Text.get("player.darkmusic.outside_library"));
+            if (warn) app.warn(Text.get("player.darkmusic.outside_library"));
             return;
         }
         if (source.mode().equals("Playlists") && app.playlists.get(source.group()) == null) {
-            app.warn(Text.get("player.darkmusic.source_missing"));
+            if (warn) app.warn(Text.get("player.darkmusic.source_missing"));
             return;
         }
         selectedGroups.put(mode, group);
@@ -506,17 +505,17 @@ public final class MusicScreen extends LocalScreen {
                 expandedFolders.add(group.substring(0, slash));
         }
         rebuildWidgets();
-        int index = indexOfPlaying(current.id());
+        int index = indexOfPlaying(id);
         if (index < 0 && !query.isEmpty()) {
             query = "";
             search.setValue("");
             refreshSongs();
-            index = indexOfPlaying(current.id());
+            index = indexOfPlaying(id);
         }
         if (index >= 0) {
             selected = visible.get(index);
             songs.reveal(index);
-        } else app.warn(Text.get("player.darkmusic.outside_library"));
+        } else if (warn) app.warn(Text.get("player.darkmusic.outside_library"));
     }
 
     private int indexOfPlaying(String id) {
@@ -534,6 +533,9 @@ public final class MusicScreen extends LocalScreen {
 
     private void playPause() {
         if (app.mediaBusy()) return;
+        // The remembered song continues from where it stopped rather than starting over.
+        if (app.playback.state().track() == null && selected != null && app.resumes(selected) && app.resumeLast(false))
+            return;
         if (!selectionIsPlaying()) {
             if (selected != null)
                 app.playback.play(collectionTracks(), selected, new PlaybackController.Source(mode, group, "", ""));

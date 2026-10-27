@@ -108,6 +108,8 @@ Choose **All**, **Playlists**, **Artists**, or **Albums**. The left panel shows 
 
 Search filters the visible list. Width variants and Latin accents are folded for matching, so `beyonce` can find `Beyoncé`. Search keys are reused for large collections. Select a song and press Play, or double-click it. The right panel shows the selected song's details and artwork. It can show a different song from the one currently playing. Play starts that selection; Pause/Resume controls the current song only when both the song and its source collection match. The right-side spectrum follows that same rule. Track changes automatically reveal the playing song and its source collection when the search is empty and not focused. An active search keeps its text, cursor, and focus while music continues normally.
 
+**Resume Where You Left Off** (Settings → General, on by default) remembers the last song, the collection it played from, and its position. With nothing playing, the player opens on that song in its collection, and Play continues it from where it stopped. So do the Play/Pause shortcut, `/da play` and **Autoplay on Launch**. Stop keeps the song but starts it over next time. If the song was removed from its playlist or folder, it resumes from the whole library; if it no longer exists, the first library song plays as before.
+
 The player uses larger borderless playback and utility icons. Volume has a slim filled track and percentage readout; Speed has a matching filled track and a multiplier on its left. The player controls are centered independently of the song list. Speed and Volume sliders sit at the outer edges, with Reset Speed and Mute beside the playback buttons. All controls use equal horizontal spacing. In the three-column layout, the song list is also centered; the details panel keeps its usual width.
 
 The centered controls are:
@@ -153,7 +155,10 @@ Jump to Playing locates a manually queued song in its library folder when it is 
 
 ## Listening history
 
-Use the history-clock icon immediately left of Manage Playlists above the collection list. Choose Recently Played or Most Played to browse play counts, listening time, and last-played dates.
+Use the history-clock icon immediately left of Manage Playlists above the collection list. Choose Recently Played or Most Played to browse play counts, listening time, and last-played dates. These lists update themselves:
+
+- **Recently Added** shows the 100 newest songs by file date. Imported and downloaded songs count from when they were added; files copied into a music folder by hand keep their own dates.
+- **Never Played** shows songs without a counted play, in library order.
 
 Listening time follows audible playback rather than elapsed screen time. Pausing, seeking, and muting do not add listening time. A play counts after 30 seconds or half of a shorter song. Playback started from History keeps both history lists in their current order until you start playback from another collection. Statistics continue recording during that time.
 
@@ -296,6 +301,14 @@ Use Retry when appropriate, or the existing queue retry controls. Automatic retr
 
 Tool-related reports link to **Download Tools**. Check Tools validates the chosen executables; Install / Update Tools retrieves managed releases only after your action. Advanced Paths may select executables instead of the managed ones. Updating tools may help with website changes, but does not guarantee that a source will work. A website can break a yt-dlp extractor without a DarkMusic change; not every website failure can be identified reliably. DarkMusic does not bypass authentication or DRM.
 
+## Discord status
+
+**Settings → General → Discord Status** (off by default) shows "Listening to DarkMusic" on your Discord profile, with the song, artist and a progress bar. It talks to the Discord desktop app running on this computer: nothing signs in, and DarkMusic never sees your Discord account. Discord in a web browser cannot show it.
+
+Hover over the option to see whether DarkMusic is connected to Discord. If it says Discord was not found, open the Discord desktop app; DarkMusic tries again every 30 seconds. If it is connected but nothing shows, check **Discord → User Settings → Activity Privacy** and make sure sharing your activity status is turned on; it also controls statuses like this one.
+
+Your Discord friends see the song title and artist. Turn off **Show Song on Discord** to show only that you're listening to music. Pausing clears the status, and so does turning the option off. Discord can only show images that are already online. With **Show Artwork on Discord** (on by default), songs downloaded from YouTube show the video's public thumbnail, with the DarkMusic icon as a small badge. Other songs show the DarkMusic icon; artwork from your own files is never uploaded. Hiding the song also hides its artwork. Friends also see a **Get DarkMusic** button linking to the releases page.
+
 ## Mod updates
 
 **Settings → General → Update Notifications** checks GitHub when joining a world or server, repeats the check every six hours while connected, and notifies once per launch. Turning it off disables automatic checks and notices. **Check for Updates** checks manually regardless of that toggle and reports availability or errors. An available update requires a separate **Download Update** click; nothing downloads simply because a check found it.
@@ -307,6 +320,12 @@ A completed download is announced in client-side chat. Close Minecraft and wait 
 ![HUD and spectrum settings with live artwork preview](images/settings.png)
 
 Settings contains General, Audio, HUD, Spectrum, and Reset sections. Most changes save immediately. The preview shows current playback data, or sample visualization when no song is playing.
+
+The HUD section groups its options into **Appearance**, **Visibility and Motion**, **Song Change Card** and **Progress Bar**.
+
+**Hide When Idle** hides the HUD after music has been paused or stopped for the time on its slider, from 1 second to 2 minutes. **Idle Animation** chooses how: **Slide** moves it off the screen, **Fade** fades it out slowly. Either way it comes back quickly when playback resumes or the song changes. **Song Change Animation** (on by default) fades in the new title, artist and artwork. **Show Next Song** (Appearance, Classic only) adds a "Next:" line with the song from Up Next or the collection that plays next. **Show Time** (Progress Bar, Classic only) shows the song's position and length. **Time Position** puts them **Below Progress Bar**, position under its start and length under its end like the player, or on the **Artist Line** as 1:23 / 3:45, which keeps the HUD shorter. Without a progress bar the time uses the artist line.
+
+**Song Change Card** briefly shows the new song's title, artist and artwork when the song changes: **When HUD Is Hidden**, or **Always**. **Card Animation** is **Slide** (in and out) or **Fade** (fades in, holds, then fades out slowly). Until you move it, the card appears beside the HUD, or in the HUD's place when the HUD is off or hidden, which keeps it clear of boss bars and advancement pop-ups. **Position Song Card** opens Edit HUD Layout with the card selected: drag it anywhere and scroll to resize it. **Reset Selected** puts it back beside the HUD.
 
 **Now-Playing HUD** enables the whole in-game component. DarkMusic HUD elements hide while chat or another menu is open; **Show HUD in Menus** keeps the player card, lyrics, and volume, speed, and download notices visible above Minecraft menus (never above DarkMusic's own screens). Circular and lyrics text sits on a soft dark plate so it stays readable over bright scenery. **Song Info Backdrop** (Classic and Circular, on by default) turns that backdrop behind the title and artist on or off; in Classic it only appears when the card is see-through or light.
 
@@ -450,6 +469,13 @@ In download rows, status appears first in color, followed by neutral file inform
 | Jump to Playing | O |
 | Reset speed | Numpad 0 |
 | Mute / unmute | M |
+| Show / hide HUD | Not bound |
+| Show / hide lyrics HUD | Not bound |
+| Favorite current song | Not bound |
+| Shuffle on / off | Not bound |
+| Change repeat mode | Not bound |
+
+The last five start unbound so they never take a key another mod or Minecraft already uses; assign them in Key Binds. Each briefly confirms its change above the hotbar.
 
 Volume changes in 5% steps and speed in 0.1× steps. Volume, mute, and speed shortcuts briefly show a HUD notification. Rebind controls in Minecraft's Key Binds menu under DarkMusic.
 
@@ -468,6 +494,8 @@ Every command works with `/da` or `/darkmusic`. `[ ]` marks an optional value an
 | `/da seek <time>` | Jump to a time such as `1:30` or `90`, or move by `+10` or `-10` seconds. A time past the end of the song is refused; a move stops at the start or end. |
 | `/da shuffle [on\|off]` | Switch shuffle, or turn it on or off |
 | `/da repeat [off\|one\|all]` | Cycle repeat like the player's button, or choose a mode |
+| `/da sleep [minutes\|off]` | Pause after 1 to 720 minutes, fading out over the last 30 seconds; without a value, show the time left. The timer is not kept after closing Minecraft. |
+| `/da stopafter` | Stop when the current song ends instead of continuing; run it again to cancel. Gapless playback and crossfade do not start the next song early. |
 | `/da` | Open the player |
 | `/da gui` | Edit the HUD layout |
 | `/da lyrics` | Open lyrics for the current song, including while paused |

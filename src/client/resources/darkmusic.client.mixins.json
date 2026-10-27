@@ -3,6 +3,8 @@
   "package": "com.darkmusic.client.mixin",
   "compatibilityLevel": "JAVA_25",
   "client": [
+    "GuiRenderStateMixin",
+    "GuiTextRenderStateAccessor",
     "SoundEngineMixin"
   ],
   "injectors": {

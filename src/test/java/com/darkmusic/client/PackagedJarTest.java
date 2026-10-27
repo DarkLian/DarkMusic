@@ -97,6 +97,9 @@ class PackagedJarTest {
                 for (String forbidden : List.of("net/minecraft/network/protocol/", "net/minecraft/network/Connection", "net/fabricmc/fabric/api/client/networking/", "java/net/Socket", "java/net/http/", "net/minecraft/server/", "net/minecraft/client/multiplayer/MultiPlayerGameMode"))
                     assertFalse(constants.contains(forbidden) && !(entry.getName().startsWith("com/darkmusic/client/tools/ManagedTools") && java.util.Set.of("java/net/URL", "java/net/http/").contains(forbidden))
                         && !(entry.getName().startsWith("com/darkmusic/client/update/UpdateService") && forbidden.equals("java/net/http/"))
+                        // Discord status on Linux/macOS: a local Unix domain socket file (java/net/SocketAddress), never a network socket.
+                        && !(entry.getName().equals("com/darkmusic/client/presence/DiscordIpc$UnixSocket.class") && forbidden.equals("java/net/Socket")
+                        && constants.contains("java/net/UnixDomainSocketAddress") && !constants.contains("java/net/InetSocketAddress"))
                         // The opt-in provider is the only lyrics class allowed to perform HTTP. Gameplay networking remains forbidden.
                         && !(java.util.Set.of("com/darkmusic/client/lyrics/LrclibProvider.class", "com/darkmusic/client/lyrics/LrclibProvider$BoundedBody.class").contains(entry.getName()) && forbidden.equals("java/net/http/")), entry.getName() + " references " + forbidden);
             }

@@ -90,6 +90,18 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         return row;
     }
 
+    /**
+     * A row that steps through choices on each click and shows the current one.
+     */
+    private void choice(String key, java.util.function.Supplier<String> value, Runnable next, String help) {
+        action(key, () -> {
+            next.run();
+            app.save();
+            rebuildWidgets();
+        }, help);
+        controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get(key) + ": " + value.get()));
+    }
+
     private void finish(String key, java.util.function.Supplier<Settings.SurfaceFinish> get, Consumer<Settings.SurfaceFinish> set) {
         action(key, () -> {
             set.accept(get.get() == Settings.SurfaceFinish.FLAT ? Settings.SurfaceFinish.BEVELED : Settings.SurfaceFinish.FLAT);
@@ -194,9 +206,23 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         folderLines = font.split(net.minecraft.network.chat.Component.literal(folderPath), formWidth - 14);
         cursor += folderLines.size() * 10 + 4;
         toggle("text.darkmusic.autoplay_on_launch", () -> s.autoplay, v -> s.autoplay = v, "text.darkmusic.automatically_start_the_library_after_minecraft_launches_disabled_by_default");
+        toggle("resume.darkmusic.enabled", () -> s.resumeLast, v -> s.resumeLast = v, "resume.darkmusic.enabled_help");
         toggle("ui.darkmusic.show_hover_info", () -> s.showHoverInfo, v -> s.showHoverInfo = v, "ui.darkmusic.show_hover_info_help");
         toggle("update.enabled", () -> s.updateNotifications, v -> s.updateNotifications = v, "update.enabled_help");
         action("update.check", () -> show(new UpdateScreen(app, this)), "update.check_help");
+        put(new SettingRow(12, 0, formWidth, Text.get("discord.darkmusic.status"), () -> s.discordStatus, () -> {
+            s.discordStatus = !s.discordStatus;
+            app.save();
+            rebuildWidgets();
+        }), Text.get("discord.darkmusic.status_help") + (s.discordStatus ? " " + Text.get(app.discord.state()) : ""));
+        if (s.discordStatus) {
+            toggle("discord.darkmusic.show_title", () -> s.discordShowTitle, v -> {
+                s.discordShowTitle = v;
+                rebuildWidgets();
+            }, "discord.darkmusic.show_title_help");
+            if (s.discordShowTitle)
+                toggle("discord.darkmusic.artwork", () -> s.discordArtwork, v -> s.discordArtwork = v, "discord.darkmusic.artwork_help");
+        }
         action("backup.title", () -> show(new BackupScreen(app, this)), "backup.scope");
         action("history.clear", () -> show(new ConfirmationScreen(this, Text.component("history.clear"), Text.component("history.clear_help"), Text.component("history.clear"), () -> {
             app.listeningHistory.replace(java.util.Map.of());
@@ -251,20 +277,22 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
             s.hudEnabled = v;
             rebuildWidgets();
         }, "hud.darkmusic.master_help");
-        toggle("hud.darkmusic.in_menus", () -> s.hudInMenus, v -> s.hudInMenus = v, "hud.darkmusic.in_menus_help");
         boolean classic = s.hudStyle == Settings.HudStyle.CLASSIC;
         boolean artwork = s.hudStyle == Settings.HudStyle.ARTWORK;
         boolean spectrumOnly = s.hudStyle == Settings.HudStyle.SPECTRUM;
         boolean linear = !s.hudEnabled || classic || artwork || spectrumOnly;
         if (s.hudEnabled) {
+            subsection("hud.darkmusic.group.appearance");
             action("circle.darkmusic.style", () -> {
                 s.hudStyle = Settings.HudStyle.values()[(s.hudStyle.ordinal() + 1) % Settings.HudStyle.values().length];
                 app.save();
                 rebuildWidgets();
             }, "circle.darkmusic.style_help");
             controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("circle.darkmusic.style") + ": " + Text.get("circle.darkmusic.style." + s.hudStyle.name().toLowerCase(Locale.ROOT))));
-            if (classic)
+            if (classic) {
                 toggle("text.darkmusic.hud_artwork", () -> s.hudArtwork, v -> s.hudArtwork = v, "hud.darkmusic.artwork_help");
+                toggle("hud.darkmusic.next_song", () -> s.hudNextSong, v -> s.hudNextSong = v, "hud.darkmusic.next_song_help");
+            }
 
             if (!spectrumOnly) {
                 action("hud.image_source", () -> {
@@ -322,10 +350,41 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                 action("hud.darkmusic.background_colors", () -> show(new ColorsScreen(app, this, s.hudBackgroundColors, "hud.darkmusic.background_colors")), "colors.darkmusic.help");
             }
         }
+        subsection("hud.darkmusic.group.motion");
+        toggle("hud.darkmusic.in_menus", () -> s.hudInMenus, v -> s.hudInMenus = v, "hud.darkmusic.in_menus_help");
+        if (s.hudEnabled) {
+            waveformSlider(s.hudIdleHide / (double) Settings.IDLE_HIDE_MAX, v -> Text.get("hud.darkmusic.idle_hide") + ": "
+                    + (s.hudIdleHide == 0 ? Text.get("hud.darkmusic.idle_off") : Text.get("hud.darkmusic.seconds", s.hudIdleHide)),
+                v -> s.hudIdleHide = (int) Math.round(v * Settings.IDLE_HIDE_MAX), Settings.IDLE_HIDE_MAX, "hud.darkmusic.idle_hide_help");
+            if (s.hudIdleHide > 0)
+                choice("hud.darkmusic.idle_animation", () -> Text.get("hud.darkmusic.motion." + s.hudIdleAnimation.name().toLowerCase(Locale.ROOT)),
+                    () -> s.hudIdleAnimation = Settings.Motion.values()[(s.hudIdleAnimation.ordinal() + 1) % Settings.Motion.values().length],
+                    "hud.darkmusic.idle_animation_help");
+            toggle("hud.darkmusic.transitions", () -> s.hudTransitions, v -> s.hudTransitions = v, "hud.darkmusic.transitions_help");
+        }
+        subsection("hud.darkmusic.group.card");
+        choice("hud.darkmusic.song_card", () -> Text.get("hud.darkmusic.song_card." + s.songCard.name().toLowerCase(Locale.ROOT)),
+            () -> s.songCard = Settings.SongCard.values()[(s.songCard.ordinal() + 1) % Settings.SongCard.values().length], "hud.darkmusic.song_card_help");
+        if (s.songCard != Settings.SongCard.OFF) {
+            choice("hud.darkmusic.card_animation", () -> Text.get("hud.darkmusic.motion." + s.songCardAnimation.name().toLowerCase(Locale.ROOT)),
+                () -> s.songCardAnimation = Settings.Motion.values()[(s.songCardAnimation.ordinal() + 1) % Settings.Motion.values().length],
+                "hud.darkmusic.card_animation_help");
+            action("hud.darkmusic.card_position", () -> show(new HudEditorScreen(app, this, HudEditorScreen.Element.CARD)), "hud.darkmusic.card_position_help");
+        }
         subsection("progress.darkmusic.group");
         if (s.hudEnabled && !spectrumOnly)
             toggle("text.darkmusic.hud_progress", () -> s.hudProgress, v -> s.hudProgress = v,
                 artwork ? "hud.darkmusic.artwork_progress_help" : classic ? "text.darkmusic.show_the_current_track_s_progress_below_the_title_and_artist" : "circle.darkmusic.progress_help");
+        if (s.hudEnabled && classic) {
+            toggle("hud.darkmusic.time", () -> s.hudTime, v -> {
+                s.hudTime = v;
+                rebuildWidgets();
+            }, "hud.darkmusic.time_help");
+            if (s.hudTime)
+                choice("hud.darkmusic.time_position", () -> Text.get("hud.darkmusic.time_position." + s.hudTimePosition.name().toLowerCase(Locale.ROOT)),
+                    () -> s.hudTimePosition = Settings.TimePosition.values()[(s.hudTimePosition.ordinal() + 1) % Settings.TimePosition.values().length],
+                    "hud.darkmusic.time_position_help");
+        }
         if (!linear && s.hudProgress)
             rotation("circle.darkmusic.progress_rotation", () -> s.circularProgressRotation, v -> s.circularProgressRotation = v, "circle.darkmusic.progress_rotation_help");
         toggle("progress.darkmusic.waveform", () -> s.waveformProgress, v -> {

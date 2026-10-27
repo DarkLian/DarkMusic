@@ -47,6 +47,26 @@ public final class ListeningHistory {
     /**
      * Freeze both history views before playback starts, independently of screen lifetime.
      */
+    /**
+     * The newest songs by file date, newest first. Imports and downloads write new files, so they count from when
+     * they were added; files copied in by hand keep their own dates.
+     */
+    public static List<Track> recentlyAdded(List<Track> library, int limit) {
+        return library.stream().sorted(Comparator.comparingLong(Track::modified).reversed()
+            .thenComparing(Track::title, String.CASE_INSENSITIVE_ORDER).thenComparing(Track::id)).limit(limit).toList();
+    }
+
+    /**
+     * Songs never played to a counted play, in library order.
+     */
+    public synchronized List<Track> neverPlayed(List<Track> library) {
+        var data = entries;
+        return library.stream().filter(t -> {
+            var entry = data.get(t.id());
+            return entry == null || entry.plays() == 0;
+        }).toList();
+    }
+
     public void playbackSource(String root, String collection, List<Track> queue, List<Track> library) {
         if (collection == null) {
             if (rankings != null) {
