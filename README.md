@@ -6,9 +6,9 @@ Your own music library, inside Minecraft. Browse and play your collection, build
 
 ## Install
 
-DarkMusic **v3.1.2** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v3.2.0** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-3.1.2.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-3.2.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Add your songs under **Settings → General → Music Folders**, drag audio files into the player, or copy them to `config/darkmusic/music` in your instance.
@@ -55,7 +55,7 @@ Open Song Actions on a song to choose **Play Next** or **Add to Queue**. Open **
 
 ## Show your music in the game
 
-Choose a **Classic**, **Circular**, **Artwork**, or **Spectrum Only** HUD. Pick bars, waves, or spikes, add gradients, glow, trails, and peak markers, and optionally turn on a **waveform progress bar** that shows the real shape of the song (**Settings → HUD → Progress Bar**). Move and resize everything in **Edit HUD Layout**.
+Choose a **Classic**, **Circular**, **Artwork**, or **Spectrum Only** HUD. Pick bars, waves, or spikes, add gradients, glow, trails, and peak markers, and optionally turn on a **waveform progress bar** that shows the real shape of the song (**Settings → HUD → Progress Bar**). Move and resize everything in **Edit HUD Layout**, and turn on **Show HUD in Menus** to keep it visible over chat and other menus.
 
 ![Classic Now-Playing HUD during gameplay](docs/images/classic-hud.png)
 
@@ -116,6 +116,8 @@ PiP follows the frame limit you choose; on one tested system a 144 FPS limit del
 Automatic update checks are on by default: they run after joining a world/server and every six hours while connected. Notifications appear once per launch after you join a world or server. Click **Update** to approve a download, then close Minecraft to finish installing. You can also use **Settings → General → Check for Updates**. Your settings, library, playlists, and assets are kept. If installation fails, the next launch tells you and offers the log.
 
 ## What's new
+
+**v3.2.0** refreshes menus and the HUD: static button labels, clearer setting rows and sliders, a graphic EQ, a black default menu background, sharper Circular and lyrics text on a readable plate, an Artwork HUD title caption, and an optional **Show HUD in Menus** ([release notes](docs/RELEASE-3.2.0.md)).
 
 **v3.1.2** lists Cubes Without Borders as a conflicting mod and warns in PiP settings whenever Exclusive Fullscreen is on. Both cause screen tearing while PiP captures; Minecraft's own non-exclusive fullscreen does not ([notes](docs/RELEASE-3.1.2.md)).
 
