@@ -1,0 +1,18 @@
+{
+  "selected": {
+    "provider": "lrclib",
+    "recordId": "42",
+    "title": "Title",
+    "artist": "Artist",
+    "album": "Album",
+    "duration": 201.5,
+    "language": "ja",
+    "variant": "TRANSLATED",
+    "generated": false,
+    "instrumental": false,
+    "text": "[00:01.00]first\n[00:02.50]second"
+  },
+  "offset": -250,
+  "language": "ja",
+  "pinned": true
+}
