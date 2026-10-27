@@ -1295,7 +1295,7 @@
   "upnext.add.help": "Add this song after your other queued songs.",
   "upnext.reorder.help": "Drag songs to reorder. Ctrl-click or Shift-click to select a connected group.",
   "upnext.collection.help": "Drag a song into Queued by You to play it later. This doesn't copy the audio file or change the collection.",
-  "upnext.remove.help": "Remove this occurrence from Up Next. Keep the audio file.",
+  "upnext.remove.help": "Remove the checked songs, or the selected one, from Up Next. Audio files are kept.",
   "upnext.clear.help": "Clear songs you've added to Up Next. The currently playing song won't stop.",
   "upnext.remove": "Remove",
   "upnext.clear": "Clear Queued Songs",

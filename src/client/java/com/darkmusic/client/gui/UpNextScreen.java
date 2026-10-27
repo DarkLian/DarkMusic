@@ -72,7 +72,12 @@ public final class UpNextScreen extends LocalScreen {
         addRenderableWidget(new InfoHint(automaticX, automaticTitleY - 4, listWidth, Text.component("upnext.collection.help")));
         int w = (width - 28) / 2, y = height - 28;
         remove = button("upnext.remove", 12, y, w, () -> {
-            if (app.canEditQueue()) app.playback.removeQueued(selectedId);
+            // Checked rows win over the single highlighted row, matching the playlist manager.
+            if (app.canEditQueue()) {
+                if (selection.isEmpty()) app.playback.removeQueued(selectedId);
+                else for (var key : selection.selected()) app.playback.removeQueued(Long.parseLong(key));
+                selection.clear();
+            }
             refresh();
         });
         clear = button("upnext.clear", 16 + w, y, w, () -> {
@@ -119,7 +124,7 @@ public final class UpNextScreen extends LocalScreen {
         int index = selectedIndex();
         boolean editable = app.canEditQueue();
         manual.active = editable;
-        remove.active = editable && index >= 0;
+        remove.active = editable && (index >= 0 || !selection.isEmpty());
         clear.active = editable && !snapshot.manual().isEmpty();
     }
 

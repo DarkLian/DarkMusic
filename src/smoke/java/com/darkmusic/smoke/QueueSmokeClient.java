@@ -146,6 +146,16 @@ final class QueueSmokeClient {
                     check(app.playback.upNextSnapshot().manual().size() == 1, "Remove occurrence");
                     activate(mc, "upnext.clear");
                     check(app.playback.upNextSnapshot().manual().isEmpty(), "Clear queue");
+                    // Remove takes every checked row, not only the highlighted one.
+                    for (var track : List.of(a, b, a)) app.playback.insertQueued(track, app.playback.upNextSnapshot().manual().size());
+                    queue.tick();
+                    long kept = app.playback.upNextSnapshot().manual().get(1).id();
+                    queue.mouseClicked(new MouseButtonEvent(rows.getX() + 8, rows.getY() + 8, new MouseButtonInfo(0, 0)), false);
+                    queue.mouseClicked(new MouseButtonEvent(rows.getX() + 8, rows.getY() + 28 * 2 + 8, new MouseButtonInfo(0, 0)), false);
+                    activate(mc, "upnext.remove");
+                    var left = app.playback.upNextSnapshot().manual();
+                    check(left.size() == 1 && left.getFirst().id() == kept, "Bulk remove left " + left.size() + " entries");
+                    activate(mc, "upnext.clear");
                     app.playback.repeat(PlaybackController.Repeat.OFF);
                     app.playback.shuffle(false);
                     app.playback.play(List.of(a, b), a);
