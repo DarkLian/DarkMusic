@@ -1,8 +1,10 @@
 package com.darkmusic.client.audio;
 
 import com.darkmusic.client.config.*;
+import com.darkmusic.client.testing.Await;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -100,9 +102,7 @@ class UnifiedAudioDspTest {
         for (double rate : new double[]{44100, 48000, 96000, 192000})
             for (var mode : ConvolutionReverb.Impulse.values()) {
                 var reverb = new ConvolutionReverb(rate, mode);
-                long until = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
-                while (!reverb.ready() && System.nanoTime() < until) Thread.sleep(5);
-                assertTrue(reverb.ready());
+                Await.until(Duration.ofSeconds(10), reverb::ready, "impulse ready");
                 double[][] impulse = reverb.impulseSamples();
                 double error = 0, energy = 0;
                 int frames = impulse[0].length + ConvolutionReverb.HOP * 3;

@@ -6,11 +6,13 @@ import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.playlist.PlaylistStore;
+import com.darkmusic.client.testing.Await;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import javax.sound.sampled.AudioFileFormat;
 import javax.sound.sampled.AudioSystem;
+import java.time.Duration;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -35,9 +37,7 @@ class StorageTest {
     }
 
     static void await(java.util.function.BooleanSupplier condition) throws Exception {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(12);
-        while (!condition.getAsBoolean() && System.nanoTime() < deadline) Thread.sleep(20);
-        assertTrue(condition.getAsBoolean(), "Timed out waiting for asynchronous operation");
+        Await.until(Duration.ofSeconds(12), condition, "asynchronous operation");
     }
 
     @Test

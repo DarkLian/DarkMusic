@@ -3,6 +3,7 @@ package com.darkmusic.client;
 import com.darkmusic.client.download.*;
 import com.darkmusic.client.library.MetadataReader;
 import com.darkmusic.client.library.MusicLibrary;
+import com.darkmusic.client.testing.Await;
 import com.darkmusic.client.text.Text;
 import com.darkmusic.client.tools.DownloadDiagnostics;
 import com.darkmusic.client.tools.ProcessRunner;
@@ -31,9 +32,7 @@ class DownloadTest {
     Path temp;
 
     static void await(BooleanSupplier condition) throws Exception {
-        long end = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
-        while (!condition.getAsBoolean() && System.nanoTime() < end) Thread.sleep(10);
-        assertTrue(condition.getAsBoolean(), "Timed out");
+        Await.until(Duration.ofSeconds(15), condition, "condition");
     }
 
     ToolPaths tools() throws Exception {

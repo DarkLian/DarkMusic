@@ -3,6 +3,7 @@ package com.darkmusic.client.audio;
 import com.darkmusic.client.config.AudioSettings;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.media.ExternalAudio;
+import com.darkmusic.client.testing.Await;
 import com.darkmusic.client.tools.ProcessRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -41,14 +42,13 @@ class LoudnessRetryTest {
             var retryField = LoudnessCache.class.getDeclaredField("retryAfter");
             retryField.setAccessible(true);
             var retries = (java.util.Map<?, ?>) retryField.get(cache);
-            long deadline = System.nanoTime() + 5_000_000_000L;
-            while (retries.isEmpty() && System.nanoTime() < deadline) Thread.sleep(10);
+            Await.until(Duration.ofSeconds(5), () -> !retries.isEmpty(), "retry scheduled");
             assertEquals(1, retries.size());
             ExternalAudio.configure(() -> new ExternalAudio.Paths(temp, ff.toString(), ff.resolveSibling(ff.getFileName().toString().replace("ffmpeg", "ffprobe")).toString()));
             for (int i = 0; i < 100; i++) assertEquals(1, cache.gain(track, settings));
             clock.set(31_000_000_000L);
             double gain = 1;
-            deadline = System.nanoTime() + 5_000_000_000L;
+            long deadline = System.nanoTime() + 5_000_000_000L;
             while (gain == 1 && System.nanoTime() < deadline) {
                 gain = cache.gain(track, settings);
                 Thread.sleep(10);

@@ -4,9 +4,11 @@ import com.darkmusic.client.backup.BackupArchive;
 import com.darkmusic.client.config.*;
 import com.darkmusic.client.gui.FolderTree;
 import com.darkmusic.client.playlist.PlaylistStore;
+import com.darkmusic.client.testing.Await;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.time.Duration;
 import java.nio.file.*;
 import java.util.*;
 
@@ -115,8 +117,7 @@ class MusicFoldersTest {
         Path available = Files.createDirectories(directory.resolve("available/nested")), offline = directory.resolve("offline");
         try (var library = new MusicLibrary(directory.resolve("config"))) {
             library.setRoots(Map.of(available.getParent(), "online", offline, "offline"), available.getParent());
-            long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
-            while (library.snapshot().scanning() && System.nanoTime() < deadline) Thread.sleep(10);
+            Await.until(Duration.ofSeconds(5), () -> !library.snapshot().scanning(), "scan finished");
             var snapshot = library.snapshot();
             assertFalse(snapshot.scanning());
             assertEquals(Set.of("online"), snapshot.completeRoots());

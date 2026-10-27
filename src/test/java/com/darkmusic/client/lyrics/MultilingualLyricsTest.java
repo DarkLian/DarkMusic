@@ -8,12 +8,14 @@ import com.darkmusic.client.download.DownloadModels;
 import com.darkmusic.client.library.LyricsFiles;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.testing.Await;
 import com.darkmusic.client.tools.DownloadDiagnostics;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.tools.Toolchain;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.time.Duration;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
@@ -328,11 +330,7 @@ class MultilingualLyricsTest {
     }
 
     private static void await(java.util.function.BooleanSupplier condition) throws Exception {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        while (!condition.getAsBoolean()) {
-            if (System.nanoTime() > deadline) fail("Timed out");
-            Thread.sleep(5);
-        }
+        Await.until(Duration.ofSeconds(5), condition, "condition");
     }
 
     private static LyricsProvider provider(java.util.function.Function<LyricsProvider.Query, List<LyricsProvider.Candidate>> results) {
