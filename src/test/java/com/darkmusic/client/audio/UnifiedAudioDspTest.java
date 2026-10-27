@@ -45,6 +45,40 @@ class UnifiedAudioDspTest {
     }
 
     @Test
+    void wsolaKeepsLowSampleRateMonoContinuous() throws Exception {
+        // A device opened at the file's own low rate gives a short hop; the history ring must still cover the look-ahead.
+        for (int rate : new int[]{8000, 11025, 16000, 22050})
+            for (int channels : new int[]{1, 2}) {
+                int frames = rate * 4;
+                byte[] bytes = new byte[frames * channels * 2];
+                for (int i = 0; i < frames; i++) {
+                    int value = (int) (12000 * Math.sin(2 * Math.PI * 440 * i / rate));
+                    for (int c = 0; c < channels; c++) {
+                        bytes[(i * channels + c) * 2] = (byte) value;
+                        bytes[(i * channels + c) * 2 + 1] = (byte) (value >> 8);
+                    }
+                }
+                var format = new javax.sound.sampled.AudioFormat(rate, 16, channels, true, false);
+                try (var stream = new javax.sound.sampled.AudioInputStream(new java.io.ByteArrayInputStream(bytes), format, frames)) {
+                    var converter = new PcmRateConverter(stream);
+                    float[] out = new float[2048];
+                    // A clean 440 Hz sine never moves further than this between neighbouring samples.
+                    double limit = 2 * Math.PI * 440 / rate * (12000 / 32768.0) * 1.5 + 1e-3;
+                    double last = Double.NaN;
+                    long count = 0, jumps = 0;
+                    for (int n; (n = converter.read(out, out.length, 1.25, rate, true)) >= 0; )
+                        for (int i = 0; i < n; i += channels) {
+                            if (!Double.isNaN(last) && Math.abs(out[i] - last) > limit) jumps++;
+                            last = out[i];
+                            count++;
+                        }
+                    assertEquals(0, jumps, "discontinuities at " + rate + " Hz, " + channels + " channel(s)");
+                    assertEquals(frames / 1.25, count, 32, "tempo duration at " + rate + " Hz");
+                }
+            }
+    }
+
+    @Test
     void truePeakProtectsIntersampleOvershootWithLinkedStereoAndFiniteLatency() {
         for (double rate : new double[]{44100, 48000, 96000, 192000})
             for (double fraction : new double[]{.02077, .20833, .35417, .4375, .48958}) {

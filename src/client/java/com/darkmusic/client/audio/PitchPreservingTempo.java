@@ -25,9 +25,12 @@ final class PitchPreservingTempo {
         start = source.rawPosition();
         hop = Math.clamp((int) Math.round(deviceRate * .02), 160, 3840);
         search = Math.max(32, hop / 4);
-        int capacity = Integer.highestOneBit(hop * 12 - 1) << 1;
-        ring = new float[capacity][channels];
         decoded = new float[2048];
+        // Hold everything from the oldest search candidate to the look-ahead plus one more decoded chunk.
+        // The fixed 2048-frame terms do not scale with the rate, so hop * 12 alone is too small below ~22 kHz.
+        int span = 2 * search + 2 * hop + 2048 + decoded.length / channels + 2;
+        int capacity = Integer.highestOneBit(Math.max(hop * 12, span) - 1) << 1;
+        ring = new float[capacity][channels];
         overlap = new float[hop * channels];
         output = new float[hop * channels];
         blend = new double[hop];

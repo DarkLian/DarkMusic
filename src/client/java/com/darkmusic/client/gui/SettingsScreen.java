@@ -155,7 +155,9 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         });
         PlayerProgress.configure(playerProgressPreview, app, () -> {
             var track = app.playback.state().track();
-            return track != null ? track : app.library.snapshot().tracks().isEmpty() ? null : app.library.snapshot().tracks().getFirst();
+            if (track != null) return track;
+            var tracks = app.library.snapshot().tracks();
+            return tracks.isEmpty() ? null : tracks.getFirst();
         });
         top = wide ? 44 : 68;
         bottom = height - 12;

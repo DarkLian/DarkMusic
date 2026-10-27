@@ -50,7 +50,7 @@ class DownloadTest {
         try (var service = new DownloadService(temp.resolve("preview-data"), () -> {
         }, fake)) {
             service.configure(tools());
-            service.lyrics(true, "ja, en", "en-US");
+            service.lyrics(true, "ja, en");
             service.analyze("https://www.youtube.com/playlist?list=PL1", 1);
             await(() -> !service.snapshot().analyzing() && service.snapshot().preview() != null);
             var requests = fake.commands.stream().filter(command -> command.contains("--dump-single-json")).toList();

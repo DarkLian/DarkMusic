@@ -33,14 +33,21 @@ public final class NowPlayingHud {
         });
     }
 
+    /**
+     * Preview stand-in. One snapshot read: a rescan may publish an empty library between two reads.
+     */
+    private static Track firstTrack(DarkMusicClient app) {
+        var tracks = app.library.snapshot().tracks();
+        return tracks.isEmpty() ? null : tracks.getFirst();
+    }
+
     public static HudLayout.Bounds bounds(DarkMusicClient app, int width, int height) {
         return HudLayout.bounds(app.settings, width, height, content(app));
     }
 
     public static HudLayout.Content content(DarkMusicClient app) {
         var track = app.playback.state().track();
-        if (track == null && !app.library.snapshot().tracks().isEmpty())
-            track = app.library.snapshot().tracks().getFirst();
+        if (track == null) track = firstTrack(app);
         var cover = app.settings.hudStyle == Settings.HudStyle.ARTWORK ? HudImages.cover(app, track) : null;
         return HudLayout.content(app.settings, Integer.MAX_VALUE, cover == null ? 1 : cover.contentWidth() - 2 * cover.menuInset(), cover == null ? 1 : cover.contentHeight());
     }
@@ -70,8 +77,7 @@ public final class NowPlayingHud {
         var state = app.playback.state();
         var track = state.track();
         if (track == null && !preview) return;
-        if (track == null && !app.library.snapshot().tracks().isEmpty())
-            track = app.library.snapshot().tracks().getFirst();
+        if (track == null) track = firstTrack(app);
         var art = (app.settings.hudStyle == Settings.HudStyle.ARTWORK || app.settings.hudStyle == Settings.HudStyle.CLASSIC && app.settings.hudArtwork) ? HudImages.cover(app, track) : null;
         var layout = content(app);
         int w = layout.width(), h = layout.height(), main = layout.mainY();

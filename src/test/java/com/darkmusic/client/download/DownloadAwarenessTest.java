@@ -145,6 +145,35 @@ class DownloadAwarenessTest {
     }
 
     @Test
+    void laterBatchReplacesAnUnansweredReviewInsteadOfBeingDropped() throws Exception {
+        var t = known();
+        var runner = new Runner();
+        try (var index = new LibrarySourceIndex(temp.resolve("index")); var service = new DownloadService(temp.resolve("service"), () -> {
+        }, runner)) {
+            index.update(List.of(t), Map.of(t.file().getParent(), t.rootId()), true);
+            index.settled().get(10, TimeUnit.SECONDS);
+            service.awareness(index);
+            service.configure(tools());
+            service.format(DownloadFormat.ORIGINAL);
+            service.enqueueSelected(List.of(entry()), temp.resolve("first-folder"));
+            Await.until(Duration.ofSeconds(10), () -> !service.snapshot().analyzing(), "First review");
+            var first = service.duplicateChoice();
+            assertNotNull(first);
+            // The first review is left unanswered, as when the Download screen closes before it appears.
+            var other = new Entry(2, "Second batch", "https://youtu.be/abcDEFG_123", "Youtube", "abcDEFG_123", true);
+            service.enqueueSelected(List.of(other), temp.resolve("second-folder"));
+            Await.until(Duration.ofSeconds(10), () -> !service.snapshot().analyzing(), "Second review");
+            var second = service.duplicateChoice();
+            assertNotNull(second);
+            assertNotEquals(first.id(), second.id(), "The newer batch must be reviewable, not silently dropped");
+            assertEquals(List.of(other), second.entries());
+            assertEquals(temp.resolve("second-folder"), second.destination());
+            service.resolveDuplicateChoice(first.id(), false);
+            assertSame(second, service.duplicateChoice(), "A stale review id cannot resolve the newer batch");
+        }
+    }
+
+    @Test
     void noIndexAndDownloadAnywayKeepExistingPipelineAndCancelPreservesFile() throws Exception {
         var t = known();
         var runner = new Runner();

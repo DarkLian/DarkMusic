@@ -119,6 +119,36 @@ class UpdateTest {
     }
 
     @Test
+    void failedSwapAlwaysLeavesExactlyOneWorkingModJar() throws Exception {
+        var p = fixture();
+        Path old = Path.of(p.getProperty("old")), mods = old.getParent();
+        // New name: the old JAR cannot be moved aside, so the newly placed JAR is withdrawn again.
+        assertThrows(Exception.class, () -> UpdateInstaller.install(root.resolve("job"), p, (source, target) -> source.equals(old)));
+        assertEquals("old mod fixture", Files.readString(old));
+        assertFalse(Files.exists(mods.resolve("darkmusic-2.4.0.jar")));
+        assertFalse(Files.exists(root.resolve("job/previous.jar")));
+        try (var files = Files.list(mods)) {
+            assertEquals(List.of(old), files.toList(), "No temporary or second JAR is left behind");
+        }
+    }
+
+    @Test
+    void sameNameSwapRestoresTheOldJarEvenWhenTheBackupCannotBeMoved() throws Exception {
+        var p = fixture();
+        Path mods = root.resolve("mods"), old = mods.resolve("darkmusic-2.4.0.jar");
+        Files.move(Path.of(p.getProperty("old")), old);
+        p.setProperty("old", old.toString());
+        Path backup = root.resolve("job/previous.jar");
+        // Both the new JAR's move and the backup's move back fail; the copy fallback must restore the mod.
+        var failure = assertThrows(Exception.class, () -> UpdateInstaller.install(root.resolve("job"), p,
+            (source, target) -> target.equals(old)));
+        assertEquals("old mod fixture", Files.readString(old));
+        assertTrue(failure.getMessage().contains("Move refused"), "The original failure is kept, not replaced by the rollback");
+        assertTrue(failure.getSuppressed().length >= 1);
+        assertTrue(Files.exists(backup), "The backup stays available after a copy-based restore");
+    }
+
+    @Test
     void extractedInstallerRunsWithOnlyTheJdk() throws Exception {
         var p = fixture();
         Path job = root.resolve("job"), manifest = job.resolve("install.properties");

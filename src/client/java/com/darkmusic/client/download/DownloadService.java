@@ -102,11 +102,16 @@ public final class DownloadService implements AutoCloseable {
 
     private volatile boolean lyricsEnabled = true;
     private volatile boolean autoCaptions;
-    private volatile java.util.function.Consumer<Path> savedObserver = file -> {
+    private static final java.util.function.Consumer<Path> NO_OBSERVER = file -> {
     };
+    private volatile java.util.function.Consumer<Path> savedObserver = NO_OBSERVER;
 
     public void savedObserver(java.util.function.Consumer<Path> observer) {
         savedObserver = java.util.Objects.requireNonNull(observer);
+    }
+
+    public boolean hasSavedObserver() {
+        return savedObserver != NO_OBSERVER;
     }
 
     public void autoCaptions(boolean value) {
@@ -117,10 +122,6 @@ public final class DownloadService implements AutoCloseable {
 
     public void lyrics(boolean enabled) {
         lyricsEnabled = enabled;
-    }
-
-    public void lyrics(boolean enabled, String preferences, String automatic) {
-        lyrics(enabled, preferences);
     }
 
     public void lyrics(boolean enabled, String preferences) {
@@ -456,8 +457,8 @@ public final class DownloadService implements AutoCloseable {
             }
             if (!found.isEmpty()) synchronized (this) {
                 token.check();
-                if (duplicateChoice == null)
-                    duplicateChoice = new DuplicateChoice(++choiceIds, List.copyOf(entries), destination, selected, requested, java.util.Map.copyOf(found));
+                // The newest request replaces an unanswered review; keeping the old one would drop this batch.
+                duplicateChoice = new DuplicateChoice(++choiceIds, List.copyOf(entries), destination, selected, requested, java.util.Map.copyOf(found));
                 message = Text.get("download.library.review_needed", found.size());
                 published = null;
                 return;

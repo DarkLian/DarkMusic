@@ -230,6 +230,7 @@ final class ResetSmokeClient {
                     require(mc.options.guiScale().get() == 2, "Reset changed Minecraft GUI scale");
                     require(app.playback.state().track() == null, "Old track/queue survived reset");
                     require(app.downloads.snapshot().items().isEmpty() && app.downloads.snapshot().preview() == null && app.downloads.lastAnalyzedUrl().isEmpty(), "Download state survived reset");
+                    require(app.downloadsConnected(), "The replacement download service lost its saved-file lyric hook");
                     require(app.playlists.get(retainedPlaylist) != null, "Reset removed user playlist");
                     // Since v2.2.0 reset keeps installed download tools (USER_GUIDE: Reset to Defaults).
                     require(Files.exists(data.resolve("tools/managed/current.json")) && Files.exists(data.resolve("tools/managed/bundle-1234-abcd/yt-dlp.exe")), "Reset removed installed download tools");
@@ -257,8 +258,8 @@ final class ResetSmokeClient {
                 default -> throw new IllegalStateException("Unknown reset stage");
             }
         } catch (Throwable e) {
-            stage = 999;
             org.slf4j.LoggerFactory.getLogger("darkmusic-reset-smoke").error("DARKMUSIC_SMOKE_FAIL stage=" + stage, e);
+            stage = 999;
             mc.stop();
         }
     }

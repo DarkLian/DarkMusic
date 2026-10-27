@@ -35,6 +35,13 @@ public final class UpdateInstaller {
     }
 
     public static void install(Path directory, Properties p) throws Exception {
+        install(directory, p, (source, target) -> false);
+    }
+
+    /**
+     * {@code refused} lets disposable tests fail chosen moves. A lambda adds no class file to the copied helper.
+     */
+    static void install(Path directory, Properties p, java.util.function.BiPredicate<Path, Path> refused) throws Exception {
         Path old = Path.of(p.getProperty("old")).toAbsolutePath().normalize();
         Path staged = directory.resolve("download.jar");
         String name = p.getProperty("name", "");
@@ -49,22 +56,69 @@ public final class UpdateInstaller {
             Files.copy(staged, incoming, StandardCopyOption.REPLACE_EXISTING);
             if (!hash(incoming).equals(p.getProperty("sha256")))
                 throw new java.io.IOException("Copied update checksum mismatch");
-            retryMove(old, backup);
-            try {
-                retryMove(incoming, target);
-            } catch (Exception failure) {
-                retryMove(backup, old);
-                throw failure;
+            if (target.equals(old)) {
+                // Same file name: the old JAR must leave before the new one can take its place.
+                retryMove(old, backup, refused);
+                try {
+                    retryMove(incoming, target, refused);
+                } catch (Exception failure) {
+                    restore(backup, old, failure, refused);
+                    throw failure;
+                }
+            } else {
+                // Install beside the old JAR first: a failure here leaves the working installation untouched.
+                retryMove(incoming, target, refused);
+                try {
+                    retryMove(old, backup, refused);
+                } catch (Exception failure) {
+                    try {
+                        retryDelete(target);
+                    } catch (Exception cleanup) {
+                        // Both JARs remain; Fabric names them both instead of starting without the mod.
+                        failure.addSuppressed(cleanup);
+                    }
+                    throw failure;
+                }
             }
         } finally {
             Files.deleteIfExists(incoming);
         }
     }
 
-    private static void retryMove(Path source, Path target) throws Exception {
+    /**
+     * Never leave the mods folder without the mod: fall back to copying when the backup cannot be moved back.
+     */
+    private static void restore(Path backup, Path old, Exception failure, java.util.function.BiPredicate<Path, Path> refused) {
+        try {
+            retryMove(backup, old, refused);
+        } catch (Exception move) {
+            failure.addSuppressed(move);
+            try {
+                Files.copy(backup, old);
+            } catch (Exception copy) {
+                failure.addSuppressed(copy);
+                failure.addSuppressed(new java.io.IOException("Previous DarkMusic JAR retained at " + backup));
+            }
+        }
+    }
+
+    private static void retryMove(Path source, Path target, java.util.function.BiPredicate<Path, Path> refused) throws Exception {
+        if (refused.test(source, target)) throw new java.io.IOException("Move refused: " + source + " -> " + target);
         for (int attempt = 0; ; attempt++) {
             try {
                 Files.move(source, target);
+                return;
+            } catch (java.io.IOException failure) {
+                if (attempt == 39) throw failure;
+                Thread.sleep(250);
+            }
+        }
+    }
+
+    private static void retryDelete(Path file) throws Exception {
+        for (int attempt = 0; ; attempt++) {
+            try {
+                Files.deleteIfExists(file);
                 return;
             } catch (java.io.IOException failure) {
                 if (attempt == 39) throw failure;

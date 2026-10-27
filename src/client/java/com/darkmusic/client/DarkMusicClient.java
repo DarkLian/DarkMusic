@@ -485,18 +485,12 @@ public class DarkMusicClient implements ClientModInitializer {
         playback.repeat(settings.repeat);
         autoplayPending = settings.autoplay;
         library = new MusicLibrary(config.directory());
-        downloads = new DownloadService(config.directory(), () -> library.requestRescan());
-        downloads.configure(new ToolPaths(settings.ytDlpPath, settings.ffmpegPath, settings.ffprobePath, settings.javascriptPath));
-        downloads.format(settings.downloadFormat);
-        lyrics.lookup.captions(downloads::fetchLyrics, downloads::fetchSourceLyrics);
+        downloads = createDownloads();
+        // Read the field on each call: Reset to Defaults replaces the download service.
+        lyrics.lookup.captions((track, preferences, generated, token) -> downloads.fetchLyrics(track, preferences, generated, token),
+            (track, preferences, generated, token) -> downloads.fetchSourceLyrics(track, preferences, generated, token));
         lyrics.lookup.captionPreferences(settings.lyricsLanguages, settings.lyricsAutoCaptions);
-        downloads.savedObserver(file -> Minecraft.getInstance().execute(() -> {
-            if (!closed && settings.lyricsEnabled && settings.lyricsOnline && settings.lyricsDownloadLookup)
-                lyrics.lookup.downloaded(file, library.roots(), settings.lyricsLanguages, settings.lyricsAutoCaptions);
-        }));
         lyrics.lookup.configure(settings.lyricsEnabled, settings.lyricsOnline);
-        downloads.autoCaptions(settings.lyricsAutoCaptions);
-        downloads.lyrics(settings.lyricsEnabled, settings.lyricsLanguages);
         try {
             folders.activate(settings.musicDirectory.isBlank() ? config.defaultMusic() : java.nio.file.Path.of(settings.musicDirectory));
         } catch (Exception e) {
@@ -504,6 +498,30 @@ public class DarkMusicClient implements ClientModInitializer {
             settings.musicDirectory = "";
             folders.activate(config.defaultMusic());
         }
+    }
+
+    /**
+     * Startup and Reset to Defaults share this wiring, so a replaced service keeps its lyric hooks.
+     */
+    private DownloadService createDownloads() {
+        var service = new DownloadService(config.directory(), () -> library.requestRescan());
+        service.configure(new ToolPaths(settings.ytDlpPath, settings.ffmpegPath, settings.ffprobePath, settings.javascriptPath));
+        service.format(settings.downloadFormat);
+        service.savedObserver(file -> Minecraft.getInstance().execute(() -> {
+            if (!closed && settings.lyricsEnabled && settings.lyricsOnline && settings.lyricsDownloadLookup)
+                lyrics.lookup.downloaded(file, library.roots(), settings.lyricsLanguages, settings.lyricsAutoCaptions);
+        }));
+        service.autoCaptions(settings.lyricsAutoCaptions);
+        service.lyrics(settings.lyricsEnabled, settings.lyricsLanguages);
+        if (sourceIndex != null) service.awareness(sourceIndex);
+        return service;
+    }
+
+    /**
+     * True when the current download service reports saved files to lyric lookup.
+     */
+    public boolean downloadsConnected() {
+        return downloads != null && downloads.hasSavedObserver();
     }
 
     public java.util.concurrent.Future<?> browse(Runnable task) {
@@ -557,8 +575,10 @@ public class DarkMusicClient implements ClientModInitializer {
     protected void tick(Minecraft client, boolean allowed) {
         if (waveforms != null && settings != null && playback != null) {
             var waveformTrack = playback.state().track();
-            if (waveformTrack == null && client.gui.screen() instanceof HudPreview preview && preview.previewsProgress() && library != null && !library.snapshot().tracks().isEmpty())
-                waveformTrack = library.snapshot().tracks().getFirst();
+            if (waveformTrack == null && client.gui.screen() instanceof HudPreview preview && preview.previewsProgress() && library != null) {
+                var tracks = library.snapshot().tracks();
+                if (!tracks.isEmpty()) waveformTrack = tracks.getFirst();
+            }
             waveforms.update(waveformTrack, settings.waveformProgress && !mediaBusy);
         }
         if (settings != null && playback != null && settings.lyricsEnabled) {
@@ -609,10 +629,10 @@ public class DarkMusicClient implements ClientModInitializer {
             }
         }
         boolean playlistsClean = cleanMissingPlaylistEntries();
-        if (autoplayPending && !mediaBusy && playlistsClean && !library.snapshot().scanning()) {
+        var startup = library.snapshot();
+        if (autoplayPending && !mediaBusy && playlistsClean && !startup.scanning()) {
             autoplayPending = false;
-            if (!library.snapshot().tracks().isEmpty())
-                playback.play(library.snapshot().tracks(), library.snapshot().tracks().getFirst());
+            if (!startup.tracks().isEmpty()) playback.play(startup.tracks(), startup.tracks().getFirst());
         }
     }
 
@@ -686,8 +706,7 @@ public class DarkMusicClient implements ClientModInitializer {
             artwork = new ArtworkCache();
             waveforms = new WaveformCache(config.directory());
             library = new MusicLibrary(config.directory());
-            downloads = new DownloadService(config.directory(), () -> library.requestRescan());
-            downloads.configure(new ToolPaths(settings.ytDlpPath, settings.ffmpegPath, settings.ffprobePath, settings.javascriptPath));
+            downloads = createDownloads();
             resetting = false;
             playback.volume(settings.volume);
             playback.speed(settings.speed);

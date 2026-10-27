@@ -132,8 +132,8 @@ public final class Shortcuts {
         var playback = app.playback;
         var library = app.library;
         if (key == toggle) {
-            if (playback.state().track() == null && !library.snapshot().tracks().isEmpty())
-                playback.play(library.snapshot().tracks(), library.snapshot().tracks().getFirst());
+            var tracks = library.snapshot().tracks();
+            if (playback.state().track() == null && !tracks.isEmpty()) playback.play(tracks, tracks.getFirst());
             else playback.toggle();
         } else if (key == next) playback.next();
         else if (key == previous) playback.previous();

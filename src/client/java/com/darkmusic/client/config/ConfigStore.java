@@ -129,7 +129,8 @@ public final class ConfigStore {
                 int colon = binding.indexOf(':');
                 settings.shortcuts.put(binding.substring(4, colon), binding.substring(colon + 1));
             }
-        } catch (IOException e) {
+        } catch (IOException | java.io.UncheckedIOException e) {
+            // Files.lines decodes lazily: a non-UTF-8 options.txt fails while streaming, not when opened.
             warning.accept(Text.failure(e, "error.shortcut_load"));
         }
         snapshotJson = JSON.toJson(settings);
