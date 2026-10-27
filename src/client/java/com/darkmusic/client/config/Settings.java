@@ -105,74 +105,53 @@ public final class Settings {
     public void validate() {
         if (pip == null) pip = new PipSettings();
         pip.validate();
-        if (classicImage == null) classicImage = HudImage.ARTWORK;
-        if (circularImage == null) circularImage = HudImage.ARTWORK;
-        if (artworkImage == null) artworkImage = HudImage.ARTWORK;
-        circularImageGap = Math.clamp(circularImageGap, 0, 24);
-        if (lyricsConsentVersion < 1) {
-            lyricsOnline = false;
-            lyricsLibraryLookup = false;
-        }
-        if (waveform == null) waveform = new WaveformSettings();
-        waveform.validate();
-        menuBackgroundColor &= 0xFFFFFF;
-        menuAccentColor &= 0xFFFFFF;
-        circularSpectrumHeight = Math.clamp(circularSpectrumHeight, 4, 60);
-        classicSpectrumHeight = Math.clamp(classicSpectrumHeight, 8, 100);
-        artworkSpectrumHeight = Math.clamp(artworkSpectrumHeight, 8, 100);
-        if (artworkSpectrumPosition == null) artworkSpectrumPosition = ArtworkSpectrumPosition.BELOW;
-        if (hudBackgroundColors == null) hudBackgroundColors = backgroundColors();
-        hudBackgroundColors.validate();
-        try {
-            lyricsLanguages = LyricsLanguages.normalize(lyricsLanguages);
-        } catch (IllegalArgumentException e) {
-            lyricsLanguages = "auto";
-        }
-        volume = Double.isFinite(volume) ? Math.clamp(volume, 0, 1) : 1;
-        lastAudibleVolume = volume > 0 ? volume : Double.isFinite(lastAudibleVolume) && lastAudibleVolume > 0 ? Math.clamp(lastAudibleVolume, .01, 1) : 1;
+        validateLibrary();
+        validatePlayback();
+        validateDownloads();
+        validateLyrics();
+        validateMenuColors();
+        validateHud();
+        validateSpectrum();
+    }
+
+    private void validateLibrary() {
         if (musicDirectory == null) musicDirectory = "";
         if (musicFolders != null)
             musicFolders = musicFolders.stream().filter(java.util.Objects::nonNull).filter(p -> !p.isBlank()).distinct().toList();
-        if (outputDevice == null || !outputDevice.matches("[0-9a-f]{64}|")) outputDevice = "";
         if (roots == null) roots = new LinkedHashMap<>();
         if (shortcuts == null) shortcuts = new LinkedHashMap<>();
+    }
+
+    private void validatePlayback() {
+        volume = Double.isFinite(volume) ? Math.clamp(volume, 0, 1) : 1;
+        lastAudibleVolume = volume > 0 ? volume : Double.isFinite(lastAudibleVolume) && lastAudibleVolume > 0 ? Math.clamp(lastAudibleVolume, .01, 1) : 1;
+        if (outputDevice == null || !outputDevice.matches("[0-9a-f]{64}|")) outputDevice = "";
+        if (audio == null) audio = new AudioSettings();
+        audio.validate();
+        if (environment == null) environment = new SoundEnvironmentSettings();
+        environment.validate();
+        if (repeat == null) repeat = Repeat.OFF;
+        speed = clampStep(speed);
+    }
+
+    private void validateDownloads() {
         if (ytDlpPath == null) ytDlpPath = "";
         if (ffmpegPath == null) ffmpegPath = "";
         if (ffprobePath == null) ffprobePath = "";
         if (javascriptPath == null) javascriptPath = "";
         if (downloadFormat == null) downloadFormat = DownloadFormat.ORIGINAL;
-        if (audio == null) audio = new AudioSettings();
-        audio.validate();
-        if (environment == null) environment = new SoundEnvironmentSettings();
-        environment.validate();
-        if (visualQuality == null) visualQuality = defaultVisualQuality();
-        visualQuality.validate();
-        if (repeat == null) repeat = Repeat.OFF;
-        if (!java.util.Set.of("TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT").contains(hudPosition == null ? "" : hudPosition))
-            hudPosition = "TOP_LEFT";
-        speed = clampStep(speed);
-        if (spectrumColors == null) spectrumColors = defaultVisualColors();
-        if (progressColors == null) progressColors = defaultVisualColors();
-        spectrumColors.validate();
-        progressColors.validate();
-        visualizerBars = Math.clamp(visualizerBars, 8, 64);
-        spectrumOpacity = Double.isFinite(spectrumOpacity) ? Math.clamp(spectrumOpacity, .1, 1) : 1;
-        visualizerSensitivity = Double.isFinite(visualizerSensitivity) ? Math.clamp(visualizerSensitivity, .25, 4) : 1;
-        visualizerSmoothing = Double.isFinite(visualizerSmoothing) ? Math.clamp(visualizerSmoothing, 0, .95) : .6;
-        if (hudStyle == null) hudStyle = HudStyle.CLASSIC;
-        if (spectrumStyle == null) spectrumStyle = SpectrumStyle.BARS;
-        if (spectrumFinish == null) spectrumFinish = SurfaceFinish.BEVELED;
-        if (progressFinish == null) progressFinish = SurfaceFinish.BEVELED;
-        if (circularSpectrumStyle != SpectrumStyle.BARS && circularSpectrumStyle != SpectrumStyle.ROUNDED_BARS && circularSpectrumStyle != SpectrumStyle.FILLED_WAVE && circularSpectrumStyle != SpectrumStyle.FILLED_SPIKE)
-            circularSpectrumStyle = SpectrumStyle.BARS;
-        if (hudShape == null) hudShape = HudShape.RECTANGLE;
-        if (circularRotation == null) circularRotation = Rotation.OFF;
-        if (circularProgressRotation == null) circularProgressRotation = Rotation.OFF;
-        circularRotationSeconds = Math.clamp(circularRotationSeconds, 4, 120);
-        if (spectrumPosition == null) spectrumPosition = SpectrumPosition.BELOW;
-        if (spectrumDirection == null) spectrumDirection = SpectrumDirection.UPWARD;
-        hudBackgroundTransparency = Double.isFinite(hudBackgroundTransparency) ? Math.clamp(hudBackgroundTransparency, 0, 1) : 1;
-        hudScale = clampStep(hudScale);
+    }
+
+    private void validateLyrics() {
+        if (lyricsConsentVersion < 1) {
+            lyricsOnline = false;
+            lyricsLibraryLookup = false;
+        }
+        try {
+            lyricsLanguages = LyricsLanguages.normalize(lyricsLanguages);
+        } catch (IllegalArgumentException e) {
+            lyricsLanguages = "auto";
+        }
         lyricsHudScale = clampStep(lyricsHudScale);
         lyricsHudX = Double.isFinite(lyricsHudX) ? Math.clamp(lyricsHudX, 0, 1) : .5;
         lyricsHudY = Double.isFinite(lyricsHudY) ? Math.clamp(lyricsHudY, 0, 1) : .9;
@@ -180,8 +159,57 @@ public final class Settings {
         lyricsHudColor &= 0xFFFFFF;
         lyricsHudNextColor &= 0xFFFFFF;
         lyricsHudOpacity = Double.isFinite(lyricsHudOpacity) ? Math.clamp(lyricsHudOpacity, 0, 1) : 0;
+    }
+
+    private void validateMenuColors() {
+        menuBackgroundColor &= 0xFFFFFF;
+        menuAccentColor &= 0xFFFFFF;
+    }
+
+    private void validateHud() {
+        if (classicImage == null) classicImage = HudImage.ARTWORK;
+        if (circularImage == null) circularImage = HudImage.ARTWORK;
+        if (artworkImage == null) artworkImage = HudImage.ARTWORK;
+        circularImageGap = Math.clamp(circularImageGap, 0, 24);
+        if (waveform == null) waveform = new WaveformSettings();
+        waveform.validate();
+        if (hudBackgroundColors == null) hudBackgroundColors = backgroundColors();
+        hudBackgroundColors.validate();
+        if (!java.util.Set.of("TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT").contains(hudPosition == null ? "" : hudPosition))
+            hudPosition = "TOP_LEFT";
+        if (progressColors == null) progressColors = defaultVisualColors();
+        progressColors.validate();
+        if (hudStyle == null) hudStyle = HudStyle.CLASSIC;
+        if (progressFinish == null) progressFinish = SurfaceFinish.BEVELED;
+        if (hudShape == null) hudShape = HudShape.RECTANGLE;
+        if (circularRotation == null) circularRotation = Rotation.OFF;
+        if (circularProgressRotation == null) circularProgressRotation = Rotation.OFF;
+        circularRotationSeconds = Math.clamp(circularRotationSeconds, 4, 120);
+        hudBackgroundTransparency = Double.isFinite(hudBackgroundTransparency) ? Math.clamp(hudBackgroundTransparency, 0, 1) : 1;
+        hudScale = clampStep(hudScale);
         hudX = hudX == null || !Double.isFinite(hudX) ? (hudPosition.endsWith("RIGHT") ? 1.0 : 0.0) : Math.clamp(hudX, 0, 1);
         hudY = hudY == null || !Double.isFinite(hudY) ? (hudPosition.startsWith("BOTTOM") ? 1.0 : 0.0) : Math.clamp(hudY, 0, 1);
+    }
+
+    private void validateSpectrum() {
+        circularSpectrumHeight = Math.clamp(circularSpectrumHeight, 4, 60);
+        classicSpectrumHeight = Math.clamp(classicSpectrumHeight, 8, 100);
+        artworkSpectrumHeight = Math.clamp(artworkSpectrumHeight, 8, 100);
+        if (artworkSpectrumPosition == null) artworkSpectrumPosition = ArtworkSpectrumPosition.BELOW;
+        if (visualQuality == null) visualQuality = defaultVisualQuality();
+        visualQuality.validate();
+        if (spectrumColors == null) spectrumColors = defaultVisualColors();
+        spectrumColors.validate();
+        visualizerBars = Math.clamp(visualizerBars, 8, 64);
+        spectrumOpacity = Double.isFinite(spectrumOpacity) ? Math.clamp(spectrumOpacity, .1, 1) : 1;
+        visualizerSensitivity = Double.isFinite(visualizerSensitivity) ? Math.clamp(visualizerSensitivity, .25, 4) : 1;
+        visualizerSmoothing = Double.isFinite(visualizerSmoothing) ? Math.clamp(visualizerSmoothing, 0, .95) : .6;
+        if (spectrumStyle == null) spectrumStyle = SpectrumStyle.BARS;
+        if (spectrumFinish == null) spectrumFinish = SurfaceFinish.BEVELED;
+        if (circularSpectrumStyle != SpectrumStyle.BARS && circularSpectrumStyle != SpectrumStyle.ROUNDED_BARS && circularSpectrumStyle != SpectrumStyle.FILLED_WAVE && circularSpectrumStyle != SpectrumStyle.FILLED_SPIKE)
+            circularSpectrumStyle = SpectrumStyle.BARS;
+        if (spectrumPosition == null) spectrumPosition = SpectrumPosition.BELOW;
+        if (spectrumDirection == null) spectrumDirection = SpectrumDirection.UPWARD;
     }
 
     private static VisualColors backgroundColors() {
