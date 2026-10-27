@@ -45,7 +45,8 @@ class ProcessRunnerTest {
             echo = List.of(Path.of(System.getenv("SystemRoot"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe").toString(),
                 "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script.toString(), value);
         }
-        var r = new ProcessRunner().run(echo, temp, new ProcessRunner.Token(), Duration.ofSeconds(10), 32000, s -> {
+        // Generous: a cold powershell.exe start on a busy CI runner has exceeded 10 s. Timing is not under test here.
+        var r = new ProcessRunner().run(echo, temp, new ProcessRunner.Token(), Duration.ofSeconds(60), 32000, s -> {
         });
         assertEquals(0, r.exit());
         assertEquals(value, r.output().strip());
