@@ -1,5 +1,9 @@
 # Development and verification
 
+## v3.3.1: Up Next library search, bulk remove and Beveled bars
+
+The queue in-game check now ticks two of three queued songs and confirms Remove takes both; it switches Up Next to All Songs, searches, confirms the results match and double-clicks one into the queue. The HUD check captures every bar layout at 64 bars with the Beveled finish after the spectrum settles. Zoomed captures showed Classic plain bars and the sideways Artwork spectrum alternating between striped and flat, because side edges were drawn only on bars rounded to 3 pixels. After the fix all bars in a row share one decision. Circular and Rounded Bars were already uniform. Both checks passed at fullscreen 1920×1080, GUI scale 2, with SmoothFont.
+
 ## v3.3.0: Circular HUD rotation, settings reorganization and check repairs
 
 The default and reset in-game checks had drifted from the menus and were repaired. The default check configures ffmpeg/ffprobe from `-PdownloadToolsDirectory` (the private collection is Opus-only), reads playback through Up Next and waits for the player's progress bar to become seekable before dragging it. That wait fixes the old intermittent "Seek release must issue exactly one command" failure, which happened when the first track was still starting. The reset check copies tools from the managed bundle and requires installed tools and music folders to survive Reset to Defaults.

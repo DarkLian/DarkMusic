@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v3.3.0 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v3.3.1 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Picture-in-Picture (Windows x64)
 
@@ -136,9 +136,9 @@ Open **Song Actions** (the More icon at the top-right of the song details panel)
 - **Play Next** places it before other manually queued songs. Repeated Play Next actions put the latest choice first.
 - **Add to Queue** appends it after other manually queued songs, before the remaining collection.
 
-Open **Up Next** beside Downloads in the player header; compact layouts use a playlist icon with hover help. The screen separates Now Playing, Queued by You, and Coming from Collection. Drag manually queued songs to reorder them, including connected selections. Select an occurrence and use Remove to take it out of the queue. Duplicate songs are separate occurrences. Clear Queued Songs removes pending manual entries without stopping playback.
+Open **Up Next** beside Downloads in the player header; compact layouts use a playlist icon with hover help. The screen separates Now Playing, Queued by You, and Coming from Collection. Drag manually queued songs to reorder them, including connected selections. Select an occurrence, or check several, and use Remove to take them out of the queue. Duplicate songs are separate occurrences. Clear Queued Songs removes pending manual entries without stopping playback.
 
-Drag a song from Coming from Collection into Queued by You to add a queued copy at the drop position. Its artwork, title, and artist follow the pointer; the original collection entry remains. The collection preview shows up to 25 tracks. Hover either section heading for a short explanation.
+The right-hand list has a search box and a **View** button: **Collection** shows what is coming up from the current collection, **All Songs** your whole library. Drag a song into Queued by You to add a queued copy at the drop position, or double-click it (or press Enter) to add it at the end. Its artwork, title, and artist follow the pointer; the original collection entry remains. The collection preview shows up to 25 tracks. Hover either section heading for a short explanation.
 
 ![Up Next playback queue](images/up-next.png)
 
