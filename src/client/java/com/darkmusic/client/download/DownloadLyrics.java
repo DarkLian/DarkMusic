@@ -9,7 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Optional source captions only; no lyric search, transcription, or authentication.
@@ -79,11 +78,5 @@ public final class DownloadLyrics {
     public static LyricsDocument document(Result result) {
         return LyricsDocument.of("captions", "", "", "", "", 0, result.language(),
             LyricsDocument.Variant.UNKNOWN, result.generated(), false, result.text());
-    }
-
-    public static Path sidecar(Path audio) {
-        String name = audio.getFileName().toString();
-        int dot = name.lastIndexOf('.');
-        return audio.resolveSibling((dot < 0 ? name : name.substring(0, dot)) + ".lrc");
     }
 }

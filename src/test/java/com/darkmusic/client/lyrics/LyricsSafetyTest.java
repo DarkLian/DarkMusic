@@ -186,8 +186,8 @@ class LyricsSafetyTest {
         Path audio = temp.resolve("identity.dat");
         var p = LyricsFiles.companions(audio);
         Files.writeString(p.getFirst(), "original");
-        LyricsFiles.save(audio, document("first"), true);
-        LyricsFiles.save(audio, document("second"), true);
+        document("first").save(audio, true);
+        document("second").save(audio, true);
         assertEquals("original", Files.readString(p.get(2)));
         LyricsFiles.restore(audio);
         assertEquals("original", Files.readString(p.getFirst()));
@@ -221,7 +221,7 @@ class LyricsSafetyTest {
         Path audio = temp.resolve("identity.dat");
         var p = LyricsFiles.companions(audio);
         Files.writeString(p.getFirst(), "original");
-        assertThrows(FileAlreadyExistsException.class, () -> LyricsFiles.save(audio, document("new"), false));
+        assertThrows(FileAlreadyExistsException.class, () -> document("new").save(audio, false));
         var desired = new LinkedHashMap<Path, byte[]>();
         desired.put(p.getFirst(), "new".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         assertThrows(AssertionError.class, () -> LyricsFiles.transaction(audio, desired, () -> {

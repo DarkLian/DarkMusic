@@ -2,7 +2,6 @@ package com.darkmusic.client.lyrics;
 
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.download.DownloadDiagnostics;
-import com.darkmusic.client.download.DownloadLyrics;
 import com.darkmusic.client.download.LyricsLanguages;
 import com.darkmusic.client.download.ProcessRunner;
 import com.darkmusic.client.library.MetadataReader;
@@ -375,7 +374,7 @@ public final class LyricsLookup implements AutoCloseable {
             Path normalized = file.toAbsolutePath().normalize();
             var root = roots.entrySet().stream().filter(e -> normalized.startsWith(e.getKey()))
                 .max(Comparator.comparingInt(e -> e.getKey().getNameCount())).orElse(null);
-            if (root == null || Files.exists(DownloadLyrics.sidecar(normalized))) return;
+            if (root == null || Files.exists(LyricsFiles.sidecar(normalized))) return;
             var attributes = Files.readAttributes(normalized, java.nio.file.attribute.BasicFileAttributes.class);
             var track = new MetadataReader().read(root.getValue(), root.getKey().relativize(normalized).toString().replace('\\', '/'), normalized, attributes.size(), attributes.lastModifiedTime().toMillis());
             // Existing embedded text remains authoritative even if it has no timing.
@@ -596,7 +595,7 @@ public final class LyricsLookup implements AutoCloseable {
                     List<LyricsProvider.Candidate> found = search.run(token);
                     token.check();
                     if (!sameFile(track)) throw new CancellationException();
-                    boolean sidecarExists = Files.exists(DownloadLyrics.sidecar(track.file()));
+                    boolean sidecarExists = Files.exists(LyricsFiles.sidecar(track.file()));
                     synchronized (this) {
                         if (pending.get(track.id()) != token || token.cancelled() || closed || !enabled || !online)
                             return;
@@ -706,7 +705,7 @@ public final class LyricsLookup implements AutoCloseable {
         submit(() -> {
             token.check();
             if (!enabled || !online || closed || !sameFile(track) || choice(track).selected != null
-                || Files.exists(DownloadLyrics.sidecar(track.file()))) return;
+                || Files.exists(LyricsFiles.sidecar(track.file()))) return;
             Choice previous = choice(track);
             Choice next = new Choice(document, previous.offset, previous.language, false);
             if (directory != null)
@@ -762,7 +761,7 @@ public final class LyricsLookup implements AutoCloseable {
         return submit(() -> {
             if (!sameFile(track) || !document.available())
                 throw new java.io.IOException(Text.get("lyrics.file_changed"));
-            LyricsFiles.save(track.file(), document, replace);
+            document.save(track.file(), replace);
             publish(track, new Snapshot(Status.SAVED, snapshot(track).candidates));
         });
     }

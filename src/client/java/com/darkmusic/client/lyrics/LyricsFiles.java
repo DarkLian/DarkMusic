@@ -2,7 +2,6 @@ package com.darkmusic.client.lyrics;
 
 import com.darkmusic.client.audio.AudioFormats;
 import com.darkmusic.client.config.ConfigStore;
-import com.darkmusic.client.download.DownloadLyrics;
 import com.darkmusic.client.text.Text;
 
 import java.io.IOException;
@@ -27,8 +26,14 @@ public final class LyricsFiles {
     private LyricsFiles() {
     }
 
+    public static Path sidecar(Path audio) {
+        String name = audio.getFileName().toString();
+        int dot = name.lastIndexOf('.');
+        return audio.resolveSibling((dot < 0 ? name : name.substring(0, dot)) + ".lrc");
+    }
+
     public static List<Path> companions(Path audio) {
-        Path lrc = DownloadLyrics.sidecar(audio);
+        Path lrc = sidecar(audio);
         return List.of(lrc, lrc.resolveSibling(lrc.getFileName() + ".darkmusic.json"), lrc.resolveSibling(lrc.getFileName() + ".darkmusic-backup"));
     }
 
@@ -196,7 +201,7 @@ public final class LyricsFiles {
         }
     }
 
-    public static void save(Path audio, LyricsDocument document, boolean replace) throws IOException {
+    public static void save(Path audio, String text, String attribution, boolean replace) throws IOException {
         synchronized (LOCK) {
             recover(audio);
             var paths = companions(audio);
@@ -206,8 +211,8 @@ public final class LyricsFiles {
             var desired = new LinkedHashMap<Path, byte[]>();
             // The first original remains available through any number of replacements.
             if (old != null && !Files.exists(paths.get(2), LinkOption.NOFOLLOW_LINKS)) desired.put(paths.get(2), old);
-            desired.put(paths.getFirst(), document.text().getBytes(StandardCharsets.UTF_8));
-            desired.put(paths.get(1), ConfigStore.JSON.toJson(document).getBytes(StandardCharsets.UTF_8));
+            desired.put(paths.getFirst(), text.getBytes(StandardCharsets.UTF_8));
+            desired.put(paths.get(1), attribution.getBytes(StandardCharsets.UTF_8));
             transaction(audio, desired);
         }
     }

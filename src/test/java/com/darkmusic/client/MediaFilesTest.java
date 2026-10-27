@@ -2,12 +2,12 @@ package com.darkmusic.client;
 
 import com.darkmusic.client.audio.ExternalAudio;
 import com.darkmusic.client.audio.PcmDecoder;
-import com.darkmusic.client.download.DownloadLyrics;
 import com.darkmusic.client.download.ProcessRunner;
 import com.darkmusic.client.library.MediaFiles;
 import com.darkmusic.client.library.MetadataReader;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.lyrics.LyricsFiles;
 import com.darkmusic.client.playlist.PlaylistStore;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
@@ -43,7 +43,7 @@ class MediaFilesTest {
     @Test
     void caseOnlyRenamesPreserveAudioLyricsAndDownloadReferences() throws Exception {
         Path original = Files.copy(TestMusic.featured(), temp.resolve("Original.mp3"));
-        Files.writeString(DownloadLyrics.sidecar(original), "[00:01.00]Real collection lyric sidecar");
+        Files.writeString(LyricsFiles.sidecar(original), "[00:01.00]Real collection lyric sidecar");
         Files.writeString(temp.resolve(".darkmusic-downloads.json"), "{\"source:id\":\"Original.mp3\"}");
         byte[] bytes = Files.readAllBytes(original);
         var before = track(original);
@@ -51,7 +51,7 @@ class MediaFilesTest {
         var edited = files.edit(before, fields, new MediaFiles.Fields(fields.title(), fields.artist(), fields.album(), "original", fields.extension()), new ProcessRunner.Token());
         assertEquals("original.mp3", edited.file().getFileName().toString());
         assertArrayEquals(bytes, Files.readAllBytes(edited.file()));
-        assertTrue(Files.isRegularFile(DownloadLyrics.sidecar(edited.file())));
+        assertTrue(Files.isRegularFile(LyricsFiles.sidecar(edited.file())));
         assertEquals("original.mp3", com.google.gson.JsonParser.parseString(Files.readString(temp.resolve(".darkmusic-downloads.json"))).getAsJsonObject().get("source:id").getAsString());
         try (var entries = Files.list(temp)) {
             assertTrue(entries.anyMatch(p -> p.getFileName().toString().equals("original.mp3")));
@@ -142,15 +142,15 @@ class MediaFilesTest {
         var tags = files.fields(before);
         Path history = temp.resolve(".darkmusic-downloads.json");
         Files.writeString(history, "{\"youtube:downloaded\":\"before.mp3\",\"youtube:downloaded:original\":\"before.mp3\"}");
-        Files.writeString(DownloadLyrics.sidecar(copy), "[00:00.00]Real track lyric sidecar");
+        Files.writeString(LyricsFiles.sidecar(copy), "[00:00.00]Real track lyric sidecar");
         var edited = files.edit(before, tags, new MediaFiles.Fields("新しい曲名", "演出者", "專輯", "更新後", ".exe"), new ProcessRunner.Token());
         assertEquals("更新後.mp3", edited.file().getFileName().toString());
         var archive = com.google.gson.JsonParser.parseString(Files.readString(history)).getAsJsonObject();
         assertEquals("更新後.mp3", archive.get("youtube:downloaded").getAsString());
         assertEquals("更新後.mp3", archive.get("youtube:downloaded:original").getAsString());
         assertFalse(Files.exists(copy));
-        assertFalse(Files.exists(DownloadLyrics.sidecar(copy)));
-        assertEquals("[00:00.00]Real track lyric sidecar", Files.readString(DownloadLyrics.sidecar(edited.file())));
+        assertFalse(Files.exists(LyricsFiles.sidecar(copy)));
+        assertEquals("[00:00.00]Real track lyric sidecar", Files.readString(LyricsFiles.sidecar(edited.file())));
         assertEquals("新しい曲名", edited.title());
         assertEquals("演出者", edited.artist());
         assertEquals("專輯", edited.album());

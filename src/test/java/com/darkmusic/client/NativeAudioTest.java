@@ -9,6 +9,7 @@ import com.darkmusic.client.download.*;
 import com.darkmusic.client.library.MetadataReader;
 import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.lyrics.LyricsFiles;
 import com.darkmusic.client.lyrics.LyricsService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
@@ -125,13 +126,13 @@ class NativeAudioTest {
             var saved = new DownloadPipeline(runner, temp.resolve("data")).execute(entry, temp.resolve("music"), tools, token, (s, d) -> {
             }, DownloadFormat.ORIGINAL, () -> true);
             assertFalse(saved.warning().contains("without artwork"), saved.warning());
-            assertEquals("[00:01.00]Caption timing check", Files.readString(DownloadLyrics.sidecar(saved.file())));
+            assertEquals("[00:01.00]Caption timing check", Files.readString(LyricsFiles.sidecar(saved.file())));
             assertEquals(1, captionCalls.get());
             var disabledEntry = new DownloadModels.Entry(1, "Cover test", "https://example.com/audio", "test", codec[1] + "-disabled", true);
             var disabled = new DownloadPipeline(runner, temp.resolve("data")).execute(disabledEntry, temp.resolve("music"), tools, token, (s, d) -> {
             }, DownloadFormat.ORIGINAL, () -> false);
             assertEquals(1, captionCalls.get(), "Disabled lyrics must not request captions");
-            assertFalse(Files.exists(DownloadLyrics.sidecar(disabled.file())));
+            assertFalse(Files.exists(LyricsFiles.sidecar(disabled.file())));
             byte[] embedded = new MetadataReader().artwork(saved.file());
             assertNotNull(embedded, codec[1]);
             assertNotNull(javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(embedded)));
@@ -255,7 +256,7 @@ class NativeAudioTest {
             var result = DownloadLyrics.fetch(new ProcessRunner(), chain, entry, metadata, temp, new ProcessRunner.Token());
             assertTrue(result.warning().isBlank(), result.warning());
             assertTrue(result.text().contains("Caption timing check"), result.text());
-            Files.writeString(DownloadLyrics.sidecar(audio), result.text());
+            Files.writeString(LyricsFiles.sidecar(audio), result.text());
             var track = new Track("test", audio.getFileName().toString(), audio, "Private excerpt", "", "", 4, Files.size(audio), 0, "");
             try (var service = new LyricsService()) {
                 service.request(track);

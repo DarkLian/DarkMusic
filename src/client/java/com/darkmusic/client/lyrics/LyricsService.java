@@ -3,7 +3,6 @@ package com.darkmusic.client.lyrics;
 import com.darkmusic.client.audio.AudioFormats;
 import com.darkmusic.client.audio.ExternalAudio;
 import com.darkmusic.client.config.ConfigStore;
-import com.darkmusic.client.download.DownloadLyrics;
 import com.darkmusic.client.download.ProcessRunner;
 import com.darkmusic.client.library.OggArtwork;
 import com.darkmusic.client.library.Track;
@@ -237,7 +236,7 @@ public final class LyricsService implements AutoCloseable {
             try {
                 lookup.load(track);
                 LyricsFiles.recover(track.file());
-                Path sidecar = DownloadLyrics.sidecar(track.file());
+                Path sidecar = LyricsFiles.sidecar(track.file());
                 Fingerprint fingerprint = new Fingerprint(stamp(track.file()), stamp(sidecar), stamp(sidecar.resolveSibling(sidecar.getFileName() + ".darkmusic-backup")), stamp(sidecar.resolveSibling(sidecar.getFileName() + ".darkmusic.json")), lookup.encoding(track));
                 if (previous != null && fingerprint.equals(previous.fingerprint))
                     result = new Cached(fingerprint, previous.document, previous.info, System.nanoTime());

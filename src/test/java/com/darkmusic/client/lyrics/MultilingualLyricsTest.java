@@ -563,7 +563,7 @@ class MultilingualLyricsTest {
             assertTrue(entered.await(2, TimeUnit.SECONDS));
             lookup.automatic(b, false);
             await(() -> lookup.choice(b).selected() != null);
-            Files.writeString(DownloadLyrics.sidecar(a.file()), "[00:01]User lyrics");
+            Files.writeString(LyricsFiles.sidecar(a.file()), "[00:01]User lyrics");
             release.countDown();
             await(() -> lookup.snapshot(a).status() == LyricsLookup.Status.READY);
             assertNull(lookup.choice(a).selected());
@@ -704,7 +704,7 @@ class MultilingualLyricsTest {
     @Test
     void safeSavePreservesExistingAndReplacementCanRestorePrevious() throws Exception {
         Track track = identity("save");
-        Path lrc = DownloadLyrics.sidecar(track.file());
+        Path lrc = LyricsFiles.sidecar(track.file());
         Files.writeString(lrc, "[00:01]Original");
         byte[] audio = Files.readAllBytes(track.file());
         try (var lookup = new LyricsLookup(temp.resolve("prefs"), provider(q -> List.of()))) {
@@ -721,7 +721,7 @@ class MultilingualLyricsTest {
     @Test
     void plainLocalSidecarRemainsAvailableAndOffsetIsAppliedOnceToPlaybackClock() throws Exception {
         Track track = identity("local");
-        Path lrc = DownloadLyrics.sidecar(track.file());
+        Path lrc = LyricsFiles.sidecar(track.file());
         Files.writeString(lrc, "[00:01]First\n[00:03]Second");
         try (var service = new LyricsService(temp.resolve("prefs"))) {
             service.request(track);
@@ -965,7 +965,7 @@ class MultilingualLyricsTest {
             service.lookup.automatic(track, false);
             await(() -> service.lookup.choice(track).selected() != null);
             assertFalse(service.lookup.choice(track).pinned());
-            Files.writeString(DownloadLyrics.sidecar(track.file()), "[00:01]Local");
+            Files.writeString(LyricsFiles.sidecar(track.file()), "[00:01]Local");
             service.enabled(false);
             service.enabled(true);
             service.request(track);

@@ -35,7 +35,7 @@ class LyricsJsonFormatTest {
     @Test
     void savedSidecarBytesAreUnchanged(@TempDir Path folder) throws IOException {
         Path audio = Files.writeString(folder.resolve("song.mp3"), "audio");
-        LyricsFiles.save(audio, DOCUMENT, false);
+        DOCUMENT.save(audio, false);
         var paths = LyricsFiles.companions(audio);
         assertEquals(DOCUMENT.text(), Files.readString(paths.getFirst()));
         assertEquals(golden("document.json"), Files.readString(paths.get(1)));

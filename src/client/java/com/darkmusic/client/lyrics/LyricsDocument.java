@@ -1,8 +1,11 @@
 package com.darkmusic.client.lyrics;
 
+import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.download.LyricsLanguages;
 import com.google.gson.annotations.JsonAdapter;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -58,5 +61,12 @@ public record LyricsDocument(String provider, String recordId, String title, Str
 
     public boolean available() {
         return instrumental || !plain.isEmpty();
+    }
+
+    /**
+     * Writes this document as the audio file's lyric sidecar plus its attribution record.
+     */
+    public void save(Path audio, boolean replace) throws IOException {
+        LyricsFiles.save(audio, text, ConfigStore.JSON.toJson(this), replace);
     }
 }

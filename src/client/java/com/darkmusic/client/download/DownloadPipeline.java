@@ -275,7 +275,7 @@ public final class DownloadPipeline {
                         warning = (warning + "; " + Text.get("download.provenance_write")).replaceFirst("^; ", "");
                     if (lyricsEnabled.getAsBoolean() && !lyrics.text().isBlank()) {
                         try {
-                            LyricsFiles.save(target, DownloadLyrics.document(lyrics), false);
+                            DownloadLyrics.document(lyrics).save(target, false);
                         } catch (Exception failure) {
                             warning = (warning + "; " + Text.get("lyrics.darkmusic.save_failed")).replaceFirst("^; ", "");
                             org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not save lyric companions; audio remains saved", failure);
