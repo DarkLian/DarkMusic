@@ -41,6 +41,13 @@ final class QueueSmokeClient {
         throw new NoSuchFieldException(name);
     }
 
+    private static void pressView(Screen screen, String current) {
+        String label = Text.get("format.darkmusic.view", Text.get(current));
+        var view = screen.children().stream().filter(c -> c instanceof AbstractWidget w && w.visible && w.getMessage().getString().equals(label))
+            .map(c -> (AbstractWidget) c).findFirst().orElseThrow(() -> new IllegalStateException("Missing view button: " + label));
+        screen.mouseClicked(new MouseButtonEvent(view.getX() + 3, view.getY() + 3, new MouseButtonInfo(0, 0)), false);
+    }
+
     private static void bounds(Screen screen, int width, int height) {
         screen.init(width, height);
         for (var child : screen.children())
@@ -146,8 +153,28 @@ final class QueueSmokeClient {
                     check(app.playback.upNextSnapshot().manual().size() == 1, "Remove occurrence");
                     activate(mc, "upnext.clear");
                     check(app.playback.upNextSnapshot().manual().isEmpty(), "Clear queue");
+                    // All Songs with a search: double-clicking a match queues it at the end.
+                    pressView(queue, "upnext.view.collection");
+                    check((boolean) field(queue, "allSongs"), "View did not switch to All Songs");
+                    String term = b.title().strip();
+                    var searchBox = (net.minecraft.client.gui.components.EditBox) field(queue, "search");
+                    searchBox.setValue(term.substring(0, Math.min(6, term.length())));
+                    queue.tick();
+                    @SuppressWarnings("unchecked") var matches = (List<com.darkmusic.client.library.Track>) field(queue, "source");
+                    check(!matches.isEmpty() && matches.stream().allMatch(track -> track.matches(term.substring(0, Math.min(6, term.length())).toLowerCase(java.util.Locale.ROOT))), "Search did not filter All Songs");
+                    var found = (RowList) field(queue, "automatic");
+                    var hit = new MouseButtonEvent(found.getX() + 48, found.getY() + 8, new MouseButtonInfo(0, 0));
+                    found.mouseClicked(hit, false);
+                    found.mouseClicked(hit, true);
+                    var queuedNow = app.playback.upNextSnapshot().manual();
+                    check(queuedNow.size() == 1 && queuedNow.getFirst().track().id().equals(matches.getFirst().id()), "Double-click did not queue the search result");
+                    activate(mc, "upnext.clear");
+                    searchBox.setValue("");
+                    pressView(queue, "upnext.view.all");
+                    rows = (RowList) field(queue, "manual");
                     // Remove takes every checked row, not only the highlighted one.
-                    for (var track : List.of(a, b, a)) app.playback.insertQueued(track, app.playback.upNextSnapshot().manual().size());
+                    for (var track : List.of(a, b, a))
+                        app.playback.insertQueued(track, app.playback.upNextSnapshot().manual().size());
                     queue.tick();
                     long kept = app.playback.upNextSnapshot().manual().get(1).id();
                     queue.mouseClicked(new MouseButtonEvent(rows.getX() + 8, rows.getY() + 8, new MouseButtonInfo(0, 0)), false);

@@ -71,7 +71,9 @@ final class HudSmokeClient {
         return new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0));
     }
 
+    private static final String[] BEVEL_CASES = {"classic-bars", "classic-rounded", "circular-bars", "circular-rounded", "artwork-side"};
     private double rotationTurn;
+    private int bevelSettle;
     private boolean rotationSeeked;
     private int waveformWait;
 
@@ -712,7 +714,8 @@ final class HudSmokeClient {
                 }
                 case 73 -> {
                     var playing = app.playback.state();
-                    if (playing.status() != com.darkmusic.client.audio.AudioBackend.Status.PLAYING || playing.duration() <= 0) return;
+                    if (playing.status() != com.darkmusic.client.audio.AudioBackend.Status.PLAYING || playing.duration() <= 0)
+                        return;
                     if (!rotationSeeked) {
                         // Half the ring filled shows which way the progress ring turns.
                         app.playback.seek(playing.duration() / 2);
@@ -759,8 +762,45 @@ final class HudSmokeClient {
                     app.save();
                     state++;
                 }
+                case 77, 78, 79, 80, 81, 82 -> {
+                    // Beveled finish at the maximum bar count, one layout per step, with real music playing.
+                    if (app.playback.state().status() != com.darkmusic.client.audio.AudioBackend.Status.PLAYING) {
+                        var tracks = app.library.snapshot().tracks();
+                        app.playback.play(tracks, tracks.getFirst());
+                        return;
+                    }
+                    if (app.playback.state().position() < 20) {
+                        app.playback.seek(35);
+                        return;
+                    }
+                    int step = state - 77;
+                    // Reconfiguring the analyzer for 64 bars restarts its levels; let them rise first.
+                    if (step > 0 && ++bevelSettle < 8) return;
+                    bevelSettle = 0;
+                    if (step > 0) capture(mc, "bevel-64-" + BEVEL_CASES[step - 1]);
+                    if (step == 5) {
+                        s.visualizerBars = 36;
+                        s.hudStyle = Settings.HudStyle.CLASSIC;
+                        s.spectrumStyle = s.circularSpectrumStyle = Settings.SpectrumStyle.BARS;
+                        app.configureVisualizer();
+                        app.save();
+                        state++;
+                        return;
+                    }
+                    s.hudEnabled = s.hudVisualizer = true;
+                    s.visualizerBars = 64;
+                    s.spectrumFinish = s.progressFinish = Settings.SurfaceFinish.BEVELED;
+                    String next = BEVEL_CASES[step];
+                    s.hudStyle = next.startsWith("circular") ? Settings.HudStyle.CIRCULAR : next.startsWith("artwork") ? Settings.HudStyle.ARTWORK : Settings.HudStyle.CLASSIC;
+                    var style = next.endsWith("rounded") ? Settings.SpectrumStyle.ROUNDED_BARS : Settings.SpectrumStyle.BARS;
+                    s.spectrumStyle = s.circularSpectrumStyle = style;
+                    s.artworkSpectrumPosition = next.equals("artwork-side") ? Settings.ArtworkSpectrumPosition.LEFT : Settings.ArtworkSpectrumPosition.BELOW;
+                    app.configureVisualizer();
+                    mc.gui.setScreen(new SettingsScreen(app, null));
+                    state++;
+                }
                 default -> {
-                    require(captures >= 19, "Private captures did not complete");
+                    require(captures >= 24, "Private captures did not complete");
                     String id = Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip();
                     org.slf4j.LoggerFactory.getLogger("darkmusic-hud-smoke").info("DARKMUSIC_SMOKE_PASS:{} download re-entry/search/range/audition and combined HUD: 96 runtime combinations, GUI scales 2/3/6, live and idle previews, master switch, combined drag/wheel, disk reload; 180 visual style/shape/depth/direction/GUI-scale combinations and paused wave synchronization; Circular HUD controls, 24 toggle/GUI-scale combinations, disk reload, wheel/drag, seek/pause/stop and icon preview; three filled circular shapes, hidden text, pulse with spectrum hidden and paused pulse; independent Flat/Beveled finishes, all shapes, main-player progress, bounded lighting and finish reload; circular rotation rows, speed and synchronized opposite rotation; waveform preview requested outside the Progress section", id);
                     state = 999;

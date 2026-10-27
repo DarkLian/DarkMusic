@@ -8,6 +8,9 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 
+import java.util.List;
+import java.util.Locale;
+
 /**
  * Three bounded, lazy lists backed by the controller's immutable session snapshot.
  */
@@ -21,6 +24,12 @@ public final class UpNextScreen extends LocalScreen {
     private double dragX, dragY;
     private boolean draggingCollection;
     private long selectedId = -1;
+    // The right-hand list: the collection's upcoming tracks or the whole library, filtered by the search box.
+    private boolean allSongs;
+    private String query = "";
+    private List<Track> source = List.of();
+    private Object sourceBasis;
+    private net.minecraft.client.gui.components.EditBox search;
     private int manualTitleY, automaticTitleY, automaticX, listWidth;
 
     public UpNextScreen(DarkMusicClient app, Screen parent) {
@@ -40,7 +49,7 @@ public final class UpNextScreen extends LocalScreen {
         boolean wide = width >= 640;
         listWidth = wide ? (width - 32) / 2 : width - 24;
         manualTitleY = 102;
-        int listHeight = wide ? Math.max(28, height - 166) : Math.max(24, (height - 182) / 2);
+        int listHeight = wide ? Math.max(28, height - 166) : Math.max(24, (height - 206) / 2);
         automaticX = wide ? 20 + listWidth : 12;
         automaticTitleY = wide ? manualTitleY : manualTitleY + 18 + listHeight + 4;
         now = addRenderableWidget(new RowList(12, 48, width - 24, 32, 32, Text.get("upnext.now"), (i, a) -> {
@@ -56,12 +65,33 @@ public final class UpNextScreen extends LocalScreen {
                 app.playback.reorderQueued(snapshot.manual().stream().map(PlaybackController.Queued::id).toList(), move.order(snapshot.manual().size()));
             refresh();
         });
-        automatic = addRenderableWidget(new RowList(automaticX, automaticTitleY + 18, listWidth,
-            wide ? listHeight : Math.max(24, height - 36 - automaticTitleY - 18), 28, Text.get("upnext.automatic"), (i, a) -> {
+        search = addRenderableWidget(new UiInput(font, automaticX, automaticTitleY + 18, listWidth - 112, 20, Text.component("text.darkmusic.search_songs")));
+        search.setValue(query);
+        search.setResponder(text -> {
+            query = text;
+            refresh();
+        });
+        var view = button("format.darkmusic.view", automaticX + listWidth - 108, automaticTitleY + 18, 108, () -> {
+            allSongs = !allSongs;
+            rebuildWidgets();
+        });
+        view.setMessage(Text.component("format.darkmusic.view", Text.get(allSongs ? "upnext.view.all" : "upnext.view.collection")));
+        UiButton.selected(view, () -> allSongs);
+        Help.tip(view, Text.get("upnext.view.help"));
+        automatic = addRenderableWidget(new RowList(automaticX, automaticTitleY + 42, listWidth,
+            wide ? listHeight - 24 : Math.max(18, height - 32 - automaticTitleY - 42), 28, Text.get("upnext.automatic"), (i, activated) -> {
+            // Double-click or Enter adds the song after the other queued songs.
+            if (activated && i < source.size() && app.canEditQueue()) {
+                var resolved = app.playlists.index(app.library.snapshot().tracks()).get(source.get(i).id());
+                if (resolved != null && app.playback.insertQueued(resolved, snapshot.manual().size())) {
+                    refresh();
+                    manual.reveal(snapshot.manual().size() - 1);
+                }
+            }
         }));
         now.artwork(app.artwork, i -> snapshot.current());
         manual.artwork(app.artwork, i -> snapshot.manual().get(i).track());
-        automatic.artwork(app.artwork, i -> snapshot.automatic().get(i));
+        automatic.artwork(app.artwork, i -> i < source.size() ? source.get(i) : null);
         now.rowTooltips(false);
         manual.rowTooltips(false);
         automatic.rowTooltips(false);
@@ -88,6 +118,7 @@ public final class UpNextScreen extends LocalScreen {
         UiButton.style(clear, UiButton.Style.DESTRUCTIVE);
         Help.tip(clear, Text.get("upnext.clear.help"));
         snapshot = null;
+        sourceBasis = null;
         refresh();
     }
 
@@ -112,10 +143,20 @@ public final class UpNextScreen extends LocalScreen {
             selection.retain(keys);
             // The queue is bounded to 1,000; concrete rows preserve RowList's drop animation.
             manual.rows(next.manual().stream().map(q -> row(q.track())).toList());
-            automatic.rows(next.automatic().size(), i -> row(snapshot.automatic().get(i)));
-            automatic.emptyMessage(Text.get(next.shuffle() && next.repeat() == PlaybackController.Repeat.ALL && next.sourceSize() > 0 ? "upnext.shuffle_pending" : "upnext.no_source"));
             manual.select(selectedIndex());
             manual.scrollOffset(scroll);
+        }
+        // Rebuild the right-hand list only when its view, query or underlying tracks change.
+        var tracks = allSongs ? app.library.snapshot().tracks() : snapshot.automatic();
+        var basis = List.of(allSongs, query, tracks);
+        if (!basis.equals(sourceBasis) || sourceBasis == null) {
+            sourceBasis = basis;
+            String needle = query.toLowerCase(Locale.ROOT).strip();
+            source = needle.isEmpty() ? tracks : tracks.stream().filter(track -> track.matches(needle)).toList();
+            automatic.rows(source.size(), i -> row(source.get(i)));
+            automatic.emptyMessage(Text.get(!needle.isEmpty() ? "text.darkmusic.no_matching_songs"
+                : allSongs ? "upnext.no_songs"
+                : snapshot.shuffle() && snapshot.repeat() == PlaybackController.Repeat.ALL && snapshot.sourceSize() > 0 ? "upnext.shuffle_pending" : "upnext.no_source"));
         }
         controls();
     }
@@ -140,8 +181,8 @@ public final class UpNextScreen extends LocalScreen {
         draggingCollection = false;
         if (event.button() == 0 && app.canEditQueue() && automatic.isMouseOver(event.x(), event.y()) && event.x() < automatic.getRight() - 10) {
             int index = (int) (event.y() - automatic.getY() + automatic.scrollOffset()) / 28;
-            if (index >= 0 && index < snapshot.automatic().size()) {
-                collectionDrag = snapshot.automatic().get(index);
+            if (index >= 0 && index < source.size()) {
+                collectionDrag = source.get(index);
                 dragX = event.x();
                 dragY = event.y();
             }
@@ -185,7 +226,7 @@ public final class UpNextScreen extends LocalScreen {
         g.text(font, Text.get("upnext.now"), 14, 34, UiTheme.ACCENT);
         longText.draw(g, font, "queue_scope", Text.get(snapshot.repeat() == PlaybackController.Repeat.ONE ? "upnext.hold" : "upnext.temporary"), 14, 86, width - 28, UiTheme.MUTED);
         longText.draw(g, font, "manual_heading", Text.get("upnext.count", snapshot.manual().size()), 14, manualTitleY, listWidth - 4, UiTheme.ACCENT);
-        longText.draw(g, font, "source_heading", Text.get("upnext.automatic"), automaticX + 2, automaticTitleY, listWidth - 4, UiTheme.SECONDARY);
+        longText.draw(g, font, "source_heading", allSongs ? Text.get("upnext.all_songs", source.size()) : Text.get("upnext.automatic"), automaticX + 2, automaticTitleY, listWidth - 4, UiTheme.SECONDARY);
         super.extractRenderState(g, x, y, delta);
         if (draggingCollection && collectionDrag != null) {
             g.outline(manual.getX(), manual.getY(), manual.getWidth(), manual.getHeight(), UiTheme.ACCENT);

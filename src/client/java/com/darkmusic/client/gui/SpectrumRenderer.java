@@ -19,6 +19,9 @@ public final class SpectrumRenderer {
         return Float.isFinite(magnitude) ? Math.round(Math.clamp(magnitude, 0, 1) * height) : 0;
     }
 
+    // Side edges need three pixels; decided once per row so bars rounded to 2 or 3 pixels look alike.
+    private boolean sideBevel;
+
     private void fill(Settings settings, int left, int top, int right, int bottom, int color) {
         if (settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.ROUNDED_BARS) {
             mesh.rounded(left, top, right, bottom, color, settings.spectrumFinish);
@@ -31,7 +34,7 @@ public final class SpectrumRenderer {
         rawFill(left, top, right, bottom, Bevel.shade(color, -.08));
         rawFill(left, top, right, top + 1, Bevel.shade(color, .32));
         rawFill(left, bottom - 1, right, bottom, Bevel.shade(color, -.28));
-        if (settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.BARS && right - left >= 3 && bottom - top >= 3) {
+        if (settings.spectrumStyle == com.darkmusic.client.config.Settings.SpectrumStyle.BARS && sideBevel && bottom - top >= 3) {
             rawFill(left, top + 1, left + 1, bottom - 1, Bevel.shade(color, .16));
             rawFill(right - 1, top + 1, right, bottom - 1, Bevel.shade(color, -.25));
         }
@@ -146,6 +149,7 @@ public final class SpectrumRenderer {
             return;
         }
         int bars = Math.min(bands, width / 2);
+        sideBevel = width / bars - 1 >= 3;
         for (int i = 0; i < bars; i++) {
             float value = 0;
             for (int j = i * bands / bars; j < (i + 1) * bands / bars; j++) value = Math.max(value, levels[j]);
