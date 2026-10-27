@@ -147,15 +147,14 @@ public final class ValueSlider extends AbstractSliderButton {
         if (!trackOnly || isFocused())
             g.outline(getX(), getY(), getWidth(), getHeight(), isFocused() ? UiTheme.ACCENT : UiTheme.BORDER);
         if (simpleProgress) {
-            g.fill(getX(), getY(), getRight(), getBottom(), UiTheme.BACKGROUND);
+            // Drawn like the HUD's progress bar: its rail, colors and finish, on the panel rather than a dark slot.
             if (waveform != null) {
                 var options = waveformOptions.get();
                 if (WaveformProgress.draw(g, waveform.get(), colors.get(), options, getX(), getY() + (20 - options.height) / 2,
                     getWidth(), options.height, value, finish.get())) return;
             }
-            g.fill(getX(), getY() + 8, getRight(), getY() + 12, UiTheme.SURFACE);
-            ColorStrip.draw(g, colors.get(), getX(), getY() + 8, getWidth(), 4,
-                (int) Math.round(getWidth() * value), Settings.SurfaceFinish.FLAT);
+            ColorStrip.track(g, getX(), getY() + 8, getWidth(), 4, finish.get());
+            ColorStrip.draw(g, colors.get(), getX(), getY() + 8, getWidth(), 4, (int) Math.round(getWidth() * value), finish.get());
             return;
         }
         int handle = getX() + (int) Math.round(value * (getWidth() - 8));
