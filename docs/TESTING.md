@@ -1,6 +1,6 @@
 # Development and verification
 
-## Settings search, lyrics fade and Media Controls (unreleased)
+## v3.5.0: Settings search, lyrics fade and Media Controls
 
 **Settings search.** A search box above the form filters rows from every section and lists them under their section headings. A row matches when every word of the search appears in its label, help text, or section and group names, ignoring case. Choosing a section clears the search, and the search survives rebuilds such as toggling an option. `SettingsSearchTest` covers matching.
 
@@ -16,7 +16,7 @@
 
 `scripts/verify.ps1 -Clean -DesktopIntegration` passed 680 tests (6 skipped), including the desktop Media Controls check. Not yet checked in game.
 
-## Everyday features (unreleased)
+## v3.5.0: Everyday features
 
 **Discord status (opt-in).** `presence.DiscordIpc` speaks Discord's local RPC: little-endian opcode and length frames with JSON, over `\\.\pipe\discord-ipc-N` on Windows or the `discord-ipc-N` Unix socket (plain, Flatpak and Snap locations). The handshake carries only the public application ID. `DiscordPresence` records the wanted status on the client thread; a worker thread connects, sends at most every 4 seconds (Discord allows 5 per 20), retries every 30 seconds while Discord is closed, and re-sends every 60 seconds so a restarted Discord is noticed. A song that keeps playing as expected is not re-sent; a seek of 2 seconds or more is. Pausing clears the status; loading and seeking keep it. The status uses type Listening, the icon from the repository's raw URL, and a releases button. `PackagedJarTest` allows exactly one class, `DiscordIpc$UnixSocket`, to mention `java/net/Socket`, and only alongside `UnixDomainSocketAddress` and without `InetSocketAddress`. `DiscordPresenceTest` drives the protocol and the worker through a fake Discord: framing, handshake refusal and silence, nonce matching with pings, rate limiting, seek detection, pause clearing, reconnection, hidden titles, progress at the playback speed, and Discord's 2-to-128-character limits without splitting characters.
 
@@ -45,7 +45,7 @@
 
 `HudFadeTest` covers alpha scaling of fills and meshes, nesting, the minimum text alpha and skipping invisible fades. `HudMotionTest` adds the slow fade, the fast return, the card's fade timing and the new setting limits. `gradlew test -PjavaOnly` passed 671 tests in a separate worktree, because a dev client was running from the main checkout. Not yet checked in game.
 
-## One PiP package (unreleased)
+## v3.5.0: One PiP package
 
 PiP setup used to keep older dependency ZIPs for at least 24 hours, and longer while their runtime was in use or recently used. Downloads interrupted by a crash were never removed. Each package is about 76 MB, and three accumulated in the development instance in one day.
 
