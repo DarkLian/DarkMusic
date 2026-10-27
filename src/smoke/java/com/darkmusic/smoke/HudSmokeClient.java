@@ -131,8 +131,9 @@ final class HudSmokeClient {
                     var b = NowPlayingHud.bounds(app, screen.width, screen.height);
                     require(b.x() + b.width() <= screen.width - 8 && b.y() + b.height() <= screen.height - 8, "Combined bounds escaped viewport");
                     for (var child : screen.children())
-                        if (child instanceof AbstractWidget widget && widget.visible)
-                            require(widget.getY() >= 32 && widget.getBottom() <= screen.height - 12, "A settings control escaped its region");
+                        // Header controls such as Back sit above the content region by design.
+                        if (child instanceof AbstractWidget widget && widget.visible && widget.getBottom() > 28)
+                            require(widget.getY() >= 32 && widget.getBottom() <= screen.height - 12, "A settings control escaped its region: " + widget.getMessage().getString() + " y=" + widget.getY() + " bottom=" + widget.getBottom() + " height=" + screen.height + " scale=" + scale);
                     if (++combination == 96) state++;
                 }
                 case 2 -> {
@@ -303,8 +304,10 @@ final class HudSmokeClient {
                     state++;
                 }
                 case 29 -> {
-                    pan((RowList) field(mc.gui.screen(), "rows"));
-                    require(mc.gui.screen().mouseScrolled(20, (int) field(mc.gui.screen(), "resultTop") - 8, -1000, 0), "Long download status did not scroll");
+                    var results = (RowList) field(mc.gui.screen(), "rows");
+                    pan(results);
+                    // The status line starts at the result list, which moves right in the wide layout.
+                    require(mc.gui.screen().mouseScrolled(results.getX() + 20, (int) field(mc.gui.screen(), "resultTop") - 8, -1000, 0), "Long download status did not scroll");
                     state++;
                 }
                 case 30 -> {
@@ -438,7 +441,7 @@ final class HudSmokeClient {
                     style.onClick(mouse(style.getX() + 4, style.getY() + 4), false);
                     require(s.hudStyle == Settings.HudStyle.CIRCULAR, "HUD style control did not switch to Circular");
                     require(screen.children().stream().noneMatch(c -> c instanceof AbstractWidget w && (w.getMessage().getString().equals("HUD Artwork") || w.getMessage().getString().startsWith("HUD Shape:"))), "Circular HUD exposes inactive artwork/card options");
-                    for (var expected : new Settings.SpectrumStyle[]{Settings.SpectrumStyle.FILLED_WAVE, Settings.SpectrumStyle.FILLED_SPIKE, Settings.SpectrumStyle.BARS}) {
+                    for (var expected : new Settings.SpectrumStyle[]{Settings.SpectrumStyle.ROUNDED_BARS, Settings.SpectrumStyle.FILLED_WAVE, Settings.SpectrumStyle.FILLED_SPIKE, Settings.SpectrumStyle.BARS}) {
                         var wave = screen.children().stream().filter(c -> c instanceof SettingRow w && w.getMessage().getString().startsWith("Spectrum Style:")).map(c -> (SettingRow) c).findFirst().orElseThrow();
                         wave.onClick(mouse(wave.getX() + 4, wave.getY() + 4), false);
                         require(s.circularSpectrumStyle == expected, "Circular style control ignored the selected filled shape");

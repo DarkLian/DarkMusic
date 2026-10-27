@@ -81,9 +81,20 @@ final class DownloadPreviewClient {
 
     private String serve(Path file) throws Exception {
         byte[] bytes = Files.readAllBytes(file);
+        String name = file.getFileName().toString(), extension = name.substring(name.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT);
+        // Serve the real container under its own name; a mislabeled .mp3 makes yt-dlp request an MP3 remux.
+        String type = switch (extension) {
+            case "mp3" -> "audio/mpeg";
+            case "m4a" -> "audio/mp4";
+            case "opus", "ogg" -> "audio/ogg";
+            case "flac" -> "audio/flac";
+            case "wav" -> "audio/wav";
+            default -> throw new IllegalStateException("Unsupported collection file for preview: " + extension);
+        };
+        String path = "/song." + extension;
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.setExecutor(task -> Thread.ofVirtual().start(task));
-        server.createContext("/song.mp3", exchange -> {
+        server.createContext(path, exchange -> {
             int first = 0, last = bytes.length - 1;
             String range = exchange.getRequestHeaders().getFirst("Range");
             if (range != null && range.matches("bytes=\\d+-\\d*")) {
@@ -91,7 +102,7 @@ final class DownloadPreviewClient {
                 first = Integer.parseInt(parts[0]);
                 if (!parts[1].isEmpty()) last = Math.min(last, Integer.parseInt(parts[1]));
             }
-            exchange.getResponseHeaders().set("Content-Type", "audio/mpeg");
+            exchange.getResponseHeaders().set("Content-Type", type);
             exchange.getResponseHeaders().set("Accept-Ranges", "bytes");
             if (first > last) {
                 exchange.sendResponseHeaders(416, -1);
@@ -113,7 +124,7 @@ final class DownloadPreviewClient {
             exchange.close();
         });
         server.start();
-        return "http://127.0.0.1:" + server.getAddress().getPort() + "/song.mp3";
+        return "http://127.0.0.1:" + server.getAddress().getPort() + path;
     }
 
     private void checkQueueControls(Minecraft mc, DarkMusicClient app) throws Exception {
