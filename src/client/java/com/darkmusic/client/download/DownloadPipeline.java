@@ -2,6 +2,7 @@ package com.darkmusic.client.download;
 
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.DownloadFormat;
+import com.darkmusic.client.library.DownloadArchive;
 import com.darkmusic.client.library.LibraryFiles;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.lyrics.LyricsFiles;
@@ -30,66 +31,12 @@ import static com.darkmusic.client.download.DownloadModels.*;
 public final class DownloadPipeline {
     private final ProcessRunner runner;
     private final Path data;
-    private static final Object historyLock = new Object();
     private DownloadWorkspace workspace;
     private int workspaceUsers;
 
     public DownloadPipeline(ProcessRunner runner, Path data) {
         this.runner = runner;
         this.data = data;
-    }
-
-    private static JsonObject readArchive(Path history) throws IOException {
-        if (!Files.exists(history)) return new JsonObject();
-        if (Files.size(history) > 16_000_000)
-            throw new IOException(Text.get("text.darkmusic.download_history_is_too_large_preserve_it_and_choose_another_folder"));
-        try (var reader = Files.newBufferedReader(history)) {
-            return JsonParser.parseReader(reader).getAsJsonObject();
-        } catch (RuntimeException e) {
-            throw new IOException(Text.get("download.history_read"), e);
-        }
-    }
-
-    @FunctionalInterface
-    public interface RenameOperation {
-        void run() throws IOException;
-    }
-
-    public static void forgetRecorded(Path audio) throws IOException {
-        synchronized (historyLock) {
-            Path file = audio.resolveSibling(".darkmusic-downloads.json");
-            if (!Files.exists(file, java.nio.file.LinkOption.NOFOLLOW_LINKS)) return;
-            var archive = readArchive(file);
-            boolean changed = archive.entrySet().removeIf(e -> e.getValue().isJsonPrimitive() && audio.getFileName().toString().equals(e.getValue().getAsString()));
-            if (changed) ConfigStore.atomicWrite(file, ConfigStore.JSON.toJson(archive));
-        }
-    }
-
-    /**
-     * Keep duplicate detection and the file rename in one serialized transaction.
-     */
-    public static void renameRecorded(Path source, Path target, RenameOperation rename) throws IOException {
-        synchronized (historyLock) {
-            Path history = source.getParent().resolve(".darkmusic-downloads.json");
-            JsonObject original = readArchive(history), updated = original.deepCopy();
-            boolean changed = false;
-            for (var entry : original.entrySet())
-                if (entry.getValue().isJsonPrimitive() && entry.getValue().getAsString().equals(source.getFileName().toString())) {
-                    updated.addProperty(entry.getKey(), target.getFileName().toString());
-                    changed = true;
-                }
-            if (changed) ConfigStore.atomicWrite(history, ConfigStore.JSON.toJson(updated));
-            try {
-                rename.run();
-            } catch (IOException failure) {
-                if (changed) try {
-                    ConfigStore.atomicWrite(history, ConfigStore.JSON.toJson(original));
-                } catch (IOException rollback) {
-                    failure.addSuppressed(rollback);
-                }
-                throw failure;
-            }
-        }
     }
 
     static List<String> convert(Toolchain tools, Path source, Path target, Path cover, JsonObject metadata, Entry entry) {
@@ -200,8 +147,8 @@ public final class DownloadPipeline {
                 throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.STORAGE_FAILURE, stage, tool, null, "Insufficient disk space", null);
             Path history = destination.resolve(".darkmusic-downloads.json");
             String identity = entry.key() + (format == DownloadFormat.ORIGINAL ? ":original" : "");
-            synchronized (historyLock) {
-                Path prior = previous(readArchive(history), identity, destination);
+            synchronized (DownloadArchive.LOCK) {
+                Path prior = previous(DownloadArchive.read(history), identity, destination);
                 if (prior != null)
                     return new Saved(prior, true, Text.get("download.already_saved"));
             }
@@ -311,10 +258,10 @@ public final class DownloadPipeline {
                         output.write(buffer, 0, read);
                     }
                 }
-                synchronized (historyLock) {
+                synchronized (DownloadArchive.LOCK) {
                     token.check();
                     // Merge the latest history only after conversion; other workers may have committed.
-                    JsonObject archive = readArchive(history);
+                    JsonObject archive = DownloadArchive.read(history);
                     Path prior = previous(archive, identity, destination);
                     if (prior != null)
                         return new Saved(prior, true, Text.get("download.already_saved"));
@@ -363,8 +310,8 @@ public final class DownloadPipeline {
     }
 
     boolean repairBookkeeping(Path destination, String identity) throws IOException {
-        synchronized (historyLock) {
-            DownloadCommit.recover(destination, identity, readArchive(destination.resolve(".darkmusic-downloads.json")));
+        synchronized (DownloadArchive.LOCK) {
+            DownloadCommit.recover(destination, identity, DownloadArchive.read(destination.resolve(".darkmusic-downloads.json")));
             return !DownloadCommit.pending(destination, identity);
         }
     }

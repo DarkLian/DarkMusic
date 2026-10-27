@@ -1,9 +1,9 @@
 package com.darkmusic.client;
 
-import com.darkmusic.client.download.DownloadPipeline;
 import com.darkmusic.client.download.ProcessRunner;
 import com.darkmusic.client.gui.DesktopWindowGuard;
 import com.darkmusic.client.library.AudioDeletion;
+import com.darkmusic.client.library.DownloadArchive;
 import com.darkmusic.client.library.ImportHistory;
 import com.darkmusic.client.library.MediaFiles;
 import com.darkmusic.client.library.SourceLinks;
@@ -204,7 +204,7 @@ public final class MediaActions {
                 for (var track : deleted.removed()) {
                     try {
                         SourceLinks.forget(track.file());
-                        DownloadPipeline.forgetRecorded(track.file());
+                        DownloadArchive.forgetRecorded(track.file());
                     } catch (java.io.IOException cleanupFailure) {
                         org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Could not remove deleted-file provenance", cleanupFailure);
                     }

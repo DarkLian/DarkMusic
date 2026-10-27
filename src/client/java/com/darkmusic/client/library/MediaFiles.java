@@ -2,7 +2,6 @@ package com.darkmusic.client.library;
 
 import com.darkmusic.client.audio.AudioFormats;
 import com.darkmusic.client.audio.ExternalAudio;
-import com.darkmusic.client.download.DownloadPipeline;
 import com.darkmusic.client.download.ProcessRunner;
 import com.darkmusic.client.lyrics.LyricsFiles;
 import com.darkmusic.client.text.Text;
@@ -200,13 +199,13 @@ public final class MediaFiles {
                     movedCompanions.add(i);
                 }
                 if (rename)
-                    DownloadPipeline.renameRecorded(source, target, () -> edit.install(staged));
+                    DownloadArchive.renameRecorded(source, target, () -> edit.install(staged));
                 else edit.install(staged);
                 try {
                     SourceLinks.renamed(source, target, verifiedSource, edit.installedHash());
                 } catch (IOException provenanceFailure) {
                     if (rename)
-                        DownloadPipeline.renameRecorded(target, source, edit::rollback);
+                        DownloadArchive.renameRecorded(target, source, edit::rollback);
                     else edit.rollback();
                     throw provenanceFailure;
                 }
