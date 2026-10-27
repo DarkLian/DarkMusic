@@ -180,8 +180,8 @@ final class MusicCaptureClient {
             }
             step++;
         } catch (Throwable error) {
+            org.slf4j.LoggerFactory.getLogger("darkmusic-capture").error("DARKMUSIC_SMOKE_FAIL step=" + step, error);
             step = 999;
-            org.slf4j.LoggerFactory.getLogger("darkmusic-capture").error("DARKMUSIC_SMOKE_FAIL", error);
             mc.stop();
         }
     }

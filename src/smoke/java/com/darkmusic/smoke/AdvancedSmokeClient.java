@@ -193,8 +193,8 @@ final class AdvancedSmokeClient {
                 }
             }
         } catch (Throwable e) {
+            org.slf4j.LoggerFactory.getLogger("darkmusic-advanced-smoke").error("DARKMUSIC_SMOKE_FAIL stage=" + stage, e);
             stage = 999;
-            org.slf4j.LoggerFactory.getLogger("darkmusic-advanced-smoke").error("DARKMUSIC_SMOKE_FAIL", e);
             mc.stop();
         }
     }

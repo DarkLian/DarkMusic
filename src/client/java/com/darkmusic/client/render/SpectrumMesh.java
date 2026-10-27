@@ -13,8 +13,10 @@ import org.joml.Matrix3x2f;
  * Batches the existing pixel-exact spectrum rectangles without changing their geometry or layering.
  */
 public final class SpectrumMesh {
-    private final int[] rectangles = new int[16384];
-    private final int[] bottomColors = new int[3277];
+    // Sized for the densest default HUD; grows once if a shaped, rounded, trailed spectrum needs more.
+    private static final int MAX_RECTANGLES = 26_214;
+    private int[] rectangles = new int[16384];
+    private int[] bottomColors = new int[3277];
     private boolean hasGradient;
     private double opacity = 1;
     private int count, width, hudHeight;
@@ -92,8 +94,12 @@ public final class SpectrumMesh {
         if (right <= left || bottom <= top) return;
         topColor = SpectrumAppearance.opacity(topColor, opacity);
         bottomColor = SpectrumAppearance.opacity(bottomColor, opacity);
-        if (count + 5 > rectangles.length)
-            throw new IllegalStateException("Spectrum geometry exceeded its bounded detail budget");
+        if (count + 5 > rectangles.length) {
+            // Drop excess detail rather than throw from HUD rendering, which would end the game session.
+            if (rectangles.length / 5 >= MAX_RECTANGLES) return;
+            rectangles = java.util.Arrays.copyOf(rectangles, Math.min(rectangles.length * 2, MAX_RECTANGLES * 5));
+            bottomColors = java.util.Arrays.copyOf(bottomColors, rectangles.length / 5 + 1);
+        }
         bottomColors[count / 5] = bottomColor;
         hasGradient |= topColor != bottomColor;
         rectangles[count++] = left;

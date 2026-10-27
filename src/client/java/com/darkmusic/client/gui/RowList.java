@@ -53,6 +53,7 @@ public final class RowList extends AbstractWidget {
     private final int rowHeight;
     private final BiConsumer<Integer, Boolean> action;
     private List<Row> rows = List.of();
+    private boolean lazyRows;
     private String emptyMessage = Text.get("text.darkmusic.no_entries");
     private SongSelection selection;
     private int selected = -1, scroll;
@@ -173,10 +174,12 @@ public final class RowList extends AbstractWidget {
     }
 
     public void rows(List<Row> rows) {
-        if (this.rows.equals(rows)) {
+        // Comparing against the lazy form would build every row through its factory.
+        if (!lazyRows && this.rows.equals(rows)) {
             if (dropping != null) cancelDrag();
             return;
         }
+        lazyRows = false;
         hoveredRow = -2;
         resetClicks();
         if (dropping != null && dropping.stream().map(this.rows::get).toList().equals(rows)) {
@@ -211,6 +214,7 @@ public final class RowList extends AbstractWidget {
         if (size < 0) throw new IllegalArgumentException("Negative row count");
         resetClicks();
         cancelDrag();
+        lazyRows = true;
         var cached = new java.util.LinkedHashMap<Integer, Row>(32, .75f, true);
         this.rows = new java.util.AbstractList<>() {
             @Override

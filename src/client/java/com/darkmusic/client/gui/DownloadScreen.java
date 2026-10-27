@@ -491,9 +491,15 @@ public final class DownloadScreen extends LocalScreen {
                         throw new IllegalArgumentException(Text.get("text.darkmusic.check_at_least_one_preview_entry"));
                     app.downloads.enqueueSelected(selected, destination);
                 }
-                case RANGE -> app.downloads.enqueueRange(p, positive(from), positive(to), destination);
+                case RANGE -> {
+                    int start = positive(from), end = positive(to);
+                    // Validate here so a rejected range keeps the user on the form beside its fields.
+                    DownloadModels.range(start, end);
+                    app.downloads.enqueueRange(p, start, end, destination);
+                }
                 case ALL -> {
                     if (p.total() < 1) throw new IllegalArgumentException(Text.get("download.darkmusic.unknown_end"));
+                    DownloadModels.range(1, p.total());
                     app.downloads.enqueueRange(p, 1, p.total(), destination);
                 }
             }

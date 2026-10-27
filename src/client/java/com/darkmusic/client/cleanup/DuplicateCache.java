@@ -102,8 +102,15 @@ public final class DuplicateCache {
     }
 
     public void flush() throws IOException {
+        // Group once: filtering every entry per dirty shard is quadratic when a legacy cache migrates.
+        var byShard = new HashMap<Integer, List<Saved>>();
+        for (Saved value : entries.values()) {
+            Integer shard = shards.get(value.id);
+            if (shard != null && dirty.contains(shard))
+                byShard.computeIfAbsent(shard, s -> new ArrayList<>()).add(value);
+        }
         for (int shard : List.copyOf(dirty)) {
-            var values = entries.values().stream().filter(v -> shards.get(v.id) == shard).toList();
+            var values = byShard.getOrDefault(shard, List.of());
             String json = JSON.toJson(new FileData(DuplicatePolicy.CACHE_SCHEMA, FingerprintService.ALGORITHM, values));
             if (json.length() > 24_000_000) throw new IOException("Duplicate cache shard capacity exceeded");
             ConfigStore.atomicWrite(file(shard), json);

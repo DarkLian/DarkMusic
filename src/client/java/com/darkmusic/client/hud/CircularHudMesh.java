@@ -297,7 +297,8 @@ final class CircularHudMesh {
             int count = Math.min(384, look.detail());
             int alpha = (int) Math.round(look.opacity() * 255) << 24;
             boolean bars = look.style() == WaveformSettings.Style.BARS;
-            double gap = bars ? Math.min(.6, look.spacing() / (Math.PI * 2 * CircularHudLayout.RING_OUTER / count)) : 0;
+            // Measure the gap at the bars' base, where neighbours are closest, so it is never narrower than configured.
+            double gap = bars ? Math.min(.6, look.spacing() / (Math.PI * 2 * innerRadius / count)) : 0;
             for (int i = 0; i < count; i++) {
                 double start = i / (double) count, end = (i + 1 - gap) / count;
                 float inner = innerRadius;

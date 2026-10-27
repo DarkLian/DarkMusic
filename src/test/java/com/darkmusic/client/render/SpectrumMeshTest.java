@@ -31,6 +31,19 @@ class SpectrumMeshTest {
     }
 
     @Test
+    void geometryBeyondTheInitialBudgetGrowsOnceThenDropsInsteadOfThrowing() throws Exception {
+        var countField = SpectrumMesh.class.getDeclaredField("count");
+        countField.setAccessible(true);
+        var mesh = new SpectrumMesh();
+        mesh.begin(400, 0, Settings.HudShape.RECTANGLE);
+        // 40,000 one-pixel rectangles: past the initial 3,276 and past the hard cap.
+        for (int i = 0; i < 40_000; i++) mesh.fill(i % 400, i / 400, i % 400 + 1, i / 400 + 1, 0xff123456);
+        int count = (int) countField.get(mesh);
+        assertTrue(count / 5 > 3276, "The batch grows past its initial size");
+        assertTrue(count / 5 <= 26_214, "The batch stays bounded");
+    }
+
+    @Test
     void roundedBarsSoftenCornersAndStayWithinTheExistingBatchBudget() throws Exception {
         var countField = SpectrumMesh.class.getDeclaredField("count");
         countField.setAccessible(true);

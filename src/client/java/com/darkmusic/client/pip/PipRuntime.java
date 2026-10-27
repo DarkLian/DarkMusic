@@ -292,12 +292,15 @@ public final class PipRuntime implements AutoCloseable {
                 if (status.equals("pip.capture_error"))
                     status = install ? "pip.setup.install_failed" : "pip.setup.check_failed";
             } finally {
-                if (closed && lease != null) try {
-                    lease.close();
-                    lease = null;
-                } catch (IOException ignored) {
+                // Synchronized with close(): one side always sees the other's state and releases the lease.
+                synchronized (this) {
+                    if (closed && lease != null) try {
+                        lease.close();
+                        lease = null;
+                    } catch (IOException ignored) {
+                    }
+                    busy = false;
                 }
-                busy = false;
             }
         }, worker);
     }

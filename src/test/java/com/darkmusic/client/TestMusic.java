@@ -26,9 +26,15 @@ final class TestMusic {
         if (Files.isDirectory(root())) try (var paths = Files.walk(root())) {
             files = paths.filter(Files::isRegularFile).filter(p -> p.toString().matches("(?i).*\\.(mp3|flac|wav|ogg)$")).sorted().toList();
         }
+        String reason = "Private music unavailable; set DARKMUSIC_TEST_MUSIC or -PmusicDirectory";
+        if (files.isEmpty() && Files.isDirectory(root())) try (var paths = Files.walk(root())) {
+            // An Opus-only collection is present but unreadable here; verify.ps1 prepares MP3 excerpts from it.
+            if (paths.anyMatch(p -> p.toString().matches("(?i).*\\.(opus|m4a|aac|mp4|webm)$")))
+                reason = "The collection at " + root() + " has no MP3/FLAC/WAV/OGG files; run scripts/verify.ps1, which prepares real-audio excerpts";
+        }
         if (Boolean.getBoolean("darkmusic.test.requireMusic") && files.isEmpty())
-            throw new AssertionError("Real music required: " + root());
-        Assumptions.assumeFalse(files.isEmpty(), "Private music unavailable; set DARKMUSIC_TEST_MUSIC or -PmusicDirectory");
+            throw new AssertionError("Real music required: " + reason);
+        Assumptions.assumeFalse(files.isEmpty(), reason);
         return files;
     }
 
