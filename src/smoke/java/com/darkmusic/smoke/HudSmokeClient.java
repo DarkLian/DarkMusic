@@ -4,6 +4,7 @@ import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.*;
 import com.darkmusic.client.gui.*;
 import com.darkmusic.client.hud.*;
+import com.darkmusic.client.text.Text;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
@@ -70,6 +71,16 @@ final class HudSmokeClient {
         return new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0));
     }
 
+    private double rotationTurn;
+    private boolean rotationSeeked;
+    private int waveformWait;
+
+    private static double rotationTurn() throws Exception {
+        var field = Class.forName("com.darkmusic.client.hud.CircularRotation").getDeclaredField("turn");
+        field.setAccessible(true);
+        return field.getDouble(null);
+    }
+
     void start() {
         ClientTickEvents.END_CLIENT_TICK.register(this::tick);
     }
@@ -85,7 +96,7 @@ final class HudSmokeClient {
     private void tick(Minecraft mc) {
         if (state == 999) return;
         try {
-            if (++tick > 3600) throw new IllegalStateException("HUD smoke timeout");
+            if (++tick > 4800) throw new IllegalStateException("HUD smoke timeout");
             if (tick % 6 != 0) return;
             var app = DarkMusicClient.INSTANCE;
             var s = app.settings;
@@ -682,10 +693,76 @@ final class HudSmokeClient {
                     app.save();
                     state++;
                 }
+                case 72 -> {
+                    s.hudEnabled = s.hudProgress = s.hudVisualizer = true;
+                    s.hudStyle = Settings.HudStyle.CIRCULAR;
+                    s.waveformProgress = false;
+                    // Default finishes, so the captures show the light staying put while the rings turn.
+                    s.spectrumFinish = s.progressFinish = Settings.SurfaceFinish.BEVELED;
+                    rotationSeeked = false;
+                    s.circularRotation = Settings.Rotation.CLOCKWISE;
+                    s.circularProgressRotation = Settings.Rotation.COUNTERCLOCKWISE;
+                    s.circularRotationSeconds = 4;
+                    if (app.playback.state().status() != com.darkmusic.client.audio.AudioBackend.Status.PLAYING) {
+                        var tracks = app.library.snapshot().tracks();
+                        app.playback.play(tracks, tracks.getFirst());
+                    }
+                    mc.gui.setScreen(new SettingsScreen(app, null));
+                    state++;
+                }
+                case 73 -> {
+                    var playing = app.playback.state();
+                    if (playing.status() != com.darkmusic.client.audio.AudioBackend.Status.PLAYING || playing.duration() <= 0) return;
+                    if (!rotationSeeked) {
+                        // Half the ring filled shows which way the progress ring turns.
+                        app.playback.seek(playing.duration() / 2);
+                        rotationSeeked = true;
+                        return;
+                    }
+                    if (playing.position() < playing.duration() * .45) return;
+                    String rotation = Text.get("circle.darkmusic.rotation") + ": " + Text.get("circle.darkmusic.rotation.clockwise");
+                    String progress = Text.get("circle.darkmusic.progress_rotation") + ": " + Text.get("circle.darkmusic.rotation.counterclockwise");
+                    require(SmokeUi.find(mc, rotation) != null && SmokeUi.find(mc, progress) != null, "Rotation rows missing from Settings");
+                    require(SmokeUi.find(mc, Text.get("circle.darkmusic.rotation_speed", 4)) != null, "Rotation speed missing while rotating");
+                    rotationTurn = rotationTurn();
+                    capture(mc, "circular-rotation-a");
+                    state++;
+                }
+                case 74 -> {
+                    double moved = (rotationTurn() - rotationTurn + 1) % 1;
+                    require(moved > .01 && moved < .5, "Circular rotation did not advance while playing: " + moved);
+                    capture(mc, "circular-rotation-b");
+                    SmokeUi.click(mc, Text.get("circle.darkmusic.rotation") + ": " + Text.get("circle.darkmusic.rotation.clockwise"));
+                    require(s.circularRotation == Settings.Rotation.COUNTERCLOCKWISE, "Rotation row did not cycle to counterclockwise");
+                    s.circularRotation = s.circularProgressRotation = Settings.Rotation.OFF;
+                    app.save();
+                    state++;
+                }
+                case 75 -> {
+                    // After launch nothing has played, so the waveform loader follows the preview's stand-in track
+                    // only while the open screen asks for it. Stopping keeps the track, so check the request itself.
+                    s.waveformProgress = true;
+                    mc.gui.setScreen(new SettingsScreen(app, null));
+                    state++;
+                }
+                case 76 -> {
+                    var settingsScreen = (SettingsScreen) mc.gui.screen();
+                    require((int) SmokeUi.field(settingsScreen, "selectedSection") == 0, "Settings did not open on General");
+                    require(settingsScreen.previewsProgress(), "Settings General preview fell back to the plain progress bar");
+                    var first = app.library.snapshot().tracks().getFirst();
+                    if (app.waveforms.get(first) == null && app.waveforms.get(app.playback.state().track()) == null) {
+                        require(++waveformWait < 100, "Waveform did not load for the Settings preview");
+                        return;
+                    }
+                    capture(mc, "settings-general-waveform");
+                    s.waveformProgress = false;
+                    app.save();
+                    state++;
+                }
                 default -> {
-                    require(captures >= 16, "Private captures did not complete");
+                    require(captures >= 19, "Private captures did not complete");
                     String id = Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip();
-                    org.slf4j.LoggerFactory.getLogger("darkmusic-hud-smoke").info("DARKMUSIC_SMOKE_PASS:{} download re-entry/search/range/audition and combined HUD: 96 runtime combinations, GUI scales 2/3/6, live and idle previews, master switch, combined drag/wheel, disk reload; 180 visual style/shape/depth/direction/GUI-scale combinations and paused wave synchronization; Circular HUD controls, 24 toggle/GUI-scale combinations, disk reload, wheel/drag, seek/pause/stop and icon preview; three filled circular shapes, hidden text, pulse with spectrum hidden and paused pulse; independent Flat/Beveled finishes, all shapes, main-player progress, bounded lighting and finish reload", id);
+                    org.slf4j.LoggerFactory.getLogger("darkmusic-hud-smoke").info("DARKMUSIC_SMOKE_PASS:{} download re-entry/search/range/audition and combined HUD: 96 runtime combinations, GUI scales 2/3/6, live and idle previews, master switch, combined drag/wheel, disk reload; 180 visual style/shape/depth/direction/GUI-scale combinations and paused wave synchronization; Circular HUD controls, 24 toggle/GUI-scale combinations, disk reload, wheel/drag, seek/pause/stop and icon preview; three filled circular shapes, hidden text, pulse with spectrum hidden and paused pulse; independent Flat/Beveled finishes, all shapes, main-player progress, bounded lighting and finish reload; circular rotation rows, speed and synchronized opposite rotation; waveform preview requested outside the Progress section", id);
                     state = 999;
                     mc.stop();
                 }

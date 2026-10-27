@@ -51,7 +51,7 @@ public final class MetadataScreen extends LocalScreen {
         int actionWidth = (panelWidth - 28) / 2;
         save = addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.save"), b -> save()).bounds(left + 12, top + 181, actionWidth, 20).build());
         delete = addRenderableWidget(UiButton.builder(Text.component("delete_audio.single"), b -> {
-            if (!saving && !app.mediaBusy) show(new AudioDeletionScreen(app, this, java.util.List.of(track), parent));
+            if (!saving && !app.mediaBusy()) show(new AudioDeletionScreen(app, this, java.util.List.of(track), parent));
         }).bounds(left + 16 + actionWidth, top + 181, actionWidth, 20).build());
         UiButton.style(delete, UiButton.Style.DESTRUCTIVE);
         UiButton.style(save, UiButton.Style.PRIMARY);
@@ -110,7 +110,7 @@ public final class MetadataScreen extends LocalScreen {
     @Override
     public void tick() {
         boolean editable = original != null && !saving;
-        delete.active = !saving && !app.mediaBusy;
+        delete.active = !saving && !app.mediaBusy();
         for (EditBox box : new EditBox[]{song, artist, album, filename}) box.setEditable(editable);
     }
 

@@ -214,7 +214,7 @@ final class LyricsSmokeClient {
                 consentPlayer.tick();
                 check(mc.gui.screen() == consentPlayer && !app.settings.lyricsOnline, "Cancel remains offline without repeated prompts");
                 for (var screen : List.of(new LyricsScreen(app, null, a), new LyricsSearchScreen(app, null, a),
-                    new LyricsSettingsScreen(app, null), new LyricsLibraryScreen(app, null), new LyricsHudSettingsScreen(app, null), new LyricsOptionsScreen(app, null, a),
+                    new LyricsSettingsScreen(app, null), new LyricsLibraryScreen(app, null), new LyricsOptionsScreen(app, null, a),
                     new AudioDeletionScreen(app, null, List.of(a), null), new LyricCandidateScreen(app, null, a, timed))) {
                     mc.gui.setScreen(screen);
                     for (int w : new int[]{320, 426, 960}) bounds(screen, w, w == 960 ? 540 : 240);

@@ -89,6 +89,15 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
         controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get(key) + ": " + Text.get("finish.darkmusic." + get.get().name().toLowerCase(Locale.ROOT))));
     }
 
+    private void rotation(String key, java.util.function.Supplier<Settings.Rotation> get, Consumer<Settings.Rotation> set, String help) {
+        action(key, () -> {
+            set.accept(Settings.Rotation.values()[(get.get().ordinal() + 1) % Settings.Rotation.values().length]);
+            app.save();
+            rebuildWidgets();
+        }, help);
+        controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get(key) + ": " + Text.get("circle.darkmusic.rotation." + get.get().name().toLowerCase(Locale.ROOT))));
+    }
+
     private void slider(double initial, DoubleFunction<String> label, DoubleConsumer change, int steps, String help) {
         var slider = new ValueSlider(12, 0, formWidth, initial, label, v -> {
             change.accept(v);
@@ -167,6 +176,12 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
         }
         var s = app.settings;
         section("text.darkmusic.general_settings");
+        action("folders.title", () -> show(new MusicFoldersScreen(app, this)), "folders.scope");
+        folderY = cursor;
+        folderPath = app.library.root().toString();
+        folderLines = font.split(net.minecraft.network.chat.Component.literal(folderPath), formWidth - 14);
+        cursor += folderLines.size() * 10 + 4;
+        toggle("text.darkmusic.autoplay_on_launch", () -> s.autoplay, v -> s.autoplay = v, "text.darkmusic.automatically_start_the_library_after_minecraft_launches_disabled_by_default");
         toggle("ui.darkmusic.show_hover_info", () -> s.showHoverInfo, v -> s.showHoverInfo = v, "ui.darkmusic.show_hover_info_help");
         toggle("update.enabled", () -> s.updateNotifications, v -> s.updateNotifications = v, "update.enabled_help");
         action("update.check", () -> show(new UpdateScreen(app, this)), "update.check_help");
@@ -176,12 +191,6 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
             app.listeningHistory.flush(true);
             return java.util.concurrent.CompletableFuture.completedFuture(null);
         })), "history.clear_help").destructive();
-        toggle("text.darkmusic.autoplay_on_launch", () -> s.autoplay, v -> s.autoplay = v, "text.darkmusic.automatically_start_the_library_after_minecraft_launches_disabled_by_default");
-        action("folders.title", () -> show(new MusicFoldersScreen(app, this)), "folders.scope");
-        folderY = cursor;
-        folderPath = app.library.root().toString();
-        folderLines = font.split(net.minecraft.network.chat.Component.literal(folderPath), formWidth - 14);
-        cursor += folderLines.size() * 10 + 4;
         section("settings.audio_section");
         action("audio.darkmusic.title", () -> show(new AudioSettingsScreen(app, this)), "audio.darkmusic.options_help");
         action("environment.title", () -> show(new SoundEnvironmentScreen(app, this)), "environment.scope");
@@ -194,8 +203,27 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
             action("lyrics.settings", () -> show(new LyricsSettingsScreen(app, this)), "lyrics.settings.help");
         }
         if (s.lyricsEnabled) {
-            toggle("lyrics.darkmusic.hud", () -> s.lyricsHud, v -> s.lyricsHud = v, "lyrics.darkmusic.hud_help");
-            action("lyrics.hud.settings", () -> show(new LyricsHudSettingsScreen(app, this)), "lyrics.hud.settings.help");
+            toggle("lyrics.darkmusic.hud", () -> s.lyricsHud, v -> {
+                s.lyricsHud = v;
+                rebuildWidgets();
+            }, "lyrics.darkmusic.hud_help");
+        }
+        if (com.darkmusic.client.hud.LyricsHud.enabled(s)) {
+            subsection("lyrics.hud.settings");
+            toggle("lyrics.hud.next", () -> s.lyricsNextLine, v -> s.lyricsNextLine = v, "lyrics.hud.next.help");
+            toggle("lyrics.hud.text_plate", () -> s.lyricsTextPlate, v -> s.lyricsTextPlate = v, "lyrics.hud.text_plate.help");
+            waveformSlider((s.lyricsHudWidth - 120) / 480.0, v -> Text.get("lyrics.hud.width") + ": " + s.lyricsHudWidth,
+                v -> s.lyricsHudWidth = 120 + (int) Math.round(v * 480), 480, "lyrics.hud.width.help");
+            waveformSlider(s.lyricsHudOpacity, v -> Text.get("lyrics.hud.opacity") + ": " + Math.round(s.lyricsHudOpacity * 100) + "%",
+                v -> s.lyricsHudOpacity = v, 100, "lyrics.hud.opacity.help");
+            action("lyrics.hud.color", () -> show(new ColorPickerScreen(this, s.lyricsHudColor, 0xDDD9FF, color -> {
+                s.lyricsHudColor = color;
+                app.save();
+            })), "lyrics.hud.color.help");
+            action("lyrics.hud.next_color", () -> show(new ColorPickerScreen(this, s.lyricsHudNextColor, 0xAAA7BD, color -> {
+                s.lyricsHudNextColor = color;
+                app.save();
+            })), "lyrics.hud.next_color.help");
         }
         section("settings.appearance_section");
         action("settings.darkmusic.menu_background", () -> show(new ColorPickerScreen(this, s.menuBackgroundColor, 0x000000, color -> {
@@ -240,7 +268,12 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
             if (!linear) {
                 waveformSlider(s.circularImageGap / 24.0, v -> Text.get("hud.circular_gap", s.circularImageGap),
                     v -> s.circularImageGap = (int) Math.round(v * 24), 24, "hud.circular_gap.help");
-                toggle("circle.darkmusic.text", () -> s.circularText, v -> s.circularText = v, "circle.darkmusic.text_help");
+                toggle("circle.darkmusic.text", () -> s.circularText, v -> {
+                    s.circularText = v;
+                    rebuildWidgets();
+                }, "circle.darkmusic.text_help");
+                if (s.circularText)
+                    toggle("hud.text_plate", () -> s.hudTextPlate, v -> s.hudTextPlate = v, "hud.text_plate.help");
                 action("circle.darkmusic.pulse", () -> {
                     if (!s.circularIconPulse) {
                         s.circularIconPulse = true;
@@ -252,6 +285,10 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
                 }, "circle.darkmusic.pulse_help");
                 String pulse = !s.circularIconPulse ? "off" : s.visualQuality.beatReactive ? "beat" : "level";
                 controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("circle.darkmusic.pulse") + ": " + Text.get("circle.darkmusic.pulse." + pulse)));
+                rotation("circle.darkmusic.rotation", () -> s.circularRotation, v -> s.circularRotation = v, "circle.darkmusic.rotation_help");
+                if (s.circularRotation != Settings.Rotation.OFF || s.hudProgress && s.circularProgressRotation != Settings.Rotation.OFF)
+                    waveformSlider((s.circularRotationSeconds - 4) / 116.0, v -> Text.get("circle.darkmusic.rotation_speed", s.circularRotationSeconds),
+                        v -> s.circularRotationSeconds = 4 + (int) Math.round(v * 116), 116, "circle.darkmusic.rotation_speed_help");
             }
             if (classic) {
                 action("style.darkmusic.shape", () -> {
@@ -261,6 +298,7 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
                 }, "style.darkmusic.shape_help");
                 controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("style.darkmusic.shape") + ": " + Text.get("style.darkmusic.shape." + s.hudShape.name().toLowerCase(Locale.ROOT))));
                 toggle("style.darkmusic.raised", () -> s.hudRaised, v -> s.hudRaised = v, "style.darkmusic.raised_help");
+                toggle("hud.text_plate", () -> s.hudTextPlate, v -> s.hudTextPlate = v, "hud.text_plate.help");
             }
             if (artwork) {
                 toggle("circle.darkmusic.text", () -> s.artworkText, v -> s.artworkText = v, "hud.darkmusic.artwork_text_help");
@@ -276,6 +314,8 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
         if (s.hudEnabled && !spectrumOnly)
             toggle("text.darkmusic.hud_progress", () -> s.hudProgress, v -> s.hudProgress = v,
                 artwork ? "hud.darkmusic.artwork_progress_help" : classic ? "text.darkmusic.show_the_current_track_s_progress_below_the_title_and_artist" : "circle.darkmusic.progress_help");
+        if (!linear && s.hudProgress)
+            rotation("circle.darkmusic.progress_rotation", () -> s.circularProgressRotation, v -> s.circularProgressRotation = v, "circle.darkmusic.progress_rotation_help");
         toggle("progress.darkmusic.waveform", () -> s.waveformProgress, v -> {
             s.waveformProgress = v;
             rebuildWidgets();
@@ -457,8 +497,9 @@ public final class SettingsScreen extends LocalScreen implements com.darkmusic.c
         return SECTION_KEYS[selectedSection].equals("lyrics.section");
     }
 
-    public boolean waveformPreviewActive() {
-        return previewVisible && progressPreview();
+    @Override
+    public boolean previewsProgress() {
+        return previewVisible && (progressPreview() || app.settings.hudEnabled && !lyricsPreview());
     }
 
     private boolean progressPreview() {

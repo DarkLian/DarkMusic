@@ -72,7 +72,7 @@ public final class DuplicateComparisonScreen extends LocalScreen {
             UiButton.icon(play, UiIcon.PLAY, false);
             var location = button("cleanup.location", x + w + 4, height - 68, w, () -> app.folders.open(track(index).file().getParent()));
             var delete = button(i == 0 ? "cleanup.delete_a" : "cleanup.delete_b", x + (w + 4) * 2, height - 68, columnWidth - (w + 4) * 2, () -> {
-                if (app.mediaBusy) return;
+                if (app.mediaBusy()) return;
                 closePreview();
                 show(new AudioDeletionScreen(app, this, List.of(track(index)), parent));
             });
@@ -147,7 +147,7 @@ public final class DuplicateComparisonScreen extends LocalScreen {
     }
 
     private void play(int side) {
-        if (app.mediaBusy) return;
+        if (app.mediaBusy()) return;
         if (audition == null)
             audition = new ComparisonAudition(app.playback, () -> new JavaSoundBackend(minecraft::execute, PcmDecoder::openPrecise, new OutputDevices(app.settings.outputDevice, true, app::warn)));
         audition.play(track(side), app.settings.volume);
@@ -177,7 +177,7 @@ public final class DuplicateComparisonScreen extends LocalScreen {
 
     @Override
     public void tick() {
-        for (var b : actions) b.active = !app.mediaBusy;
+        for (var b : actions) b.active = !app.mediaBusy();
         updatePlayback();
     }
 

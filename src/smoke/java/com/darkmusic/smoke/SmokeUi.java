@@ -98,6 +98,8 @@ final class SmokeUi {
             if (widget == null || !widget.visible) press(mc, find(mc, Text.get("phase2.controls")));
             widget = find(mc, label);
         }
+        if (widget == null)
+            throw new IllegalStateException("Missing control \"" + label + "\" on " + (mc.gui.screen() == null ? "no screen" : mc.gui.screen().getClass().getSimpleName()));
         press(mc, widget);
     }
 }

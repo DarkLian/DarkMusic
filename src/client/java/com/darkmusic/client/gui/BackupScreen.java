@@ -31,7 +31,7 @@ public final class BackupScreen extends AudioPage {
     }
 
     private boolean available() {
-        return !app.mediaBusy && app.playlistsReady && app.listeningHistory.ready() && !app.library.snapshot().scanning();
+        return !app.mediaBusy() && app.playlistsReady && app.listeningHistory.ready() && !app.library.snapshot().scanning();
     }
 
     @Override
@@ -116,7 +116,7 @@ public final class BackupScreen extends AudioPage {
     }
 
     private void choose(boolean export) {
-        if (busy || app.mediaBusy) return;
+        if (busy || app.mediaBusy()) return;
         busy = true;
         rebuildWidgets();
         boolean fullscreen = minecraft.getWindow().isFullscreen();

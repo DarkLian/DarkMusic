@@ -27,9 +27,12 @@ public final class HudLayer {
         }));
     }
 
+    /**
+     * Only above Minecraft's own menus: DarkMusic screens show playback themselves, and its Settings preview the HUD.
+     */
     static boolean inMenus(DarkMusicClient app, Screen screen) {
         var mc = Minecraft.getInstance();
         return app.settings != null && app.settings.hudInMenus && mc.level != null && !mc.gui.hud.isHidden()
-            && !(screen instanceof HudPreview);
+            && !screen.getClass().getName().startsWith("com.darkmusic.");
     }
 }

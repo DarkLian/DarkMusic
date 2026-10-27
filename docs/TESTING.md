@@ -1,5 +1,23 @@
 # Development and verification
 
+## After v3.2.0: check repairs, Circular HUD rotation and Show HUD in Menus check
+
+The default and reset in-game checks had drifted from the menus and were repaired. The default check configures ffmpeg/ffprobe from `-PdownloadToolsDirectory` (the private collection is Opus-only), reads playback through Up Next and waits for the player's progress bar to become seekable before dragging it. That wait fixes the old intermittent "Seek release must issue exactly one command" failure, which happened when the first track was still starting. The reset check copies tools from the managed bundle and requires installed tools and music folders to survive Reset to Defaults.
+
+The Lyrics HUD controls (next line, width, background opacity, line colors) moved from their own menu into Settings → Lyrics, below Lyrics in HUD. The default check confirms they hide when lyrics are off.
+
+**Show HUD in Menus** now has an in-game check. Put an empty `check-hud-menus` file in a fresh PiP folder and run `runSmokeClient -Psmoke -PpipSmoke -PpipFolder=<folder> "-PpipWorldSource=run/saves/<world>" -PdownloadToolsDirectory=<tools>`. The client opens a disposable copy of the world and plays music. It confirms the HUD is hidden over the pause menu with the option off, shown over the pause menu with it on, hidden over the DarkMusic player and Settings and hidden while F1 hides the HUD. Each screen stays open for several frames so the drawing runs too. The copy skips `session.lock`, so it works while another client has the source world open. Removing the Settings preview exclusion makes the check fail, as intended. It checks the decision through `HudLayer` and does not compare pixels.
+
+The HUD check (`-PpreviewSmoke`) now also covers Circular HUD rotation: the Settings rows, the shared speed row, the shared angle advancing while music plays, cycling the direction, and two private captures taken 0.3 s apart with Beveled finishes and the ring half filled. Measured on those captures, the artwork turned clockwise and the progress ring 30° counterclockwise. Bevel lighting is computed in screen space, so the shine stays put while the rings turn. Unit tests cover defaults, saved values and repair of invalid values.
+
+The waveform preview fix is covered as well. With waveform progress on, the Settings preview must request the waveform on General, not only in the Progress section; the old behavior fails the check. This checks the request rather than a freshly launched client, because stopping playback keeps the last track loaded.
+
+Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed **623 tests: 617 passed, six optional/environment skips**, zero failures/errors. Running Gradle from Git Bash on Windows may pick an older Java; set `JAVA_HOME` to a JDK 25 first. All runtime checks below were run at fullscreen 1920×1080, GUI scale 2, with SmoothFont:
+- default: 7 of 8 runs passed. The one failure was "Unreachable control: missing". With the improved message, a later failure showed the cause: the first-use online-lyrics consent prompt (a ConfirmationScreen) opened over the player whenever the run folder had no saved answer. The check now records the answer up front with online lookup off, and passes when started from an unanswered consent.
+- reset, cleanup, preview + HUD, queue, advanced and lyrics: all passed.
+- PiP setup (`check-setup`): passed.
+- Show HUD in Menus: passed.
+
 ## v3.2.0: menu and HUD refresh
 
 Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed **621 tests: 615 passed, six optional/environment skips**, zero failures/errors, using the private collection and existing managed tools. All four release archives were built; the local JAR reports version 3.2.0.
@@ -210,7 +228,7 @@ It uses `run/config/darkmusic/music` and detects an existing managed tool bundle
 ./gradlew runSmokeClient -Psmoke -PmusicDirectory=/path/to/real/music
 ```
 
-Inspect the smoke entrypoint and Gradle flags before choosing an optional capture, preview, HUD, reset, or advanced-audio scenario. Runtime checks require a graphical desktop and an audio device; they are separate from ordinary unit tests.
+The private collection is Opus, so pass `-PdownloadToolsDirectory=<existing managed tool bundle>` to every runtime check that plays music; without it the default check stops on the first track. Inspect the smoke entrypoint and Gradle flags before choosing an optional capture, preview, HUD, reset, or advanced-audio scenario. Runtime checks require a graphical desktop and an audio device; they are separate from ordinary unit tests.
 
 Functional smoke runs use SmoothFont when it is installed and can fall back to the vanilla font when it is absent. **Visual verification and all captures require SmoothFont.** Use `-PvisualSmoke` to require it explicitly; capture, preview, and advanced-smoke modes require it automatically. `-PsmokeFont=/path/to/SmoothFont_1.21.zip` selects another local location without adding the pack to Git. `./gradlew prepareSmokeClient -Psmoke` checks run-directory preparation without launching Minecraft. A clean checkout still needs a real collection for audio-dependent runtime checks.
 

@@ -77,8 +77,8 @@ public final class LibraryManagerScreen extends LocalScreen {
     @Override
     public void tick() {
         if (revision != app.library.snapshot().revision()) refresh();
-        delete.active = !app.mediaBusy && !app.library.snapshot().scanning() && !selection.isEmpty();
-        rows.active = !app.mediaBusy;
+        delete.active = !app.mediaBusy() && !app.library.snapshot().scanning() && !selection.isEmpty();
+        rows.active = !app.mediaBusy();
     }
 
     @Override

@@ -26,12 +26,12 @@ public final class CircularHudRenderer {
     /**
      * Whole-pixel scale and position keep the pixel font's strokes even; the plate carries it over bright scenery.
      */
-    private void text(GuiGraphicsExtractor g, Font font, String titleText, String artistText, int width, int lineWidth, int titleY, int artistY) {
+    private void text(GuiGraphicsExtractor g, Font font, String titleText, String artistText, int width, int lineWidth, int titleY, int artistY, boolean plated) {
         int available = Math.max(1, lineWidth - 8);
         String artist = ellipsis(artistText, available, font::width);
         int titleWidth = Math.min(font.width(titleText), available), artistWidth = font.width(artist);
         int plate = Math.max(titleWidth, artistWidth) + 10, left = (width - plate) / 2;
-        HudText.plate(g, left, titleY - 3, left + plate, artistY + 11, HudText.PLATE);
+        if (plated) HudText.plate(g, left, titleY - 3, left + plate, artistY + 11, HudText.PLATE);
         if (font.width(titleText) <= available) g.text(font, titleText, (width - titleWidth) / 2, titleY, TITLE);
         else title.draw(g, font, titleText, (width - available) / 2, titleY, available, TITLE);
         g.text(font, artist, (width - artistWidth) / 2, artistY, ARTIST);
@@ -54,6 +54,10 @@ public final class CircularHudRenderer {
         return text.substring(0, text.offsetByCodePoints(0, low)) + mark;
     }
 
+    private static Matrix3x2f rotated(Matrix3x2f pose, CircularHudLayout layout, double turn) {
+        return turn == 0 ? pose : new Matrix3x2f(pose).rotateAbout((float) (turn * Math.PI * 2), layout.centerX(), layout.centerY());
+    }
+
     public void render(DarkMusicClient app, GuiGraphicsExtractor g, Track track, com.darkmusic.client.audio.AudioBackend.State audio, boolean preview, boolean settingsPreview) {
         var settings = app.settings;
         boolean waveformEnabled = settings.waveformProgress && settings.hudProgress;
@@ -66,33 +70,44 @@ public final class CircularHudRenderer {
         var bounds = new ScreenRectangle(0, 0, layout.width(), layout.height()).transformMaxBounds(pose);
         if (clip != null) bounds = clip.intersection(bounds);
         if (bounds == null) return;
+        double turn = CircularRotation.advance(settings.circularRotationSeconds,
+            preview || audio.status() == com.darkmusic.client.audio.AudioBackend.Status.PLAYING);
+        // Rotation stays inside the unrotated bounds: every layer is a circle around the same center.
+        double spin = settings.circularRotation.sign() * turn, progressSpin = settings.circularProgressRotation.sign() * turn;
+        var spinning = rotated(pose, layout, spin);
+        var progressPose = rotated(pose, layout, progressSpin);
         boolean analyzed = (settings.hudVisualizer || settings.circularIconPulse) && spectrum.copyLevels(app, levels, settingsPreview);
         float zoom = analyzed && settings.circularIconPulse ? CircularHudLayout.iconZoom(levels, settings.visualizerBars) : 1;
         if (analyzed && settings.circularIconPulse && settings.visualQuality.beatReactive)
             zoom = 1 + app.playback.spectrum().beat() * .045f;
         var cover = HudImages.cover(app, track);
         var texture = Minecraft.getInstance().getTextureManager().getTexture(cover == null ? HudImages.ICON : cover.id());
-        g.guiRenderState.addGuiElement(new CircularHudMesh.Icon(pose, clip, bounds,
+        g.guiRenderState.addGuiElement(new CircularHudMesh.Icon(spinning, clip, bounds,
             TextureSetup.singleTexture(texture.getTextureView(), texture.getSampler()), layout.centerX(), layout.centerY(), zoom, HudImages.circularSpan(cover)));
         if (analyzed && settings.hudVisualizer && (settings.visualQuality.trails || settings.visualQuality.peakHold)) {
             app.playback.spectrum().copyPeaks(peaks);
             if (settings.visualQuality.trails)
-                g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(pose, clip, bounds, layout.centerX(), layout.centerY(), -1, peaks.clone(), settings.visualizerBars, settings.circularSpectrumStyle, 0, 0, com.darkmusic.client.gui.SpectrumAppearance.opacity(settings.spectrumColors.first() | 0xff000000, settings.spectrumOpacity), com.darkmusic.client.gui.SpectrumAppearance.opacity(settings.spectrumColors.last() | 0xff000000, settings.spectrumOpacity), com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, settings.visualQuality.detail, false, settings.circularSpectrumHeight, baseRadius));
+                g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(spinning, clip, bounds, layout.centerX(), layout.centerY(), -1, peaks.clone(), settings.visualizerBars, settings.circularSpectrumStyle, 0, 0, com.darkmusic.client.gui.SpectrumAppearance.opacity(settings.spectrumColors.first() | 0xff000000, settings.spectrumOpacity), com.darkmusic.client.gui.SpectrumAppearance.opacity(settings.spectrumColors.last() | 0xff000000, settings.spectrumOpacity), com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, settings.visualQuality.detail, false, settings.circularSpectrumHeight, baseRadius));
             if (settings.visualQuality.peakHold)
-                g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(pose, clip, bounds, layout.centerX(), layout.centerY(), -2, peaks.clone(), settings.visualizerBars, settings.circularSpectrumStyle, 0, 0, com.darkmusic.client.gui.SpectrumAppearance.opacity(settings.spectrumColors.first() | 0xff000000, settings.spectrumOpacity), com.darkmusic.client.gui.SpectrumAppearance.opacity(settings.spectrumColors.last() | 0xff000000, settings.spectrumOpacity), com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, settings.visualQuality.detail, false, settings.circularSpectrumHeight, baseRadius, progressInner, levels.clone()));
+                g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(spinning, clip, bounds, layout.centerX(), layout.centerY(), -2, peaks.clone(), settings.visualizerBars, settings.circularSpectrumStyle, 0, 0, com.darkmusic.client.gui.SpectrumAppearance.opacity(settings.spectrumColors.first() | 0xff000000, settings.spectrumOpacity), com.darkmusic.client.gui.SpectrumAppearance.opacity(settings.spectrumColors.last() | 0xff000000, settings.spectrumOpacity), com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, com.darkmusic.client.config.Settings.SurfaceFinish.FLAT, settings.visualQuality.detail, false, settings.circularSpectrumHeight, baseRadius, progressInner, levels.clone()));
         }
-        g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(pose, clip, bounds, layout.centerX(), layout.centerY(),
-            settings.hudProgress && waveform == null ? CircularHudLayout.progress(audio.position(), audio.duration(), preview) : -3,
-            analyzed && settings.hudVisualizer ? levels.clone() : null, settings.visualizerBars, settings.circularSpectrumStyle,
-            settings.progressColors.first(), settings.progressColors.last(), com.darkmusic.client.gui.SpectrumAppearance.opacity(settings.spectrumColors.first() | 0xff000000, settings.spectrumOpacity), com.darkmusic.client.gui.SpectrumAppearance.opacity(settings.spectrumColors.last() | 0xff000000, settings.spectrumOpacity), settings.spectrumFinish, settings.progressFinish, settings.visualQuality.detail, settings.visualQuality.glow, settings.circularSpectrumHeight, baseRadius, progressInner));
+        // Progress and spectrum are separate meshes so each can turn its own way.
+        if (settings.hudProgress && waveform == null)
+            g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(pose, clip, bounds, layout.centerX(), layout.centerY(),
+                CircularHudLayout.progress(audio.position(), audio.duration(), preview), null, settings.visualizerBars, settings.circularSpectrumStyle,
+                settings.progressColors.first(), settings.progressColors.last(), 0, 0, settings.spectrumFinish, settings.progressFinish, settings.visualQuality.detail, false, settings.circularSpectrumHeight, baseRadius, progressInner).rotated(progressPose, progressSpin));
+        if (analyzed && settings.hudVisualizer)
+            g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(pose, clip, bounds, layout.centerX(), layout.centerY(),
+                -3, levels.clone(), settings.visualizerBars, settings.circularSpectrumStyle,
+                settings.progressColors.first(), settings.progressColors.last(), com.darkmusic.client.gui.SpectrumAppearance.opacity(settings.spectrumColors.first() | 0xff000000, settings.spectrumOpacity), com.darkmusic.client.gui.SpectrumAppearance.opacity(settings.spectrumColors.last() | 0xff000000, settings.spectrumOpacity), settings.spectrumFinish, settings.progressFinish, settings.visualQuality.detail, settings.visualQuality.glow, settings.circularSpectrumHeight, baseRadius, progressInner).rotated(spinning, spin));
         if (waveform != null)
-            g.guiRenderState.addGuiElement(new CircularHudMesh.ProgressWaveform(pose, clip, bounds, layout.centerX(), layout.centerY(),
+            g.guiRenderState.addGuiElement(new CircularHudMesh.ProgressWaveform(progressPose, clip, bounds, layout.centerX(), layout.centerY(),
                 CircularHudLayout.progress(audio.position(), audio.duration(), preview), waveform,
                 settings.progressColors.first(), settings.progressColors.last(), settings.progressFinish, settings.waveform.look(), progressInner));
         if (!settings.circularText) return;
         var font = Minecraft.getInstance().font;
         int lineWidth = Math.round(CircularHudLayout.outerRadius(settings) * 2) + 8;
         text(g, font, track == null ? Text.get("text.darkmusic.song_title") : track.title(),
-            track == null ? Text.get("text.darkmusic.artist") : track.artist(), layout.width(), lineWidth, layout.titleY(), layout.artistY());
+            track == null ? Text.get("text.darkmusic.artist") : track.artist(), layout.width(), lineWidth, layout.titleY(), layout.artistY(), settings.hudTextPlate);
     }
 }

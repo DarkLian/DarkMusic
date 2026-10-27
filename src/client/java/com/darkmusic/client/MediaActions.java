@@ -24,7 +24,7 @@ public final class MediaActions {
     }
 
     public void importAudio(java.util.List<java.nio.file.Path> paths, String folder, String playlistId) {
-        if (app.mediaBusy || app.resetting() || !app.playlistsReady) {
+        if (app.mediaBusy() || app.resetting() || !app.playlistsReady) {
             app.warn(com.darkmusic.client.text.Text.get("library.darkmusic.busy"));
             return;
         }
@@ -101,7 +101,7 @@ public final class MediaActions {
     }
 
     public CompletableFuture<Track> editMetadata(Track track, MediaFiles.Fields original, MediaFiles.Fields fields) {
-        if (app.mediaBusy || app.resetting())
+        if (app.mediaBusy() || app.resetting())
             return CompletableFuture.failedFuture(busy());
         app.mediaBusy = true;
         var token = app.mediaToken = new com.darkmusic.client.download.ProcessRunner.Token();
@@ -174,7 +174,7 @@ public final class MediaActions {
                                                                java.util.function.Consumer<AudioDeletion.Progress> progress) {
         java.util.Objects.requireNonNull(mode);
         java.util.Objects.requireNonNull(token);
-        if (app.closed() || app.mediaBusy || app.resetting() || app.outputChanging || !app.playlistsReady || !plan.roots().equals(app.library.roots()))
+        if (app.closed() || app.mediaBusy() || app.resetting() || app.outputChanging || !app.playlistsReady || !plan.roots().equals(app.library.roots()))
             return CompletableFuture.failedFuture(busy());
         app.mediaBusy = true;
         app.autoplayPending = false;

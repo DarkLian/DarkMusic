@@ -135,14 +135,14 @@ public final class MusicScreen extends LocalScreen {
     }
 
     private void shuffle() {
-        if (app.mediaBusy) return;
+        if (app.mediaBusy()) return;
         app.settings.shuffle = !app.playback.shuffle();
         app.playback.shuffle(app.settings.shuffle);
         app.save();
     }
 
     private void repeat() {
-        if (app.mediaBusy) return;
+        if (app.mediaBusy()) return;
         var values = PlaybackController.Repeat.values();
         var next = values[(app.playback.repeat().ordinal() + 1) % values.length];
         app.settings.repeat = next;
@@ -249,7 +249,7 @@ public final class MusicScreen extends LocalScreen {
             Text.get("text.darkmusic.songs_enter_or_double_click_to_play"), (i, activated) -> {
             selected = visible.get(i);
             awaitingEditedTrack = false;
-            if (activated && !app.mediaBusy)
+            if (activated && !app.mediaBusy())
                 app.playback.play(collectionTracks(), selected, new PlaybackController.Source(mode, group, "", ""));
         }));
         songs.visible = library;
@@ -269,7 +269,7 @@ public final class MusicScreen extends LocalScreen {
             if (selected != null && app.playlistsReady) app.playlists.toggleFavorite(selected);
         }));
         edit = icon("library.darkmusic.edit_metadata", UiIcon.EDIT, inspector.x() + 30, inspector.y() + 4, 22, true, () -> {
-            if (selected != null && !app.mediaBusy) {
+            if (selected != null && !app.mediaBusy()) {
                 var before = selected;
                 show(new MetadataScreen(app, this, before, updated -> {
                     if (selected != null && selected.id().equals(before.id())) {
@@ -316,7 +316,7 @@ public final class MusicScreen extends LocalScreen {
         jump = transportIcon("player.darkmusic.jump", UiIcon.LOCATE, x, transportY, buttonWidth, this::jumpToPlaying);
         x += buttonWidth + gap;
         transportIcon("text.darkmusic.previous", UiIcon.PREVIOUS, x, transportY, buttonWidth, () -> {
-            if (!app.mediaBusy) app.playback.previous();
+            if (!app.mediaBusy()) app.playback.previous();
         });
         x += buttonWidth + gap;
         seekBack = transportIcon("key.darkmusic.seek_back", UiIcon.SEEK_BACK, x, transportY, buttonWidth, () -> app.seekRelative(-5));
@@ -328,7 +328,7 @@ public final class MusicScreen extends LocalScreen {
         seekForward = transportIcon("key.darkmusic.seek_forward", UiIcon.SEEK_FORWARD, x, transportY, buttonWidth, () -> app.seekRelative(5));
         x += buttonWidth + gap;
         transportIcon("text.darkmusic.next", UiIcon.NEXT, x, transportY, buttonWidth, () -> {
-            if (!app.mediaBusy) app.playback.next();
+            if (!app.mediaBusy()) app.playback.next();
         });
         x += buttonWidth + gap;
         transportIcon("text.darkmusic.stop", UiIcon.STOP, x, transportY, buttonWidth, () -> app.playback.stop());
@@ -527,7 +527,7 @@ public final class MusicScreen extends LocalScreen {
     }
 
     private void playPause() {
-        if (app.mediaBusy) return;
+        if (app.mediaBusy()) return;
         if (!selectionIsPlaying()) {
             if (selected != null)
                 app.playback.play(collectionTracks(), selected, new PlaybackController.Source(mode, group, "", ""));
@@ -571,12 +571,12 @@ public final class MusicScreen extends LocalScreen {
             followedSource = app.playback.playingSource();
             if (audio.track() != null && canFollowPlayback(query, getFocused() instanceof EditBox)) jumpToPlaying();
         }
-        favorite.active = selected != null && app.playlistsReady && !app.mediaBusy;
+        favorite.active = selected != null && app.playlistsReady && !app.mediaBusy();
         queueActions.active = selected != null && app.canEditQueue();
-        edit.active = selected != null && !app.mediaBusy;
+        edit.active = selected != null && !app.mediaBusy();
         sourceLink.active = selected != null && !app.sourceLinks.get(selected).isEmpty();
         copySource.active = sourceLink.active;
-        songs.active = !app.mediaBusy;
+        songs.active = !app.mediaBusy();
         playingId = audio.track() != null && audio.status() != AudioBackend.Status.STOPPED && audio.status() != AudioBackend.Status.ERROR ? audio.track().id() : "";
         playingIcon = audio.status() == AudioBackend.Status.PAUSED ? UiIcon.PAUSE : UiIcon.PLAY;
         jump.active = audio.track() != null;
@@ -594,10 +594,10 @@ public final class MusicScreen extends LocalScreen {
         volume.sync(app.settings.volume);
         UiButton.icon(mute, app.settings.volume == 0 ? UiIcon.MUTED : UiIcon.VOLUME, true);
         speed.sync((app.settings.speed - .5) / 2.5);
-        play.active = !app.mediaBusy;
-        seekBack.active = seekForward.active = !app.mediaBusy && audio.track() != null && audio.duration() > 0
+        play.active = !app.mediaBusy();
+        seekBack.active = seekForward.active = !app.mediaBusy() && audio.track() != null && audio.duration() > 0
             && audio.status() != AudioBackend.Status.STOPPED && audio.status() != AudioBackend.Status.ERROR;
-        progress.active = !app.mediaBusy && audio.track() != null && audio.duration() > 0 && audio.status() != AudioBackend.Status.STOPPED && audio.status() != AudioBackend.Status.ERROR;
+        progress.active = !app.mediaBusy() && audio.track() != null && audio.duration() > 0 && audio.status() != AudioBackend.Status.STOPPED && audio.status() != AudioBackend.Status.ERROR;
         progress.sync(audio.duration() > 0 ? audio.position() / audio.duration() : 0);
         boolean controlling = selectionIsPlaying();
         play.setMessage(Component.literal(controlling && audio.status() == AudioBackend.Status.PLAYING ? Text.get("text.darkmusic.pause") : controlling && audio.status() == AudioBackend.Status.PAUSED ? Text.get("text.darkmusic.resume") : Text.get("text.darkmusic.play")));
@@ -646,7 +646,7 @@ public final class MusicScreen extends LocalScreen {
         }
         if ((event.modifiers() & (org.lwjgl.glfw.GLFW.GLFW_MOD_CONTROL | org.lwjgl.glfw.GLFW.GLFW_MOD_ALT | org.lwjgl.glfw.GLFW.GLFW_MOD_SUPER)) == 0) {
             if (event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE) {
-                if (!spaceDown && !app.mediaBusy) {
+                if (!spaceDown && !app.mediaBusy()) {
                     spaceDown = true;
                     playPause();
                 }

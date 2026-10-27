@@ -38,6 +38,11 @@ public final class Settings {
     public HudStyle hudStyle = HudStyle.CLASSIC;
     public SpectrumStyle circularSpectrumStyle = SpectrumStyle.BARS;
     public boolean circularText = true, circularIconPulse = true;
+    // Readability backdrop behind the song title and artist in the Classic and Circular HUDs.
+    public boolean hudTextPlate = true;
+    // Image and spectrum turn together; the progress ring has its own direction but shares the angle.
+    public Rotation circularRotation = Rotation.OFF, circularProgressRotation = Rotation.OFF;
+    public int circularRotationSeconds = 20;
     public boolean artworkReactive, artworkText = true;
     public SpectrumStyle spectrumStyle = SpectrumStyle.BARS;
     public SurfaceFinish spectrumFinish = SurfaceFinish.BEVELED, progressFinish = SurfaceFinish.BEVELED;
@@ -66,6 +71,8 @@ public final class Settings {
     public boolean lyricsAutomaticLookup = true, lyricsDownloadLookup = true;
     public boolean lyricsAutoCaptions;
     public boolean lyricsHud, lyricsNextLine;
+    // A soft dark plate behind each lyric line, fading as the lyrics background gets opaque.
+    public boolean lyricsTextPlate = true;
     public double lyricsHudX = .5, lyricsHudY = .9, lyricsHudScale = 1;
     public int lyricsHudWidth = 300, lyricsHudColor = 0xDDD9FF, lyricsHudNextColor = 0xAAA7BD;
     public double lyricsHudOpacity;
@@ -151,6 +158,9 @@ public final class Settings {
         if (circularSpectrumStyle != SpectrumStyle.BARS && circularSpectrumStyle != SpectrumStyle.ROUNDED_BARS && circularSpectrumStyle != SpectrumStyle.FILLED_WAVE && circularSpectrumStyle != SpectrumStyle.FILLED_SPIKE)
             circularSpectrumStyle = SpectrumStyle.BARS;
         if (hudShape == null) hudShape = HudShape.RECTANGLE;
+        if (circularRotation == null) circularRotation = Rotation.OFF;
+        if (circularProgressRotation == null) circularProgressRotation = Rotation.OFF;
+        circularRotationSeconds = Math.clamp(circularRotationSeconds, 4, 120);
         if (spectrumPosition == null) spectrumPosition = SpectrumPosition.BELOW;
         if (spectrumDirection == null) spectrumDirection = SpectrumDirection.UPWARD;
         hudBackgroundTransparency = Double.isFinite(hudBackgroundTransparency) ? Math.clamp(hudBackgroundTransparency, 0, 1) : 1;
@@ -217,6 +227,14 @@ public final class Settings {
     }
 
     public enum HudShape {RECTANGLE, ROUNDED, CHAMFERED}
+
+    public enum Rotation {
+        OFF, CLOCKWISE, COUNTERCLOCKWISE;
+
+        public int sign() {
+            return this == CLOCKWISE ? 1 : this == COUNTERCLOCKWISE ? -1 : 0;
+        }
+    }
 
     public enum SpectrumPosition {ABOVE, BELOW}
 

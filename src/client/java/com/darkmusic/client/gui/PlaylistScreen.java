@@ -194,11 +194,11 @@ public final class PlaylistScreen extends LocalScreen {
             refresh();
         }
         entries.tickDrag();
-        add.active = selected() != null && !app.mediaBusy;
-        rename.active = delete.active = selected() != null && !PlaylistStore.FAVORITES.equals(selectedId) && !app.mediaBusy;
-        remove.active = deselect.active = !selection.isEmpty() && !app.mediaBusy;
-        selectAll.active = invert.active = selected() != null && !entryTracks.isEmpty() && !app.mediaBusy;
-        entries.active = lists.active = !app.mediaBusy;
+        add.active = selected() != null && !app.mediaBusy();
+        rename.active = delete.active = selected() != null && !PlaylistStore.FAVORITES.equals(selectedId) && !app.mediaBusy();
+        remove.active = deselect.active = !selection.isEmpty() && !app.mediaBusy();
+        selectAll.active = invert.active = selected() != null && !entryTracks.isEmpty() && !app.mediaBusy();
+        entries.active = lists.active = !app.mediaBusy();
     }
 
     @Override

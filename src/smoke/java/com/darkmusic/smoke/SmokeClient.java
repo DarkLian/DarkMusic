@@ -21,7 +21,7 @@ import java.util.*;
 public final class SmokeClient implements ClientModInitializer {
     private final DesktopWindowSmoke windowChecks = new DesktopWindowSmoke();
     private final Set<String> playing = new HashSet<>();
-    private int ticks, stage = -1, frame;
+    private int ticks, stage = -1, frame, seekWaits;
     private boolean selecting, fullscreenRequested, failed;
     private MusicScreen player;
     private int musicCount;
@@ -403,6 +403,10 @@ public final class SmokeClient implements ClientModInitializer {
                 app.settings.hudX = app.settings.hudY = 0.0;
                 app.settings.hudScale = 1;
                 app.settings.hudVisualizer = false;
+                // Answer the first-use online-lyrics prompt (offline) up front; a run folder without the earlier
+                // answer otherwise opens it over the player at an arbitrary later step.
+                app.settings.lyricsConsentVersion = 1;
+                app.settings.lyricsOnline = app.settings.lyricsLibraryLookup = false;
 
                 app.configureVisualizer();
                 app.playback.shuffle(false);
@@ -429,6 +433,13 @@ public final class SmokeClient implements ClientModInitializer {
                     var coverTrack = app.library.snapshot().tracks().stream().filter(t -> t.relativePath().contains("Departure")).findFirst();
                     coverTrack.ifPresent(app.artwork::get);
                     var slider = (ValueSlider) field("progress");
+                    // The player ignores a seek until its own tick sees the track playing with a known duration;
+                    // ffmpeg can take longer than one check interval to start the first track.
+                    if (!slider.active || app.playback.state().status() != AudioBackend.Status.PLAYING) {
+                        require(++seekWaits < 25, "Playback never became seekable: " + app.playback.state().status());
+                        stage = 0;
+                        return;
+                    }
                     var backendField = app.playback.getClass().getDeclaredField("audio");
                     backendField.setAccessible(true);
                     var backend = backendField.get(app.playback);
@@ -452,7 +463,7 @@ public final class SmokeClient implements ClientModInitializer {
                     if (!app.settings.lyricsEnabled) click(mc, "Enable Lyrics");
                     click(mc, "Enable Lyrics");
                     require(!app.settings.lyricsEnabled, "Global lyrics toggle did not disable lyrics");
-                    var lyricsControls = mc.gui.screen().children().stream().filter(w -> w instanceof AbstractWidget a && a.visible).map(w -> ((AbstractWidget) w).getMessage().getString()).filter(text -> java.util.Set.of("Advanced Lyrics", "Lyrics in HUD", "Lyrics HUD").contains(text)).toList();
+                    var lyricsControls = mc.gui.screen().children().stream().filter(w -> w instanceof AbstractWidget a && a.visible).map(w -> ((AbstractWidget) w).getMessage().getString()).filter(text -> java.util.Set.of("Advanced Lyrics", "Lyrics in HUD", "Show Next Line").contains(text)).toList();
                     require(lyricsControls.isEmpty(), "Disabled lyrics controls remained visible: " + lyricsControls + " on " + mc.gui.screen().getClass().getSimpleName());
                     click(mc, "Enable Lyrics");
                     require(app.settings.lyricsEnabled, "Global lyrics toggle did not re-enable lyrics");

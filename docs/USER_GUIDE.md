@@ -307,7 +307,7 @@ A completed download is announced in client-side chat. Close Minecraft and wait 
 
 Settings contains General, Audio, HUD, Spectrum, and Reset sections. Most changes save immediately. The preview shows current playback data, or sample visualization when no song is playing.
 
-**Now-Playing HUD** enables the whole in-game component. DarkMusic HUD elements hide while chat or another menu is open; **Show HUD in Menus** keeps the player card, lyrics, and volume, speed, and download notices visible above menus. Circular and lyrics text sits on a soft dark plate so it stays readable over bright scenery.
+**Now-Playing HUD** enables the whole in-game component. DarkMusic HUD elements hide while chat or another menu is open; **Show HUD in Menus** keeps the player card, lyrics, and volume, speed, and download notices visible above Minecraft menus (never above DarkMusic's own screens). Circular and lyrics text sits on a soft dark plate so it stays readable over bright scenery. **Song Info Backdrop** (Classic and Circular, on by default) turns that backdrop behind the title and artist on or off; in Classic it only appears when the card is see-through or light.
 
 - **Classic:** song information with optional artwork, progress, and spectrum. The second line shows the artist, with Paused or Stopped in front of it only when music is not playing.
 - **Circular:** the DarkMusic icon, optional circular progress, outward spectrum, and optional title/artist text. Disabling progress removes the ring rail and anchors the spectrum directly to the icon.
@@ -425,7 +425,7 @@ Checkmarks indicate available lyrics, question marks indicate an unchecked or un
 
 ### Lyrics HUD
 
-Lyrics are an independently movable element in every HUD layout. Enable **Lyrics in HUD**, choose **Lyrics HUD** to adjust width, colors, opacity, and the next line, then select the lyrics element in **Edit HUD Layout** to move or resize it separately from the player.
+Lyrics are an independently movable element in every HUD layout. Enable **Lyrics in HUD** in **Settings → Lyrics**; the **Lyrics HUD** controls for the next line, the text backdrop, width, background opacity and line colors appear right below it. **Text Backdrop** (on by default) draws a soft dark plate behind each line for readability over bright scenery; turn it off for bare text. Then select the lyrics element in **Edit HUD Layout** to move or resize it separately from the player.
 
 The live HUD stays empty before the first timestamp and when synchronized lyrics are unavailable. It shows no missing-lyrics message. Layout editing can show a preview so the element remains easy to position. Timing follows the current playback position through pause, seek, speed changes, and track transitions.
 
@@ -512,6 +512,8 @@ The default is off. One background worker analyzes only the active song (or the 
 Classic, Circular, and Artwork + Spectrum each offer **HUD Image → Song Artwork / DarkMusic Icon**. Artwork is the default in all three layouts; missing or loading artwork falls back to the same DarkMusic icon. Each layout remembers its own choice. Classic retains its separate Show HUD Image visibility toggle. Circular artwork is center-cropped to a circle without stretching.
 
 Circular HUDs offer **Image-to-Ring Gap** from 0 to 24 GUI pixels. Zero connects the image outline to the nearest enabled layer. With both layers on, progress is closest to the image and spectrum starts outside progress. With only spectrum on, it starts directly at the image edge plus the chosen gap. Waveform progress uses the same gap; it no longer adds an extra fixed space beside the image.
+
+**Image & Spectrum Rotation** turns the circular image and spectrum: **Off**, **Clockwise** or **Counterclockwise**. **Progress Rotation**, under Progress Bar, turns the progress ring or circular waveform in either direction. Both use one shared angle, so they stay in step even when they turn opposite ways. **Rotation Time** sets the seconds per full turn (4–120, default 20) for both. Rotation advances while music plays and always in Settings previews. Title and artist text never rotate.
 
 **Rounded Bars** is available as a spectrum style in every HUD layout and the main player. Existing spectrum colors, finishes, direction, glow, trails, and peak markers remain available.
 

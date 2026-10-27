@@ -84,7 +84,7 @@ public final class SmartCleanupScreen extends LocalScreen {
         rows.disclosure(i -> displayed.get(i).pair() == null ? 4 : -1, i -> toggle(displayed.get(i).group()));
         int w = (width - 36) / 4, y = height - 28;
         start = button("cleanup.start", 12, y, w, () -> {
-            if (!app.mediaBusy && !app.library.snapshot().scanning())
+            if (!app.mediaBusy() && !app.library.snapshot().scanning())
                 scanner.start(app.library.snapshot().tracks(), policy, analyzeAudio);
         });
         cancel = button("cleanup.cancel", 16 + w, y, w, scanner::cancel);
@@ -98,7 +98,7 @@ public final class SmartCleanupScreen extends LocalScreen {
 
     private void compare() {
         visible.stream().filter(p -> p.id().equals(selected)).findFirst().ifPresent(p -> {
-            if (!app.mediaBusy) show(new DuplicateComparisonScreen(app, this, p));
+            if (!app.mediaBusy()) show(new DuplicateComparisonScreen(app, this, p));
         });
     }
 
@@ -157,12 +157,12 @@ public final class SmartCleanupScreen extends LocalScreen {
     private void updateButtons() {
         var state = scanner.snapshot();
         boolean busy = state.running();
-        start.active = !busy && !app.mediaBusy && !app.library.snapshot().scanning();
+        start.active = !busy && !app.mediaBusy() && !app.library.snapshot().scanning();
         cancel.active = busy;
         sensitivity.active = audio.active = !busy;
         sensitivity.setMessage(net.minecraft.network.chat.Component.literal(Text.get("cleanup.sensitivity") + ": " + Text.get("cleanup.policy." + policy.name().toLowerCase(Locale.ROOT))));
         audio.setMessage(net.minecraft.network.chat.Component.literal(Text.get("cleanup.audio") + ": " + Text.get(analyzeAudio ? "cleanup.enabled" : "cleanup.disabled")));
-        review.active = !app.mediaBusy && visible.stream().anyMatch(p -> p.id().equals(selected));
+        review.active = !app.mediaBusy() && visible.stream().anyMatch(p -> p.id().equals(selected));
     }
 
     @Override

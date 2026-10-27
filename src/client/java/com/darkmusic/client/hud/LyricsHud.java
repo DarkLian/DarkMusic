@@ -90,7 +90,7 @@ public final class LyricsHud {
             if (s.lyricsHudOpacity > 0)
                 HudSurface.draw(g, s, s.lyricsHudWidth, h, (int) Math.round(s.lyricsHudOpacity * 255) << 24);
             (preview ? PREVIEW : LIVE).draw(g, Minecraft.getInstance().font, current, next, s.lyricsHudWidth, 0,
-                s.lyricsNextLine, s.lyricsHudColor, s.lyricsHudNextColor, HudText.lyricsPlate(s.lyricsHudOpacity));
+                s.lyricsNextLine, s.lyricsHudColor, s.lyricsHudNextColor, s.lyricsTextPlate ? HudText.lyricsPlate(s.lyricsHudOpacity) : 0);
         } finally {
             g.pose().popMatrix();
         }

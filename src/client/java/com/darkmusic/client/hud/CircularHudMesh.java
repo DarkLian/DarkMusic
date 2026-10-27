@@ -59,13 +59,16 @@ final class CircularHudMesh {
         strip(v, pose, cx, cy, outer, outer + feather, start, end, first, first & 0xFFFFFF, last, last & 0xFFFFFF);
     }
 
-    private static void surfaceArc(VertexConsumer v, Matrix3x2fc pose, float cx, float cy, float inner, float outer, double start, double end, int first, int last, Settings.SurfaceFinish finish, boolean recessed) {
+    /**
+     * {@code light} is the pose's rotation in turns: geometry turns with the pose, the light stays fixed on screen.
+     */
+    private static void surfaceArc(VertexConsumer v, Matrix3x2fc pose, float cx, float cy, float inner, float outer, double start, double end, int first, int last, Settings.SurfaceFinish finish, boolean recessed, double light) {
         if (finish == Settings.SurfaceFinish.FLAT) {
             arc(v, pose, cx, cy, inner, outer, start, end, first, last);
             return;
         }
         double sign = recessed ? -1 : 1;
-        double light0 = Bevel.circularLight(start) * .34 * sign, light1 = Bevel.circularLight(end) * .34 * sign;
+        double light0 = Bevel.circularLight(start + light) * .34 * sign, light1 = Bevel.circularLight(end + light) * .34 * sign;
         int inner0 = Bevel.shade(first, -light0), inner1 = Bevel.shade(last, -light1);
         int outer0 = Bevel.shade(first, light0), outer1 = Bevel.shade(last, light1);
         int face0 = Bevel.shade(first, .06), face1 = Bevel.shade(last, .06);
@@ -82,7 +85,24 @@ final class CircularHudMesh {
                  int spectrumEnd, Settings.SurfaceFinish spectrumFinish,
                  Settings.SurfaceFinish progressFinish, int detail, boolean glow,
                  float spectrumHeight, float baseRadius, float progressInner,
-                 float[] liveLevels) implements GuiElementRenderState {
+                 float[] liveLevels, double rotation) implements GuiElementRenderState {
+        Rings(Matrix3x2fc pose, ScreenRectangle scissorArea, ScreenRectangle bounds, float cx, float cy,
+              double progress, float[] levels, int bands, Settings.SpectrumStyle style, int progressStart,
+              int progressEnd, int spectrumStart, int spectrumEnd, Settings.SurfaceFinish spectrumFinish,
+              Settings.SurfaceFinish progressFinish, int detail, boolean glow,
+              float spectrumHeight, float baseRadius, float progressInner, float[] liveLevels) {
+            this(pose, scissorArea, bounds, cx, cy, progress, levels, bands, style, progressStart, progressEnd,
+                spectrumStart, spectrumEnd, spectrumFinish, progressFinish, detail, glow, spectrumHeight, baseRadius, progressInner, liveLevels, 0);
+        }
+
+        /**
+         * The same rings drawn on a pose rotated by {@code turns}; lighting compensates so it stays fixed on screen.
+         */
+        Rings rotated(Matrix3x2fc rotatedPose, double turns) {
+            return new Rings(rotatedPose, scissorArea, bounds, cx, cy, progress, levels, bands, style, progressStart, progressEnd,
+                spectrumStart, spectrumEnd, spectrumFinish, progressFinish, detail, glow, spectrumHeight, baseRadius, progressInner, liveLevels, turns);
+        }
+
         Rings(Matrix3x2fc pose, ScreenRectangle scissorArea, ScreenRectangle bounds, float cx, float cy,
               double progress, float[] levels, int bands, Settings.SpectrumStyle style, int progressStart,
               int progressEnd, int spectrumStart, int spectrumEnd, Settings.SurfaceFinish spectrumFinish,
@@ -138,11 +158,11 @@ final class CircularHudMesh {
         public void buildVertices(VertexConsumer v) {
             for (int i = 0; progress >= 0 && i < detail; i++) {
                 double start = i / (double) detail, end = (i + 1) / (double) detail;
-                surfaceArc(v, pose, cx, cy, progressInner, progressInner + CircularHudLayout.RING_OUTER - CircularHudLayout.RING_INNER, start, end, 0xFF49485F, 0xFF49485F, progressFinish, true);
+                surfaceArc(v, pose, cx, cy, progressInner, progressInner + CircularHudLayout.RING_OUTER - CircularHudLayout.RING_INNER, start, end, 0xFF49485F, 0xFF49485F, progressFinish, true, rotation);
                 if (start < progress) {
                     double filled = Math.min(end, progress);
                     surfaceArc(v, pose, cx, cy, progressInner, progressInner + CircularHudLayout.RING_OUTER - CircularHudLayout.RING_INNER, start, filled,
-                        mix(progressStart, progressEnd, start), mix(progressStart, progressEnd, filled), progressFinish, false);
+                        mix(progressStart, progressEnd, start), mix(progressStart, progressEnd, filled), progressFinish, false, rotation);
                 }
             }
             if (levels == null) return;
@@ -157,8 +177,8 @@ final class CircularHudMesh {
                     float base = baseRadius, feather = CircularHudLayout.FEATHER;
                     boolean beveled = spectrumFinish == Settings.SurfaceFinish.BEVELED;
                     boolean trail = progress == -1;
-                    int outer0 = trail ? com.darkmusic.client.gui.SpectrumAppearance.alpha(first, 0x10) : beveled ? Bevel.shade(first, Bevel.circularLight(a) * .34) : first;
-                    int outer1 = trail ? com.darkmusic.client.gui.SpectrumAppearance.alpha(last, 0x10) : beveled ? Bevel.shade(last, Bevel.circularLight(b) * .34) : last;
+                    int outer0 = trail ? com.darkmusic.client.gui.SpectrumAppearance.alpha(first, 0x10) : beveled ? Bevel.shade(first, Bevel.circularLight(a + rotation) * .34) : first;
+                    int outer1 = trail ? com.darkmusic.client.gui.SpectrumAppearance.alpha(last, 0x10) : beveled ? Bevel.shade(last, Bevel.circularLight(b + rotation) * .34) : last;
                     point(v, pose, cx, cy, base + h0, a, outer0);
                     point(v, pose, cx, cy, peakOnly() ? base + Math.max(0, h0 - .75f) : base, a, trail ? com.darkmusic.client.gui.SpectrumAppearance.alpha(first, 0x58) : beveled ? Bevel.shade(first, -.22) : first);
                     point(v, pose, cx, cy, peakOnly() ? base + Math.max(0, h1 - .75f) : base, b, trail ? com.darkmusic.client.gui.SpectrumAppearance.alpha(last, 0x58) : beveled ? Bevel.shade(last, -.22) : last);
@@ -205,7 +225,7 @@ final class CircularHudMesh {
                             com.darkmusic.client.gui.SpectrumAppearance.alpha(color, 0x58), com.darkmusic.client.gui.SpectrumAppearance.alpha(color, 0x10));
                     else
                         surfaceArc(v, pose, cx, cy, peakOnly() ? baseRadius + Math.max(0, height - .75f) : baseRadius, baseRadius + height,
-                            turn - half + 2 * half * slice / slices, turn - half + 2 * half * (slice + 1) / slices, color, color, spectrumFinish, false);
+                            turn - half + 2 * half * slice / slices, turn - half + 2 * half * (slice + 1) / slices, color, color, spectrumFinish, false, rotation);
                 if (glow)
                     strip(v, pose, cx, cy, baseRadius + height, baseRadius + height + 1.6f, turn - half, turn + half, com.darkmusic.client.gui.SpectrumAppearance.alpha(color, 0x33), color & 0xffffff, com.darkmusic.client.gui.SpectrumAppearance.alpha(color, 0x33), color & 0xffffff);
             }
@@ -215,7 +235,7 @@ final class CircularHudMesh {
             float markerBase = peakOnly() ? baseRadius + Math.max(0, height - 2) : baseRadius;
             float markerHeight = peakOnly() ? Math.min(2, height) : height;
             float radius = Math.min(markerHeight / 2, (float) (markerBase * half * TURN));
-            double light = Bevel.circularLight(turn);
+            double light = Bevel.circularLight(turn + rotation);
             for (int i = 0; i < 6; i++) {
                 double t0 = -1 + i / 3.0, t1 = -1 + (i + 1) / 3.0;
                 double a = turn + half * t0, b = turn + half * t1;

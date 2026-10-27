@@ -131,7 +131,7 @@ public final class AudioDeletionScreen extends LocalScreen {
     }
 
     private void updateButtons() {
-        boolean ready = plan != null && !busy && result == null && !app.mediaBusy;
+        boolean ready = plan != null && !busy && result == null && !app.mediaBusy();
         companions.active = ready && plan.trashSupported() && !plan.companions().isEmpty();
         companions.setMessage(Text.component(trashCompanions ? "delete_audio.companions_trash" : "delete_audio.companions_keep"));
         trash.active = ready && plan.trashSupported();

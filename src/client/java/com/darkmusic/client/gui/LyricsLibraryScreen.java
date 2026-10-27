@@ -39,7 +39,7 @@ public final class LyricsLibraryScreen extends AudioPage {
 
     private String status() {
         if (!app.settings.lyricsEnabled || !app.settings.lyricsOnline) return Text.get("lyrics.online_required");
-        if (app.library.snapshot().scanning() || app.mediaBusy) return Text.get("lyrics.library.wait_library");
+        if (app.library.snapshot().scanning() || app.mediaBusy()) return Text.get("lyrics.library.wait_library");
         if (!app.lyrics.libraryLookupRunning()) return Text.get("lyrics.library.idle");
         long seconds = app.lyrics.lookup.cooldownSeconds();
         if (seconds > 0) return Text.get("lyrics.library.wait_provider", seconds);

@@ -22,6 +22,7 @@ final class PipSmoothClient {
     private int stage, ticks;
     private PipSpectrumSmoke spectrumCheck;
     private PipSetupSmoke setupCheck;
+    private HudMenusSmoke hudMenusCheck;
     private String phase = "manual";
     private long lastReceived, lastUpload, lastRender, draws, diagnosticDrops;
     private final String sourceTitle = System.getProperty("darkmusic.pipSourceTitle", "");
@@ -76,13 +77,16 @@ final class PipSmoothClient {
      * Disposable copy of an existing development world, so the shared run folder is never opened.
      */
     private void joinBenchmarkWorld(Minecraft mc) throws java.io.IOException {
+        if (System.getProperty("darkmusic.pipWorldSource") == null)
+            throw new IllegalStateException("Joining a world needs -PpipWorldSource=<existing world folder>");
         var source = Path.of(System.getProperty("darkmusic.pipWorldSource"));
         var target = mc.gameDirectory.toPath().resolve("saves").resolve("PipBenchmark");
         if (!Files.exists(target)) try (var paths = Files.walk(source)) {
             for (var path : (Iterable<Path>) paths::iterator) {
                 var copy = target.resolve(source.relativize(path).toString());
+                // A client with the source world open holds its lock; the copy gets a fresh one.
                 if (Files.isDirectory(path)) Files.createDirectories(copy);
-                else Files.copy(path, copy);
+                else if (!path.getFileName().toString().equals("session.lock")) Files.copy(path, copy);
             }
         }
         mc.createWorldOpenFlows().openWorld("PipBenchmark", () -> {
@@ -138,6 +142,13 @@ final class PipSmoothClient {
                 return;
             if (stage == 0) {
                 app.settings.lyricsEnabled = app.settings.lyricsOnline = app.settings.waveformProgress = false;
+                // The private collection may need ffmpeg to decode (Opus); use the tools the run was given.
+                if (System.getProperty("darkmusic.downloadTools") != null) {
+                    Path tools = Path.of(System.getProperty("darkmusic.downloadTools"));
+                    String ext = System.getProperty("os.name").startsWith("Windows") ? ".exe" : "";
+                    app.settings.ffmpegPath = tools.resolve("ffmpeg" + ext).toString();
+                    app.settings.ffprobePath = tools.resolve("ffprobe" + ext).toString();
+                }
                 app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> {
                 });
                 stage = 1;
@@ -151,7 +162,7 @@ final class PipSmoothClient {
                     app.playback.repeat(PlaybackController.Repeat.ONE);
                     app.playback.play(List.of(track), track);
                 }
-                if (!sourceTitle.isEmpty()) joinBenchmarkWorld(mc);
+                if (!sourceTitle.isEmpty() || Files.exists(folder.resolve("check-hud-menus"))) joinBenchmarkWorld(mc);
                 else mc.gui.setScreen(new PipScreen(app, null));
                 if (sourceTitle.isEmpty() && Boolean.getBoolean("darkmusic.pipBenchmark") && Files.exists(folder.resolve("select-fixture")))
                     app.pip.tools.windows(new com.darkmusic.client.download.ProcessRunner.Token()).thenAccept(sources -> mc.execute(() -> {
@@ -181,6 +192,10 @@ final class PipSmoothClient {
             if (stage == 2 && Files.exists(folder.resolve("check-setup"))) {
                 if (setupCheck == null) setupCheck = new PipSetupSmoke();
                 if (setupCheck.tick(mc, app)) Files.writeString(folder.resolve("stop-minecraft"), "done");
+            }
+            if (stage == 2 && Files.exists(folder.resolve("check-hud-menus"))) {
+                if (hudMenusCheck == null) hudMenusCheck = new HudMenusSmoke();
+                if (hudMenusCheck.tick(mc, app)) Files.writeString(folder.resolve("stop-minecraft"), "done");
             }
             if (stage == 2 && ticks % 20 == 0) {
                 if (Files.isRegularFile(folder.resolve("phase"))) {
