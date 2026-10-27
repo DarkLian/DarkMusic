@@ -30,6 +30,7 @@ public final class JavaSoundBackend implements AudioBackend {
     private final AtomicLong generation = new AtomicLong();
     private final SpectrumAnalyzer spectrum = new SpectrumAnalyzer();
     private final AudioProcessor processor = new AudioProcessor();
+    private final AudioProcessor.Dither dither = new AudioProcessor.Dither(System.nanoTime());
     private volatile SoundEnvironmentSettings environment = new SoundEnvironmentSettings();
     private volatile AudioComparison comparison = AudioComparison.OFF;
     private boolean protectionFlushed;
@@ -602,7 +603,7 @@ public final class JavaSoundBackend implements AudioBackend {
                             }
                         }
                         processor.process(pcm, samples, gain, 1);
-                        AudioProcessor.quantize(pcm, buffer, samples, bytesPerSample);
+                        AudioProcessor.quantize(pcm, buffer, samples, bytesPerSample, dither);
                         int written = 0;
                         while (written < count && current(request)) {
                             if (paused) {

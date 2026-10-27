@@ -1608,7 +1608,7 @@
   "pip.spectrum.smoothing.help": "數值越高，子母畫面頻譜的起伏越平緩。",
   "pip.spectrum.sensitivity.help": "放大較輕的應用程式音訊頻譜，或降低過強的頻譜幅度。",
   "pip.audio_spectrum": "子母畫面音訊頻譜",
-  "pip.audio_spectrum.help": "分析所選應用程式的音訊，在子母畫面旁顯示頻譜。Chrome 其他有聲分頁也可能包含在內。不會重播或錄製音訊。需要 Windows 組建 20348 或更新版本。請在停止擷取後變更。",
+  "pip.audio_spectrum.help": "分析所選應用程式的音訊，在子母畫面旁顯示頻譜。Chrome 其他有聲分頁也可能包含在內。透過其他處理程序播放聲音的應用程式（例如部分 Microsoft Store 應用程式）無法擷取。不會重播或錄製音訊。需要 Windows 組建 20348 或更新版本。請在停止擷取後變更。",
   "pip.audio_starting": "正在連接應用程式音訊…",
   "pip.audio_live": "應用程式音訊頻譜已啟用",
   "pip.audio_unsupported": "此 Windows 版本不支援應用程式音訊擷取；影像仍可使用。",

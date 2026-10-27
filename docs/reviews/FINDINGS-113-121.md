@@ -12,7 +12,7 @@ Reviewed against the v3.0.1 development branch on 2026-10-26. The supplied workb
 | 118: Poll-worker termination | Defensive hardening | An unexpected polling failure is logged once and requests a rescan without suppressing future scheduled polls. Tested using an injected error; no real OS-triggered failure was reproduced. |
 | 119: Bot-check wording | Confirmed, fixed | Recognize bot verification separately from private/login-required content. Explain it cautiously, offer tool guidance and manual retry, and do not automatically retry or bypass the check. |
 | 120: Environment parameter resets | Confirmed, fixed | Continuous edits update the current/incoming engine in place, retaining histories and smoothing gains, filters and damping. Structural changes retain the existing bounded two-engine transition. |
-| 121: 16-bit dither | Optional, deferred | Current conversion rounds rather than truncates. TPDF dither would change output/noise-floor policy and bit-exact expectations; it is not included as an incidental correctness fix. |
+| 121: 16-bit dither | Fixed in v3.3.2 | 16-bit playback adds TPDF dither of up to one step. Samples already on the 16-bit grid, including digital silence, stay exact, so unprocessed playback remains bit-perfect. 24-bit output is unchanged. |
 
 ## Environment update boundaries
 

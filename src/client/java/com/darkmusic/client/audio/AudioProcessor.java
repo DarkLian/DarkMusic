@@ -294,11 +294,45 @@ public final class AudioProcessor {
     }
 
     public static void quantize(float[] input, byte[] out, int count, int sampleBytes) {
+        quantize(input, out, count, sampleBytes, null);
+    }
+
+    /**
+     * Converts to 16- or 24-bit PCM. With a dither source, 16-bit samples get TPDF dither; samples already on the
+     * 16-bit grid, including digital silence, stay exact so unprocessed playback remains bit-perfect.
+     */
+    public static void quantize(float[] input, byte[] out, int count, int sampleBytes, Dither dither) {
         if (sampleBytes != 2 && sampleBytes != 3) throw new IllegalArgumentException("Unsupported output precision");
         long scale = 1L << (sampleBytes * 8 - 1);
+        boolean dithered = dither != null && sampleBytes == 2;
         for (int i = 0; i < count; i++) {
-            int n = (int) Math.clamp(Math.round(input[i] * scale), -scale, scale - 1);
+            double value = input[i] * (double) scale;
+            if (dithered && Math.abs(value - Math.rint(value)) > 1e-3) value += dither.next();
+            int n = (int) Math.clamp(Math.round(value), -scale, scale - 1);
             for (int b = 0; b < sampleBytes; b++) out[sampleBytes * i + b] = (byte) (n >> (b * 8));
+        }
+    }
+
+    /**
+     * Triangular dither of up to one least significant bit, from an allocation-free xorshift generator.
+     * One instance belongs to one output thread.
+     */
+    public static final class Dither {
+        private long state;
+
+        public Dither(long seed) {
+            state = seed == 0 ? 0x9E3779B97F4A7C15L : seed;
+        }
+
+        double next() {
+            return uniform() - uniform();
+        }
+
+        private double uniform() {
+            state ^= state << 13;
+            state ^= state >>> 7;
+            state ^= state << 17;
+            return (state >>> 11) * 0x1.0p-53;
         }
     }
 }

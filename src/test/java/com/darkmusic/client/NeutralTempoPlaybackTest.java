@@ -133,7 +133,12 @@ class NeutralTempoPlaybackTest {
                             expected.write(encoded, 0, n * 2);
                         }
                     }
-                    assertArrayEquals(expected.toByteArray(), bytes.toByteArray(), "neutral=" + neutral + ", preserve=" + preserve + ", speed=" + speed);
+                    // Resampled output is off the 16-bit grid, so playback dither may move each sample by one step.
+                    byte[] want = expected.toByteArray(), got = bytes.toByteArray();
+                    String label = "neutral=" + neutral + ", preserve=" + preserve + ", speed=" + speed;
+                    assertEquals(want.length, got.length, label);
+                    for (int i = 0; i + 1 < want.length; i += 2)
+                        assertTrue(Math.abs((short) ((want[i] & 255) | want[i + 1] << 8) - (short) ((got[i] & 255) | got[i + 1] << 8)) <= 1, label);
                 }
     }
 }

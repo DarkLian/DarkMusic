@@ -104,6 +104,35 @@ class AdvancedAudioTest {
         byte[] result = new byte[samples * 2];
         AudioProcessor.quantize(values, result, samples);
         assertArrayEquals(Arrays.copyOf(clip.bytes(), result.length), result);
+        AudioProcessor.quantize(values, result, samples, 2, new AudioProcessor.Dither(1));
+        assertArrayEquals(Arrays.copyOf(clip.bytes(), result.length), result, "dither must leave on-grid playback bit-exact");
+    }
+
+    @Test
+    void ditherKeepsDetailBelowOneSixteenBitStepAndLeavesTwentyFourBitAlone() {
+        float[] quiet = new float[20000];
+        Arrays.fill(quiet, .25f / 32768);
+        byte[] out = new byte[quiet.length * 2];
+        AudioProcessor.quantize(quiet, out, quiet.length);
+        for (byte b : out) assertEquals(0, b);
+        AudioProcessor.quantize(quiet, out, quiet.length, 2, new AudioProcessor.Dither(7));
+        long sum = 0;
+        for (int i = 0; i < out.length; i += 2) {
+            int n = (short) ((out[i] & 255) | out[i + 1] << 8);
+            assertTrue(Math.abs(n) <= 1);
+            sum += n;
+        }
+        assertEquals(.25, sum / (double) quiet.length, .03);
+        byte[] silence = new byte[8];
+        AudioProcessor.quantize(new float[4], silence, 4, 2, new AudioProcessor.Dither(7));
+        assertArrayEquals(new byte[8], silence);
+        byte[] plain = new byte[quiet.length * 3], dithered = new byte[quiet.length * 3];
+        AudioProcessor.quantize(quiet, plain, quiet.length, 3);
+        AudioProcessor.quantize(quiet, dithered, quiet.length, 3, new AudioProcessor.Dither(7));
+        assertArrayEquals(plain, dithered);
+        byte[] clipped = new byte[6];
+        AudioProcessor.quantize(new float[]{2, -2, 0}, clipped, 3, 2, new AudioProcessor.Dither(7));
+        assertArrayEquals(new byte[]{-1, 127, 0, -128, 0, 0}, clipped);
     }
 
     @Test

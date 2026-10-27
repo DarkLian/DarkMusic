@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-This guide describes DarkMusic v3.3.1 for Minecraft 26.2 with Fabric and Java 25.
+This guide describes DarkMusic v3.3.2 for Minecraft 26.2 with Fabric and Java 25.
 
 ## Picture-in-Picture (Windows x64)
 
@@ -40,7 +40,8 @@ edges the spectrum stays visible by moving over the video. Music HUD settings an
 its audio source remain unchanged. This option defaults off and needs Windows build 20348
 or later; video capture can still work where process-audio capture is unavailable.
 Other audible browser tabs can contribute when they share the captured process
-tree: a selected window does not guarantee tab-isolated audio. Everything in the chosen
+tree: a selected window does not guarantee tab-isolated audio. Apps that play sound
+through a separate process, such as some Microsoft Store apps, are not captured. Everything in the chosen
 window is potentially visible, so crop or stop before displaying private content.
 
 The frame limit offers **Match Monitor** and manual limits from **15 to 480 FPS**,

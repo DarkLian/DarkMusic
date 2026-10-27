@@ -1,6 +1,22 @@
 # Development and verification
 
-## Code cleanup (unreleased)
+## v3.3.2: PiP Install repair, 16-bit dither and code cleanup
+
+**PiP Install repair.** `PipRuntimeTest` covers three cases:
+- a damaged cached package is replaced by a fresh download;
+- a valid cached package is reused without downloading;
+- a damaged unpacked runtime is extracted again, unless another client is using it.
+
+**16-bit dither (review 121).** Playback adds TPDF dither to 16-bit output only. Unit tests cover:
+- a constant a quarter step high averages back to a quarter step instead of rounding to silence;
+- digital silence, full-scale clipping and 24-bit output are unchanged;
+- the real-collection clip stays bit-exact through dithered quantization.
+
+`NeutralTempoPlaybackTest` resamples, so it now allows one step of difference per sample.
+
+**PiP audio note (review 100).** The PiP Audio Spectrum help text (English and Traditional Chinese) and the user guide now say that apps playing sound through a separate process are not captured.
+
+### Code cleanup
 
 This is internal restructuring with no user-facing change.
 
@@ -23,10 +39,10 @@ This is internal restructuring with no user-facing change.
 
 Release notes now live in `docs/releases`. Earlier review records are in `docs/reviews`.
 
-### Deferred review items
+### Review items 121 and 100
 
-- **[121](reviews/FINDINGS-113-121.md), 16-bit dither.** Still deferred. Conversion rounds rather than truncates. TPDF dither would change the output noise floor and bit-exact expectations.
-- **[100](reviews/FINDINGS-86-108.md), PiP process audio.** Still a platform limitation. Audio follows the selected window's owner process, so hosted and UWP apps that route audio through another process are not captured.
+- **[121](reviews/FINDINGS-113-121.md), 16-bit dither.** Fixed as described above.
+- **[100](reviews/FINDINGS-86-108.md), PiP process audio.** Still a platform limitation, now documented in the help text and user guide.
 
 ## v3.3.1: Up Next library search, bulk remove and Beveled bars
 

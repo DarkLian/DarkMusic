@@ -1608,7 +1608,7 @@
   "pip.spectrum.smoothing.help": "Higher values make the PiP spectrum rise and fall more slowly.",
   "pip.spectrum.sensitivity.help": "Boost quieter application audio or reduce strong spectrum levels.",
   "pip.audio_spectrum": "PiP Audio Spectrum",
-  "pip.audio_spectrum.help": "Analyze the selected application's audio to show a spectrum beside PiP. Other audible Chrome tabs may contribute. No audio is replayed or recorded. Requires Windows build 20348 or later. Change while capture is stopped.",
+  "pip.audio_spectrum.help": "Analyze the selected application's audio to show a spectrum beside PiP. Other audible Chrome tabs may contribute. Apps that play sound through a separate process, such as some Microsoft Store apps, are not captured. No audio is replayed or recorded. Requires Windows build 20348 or later. Change while capture is stopped.",
   "pip.audio_starting": "Connecting application audio…",
   "pip.audio_live": "Application audio spectrum active",
   "pip.audio_unsupported": "Application audio capture is unavailable on this Windows version; video remains available.",
