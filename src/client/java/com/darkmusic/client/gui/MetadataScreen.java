@@ -119,7 +119,7 @@ public final class MetadataScreen extends LocalScreen {
         longText.begin();
         UiTheme.background(g, width, height);
         UiTheme.panel(g, left, top, panelWidth, 232);
-        g.text(font, font.plainSubstrByWidth(title.getString(), panelWidth - 56), left + 12, top + 12, UiTheme.TEXT);
+        g.text(font, HorizontalText.ellipsize(font, title.getString(), panelWidth - 56), left + 12, top + 12, UiTheme.TEXT);
         String[] keys = {"text.darkmusic.song_title", "text.darkmusic.artist", "library.darkmusic.album", "library.darkmusic.filename"};
         for (int i = 0; i < keys.length; i++)
             g.text(font, Text.get(keys[i]) + (i == 3 && original != null ? " (" + original.extension() + ")" : ""), left + 12, top + 30 + i * 36, UiTheme.SECONDARY);

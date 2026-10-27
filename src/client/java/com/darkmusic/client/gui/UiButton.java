@@ -123,6 +123,9 @@ public final class UiButton extends Button {
             }
             if (isFocused())
                 g.fill(getX() + (width - size) / 2, getBottom() - 2, getX() + (width + size) / 2, getBottom(), UiTheme.TEXT);
+                // On-state toggles (shuffle, repeat, mute) also carry a dot, not only an accent color.
+            else if (chosen && active)
+                g.fill(getX() + width / 2 - 1, getBottom(), getX() + width / 2 + 1, getBottom() + 2, UiTheme.ACCENT);
             g.pose().popMatrix();
             return;
         }

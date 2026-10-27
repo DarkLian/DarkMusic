@@ -32,12 +32,12 @@ final class ImportOverlay {
         UiIcon.DOWNLOAD.draw(g, (width - 24) / 2, y + 12, 24, UiTheme.ACCENT);
         var font = Minecraft.getInstance().font;
         String title = Text.get("import.darkmusic.importing");
-        g.text(font, font.plainSubstrByWidth(title, w - 20), x + (w - Math.min(font.width(title), w - 20)) / 2, y + 47, UiTheme.TEXT);
+        g.text(font, HorizontalText.ellipsize(font, title, w - 20), x + (w - Math.min(font.width(title), w - 20)) / 2, y + 47, UiTheme.TEXT);
         String label = Text.get("import.darkmusic.destination", app.importDestination);
-        label = font.plainSubstrByWidth(label, w - 24);
+        label = HorizontalText.ellipsize(font, label, w - 24);
         g.text(font, label, x + (w - font.width(label)) / 2, y + 65, UiTheme.SECONDARY);
         String hint = Text.get("import.darkmusic.copying");
-        hint = font.plainSubstrByWidth(hint, w - 24);
+        hint = HorizontalText.ellipsize(font, hint, w - 24);
         g.text(font, hint, x + (w - font.width(hint)) / 2, y + 83, UiTheme.MUTED);
     }
 }

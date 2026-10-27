@@ -126,20 +126,69 @@ public final class UiTheme {
         if (screen != null) for (var child : screen.children())
             if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget && widget.visible
                 && widget.getY() < 28 && widget.getX() >= 30) right = Math.min(right, widget.getX() - 6);
-        g.text(font, font.plainSubstrByWidth(title.getString(), Math.max(0, right - 30)), 30, 12, TEXT);
+        g.text(font, HorizontalText.ellipsize(font, title.getString(), Math.max(0, right - 30)), 30, 12, TEXT);
+    }
+
+    /**
+     * The same box and check glyph as setting rows, for list selection columns.
+     */
+    public static void checkbox(GuiGraphicsExtractor g, int x, int y, int size, boolean checked, boolean active) {
+        g.outline(x, y, size, size, active ? ACCENT : MUTED);
+        if (checked) UiIcon.CHECK.draw(g, x + 1, y + 1, size - 2, active ? TEXT : MUTED);
+    }
+
+    /**
+     * Signals rows clipped by a scrolling viewport without hiding the scrollbar.
+     */
+    public static void edgeFades(GuiGraphicsExtractor g, int x, int y, int width, int height, boolean above, boolean below, int surface) {
+        int size = Math.min(12, height / 4), clear = surface & 0x00FFFFFF;
+        if (above) verticalGradient(g, x, y, width, size, surface, clear);
+        if (below) verticalGradient(g, x, y + height - size, width, size, clear, surface);
     }
 
     /**
      * One quad, not one fill per pixel or gradient sample.
      */
     public static void gradient(GuiGraphicsExtractor g, int x, int y, int width, int height, int first, int last) {
+        gradient(g, x, y, width, height, first, last, false);
+    }
+
+    public static void verticalGradient(GuiGraphicsExtractor g, int x, int y, int width, int height, int top, int bottom) {
+        gradient(g, x, y, width, height, top, bottom, true);
+    }
+
+    private static void gradient(GuiGraphicsExtractor g, int x, int y, int width, int height, int first, int last, boolean vertical) {
         if (width <= 0 || height <= 0) return;
         var pose = new Matrix3x2f(g.pose());
         var clip = g.scissorStack.peek();
         var bounds = new ScreenRectangle(x, y, width, height).transformMaxBounds(pose);
         if (clip != null) bounds = clip.intersection(bounds);
-        if (bounds != null)
-            g.guiRenderState.addGuiElement(new Gradient(pose, clip, bounds, x, y, width, height, first, last));
+        if (bounds == null) return;
+        if (vertical)
+            g.guiRenderState.addGuiElement(new VerticalGradient(pose, clip, bounds, x, y, width, height, first, last));
+        else g.guiRenderState.addGuiElement(new Gradient(pose, clip, bounds, x, y, width, height, first, last));
+    }
+
+    private record VerticalGradient(Matrix3x2f pose, ScreenRectangle scissorArea, ScreenRectangle bounds,
+                                    int x, int y, int width, int height, int top,
+                                    int bottom) implements GuiElementRenderState {
+        @Override
+        public com.mojang.blaze3d.pipeline.RenderPipeline pipeline() {
+            return RenderPipelines.GUI;
+        }
+
+        @Override
+        public TextureSetup textureSetup() {
+            return TextureSetup.noTexture();
+        }
+
+        @Override
+        public void buildVertices(VertexConsumer vertices) {
+            vertices.addVertexWith2DPose(pose, x, y).setColor(top);
+            vertices.addVertexWith2DPose(pose, x, y + height).setColor(bottom);
+            vertices.addVertexWith2DPose(pose, x + width, y + height).setColor(bottom);
+            vertices.addVertexWith2DPose(pose, x + width, y).setColor(top);
+        }
     }
 
     private record Gradient(Matrix3x2f pose, ScreenRectangle scissorArea, ScreenRectangle bounds,

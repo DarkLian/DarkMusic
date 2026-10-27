@@ -28,6 +28,7 @@ public final class DownloadScreen extends LocalScreen {
     private final Map<String, Entry> known = new LinkedHashMap<>();
     private EditBox url, first, last, search, pageNumber;
     private RowList rows;
+    private Button format;
     private Button queueToggle, analyze, download, modeButton, previous, next, goToPage, selectAll, deselect, listen, stopListening, retrySelected, retryFailed, clearFailed, cancelSelected, cancelAll, clearFinished;
     private Button errorDetails;
     private Button existingDetails;
@@ -106,11 +107,11 @@ public final class DownloadScreen extends LocalScreen {
     @Override
     protected void init() {
         app.sourceIndex();
-        backButton(width - 36, 4, 24);
+        backButton();
         rowsSnapshot = null;
-        UiButton.icon(button(Text.get("text.darkmusic.tools"), width - 128, 4, 88,
+        UiButton.icon(button(Text.get("text.darkmusic.tools"), width - 172, 4, 88,
             () -> show(new DownloadToolsScreen(app, this)), Text.get("text.darkmusic.set_executable_paths_and_check_yt_dlp_ffmpeg_ffprobe_and_optional_javascript_runti")), UiIcon.TOOLS, false);
-        sourceToggle = UiButton.icon(button(Text.get("phase2.source"), width - 220, 4, 88, () -> {
+        sourceToggle = UiButton.icon(button(Text.get("phase2.source"), width - 264, 4, 88, () -> {
             sourceExpanded = !sourceExpanded;
             updateButtons();
         }, Text.get("download.darkmusic.source_panel_help")), UiIcon.SEARCH, false);
@@ -139,6 +140,12 @@ public final class DownloadScreen extends LocalScreen {
         last = input("text.darkmusic.range_end", 7, to, s -> to = s);
         Help.tip(first, Text.get("download.darkmusic.range_help"));
         Help.tip(last, Text.get("download.darkmusic.range_help"));
+        format = action("audio.darkmusic.download", () -> {
+            var formats = com.darkmusic.client.download.DownloadEncoding.Format.values();
+            app.settings.downloadFormat = formats[(app.settings.downloadFormat.ordinal() + 1) % formats.length];
+            app.save();
+            updateButtons();
+        }, "audio.darkmusic.download_help");
         download = action("text.darkmusic.download", this::download, "text.darkmusic.queue_only_the_explicitly_chosen_selection_into_the_current_music_folder_up_to_1_0");
         entriesTab = action("phase2.entries", () -> queue(false), "text.darkmusic.switch_between_collection_preview_and_download_queue_closing_this_screen_does_not");
         queueToggle = action("ui.darkmusic.queue", () -> queue(true), "text.darkmusic.switch_between_collection_preview_and_download_queue_closing_this_screen_does_not");
@@ -229,8 +236,21 @@ public final class DownloadScreen extends LocalScreen {
         if (!visible && getFocused() == widget) setFocused(null);
     }
 
+    private int pageCountX;
+    private boolean labelledListen;
+
+    private int pageCountWidth() {
+        return font.width(Text.get("download.darkmusic.page_of", "999+"));
+    }
+
+    private String pageCount(Preview preview) {
+        int pages = availablePages(preview);
+        return Text.get("download.darkmusic.page_of", preview.total() > 0 || !preview.hasMore() ? Integer.toString(pages) : pages + "+");
+    }
+
     private void layout() {
         boolean wide = width >= 640 && height >= 360;
+        labelledListen = wide;
         if (wide) {
             layoutWide();
             return;
@@ -248,7 +268,9 @@ public final class DownloadScreen extends LocalScreen {
         place(analyze, width - 100, sourceY, 88, source);
         place(entriesTab, 12, tabsY, 84, true);
         place(queueToggle, 100, tabsY, 84, true);
-        place(download, 192, tabsY, width - 204, !queueView);
+        int actions = (width - 208) / 2;
+        place(download, 192, tabsY, actions, !queueView);
+        place(format, 196 + actions, tabsY, width - 208 - actions, !queueView);
         int half = (width - 28) / 2;
         place(modeButton, 12, modeY, half, modes);
         place(first, 16 + half, modeY, (half - 4) / 2, modes && mode == Mode.RANGE);
@@ -260,9 +282,11 @@ public final class DownloadScreen extends LocalScreen {
         place(next, 40, pageY, 24, !queueView);
         place(pageNumber, 68, pageY, 40, !queueView);
         place(goToPage, 112, pageY, 28, !queueView);
-        int choice = (width - 172) / 2;
-        place(selectAll, 144, pageY, choice, !queueView && mode == Mode.SELECTED);
-        place(deselect, 148 + choice, pageY, choice, !queueView && mode == Mode.SELECTED);
+        pageCountX = 146;
+        int choiceX = pageCountX + pageCountWidth() + 6;
+        int choice = (width - 12 - choiceX - 4) / 2;
+        place(selectAll, choiceX, pageY, choice, !queueView && mode == Mode.SELECTED);
+        place(deselect, choiceX + choice + 4, pageY, choice, !queueView && mode == Mode.SELECTED);
         int third = (width - 32) / 3;
         UiButton.icon(retrySelected, UiIcon.REFRESH, false);
         place(retrySelected, 12, height - 56, third, queueView);
@@ -295,16 +319,19 @@ public final class DownloadScreen extends LocalScreen {
         place(first, 16, modeY + 26, 76, !queueView && mode == Mode.RANGE);
         place(last, 96, modeY + 26, 76, !queueView && mode == Mode.RANGE);
         place(download, 16, modeY + (mode == Mode.RANGE ? 56 : 30), side, !queueView);
-        place(search, rightX, searchY, rightWidth - (queueView ? 0 : 56), true);
-        place(listen, width - 64, searchY, 24, !queueView);
+        place(format, 16, modeY + (mode == Mode.RANGE ? 82 : 56), side, !queueView);
+        place(search, rightX, searchY, rightWidth - (queueView ? 0 : 112), true);
+        place(listen, width - 112, searchY, 72, !queueView);
         place(stopListening, width - 36, searchY, 24, !queueView);
         place(previous, rightX, pageY, 24, !queueView);
         place(next, rightX + 28, pageY, 24, !queueView);
         place(pageNumber, rightX + 56, pageY, 40, !queueView);
         place(goToPage, rightX + 100, pageY, 28, !queueView);
-        int choice = (rightWidth - 140) / 2;
-        place(selectAll, rightX + 136, pageY, choice, !queueView && mode == Mode.SELECTED);
-        place(deselect, rightX + 140 + choice, pageY, choice, !queueView && mode == Mode.SELECTED);
+        pageCountX = rightX + 134;
+        int choiceX = pageCountX + pageCountWidth() + 6;
+        int choice = (rightX + rightWidth - choiceX - 4) / 2;
+        place(selectAll, choiceX, pageY, choice, !queueView && mode == Mode.SELECTED);
+        place(deselect, choiceX + choice + 4, pageY, choice, !queueView && mode == Mode.SELECTED);
         int third = (rightWidth - 8) / 3;
         place(retrySelected, rightX, height - 56, third, queueView);
         place(retryFailed, rightX + third + 4, height - 56, third, queueView);
@@ -486,6 +513,8 @@ public final class DownloadScreen extends LocalScreen {
         download.active = !queueView && !snapshot.analyzing() && valid;
         modeButton.active = !queueView && valid && !single(p);
         modeButton.setMessage(Component.literal(Text.get("format.darkmusic.mode", mode.label())));
+        format.setMessage(Component.literal(Text.get("audio.darkmusic.download") + ": " + Text.get("audio.darkmusic.value." + app.settings.downloadFormat.name().toLowerCase(Locale.ROOT))));
+        format.active = !queueView && !snapshot.analyzing();
         first.visible = last.visible = !queueView && mode == Mode.RANGE;
         first.active = last.active = !queueView && valid && mode == Mode.RANGE && !snapshot.analyzing();
         previous.active = !queueView && !snapshot.analyzing() && valid && p.first() > 1;
@@ -501,7 +530,7 @@ public final class DownloadScreen extends LocalScreen {
         var auditionStatus = audition == null ? AuditionPlayer.Status.STOPPED : audition.snapshot().status();
         boolean playing = currentAudition && auditionStatus == AuditionPlayer.Status.PLAYING;
         listen.setMessage(Text.component(playing ? "text.darkmusic.pause" : currentAudition && auditionStatus == AuditionPlayer.Status.PAUSED ? "text.darkmusic.resume" : "download.darkmusic.listen"));
-        UiButton.icon(listen, playing ? UiIcon.PAUSE : UiIcon.PLAY, true);
+        UiButton.icon(listen, playing ? UiIcon.PAUSE : UiIcon.PLAY, !labelledListen);
         listen.active &= !(currentAudition && auditionStatus == AuditionPlayer.Status.LOADING);
         stopListening.active = auditionStatus == AuditionPlayer.Status.LOADING || auditionStatus == AuditionPlayer.Status.PLAYING || auditionStatus == AuditionPlayer.Status.PAUSED;
         var selectedItem = visibleJobs.stream().filter(i -> i.id() == selectedJob).findFirst();
@@ -583,8 +612,8 @@ public final class DownloadScreen extends LocalScreen {
         }
         if (!lookup.possible().isEmpty()) return new RowList.Row(row.title(), lookup.possible().getFirst().title())
             .status(Text.get("download.library.possible"), UiStatus.Tone.WARNING);
-        return row.status(Text.get(lookup.complete() ? "download.library.not_detected" : "download.library.incomplete"),
-            lookup.complete() ? UiStatus.Tone.INFO : UiStatus.Tone.WARNING);
+        if (lookup.complete()) return row;
+        return row.status(Text.get("download.library.incomplete"), UiStatus.Tone.WARNING);
     }
 
     static RowList.Row jobRow(Item item) {
@@ -642,6 +671,8 @@ public final class DownloadScreen extends LocalScreen {
         var tone = !notice.isBlank() || app.downloads.analysisDiagnostic() != null ? UiStatus.Tone.ERROR : UiStatus.Tone.INFO;
         if (audition != null && audition.snapshot().status() == AuditionPlayer.Status.ERROR) tone = UiStatus.Tone.ERROR;
         longText.drawStatus(g, font, "detail", detail, summary, rows.getX(), resultTop - 13, rows.getWidth(), UiStatus.color(tone), UiTheme.SECONDARY);
+        if (pageNumber.visible && matches(s.preview()))
+            g.text(font, pageCount(s.preview()), pageCountX, pageNumber.getY() + 6, pageNumber.active ? UiTheme.SECONDARY : UiTheme.MUTED);
         super.extractRenderState(g, x, y, delta);
     }
 

@@ -36,7 +36,7 @@ public final class UpNextScreen extends LocalScreen {
     protected void init() {
         collectionDrag = null;
         draggingCollection = false;
-        button("phase2.back", Math.max(12, width - 80), 4, 68, this::onClose);
+        backButton();
         boolean wide = width >= 640;
         listWidth = wide ? (width - 32) / 2 : width - 24;
         manualTitleY = 102;
@@ -80,6 +80,7 @@ public final class UpNextScreen extends LocalScreen {
             refresh();
         });
         Help.tip(remove, Text.get("upnext.remove.help"));
+        UiButton.style(clear, UiButton.Style.DESTRUCTIVE);
         Help.tip(clear, Text.get("upnext.clear.help"));
         snapshot = null;
         refresh();

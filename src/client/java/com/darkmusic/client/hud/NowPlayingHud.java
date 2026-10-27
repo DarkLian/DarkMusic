@@ -135,6 +135,8 @@ public final class NowPlayingHud {
             }
             HudSurface.draw(g, app.settings, w, h);
             int textX = app.settings.hudArtwork ? 42 : 6;
+            int scrim = HudLayout.textScrim(app.settings);
+            if (scrim != 0) g.fill(textX - 3, main + 3, w - 3, main + 33, scrim);
             if (app.settings.hudArtwork) HudImages.draw(g, art, 5, main + 3, 32, 32);
             String title = track == null ? Text.get("text.darkmusic.song_title") : track.title();
             if (text != null) text.transform(x, y, scale);
@@ -143,7 +145,7 @@ public final class NowPlayingHud {
             if (text != null)
                 text.draw(g, mc.font, "hud_detail", detail, textX, main + 21, Math.max(1, w - textX - 6), 0xFFE0DDEE);
             else
-                g.text(mc.font, mc.font.plainSubstrByWidth(detail, Math.max(1, w - textX - 6)), textX, main + 21, 0xFFE0DDEE);
+                g.text(mc.font, com.darkmusic.client.gui.HorizontalText.ellipsize(mc.font, detail, Math.max(1, w - textX - 6)), textX, main + 21, 0xFFE0DDEE);
             if (app.settings.hudProgress) {
                 double progress = state.duration() > 0 ? Math.clamp(state.position() / state.duration(), 0, 1) : preview ? .4 : 0;
                 drawProgress(app, g, track, 6, main + 39, w - 12, progress);

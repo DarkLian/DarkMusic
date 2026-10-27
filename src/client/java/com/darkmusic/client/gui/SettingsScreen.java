@@ -74,8 +74,10 @@ public final class SettingsScreen extends LocalScreen {
         }), Text.get(help));
     }
 
-    private void action(String key, Runnable action, String help) {
-        put(new SettingRow(12, 0, formWidth, Text.get(key), null, action), Text.get(help));
+    private SettingRow action(String key, Runnable action, String help) {
+        var row = new SettingRow(12, 0, formWidth, Text.get(key), null, action);
+        put(row, Text.get(help));
+        return row;
     }
 
     private void finish(String key, java.util.function.Supplier<Settings.SurfaceFinish> get, Consumer<Settings.SurfaceFinish> set) {
@@ -173,7 +175,7 @@ public final class SettingsScreen extends LocalScreen {
             app.listeningHistory.replace(java.util.Map.of());
             app.listeningHistory.flush(true);
             return java.util.concurrent.CompletableFuture.completedFuture(null);
-        })), "history.clear_help");
+        })), "history.clear_help").destructive();
         toggle("text.darkmusic.autoplay_on_launch", () -> s.autoplay, v -> s.autoplay = v, "text.darkmusic.automatically_start_the_library_after_minecraft_launches_disabled_by_default");
         action("folders.title", () -> show(new MusicFoldersScreen(app, this)), "folders.scope");
         folderY = cursor;
@@ -307,7 +309,7 @@ public final class SettingsScreen extends LocalScreen {
                 s.waveform = new com.darkmusic.client.config.WaveformSettings();
                 app.save();
                 rebuildWidgets();
-            }, "waveform.reset.help");
+            }, "waveform.reset.help").destructive();
         }
         section("hud.darkmusic.section_spectrum");
         action("style.darkmusic.spectrum", () -> {
@@ -373,7 +375,7 @@ public final class SettingsScreen extends LocalScreen {
                 }, linear ? 92 : 56, "hud.darkmusic.spectrum_height_help");
         section("reset.darkmusic.section");
         action("reset.darkmusic.button", () -> show(new ConfirmationScreen(this, Text.component("reset.darkmusic.title"),
-            Text.component("reset.darkmusic.body"), Text.component("reset.darkmusic.confirm"), app::resetDefaults)), "reset.darkmusic.help");
+            Text.component("reset.darkmusic.body"), Text.component("reset.darkmusic.confirm"), app::resetDefaults)), "reset.darkmusic.help").destructive();
         scrollbar = addRenderableWidget(new ScrollBar(() -> scroll, value -> {
             scroll = value;
             position();
@@ -388,7 +390,7 @@ public final class SettingsScreen extends LocalScreen {
         scroll = Math.clamp(scroll, 0, Math.max(0, end - origin - (bottom - top)));
         sectionScroll[selectedSection] = scroll;
         if (scrollbar != null) {
-            scrollbar.configure(formX - 10, top, bottom - top, end - origin, bottom - top);
+            scrollbar.configure(formX + formWidth + 3, top, bottom - top, end - origin, bottom - top);
             scrollbar.visible &= !previewOnly;
         }
         for (var p : controls) {

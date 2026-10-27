@@ -38,17 +38,17 @@ public final class PipScreen extends AudioPage {
         if (setup.busy()) {
             if (setup.status().equals("pip.setup.installing"))
                 info(() -> Text.get("pip.setup.progress", setup.downloaded() / 1048576, setup.size() / 1048576));
-            action("pip.setup.cancel", setup::cancel);
+            action("pip.setup.cancel", setup::cancel).runs();
             return;
         }
-        labeledAction(Text.get("pip.setup.check"), Text.get("pip.setup.check.help"), setup::check).active = !pip.active();
+        labeledAction(Text.get("pip.setup.check"), Text.get("pip.setup.check.help"), setup::check).runs().active = !pip.active();
         if (s.enabled) labeledAction(Text.get("pip.setup.disable"), Text.get("pip.setup.access.help"), () -> {
             s.revokeAccess();
             pip.stop();
             changed();
-        });
+        }).runs();
         if (!setup.ready()) {
-            labeledAction(Text.get("pip.setup.install"), Text.get("pip.setup.install.help"), () -> confirm("pip.setup.install", "pip.setup.install.confirm", setup::install)).active = setup.compatible();
+            labeledAction(Text.get("pip.setup.install"), Text.get("pip.setup.install.help"), () -> confirm("pip.setup.install", "pip.setup.install.confirm", setup::install)).runs().active = setup.compatible();
             return;
         }
         if (!s.enabled) labeledAction(Text.get("pip.setup.enable"), Text.get("pip.setup.access.help"), () -> {
@@ -56,7 +56,7 @@ public final class PipScreen extends AudioPage {
                 s.enabled = true;
                 changed();
             });
-        });
+        }).runs();
         if (!s.enabled) return;
         status(() -> Text.get(pip.status()), () -> pip.status().equals("pip.live") ? UiStatus.Tone.SUCCESS : pip.status().equals("pip.idle") ? UiStatus.Tone.INFO : UiStatus.Tone.WARNING);
         info(() -> pip.source() == null ? Text.get("pip.no_source") : pip.source().App() + " — " + pip.source().Title());
@@ -72,7 +72,7 @@ public final class PipScreen extends AudioPage {
             if (pip.active()) pip.stop();
             else pip.start();
             rebuildWidgets();
-        }).active = pip.source() != null;
+        }).runs().active = pip.source() != null;
         toggle("pip.visible", () -> s.visible, v -> s.visible = v);
         toggle("pip.in_menus", () -> s.inMenus, v -> s.inMenus = v);
         var audioToggle = new SettingRow(formX, 0, formWidth, Text.get("pip.audio_spectrum"), () -> s.audioSpectrum && s.audioAccess, () -> {

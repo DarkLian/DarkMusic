@@ -682,6 +682,16 @@ public final class MusicScreen extends LocalScreen {
         return super.keyReleased(event);
     }
 
+    static int fittedHeight(int sourceWidth, int sourceHeight, int maxWidth, int maxHeight) {
+        if (sourceWidth <= 0 || sourceHeight <= 0) return maxHeight;
+        double ratio = Math.min((double) maxWidth / sourceWidth, (double) maxHeight / sourceHeight);
+        return Math.clamp((int) Math.round(sourceHeight * ratio), 1, maxHeight);
+    }
+
+    private static int fittedHeight(com.darkmusic.client.library.ArtworkCache.Cover cover, int maxWidth, int maxHeight) {
+        return fittedHeight(cover.contentWidth() - 2 * cover.menuInset(), cover.contentHeight(), maxWidth, maxHeight);
+    }
+
     private void details(GuiGraphicsExtractor g, PlayerLayout.Rect area, boolean standalone) {
         UiTheme.panel(g, area.x(), area.y(), area.width(), area.height());
         int size = standalone ? Math.min(area.height() - 36, Math.min(180, area.width() / 3)) : layout.artworkSize() - 20;
@@ -692,14 +702,17 @@ public final class MusicScreen extends LocalScreen {
             return;
         }
         var cover = app.artwork.get(selected);
+        int drawnHeight = size;
         if (cover != null) {
             boolean landscape = cover.contentWidth() - cover.menuInset() * 2 > cover.contentHeight();
+            int maxWidth = !standalone && landscape ? area.width() - 16 : size;
+            // Wide covers keep their aspect ratio without leaving an empty band above or below.
+            if (!standalone) drawnHeight = fittedHeight(cover, maxWidth, size);
             com.darkmusic.client.library.ArtworkCache.drawMenu(g, cover,
-                !standalone && landscape ? area.x() + 8 : artX, artY,
-                !standalone && landscape ? area.width() - 16 : size, size);
+                !standalone && landscape ? area.x() + 8 : artX, artY, maxWidth, drawnHeight);
         } else UiIcon.MUSIC.draw(g, artX + size / 4, artY + size / 4, size / 2, UiTheme.MUTED);
         int x = standalone ? artX + size + 12 : area.x() + 8;
-        int y = standalone ? artY : artY + size + 8;
+        int y = standalone ? artY : artY + drawnHeight + 8;
         int textWidth = area.right() - x - 8;
         longText.draw(g, font, "selected_title", selected.title(), x, y, textWidth, UiTheme.TEXT);
         longText.draw(g, font, "selected_artist", selected.artist(), x, y + 13, textWidth, UiTheme.SECONDARY);
@@ -754,6 +767,22 @@ public final class MusicScreen extends LocalScreen {
                 UiIcon.WARNING.draw(g, 12, dock.y() - 14, 10, UiTheme.WARNING);
                 longText.draw(g, font, "message", message, 28, dock.y() - 13, width - 40, UiTheme.WARNING);
             }
+        }
+        if (audio.track() != null && audio.duration() > 0) {
+            var dock = layout.dock();
+            double position = progress.editing() ? progress.fraction() * audio.duration() : audio.position();
+            int color = progress.active ? UiTheme.SECONDARY : UiTheme.MUTED;
+            String total = time(audio.duration());
+            g.text(font, time(position), dock.x() + 4, layout.timeY(), color);
+            g.text(font, total, dock.right() - 4 - font.width(total), layout.timeY(), color);
+        }
+        // Utility icons and view toggles are separate groups; the divider makes the gap intentional.
+        if (library && !layout.singleColumn() && openFolder != null) {
+            int utility = layout.navigationUtilityWidth(), contextY = height < 300 ? 64 : 70;
+            int utilitiesEnd = 28 + utility * 5, togglesStart = layout.navigation().right() - utility * 2 - 4;
+            int dividerX = (utilitiesEnd + togglesStart) / 2;
+            if (togglesStart - utilitiesEnd >= 9)
+                g.fill(dividerX, contextY + 4, dividerX + 1, contextY + 20, UiTheme.BORDER);
         }
         super.extractRenderState(g, mx, my, delta);
         if (copySource.visible && selected != null && copiedTrack.equals(selected.id()) && System.nanoTime() < copiedUntil) {

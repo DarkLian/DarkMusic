@@ -19,7 +19,7 @@ final class UpdateScreen extends AudioPage {
         shownFailure = app.updates.installFailureLog();
         if (shownFailure != null) {
             status(() -> Text.get("update.install_failed"), () -> UiStatus.Tone.ERROR);
-            action("update.open_log", app.updates::openInstallLog);
+            action("update.open_log", app.updates::openInstallLog).runs();
         }
         status(() -> status.equals("update.found") ? Text.get(status, app.updates.availableVersion()) : Text.get(status), () -> switch (status) {
             case "update.failed", "update.check_failed", "update.download_failed", "update.install_failed" ->
@@ -34,10 +34,10 @@ final class UpdateScreen extends AudioPage {
                 app.updates.download();
                 status = "update.downloading";
                 rebuildWidgets();
-            });
+            }).runs();
             info("update.install_help");
         }
-        if (!status.equals("update.checking")) action("update.check", this::check);
+        if (!status.equals("update.checking")) action("update.check", this::check).runs();
     }
 
     @Override

@@ -150,20 +150,24 @@ public final class ValueSlider extends AbstractSliderButton {
                 (int) Math.round(getWidth() * value), com.darkmusic.client.config.Settings.SurfaceFinish.FLAT);
             return;
         }
-        if (plain) {
-            int marker = getX() + 2 + (int) Math.round(value * (getWidth() - 6));
-            g.fill(marker, getY() + 3, marker + 2, getBottom() - 3, active ? UiTheme.ACCENT : UiTheme.MUTED);
-            extractScrollingStringOverContents(g.textRendererForWidget(this, net.minecraft.client.gui.GuiGraphicsExtractor.HoveredTextEffects.NONE), getMessage(), 2);
-            return;
-        }
         int handle = getX() + (int) Math.round(value * (getWidth() - 8));
-        if (colors == null) {
-            g.fill(getX() + 4, getBottom() - 4, getRight() - 4, getBottom() - 2, UiTheme.BORDER);
-            g.fill(getX() + 4, getBottom() - 4, Math.max(getX() + 4, handle + 4), getBottom() - 2, active ? UiTheme.ACCENT : UiTheme.MUTED);
-        }
-        g.fill(handle + 2, trackOnly ? getBottom() - 7 : getY() + 2, handle + 6, getBottom() - 2, active ? UiTheme.ACCENT : UiTheme.BORDER);
-        if (!trackOnly)
-            extractScrollingStringOverContents(g.textRendererForWidget(this, net.minecraft.client.gui.GuiGraphicsExtractor.HoveredTextEffects.NONE), getMessage(), 2);
+        if (!trackOnly) {
+            // Text above, track below: the handle never crosses the label.
+            int trackY = getBottom() - 5;
+            if (colors == null) {
+                g.fill(getX() + 4, trackY, getRight() - 4, trackY + 2, UiTheme.BORDER);
+                g.fill(getX() + 4, trackY, Math.max(getX() + 4, handle + 4), trackY + 2, active ? UiTheme.ACCENT : UiTheme.MUTED);
+            }
+            g.fill(handle + 2, trackY - 3, handle + 6, trackY + 4, active && isHoveredOrFocused() ? UiTheme.TEXT : active ? UiTheme.ACCENT : UiTheme.BORDER);
+            var font = net.minecraft.client.Minecraft.getInstance().font;
+            String[] parts = labelParts(getMessage().getString());
+            int valueWidth = font.width(parts[1]);
+            int labelWidth = Math.max(1, getWidth() - 12 - (valueWidth > 0 ? valueWidth + 8 : 0));
+            g.text(font, HorizontalText.ellipsize(font, parts[0], labelWidth), getX() + 6, getY() + 4, active ? UiTheme.TEXT : UiTheme.MUTED);
+            if (valueWidth > 0)
+                g.text(font, parts[1], getRight() - 6 - valueWidth, getY() + 4, active ? UiTheme.ACCENT : UiTheme.MUTED);
+        } else
+            g.fill(handle + 2, getBottom() - 7, handle + 6, getBottom() - 2, active ? UiTheme.ACCENT : UiTheme.BORDER);
         handleCursor(g);
         if (!active) g.fill(getX() + 1, getY() + 1, getRight() - 1, getBottom() - 1, 0x55111420);
         if (colors != null) {
@@ -173,6 +177,17 @@ public final class ValueSlider extends AbstractSliderButton {
                 ColorStrip.track(g, getX() + 2, getBottom() - 4, width, 2, finish.get());
             ColorStrip.draw(g, colors.get(), getX() + 2, getBottom() - 4, width, 2, (int) Math.round(width * value), finish.get());
         }
+    }
+
+    /**
+     * "Label: value" splits at the last ": ", so "EQ Band: 31 Hz: -2.0 dB" keeps its band in the label
+     * and ratios such as "4.0:1" stay whole.
+     */
+    static String[] labelParts(String message) {
+        int separator = Math.max(message.lastIndexOf(": "), message.lastIndexOf('：'));
+        if (separator <= 0) return new String[]{message, ""};
+        String value = message.substring(separator + 1).strip();
+        return value.isEmpty() ? new String[]{message, ""} : new String[]{message.substring(0, separator + 1), value};
     }
 
     public void sync(double next) {

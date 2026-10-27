@@ -39,7 +39,7 @@ public final class SoundEnvironmentScreen extends AudioPage {
         });
         labeledAction(Text.get("environment.preset") + ": " + Text.get("dsp.value." + e.preset.name().toLowerCase(java.util.Locale.ROOT)),
             Text.get("environment.preset.help"), () -> show(new EnvironmentPickerScreen(app, this)))
-            .description(Text.get("environment.description." + e.preset.name().toLowerCase(java.util.Locale.ROOT)));
+            .description(Text.get("environment.description." + e.preset.name().toLowerCase(java.util.Locale.ROOT))).navigates();
         if (e.custom) info("environment.custom_recipe");
         slider("environment.intensity", e.intensity * 100, 0, 100, 100, v -> e.intensity = v / 100, "%");
         info(() -> Text.get(e.ownsReverb() ? "environment.owns_reverb" : "environment.allows_reverb"));
@@ -114,35 +114,38 @@ public final class SoundEnvironmentScreen extends AudioPage {
         info("environment.dependencies");
         section("environment.saved");
         info(() -> Text.get("environment.saved_count", e.userPresets.size(), PresetNames.ENVIRONMENT_LIMIT));
-        status(() -> app.warning.equals(Text.get("error.save_settings")) ? app.warning : notice, () -> app.warning.equals(Text.get("error.save_settings")) ? UiStatus.Tone.ERROR : UiStatus.Tone.SUCCESS);
+        if (e.userPresets.isEmpty()) info("environment.saved_empty");
+        // Reserve a status line only when there is something to report.
+        if (!notice.isEmpty() || app.warning.equals(Text.get("error.save_settings")))
+            status(() -> app.warning.equals(Text.get("error.save_settings")) ? app.warning : notice, () -> app.warning.equals(Text.get("error.save_settings")) ? UiStatus.Tone.ERROR : UiStatus.Tone.SUCCESS);
         action("environment.save", () -> show(PresetDialogs.save(this, "environment.save", e.userPresets, PresetNames.ENVIRONMENT_LIMIT, (name, replace) -> {
             e.savePreset(name, replace);
             notice = Text.get("preset.saved");
             app.save();
-        })));
+        }))).runs();
         for (String name : List.copyOf(e.userPresets.keySet())) {
             info(() -> name);
             action("environment.load", () -> {
                 e.loadPreset(name);
                 app.save();
                 rebuildWidgets();
-            });
+            }).runs();
             action("environment.rename", () -> show(TextPromptScreen.validated(this, Text.get("environment.rename"), name, 256, renamed -> {
                 PresetNames.rename(e.userPresets, name, renamed);
                 notice = Text.get("preset.renamed");
                 app.save();
                 return true;
-            })));
+            }))).runs();
             action("environment.delete", () -> show(new ConfirmationScreen(this, Text.component("environment.delete"), Text.component("environment.delete_confirm", name), Text.component("text.darkmusic.delete"), () -> {
                 e.userPresets.remove(name);
                 notice = Text.get("preset.deleted");
                 app.save();
                 return java.util.concurrent.CompletableFuture.completedFuture(null);
-            })));
+            }))).destructive();
         }
         action("environment.reset", () -> {
             e.select(e.preset);
             changed();
-        });
+        }).destructive();
     }
 }

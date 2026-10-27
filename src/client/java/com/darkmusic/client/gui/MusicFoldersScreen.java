@@ -27,8 +27,8 @@ public final class MusicFoldersScreen extends AudioPage {
     protected void populate() {
         shown = app.library.roots();
         destination = app.library.root();
-        action("folders.add", this::choose);
-        action("settings.darkmusic.default_folder", app::resetMusicFolder);
+        action("folders.add", this::choose).runs();
+        action("settings.darkmusic.default_folder", app::resetMusicFolder).runs();
         action("delete_audio.manage", () -> show(new LibraryManagerScreen(app, this)));
         info("folders.scope");
         for (var entry : shown.entrySet()) {
@@ -39,12 +39,13 @@ public final class MusicFoldersScreen extends AudioPage {
             place(row);
             Help.tip(row, path.toString());
             row.active = !path.equals(destination);
-            labeledAction(Text.get("folders.remove_action"), Text.get("folders.remove_help"), () -> show(new ConfirmationScreen(this,
+            var remove = labeledAction(Text.get("folders.remove_action"), Text.get("folders.remove_help"), () -> show(new ConfirmationScreen(this,
                 Text.component("folders.remove", name), Text.component("folders.remove_help"), Text.component("folders.remove_action"), () -> {
                 if (!app.removeMusicFolder(path))
                     return CompletableFuture.failedFuture(new IllegalStateException(Text.get(app.mediaBusy ? "library.darkmusic.busy" : "folders.remove_blocked")));
                 return CompletableFuture.completedFuture(null);
-            }))).active = !path.equals(destination);
+            })));
+            remove.destructive().active = !path.equals(destination);
         }
     }
 

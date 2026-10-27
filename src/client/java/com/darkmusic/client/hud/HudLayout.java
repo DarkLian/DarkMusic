@@ -72,6 +72,24 @@ public final class HudLayout {
         return ((int) Math.round((1 - settings.hudBackgroundTransparency) * 255) << 24) | settings.hudBackgroundColors.first();
     }
 
+    /**
+     * A see-through or light card leaves title text competing with the world behind it; a soft dark
+     * band behind the two text lines restores contrast without changing the configured card.
+     */
+    public static int textScrim(Settings settings) {
+        double opacity = 1 - settings.hudBackgroundTransparency;
+        int first = settings.hudBackgroundColors.first(), last = settings.hudBackgroundColors.last();
+        double light = Math.max(luminance(first), settings.hudBackgroundGradient ? luminance(last) : 0);
+        // Transparent cards need help in proportion to their transparency; opaque light cards always do.
+        double need = Math.max(Math.clamp((.6 - opacity) / .6, 0, 1), Math.clamp((light - .35) / .4, 0, 1) * opacity);
+        int alpha = (int) Math.round(need * 0x60);
+        return alpha < 8 ? 0 : alpha << 24 | 0x0B0D16;
+    }
+
+    private static double luminance(int rgb) {
+        return ((rgb >> 16 & 255) * .2126 + (rgb >> 8 & 255) * .7152 + (rgb & 255) * .0722) / 255;
+    }
+
     public record Content(int width, int height, int mainY, int mainHeight, int spectrumY, boolean spectrum,
                           int spectrumHeight) {
         public Content(int width, int height, int mainY, int mainHeight, int spectrumY, boolean spectrum) {

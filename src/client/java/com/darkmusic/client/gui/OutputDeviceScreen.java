@@ -33,7 +33,7 @@ public final class OutputDeviceScreen extends AudioPage {
             Help.tip(row, Text.get(device.selectable() ? "device.help" : "device.ambiguous"));
             row.active = device.selectable();
         }
-        action("device.refresh", this::refresh);
+        action("device.refresh", this::refresh).runs();
         if (loading || changing) enableSince(0, false);
     }
 

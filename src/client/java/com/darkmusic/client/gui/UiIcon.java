@@ -30,6 +30,20 @@ public enum UiIcon {
         return null;
     }
 
+    /**
+     * The Back glyph turned by quarter turns: 0 left, 1 up, 2 right, 3 down.
+     */
+    public static void chevron(GuiGraphicsExtractor g, int x, int y, int size, int color, int quarterTurns) {
+        g.pose().pushMatrix();
+        try {
+            g.pose().translate(x + size / 2f, y + size / 2f);
+            g.pose().rotate((float) (Math.PI / 2 * quarterTurns));
+            BACK.draw(g, -size / 2, -size / 2, size, color);
+        } finally {
+            g.pose().popMatrix();
+        }
+    }
+
     public void draw(GuiGraphicsExtractor g, int x, int y, int size, int color) {
         int enlarged = Math.max(size + 1, Math.round(size * 1.15f));
         x -= (enlarged - size) / 2;

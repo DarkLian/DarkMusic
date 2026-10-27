@@ -81,6 +81,13 @@ public record PlayerLayout(int width, int height, Rect navigation, Rect tracks, 
         return dock.y() + 2;
     }
 
+    /**
+     * Elapsed and total time sit between the seek bar and the transport row.
+     */
+    public int timeY() {
+        return seekY() + 21;
+    }
+
     public int spectrumHeight() {
         return Math.min(40, Math.max(16, inspector.height() / 7));
     }

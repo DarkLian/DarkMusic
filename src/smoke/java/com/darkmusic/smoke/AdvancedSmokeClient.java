@@ -130,14 +130,15 @@ final class AdvancedSmokeClient {
                     app.playback.play(songs, songs.getFirst());
                     app.settings.audio.equalizer = false;
                     mc.gui.setScreen(new AudioSettingsScreen(app, null));
-                    require(mc.gui.screen().children().stream().filter(w -> w instanceof net.minecraft.client.gui.components.AbstractWidget).map(w -> ((net.minecraft.client.gui.components.AbstractWidget) w).getMessage().getString()).noneMatch(t -> t.startsWith("EQ Band:")), "Inactive EQ bands were not collapsed");
+                    require(mc.gui.screen().children().stream().noneMatch(w -> w instanceof com.darkmusic.client.gui.EqualizerGraph), "Inactive EQ bands were not collapsed");
                     app.settings.audio.equalizer = true;
                     app.settings.audio.neutral = true;
                     mc.gui.setScreen(new AudioSettingsScreen(app, null));
                     require(mc.gui.screen().children().stream().filter(w -> w instanceof net.minecraft.client.gui.components.AbstractWidget).map(w -> (net.minecraft.client.gui.components.AbstractWidget) w).filter(w -> w.getMessage().getString().equals("10-Band Equalizer")).noneMatch(w -> w.active), "Neutral did not disable bypassed EQ controls");
+                    require(mc.gui.screen().children().stream().filter(w -> w instanceof com.darkmusic.client.gui.EqualizerGraph).map(w -> (com.darkmusic.client.gui.EqualizerGraph) w).noneMatch(w -> w.active), "Neutral did not disable the EQ graph");
                     app.settings.audio.neutral = false;
                     mc.gui.setScreen(new AudioSettingsScreen(app, null));
-                    require(mc.gui.screen().children().stream().filter(w -> w instanceof net.minecraft.client.gui.components.AbstractWidget).map(w -> ((net.minecraft.client.gui.components.AbstractWidget) w).getMessage().getString()).filter(t -> t.startsWith("EQ Band:")).count() == 10, "Active EQ bands did not return");
+                    require(mc.gui.screen().children().stream().filter(w -> w instanceof com.darkmusic.client.gui.EqualizerGraph).count() == 1, "Active EQ bands did not return");
                     app.save();
                     stage = 3;
                 }

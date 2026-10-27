@@ -61,28 +61,56 @@ public final class HorizontalText {
             line.update(text, font.width(text), preserveOffset);
             line.font = font;
         }
-        line.maximum = Math.max(0, line.measured - width);
+        // Clipped ends show an ellipsis; panning still reaches every character.
+        int mark = line.measured > width ? font.width(ELLIPSIS) : 0;
+        line.maximum = Math.max(0, line.measured - width + mark);
         line.offset = clamp(line.offset, line.maximum);
         zones.add(new Zone(key, (int) Math.floor(originX + x * scale), (int) Math.floor(originY + y * scale), (int) Math.ceil(width * scale), (int) Math.ceil((font.lineHeight + 2) * scale)));
         while (lines.size() > 128) lines.remove(lines.keySet().iterator().next());
-        g.enableScissor(x, y, x + width, y + font.lineHeight + 2);
         int offset = (int) Math.round(line.offset);
-        if (line.visible == null || line.paintedOffset != offset || line.paintedWidth != width) {
+        boolean before = mark > 0 && offset > 0, after = mark > 0 && offset < line.maximum;
+        int start = x + (before ? mark : 0), end = x + width - (after ? mark : 0);
+        if (end <= start) return;
+        if (before) g.text(font, ELLIPSIS, x, y, color);
+        if (after) g.text(font, ELLIPSIS, end, y, color);
+        g.enableScissor(start, y, end, y + font.lineHeight + 2);
+        if (line.visible == null || line.paintedOffset != offset || line.paintedWidth != end - start) {
             String prefix = font.plainSubstrByWidth(text, offset);
-            line.visible = font.plainSubstrByWidth(text.substring(prefix.length()), width + font.lineHeight + 2);
+            line.visible = font.plainSubstrByWidth(text.substring(prefix.length()), end - start + font.lineHeight + 2);
             line.shift = offset - font.width(prefix);
             line.visibleStart = prefix.length();
             line.paintedOffset = offset;
-            line.paintedWidth = width;
+            line.paintedWidth = end - start;
         }
         int visibleStart = line.visibleStart;
         int colored = Math.clamp(statusLength - visibleStart, 0, line.visible.length());
         if (colored > 0) {
             String status = line.visible.substring(0, colored);
-            g.text(font, status, x - line.shift, y, statusColor);
-            g.text(font, line.visible.substring(colored), x - line.shift + font.width(status), y, color);
-        } else g.text(font, line.visible, x - line.shift, y, color);
+            g.text(font, status, start - line.shift, y, statusColor);
+            g.text(font, line.visible.substring(colored), start - line.shift + font.width(status), y, color);
+        } else g.text(font, line.visible, start - line.shift, y, color);
         g.disableScissor();
+    }
+
+    static final String ELLIPSIS = "…";
+
+    /**
+     * Fits one non-interactive line, ending with an ellipsis instead of a cut glyph.
+     */
+    public static String ellipsize(Font font, String text, int width) {
+        return ellipsize(text, width, font::width, (value, limit) -> font.plainSubstrByWidth(value, limit));
+    }
+
+    static String ellipsize(String text, int width, java.util.function.ToIntFunction<String> measure,
+                            java.util.function.BiFunction<String, Integer, String> prefix) {
+        if (text == null || text.isEmpty() || measure.applyAsInt(text) <= width) return text == null ? "" : text;
+        int mark = measure.applyAsInt(ELLIPSIS);
+        if (width < mark) return "";
+        String kept = prefix.apply(text, width - mark);
+        // Never split a surrogate pair at the cut.
+        if (!kept.isEmpty() && Character.isHighSurrogate(kept.charAt(kept.length() - 1)))
+            kept = kept.substring(0, kept.length() - 1);
+        return kept.stripTrailing() + ELLIPSIS;
     }
 
     public boolean scroll(double x, double y, double dx, double dy, boolean shift) {

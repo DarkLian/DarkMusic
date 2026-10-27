@@ -49,6 +49,9 @@ public final class UiStatus {
     }
 
     public static int lyricsColor(com.darkmusic.client.lyrics.LyricsInfo info) {
+        // A confirmed absence (none found, or instrumental) is information, not a problem.
+        if (LyricsStatusIcon.kind(info) == LyricsStatusIcon.Kind.NONE || LyricsStatusIcon.kind(info) == LyricsStatusIcon.Kind.INSTRUMENTAL)
+            return UiTheme.SECONDARY;
         var tone = info.state() == com.darkmusic.client.lyrics.LyricsInfo.State.AVAILABLE ? Tone.SUCCESS
             : info.evidence() == com.darkmusic.client.lyrics.LyricsInfo.Evidence.FAILED
             ? ("lyrics.status.rate_limited".equals(info.lookupKey()) ? Tone.WARNING : Tone.ERROR)

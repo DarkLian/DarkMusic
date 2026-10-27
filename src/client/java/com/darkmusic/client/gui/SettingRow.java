@@ -35,8 +35,38 @@ public final class SettingRow extends AbstractWidget {
     private String description = "";
     private boolean accentedLabel;
 
+    /**
+     * NAVIGATE opens another page (chevron); ACTION and DESTRUCTIVE act on this page (button);
+     * OPTION picks one entry from a list (check when chosen). AUTO keeps the older inference.
+     */
+    enum Kind {AUTO, NAVIGATE, ACTION, DESTRUCTIVE, OPTION}
+
+    private Kind kind = Kind.AUTO;
+    private boolean chosen;
+
     public SettingRow accentLabel() {
         accentedLabel = true;
+        return this;
+    }
+
+    public SettingRow navigates() {
+        kind = Kind.NAVIGATE;
+        return this;
+    }
+
+    public SettingRow runs() {
+        kind = Kind.ACTION;
+        return this;
+    }
+
+    public SettingRow destructive() {
+        kind = Kind.DESTRUCTIVE;
+        return this;
+    }
+
+    public SettingRow option(boolean selected) {
+        kind = Kind.OPTION;
+        chosen = selected;
         return this;
     }
 
@@ -70,7 +100,13 @@ public final class SettingRow extends AbstractWidget {
 
     @Override
     protected void extractWidgetRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
-        g.fill(getX(), getY(), getRight(), getBottom(), active && isHoveredOrFocused() ? UiTheme.HOVER : active ? UiTheme.RAISED : UiTheme.SURFACE);
+        if (kind == Kind.ACTION || kind == Kind.DESTRUCTIVE) {
+            button(g);
+            return;
+        }
+        boolean highlighted = kind == Kind.OPTION && chosen;
+        g.fill(getX(), getY(), getRight(), getBottom(), active && isHoveredOrFocused() ? UiTheme.HOVER : highlighted ? UiTheme.SELECTED : active ? UiTheme.RAISED : UiTheme.SURFACE);
+        if (highlighted) g.fill(getX() + 1, getY() + 2, getX() + 3, getBottom() - 2, UiTheme.ACCENT);
         if (isFocused()) g.outline(getX(), getY(), width, height, active ? UiTheme.ACCENT : UiTheme.MUTED);
         var font = Minecraft.getInstance().font;
         horizontal.begin();
@@ -100,19 +136,47 @@ public final class SettingRow extends AbstractWidget {
             int detailX = left + labelWidth + 12;
             horizontal.draw(g, font, "description", description, detailX, getY() + 6, Math.max(1, getRight() - 27 - detailX), active ? UiTheme.SECONDARY : UiTheme.MUTED);
         } else if (!optionValue.isEmpty()) {
+            // A cycling value carries a small up/down hint; a page link keeps room for its chevron.
+            boolean cycles = kind == Kind.AUTO;
+            int reserved = cycles ? 18 : kind == Kind.NAVIGATE ? 24 : 8;
             int valueWidth = Math.min(font.width(optionValue), Math.max(1, width / 2 - 10));
-            int valueX = getRight() - 8 - valueWidth;
+            int valueX = getRight() - reserved - valueWidth;
             horizontal.draw(g, font, "label", optionLabel, left, getY() + 6, Math.max(1, valueX - left - 12), labelColor);
             horizontal.draw(g, font, "value", optionValue, valueX, getY() + 6, valueWidth, active ? UiTheme.ACCENT : UiTheme.MUTED);
+            if (cycles) {
+                int hint = active ? UiTheme.SECONDARY : UiTheme.MUTED;
+                UiIcon.chevron(g, getRight() - 13, getY() + 3, 7, hint, 1);
+                UiIcon.chevron(g, getRight() - 13, getY() + 10, 7, hint, 3);
+            }
         } else
-            horizontal.draw(g, font, "label", message, left, getY() + 6, width - (icon == null ? 36 : 53), labelColor);
+            horizontal.draw(g, font, "label", message, left, getY() + 6, width - (icon == null ? 36 : 53), highlighted ? UiTheme.ACCENT : labelColor);
         int right = getRight() - 19, top = getY() + 4;
-        if (checked != null) {
-            g.outline(right, top, 12, 12, active ? UiTheme.ACCENT : UiTheme.MUTED);
-            if (checked.getAsBoolean())
-                UiIcon.CHECK.draw(g, right + 1, top + 1, 10, active ? UiTheme.TEXT : UiTheme.MUTED);
-        } else if (optionValue.isEmpty())
-            g.text(font, ">", right + 3, getY() + 6, active ? UiTheme.ACCENT : UiTheme.MUTED);
+        if (checked != null) UiTheme.checkbox(g, right, top, 12, checked.getAsBoolean(), active);
+        else if (kind == Kind.OPTION) {
+            if (chosen) UiIcon.CHECK.draw(g, right, top, 12, active ? UiTheme.ACCENT : UiTheme.MUTED);
+        } else if (kind == Kind.NAVIGATE || optionValue.isEmpty())
+            UiIcon.chevron(g, right + 2, top + 1, 10, active ? UiTheme.ACCENT : UiTheme.MUTED, 2);
+    }
+
+    /**
+     * Rows that act on the current page look like buttons, not like links to another page.
+     */
+    private void button(GuiGraphicsExtractor g) {
+        boolean danger = kind == Kind.DESTRUCTIVE, highlighted = active && isHoveredOrFocused();
+        int fill = !active ? UiTheme.SURFACE : danger ? highlighted ? 0xFF483040 : 0xFF30232F : highlighted ? UiTheme.HOVER : UiTheme.RAISED;
+        g.fill(getX(), getY(), getRight(), getBottom(), fill);
+        int border = !active ? UiTheme.RAISED : isFocused() ? UiTheme.ACCENT : danger ? UiTheme.ERROR : highlighted ? UiTheme.ACCENT : UiTheme.BORDER;
+        g.outline(getX(), getY(), width, height, border);
+        var font = Minecraft.getInstance().font;
+        horizontal.begin();
+        String message = getMessage().getString();
+        int iconWidth = icon == null ? 0 : 16;
+        int textWidth = Math.min(font.width(message), Math.max(1, width - 16 - iconWidth));
+        int start = getX() + (width - textWidth - iconWidth) / 2;
+        int color = !active ? UiTheme.MUTED : danger ? UiTheme.ERROR : UiTheme.TEXT;
+        if (icon != null)
+            icon.draw(g, start, getY() + 4, 12, active ? danger ? UiTheme.ERROR : UiTheme.ACCENT : UiTheme.MUTED);
+        horizontal.draw(g, font, "label", message, start + iconWidth, getY() + 6, textWidth, color);
     }
 
     @Override
@@ -122,7 +186,8 @@ public final class SettingRow extends AbstractWidget {
 
     @Override
     protected net.minecraft.network.chat.MutableComponent createNarrationMessage() {
-        return wrapDefaultNarrationMessage(checked == null ? description.isEmpty() ? getMessage() : getMessage().copy().append(". " + description) : Text.component(checked.getAsBoolean() ? "format.darkmusic.setting_on" : "format.darkmusic.setting_off", getMessage()));
+        var label = kind == Kind.OPTION && chosen ? Text.component("ui.darkmusic.option_selected", getMessage()) : getMessage();
+        return wrapDefaultNarrationMessage(checked == null ? description.isEmpty() ? label : label.copy().append(". " + description) : Text.component(checked.getAsBoolean() ? "format.darkmusic.setting_on" : "format.darkmusic.setting_off", getMessage()));
     }
 
     @Override

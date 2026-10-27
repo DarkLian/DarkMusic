@@ -46,7 +46,7 @@ public final class VolumeFeedback {
         String label = volume == 0 ? Text.get("hud.darkmusic.muted") : Text.get("format.darkmusic.volume", Math.round(volume * 100));
         int width = Math.min(g.guiWidth() - 16, font.width(label) + 24), x = (g.guiWidth() - width) / 2, y = Math.max(8, g.guiHeight() - 66);
         g.fill(x, y, x + width, y + 24, ((int) (opacity * 210) << 24) | 0x111420);
-        g.text(font, font.plainSubstrByWidth(label, width - 12), x + 12, y + 4, (alpha << 24) | 0xE0DDEE);
+        g.text(font, com.darkmusic.client.gui.HorizontalText.ellipsize(font, label, width - 12), x + 12, y + 4, (alpha << 24) | 0xE0DDEE);
         g.fill(x + 8, y + 17, x + width - 8, y + 20, (alpha << 24) | 0x34394F);
         g.fill(x + 8, y + 17, x + 8 + (int) ((width - 16) * volume), y + 20, (alpha << 24) | 0xB5B0FF);
     }

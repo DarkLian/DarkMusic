@@ -29,8 +29,8 @@ public final class SongActionsScreen extends AudioPage {
     protected void populate() {
         if (track != null) {
             cursor += SongCard.HEIGHT + 8;
-            next = labeledAction(Text.get("upnext.play_next"), Text.get("upnext.play_next.help"), () -> queue(true));
-            add = labeledAction(Text.get("upnext.add"), Text.get("upnext.add.help"), () -> queue(false));
+            next = labeledAction(Text.get("upnext.play_next"), Text.get("upnext.play_next.help"), () -> queue(true)).runs();
+            add = labeledAction(Text.get("upnext.add"), Text.get("upnext.add.help"), () -> queue(false)).runs();
             tick();
         }
         status(() -> feedback, () -> feedbackTone);

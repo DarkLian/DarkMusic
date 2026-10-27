@@ -51,8 +51,8 @@ public final class BackupScreen extends AudioPage {
     protected void populate() {
         section("backup.title");
         info("backup.scope");
-        action("backup.export", () -> choose(true));
-        action("backup.open", () -> choose(false));
+        action("backup.export", () -> choose(true)).runs();
+        action("backup.open", () -> choose(false)).runs();
         if (!status.isEmpty()) status(() -> status, () -> statusTone);
         if (data != null) {
             section("backup.preview");
@@ -64,7 +64,7 @@ public final class BackupScreen extends AudioPage {
             toggle("backup.replace", () -> replace, v -> replace = v);
             toggle("backup.remap", () -> remap, v -> remap = v);
             status(() -> prepared == null ? Text.get("backup.preparing") : Text.get("backup.unresolved", prepared.unresolved()), () -> prepared != null && prepared.unresolved() > 0 ? UiStatus.Tone.WARNING : UiStatus.Tone.INFO);
-            action("backup.apply", this::confirmRestore);
+            action("backup.apply", this::confirmRestore).destructive();
             if (prepared == null && !preparing && !previewFailed) {
                 preparing = true;
                 long version = previewVersion;

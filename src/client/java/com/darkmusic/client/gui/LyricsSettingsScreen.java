@@ -36,8 +36,8 @@ public final class LyricsSettingsScreen extends AudioPage {
             Text.get("lyrics.darkmusic.languages_help"), () -> show(new TextPromptScreen(this, Text.get("lyrics.darkmusic.languages_prompt"), s.lyricsLanguages, value -> {
                 s.lyricsLanguages = com.darkmusic.client.download.LyricsLanguages.normalize(value);
                 app.save();
-            })));
+            }))).navigates();
         action("lyrics.clear_cache", () -> show(new ConfirmationScreen(this, Text.component("lyrics.clear_cache"), Text.component("lyrics.clear_cache.help"),
-            Text.component("lyrics.clear_cache"), () -> app.lyrics.lookup.clearCache())));
+            Text.component("lyrics.clear_cache"), () -> app.lyrics.lookup.clearCache()))).destructive();
     }
 }

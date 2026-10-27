@@ -74,23 +74,22 @@ public final class AudioAnalyzerScreen extends AudioPage {
         status(this::normalization);
         info("analyzer.album_scope");
         section("analyzer.meters");
-        info(() -> meter(0));
-        info(() -> meter(1));
-        info(() -> meter(2));
-        info(() -> meter(3));
-        info(() -> meter(4));
+        for (int stage = 0; stage < 5; stage++) {
+            int meter = stage;
+            status(() -> meter(meter), () -> clipping(meter) ? UiStatus.Tone.WARNING : null);
+        }
         info(() -> {
             var s = snapshot();
-            return s == null ? Text.get("analyzer.no_data") : Text.get("analyzer.dynamics", db(s.detectorDb), db(-s.reductionDb), db(-s.limiterReduction), db(amplitudeDb(s.truePeak)));
+            return s == null ? Text.get("analyzer.no_data") : units(Text.get("analyzer.dynamics", db(s.detectorDb), db(-s.reductionDb), db(-s.limiterReduction), db(amplitudeDb(s.truePeak))));
         });
         action("analyzer.reset", () -> {
             var d = app.playback.diagnostics();
             if (d != null) d.resetHolds();
-        });
+        }).runs();
         section("analyzer.stereo");
         info(() -> {
             var s = snapshot();
-            return s == null ? Text.get("analyzer.no_data") : s.channels == 1 ? Text.get("analyzer.mono") : Text.get("analyzer.correlation", Double.isNaN(s.correlation) ? Text.get("analyzer.na") : String.format(Locale.ROOT, "%+.3f", s.correlation), db(s.leftRms), db(s.rightRms));
+            return s == null ? Text.get("analyzer.no_data") : s.channels == 1 ? Text.get("analyzer.mono") : units(Text.get("analyzer.correlation", Double.isNaN(s.correlation) ? Text.get("analyzer.na") : String.format(Locale.ROOT, "%+.3f", s.correlation), db(s.leftRms), db(s.rightRms)));
         });
         info("analyzer.correlation_help");
         graph("analyzer.stereo_legend", 3);
@@ -109,9 +108,75 @@ public final class AudioAnalyzerScreen extends AudioPage {
     }
 
     private void graph(String label, int kind) {
-        info(label);
-        graphs.add(new Graph(cursor, kind));
-        cursor += 110;
+        // The legend line is drawn with color swatches in renderContent.
+        cursor += 22;
+        graphs.add(new Graph(cursor, kind, label));
+        cursor += 98;
+    }
+
+    private static final String SEPARATOR = " · ";
+
+    private int[] legendColors(int kind) {
+        return switch (kind) {
+            case 0 -> new int[]{UiTheme.ACCENT, UiTheme.WARNING, UiTheme.SUCCESS};
+            case 4 -> new int[]{UiTheme.ACCENT};
+            default -> new int[]{UiTheme.ACCENT, UiTheme.SUCCESS};
+        };
+    }
+
+    private void legend(GuiGraphicsExtractor g, Graph graph, int x, int y) {
+        int[] colors = legendColors(graph.kind);
+        String[] items = Text.get(graph.legend).split(java.util.regex.Pattern.quote(SEPARATOR));
+        int right = formX + formWidth - 6;
+        for (int i = 0; i < items.length && x < right; i++) {
+            if (i > 0) {
+                g.text(font, SEPARATOR, x, y, UiTheme.MUTED);
+                x += font.width(SEPARATOR);
+            }
+            if (i < colors.length) {
+                g.fill(x, y, x + 8, y + 8, colors[i]);
+                x += 12;
+            }
+            String text = HorizontalText.ellipsize(font, items[i], Math.max(0, right - x));
+            g.text(font, text, x, y, UiTheme.SECONDARY);
+            x += font.width(text);
+        }
+    }
+
+    /**
+     * Ticks sit inside the plot's right edge, clear of channel labels and the hover readout.
+     */
+    private void ticks(GuiGraphicsExtractor g, int kind, int x, int y, int w, int h) {
+        String[] labels = switch (kind) {
+            case 0, 4 -> new String[]{"+24 dB", "0", "−24"};
+            case 1 -> new String[]{"0 dBFS", "−50", "−100"};
+            case 2 -> new String[]{"+1", "0", "−1"};
+            default -> null;
+        };
+        if (labels == null) {
+            g.text(font, "−60", x, y + h + 2, UiTheme.MUTED);
+            g.text(font, "0 dBFS", x + w - font.width("0 dBFS"), y + h + 2, UiTheme.MUTED);
+            return;
+        }
+        int[] rows = {y + 3, y + h / 2 - font.lineHeight - 1, y + h - font.lineHeight - 1};
+        for (int i = 0; i < 3; i++)
+            g.text(font, labels[i], x + w - 4 - font.width(labels[i]), rows[i], UiTheme.MUTED);
+    }
+
+    private boolean clipping(int stage) {
+        var s = snapshot();
+        return s != null && s.meter(stage).clips() > 0;
+    }
+
+    /**
+     * A missing measurement reads "N/A", not "N/A dBFS".
+     */
+    static String units(String text, String unavailable) {
+        return text.replace(unavailable + " dBFS", unavailable).replace(unavailable + " dB", unavailable);
+    }
+
+    private static String units(String text) {
+        return units(text, Text.get("analyzer.na"));
     }
 
     private AudioDiagnostics.Snapshot snapshot() {
@@ -136,7 +201,7 @@ public final class AudioAnalyzerScreen extends AudioPage {
         var s = snapshot();
         if (s == null) return Text.get("analyzer.stage." + stage) + ": " + Text.get("analyzer.no_data");
         var m = s.meter(stage);
-        return Text.get("analyzer.meter", Text.get("analyzer.stage." + stage), db(m.peakDb()), db(m.rmsDb()), db(m.holdDb()), m.clips());
+        return units(Text.get("analyzer.meter", Text.get("analyzer.stage." + stage), db(m.peakDb()), db(m.rmsDb()), db(m.holdDb()), m.clips()));
     }
 
     private static String db(double value) {
@@ -155,7 +220,8 @@ public final class AudioAnalyzerScreen extends AudioPage {
         var s = snapshot();
         for (var graph : graphs) {
             int x = formX + 6, y = contentY(graph.y), w = formWidth - 12, h = 80;
-            if (y + h < 36 || y > height - 12) continue;
+            if (y + h < 36 || y - 22 > height - 12) continue;
+            legend(g, graph, formX + 4, y - 17);
             g.fill(x, y, x + w, y + h, UiTheme.BACKGROUND);
             g.outline(x, y, w, h, UiTheme.BORDER);
             if (s == null) {
@@ -193,17 +259,16 @@ public final class AudioAnalyzerScreen extends AudioPage {
                 }
             }
             mesh.submit(g);
-            String axis = graph.kind == 0 || graph.kind == 4 ? "+24 / 0 / −24 dB" : graph.kind == 1 ? "0 / −50 / −100 dBFS" : graph.kind == 3 ? "−60 … 0 dBFS" : Text.get("analyzer.wave_axis");
-            g.text(font, axis, x + 4, y + h + 2, UiTheme.MUTED);
+            ticks(g, graph.kind, x, y, w, h);
             if (graph.kind != 2 && graph.kind != 3) {
-                g.text(font, "20 Hz", x, y + h + 12, UiTheme.MUTED);
+                g.text(font, "20 Hz", x, y + h + 2, UiTheme.MUTED);
                 String max = String.format(Locale.ROOT, "%.1f kHz", Math.min(20000, s.rate * .45) / 1000);
-                g.text(font, max, x + w - font.width(max), y + h + 12, UiTheme.MUTED);
+                g.text(font, max, x + w - font.width(max), y + h + 2, UiTheme.MUTED);
                 if (mx >= x && mx < x + w && my >= y && my < y + h) {
                     int point = Math.clamp((mx - x) * (AudioDiagnostics.POINTS - 1) / Math.max(1, w - 1), 0, AudioDiagnostics.POINTS - 1);
                     int output = mode == AudioComparison.Mode.AUDIO_OPTIONS ? 1 : mode == AudioComparison.Mode.ENVIRONMENT ? 2 : 4;
                     double value = graph.kind == 1 ? s.spectrum(output, point) : graph.kind == 4 ? s.environment(point) : s.dynamic(point);
-                    g.text(font, String.format(Locale.ROOT, "%.0f Hz  %s %s", AudioDiagnostics.frequency(point, s.rate), db(value), graph.kind == 1 ? "dBFS" : "dB"), x + 72, y + 3, UiTheme.TEXT);
+                    g.text(font, units(String.format(Locale.ROOT, "%.0f Hz  %s %s", AudioDiagnostics.frequency(point, s.rate), db(value), graph.kind == 1 ? "dBFS" : "dB")), x + 72, y + 3, UiTheme.TEXT);
                 }
             }
         }
@@ -233,6 +298,6 @@ public final class AudioAnalyzerScreen extends AudioPage {
         super.removed();
     }
 
-    private record Graph(int y, int kind) {
+    private record Graph(int y, int kind, String legend) {
     }
 }

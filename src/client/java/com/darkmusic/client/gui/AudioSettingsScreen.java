@@ -3,7 +3,6 @@ package com.darkmusic.client.gui;
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.AudioSettings;
 import com.darkmusic.client.config.ConfigStore;
-import com.darkmusic.client.download.DownloadEncoding;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -38,7 +37,7 @@ public final class AudioSettingsScreen extends LocalScreen {
     private void place(AbstractWidget widget) {
         rows.add(addRenderableWidget(widget));
         positions.add(cursor);
-        cursor += 26;
+        cursor += widget.getHeight() + 6;
     }
 
     private void section(String key) {
@@ -56,7 +55,7 @@ public final class AudioSettingsScreen extends LocalScreen {
         this.app = app;
     }
 
-    private void row(String key, BooleanSupplier state, Runnable click, String help) {
+    private SettingRow row(String key, BooleanSupplier state, Runnable click, String help) {
         var widget = new SettingRow(formX, 0, formWidth, Text.get(key), state, () -> {
             click.run();
             app.save();
@@ -64,6 +63,7 @@ public final class AudioSettingsScreen extends LocalScreen {
         });
         if (!help.isBlank()) Help.tip(widget, Text.get(help));
         place(widget);
+        return widget;
     }
 
     private void toggle(String key, BooleanSupplier get, Consumer<Boolean> set, String help) {
@@ -76,7 +76,7 @@ public final class AudioSettingsScreen extends LocalScreen {
     private <E extends Enum<E>> void choice(String key, E current, E[] values, Consumer<E> change, String help) {
         row(key, null, () -> {
             change.accept(values[(current.ordinal() + 1) % values.length]);
-            if (!key.equals("audio.darkmusic.download")) app.settings.audio.profile = "CUSTOM";
+            app.settings.audio.profile = "CUSTOM";
         }, help);
         rows.getLast().setMessage(Component.literal(Text.get(key) + ": " + Text.get("audio.darkmusic.value." + current.name().toLowerCase(Locale.ROOT))));
     }
@@ -128,8 +128,9 @@ public final class AudioSettingsScreen extends LocalScreen {
         row("analyzer.title", null, () -> show(new AudioAnalyzerScreen(app, this, com.darkmusic.client.audio.AudioComparison.Mode.AUDIO_OPTIONS)), "analyzer.help");
         row("dsp.advanced", null, () -> show(new AudioAdvancedScreen(app, this)), "dsp.advanced.help");
         toggle("audio.darkmusic.neutral", () -> a.neutral, v -> a.neutral = v, "audio.darkmusic.neutral_help");
-        info(() -> Text.get(a.neutral ? "dsp.neutral_scope" : "audio.basic_hint"));
-        choice("audio.darkmusic.download", app.settings.downloadFormat, DownloadEncoding.Format.values(), v -> app.settings.downloadFormat = v, "audio.darkmusic.download_help");
+        // Each hint sits directly under the control it explains.
+        if (a.neutral) info(() -> Text.get("dsp.neutral_scope"));
+        else info(() -> Text.get("audio.basic_hint"));
         String[] profiles = {"DEFAULT", "MUSIC", "GAMING", "VOCAL", "NIGHT"};
         row("audio.darkmusic.profile", null, () -> a.selectProfile(profiles[(Arrays.asList(profiles).indexOf(a.profile) + 1) % profiles.length]), "audio.darkmusic.profile_help");
         rows.getLast().setMessage(Component.literal(Text.get("audio.darkmusic.profile") + ": " + Text.get("audio.darkmusic.value." + a.profile.toLowerCase(Locale.ROOT))));
@@ -144,7 +145,7 @@ public final class AudioSettingsScreen extends LocalScreen {
             if (a.analyzeLoudness) {
                 toggle("audio.darkmusic.parallel_analysis", () -> a.parallelLoudnessAnalysis, v -> a.parallelLoudnessAnalysis = v, "audio.darkmusic.parallel_analysis_help");
                 if (a.parallelLoudnessAnalysis) info(() -> Text.get("audio.darkmusic.parallel_analysis_warning"));
-                row("audio.darkmusic.analyze_library", null, app::analyzeLibraryLoudness, "audio.darkmusic.analyze_library_help");
+                row("audio.darkmusic.analyze_library", null, app::analyzeLibraryLoudness, "audio.darkmusic.analyze_library_help").runs();
                 analysisButton = rows.getLast();
                 info(() -> {
                     var progress = app.loudnessAnalysis();
@@ -164,13 +165,18 @@ public final class AudioSettingsScreen extends LocalScreen {
             } catch (IllegalArgumentException ignored) {
             }
             choice("audio.darkmusic.eq_preset", preset, AudioSettings.Equalizer.values(), a::equalizer, "audio.darkmusic.eq_preset_help");
-            for (int i = 0; i < 10 && a.enhancements.eqMode == com.darkmusic.client.config.AudioEnhancements.EqMode.GRAPHIC; i++) {
-                int b = i;
-                double hz = com.darkmusic.client.audio.AudioProcessor.FREQUENCIES[i];
-                slider((a.bands[i] + 12) / 24, "audio.darkmusic.band", v -> String.format(Locale.ROOT, "%.0f Hz: %+.1f dB", hz, a.bands[b]), v -> {
-                    a.bands[b] = -12 + v * 24;
+            if (a.enhancements.eqMode == com.darkmusic.client.config.AudioEnhancements.EqMode.GRAPHIC) {
+                var graph = new EqualizerGraph(formX, 0, formWidth, com.darkmusic.client.audio.AudioProcessor.FREQUENCIES,
+                    band -> a.bands[band], (band, db) -> {
+                    a.bands[band] = db;
                     a.eqPreset = "CUSTOM";
-                }, 48, "audio.darkmusic.band_help");
+                    a.profile = "CUSTOM";
+                    app.configureVisualizer();
+                }, () -> {
+                    app.save();
+                    rebuildWidgets();
+                });
+                place(Help.tip(graph, Text.get("audio.darkmusic.band_help") + " " + Text.get("audio.darkmusic.eq_graph.help")));
             }
         }
         section("audio.darkmusic.section_effects");
@@ -196,15 +202,18 @@ public final class AudioSettingsScreen extends LocalScreen {
             slider((a.duckRelease - .1) / 1.9, "audio.darkmusic.duck_release", v -> String.format(Locale.ROOT, "%.1f s", a.duckRelease), v -> a.duckRelease = .1 + v * 1.9, 19, "audio.darkmusic.duck_release_help");
         }
         section("audio.saved_profiles");
-        details.add(new Detail(() -> app.warning.equals(Text.get("error.save_settings")) ? app.warning : notice, cursor, () -> app.warning.equals(Text.get("error.save_settings")) ? UiStatus.Tone.ERROR : UiStatus.Tone.SUCCESS));
-        cursor += 22;
+        // Reserve a status line only when there is something to report.
+        if (!notice.isEmpty() || app.warning.equals(Text.get("error.save_settings"))) {
+            details.add(new Detail(() -> app.warning.equals(Text.get("error.save_settings")) ? app.warning : notice, cursor, () -> app.warning.equals(Text.get("error.save_settings")) ? UiStatus.Tone.ERROR : UiStatus.Tone.SUCCESS));
+            cursor += 22;
+        }
         row("audio.darkmusic.save_profile", null, () -> show(PresetDialogs.save(this, "audio.darkmusic.save_profile", a.savedProfiles, Integer.MAX_VALUE, 100, (name, replace) -> {
             var copy = ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(a), AudioSettings.class);
             copy.savedProfiles.clear();
             com.darkmusic.client.config.PresetNames.save(a.savedProfiles, name, ConfigStore.JSON.toJson(copy), Integer.MAX_VALUE, replace, 100);
             notice = Text.get("preset.saved");
             app.save();
-        })), "audio.darkmusic.save_profile_help");
+        })), "audio.darkmusic.save_profile_help").runs();
         for (String name : List.copyOf(a.savedProfiles.keySet())) {
             row("audio.darkmusic.load_profile", null, () -> {
                 try {
@@ -216,14 +225,14 @@ public final class AudioSettingsScreen extends LocalScreen {
                 } catch (RuntimeException e) {
                     app.warn(Text.get("audio.darkmusic.invalid_profile"));
                 }
-            }, "audio.darkmusic.load_profile_help");
+            }, "audio.darkmusic.load_profile_help").runs();
             rows.getLast().setMessage(Component.literal(Text.get("audio.darkmusic.load_profile") + ": " + name));
             row("preset.rename", null, () -> show(TextPromptScreen.validated(this, Text.get("preset.rename"), name, 256, renamed -> {
                 com.darkmusic.client.config.PresetNames.rename(a.savedProfiles, name, renamed, 100);
                 notice = Text.get("preset.renamed");
                 app.save();
                 return true;
-            })), "preset.rename_help");
+            })), "preset.rename_help").runs();
             rows.getLast().setWidth(formWidth - 28);
             var delete = UiButton.icon(UiButton.builder(Text.component("audio.darkmusic.delete_profile", name), b ->
                 show(new ConfirmationScreen(this, Text.component("audio.darkmusic.delete_profile_title"),
@@ -251,7 +260,7 @@ public final class AudioSettingsScreen extends LocalScreen {
             var row = rows.get(i);
             int y = 36 + positions.get(i) - scroll;
             row.setY(y);
-            row.visible = y >= 36 && y + 20 <= height - 12;
+            row.visible = y >= 36 && y + row.getHeight() <= height - 12;
             if (!row.visible && getFocused() == row) setFocused(null);
         }
     }
@@ -270,7 +279,8 @@ public final class AudioSettingsScreen extends LocalScreen {
             int index = FocusRows.next(rows.stream().map(w -> w.active).toList(), rows.indexOf(getFocused()), event.hasShiftDown(), false);
             if (index >= 0) {
                 int y = positions.get(index);
-                if (y < scroll || y + 24 > scroll + height - 50) scroll = Math.max(0, y - (height - 74) / 2);
+                if (y < scroll || y + rows.get(index).getHeight() + 4 > scroll + height - 50)
+                    scroll = Math.max(0, y - (height - 74) / 2);
                 position();
                 setFocused(rows.get(index));
                 return true;
@@ -322,6 +332,8 @@ public final class AudioSettingsScreen extends LocalScreen {
             String label = LoudnessStatusText.describe(app.playback.normalization());
             longText.draw(g, font, "normalization", label, formX + 4, 40 + normalizationY - scroll, formWidth - 8, UiStatus.color(app.playback.normalization().state() == com.darkmusic.client.audio.LoudnessCache.State.FAILED ? UiStatus.Tone.ERROR : app.playback.normalization().peakLimited() ? UiStatus.Tone.WARNING : UiStatus.Tone.INFO));
         }
+        // Panels clipped by the viewport fade out instead of ending at a hard cut.
+        UiTheme.edgeFades(g, formX - 2, 36, formWidth + 4, height - 48, scroll > 0, scroll < cursor - (height - 48), UiTheme.BACKGROUND);
         g.disableScissor();
         super.extractRenderState(g, x, y, delta);
     }

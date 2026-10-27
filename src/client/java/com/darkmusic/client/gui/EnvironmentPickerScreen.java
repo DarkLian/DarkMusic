@@ -22,24 +22,18 @@ final class EnvironmentPickerScreen extends AudioPage {
     }
 
     @Override
-    protected int sectionColor() {
-        return UiTheme.SUCCESS;
-    }
-
-    @Override
     protected void populate() {
         for (int i = 0; i < GROUPS.size(); i++) {
             section("environment.category." + i);
             for (var preset : GROUPS.get(i)) {
                 String id = preset.name().toLowerCase(Locale.ROOT);
                 String label = Text.get("dsp.value." + id);
-                if (app.settings.environment.preset == preset) label = Text.get("environment.selected", label);
                 int row = rowCount();
                 labeledAction(label, Text.get("environment.description." + id), () -> {
                     app.settings.environment.select(preset);
                     app.save();
                     rebuildWidgets();
-                }).description(Text.get("environment.description." + id));
+                }).description(Text.get("environment.description." + id)).option(app.settings.environment.preset == preset);
                 if (revealSelection && app.settings.environment.preset == preset) revealRow(row);
             }
         }

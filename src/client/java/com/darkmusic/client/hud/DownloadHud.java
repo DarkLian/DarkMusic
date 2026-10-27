@@ -78,17 +78,17 @@ public final class DownloadHud {
         y = Math.max(4, Math.min(y, g.guiHeight() - height - 4));
         int alpha = (int) (opacity * 255), color = (alpha << 24) | 0xE0DDEE;
         g.fill(x, y, x + width, y + height, ((int) (opacity * 220) << 24) | 0x111420);
-        g.text(font, font.plainSubstrByWidth(Text.get("hud.darkmusic.downloads", progress.finished(), progress.total(), Math.round(progress.fraction() * 100), progress.failed()), width - 12), x + 6, y + 5, color);
+        g.text(font, com.darkmusic.client.gui.HorizontalText.ellipsize(font, Text.get("hud.darkmusic.downloads", progress.finished(), progress.total(), Math.round(progress.fraction() * 100), progress.failed()), width - 12), x + 6, y + 5, color);
         g.fill(x + 6, y + 17, x + width - 6, y + 20, (alpha << 24) | 0x34394F);
         g.fill(x + 6, y + 17, x + 6 + (int) ((width - 12) * progress.fraction()), y + 20, (alpha << 24) | 0xB5B0FF);
         int rowY = y + 25;
         for (var item : rows) {
             String percent = item.progress() >= 0 ? " " + Math.round(item.progress() * 100) + "%" : "";
             String label = Text.get("state.darkmusic." + item.status().name().toLowerCase(java.util.Locale.ROOT)) + percent + ": " + item.title();
-            g.text(font, font.plainSubstrByWidth(label, width - 12), x + 6, rowY, color);
+            g.text(font, com.darkmusic.client.gui.HorizontalText.ellipsize(font, label, width - 12), x + 6, rowY, color);
             rowY += 12;
         }
         if (showNotice)
-            g.text(font, font.plainSubstrByWidth(notice, width - 12), x + 6, rowY, (alpha << 24) | (failure ? 0xFFBC80 : 0xB5B0FF));
+            g.text(font, com.darkmusic.client.gui.HorizontalText.ellipsize(font, notice, width - 12), x + 6, rowY, (alpha << 24) | (failure ? 0xFFBC80 : 0xB5B0FF));
     }
 }

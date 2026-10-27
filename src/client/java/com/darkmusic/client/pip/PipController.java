@@ -186,13 +186,16 @@ public final class PipController implements AutoCloseable {
             int w = fullImage ? f.width() : Math.max(1, (int) (f.width() * (settings.right - settings.left))), h = fullImage ? f.height() : Math.max(1, (int) (f.height() * (settings.bottom - settings.top)));
             int color = ((int) Math.round(settings.opacity * 255) << 24) | 0xffffff;
             g.blit(RenderPipelines.GUI_TEXTURED, texture.id(), b.x(), b.y(), u, v, b.width(), b.height(), w, h, f.width(), f.height(), color);
+            // A thin dark frame separates the overlay from bright scenery; it fades with the overlay.
+            if (!fullImage)
+                g.outline(b.x() - 1, b.y() - 1, b.width() + 2, b.height() + 2, ((int) Math.round(settings.opacity * 0x99) << 24) | 0x0B0D16);
         }
         if (!fullImage && settings.audioSpectrum)
             drawSpectrum(g, settings.spectrum.bounds(b, g.guiWidth(), g.guiHeight()), preview);
         if (!status().equals("pip.live")) {
             g.fill(b.x(), b.y(), b.x() + b.width(), b.y() + 12, 0xcc111420);
             var font = Minecraft.getInstance().font;
-            g.text(font, font.plainSubstrByWidth(Text.get(status()), Math.max(1, b.width() - 6)), b.x() + 3, b.y() + 2, com.darkmusic.client.gui.UiStatus.color(com.darkmusic.client.gui.UiStatus.Tone.WARNING));
+            g.text(font, com.darkmusic.client.gui.HorizontalText.ellipsize(font, Text.get(status()), Math.max(1, b.width() - 6)), b.x() + 3, b.y() + 2, com.darkmusic.client.gui.UiStatus.color(com.darkmusic.client.gui.UiStatus.Tone.WARNING));
         }
     }
 

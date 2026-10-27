@@ -50,17 +50,18 @@ public final class DownloadDiagnosticScreen extends AudioPage {
                 copyStatus = Text.get("download.diag.copy_failed");
                 copyTone = UiStatus.Tone.ERROR;
             }
-        });
-        status(() -> copyStatus, () -> copyTone);
+            rebuildWidgets();
+        }).runs();
+        if (!copyStatus.isEmpty()) status(() -> copyStatus, () -> copyTone);
         if (retry != null && diagnostic.canRetry()) {
             int index = rowCount();
             action("download.diag.retry", () -> {
                 retry.run();
                 onClose();
-            });
+            }).runs();
             enableSince(index, !app.downloads.snapshot().analyzing());
         }
         if (diagnostic.toolsRelated())
-            action("text.darkmusic.download_tools", () -> show(new DownloadToolsScreen(app, this)));
+            action("text.darkmusic.download_tools", () -> show(new DownloadToolsScreen(app, this))).navigates();
     }
 }

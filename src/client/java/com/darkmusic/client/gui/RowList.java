@@ -348,6 +348,9 @@ public final class RowList extends AbstractWidget {
             UiIcon.MUSIC.draw(g, getX() + 8, getY() + 9, 16, UiTheme.MUTED);
             horizontal.draw(g, font, "empty", emptyMessage, getX() + 30, getY() + 13, Math.max(1, width - 40), UiTheme.SECONDARY);
         }
+        int hidden = rows.size() * rowHeight - height;
+        if (hidden > 0 && drag == null)
+            UiTheme.edgeFades(g, getX() + 1, getY() + 1, width - 11, height - 2, scroll > 0, scroll < hidden, UiTheme.SURFACE);
         scrollbar.configure(getRight() - 9, getY(), height, rows.size() * rowHeight, height);
         scrollbar.extractRenderState(g, mx, my, d);
         g.disableScissor();
@@ -376,7 +379,8 @@ public final class RowList extends AbstractWidget {
         int lineGap = 4;
         int titleY = twoLines ? y + (rowHeight - (font.lineHeight * 2 + lineGap)) / 2 : y + (rowHeight - font.lineHeight) / 2;
         int inset = selection == null ? 5 : 25;
-        if (selection != null) g.text(font, selection.checked(i) ? "[x]" : "[ ]", getX() + 4, y + 4, UiTheme.ACCENT);
+        if (selection != null)
+            UiTheme.checkbox(g, getX() + 6, y + (rowHeight - 11) / 2, 11, selection.checked(i), active);
         if (favorite.test(i)) {
             UiIcon.HEART_FILLED.draw(g, getX() + inset, y + (rowHeight - 12) / 2, 12, UiTheme.ACCENT);
             inset += 18;
@@ -392,7 +396,7 @@ public final class RowList extends AbstractWidget {
             inset += indent.applyAsInt(i);
             if (disclosureInset != null) {
                 if (disclosureInset.applyAsInt(i) >= 0)
-                    g.text(font, expanded.test(i) ? "v" : ">", getX() + inset + 1, titleY, UiTheme.ACCENT);
+                    UiIcon.chevron(g, getX() + inset + 1, titleY, 8, UiTheme.ACCENT, expanded.test(i) ? 3 : 2);
                 inset += 12;
             }
             int iconY = twoLines ? titleY + (font.lineHeight - 12) / 2 : y + (rowHeight - 12) / 2;

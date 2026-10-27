@@ -75,8 +75,10 @@ abstract class AudioPage extends LocalScreen {
         info(() -> Text.get(key));
     }
 
-    protected final void action(String key, Runnable run) {
-        place(new SettingRow(formX, 0, formWidth, Text.get(key), null, run));
+    protected final SettingRow action(String key, Runnable run) {
+        var row = new SettingRow(formX, 0, formWidth, Text.get(key), null, run);
+        place(row);
+        return row;
     }
 
     protected final SettingRow labeledAction(String label, String help, Runnable run) {
@@ -237,10 +239,15 @@ abstract class AudioPage extends LocalScreen {
             if (contentY(d.y) > 20 && contentY(d.y) < height) {
                 if (d.tone == null)
                     longText.draw(g, font, "detail" + d.y, d.text.get(), formX + 4, contentY(d.y) + 5, formWidth - 8, UiTheme.SECONDARY);
-                else
-                    longText.drawUpdating(g, font, "detail" + d.y, d.text.get(), formX + 4, contentY(d.y) + 5, formWidth - 8, UiStatus.color(d.tone.get()));
+                else {
+                    // A null tone is an ordinary live value that only sometimes needs attention.
+                    var tone = d.tone.get();
+                    longText.drawUpdating(g, font, "detail" + d.y, d.text.get(), formX + 4, contentY(d.y) + 5, formWidth - 8, tone == null ? UiTheme.SECONDARY : UiStatus.color(tone));
+                }
             }
         renderContent(g, x, y, delta);
+        // Panels clipped by the viewport fade out instead of ending at a hard cut.
+        UiTheme.edgeFades(g, formX - 2, 36, formWidth + 4, height - 48, scroll > 0, scroll < cursor - (height - 50), UiTheme.BACKGROUND);
         g.disableScissor();
         super.extractRenderState(g, x, y, delta);
     }
