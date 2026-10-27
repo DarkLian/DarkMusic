@@ -130,6 +130,14 @@ public final class UiTheme {
     }
 
     /**
+     * Red-tinted fill for destructive controls; derived from the theme so custom light menus keep contrast.
+     */
+    public static int destructiveFill(boolean highlighted) {
+        if (BACKGROUND == 0xFF111420) return highlighted ? 0xFF483040 : 0xFF30232F;
+        return mix(highlighted ? HOVER : RAISED, ERROR, highlighted ? .22f : .12f);
+    }
+
+    /**
      * The same box and check glyph as setting rows, for list selection columns.
      */
     public static void checkbox(GuiGraphicsExtractor g, int x, int y, int size, boolean checked, boolean active) {

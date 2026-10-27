@@ -158,7 +158,7 @@ public final class ValueSlider extends AbstractSliderButton {
                 g.fill(getX() + 4, trackY, getRight() - 4, trackY + 2, UiTheme.BORDER);
                 g.fill(getX() + 4, trackY, Math.max(getX() + 4, handle + 4), trackY + 2, active ? UiTheme.ACCENT : UiTheme.MUTED);
             }
-            g.fill(handle + 2, trackY - 3, handle + 6, trackY + 4, active && isHoveredOrFocused() ? UiTheme.TEXT : active ? UiTheme.ACCENT : UiTheme.BORDER);
+            g.fill(handle + 2, trackY - 2, handle + 6, trackY + 4, active && isHoveredOrFocused() ? UiTheme.TEXT : active ? UiTheme.ACCENT : UiTheme.BORDER);
             var font = net.minecraft.client.Minecraft.getInstance().font;
             String[] parts = labelParts(getMessage().getString());
             int valueWidth = font.width(parts[1]);

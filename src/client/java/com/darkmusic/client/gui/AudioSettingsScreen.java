@@ -128,7 +128,7 @@ public final class AudioSettingsScreen extends LocalScreen {
         row("analyzer.title", null, () -> show(new AudioAnalyzerScreen(app, this, com.darkmusic.client.audio.AudioComparison.Mode.AUDIO_OPTIONS)), "analyzer.help");
         row("dsp.advanced", null, () -> show(new AudioAdvancedScreen(app, this)), "dsp.advanced.help");
         toggle("audio.darkmusic.neutral", () -> a.neutral, v -> a.neutral = v, "audio.darkmusic.neutral_help");
-        // Each hint sits directly under the control it explains.
+        // The Neutral note explains the toggle above it; otherwise the hint introduces the Profile row below.
         if (a.neutral) info(() -> Text.get("dsp.neutral_scope"));
         else info(() -> Text.get("audio.basic_hint"));
         String[] profiles = {"DEFAULT", "MUSIC", "GAMING", "VOCAL", "NIGHT"};
@@ -275,6 +275,8 @@ public final class AudioSettingsScreen extends LocalScreen {
 
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        // The focused EQ graph owns Page Up/Down and Home before they scroll the page.
+        if (getFocused() instanceof EqualizerGraph graph && graph.keyPressed(event)) return true;
         if (event.key() == 258 && (getFocused() == null || rows.contains(getFocused()))) {
             int index = FocusRows.next(rows.stream().map(w -> w.active).toList(), rows.indexOf(getFocused()), event.hasShiftDown(), false);
             if (index >= 0) {

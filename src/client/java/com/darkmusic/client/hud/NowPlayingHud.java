@@ -136,7 +136,8 @@ public final class NowPlayingHud {
             HudSurface.draw(g, app.settings, w, h);
             int textX = app.settings.hudArtwork ? 42 : 6;
             int scrim = HudLayout.textScrim(app.settings);
-            if (scrim != 0) g.fill(textX - 3, main + 3, w - 3, main + 33, scrim);
+            // Kept clear of the card's chamfer, rounding and raised bevel.
+            if (scrim != 0) g.fill(Math.max(4, textX - 3), main + 3, w - 4, main + 33, scrim);
             if (app.settings.hudArtwork) HudImages.draw(g, art, 5, main + 3, 32, 32);
             String title = track == null ? Text.get("text.darkmusic.song_title") : track.title();
             if (text != null) text.transform(x, y, scale);

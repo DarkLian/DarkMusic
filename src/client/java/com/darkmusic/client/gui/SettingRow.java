@@ -163,7 +163,7 @@ public final class SettingRow extends AbstractWidget {
      */
     private void button(GuiGraphicsExtractor g) {
         boolean danger = kind == Kind.DESTRUCTIVE, highlighted = active && isHoveredOrFocused();
-        int fill = !active ? UiTheme.SURFACE : danger ? highlighted ? 0xFF483040 : 0xFF30232F : highlighted ? UiTheme.HOVER : UiTheme.RAISED;
+        int fill = !active ? UiTheme.SURFACE : danger ? UiTheme.destructiveFill(highlighted) : highlighted ? UiTheme.HOVER : UiTheme.RAISED;
         g.fill(getX(), getY(), getRight(), getBottom(), fill);
         int border = !active ? UiTheme.RAISED : isFocused() ? UiTheme.ACCENT : danger ? UiTheme.ERROR : highlighted ? UiTheme.ACCENT : UiTheme.BORDER;
         g.outline(getX(), getY(), width, height, border);

@@ -94,7 +94,7 @@ public final class UiButton extends Button {
     protected void extractContents(GuiGraphicsExtractor g, int x, int y, float delta) {
         boolean chosen = selected.getAsBoolean(), highlighted = active && isHoveredOrFocused();
         int fill = !active ? UiTheme.SURFACE : chosen || style == Style.PRIMARY ? UiTheme.SELECTED
-            : style == Style.DESTRUCTIVE ? highlighted ? 0xFF483040 : 0xFF30232F
+            : style == Style.DESTRUCTIVE ? UiTheme.destructiveFill(highlighted)
             : highlighted ? UiTheme.HOVER : style == Style.SUBTLE ? UiTheme.SURFACE : UiTheme.RAISED;
         long now = System.nanoTime();
         float step = Math.min(1, (now - transitionAt) / 120_000_000f);
