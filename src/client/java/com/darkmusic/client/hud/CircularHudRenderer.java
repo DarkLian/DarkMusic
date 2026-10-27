@@ -73,7 +73,7 @@ public final class CircularHudRenderer {
         var bounds = new ScreenRectangle(0, 0, layout.width(), layout.height()).transformMaxBounds(pose);
         if (clip != null) bounds = clip.intersection(bounds);
         if (bounds == null) return;
-        double turn = CircularRotation.advance(settings.circularRotationSeconds,
+        double turn = CircularRotation.SHARED.advance(settings.circularRotationSeconds,
             preview || audio.status() == AudioBackend.Status.PLAYING);
         // Rotation stays inside the unrotated bounds: every layer is a circle around the same center.
         double spin = settings.circularRotation.sign() * turn, progressSpin = settings.circularProgressRotation.sign() * turn;

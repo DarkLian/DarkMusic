@@ -80,9 +80,12 @@ final class HudSmokeClient {
     private int waveformWait;
 
     private static double rotationTurn() throws Exception {
-        var field = Class.forName("com.darkmusic.client.hud.CircularRotation").getDeclaredField("turn");
+        var type = Class.forName("com.darkmusic.client.hud.CircularRotation");
+        var shared = type.getDeclaredField("SHARED");
+        shared.setAccessible(true);
+        var field = type.getDeclaredField("turn");
         field.setAccessible(true);
-        return field.getDouble(null);
+        return field.getDouble(shared.get(null));
     }
 
     void start() {

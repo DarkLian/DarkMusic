@@ -4,6 +4,8 @@ import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class CircularRotationTest {
@@ -28,15 +30,18 @@ class CircularRotationTest {
     }
 
     @Test
-    void oppositeDirectionsShareOneAngle() throws InterruptedException {
+    void oppositeDirectionsShareOneAngle() {
         assertEquals(1, Settings.Rotation.CLOCKWISE.sign());
         assertEquals(-1, Settings.Rotation.COUNTERCLOCKWISE.sign());
         assertEquals(0, Settings.Rotation.OFF.sign());
-        double start = CircularRotation.advance(4, true);
-        Thread.sleep(50);
-        double moved = CircularRotation.advance(4, true);
-        assertTrue(moved != start, "The angle advances while moving");
-        Thread.sleep(50);
-        assertEquals(moved, CircularRotation.advance(4, false), "The angle holds while stopped");
+        var now = new AtomicLong(1_000_000_000L);
+        var rotation = new CircularRotation(now::get);
+        assertEquals(0, rotation.advance(4, true), "The first frame only records the time");
+        now.addAndGet(1_000_000_000L);
+        assertEquals(.25, rotation.advance(4, true), 1e-9, "One second of a four-second turn");
+        now.addAndGet(2_000_000_000L);
+        assertEquals(.25, rotation.advance(4, false), 1e-9, "The angle holds while stopped");
+        now.addAndGet(3_000_000_000L);
+        assertEquals(0, rotation.advance(4, true), 1e-9, "Time spent stopped does not count; three seconds wraps to a full turn");
     }
 }
