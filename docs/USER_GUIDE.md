@@ -313,6 +313,8 @@ With nothing playing, Play continues Resume Where You Left Off, or starts your l
 
 The extension is a separate program, `DarkMusic.Media.exe`, in `config/darkmusic/media-native`. It is downloaded from DarkMusic's GitHub release only when you install it, checked against the size and fingerprints built into this DarkMusic version, and started only while the option is on; it exits when you turn the option off or close Minecraft. Each DarkMusic version installs its matching package, and older versions are removed. Hover over the option to see whether it is connected.
 
+Windows media controls show the helper as "Unknown app": Windows only shows names for programs that are installed through the Store or an installer, or have a Start menu entry, and DarkMusic adds neither. The song, artist, artwork, buttons and timeline work regardless. **Remove Media Controls** stops the helper and deletes the extension's files.
+
 ## Discord status
 
 **Settings → General → Discord Status** (off by default) shows "Listening to DarkMusic" on your Discord profile, with the song, artist and a progress bar. It talks to the Discord desktop app running on this computer: nothing signs in, and DarkMusic never sees your Discord account. Discord in a web browser cannot show it.

@@ -272,6 +272,44 @@ public final class MediaControlsPackage implements AutoCloseable {
         }
     }
 
+    /**
+     * Removes the extension's files. Call after the helper was stopped; files it still holds are retried for a few
+     * seconds.
+     */
+    public synchronized CompletableFuture<Void> remove() {
+        if (state == State.UNSUPPORTED || state == State.INSTALLING) return CompletableFuture.completedFuture(null);
+        executable = null;
+        state = State.MISSING;
+        return CompletableFuture.runAsync(this::removeAll, worker);
+    }
+
+    void removeAll() {
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+        while (true) {
+            try (var children = Files.list(root)) {
+                for (Path child : children.toList()) {
+                    if (child.getFileName().toString().equals(".setup-lock") || Files.isSymbolicLink(child)) continue;
+                    if (Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS)) deleteTree(child);
+                    else Files.deleteIfExists(child);
+                }
+                return;
+            } catch (NoSuchFileException absent) {
+                return;
+            } catch (IOException busy) {
+                if (System.nanoTime() > deadline) {
+                    org.slf4j.LoggerFactory.getLogger("darkmusic-media").warn("Some Media Controls files are still in use", busy);
+                    return;
+                }
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+    }
+
     @Override
     public void close() {
         token.cancel();

@@ -150,7 +150,26 @@ class MediaControlsTest {
             assertTrue(processes.noneMatch(p -> p.info().command().map(c -> c.equals(exe.toString())).orElse(false)),
                 "Turning the option off ends the helper");
         }
+        media.remove().get(30, TimeUnit.SECONDS);
+        assertFalse(Files.exists(exe), "Removing Media Controls deletes its files");
+        assertEquals(MediaControlsPackage.State.MISSING, media.state());
         controls.close();
+        media.close();
+    }
+
+    @Test
+    void removingDeletesEveryInstalledVersionButKeepsTheSetupLock() throws Exception {
+        var media = new MediaControlsPackage(temp, null, (uri, out, max, token, progress) -> fail("No download"), true);
+        Path root = Files.createDirectories(temp.resolve("media-native"));
+        Files.writeString(root.resolve(".setup-lock"), "");
+        Files.createDirectories(root.resolve("a".repeat(64)).resolve("licenses"));
+        Files.writeString(root.resolve("a".repeat(64)).resolve("DarkMusic.Media.exe"), "helper");
+        Files.createDirectories(root.resolve("artwork"));
+        Files.writeString(root.resolve("helper-errors.log"), "");
+        media.removeAll();
+        try (var left = Files.list(root)) {
+            assertEquals(List.of(".setup-lock"), left.map(p -> p.getFileName().toString()).toList());
+        }
         media.close();
     }
 

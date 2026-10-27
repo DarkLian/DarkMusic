@@ -651,13 +651,22 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         if (!media.available()) return;
         long megabytes = Math.max(1, Math.round(media.size() / 1_048_576.0));
         switch (media.state()) {
-            case READY ->
+            case READY -> {
                 put(new SettingRow(12, 0, formWidth, Text.get("media.darkmusic.enabled"), () -> s.mediaControls, () -> {
                     s.mediaControls = !s.mediaControls;
                     app.save();
                     rebuildWidgets();
                 }), Text.get("media.darkmusic.enabled_help") + (s.mediaControls
                     ? " " + Text.get(app.mediaControls.connected() ? "media.darkmusic.state.connected" : "media.darkmusic.state.starting") : ""));
+                action("media.darkmusic.remove", () -> show(new ConfirmationScreen(this, Text.component("media.darkmusic.remove"),
+                    Text.component("media.darkmusic.remove_body"), Text.component("media.darkmusic.remove"), () -> {
+                    // Stop the helper first so its files can be deleted.
+                    s.mediaControls = false;
+                    app.save();
+                    app.mediaControls.update(null, null, System.nanoTime());
+                    return media.remove();
+                })), "media.darkmusic.remove_help").destructive();
+            }
             case INSTALLING -> {
                 var row = action("media.darkmusic.install", () -> {
                 }, "media.darkmusic.install_help");
