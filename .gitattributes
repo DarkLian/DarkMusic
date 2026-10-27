@@ -6,3 +6,6 @@
 
 # These are Windows script files and should use crlf
 *.bat           text eol=crlf
+
+# Golden files are compared byte for byte with LF output
+/src/test/resources/lyrics-json-golden/*.json text eol=lf
