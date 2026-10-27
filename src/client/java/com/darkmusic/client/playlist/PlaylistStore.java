@@ -319,7 +319,7 @@ public final class PlaylistStore {
     public void moveBlock(String id, int start, int count, int insertion) {
         var p = get(id);
         if (p == null) return;
-        var order = new com.darkmusic.client.gui.PlaylistDrag(start, count, insertion).order(p.entries.size());
+        var order = new PlaylistDrag(start, count, insertion).order(p.entries.size());
         var entries = order.stream().map(p.entries::get).toList();
         if (!entries.equals(p.entries)) replace(new Playlist(id, p.name, entries));
     }

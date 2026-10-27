@@ -14,7 +14,7 @@ import java.util.function.DoubleFunction;
 /**
  * Artwork-style spectrum controls, scoped exclusively to PiP.
  */
-public final class PipSpectrumScreen extends AudioPage {
+public final class PipSpectrumScreen extends AudioPage implements com.darkmusic.client.pip.PipPreview {
     private int previewY;
 
     public PipSpectrumScreen(DarkMusicClient app, Screen parent) {

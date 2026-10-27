@@ -8,7 +8,7 @@ import net.minecraft.client.gui.screens.Screen;
 /**
  * Uses the existing scrollable settings rows at both wide and compact scales.
  */
-public final class PipScreen extends AudioPage {
+public final class PipScreen extends AudioPage implements com.darkmusic.client.pip.PipPreview {
     private boolean shownActive;
     private com.darkmusic.client.pip.PipAudio shownAudio;
     private String shownSetup = "";

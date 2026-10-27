@@ -13,7 +13,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 /**
  * Independent player and lyrics placement with shared snapping and wheel behavior.
  */
-public class HudEditorScreen extends LocalScreen {
+public class HudEditorScreen extends LocalScreen implements com.darkmusic.client.hud.HudPreview {
     private final DarkMusicClient app;
     private final HudScale wheel = new HudScale(), lyricsWheel = new HudScale();
     private boolean lyricsSelected;

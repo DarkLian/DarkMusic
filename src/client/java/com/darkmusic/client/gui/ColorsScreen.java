@@ -13,7 +13,7 @@ import java.util.Locale;
 /**
  * Color preferences save immediately, like the rest of Settings.
  */
-public final class ColorsScreen extends LocalScreen {
+public final class ColorsScreen extends LocalScreen implements com.darkmusic.client.hud.HudPreview {
     private final DarkMusicClient app;
     private final VisualColors target;
     private Preview customPreview;

@@ -10,7 +10,7 @@ import net.minecraft.client.input.*;
 /**
  * Placement preserves source aspect ratio. Cropping changes UV coordinates, never the source window.
  */
-public final class PipEditorScreen extends LocalScreen {
+public final class PipEditorScreen extends LocalScreen implements com.darkmusic.client.pip.PipPreview {
     private final DarkMusicClient app;
     private final boolean crop;
     private boolean dragging, resizing;

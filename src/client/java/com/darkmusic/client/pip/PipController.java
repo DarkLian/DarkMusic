@@ -39,7 +39,7 @@ public final class PipController implements AutoCloseable {
                 app.pip.overlay(g);
         });
         ScreenEvents.AFTER_INIT.register((mc, screen, w, h) -> ScreenEvents.afterExtract(screen).register((s, g, x, y, delta) -> {
-            if (app.pip != null && app.settings != null && app.settings.pip.inMenus && !(s instanceof com.darkmusic.client.gui.PipEditorScreen) && !(s instanceof com.darkmusic.client.gui.PipScreen) && !(s instanceof com.darkmusic.client.gui.PipSourcesScreen) && !(s instanceof com.darkmusic.client.gui.PipSpectrumScreen))
+            if (app.pip != null && app.settings != null && app.settings.pip.inMenus && !(s instanceof PipPreview))
                 app.pip.overlay(g);
         }));
     }

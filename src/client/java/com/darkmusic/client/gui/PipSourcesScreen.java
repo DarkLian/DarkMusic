@@ -10,7 +10,7 @@ import net.minecraft.client.gui.screens.Screen;
 
 import java.util.*;
 
-public final class PipSourcesScreen extends LocalScreen {
+public final class PipSourcesScreen extends LocalScreen implements com.darkmusic.client.pip.PipPreview {
     private final DarkMusicClient app;
     private List<PipSource> sources = List.of();
     private ProcessRunner.Token token;

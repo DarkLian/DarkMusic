@@ -27,14 +27,9 @@ public final class HudLayer {
         }));
     }
 
-    /**
-     * Screens that already preview the HUD would otherwise show it twice.
-     */
     static boolean inMenus(DarkMusicClient app, Screen screen) {
         var mc = Minecraft.getInstance();
         return app.settings != null && app.settings.hudInMenus && mc.level != null && !mc.gui.hud.isHidden()
-            && !(screen instanceof com.darkmusic.client.gui.HudEditorScreen)
-            && !(screen instanceof com.darkmusic.client.gui.SettingsScreen)
-            && !(screen instanceof com.darkmusic.client.gui.ColorsScreen);
+            && !(screen instanceof HudPreview);
     }
 }

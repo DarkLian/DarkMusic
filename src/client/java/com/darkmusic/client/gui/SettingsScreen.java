@@ -19,7 +19,7 @@ import java.util.function.DoubleFunction;
 /**
  * One scrollable settings form with a fixed, independently contained live preview.
  */
-public final class SettingsScreen extends LocalScreen {
+public final class SettingsScreen extends LocalScreen implements com.darkmusic.client.hud.HudPreview {
     private final DarkMusicClient app;
     private ScrollBar scrollbar;
     private ValueSlider playerProgressPreview;

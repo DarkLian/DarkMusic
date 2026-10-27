@@ -1,4 +1,4 @@
-package com.darkmusic.client.gui;
+package com.darkmusic.client.playlist;
 
 import com.darkmusic.client.text.Text;
 

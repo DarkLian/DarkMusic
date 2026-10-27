@@ -1,5 +1,6 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.playlist.PlaylistDrag;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;

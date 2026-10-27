@@ -1,5 +1,6 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.playlist.PlaylistDrag;
 import com.darkmusic.client.text.Text;
 
 import net.minecraft.client.Minecraft;
