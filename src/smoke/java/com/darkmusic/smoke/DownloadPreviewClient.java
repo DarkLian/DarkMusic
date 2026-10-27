@@ -46,6 +46,20 @@ final class DownloadPreviewClient {
         return mc.gui.screen().children().stream().filter(x -> x instanceof AbstractWidget b && b.getMessage().getString().equals(label)).map(x -> (AbstractWidget) x).findFirst().orElseThrow(() -> new IllegalStateException("Missing button: " + label));
     }
 
+    /**
+     * Visible controls never share pixels; a fixed icon slot once sat under the wider labelled Listen button.
+     */
+    private void requireNoOverlap(Minecraft mc) {
+        var widgets = mc.gui.screen().children().stream().filter(x -> x instanceof AbstractWidget w && w.visible && !(w instanceof RowList)).map(x -> (AbstractWidget) x).toList();
+        for (int i = 0; i < widgets.size(); i++)
+            for (int j = i + 1; j < widgets.size(); j++) {
+                var a = widgets.get(i);
+                var b = widgets.get(j);
+                boolean overlap = a.getX() < b.getRight() && b.getX() < a.getRight() && a.getY() < b.getBottom() && b.getY() < a.getBottom();
+                require(!overlap, "Downloads controls overlap: " + a.getMessage().getString() + " and " + b.getMessage().getString());
+            }
+    }
+
     private void click(Minecraft mc, String label) {
         SmokeUi.click(mc, label);
     }
@@ -227,6 +241,8 @@ final class DownloadPreviewClient {
                     var rows = (RowList) field(mc.gui.screen(), "rows");
                     rows.onClick(mouse(rows.getX() + 40, rows.getY() + 5), false);
                     mc.gui.screen().tick();
+                    require(button(mc, "Existing Library Files").visible, "Selecting an entry did not show its existing-file control");
+                    requireNoOverlap(mc);
                     click(mc, "Play Audio Preview");
                     step++;
                 }

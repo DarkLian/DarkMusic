@@ -238,6 +238,8 @@ public final class DownloadScreen extends LocalScreen {
 
     private int pageCountX;
     private boolean labelledListen;
+    // Left of Listen in each layout; the diagnostic and existing-file icons fill leftward from here.
+    private int iconX;
 
     private int pageCountWidth() {
         return font.width(Text.get("download.darkmusic.page_of", "999+"));
@@ -278,6 +280,7 @@ public final class DownloadScreen extends LocalScreen {
         place(search, 12, searchY, width - (queueView ? 24 : 80), true);
         place(listen, width - 64, searchY, 24, !queueView);
         place(stopListening, width - 36, searchY, 24, !queueView);
+        iconX = width - 92;
         place(previous, 12, pageY, 24, !queueView);
         place(next, 40, pageY, 24, !queueView);
         place(pageNumber, 68, pageY, 40, !queueView);
@@ -326,6 +329,7 @@ public final class DownloadScreen extends LocalScreen {
         place(search, rightX, searchY, rightWidth - (queueView ? 0 : listenWidth + 40), true);
         place(listen, width - 40 - listenWidth, searchY, listenWidth, !queueView);
         place(stopListening, width - 36, searchY, 24, !queueView);
+        iconX = width - 68 - listenWidth;
         place(previous, rightX, pageY, 24, !queueView);
         place(next, rightX + 28, pageY, 24, !queueView);
         place(pageNumber, rightX + 56, pageY, 40, !queueView);
@@ -351,11 +355,12 @@ public final class DownloadScreen extends LocalScreen {
 
     private void layoutDiagnostic() {
         boolean available = (queueView ? app.downloads.diagnostic(selectedJob) : app.downloads.analysisDiagnostic()) != null;
-        place(errorDetails, width - (queueView ? 36 : 92), searchY, 24, available);
+        int slot = queueView ? width - 36 : iconX;
+        place(errorDetails, slot, searchY, 24, available);
         errorDetails.active = available;
         if (available) search.setWidth(Math.max(24, search.getWidth() - 28));
         boolean inspect = app.downloads.duplicateChoice() != null || !queueView && listeningEntry != null;
-        place(existingDetails, width - (queueView ? 36 : 92) - (available ? 28 : 0), searchY, 24, inspect);
+        place(existingDetails, slot - (available ? 28 : 0), searchY, 24, inspect);
         existingDetails.active = app.downloads.duplicateChoice() != null || !queueView && hasExistingMatches(listeningEntry);
         if (inspect) search.setWidth(Math.max(24, search.getWidth() - 28));
     }
