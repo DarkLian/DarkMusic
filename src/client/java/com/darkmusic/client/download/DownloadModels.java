@@ -1,5 +1,6 @@
 package com.darkmusic.client.download;
 
+import com.darkmusic.client.cleanup.LibrarySourceIndex;
 import com.darkmusic.client.text.Text;
 
 import java.net.URI;
@@ -57,7 +58,8 @@ public final class DownloadModels {
     public record Tools(String ytDlp, String ffmpeg, String ffprobe, String javascript) {
     }
 
-    public record Entry(int index, String title, String url, String extractor, String mediaId, boolean available) {
+    public record Entry(int index, String title, String url, String extractor, String mediaId,
+                        boolean available) implements LibrarySourceIndex.Source {
         public String key() {
             return extractor.toLowerCase(Locale.ROOT) + ":" + mediaId;
         }

@@ -2,7 +2,6 @@ package com.darkmusic.client.cleanup;
 
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.DownloadFormat;
-import com.darkmusic.client.download.DownloadModels;
 import com.darkmusic.client.library.*;
 import com.google.gson.*;
 
@@ -14,6 +13,19 @@ import java.util.concurrent.*;
  * Shared, local-only source identities. Indexing and live existence checks never run in rendering.
  */
 public final class LibrarySourceIndex implements AutoCloseable {
+    /**
+     * A remote item the index can match; download entries implement it.
+     */
+    public interface Source {
+        String title();
+
+        String url();
+
+        String extractor();
+
+        String mediaId();
+    }
+
     public record Existing(Track track, String format, Set<DownloadFormat> requested, String stamp) {
         public boolean sameFormat(DownloadFormat value) {
             return value == DownloadFormat.MP3 ? format.equals("mp3") : requested.contains(value);
@@ -203,14 +215,14 @@ public final class LibrarySourceIndex implements AutoCloseable {
         return e + ":" + mediaId;
     }
 
-    public Lookup lookup(DownloadModels.Entry entry) {
+    public Lookup lookup(Source entry) {
         return new Lookup(index.getOrDefault(identity(entry.extractor(), entry.mediaId(), entry.url()), List.of()), possible.getOrDefault(DuplicateMatcher.normalize(entry.title()), List.of()), complete);
     }
 
     /**
      * A stale or offline match never silently skips a download. Called only by background download preparation.
      */
-    public List<Existing> verified(DownloadModels.Entry entry) {
+    public List<Existing> verified(Source entry) {
         return lookup(entry).confirmed.stream().filter(v -> {
             try {
                 String source = SourceLinks.read(v.track.file());
@@ -222,7 +234,7 @@ public final class LibrarySourceIndex implements AutoCloseable {
         }).toList();
     }
 
-    public void saved(DownloadModels.Entry entry, Path path, DownloadFormat format) {
+    public void saved(Source entry, Path path, DownloadFormat format) {
         if (closed) return;
         try {
             worker.execute(() -> {
