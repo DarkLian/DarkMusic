@@ -15,6 +15,11 @@ This is internal restructuring with no user-facing change.
   - Golden files pin the on-disk JSON of saved lyrics.
   - `Settings.validate` gives byte-identical results before and after it was split into per-feature validators.
 - **Test runs.** `scripts/verify.ps1 -Clean -DesktopIntegration` passed 626 tests (6 skipped). All eight smoke modes passed after the package changes: default, preview, advanced, queue, cleanup, lyrics, reset, and PiP with Show HUD in Menus.
+- **Large classes.**
+  - `DarkMusicClient` names its busy checks `alive()`, `idle()` and `accepting()` instead of combining flags at each call site. Seeking, shortcuts, media actions and output changes now also refuse after shutdown.
+  - The lyric provider result cache moved out of `LyricsLookup` into `LyricsResultCache`.
+  - `JavaSoundBackend` and `MusicScreen` were left whole: neither has a separate concern worth splitting out.
+  - `scripts/verify.ps1 -Clean -DesktopIntegration` passed 628 tests (6 skipped) and all eight smoke modes passed. A manual play session covered import, restore, reset, switching the output device during playback, and a lyrics lookup before and after Clear Cache.
 
 Release notes now live in `docs/releases`. Earlier review records are in `docs/reviews`.
 
