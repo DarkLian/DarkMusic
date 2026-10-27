@@ -80,7 +80,7 @@ jobs:
           for file in "darkmusic-$version.jar" "darkmusic-$version-sources.jar" "darkmusic-$version-third-party-sources.zip" "darkmusic-pip-dependencies-$version-windows-x64.zip"; do
             test -s "release-files/$file"
           done
-          notes="docs/RELEASE-$version.md"
+          notes="docs/releases/RELEASE-$version.md"
           test -s "$notes"
           cp "$notes" release-files/release-notes.md
           python3 - "$version" <<'PY'

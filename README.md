@@ -117,27 +117,27 @@ Automatic update checks are on by default: they run after joining a world/server
 
 ## What's new
 
-**v3.3.1** lets Up Next queue any song in your library with a search box and All Songs view, fixes bulk Remove in Up Next, and evens out Beveled bars at high bar counts ([release notes](docs/RELEASE-3.3.1.md)).
+**v3.3.1** lets Up Next queue any song in your library with a search box and All Songs view, fixes bulk Remove in Up Next, and evens out Beveled bars at high bar counts ([release notes](docs/releases/RELEASE-3.3.1.md)).
 
-**v3.3.0** adds Circular HUD rotation (image and spectrum, plus a separately directed progress ring, kept in step), moves the Lyrics HUD controls into Settings → Lyrics, lets you turn off the text backdrops, keeps Show HUD in Menus out of DarkMusic's own screens, and fixes the Settings waveform preview and a Downloads button overlap ([release notes](docs/RELEASE-3.3.0.md)).
+**v3.3.0** adds Circular HUD rotation (image and spectrum, plus a separately directed progress ring, kept in step), moves the Lyrics HUD controls into Settings → Lyrics, lets you turn off the text backdrops, keeps Show HUD in Menus out of DarkMusic's own screens, and fixes the Settings waveform preview and a Downloads button overlap ([release notes](docs/releases/RELEASE-3.3.0.md)).
 
-**v3.2.0** refreshes menus and the HUD: static button labels, clearer setting rows and sliders, a graphic EQ, a black default menu background, sharper Circular and lyrics text on a readable plate, an Artwork HUD title caption, and an optional **Show HUD in Menus** ([release notes](docs/RELEASE-3.2.0.md)).
+**v3.2.0** refreshes menus and the HUD: static button labels, clearer setting rows and sliders, a graphic EQ, a black default menu background, sharper Circular and lyrics text on a readable plate, an Artwork HUD title caption, and an optional **Show HUD in Menus** ([release notes](docs/releases/RELEASE-3.2.0.md)).
 
-**v3.1.2** lists Cubes Without Borders as a conflicting mod and warns in PiP settings whenever Exclusive Fullscreen is on. Both cause screen tearing while PiP captures; Minecraft's own non-exclusive fullscreen does not ([notes](docs/RELEASE-3.1.2.md)).
+**v3.1.2** lists Cubes Without Borders as a conflicting mod and warns in PiP settings whenever Exclusive Fullscreen is on. Both cause screen tearing while PiP captures; Minecraft's own non-exclusive fullscreen does not ([notes](docs/releases/RELEASE-3.1.2.md)).
 
-**v3.1.1** moves the Windows PiP helper into the optional installation package. The main mod JAR contains no native helper binaries. Existing PiP users install the new matching package through the PiP menu; settings and access permissions are preserved ([release notes](docs/RELEASE-3.1.1.md)).
+**v3.1.1** moves the Windows PiP helper into the optional installation package. The main mod JAR contains no native helper binaries. Existing PiP users install the new matching package through the PiP menu; settings and access permissions are preserved ([release notes](docs/releases/RELEASE-3.1.1.md)).
 
-**v3.1.0** improves large-library search, Opus metadata and lyrics, download resilience, and saved lyric retention. PiP accepts ultrawide and tall windows within the same 4K pixel budget. The frame-limit capture improvements from v3.0.4 remain included ([release notes](docs/RELEASE-3.1.0.md)).
+**v3.1.0** improves large-library search, Opus metadata and lyrics, download resilience, and saved lyric retention. PiP accepts ultrawide and tall windows within the same 4K pixel budget. The frame-limit capture improvements from v3.0.4 remain included ([release notes](docs/releases/RELEASE-3.1.0.md)).
 
-**v3.0.3** adds a warning in the PiP settings when Minecraft is in exclusive fullscreen, which can cause visible screen tearing while PiP captures. Borderless or windowed mode avoids it ([notes](docs/RELEASE-3.0.3.md)).
+**v3.0.3** adds a warning in the PiP settings when Minecraft is in exclusive fullscreen, which can cause visible screen tearing while PiP captures. Borderless or windowed mode avoids it ([notes](docs/releases/RELEASE-3.0.3.md)).
 
-**v3.0.2** makes PiP resizing and audio-spectrum recovery more reliable, keeps playback transitions and Sound Environment changes smoother, makes library monitoring less intrusive, and shows recovery folders in library status. See the [release notes](docs/RELEASE-3.0.2.md).
+**v3.0.2** makes PiP resizing and audio-spectrum recovery more reliable, keeps playback transitions and Sound Environment changes smoother, makes library monitoring less intrusive, and shows recovery folders in library status. See the [release notes](docs/releases/RELEASE-3.0.2.md).
 
-**v3.0.1** shrank the main mod from about 79 MB to about 4 MB by making PiP's runtime an optional in-game install ([notes](docs/RELEASE-3.0.1.md)).
+**v3.0.1** shrank the main mod from about 79 MB to about 4 MB by making PiP's runtime an optional in-game install ([notes](docs/releases/RELEASE-3.0.1.md)).
 
-**v3.0.0** introduced Picture-in-Picture and the PiP Audio Spectrum ([notes](docs/RELEASE-3.0.0.md)).
+**v3.0.0** introduced Picture-in-Picture and the PiP Audio Spectrum ([notes](docs/releases/RELEASE-3.0.0.md)).
 
-**v2.10.0** added waveform progress bars, selectable HUD images, and rounded-bar spectra ([notes](docs/RELEASE-2.10.0.md)).
+**v2.10.0** added waveform progress bars, selectable HUD images, and rounded-bar spectra ([notes](docs/releases/RELEASE-2.10.0.md)).
 
 Older versions are listed in [`docs`](docs).
 

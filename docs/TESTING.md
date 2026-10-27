@@ -1,5 +1,28 @@
 # Development and verification
 
+## Code cleanup (unreleased)
+
+This is internal restructuring with no user-facing change.
+
+- **Package layering.** The core packages are layered in this order:
+  `text` < `config` < `tools` < `media` < `library` < `audio`/`lyrics`/`playlist` < `cleanup` < `download` < `backup`.
+  - Core packages never reference the interface packages or `DarkMusicClient`.
+  - Drawing helpers live in `render`, so `hud` and `pip` don't depend on `gui`.
+  - `ArchitectureTest` enforces these rules, including wildcard imports and inline qualified names.
+- **Equivalence checks.**
+  - Each move was checked by comparing `javap` output class by class, with old class names mapped to their new ones.
+  - The import rewrite compiled to identical bytecode for all 777 classes.
+  - Golden files pin the on-disk JSON of saved lyrics.
+  - `Settings.validate` gives byte-identical results before and after it was split into per-feature validators.
+- **Test runs.** `scripts/verify.ps1 -Clean -DesktopIntegration` passed 626 tests (6 skipped). All eight smoke modes passed after the package changes: default, preview, advanced, queue, cleanup, lyrics, reset, and PiP with Show HUD in Menus.
+
+Release notes now live in `docs/releases`. Earlier review records are in `docs/reviews`.
+
+### Deferred review items
+
+- **[121](reviews/FINDINGS-113-121.md), 16-bit dither.** Still deferred. Conversion rounds rather than truncates. TPDF dither would change the output noise floor and bit-exact expectations.
+- **[100](reviews/FINDINGS-86-108.md), PiP process audio.** Still a platform limitation. Audio follows the selected window's owner process, so hosted and UWP apps that route audio through another process are not captured.
+
 ## v3.3.1: Up Next library search, bulk remove and Beveled bars
 
 The queue in-game check now ticks two of three queued songs and confirms Remove takes both; it switches Up Next to All Songs, searches, confirms the results match and double-clicks one into the queue. The HUD check captures every bar layout at 64 bars with the Beveled finish after the spectrum settles. Zoomed captures showed Classic plain bars and the sideways Artwork spectrum alternating between striped and flat, because side edges were drawn only on bars rounded to 3 pixels. After the fix all bars in a row share one decision. Circular and Rounded Bars were already uniform. Both checks passed at fullscreen 1920×1080, GUI scale 2, with SmoothFont.
@@ -58,7 +81,7 @@ Publication verification: [v3.1.1 release workflow 40303229337](https://github.c
 
 Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed **607 tests: 601 passed, six skipped**, zero failures/errors, using private-real-audio-derived fixtures and existing managed tools. The skipped cases are optional live tool installation, live LRCLIB, live published PiP installation, two unavailable Windows symlink fixtures and POSIX permissions on Windows. The published PiP installation check is run separately after publication.
 
-All four local archives passed CRC, version, embedded helper/dependency hashes, dependency separation, source/license notices, private-media/smoke exclusions and 1,624-key localization parity checks. The mod JAR is 4,055,409 bytes; the optional dependency ZIP is unchanged from v3.0.4 (SHA-256 `55eccdc65bc1242f7d2fae0547ab7a35ab3a435a50a831d239653f932a2f5273`). Detailed behavioral tests, measurements and limitations are recorded in [the review report](OPEN-FINDINGS-128-148.md). Evidence: ignored `.local-tools/verification/release-3.1.0/`.
+All four local archives passed CRC, version, embedded helper/dependency hashes, dependency separation, source/license notices, private-media/smoke exclusions and 1,624-key localization parity checks. The mod JAR is 4,055,409 bytes; the optional dependency ZIP is unchanged from v3.0.4 (SHA-256 `55eccdc65bc1242f7d2fae0547ab7a35ab3a435a50a831d239653f932a2f5273`). Detailed behavioral tests, measurements and limitations are recorded in [the review report](reviews/FINDINGS-128-148.md). Evidence: ignored `.local-tools/verification/release-3.1.0/`.
 
 English and Traditional Chinese native player/lyrics/HUD smoke checks passed at fullscreen 1920x1080, configured/effective GUI scale 2, with SmoothFont and actual device playback. Online lyric access was disabled for deterministic checks. No new public screenshots were taken.
 
@@ -110,7 +133,7 @@ English and Traditional Chinese native lyrics/player smoke runs passed at fullsc
 
 The native PiP setup smoke also passed: requirements checks, canceled installation/access/audio prompts, cached dependency verification, explicit access and revocation, without window enumeration or starting capture. Its display used the same fullscreen 1920x1080, GUI scale 2 and SmoothFont.
 
-The four local release archives passed CRC/integrity, packaged version, helper/dependency manifest and checksum binding, runtime/application separation, notices/source archives, 1,617-key localization parity and private/smoke exclusions. Workflow lint and whitespace checks passed. Recent native WGC resilience probes are recorded in [findings 122-127](OPEN-FINDINGS-122-127.md).
+The four local release archives passed CRC/integrity, packaged version, helper/dependency manifest and checksum binding, runtime/application separation, notices/source archives, 1,617-key localization parity and private/smoke exclusions. Workflow lint and whitespace checks passed. Recent native WGC resilience probes are recorded in [findings 122-127](reviews/FINDINGS-122-127.md).
 
 Hosted [Windows, macOS and Linux release CI](https://github.com/DarkLian/DarkMusic/actions/runs/40262685668) and [main CI](https://github.com/DarkLian/DarkMusic/actions/runs/40262682462) passed. All four published assets were downloaded and matched GitHub SHA-256 metadata; packaged integrity, manifests, notices, sources, localization and exclusions passed again. The released base JAR is 4,038,865 bytes; optional dependencies are 76,106,620 bytes.
 
@@ -278,7 +301,7 @@ The smoke client verifies overlapping desktop-window guards and native fullscree
 
 Use IntelliJ IDEA's built-in formatter and the project `.editorconfig`. English interface prose lives in `src/client/resources/assets/darkmusic/lang/en_us.json`, with Traditional Chinese in `zh_tw.json` beside it. Keep both catalogs aligned and preserve formatting placeholders. Localization checks compare keys, placeholders, and line breaks, exercise translated components, and verify the packaged catalog.
 
-Publish the main JAR, source JAR, and third-party source ZIP together. Keep license notices and source-archive references current. The tag must match `version` in `gradle.properties`; the release workflow reads `docs/RELEASE-<version>.md`.
+Publish the main JAR, source JAR, and third-party source ZIP together. Keep license notices and source-archive references current. The tag must match `version` in `gradle.properties`; the release workflow reads `docs/releases/RELEASE-<version>.md`.
 
 ## GitHub updater and layout alignment
 
@@ -448,7 +471,7 @@ Windows verification through `scripts/verify.ps1 -DesktopIntegration` passed **5
 
 New regressions cover portable-backup consent preservation, waveform retry backoff, metadata-edit space bounds, local control characters and symbolic links, compact lyric JSON, shared-companion journal discovery/conflict archival, codec/receiver Errors, equal-power crossfade, ratio-scaled resampler coefficients, old commit receipts, staging cleanup, publication races and active runtime leases. The 192 kHz to 44.1 kHz kernel's tested stopband response improved from about -29.7 dB to -77.1 dB; this is a coefficient measurement rather than a listening or hardware benchmark. Normal-rate paths retain 32 taps; high-ratio paths scale up to a bounded 512 taps.
 
-IntelliJ's formatter, workflow actionlint, whitespace checks, locked .NET restore/build and English/Traditional Chinese parity (1,611 keys) passed. No Minecraft GUI smoke, native non-Windows runtime, UWP audio routing, real heap-exhaustion test or post-FreeSync 144 FPS comparison was performed in this turn. See [the per-finding disposition](OPEN-FINDINGS-86-108.md). Existing full content-hash deletion safeguards are deliberately retained.
+IntelliJ's formatter, workflow actionlint, whitespace checks, locked .NET restore/build and English/Traditional Chinese parity (1,611 keys) passed. No Minecraft GUI smoke, native non-Windows runtime, UWP audio routing, real heap-exhaustion test or post-FreeSync 144 FPS comparison was performed in this turn. See [the per-finding disposition](reviews/FINDINGS-86-108.md). Existing full content-hash deletion safeguards are deliberately retained.
 
 
 Hosted [Windows, macOS and Linux CI](https://github.com/DarkLian/DarkMusic/actions/runs/40254982912) passed for `1e46232`. A final local assembly and four-artifact package check passed archive CRCs, embedded helper/dependency checksums, notices/source archives, localization parity and private/smoke exclusions. Published v3.0.1 assets were not changed.
@@ -467,17 +490,17 @@ IntelliJ formatting, actionlint, whitespace and English/Traditional Chinese pari
 
 Windows `scripts/verify.ps1 -DesktopIntegration` passed **584 tests: 579 passed, five skipped**, with zero failures/errors. The private collection and existing managed tools exercised same-format DSP handoff continuity, first-block stereo width, environment-history preservation, misleading audio extensions and unknown-container fallback. Filesystem and download regressions cover persistent watch registrations, retry backoff, bookkeeping filters, extensionless deletion, unexpected poll errors and bot-check classification. Final watcher/download-focused tests passed after the cache-publication refinement. IntelliJ formatting, actionlint, whitespace and 1,617-key English/Traditional Chinese parity passed.
 
-The five skips remain optional live managed-tool installation, live LRCLIB, two Windows symlink fixtures unavailable to this account and explicit live-release PiP installation. No new Minecraft GUI smoke, subjective listening, gameplay performance, real bot-check website or native non-Windows audio test was performed. Dither remains an optional deferred output-policy change. See [the per-finding disposition](OPEN-FINDINGS-113-121.md). Private evidence: `.local-tools/verification/findings-113-121/`.
+The five skips remain optional live managed-tool installation, live LRCLIB, two Windows symlink fixtures unavailable to this account and explicit live-release PiP installation. No new Minecraft GUI smoke, subjective listening, gameplay performance, real bot-check website or native non-Windows audio test was performed. Dither remains an optional deferred output-policy change. See [the per-finding disposition](reviews/FINDINGS-113-121.md). Private evidence: `.local-tools/verification/findings-113-121/`.
 
 
 ## Review findings 122-127
 
-Windows `scripts/verify.ps1 -DesktopIntegration` passed **587 tests: 582 passed, five skipped**, zero failures/errors. Final focused checks passed **12 tests**, including two watcher-isolation cases added after the full run. Native helper checks cover bounded audio recovery, actual pipe-name collision and the WinForms exception route. Two live WGC runs each resized a disposable native window 98 times; neither produced capture/pipe errors. The second run deliberately occupied the audio pipe and verified that video continued through final audio failure. These are resilience checks, not frame-rate measurements or Minecraft playtests. See [the detailed findings and limits](OPEN-FINDINGS-122-127.md). Private evidence: `.local-tools/verification/findings-122-127/`.
+Windows `scripts/verify.ps1 -DesktopIntegration` passed **587 tests: 582 passed, five skipped**, zero failures/errors. Final focused checks passed **12 tests**, including two watcher-isolation cases added after the full run. Native helper checks cover bounded audio recovery, actual pipe-name collision and the WinForms exception route. Two live WGC runs each resized a disposable native window 98 times; neither produced capture/pipe errors. The second run deliberately occupied the audio pipe and verified that video continued through final audio failure. These are resilience checks, not frame-rate measurements or Minecraft playtests. See [the detailed findings and limits](reviews/FINDINGS-122-127.md). Private evidence: `.local-tools/verification/findings-122-127/`.
 
 
 ## Review findings 128-148
 
-Windows `scripts/verify.ps1 -DesktopIntegration` passed **606 tests: 600 passed, six skipped**, zero failures/errors. EN/ZH native playback/lyrics/player/HUD smoke checks passed at fullscreen 1920x1080, GUI scale 2 with SmoothFont. Real private-derived Opus fixtures verify native metadata/lyrics and tiny FFmpeg seeks. Native WGC resized through ultrawide/portrait shapes without capture/pipe errors; this does not verify Minecraft upload at those sizes. A 100k-track metadata benchmark measured four-query medians of 34.7 ms before versus 6.7 ms cached (256.1 ms construction), not gameplay FPS. IntelliJ formatting, workflow lint, whitespace and 1,624-key localization parity passed. See [per-finding dispositions and verification limits](OPEN-FINDINGS-128-148.md).
+Windows `scripts/verify.ps1 -DesktopIntegration` passed **606 tests: 600 passed, six skipped**, zero failures/errors. EN/ZH native playback/lyrics/player/HUD smoke checks passed at fullscreen 1920x1080, GUI scale 2 with SmoothFont. Real private-derived Opus fixtures verify native metadata/lyrics and tiny FFmpeg seeks. Native WGC resized through ultrawide/portrait shapes without capture/pipe errors; this does not verify Minecraft upload at those sizes. A 100k-track metadata benchmark measured four-query medians of 34.7 ms before versus 6.7 ms cached (256.1 ms construction), not gameplay FPS. IntelliJ formatting, workflow lint, whitespace and 1,624-key localization parity passed. See [per-finding dispositions and verification limits](reviews/FINDINGS-128-148.md).
 
 An initial full attempt found an invalid new Gson/Path fixture and an existing gapless/output-route timeout. The corrected fixture and isolated routing case passed, followed by passing full runs; timing assertions were not relaxed. POSIX permissions are skipped on Windows and tested where supported. Actual slow links, NAS/large-FLAC pressure, hardware disconnection, extreme cache sizes and native non-Windows PiP remain unverified. Existing v3.0.4 post-FreeSync capture measurements remain current.
 
