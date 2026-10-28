@@ -57,7 +57,7 @@ final class MusicCaptureClient {
         try {
             if (++ticks > 2400) throw new IllegalStateException("Release capture timed out at " + step);
             var app = DarkMusicClient.INSTANCE;
-            if (app == null || app.settings == null || app.library == null || !app.playlistsReady || !mc.isGameLoadFinished() || mc.gui.overlay() != null)
+            if (app == null || app.settings() == null || app.library == null || !app.playlistsReady || !mc.isGameLoadFinished() || mc.gui.overlay() != null)
                 return;
             if (!fullscreen) {
                 fullscreen = true;
@@ -72,9 +72,9 @@ final class MusicCaptureClient {
             if (ticks % 20 != 0) return;
             if (step == -2) {
                 require(app.config.directory().toString().contains("capture-run"), "Captures require isolated settings");
-                app.settings = Settings.defaults(app.settings);
-                app.volume(app.settings.volume);
-                app.speed(app.settings.speed);
+                app.replaceSettings(Settings.defaults(app.settings()));
+                app.volume(app.settings().volume);
+                app.speed(app.settings().speed);
                 app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> choosing = true);
                 step++;
                 return;
@@ -116,10 +116,11 @@ final class MusicCaptureClient {
                     String ext = System.getProperty("os.name").startsWith("Windows") ? ".exe" : "";
                     String js = managed == null ? "" : directory.resolve("deno" + ext).toString();
                     app.downloads.configure(new ToolPaths(directory.resolve("yt-dlp" + ext).toString(), directory.resolve("ffmpeg" + ext).toString(), directory.resolve("ffprobe" + ext).toString(), js));
-                    app.settings.ytDlpPath = directory.resolve("yt-dlp" + ext).toString();
-                    app.settings.ffmpegPath = directory.resolve("ffmpeg" + ext).toString();
-                    app.settings.ffprobePath = directory.resolve("ffprobe" + ext).toString();
-                    app.settings.javascriptPath = js;
+                    app.settings().ytDlpPath = directory.resolve("yt-dlp" + ext).toString();
+                    app.settings().ffmpegPath = directory.resolve("ffmpeg" + ext).toString();
+                    app.settings().ffprobePath = directory.resolve("ffprobe" + ext).toString();
+                    app.configureVisualizer();
+                    app.settings().javascriptPath = js;
                     app.downloads.checkTools();
                     mc.gui.setScreen(new DownloadToolsScreen(app, player));
                 }
@@ -134,41 +135,41 @@ final class MusicCaptureClient {
                 }
                 case 16 -> capture(mc, "reset-confirmation");
                 case 17 -> {
-                    app.settings.spectrumColors.preset = VisualColors.Preset.AURORA;
+                    app.settings().spectrumColors.preset = VisualColors.Preset.AURORA;
                     mc.gui.setScreen(new ColorsScreen(app, player, true));
                 }
                 case 18 -> capture(mc, "spectrum-colors");
                 case 19 -> {
-                    app.settings.spectrumColors.preset = VisualColors.Preset.MOONLIGHT;
+                    app.settings().spectrumColors.preset = VisualColors.Preset.MOONLIGHT;
                     app.save();
                 }
                 case 20 -> {
-                    app.settings.hudStyle = Settings.HudStyle.CIRCULAR;
-                    app.settings.circularSpectrumStyle = Settings.SpectrumStyle.FILLED_WAVE;
-                    app.settings.spectrumFinish = app.settings.progressFinish = Settings.SurfaceFinish.BEVELED;
+                    app.settings().hudStyle = Settings.HudStyle.CIRCULAR;
+                    app.settings().circularSpectrumStyle = Settings.SpectrumStyle.FILLED_WAVE;
+                    app.settings().spectrumFinish = app.settings().progressFinish = Settings.SurfaceFinish.BEVELED;
                     mc.gui.setScreen(new SettingsScreen(app, player));
                 }
                 case 21 -> capture(mc, "circular-hud");
                 case 22 -> {
-                    app.settings.circularSpectrumStyle = Settings.SpectrumStyle.FILLED_SPIKE;
-                    app.settings.circularText = false;
+                    app.settings().circularSpectrumStyle = Settings.SpectrumStyle.FILLED_SPIKE;
+                    app.settings().circularText = false;
                     mc.gui.setScreen(new SettingsScreen(app, player));
                 }
                 case 23 -> capture(mc, "circular-spike");
                 case 24 -> {
-                    app.settings.hudStyle = Settings.HudStyle.CLASSIC;
-                    app.settings.hudShape = Settings.HudShape.ROUNDED;
-                    app.settings.hudRaised = true;
+                    app.settings().hudStyle = Settings.HudStyle.CLASSIC;
+                    app.settings().hudShape = Settings.HudShape.ROUNDED;
+                    app.settings().hudRaised = true;
                     mc.gui.setScreen(new SettingsScreen(app, player));
                     mc.gui.screen().mouseScrolled(20, mc.gui.screen().height - 20, 0, -15);
                 }
                 case 25 -> capture(mc, "beveled-hud");
                 case 26 -> {
-                    app.settings.hudShape = Settings.HudShape.RECTANGLE;
-                    app.settings.hudRaised = false;
-                    app.settings.spectrumFinish = app.settings.progressFinish = Settings.SurfaceFinish.FLAT;
-                    app.settings.circularSpectrumStyle = Settings.SpectrumStyle.BARS;
-                    app.settings.circularText = true;
+                    app.settings().hudShape = Settings.HudShape.RECTANGLE;
+                    app.settings().hudRaised = false;
+                    app.settings().spectrumFinish = app.settings().progressFinish = Settings.SurfaceFinish.FLAT;
+                    app.settings().circularSpectrumStyle = Settings.SpectrumStyle.BARS;
+                    app.settings().circularText = true;
                     app.save();
                 }
                 default -> {

@@ -27,7 +27,7 @@ final class HudMenusSmoke {
         if (stage == 0 && status != AudioBackend.Status.PLAYING) return false;
         if (++waited < (stage == 0 ? 100 : SETTLE)) return false;
         waited = 0;
-        var settings = app.settings;
+        var settings = app.settings();
         switch (stage) {
             case 0 -> {
                 settings.hudEnabled = true;

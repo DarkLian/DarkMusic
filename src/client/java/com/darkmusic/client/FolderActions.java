@@ -28,7 +28,7 @@ public final class FolderActions {
     }
 
     void activate(Path path) {
-        var settings = app.settings;
+        var settings = app.settings();
         var roots = MusicFolders.resolve(settings, path);
         var destination = settings.musicDirectory.isBlank() ? app.config.defaultMusic() : Path.of(settings.musicDirectory);
         app.library.setRoots(roots, destination);
@@ -53,7 +53,7 @@ public final class FolderActions {
                             app.warn(Text.get("folders.overlap"));
                             return;
                         }
-                        var settings = app.settings;
+                        var settings = app.settings();
                         var folders = new ArrayList<>(settings.musicFolders);
                         if (!folders.contains(canonical.toString())) folders.add(canonical.toString());
                         settings.musicFolders = List.copyOf(folders);
@@ -75,7 +75,7 @@ public final class FolderActions {
                 Minecraft.getInstance().execute(() -> {
                     if (!app.alive()) return;
                     choose(app.config.defaultMusic(), () -> {
-                        app.settings.musicDirectory = "";
+                        app.settings().musicDirectory = "";
                         app.save();
                     });
                 });
@@ -98,7 +98,7 @@ public final class FolderActions {
                         app.warn(Text.get("folders.overlap"));
                         return;
                     }
-                    var settings = app.settings;
+                    var settings = app.settings();
                     var folders = new ArrayList<>(settings.musicFolders);
                     folders.add(canonical.toString());
                     settings.musicFolders = List.copyOf(folders);
@@ -116,7 +116,7 @@ public final class FolderActions {
             return false;
         }
         if (directory.equals(app.library.root())) return false;
-        app.settings.musicFolders = app.settings.musicFolders.stream().filter(p -> !Path.of(p).equals(directory)).toList();
+        app.settings().musicFolders = app.settings().musicFolders.stream().filter(p -> !Path.of(p).equals(directory)).toList();
         activate(app.library.root());
         return true;
     }

@@ -109,7 +109,7 @@ final class PipSmoothClient {
         if (selecting || ticks - joinedTick < 200 || !Files.exists(folder.resolve("select-fixture"))) return;
         selecting = true;
         var setup = app.pip.tools.runtime;
-        app.settings.pip.enabled = true;
+        app.settings().pip.enabled = true;
         note("select-start");
         setup.check().thenCompose(done -> {
                 note("checked ready=" + setup.ready() + " status=" + setup.status());
@@ -148,13 +148,14 @@ final class PipSmoothClient {
             if (closed || app == null || !app.playlistsReady || !mc.isGameLoadFinished() || mc.gui.overlay() != null)
                 return;
             if (stage == 0) {
-                app.settings.lyricsEnabled = app.settings.lyricsOnline = app.settings.waveformProgress = false;
+                app.settings().lyricsEnabled = app.settings().lyricsOnline = app.settings().waveformProgress = false;
                 // The private collection may need ffmpeg to decode (Opus); use the tools the run was given.
                 if (System.getProperty("darkmusic.downloadTools") != null) {
                     Path tools = Path.of(System.getProperty("darkmusic.downloadTools"));
                     String ext = System.getProperty("os.name").startsWith("Windows") ? ".exe" : "";
-                    app.settings.ffmpegPath = tools.resolve("ffmpeg" + ext).toString();
-                    app.settings.ffprobePath = tools.resolve("ffprobe" + ext).toString();
+                    app.settings().ffmpegPath = tools.resolve("ffmpeg" + ext).toString();
+                    app.settings().ffprobePath = tools.resolve("ffprobe" + ext).toString();
+                    app.configureVisualizer();
                 }
                 app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> {
                 });
@@ -212,8 +213,8 @@ final class PipSmoothClient {
                         phase = requested;
                         if (requested.equals("video4")) System.setProperty("darkmusic.pip.minIntervalMs", "4");
                         else System.clearProperty("darkmusic.pip.minIntervalMs");
-                        app.settings.pip.frameRate = Integer.getInteger("darkmusic.pipFrameRate", 144);
-                        app.settings.pip.audioSpectrum = requested.equals("audio");
+                        app.settings().pip.frameRate = Integer.getInteger("darkmusic.pipFrameRate", 144);
+                        app.settings().pip.audioSpectrum = requested.equals("audio");
                         if (!requested.equals("off")) app.pip.start();
                         lastReceived = lastUpload = 0;
                     }

@@ -121,7 +121,7 @@ public final class SmokeClient implements ClientModInitializer {
         var oldUp = app.shortcuts.volumeUp.saveString();
         var oldDown = app.shortcuts.volumeDown.saveString();
         var oldToggle = app.shortcuts.toggle.saveString();
-        double oldVolume = app.settings.volume;
+        double oldVolume = app.settings().volume;
         var tick = DarkMusicClient.class.getDeclaredMethod("tick", Minecraft.class, boolean.class);
         tick.setAccessible(true);
         try {
@@ -135,37 +135,37 @@ public final class SmokeClient implements ClientModInitializer {
             app.volume(.5);
             KeyMapping.click(muteKey);
             tick.invoke(app, mc, false);
-            require(app.settings.volume == .5, "Mute shortcut fired in a menu");
+            require(app.settings().volume == .5, "Mute shortcut fired in a menu");
             KeyMapping.click(muteKey);
             tick.invoke(app, mc, true);
-            require(app.settings.volume == 0 && app.settings.lastAudibleVolume == .5, "Mute did not remember audible volume");
+            require(app.settings().volume == 0 && app.settings().lastAudibleVolume == .5, "Mute did not remember audible volume");
             require(app.volumeFeedback.opacity(System.nanoTime()) > 0, "Mute feedback was not shown");
             KeyMapping.click(muteKey);
             tick.invoke(app, mc, true);
-            require(app.settings.volume == .5, "Unmute did not restore volume");
+            require(app.settings().volume == .5, "Unmute did not restore volume");
             KeyMapping.click(up);
             tick.invoke(app, mc, false);
-            require(app.settings.volume == .5, "Volume shortcut fired while menus were blocked");
+            require(app.settings().volume == .5, "Volume shortcut fired while menus were blocked");
             KeyMapping.click(up);
             tick.invoke(app, mc, true);
-            require(app.settings.volume == .55, "Volume up step failed");
+            require(app.settings().volume == .55, "Volume up step failed");
             KeyMapping.click(down);
             tick.invoke(app, mc, true);
-            require(app.settings.volume == .5, "Volume down step failed");
+            require(app.settings().volume == .5, "Volume down step failed");
             app.volume(1);
             KeyMapping.click(up);
             tick.invoke(app, mc, true);
-            require(app.settings.volume == 1, "Volume exceeded 100%");
+            require(app.settings().volume == 1, "Volume exceeded 100%");
             app.volume(0);
             KeyMapping.click(down);
             tick.invoke(app, mc, true);
-            require(app.settings.volume == 0, "Volume dropped below zero");
+            require(app.settings().volume == 0, "Volume dropped below zero");
             app.volume(.5);
             app.shortcuts.toggle.setKey(up);
             KeyMapping.resetMapping();
             KeyMapping.click(up);
             tick.invoke(app, mc, true);
-            require(app.settings.volume == .5, "Conflicting volume shortcut fired");
+            require(app.settings().volume == .5, "Conflicting volume shortcut fired");
             require(app.warning.contains("Shortcut conflict"), "Conflicting shortcut needs a visible warning");
             app.warning = "";
             app.shortcuts.toggle.setKey(InputConstants.UNKNOWN);
@@ -184,7 +184,7 @@ public final class SmokeClient implements ClientModInitializer {
 
     private void checkSpeedBindings(Minecraft mc, DarkMusicClient app) throws Exception {
         String oldUp = app.shortcuts.faster.saveString(), oldDown = app.shortcuts.slower.saveString(), oldNormal = app.shortcuts.normalSpeed.saveString();
-        double old = app.settings.speed;
+        double old = app.settings().speed;
         var up = InputConstants.getKey("key.keyboard.f13");
         var down = InputConstants.getKey("key.keyboard.f14");
         var normal = InputConstants.getKey("key.keyboard.f15");
@@ -198,17 +198,17 @@ public final class SmokeClient implements ClientModInitializer {
             app.speed(1);
             KeyMapping.click(up);
             tick.invoke(app, mc, false);
-            require(app.settings.speed == 1, "Speed shortcut fired in a menu");
+            require(app.settings().speed == 1, "Speed shortcut fired in a menu");
             KeyMapping.click(up);
             tick.invoke(app, mc, true);
-            require(app.settings.speed == 1.1 && app.speedFeedback.opacity(System.nanoTime()) > 0, "Speed shortcut feedback missing");
+            require(app.settings().speed == 1.1 && app.speedFeedback.opacity(System.nanoTime()) > 0, "Speed shortcut feedback missing");
             KeyMapping.click(down);
             tick.invoke(app, mc, true);
-            require(app.settings.speed == 1, "Speed down shortcut failed");
+            require(app.settings().speed == 1, "Speed down shortcut failed");
             app.speed(1.5);
             KeyMapping.click(normal);
             tick.invoke(app, mc, true);
-            require(app.settings.speed == 1 && app.speedFeedback.opacity(System.nanoTime()) > 0, "Reset-speed feedback missing");
+            require(app.settings().speed == 1 && app.speedFeedback.opacity(System.nanoTime()) > 0, "Reset-speed feedback missing");
         } finally {
             app.shortcuts.faster.setKey(InputConstants.getKey(oldUp));
             app.shortcuts.slower.setKey(InputConstants.getKey(oldDown));
@@ -358,20 +358,20 @@ public final class SmokeClient implements ClientModInitializer {
         click(mc, "Spectrum Colors");
         require(mc.gui.screen() instanceof ColorsScreen, "Spectrum colors did not open");
         click(mc, "Aurora Borealis");
-        require(app.settings.spectrumColors.preset == VisualColors.Preset.AURORA, "Preset did not apply");
+        require(app.settings().spectrumColors.preset == VisualColors.Preset.AURORA, "Preset did not apply");
         var start = (EditBox) field(mc.gui.screen(), "start");
         var end = (EditBox) field(mc.gui.screen(), "end");
         start.setValue("#55AAFF");
         end.setValue("#FFAACC");
-        require(app.settings.spectrumColors.color(0) == 0xFF55AAFF && app.settings.spectrumColors.color(1) == 0xFFFFAACC, "Custom mixed colors failed");
+        require(app.settings().spectrumColors.color(0) == 0xFF55AAFF && app.settings().spectrumColors.color(1) == 0xFFFFAACC, "Custom mixed colors failed");
         start.setValue("#xyz");
-        require(app.settings.spectrumColors.color(0) == 0xFF55AAFF, "Invalid color changed the last valid color");
+        require(app.settings().spectrumColors.color(0) == 0xFF55AAFF, "Invalid color changed the last valid color");
         click(mc, "Moonlight");
         escape(mc);
         require(mc.gui.screen() == settings, "Colors Escape did not return to Settings");
         click(mc, "Progress Bar Colors");
         click(mc, "Neon Dream");
-        require(app.settings.progressColors.preset == VisualColors.Preset.NEON_DREAM && app.settings.spectrumColors.preset == VisualColors.Preset.MOONLIGHT, "Progress and spectrum colors are not independent");
+        require(app.settings().progressColors.preset == VisualColors.Preset.NEON_DREAM && app.settings().spectrumColors.preset == VisualColors.Preset.MOONLIGHT, "Progress and spectrum colors are not independent");
         click(mc, "Moonlight");
         escape(mc);
         escape(mc);
@@ -399,8 +399,9 @@ public final class SmokeClient implements ClientModInitializer {
                 if (System.getProperty("darkmusic.downloadTools") != null) {
                     Path tools = Path.of(System.getProperty("darkmusic.downloadTools"));
                     String ext = System.getProperty("os.name").startsWith("Windows") ? ".exe" : "";
-                    app.settings.ffmpegPath = tools.resolve("ffmpeg" + ext).toString();
-                    app.settings.ffprobePath = tools.resolve("ffprobe" + ext).toString();
+                    app.settings().ffmpegPath = tools.resolve("ffmpeg" + ext).toString();
+                    app.settings().ffprobePath = tools.resolve("ffprobe" + ext).toString();
+                    app.configureVisualizer();
                 }
                 app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> {
                 });
@@ -423,14 +424,14 @@ public final class SmokeClient implements ClientModInitializer {
                 app.playlists.all().stream().map(p -> p.id()).toList().forEach(app.playlists::delete);
                 playlistId = app.playlists.create("Smoke test");
                 app.playlists.add(playlistId, app.library.snapshot().tracks().getFirst());
-                app.settings.hudArtwork = true;
-                app.settings.hudX = app.settings.hudY = 0.0;
-                app.settings.hudScale = 1;
-                app.settings.hudVisualizer = false;
+                app.settings().hudArtwork = true;
+                app.settings().hudX = app.settings().hudY = 0.0;
+                app.settings().hudScale = 1;
+                app.settings().hudVisualizer = false;
                 // Answer the first-use online-lyrics prompt (offline) up front; a run folder without the earlier
                 // answer otherwise opens it over the player at an arbitrary later step.
-                app.settings.lyricsConsentVersion = 1;
-                app.settings.lyricsOnline = app.settings.lyricsLibraryLookup = false;
+                app.settings().lyricsConsentVersion = 1;
+                app.settings().lyricsOnline = app.settings().lyricsLibraryLookup = false;
 
                 app.configureVisualizer();
                 app.playback.shuffle(false);
@@ -484,13 +485,13 @@ public final class SmokeClient implements ClientModInitializer {
                 case 1 -> {
                     require(audio.status() == AudioBackend.Status.PAUSED, "Pause failed");
                     app.playback.seek(.5);
-                    if (!app.settings.lyricsEnabled) click(mc, "Enable Lyrics");
+                    if (!app.settings().lyricsEnabled) click(mc, "Enable Lyrics");
                     click(mc, "Enable Lyrics");
-                    require(!app.settings.lyricsEnabled, "Global lyrics toggle did not disable lyrics");
+                    require(!app.settings().lyricsEnabled, "Global lyrics toggle did not disable lyrics");
                     var lyricsControls = mc.gui.screen().children().stream().filter(w -> w instanceof AbstractWidget a && a.visible).map(w -> ((AbstractWidget) w).getMessage().getString()).filter(text -> Set.of("Advanced Lyrics", "Lyrics in HUD", "Show Next Line").contains(text)).toList();
                     require(lyricsControls.isEmpty(), "Disabled lyrics controls remained visible: " + lyricsControls + " on " + mc.gui.screen().getClass().getSimpleName());
                     click(mc, "Enable Lyrics");
-                    require(app.settings.lyricsEnabled, "Global lyrics toggle did not re-enable lyrics");
+                    require(app.settings().lyricsEnabled, "Global lyrics toggle did not re-enable lyrics");
                     require(mc.gui.screen().children().stream().anyMatch(w -> w instanceof AbstractWidget a && a.visible && a.getMessage().getString().equals("Lyrics in HUD")), "Re-enabled lyrics did not restore its controls");
                 }
                 case 2 -> {
@@ -499,7 +500,7 @@ public final class SmokeClient implements ClientModInitializer {
                     require(app.playback.speed() == 1.5, "Speed did not apply");
                     app.playback.toggle();
                     click(mc, Text.get("text.darkmusic.hud_artwork"));
-                    require(!app.settings.hudArtwork, "Artwork toggle failed");
+                    require(!app.settings().hudArtwork, "Artwork toggle failed");
                     click(mc, Text.get("text.darkmusic.hud_artwork"));
                     click(mc, "Edit HUD Layout");
                 }
@@ -509,16 +510,16 @@ public final class SmokeClient implements ClientModInitializer {
                     mc.gui.screen().mouseClicked(mouse(b.x() + 5, b.y() + 5), false);
                     mc.gui.screen().mouseDragged(mouse(b.x() + 105, b.y() + 85), 100, 80);
                     mc.gui.screen().mouseReleased(mouse(b.x() + 105, b.y() + 85));
-                    require(app.settings.hudX > 0 && app.settings.hudY > 0, "HUD did not drag");
+                    require(app.settings().hudX > 0 && app.settings().hudY > 0, "HUD did not drag");
                     var resized = NowPlayingHud.bounds(app.hud, mc.gui.screen().width, mc.gui.screen().height);
                     mc.gui.screen().mouseScrolled(resized.x() + 5, resized.y() + 5, 0, 1);
-                    require(app.settings.hudScale == 1.1, "Scale did not change by 0.1");
+                    require(app.settings().hudScale == 1.1, "Scale did not change by 0.1");
                     require(mc.gui.screen().children().stream().noneMatch(x -> x instanceof ValueSlider), "HUD scale slider was not removed");
-                    var spectrum = HudLayout.bounds(app.settings, mc.gui.screen().width, mc.gui.screen().height);
-                    double previousScale = app.settings.hudScale;
+                    var spectrum = HudLayout.bounds(app.settings(), mc.gui.screen().width, mc.gui.screen().height);
+                    double previousScale = app.settings().hudScale;
                     mc.gui.screen().mouseScrolled(spectrum.x() + spectrum.width() - 3, spectrum.y() + 3, 0, 1);
-                    require(app.settings.hudScale == Math.round((previousScale + .1) * 10) / 10.0, "Combined editor did not scale the visualizer");
-                    require(app.settings.hudScale == 1.2, "Combined spectrum did not share the HUD scale");
+                    require(app.settings().hudScale == Math.round((previousScale + .1) * 10) / 10.0, "Combined editor did not scale the visualizer");
+                    require(app.settings().hudScale == 1.2, "Combined spectrum did not share the HUD scale");
                 }
                 case 4 -> {
                     escape(mc);
@@ -595,15 +596,15 @@ public final class SmokeClient implements ClientModInitializer {
                     view(mc, "Albums");
                     view(mc, "All");
                     click(mc, Text.get("key.darkmusic.normal_speed"));
-                    require(app.settings.speed == 1, "Speed reset failed");
+                    require(app.settings().speed == 1, "Speed reset failed");
                     // The player syncs its sliders from settings on the next screen tick.
                     mc.gui.screen().tick();
                     var speed = (ValueSlider) field("speed");
                     speed.setFocused(true);
                     boolean stepped = speed.keyPressed(new KeyEvent(262, 0, 0));
-                    require(app.settings.speed == 1.1, "Speed slider step failed: handled " + stepped + ", speed " + app.settings.speed);
+                    require(app.settings().speed == 1.1, "Speed slider step failed: handled " + stepped + ", speed " + app.settings().speed);
                     speed.keyPressed(new KeyEvent(263, 0, 0));
-                    require(app.settings.speed == 1, "Speed slider reverse step failed");
+                    require(app.settings().speed == 1, "Speed slider reverse step failed");
                     mc.options.guiScale().set(2);
                     mc.resizeGui();
                 }
@@ -705,21 +706,21 @@ public final class SmokeClient implements ClientModInitializer {
                 }
                 case 22 -> {
                     click(mc, "Settings");
-                    app.settings.hudVisualizer = false;
+                    app.settings().hudVisualizer = false;
                     require(mc.gui.screen() instanceof SettingsScreen, "Unified settings did not open");
                     click(mc, "Music Spectrum");
-                    require(app.settings.hudVisualizer, "HUD visualizer toggle failed");
+                    require(app.settings().hudVisualizer, "HUD visualizer toggle failed");
                     click(mc, "Music Spectrum");
-                    require(!app.settings.hudVisualizer, "Shared spectrum toggle did not disable");
+                    require(!app.settings().hudVisualizer, "Shared spectrum toggle did not disable");
                     click(mc, "Music Spectrum");
                 }
                 case 23 -> click(mc, "Edit HUD Layout");
                 case 24 -> {
-                    var b = HudLayout.bounds(app.settings, mc.gui.screen().width, mc.gui.screen().height);
+                    var b = HudLayout.bounds(app.settings(), mc.gui.screen().width, mc.gui.screen().height);
                     mc.gui.screen().mouseClicked(mouse(b.x() + 4, b.y() + 4), false);
                     mc.gui.screen().mouseDragged(mouse(b.x() - 36, b.y() - 16), -40, -20);
                     mc.gui.screen().mouseReleased(mouse(b.x() - 36, b.y() - 16));
-                    require(app.settings.hudX < .5 && app.settings.hudY < .5, "Combined HUD did not drag");
+                    require(app.settings().hudX < .5 && app.settings().hudY < .5, "Combined HUD did not drag");
                     escape(mc);
                     escape(mc);
                     mc.options.guiScale().set(2);

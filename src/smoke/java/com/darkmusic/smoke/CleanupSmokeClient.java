@@ -74,8 +74,9 @@ final class CleanupSmokeClient {
             if (stage == -2) {
                 var tools = Path.of(System.getProperty("darkmusic.downloadTools"));
                 String suffix = System.getProperty("os.name").startsWith("Windows") ? ".exe" : "";
-                app.settings.ffmpegPath = tools.resolve("ffmpeg" + suffix).toString();
-                app.settings.ffprobePath = tools.resolve("ffprobe" + suffix).toString();
+                app.settings().ffmpegPath = tools.resolve("ffmpeg" + suffix).toString();
+                app.settings().ffprobePath = tools.resolve("ffprobe" + suffix).toString();
+                app.configureVisualizer();
                 app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> {
                 });
                 stage = -1;

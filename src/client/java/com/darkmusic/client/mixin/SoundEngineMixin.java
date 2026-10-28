@@ -24,7 +24,7 @@ public abstract class SoundEngineMixin {
     @Inject(method = "tick", at = @At("HEAD"))
     private void darkmusic$mix(boolean paused, CallbackInfo ci) {
         var app = DarkMusicClient.INSTANCE;
-        boolean playing = app != null && app.settings != null && app.playback != null && Minecraft.getInstance().level != null
+        boolean playing = app != null && app.settings() != null && app.playback != null && Minecraft.getInstance().level != null
             && app.playback.state().status() == AudioBackend.Status.PLAYING;
         if (ListeningMix.tick(darkmusic$audio(), playing)) refreshCategoryVolume(SoundSource.MASTER);
     }
@@ -43,6 +43,6 @@ public abstract class SoundEngineMixin {
     @Unique
     private static AudioSettings darkmusic$audio() {
         var app = DarkMusicClient.INSTANCE;
-        return app == null || app.settings == null ? null : app.settings.audio;
+        return app == null || app.settings() == null ? null : app.settings().audio;
     }
 }

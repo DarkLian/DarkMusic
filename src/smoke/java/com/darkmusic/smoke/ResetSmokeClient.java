@@ -65,7 +65,7 @@ final class ResetSmokeClient {
         try {
             if (++tick > 2400) throw new IllegalStateException("Reset smoke timeout at stage " + stage);
             var app = DarkMusicClient.INSTANCE;
-            if (app == null || app.settings == null || app.library == null || !app.playlistsReady || !mc.isGameLoadFinished() || mc.gui.overlay() != null || tick % 5 != 0)
+            if (app == null || app.settings() == null || app.library == null || !app.playlistsReady || !mc.isGameLoadFinished() || mc.gui.overlay() != null || tick % 5 != 0)
                 return;
             if (!configured) {
                 configured = true;
@@ -86,15 +86,15 @@ final class ResetSmokeClient {
                     if (Boolean.getBoolean("darkmusic.verifyHudRestart")) {
                         var expected = new Settings();
                         expected.validate();
-                        expected.roots.putAll(app.settings.roots);
+                        expected.roots.putAll(app.settings().roots);
                         // Reset keeps tool locations along with folder identities.
-                        expected.ytDlpPath = app.settings.ytDlpPath;
-                        expected.ffmpegPath = app.settings.ffmpegPath;
-                        expected.ffprobePath = app.settings.ffprobePath;
-                        expected.javascriptPath = app.settings.javascriptPath;
+                        expected.ytDlpPath = app.settings().ytDlpPath;
+                        expected.ffmpegPath = app.settings().ffmpegPath;
+                        expected.ffprobePath = app.settings().ffprobePath;
+                        expected.javascriptPath = app.settings().javascriptPath;
                         // Activating the default folder records it as the only music folder; custom folders are gone.
                         expected.musicFolders = List.of(app.config.defaultMusic().toAbsolutePath().normalize().toString());
-                        require(ConfigStore.JSON.toJson(expected).equals(ConfigStore.JSON.toJson(app.settings)), "Defaults did not survive a client restart");
+                        require(ConfigStore.JSON.toJson(expected).equals(ConfigStore.JSON.toJson(app.settings())), "Defaults did not survive a client restart");
                         require(app.library.root().equals(app.config.defaultMusic().toAbsolutePath().normalize()), "Default folder was not persisted");
                         for (var key : app.shortcuts.bindings())
                             require(key.isDefault(), "Default key did not survive restart: " + key.getName());
@@ -108,8 +108,9 @@ final class ResetSmokeClient {
                     }
                     Path managed = Path.of(System.getProperty("darkmusic.downloadTools"));
                     String ext = System.getProperty("os.name").startsWith("Windows") ? ".exe" : "";
-                    app.settings.ffmpegPath = managed.resolve("ffmpeg" + ext).toString();
-                    app.settings.ffprobePath = managed.resolve("ffprobe" + ext).toString();
+                    app.settings().ffmpegPath = managed.resolve("ffmpeg" + ext).toString();
+                    app.settings().ffprobePath = managed.resolve("ffprobe" + ext).toString();
+                    app.configureVisualizer();
                     String audioExtension = source.getFileName().toString().substring(source.getFileName().toString().lastIndexOf('.'));
                     custom = data.resolve("test-custom-music");
                     prepared = CompletableFuture.runAsync(() -> {
@@ -138,7 +139,7 @@ final class ResetSmokeClient {
                 case 1 -> {
                     if (!prepared.isDone()) return;
                     prepared.join();
-                    app.settings.roots.clear();
+                    app.settings().roots.clear();
                     app.folders.choose(custom, () -> {
                     });
                     stage++;
@@ -146,16 +147,16 @@ final class ResetSmokeClient {
                 case 2 -> {
                     if (!custom.equals(app.library.root()) || app.library.snapshot().scanning()) return;
                     require(!app.library.snapshot().tracks().isEmpty(), "Copied real collection did not scan");
-                    require(app.settings.roots.keySet().stream().allMatch(r -> Path.of(r).startsWith(data)), "Original collection entered reset scope");
+                    require(app.settings().roots.keySet().stream().allMatch(r -> Path.of(r).startsWith(data)), "Original collection entered reset scope");
                     for (var old : app.playlists.all()) app.playlists.delete(old.id());
                     playlist = app.playlists.create("Reset confirmation test");
                     retainedPlaylist = app.playlists.create("Keep this playlist");
                     app.playlists.addAll(retainedPlaylist, app.library.snapshot().tracks());
-                    app.settings.hudEnabled = true;
-                    app.settings.hudScale = 2;
-                    app.settings.hudX = .7;
-                    app.settings.speed = 2.3;
-                    app.settings.volume = .1;
+                    app.settings().hudEnabled = true;
+                    app.settings().hudScale = 2;
+                    app.settings().hudX = .7;
+                    app.settings().speed = 2.3;
+                    app.settings().volume = .1;
                     app.shortcuts.next.setKey(InputConstants.getKey("key.keyboard.n"));
                     KeyMapping.resetMapping();
                     jumpKey = mc.options.keyJump.saveString();
@@ -195,12 +196,12 @@ final class ResetSmokeClient {
                     mc.gui.setScreen(settingsScreen);
                     click(mc, "reset.darkmusic.button");
                     require(mc.gui.screen() instanceof ConfirmationScreen, "Reset did not open shared confirmation");
-                    require(app.settings.volume == .1, "Reset occurred before confirmation");
+                    require(app.settings().volume == .1, "Reset occurred before confirmation");
                     escape(mc);
-                    require(mc.gui.screen() == settingsScreen && app.settings.volume == .1, "Escape reset settings");
+                    require(mc.gui.screen() == settingsScreen && app.settings().volume == .1, "Escape reset settings");
                     click(mc, "reset.darkmusic.button");
                     click(mc, "text.darkmusic.cancel");
-                    require(app.settings.hudScale == 2 && Files.exists(custom.resolve("downloaded.txt")), "Cancel changed settings or history");
+                    require(app.settings().hudScale == 2 && Files.exists(custom.resolve("downloaded.txt")), "Cancel changed settings or history");
                     click(mc, "reset.darkmusic.button");
                     stage++;
                 }
@@ -220,15 +221,15 @@ final class ResetSmokeClient {
                     require(mc.gui.screen() == settingsScreen, "Reset returned to wrong screen");
                     var expected = new Settings();
                     expected.validate();
-                    expected.roots.putAll(app.settings.roots);
+                    expected.roots.putAll(app.settings().roots);
                     // Reset keeps tool locations along with folder identities.
-                    expected.ytDlpPath = app.settings.ytDlpPath;
-                    expected.ffmpegPath = app.settings.ffmpegPath;
-                    expected.ffprobePath = app.settings.ffprobePath;
-                    expected.javascriptPath = app.settings.javascriptPath;
+                    expected.ytDlpPath = app.settings().ytDlpPath;
+                    expected.ffmpegPath = app.settings().ffmpegPath;
+                    expected.ffprobePath = app.settings().ffprobePath;
+                    expected.javascriptPath = app.settings().javascriptPath;
                     // Activating the default folder records it as the only music folder; custom folders are gone.
                     expected.musicFolders = List.of(app.config.defaultMusic().toAbsolutePath().normalize().toString());
-                    require(ConfigStore.JSON.toJson(expected).equals(ConfigStore.JSON.toJson(app.settings)), "Not all settings restored to defaults: " + differences(expected, app.settings));
+                    require(ConfigStore.JSON.toJson(expected).equals(ConfigStore.JSON.toJson(app.settings())), "Not all settings restored to defaults: " + differences(expected, app.settings()));
                     require(app.library.root().equals(app.config.defaultMusic().toAbsolutePath().normalize()), "Default music directory not restored");
                     for (var key : app.shortcuts.bindings())
                         require(key.isDefault(), "Shortcut not reset: " + key.getName());
@@ -246,7 +247,7 @@ final class ResetSmokeClient {
                 }
                 case 7 -> {
                     if (!saved.isDone() || app.library.snapshot().scanning()) return;
-                    require(ConfigStore.JSON.toJson(saved.join()).equals(ConfigStore.JSON.toJson(app.settings)), "Defaults were not saved");
+                    require(ConfigStore.JSON.toJson(saved.join()).equals(ConfigStore.JSON.toJson(app.settings())), "Defaults were not saved");
                     require(app.library.snapshot().tracks().size() == 1, "Preserved default-folder music did not rescan immediately");
                     var field = SettingsScreen.class.getDeclaredField("previewScale");
                     field.setAccessible(true);

@@ -29,7 +29,7 @@ final class ClientActions implements LocalCommands.Actions {
 
     @Override
     public ChatPalette palette() {
-        var settings = app.settings;
+        var settings = app.settings();
         return ChatPalette.of(settings == null ? ChatPalette.DEFAULT_ACCENT : settings.menuAccentColor);
     }
 
@@ -112,7 +112,7 @@ final class ClientActions implements LocalCommands.Actions {
     }
 
     private boolean ready() {
-        return app.idle() && app.settings != null && app.playback != null && app.library != null;
+        return app.idle() && app.settings() != null && app.playback != null && app.library != null;
     }
 
     private Component unavailable() {
@@ -198,9 +198,9 @@ final class ClientActions implements LocalCommands.Actions {
         var status = palette.key(paused ? "command.darkmusic.state_paused" : "command.darkmusic.state_playing", palette.accent())
             .append(palette.plain("  " + LocalCommands.time(state.position()) + " / " + LocalCommands.time(state.duration()), palette.text()))
             .append(palette.plain(" · ", palette.muted()))
-            .append(palette.key("command.darkmusic.volume_short", palette.secondary(), Math.round(app.settings.volume * 100)))
+            .append(palette.key("command.darkmusic.volume_short", palette.secondary(), Math.round(app.settings().volume * 100)))
             .append(palette.plain(" · ", palette.muted()))
-            .append(palette.plain(speed(app.settings.speed), palette.secondary()));
+            .append(palette.plain(speed(app.settings().speed), palette.secondary()));
         if (app.playback.shuffle())
             status.append(palette.plain(" · ", palette.muted())).append(palette.key("text.darkmusic.shuffle", palette.secondary()));
         if (app.playback.stopAfterCurrent())
@@ -243,16 +243,16 @@ final class ClientActions implements LocalCommands.Actions {
         if (!ready()) return unavailable();
         if (percent != null) {
             app.volume(percent / 100.0);
-            app.volumeFeedback.show(app.settings.volume);
+            app.volumeFeedback.show(app.settings().volume);
         }
-        return palette().value("command.darkmusic.volume_now", Math.round(app.settings.volume * 100) + "%");
+        return palette().value("command.darkmusic.volume_now", Math.round(app.settings().volume * 100) + "%");
     }
 
     @Override
     public Component mute() {
         if (!ready()) return unavailable();
         app.toggleMute();
-        return app.settings.volume > 0 ? palette().value("command.darkmusic.volume_now", Math.round(app.settings.volume * 100) + "%")
+        return app.settings().volume > 0 ? palette().value("command.darkmusic.volume_now", Math.round(app.settings().volume * 100) + "%")
             : palette().info("command.darkmusic.muted");
     }
 
@@ -261,9 +261,9 @@ final class ClientActions implements LocalCommands.Actions {
         if (!ready()) return unavailable();
         if (value != null) {
             app.speed(value);
-            app.speedFeedback.show(app.settings.speed);
+            app.speedFeedback.show(app.settings().speed);
         }
-        return palette().value("command.darkmusic.speed_now", speed(app.settings.speed));
+        return palette().value("command.darkmusic.speed_now", speed(app.settings().speed));
     }
 
     private static String speed(double value) {

@@ -22,7 +22,7 @@ final class PipSetupSmoke {
     boolean tick(Minecraft mc, DarkMusicClient app) throws Exception {
         if (System.nanoTime() > deadline) throw new IllegalStateException("PiP setup smoke timed out at " + stage);
         var setup = app.pip.tools.runtime;
-        var s = app.settings.pip;
+        var s = app.settings().pip;
         switch (stage) {
             case 0 -> {
                 if (!(mc.gui.screen() instanceof PipScreen)) return false;

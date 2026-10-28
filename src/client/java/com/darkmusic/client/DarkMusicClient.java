@@ -22,6 +22,7 @@ import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.config.ResetStorage;
 import com.darkmusic.client.config.RestoreJournal;
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.config.SettingsStore;
 import com.darkmusic.client.download.AuditionPlayer;
 import com.darkmusic.client.download.DownloadService;
 import com.darkmusic.client.gui.DesktopFolderPicker;
@@ -109,10 +110,12 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
     public final ConfigStore config = new ConfigStore(FabricLoader.getInstance().getConfigDir().resolve("darkmusic"), io, this::warn);
     public final SpeedFeedback speedFeedback = new SpeedFeedback();
     public final VolumeFeedback volumeFeedback = new VolumeFeedback();
+    // Owns the live settings and the rule for writing them; load, reset and restore replace them through it.
+    private final SettingsStore settingsStore = new SettingsStore(config::save, () -> alive() && !this.state.restoring, this::configureVisualizer);
     // Reads the fields on every call: reset and restore replace the services behind them.
     public final HudSources hud = new HudSources() {
         public Settings settings() {
-            return settings;
+            return settingsStore.settings();
         }
 
         public PlaybackController playback() {
@@ -142,7 +145,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
     // Same for PiP.
     private final PipSources pipSources = new PipSources() {
         public Settings settings() {
-            return settings;
+            return settingsStore.settings();
         }
 
         public PlaybackController playback() {
@@ -153,7 +156,6 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             return pip;
         }
     };
-    public volatile Settings settings;
     public volatile String warning = "";
     public final Shortcuts shortcuts = new Shortcuts(this);
     public final FolderActions folders = new FolderActions(this);
@@ -197,7 +199,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
     private PlaybackController createPlayback() {
         backend = new JavaSoundBackend(Minecraft.getInstance()::execute,
             PcmDecoder::openPrecise,
-            new OutputDevices(settings.outputDevice, true, this::warn));
+            new OutputDevices(settings().outputDevice, true, this::warn));
         backend.listening((track, session, seconds) -> {
             if (listeningHistory != null) listeningHistory.heard(track, session, seconds);
         });
@@ -223,7 +225,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
     public void analyzeLibraryLoudness() {
         if (backend == null || library == null || !alive()) return;
         if (backend.analysisProgress().running()) backend.cancelAnalysis();
-        else if (!library.snapshot().scanning()) backend.analyzeLibrary(library.snapshot().tracks(), settings.audio);
+        else if (!library.snapshot().scanning()) backend.analyzeLibrary(library.snapshot().tracks(), settings().audio);
     }
 
     @Override
@@ -239,7 +241,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             state.outputChanging = false;
             boolean applied = !state.closed && backend == selected && failure == null && ok;
             if (applied) {
-                settings.outputDevice = id;
+                settings().outputDevice = id;
                 playback.outputChanged();
                 save();
             }
@@ -293,7 +295,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                     finished.complete(null);
                     return;
                 }
-                if (restored.selection().settings() || bindings) settings = restored.settings();
+                if (restored.selection().settings() || bindings) settingsStore.replace(restored.settings());
                 if (restored.selection().playlists())
                     playlists.restoredFromDisk(restored.playlists(), restored.retained());
                 if (restored.selection().history()) listeningHistory.replace(restored.history());
@@ -302,10 +304,10 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                         key.setKey(InputConstants.getKey(keys.get("key_" + key.getName())));
                     KeyMapping.resetMapping();
                 }
-                playback.volume(settings.volume);
-                playback.speed(settings.speed);
-                playback.shuffle(settings.shuffle);
-                playback.repeat(settings.repeat);
+                playback.volume(settings().volume);
+                playback.speed(settings().speed);
+                playback.shuffle(settings().shuffle);
+                playback.repeat(settings().repeat);
                 configureVisualizer();
                 save();
                 finished.complete(null);
@@ -397,30 +399,30 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
 
     @Override
     public void speed(double value) {
-        settings.speed = PcmRateConverter.clamp(value);
-        playback.speed(settings.speed);
+        settings().speed = PcmRateConverter.clamp(value);
+        playback.speed(settings().speed);
         save();
     }
 
     @Override
     public void volume(double value) {
-        settings.volume = Settings.clampVolume(value);
-        if (settings.volume > 0) settings.lastAudibleVolume = settings.volume;
-        playback.volume(settings.volume);
+        settings().volume = Settings.clampVolume(value);
+        if (settings().volume > 0) settings().lastAudibleVolume = settings().volume;
+        playback.volume(settings().volume);
         save();
     }
 
     public final SleepTimer sleep = new SleepTimer();
 
     public void sleepTimer(int minutes) {
-        sleep.start(minutes, playback, settings == null ? 1 : settings.volume);
+        sleep.start(minutes, playback, settings() == null ? 1 : settings().volume);
     }
 
     /**
      * A media key, headset button or Windows media flyout button, on the client thread.
      */
     private void mediaAction(MediaControls.Action action) {
-        if (!idle() || settings == null || playback == null || library == null || !settings.mediaControls) return;
+        if (!idle() || settings() == null || playback == null || library == null || !settings().mediaControls) return;
         var state = playback.state();
         switch (action.button()) {
             case "play" -> {
@@ -445,27 +447,27 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
 
     @Override
     public void shuffle(boolean on) {
-        settings.shuffle = on;
+        settings().shuffle = on;
         playback.shuffle(on);
         save();
     }
 
     @Override
     public void repeat(Repeat mode) {
-        settings.repeat = mode;
+        settings().repeat = mode;
         playback.repeat(mode);
         save();
     }
 
     @Override
     public void toggleMute() {
-        volume(settings.volume > 0 ? 0 : settings.lastAudibleVolume);
-        volumeFeedback.show(settings.volume);
+        volume(settings().volume > 0 ? 0 : settings().lastAudibleVolume);
+        volumeFeedback.show(settings().volume);
     }
 
     @Override
     public Settings settings() {
-        return settings;
+        return settingsStore.settings();
     }
 
     @Override
@@ -662,33 +664,39 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
 
     @Override
     public void save() {
-        if (alive() && !state.restoring && settings != null) {
-            configureVisualizer();
-            config.save(settings);
-        }
+        settingsStore.save();
+    }
+
+    /**
+     * For checks and captures that start from known settings; they save or reapply afterwards themselves.
+     */
+    public void replaceSettings(Settings settings) {
+        settingsStore.replace(settings);
     }
 
     @Override
     public void configureVisualizer() {
-        if (settings != null) {
-            UiTheme.apply(settings);
-            ExternalAudio.configure(() -> new ExternalAudio.Paths(config.directory(), settings.ffmpegPath, settings.ffprobePath));
-            if (downloads != null) downloads.format(settings.downloadFormat);
-            lyrics.enabled(settings.lyricsEnabled);
-            lyrics.lookup.configure(settings.lyricsEnabled, settings.lyricsOnline);
-            lyrics.lookup.captionPreferences(settings.lyricsLanguages, settings.lyricsAutoCaptions);
-            if (playback != null) playback.configure(settings.audio, settings.environment);
+        if (settings() != null) {
+            UiTheme.apply(settings());
+            // Workers read a fixed copy; changed paths take effect the next time settings are applied, like the rest.
+            var tools = new ExternalAudio.Paths(config.directory(), settings().ffmpegPath, settings().ffprobePath);
+            ExternalAudio.configure(() -> tools);
+            if (downloads != null) downloads.format(settings().downloadFormat);
+            lyrics.enabled(settings().lyricsEnabled);
+            lyrics.lookup.configure(settings().lyricsEnabled, settings().lyricsOnline);
+            lyrics.lookup.captionPreferences(settings().lyricsLanguages, settings().lyricsAutoCaptions);
+            if (playback != null) playback.configure(settings().audio, settings().environment);
         }
         if (playback != null && playback.spectrum() != null) {
-            playback.spectrum().configure(settings.hudVisualizer || settings.hudStyle == Settings.HudStyle.CIRCULAR && settings.circularIconPulse, settings.visualizerBars, settings.visualizerSensitivity, settings.visualizerSmoothing);
-            playback.spectrum().refine(settings.visualQuality);
+            playback.spectrum().configure(settings().hudVisualizer || settings().hudStyle == Settings.HudStyle.CIRCULAR && settings().circularIconPulse, settings().visualizerBars, settings().visualizerSensitivity, settings().visualizerSmoothing);
+            playback.spectrum().refine(settings().visualQuality);
         }
     }
 
     public void open() {
         var client = Minecraft.getInstance();
         var screen = chatless(client.gui.screen());
-        if (alive() && settings != null && library != null && client.gui.overlay() == null && client.gui.canInterruptScreen()
+        if (alive() && settings() != null && library != null && client.gui.overlay() == null && client.gui.canInterruptScreen()
             && (screen == null || screen instanceof TitleScreen) && (client.player == null || client.player.isAlive()))
             client.gui.setScreen(new MusicScreen(this, screen));
     }
@@ -722,7 +730,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
      */
     @Override
     public boolean resumeLast(boolean paused) {
-        var point = settings == null || !settings.resumeLast ? null : settings.resume;
+        var point = settings() == null || !settings().resumeLast ? null : settings().resume;
         if (point == null || library == null || playback == null || !idle()) return false;
         var tracks = collection(point.mode, point.group);
         var source = new PlaybackController.Source(point.mode, point.group, "", "");
@@ -755,14 +763,14 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
      */
     @Override
     public boolean resumes(Track track) {
-        var point = settings == null || !settings.resumeLast ? null : settings.resume;
+        var point = settings() == null || !settings().resumeLast ? null : settings().resume;
         return point != null && track != null && point.track.equals(track.id());
     }
 
     private final ResumeTracker resume = new ResumeTracker();
 
     private void recordResume(boolean persist) {
-        if (resume.record(settings, playback, persist) && persist && alive() && !state.restoring) config.save(settings);
+        if (resume.record(settings(), playback, persist) && persist) settingsStore.persist();
     }
 
     public void requestScreen(boolean layout) {
@@ -804,8 +812,8 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
 
     private String lyricsCommandProblem() {
         return LocalCommands.lyricsProblem(
-            idle() && settings != null && library != null && playback != null,
-            settings != null && settings.lyricsEnabled, playback == null ? null : playback.state());
+            idle() && settings() != null && library != null && playback != null,
+            settings() != null && settings().lyricsEnabled, playback == null ? null : playback.state());
     }
 
     private void openRequestedScreen(Minecraft client) {
@@ -815,7 +823,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             return;
         }
         var screen = chatless(client.gui.screen());
-        if (settings == null || library == null || client.gui.overlay() != null || !client.gui.canInterruptScreen()
+        if (settings() == null || library == null || client.gui.overlay() != null || !client.gui.canInterruptScreen()
             || screen != null && !(screen instanceof TitleScreen)) return;
         var requested = requestedScreen;
         requestedScreen = null;
@@ -838,7 +846,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         LocalScreen.saveOnClose(this::save);
         Help.settings(this::settings);
         RowList.warnings(this::warn);
-        updates = new UpdateService(config.directory(), () -> settings, this::warn);
+        updates = new UpdateService(config.directory(), this::settings, this::warn);
         LocalCommands.register(new ClientActions(this));
         NowPlayingHud.register(hud);
         LyricsHud.register(hud);
@@ -850,7 +858,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         shortcuts.register();
         CompletableFuture.supplyAsync(config::load, io).thenAccept(loaded -> Minecraft.getInstance().execute(() -> {
             if (!state.closed) {
-                settings = loaded;
+                settingsStore.replace(loaded);
                 ready();
                 save();
             }
@@ -870,7 +878,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (pip != null) pip.tick();
             updates.tick(client);
-            var current = settings;
+            var current = settings();
             if (current != null && playback != null && !state.resetting) {
                 var playing = playback.state().track();
                 // Source links resolve in the background; the status gains the artwork once the link is known.
@@ -880,7 +888,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             } else discord.update(false, true, null, 1, "");
             boolean media = current != null && current.mediaControls && playback != null && !state.resetting;
             mediaControls.update(media ? mediaPackage.executable() : null, media ? playback.state() : null, System.nanoTime());
-            boolean allowed = !state.resetting && settings != null && client.gui.screen() == null && client.gui.overlay() == null && client.player != null && client.player.isAlive();
+            boolean allowed = !state.resetting && settings() != null && client.gui.screen() == null && client.gui.overlay() == null && client.player != null && client.player.isAlive();
             boolean pressed = false;
             while (shortcuts.open.consumeClick()) pressed = true;
             if (allowed && pressed && !shortcuts.conflicts(shortcuts.open)) open();
@@ -888,7 +896,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             openRequestedScreen(client);
         });
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
-            if (settings != null && playback != null && !state.resetting) recordResume(false);
+            if (settings() != null && playback != null && !state.resetting) recordResume(false);
             updates.close();
             discord.close();
             mediaControls.close();
@@ -922,24 +930,24 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         waveforms = new WaveformCache(config.directory());
         pip = new PipController(config.directory(), pipSources);
         playback = createPlayback();
-        playback.volume(settings.volume);
+        playback.volume(settings().volume);
         configureVisualizer();
-        playback.speed(settings.speed);
-        playback.shuffle(settings.shuffle);
-        playback.repeat(settings.repeat);
-        autoplayPending = settings.autoplay;
+        playback.speed(settings().speed);
+        playback.shuffle(settings().shuffle);
+        playback.repeat(settings().repeat);
+        autoplayPending = settings().autoplay;
         library = new MusicLibrary(config.directory());
         downloads = createDownloads();
         // Read the field on each call: Reset to Defaults replaces the download service.
         lyrics.lookup.captions((track, preferences, generated, token) -> downloads.fetchLyrics(track, preferences, generated, token),
             (track, preferences, generated, token) -> downloads.fetchSourceLyrics(track, preferences, generated, token));
-        lyrics.lookup.captionPreferences(settings.lyricsLanguages, settings.lyricsAutoCaptions);
-        lyrics.lookup.configure(settings.lyricsEnabled, settings.lyricsOnline);
+        lyrics.lookup.captionPreferences(settings().lyricsLanguages, settings().lyricsAutoCaptions);
+        lyrics.lookup.configure(settings().lyricsEnabled, settings().lyricsOnline);
         try {
-            folders.activate(settings.musicDirectory.isBlank() ? config.defaultMusic() : Path.of(settings.musicDirectory));
+            folders.activate(settings().musicDirectory.isBlank() ? config.defaultMusic() : Path.of(settings().musicDirectory));
         } catch (Exception e) {
             warn(Text.failure(e, "error.saved_folder"));
-            settings.musicDirectory = "";
+            settings().musicDirectory = "";
             folders.activate(config.defaultMusic());
         }
     }
@@ -949,11 +957,11 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
      */
     private DownloadService createDownloads() {
         var service = new DownloadService(config.directory(), () -> library.requestRescan());
-        service.configure(new ToolPaths(settings.ytDlpPath, settings.ffmpegPath, settings.ffprobePath, settings.javascriptPath));
-        service.format(settings.downloadFormat);
+        service.configure(new ToolPaths(settings().ytDlpPath, settings().ffmpegPath, settings().ffprobePath, settings().javascriptPath));
+        service.format(settings().downloadFormat);
         service.savedObserver(file -> Minecraft.getInstance().execute(() -> {
-            if (!state.closed && settings.lyricsEnabled && settings.lyricsOnline && settings.lyricsDownloadLookup)
-                lyrics.lookup.downloaded(file, library.roots(), settings.lyricsLanguages, settings.lyricsAutoCaptions);
+            if (!state.closed && settings().lyricsEnabled && settings().lyricsOnline && settings().lyricsDownloadLookup)
+                lyrics.lookup.downloaded(file, library.roots(), settings().lyricsLanguages, settings().lyricsAutoCaptions);
         }));
         if (sourceIndex != null) service.awareness(sourceIndex);
         return service;
@@ -1015,28 +1023,28 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
     }
 
     protected void tick(Minecraft client, boolean allowed) {
-        if (waveforms != null && settings != null && playback != null) {
+        if (waveforms != null && settings() != null && playback != null) {
             var waveformTrack = playback.state().track();
             if (waveformTrack == null && client.gui.screen() instanceof HudPreview preview && preview.previewsProgress() && library != null) {
                 var tracks = library.snapshot().tracks();
                 if (!tracks.isEmpty()) waveformTrack = tracks.getFirst();
             }
-            waveforms.update(waveformTrack, settings.waveformProgress && !state.mediaBusy);
+            waveforms.update(waveformTrack, settings().waveformProgress && !state.mediaBusy);
         }
-        if (settings != null && playback != null && settings.lyricsEnabled) {
+        if (settings() != null && playback != null && settings().lyricsEnabled) {
             var track = playback.state().track();
-            lyrics.request(track, settings.lyricsAutomaticLookup);
+            lyrics.request(track, settings().lyricsAutomaticLookup);
             if (library != null) {
                 var snapshot = library.snapshot();
                 if (snapshot.scanning() || state.mediaBusy) lyrics.lookup.tickRetries();
                 else
-                    lyrics.background(snapshot.tracks(), snapshot.completeRoots(), settings.lyricsOnline && lyrics.libraryLookupRunning());
+                    lyrics.background(snapshot.tracks(), snapshot.completeRoots(), settings().lyricsOnline && lyrics.libraryLookupRunning());
             }
         }
         allowed &= !state.mediaBusy;
         if (!warning.isEmpty() && System.nanoTime() >= warningUntil) warning = "";
         shortcuts.consume(allowed);
-        if (state.resetting || settings == null || playback == null) return;
+        if (state.resetting || settings() == null || playback == null) return;
         var queuedLibrary = library.snapshot();
         if (!state.mediaBusy && queuedLibraryRevision != queuedLibrary.revision()) {
             queuedLibraryRevision = queuedLibrary.revision();
@@ -1077,7 +1085,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             startPlayback();
         }
         if (!autoplayPending && !state.mediaBusy) recordResume(true);
-        sleep.tick(playback, settings.volume);
+        sleep.tick(playback, settings().volume);
     }
 
     /**
@@ -1104,7 +1112,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         folders.invalidate();
         autoplayPending = false;
         DesktopFolderPicker.cancel();
-        var prior = settings;
+        var prior = settings();
         var defaultBindings = shortcuts.defaults();
         var roots = new LinkedHashSet<Path>();
         roots.add(library.root());
@@ -1146,17 +1154,17 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                 finished.completeExceptionally(new IllegalStateException(Text.get("reset.darkmusic.closing")));
                 return;
             }
-            settings = failure == null ? Settings.defaults(prior) : prior;
+            settingsStore.replace(failure == null ? Settings.defaults(prior) : prior);
             playback = createPlayback();
             artwork = new ArtworkCache();
             waveforms = new WaveformCache(config.directory());
             library = new MusicLibrary(config.directory());
             downloads = createDownloads();
             state.resetting = false;
-            playback.volume(settings.volume);
-            playback.speed(settings.speed);
-            playback.shuffle(settings.shuffle);
-            playback.repeat(settings.repeat);
+            playback.volume(settings().volume);
+            playback.speed(settings().speed);
+            playback.shuffle(settings().shuffle);
+            playback.repeat(settings().repeat);
             configureVisualizer();
             if (failure == null) {
                 warning = "";
@@ -1164,7 +1172,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                 shortcuts.restoreDefaults();
             }
             try {
-                folders.activate(settings.musicDirectory.isBlank() ? config.defaultMusic() : Path.of(settings.musicDirectory));
+                folders.activate(settings().musicDirectory.isBlank() ? config.defaultMusic() : Path.of(settings().musicDirectory));
             } catch (Exception e) {
                 folders.activate(config.defaultMusic());
             }
@@ -1175,7 +1183,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                 warn(message);
                 finished.completeExceptionally(new IOException(message));
             } else {
-                String expected = ConfigStore.JSON.toJson(settings);
+                String expected = ConfigStore.JSON.toJson(settings());
                 CompletableFuture.runAsync(() -> {
                     try {
                         if (!Files.readString(config.directory().resolve("config.json")).equals(expected))

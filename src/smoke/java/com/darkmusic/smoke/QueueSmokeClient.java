@@ -81,8 +81,9 @@ final class QueueSmokeClient {
             if (stage == -2) {
                 Path tools = Path.of(System.getProperty("darkmusic.downloadTools"));
                 String ext = System.getProperty("os.name").startsWith("Windows") ? ".exe" : "";
-                app.settings.ffmpegPath = tools.resolve("ffmpeg" + ext).toString();
-                app.settings.ffprobePath = tools.resolve("ffprobe" + ext).toString();
+                app.settings().ffmpegPath = tools.resolve("ffmpeg" + ext).toString();
+                app.settings().ffprobePath = tools.resolve("ffprobe" + ext).toString();
+                app.configureVisualizer();
                 app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> {
                 });
                 stage = -1;
@@ -241,10 +242,10 @@ final class QueueSmokeClient {
                             if (child instanceof AbstractWidget other && other != actionsButton && other.visible)
                                 check(other.getX() >= actionsButton.getRight() || other.getRight() <= actionsButton.getX() || other.getY() >= actionsButton.getBottom() || other.getBottom() <= actionsButton.getY(), "Song actions overlap: " + other.getMessage().getString());
                     }
-                    app.settings.audio.neutral = true;
-                    app.settings.audio.gapless = true;
-                    app.settings.audio.crossfade = .15;
-                    app.playback.configure(app.settings.audio, app.settings.environment);
+                    app.settings().audio.neutral = true;
+                    app.settings().audio.gapless = true;
+                    app.settings().audio.crossfade = .15;
+                    app.playback.configure(app.settings().audio, app.settings().environment);
                     app.playback.repeat(Repeat.OFF);
                     app.playback.shuffle(false);
                     app.playback.play(List.of(a, b), a);

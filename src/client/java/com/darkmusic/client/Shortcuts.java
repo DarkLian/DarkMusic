@@ -142,7 +142,7 @@ public final class Shortcuts implements ShortcutKeys {
      * Applies keys saved by versions that stored them in DarkMusic's config instead of Minecraft's options.
      */
     void loadSaved() {
-        var settings = app.settings;
+        var settings = app.settings();
         for (KeyMapping key : bindings()) {
             String saved = settings.nativeShortcutNames.contains(key.getName()) ? null : settings.shortcuts.get(key.getName());
             if (saved != null) try {
@@ -159,7 +159,7 @@ public final class Shortcuts implements ShortcutKeys {
     }
 
     private void migrateSpeedBindings() {
-        var settings = app.settings;
+        var settings = app.settings();
         if (settings.nativeShortcutNames.contains(seekBack.getName()) || settings.nativeShortcutNames.contains(seekForward.getName())
             || settings.shortcuts.containsKey(seekBack.getName()) || settings.shortcuts.containsKey(seekForward.getName())
             || !faster.saveString().equals("key.keyboard.right") || !slower.saveString().equals("key.keyboard.left"))
@@ -206,7 +206,7 @@ public final class Shortcuts implements ShortcutKeys {
 
     @Override
     public void perform(KeyMapping key) {
-        if (!app.idle() || app.settings == null || app.playback == null || conflicts(key))
+        if (!app.idle() || app.settings() == null || app.playback == null || conflicts(key))
             return;
         var playback = app.playback;
         if (key == toggle) {
@@ -214,11 +214,11 @@ public final class Shortcuts implements ShortcutKeys {
             else playback.toggle();
         } else if (key == next) playback.next();
         else if (key == previous) playback.previous();
-        else if (key == faster) speed(app.settings.speed + .1);
-        else if (key == slower) speed(app.settings.speed - .1);
+        else if (key == faster) speed(app.settings().speed + .1);
+        else if (key == slower) speed(app.settings().speed - .1);
         else if (key == normalSpeed) speed(1);
-        else if (key == volumeUp) volume(app.settings.volume + .05);
-        else if (key == volumeDown) volume(app.settings.volume - .05);
+        else if (key == volumeUp) volume(app.settings().volume + .05);
+        else if (key == volumeDown) volume(app.settings().volume - .05);
         else if (key == mute) app.toggleMute();
         else if (key == seekBack) app.seekRelative(-5);
         else if (key == seekForward) app.seekRelative(5);
@@ -228,15 +228,15 @@ public final class Shortcuts implements ShortcutKeys {
             if (Minecraft.getInstance().gui.screen() instanceof MusicScreen screen)
                 screen.jumpToPlaying();
         } else if (key == hud) {
-            app.settings.hudEnabled = !app.settings.hudEnabled;
+            app.settings().hudEnabled = !app.settings().hudEnabled;
             app.save();
-            notice(app.settings.hudEnabled ? "shortcut.darkmusic.hud_on" : "shortcut.darkmusic.hud_off");
+            notice(app.settings().hudEnabled ? "shortcut.darkmusic.hud_on" : "shortcut.darkmusic.hud_off");
         } else if (key == lyrics) {
-            if (!app.settings.lyricsEnabled) notice("shortcut.darkmusic.lyrics_disabled");
+            if (!app.settings().lyricsEnabled) notice("shortcut.darkmusic.lyrics_disabled");
             else {
-                app.settings.lyricsHud = !app.settings.lyricsHud;
+                app.settings().lyricsHud = !app.settings().lyricsHud;
                 app.save();
-                notice(app.settings.lyricsHud ? "shortcut.darkmusic.lyrics_on" : "shortcut.darkmusic.lyrics_off");
+                notice(app.settings().lyricsHud ? "shortcut.darkmusic.lyrics_on" : "shortcut.darkmusic.lyrics_off");
             }
         } else if (key == favorite) {
             var track = playback.state().track();
@@ -266,12 +266,12 @@ public final class Shortcuts implements ShortcutKeys {
 
     private void speed(double value) {
         app.speed(value);
-        app.speedFeedback.show(app.settings.speed);
+        app.speedFeedback.show(app.settings().speed);
     }
 
     private void volume(double value) {
         app.volume(value);
-        app.volumeFeedback.show(app.settings.volume);
+        app.volumeFeedback.show(app.settings().volume);
     }
 
     /**

@@ -160,11 +160,12 @@ final class LyricsSmokeClient {
             if (app == null || !app.playlistsReady || !mc.isGameLoadFinished() || mc.gui.overlay() != null) return;
             if (stage == -2) {
                 Path tools = Path.of(System.getProperty("darkmusic.downloadTools"));
-                app.settings.ffmpegPath = tools.resolve("ffmpeg.exe").toString();
-                app.settings.ffprobePath = tools.resolve("ffprobe.exe").toString();
-                app.settings.lyricsEnabled = true;
-                app.settings.lyricsOnline = false;
-                app.settings.lyricsConsentVersion = 1;
+                app.settings().ffmpegPath = tools.resolve("ffmpeg.exe").toString();
+                app.settings().ffprobePath = tools.resolve("ffprobe.exe").toString();
+                app.configureVisualizer();
+                app.settings().lyricsEnabled = true;
+                app.settings().lyricsOnline = false;
+                app.settings().lyricsConsentVersion = 1;
                 app.save();
                 app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> {
                 });
@@ -217,8 +218,8 @@ final class LyricsSmokeClient {
             }
             if (stage == 0) {
                 doubleClicks(mc);
-                app.settings.lyricsConsentVersion = 0;
-                app.settings.lyricsOnline = false;
+                app.settings().lyricsConsentVersion = 0;
+                app.settings().lyricsOnline = false;
                 var consentPlayer = new MusicScreen(app, null);
                 mc.gui.setScreen(consentPlayer);
                 consentPlayer.tick();
@@ -227,14 +228,14 @@ final class LyricsSmokeClient {
                 for (int w : new int[]{320, 426, 960}) bounds(consent, w, w == 960 ? 540 : 240);
                 consent.onClose();
                 consentPlayer.tick();
-                check(mc.gui.screen() == consentPlayer && !app.settings.lyricsOnline, "Cancel remains offline without repeated prompts");
+                check(mc.gui.screen() == consentPlayer && !app.settings().lyricsOnline, "Cancel remains offline without repeated prompts");
                 for (var screen : List.of(new LyricsScreen(app, null, a), new LyricsSearchScreen(app, null, a),
                     new LyricsSettingsScreen(app, null), new LyricsLibraryScreen(app, null), new LyricsOptionsScreen(app, null, a),
                     new AudioDeletionScreen(app, null, List.of(a), null), new LyricCandidateScreen(app, null, a, timed))) {
                     mc.gui.setScreen(screen);
                     for (int w : new int[]{320, 426, 960}) bounds(screen, w, w == 960 ? 540 : 240);
                 }
-                app.settings.lyricsHud = app.settings.lyricsNextLine = true;
+                app.settings().lyricsHud = app.settings().lyricsNextLine = true;
                 var settingsScreen = new SettingsScreen(app, null);
                 mc.gui.setScreen(settingsScreen);
                 var keys = (String[]) SmokeUi.field(settingsScreen, "SECTION_KEYS");
@@ -260,30 +261,30 @@ final class LyricsSmokeClient {
                     check(downloads.getX() - upNext.getRight() == 4 && settings.getX() - downloads.getRight() == 4, "Matching navigation spacing");
                     check(upNext.getY() == 4 && downloads.getY() == 4 && settings.getY() == 4, "Navigation aligns with Back buttons");
                 }
-                app.settings.validate();
+                app.settings().validate();
                 for (var style : Settings.HudStyle.values()) {
-                    app.settings.hudStyle = style;
+                    app.settings().hudStyle = style;
                     var editor = new HudEditorScreen(app, null);
                     mc.gui.setScreen(editor);
                     for (int w : new int[]{320, 426, 960}) bounds(editor, w, w == 960 ? 540 : 240);
                     editor.init(960, 540);
-                    var lyricBounds = LyricsHud.bounds(app.settings, 960, 540);
-                    double playerScale = app.settings.hudScale;
-                    double playerX = app.settings.hudX, playerY = app.settings.hudY;
+                    var lyricBounds = LyricsHud.bounds(app.settings(), 960, 540);
+                    double playerScale = app.settings().hudScale;
+                    double playerX = app.settings().hudX, playerY = app.settings().hudY;
                     double cx = lyricBounds.x() + lyricBounds.width() / 2.0, cy = lyricBounds.y() + lyricBounds.height() / 2.0;
                     editor.mouseScrolled(cx, cy, 0, 1);
-                    check(app.settings.hudScale == playerScale, "Lyrics resize must not resize music HUD");
+                    check(app.settings().hudScale == playerScale, "Lyrics resize must not resize music HUD");
                     var mouse = new MouseButtonEvent(cx, cy, new MouseButtonInfo(0, 0));
                     check(editor.mouseClicked(mouse, false), "Lyrics can be independently selected");
                     var moved = new MouseButtonEvent(cx - 40, cy - 50, new MouseButtonInfo(0, 0));
                     editor.mouseDragged(moved, -40, -50);
                     editor.mouseReleased(moved);
-                    check(app.settings.hudX == playerX && app.settings.hudY == playerY, "Lyrics drag must preserve music anchor");
-                    app.settings.lyricsHudScale = 1;
-                    app.settings.lyricsHudX = .5;
-                    app.settings.lyricsHudY = .9;
+                    check(app.settings().hudX == playerX && app.settings().hudY == playerY, "Lyrics drag must preserve music anchor");
+                    app.settings().lyricsHudScale = 1;
+                    app.settings().lyricsHudX = .5;
+                    app.settings().lyricsHudY = .9;
                 }
-                app.settings.hudStyle = Settings.HudStyle.CLASSIC;
+                app.settings().hudStyle = Settings.HudStyle.CLASSIC;
                 app.playback.play(a == b ? List.of(a) : List.of(a, b), a);
                 app.playback.addToQueue(b);
                 mc.gui.setScreen(new LyricsScreen(app, null, a));
@@ -313,7 +314,7 @@ final class LyricsSmokeClient {
                 since = ticks;
                 stage = 3;
             } else if (stage == 3) {
-                app.settings.hudStyle = Settings.HudStyle.values()[(ticks - since) / 4 % 4];
+                app.settings().hudStyle = Settings.HudStyle.values()[(ticks - since) / 4 % 4];
                 if (ticks - since < 20) return;
                 if (Boolean.getBoolean("darkmusic.smoothFontAvailable")) {
                     Path images = Path.of(System.getProperty("darkmusic.privateImages"));
@@ -373,9 +374,9 @@ final class LyricsSmokeClient {
                 if (ticks - since < 5) return;
                 check(mc.gui.screen() instanceof LyricsScreen, "Paused-song lyrics menu opens");
                 check(app.playback.state().status() == AudioBackend.Status.PAUSED, "Opening lyrics never resumes music");
-                app.settings.lyricsEnabled = false;
+                app.settings().lyricsEnabled = false;
                 check(app.requestLyrics().equals("lyrics.darkmusic.disabled"), "Disabled lyrics are reported without enabling them");
-                app.settings.lyricsEnabled = true;
+                app.settings().lyricsEnabled = true;
                 mc.gui.setScreen(null);
                 check(app.requestLyrics().isEmpty(), "Queue the final request before a playback change");
                 app.playback.stop();
@@ -385,7 +386,7 @@ final class LyricsSmokeClient {
                 if (ticks - since < 5) return;
                 check(!(mc.gui.screen() instanceof LyricsScreen), "Stopping before the deferred open prevents a stale lyrics menu");
                 check(app.requestLyrics().equals("upnext.idle"), "A stopped track is not treated as currently playing");
-                app.settings.waveformProgress = true;
+                app.settings().waveformProgress = true;
                 app.playback.play(List.of(a), a);
                 since = ticks;
                 stage = 12;
@@ -404,14 +405,14 @@ final class LyricsSmokeClient {
             } else if (stage == 14) {
                 if (ticks - since < 5) return;
                 captureWaveform(mc, "player");
-                app.settings.hudStyle = Settings.HudStyle.ARTWORK;
+                app.settings().hudStyle = Settings.HudStyle.ARTWORK;
                 var waveformSettings = new SettingsScreen(app, null);
                 mc.gui.setScreen(waveformSettings);
                 var section = SettingsScreen.class.getDeclaredField("selectedSection");
                 section.setAccessible(true);
                 section.setInt(waveformSettings, 4);
                 for (var style : WaveformSettings.Style.values()) {
-                    app.settings.waveform.style = style;
+                    app.settings().waveform.style = style;
                     for (int w : new int[]{320, 426, 960}) {
                         var previewOnly = SettingsScreen.class.getDeclaredField("previewOnly");
                         previewOnly.setAccessible(true);
@@ -422,7 +423,7 @@ final class LyricsSmokeClient {
                             "Main-menu progress preview fits compact and wide settings");
                     }
                 }
-                app.settings.waveform.style = WaveformSettings.Style.FILLED;
+                app.settings().waveform.style = WaveformSettings.Style.FILLED;
                 waveformSettings.init(960, 540);
                 // The HUD section has several groups (Appearance, Motion, Card, Progress); only the Progress heading counts.
                 var groups = ((List<?>) SmokeUi.field(waveformSettings, "subsections")).stream()
@@ -432,28 +433,28 @@ final class LyricsSmokeClient {
                 int groupY = (int) SmokeUi.field(groups.getFirst(), "y");
                 var placed = (List<?>) SmokeUi.field(waveformSettings, "controls");
                 for (String label : List.of(
-                    Text.get("hud.darkmusic.transparency", Math.round(app.settings.hudBackgroundTransparency * 100)),
+                    Text.get("hud.darkmusic.transparency", Math.round(app.settings().hudBackgroundTransparency * 100)),
                     Text.get("hud.darkmusic.background_gradient"),
                     Text.get("hud.darkmusic.background_colors"))) {
                     var control = placed.stream().filter(row -> ((AbstractWidget) SmokeUi.field(row, "widget")).getMessage().getString().equals(label)).findFirst().orElseThrow();
                     check((int) SmokeUi.field(control, "y") < groupY, "HUD background controls precede Progress Bar");
                 }
                 SmokeUi.click(mc, Text.get("waveform.style") + ": " + Text.get("waveform.style.filled"));
-                app.settings.waveform.style = WaveformSettings.Style.FILLED;
+                app.settings().waveform.style = WaveformSettings.Style.FILLED;
                 waveformSettings.init(960, 540);
                 since = ticks;
                 stage = 17;
             } else if (stage == 17) {
                 if (ticks - since < 5) return;
                 captureWaveform(mc, "appearance");
-                app.settings.hudEnabled = false;
+                app.settings().hudEnabled = false;
                 since = ticks;
                 stage = 23;
             } else if (stage == 23) {
                 if (ticks - since < 5) return;
                 captureWaveform(mc, "player-preview-hud-off");
-                app.settings.hudEnabled = true;
-                app.settings.hudStyle = Settings.HudStyle.CLASSIC;
+                app.settings().hudEnabled = true;
+                app.settings().hudStyle = Settings.HudStyle.CLASSIC;
                 mc.gui.setScreen(new HudEditorScreen(app, null));
                 since = ticks;
                 stage = 15;
@@ -464,26 +465,26 @@ final class LyricsSmokeClient {
                     Settings.HudStyle.CIRCULAR};
                 int elapsed = ticks - since;
                 if (elapsed < 18) {
-                    app.settings.hudStyle = styles[elapsed / 6];
+                    app.settings().hudStyle = styles[elapsed / 6];
                     if (elapsed % 6 == 5)
                         captureWaveform(mc, styles[elapsed / 6].name().toLowerCase(Locale.ROOT));
                     return;
                 }
                 check(app.playback.state().status() == AudioBackend.Status.PAUSED, "Waveform rendering preserves pause");
-                app.settings.waveform.style = WaveformSettings.Style.BARS;
-                app.settings.waveform.height = 18;
-                app.settings.waveform.detail = 512;
-                app.settings.waveform.spacing = 4;
-                app.settings.waveform.opacity = .65;
-                app.settings.waveform.contrast = 2;
-                app.settings.waveform.smoothing = .8;
+                app.settings().waveform.style = WaveformSettings.Style.BARS;
+                app.settings().waveform.height = 18;
+                app.settings().waveform.detail = 512;
+                app.settings().waveform.spacing = 4;
+                app.settings().waveform.opacity = .65;
+                app.settings().waveform.contrast = 2;
+                app.settings().waveform.smoothing = .8;
                 mc.gui.setScreen(new MusicScreen(app, null));
                 since = ticks;
                 stage = 18;
             } else if (stage == 18) {
                 if (ticks - since < 5) return;
                 captureWaveform(mc, "bars-player");
-                app.settings.hudStyle = Settings.HudStyle.CIRCULAR;
+                app.settings().hudStyle = Settings.HudStyle.CIRCULAR;
                 mc.gui.setScreen(new HudEditorScreen(app, null));
                 since = ticks;
                 stage = 19;
@@ -491,8 +492,8 @@ final class LyricsSmokeClient {
                 if (ticks - since < 5) return;
                 if (app.artwork.get(a) == null) return;
                 captureWaveform(mc, "bars-circular");
-                app.settings.waveform = new WaveformSettings();
-                app.settings.waveformProgress = false;
+                app.settings().waveform = new WaveformSettings();
+                app.settings().waveformProgress = false;
                 since = ticks;
                 stage = 20;
             } else if (stage == 20) {
@@ -506,13 +507,13 @@ final class LyricsSmokeClient {
                         Settings.HudStyle.CLASSIC,
                         Settings.HudStyle.ARTWORK,
                         Settings.HudStyle.CIRCULAR};
-                    app.settings.hudStyle = sample < 6 ? styles[sample / 2] : sample >= 10 ? styles[sample - 10] : styles[2];
-                    app.settings.hudImage(sample < 6 && sample % 2 == 1 || sample == 7
+                    app.settings().hudStyle = sample < 6 ? styles[sample / 2] : sample >= 10 ? styles[sample - 10] : styles[2];
+                    app.settings().hudImage(sample < 6 && sample % 2 == 1 || sample == 7
                         ? Settings.HudImage.ICON : Settings.HudImage.ARTWORK);
-                    app.settings.circularImageGap = sample == 6 || sample == 7 ? 12 : 0;
-                    app.settings.hudProgress = sample != 4 && sample != 5 && sample != 6;
-                    app.settings.hudVisualizer = sample != 7 && sample != 9;
-                    app.settings.waveformProgress = sample == 9;
+                    app.settings().circularImageGap = sample == 6 || sample == 7 ? 12 : 0;
+                    app.settings().hudProgress = sample != 4 && sample != 5 && sample != 6;
+                    app.settings().hudVisualizer = sample != 7 && sample != 9;
+                    app.settings().waveformProgress = sample == 9;
                     if (elapsed % 8 == 7) {
                         var editor = mc.gui.screen();
                         for (int w : new int[]{320, 426, 960}) bounds(editor, w, w == 960 ? 540 : 240);
@@ -523,13 +524,13 @@ final class LyricsSmokeClient {
                     return;
                 }
                 if (imageCacheClosed) app.artwork = new ArtworkCache();
-                app.settings.classicImage = app.settings.circularImage = app.settings.artworkImage = Settings.HudImage.ARTWORK;
-                app.settings.circularImageGap = 0;
-                app.settings.hudProgress = app.settings.hudVisualizer = true;
-                app.settings.waveformProgress = false;
+                app.settings().classicImage = app.settings().circularImage = app.settings().artworkImage = Settings.HudImage.ARTWORK;
+                app.settings().circularImageGap = 0;
+                app.settings().hudProgress = app.settings().hudVisualizer = true;
+                app.settings().waveformProgress = false;
                 System.out.println("DARKMUSIC_HUD_IMAGE_PASS: artwork/icon in three layouts, unavailable-artwork fallback, circular crop, zero/custom gap, progress-only/spectrum-only/both and compact/wide bounds");
-                app.settings.spectrumStyle = app.settings.circularSpectrumStyle = Settings.SpectrumStyle.ROUNDED_BARS;
-                app.settings.spectrumOpacity = .55;
+                app.settings().spectrumStyle = app.settings().circularSpectrumStyle = Settings.SpectrumStyle.ROUNDED_BARS;
+                app.settings().spectrumOpacity = .55;
                 app.configureVisualizer();
                 app.playback.toggle();
                 since = ticks;
@@ -540,7 +541,7 @@ final class LyricsSmokeClient {
                 float maximum = 0;
                 for (float level : levels) maximum = Math.max(maximum, level);
                 if (app.playback.state().status() != AudioBackend.Status.PLAYING || maximum < .02) return;
-                app.settings.hudProgress = false;
+                app.settings().hudProgress = false;
                 mc.gui.setScreen(new MusicScreen(app, null));
                 since = ticks;
                 stage = 22;
@@ -558,15 +559,15 @@ final class LyricsSmokeClient {
                     Settings.HudStyle.SPECTRUM};
                 int sample = (elapsed - 5) / 8;
                 if (sample < styles.length) {
-                    app.settings.hudStyle = styles[sample];
+                    app.settings().hudStyle = styles[sample];
                     if ((elapsed - 5) % 8 == 7)
                         captureWaveform(mc, "rounded-spectrum-" + styles[sample].name().toLowerCase(Locale.ROOT));
                     return;
                 }
                 app.playback.pause();
-                app.settings.spectrumStyle = app.settings.circularSpectrumStyle = Settings.SpectrumStyle.BARS;
-                app.settings.spectrumOpacity = 1;
-                app.settings.hudProgress = true;
+                app.settings().spectrumStyle = app.settings().circularSpectrumStyle = Settings.SpectrumStyle.BARS;
+                app.settings().spectrumOpacity = 1;
+                app.settings().hudProgress = true;
                 System.out.println("DARKMUSIC_ROUNDED_SPECTRUM_PASS: real audio drives rounded spectra in player and all four HUD layouts; main-menu preview also renders with HUD off");
                 since = ticks;
                 stage = 16;

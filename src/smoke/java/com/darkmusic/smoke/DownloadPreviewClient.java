@@ -214,9 +214,10 @@ final class DownloadPreviewClient {
                 address = serving.join();
                 Path tools = Path.of(System.getProperty("darkmusic.downloadTools"));
                 app.downloads.configure(new ToolPaths(tools.resolve("yt-dlp.exe").toString(), tools.resolve("ffmpeg.exe").toString(), tools.resolve("ffprobe.exe").toString(), ""));
-                app.settings.ytDlpPath = tools.resolve("yt-dlp.exe").toString();
-                app.settings.ffmpegPath = tools.resolve("ffmpeg.exe").toString();
-                app.settings.ffprobePath = tools.resolve("ffprobe.exe").toString();
+                app.settings().ytDlpPath = tools.resolve("yt-dlp.exe").toString();
+                app.settings().ffmpegPath = tools.resolve("ffmpeg.exe").toString();
+                app.settings().ffprobePath = tools.resolve("ffprobe.exe").toString();
+                app.configureVisualizer();
                 var track = app.library.snapshot().tracks().getFirst();
                 app.playback.play(List.of(track), track);
                 app.open();

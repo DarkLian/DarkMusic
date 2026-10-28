@@ -116,7 +116,7 @@ final class HudSmokeClient {
             if (++tick > 4800) throw new IllegalStateException("HUD smoke timeout");
             if (tick % 6 != 0) return;
             var app = DarkMusicClient.INSTANCE;
-            var s = app.settings;
+            var s = app.settings();
             if (state == 2) {
                 screen = new SettingsScreen(app, null);
                 mc.gui.setScreen(screen);

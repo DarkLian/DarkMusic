@@ -12,7 +12,7 @@ import java.util.Locale;
 
 final class HudSettingsSmoke {
     static void check(Minecraft mc, DarkMusicClient app) throws Exception {
-        var s = app.settings;
+        var s = app.settings();
         boolean enabled = s.hudEnabled, lyrics = s.lyricsHud, waveform = s.waveformProgress;
         var style = s.hudStyle;
         try {
