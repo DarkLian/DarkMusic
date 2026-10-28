@@ -119,23 +119,19 @@ public final class AudioDeletionScreen extends LocalScreen {
         }
     }
 
-    private CompletableFuture<Void> start(AudioDeletion.Mode mode) {
-        if (plan == null || busy || result != null)
-            return CompletableFuture.failedFuture(new IllegalStateException(Text.get("library.darkmusic.busy")));
+    private void start(AudioDeletion.Mode mode) {
+        if (plan == null || busy || result != null) return;
         busy = true;
         cancellation = new ProcessRunner.Token();
         error = "";
         updateButtons();
-        var finished = new CompletableFuture<Void>();
         app.media.deleteAudio(plan.trashCompanions(trashCompanions), mode, cancellation, value -> progress = value).whenComplete((deleted, failure) -> minecraft.execute(() -> {
             busy = false;
             if (failure != null) error = Text.failure(failure, "delete_audio.failed");
             else result = deleted;
             refreshRows();
             updateButtons();
-            finished.complete(null);
         }));
-        return finished;
     }
 
     private void updateButtons() {

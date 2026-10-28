@@ -71,10 +71,6 @@ public final class SoundEnvironmentProcessor {
             x.echoTime == y.echoTime && x.modulationMs == y.modulationMs && Arrays.equals(x.reflectionTimes, y.reflectionTimes);
     }
 
-    public boolean ownsReverb() {
-        return requested.ownsReverb();
-    }
-
     public boolean isDry() {
         return wet == 0 && !requested.active();
     }

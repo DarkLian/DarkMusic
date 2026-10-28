@@ -88,7 +88,7 @@ public final class UpNextScreen extends LocalScreen {
             // Double-click or Enter adds the song after the other queued songs.
             if (activated && i < source.size() && app.canEditQueue()) {
                 var resolved = app.playlists.index(app.library.snapshot().tracks()).get(source.get(i).id());
-                if (resolved != null && app.playback.insertQueued(resolved, snapshot.manual().size())) {
+                if (app.playback.insertQueued(resolved, snapshot.manual().size())) {
                     refresh();
                     manual.reveal(snapshot.manual().size() - 1);
                 }
@@ -154,7 +154,7 @@ public final class UpNextScreen extends LocalScreen {
         // Rebuild the right-hand list only when its view, query or underlying tracks change.
         var tracks = allSongs ? app.library.snapshot().tracks() : snapshot.automatic();
         var basis = List.of(allSongs, query, tracks);
-        if (!basis.equals(sourceBasis) || sourceBasis == null) {
+        if (!basis.equals(sourceBasis)) {
             sourceBasis = basis;
             String needle = query.toLowerCase(Locale.ROOT).strip();
             source = needle.isEmpty() ? tracks : tracks.stream().filter(track -> track.matches(needle)).toList();
@@ -210,7 +210,7 @@ public final class UpNextScreen extends LocalScreen {
             if (draggingCollection && manual.isMouseOver(event.x(), event.y()) && app.canEditQueue()) {
                 int insertion = Math.clamp((int) (event.y() - manual.getY() + manual.scrollOffset() + 14) / 28, 0, snapshot.manual().size());
                 var resolved = app.playlists.index(app.library.snapshot().tracks()).get(collectionDrag.id());
-                if (resolved != null && app.playback.insertQueued(resolved, insertion)) {
+                if (app.playback.insertQueued(resolved, insertion)) {
                     var entries = app.playback.upNextSnapshot().manual();
                     selectedId = entries.get(Math.min(insertion, entries.size() - 1)).id();
                     refresh();

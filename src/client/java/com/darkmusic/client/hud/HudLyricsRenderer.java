@@ -16,7 +16,7 @@ final class HudLyricsRenderer {
     private Language language;
     private List<String> currentLines = List.of(), nextLines = List.of();
 
-    void draw(GuiGraphicsExtractor g, Font font, String current, String next, int width, int top, boolean showNext, int color, int nextColor, int plate) {
+    void draw(GuiGraphicsExtractor g, Font font, String current, String next, int width, boolean showNext, int color, int nextColor, int plate) {
         if (this.font != font || language != Language.getInstance() || this.width != width || !this.current.equals(current) || !this.next.equals(next)) {
             this.current = current;
             this.next = next;
@@ -27,9 +27,9 @@ final class HudLyricsRenderer {
             currentLines = HudLyricsLayout.wrap(current, available, font::width);
             nextLines = HudLyricsLayout.wrap(next, available, font::width);
         }
-        g.enableScissor(0, top, width, top + HudLyricsLayout.height(showNext));
+        g.enableScissor(0, 0, width, HudLyricsLayout.height(showNext));
         try {
-            int y = top + HudLyricsLayout.PADDING;
+            int y = HudLyricsLayout.PADDING;
             band(g, font, currentLines, width, y, HudLyricsLayout.CURRENT_STEP, 0xff000000 | color, plate);
             if (showNext)
                 band(g, font, nextLines, width, y + HudLyricsLayout.LINES * HudLyricsLayout.CURRENT_STEP + HudLyricsLayout.GAP,

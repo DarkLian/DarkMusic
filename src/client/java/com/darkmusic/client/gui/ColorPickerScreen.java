@@ -22,10 +22,6 @@ public final class ColorPickerScreen extends LocalScreen {
     private boolean syncing;
     private boolean spectrum = true;
 
-    public ColorPickerScreen(Screen parent, int color, IntConsumer change) {
-        this(parent, color, color, change);
-    }
-
     public ColorPickerScreen(Screen parent, int color, int defaultColor, IntConsumer change) {
         super(Text.component("colors.darkmusic.picker"), parent);
         this.color = color & 0xFFFFFF;
@@ -63,7 +59,7 @@ public final class ColorPickerScreen extends LocalScreen {
         else for (int i = 0; i < 3; i++) {
             int shift = 16 - i * 8;
             String key = keys[i];
-            var slider = addRenderableWidget(new ValueSlider(x, 104 + i * 28, w,
+            addRenderableWidget(new ValueSlider(x, 104 + i * 28, w,
                 (color >> shift & 255) / 255.0,
                 v -> Text.get("colors.darkmusic." + key) + ": " + (color >> shift & 255),
                 v -> update((color & ~(255 << shift)) | ((int) Math.round(v * 255) << shift)), () -> {

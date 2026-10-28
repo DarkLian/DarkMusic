@@ -41,8 +41,7 @@ public final class DuplicateGroups {
         String root = id;
         while (!parents.get(root).equals(root)) root = parents.get(root);
         while (!id.equals(root)) {
-            String next = parents.put(id, root);
-            id = next;
+            id = parents.put(id, root);
         }
         return root;
     }

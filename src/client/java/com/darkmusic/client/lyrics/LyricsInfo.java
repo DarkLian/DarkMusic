@@ -25,7 +25,6 @@ public record LyricsInfo(State state, Evidence evidence, String lookupKey) {
     public static final LyricsInfo LOCAL_MISSING = new LyricsInfo(State.UNKNOWN, Evidence.LOCAL, "lyrics.darkmusic.availability.unavailable");
     public static final LyricsInfo INSTRUMENTAL = new LyricsInfo(State.UNAVAILABLE, Evidence.CHOICE, "lyrics.instrumental");
     public static final LyricsInfo UNAVAILABLE = new LyricsInfo(State.UNAVAILABLE, Evidence.LOCAL);
-    public static final LyricsInfo CAPTIONS = new LyricsInfo(State.UNKNOWN, Evidence.CAPTIONS);
     private static final Map<LyricsLookup.Status, LyricsInfo> LOOKUP_STATES = lookupStates();
 
     private static Map<LyricsLookup.Status, LyricsInfo> lookupStates() {

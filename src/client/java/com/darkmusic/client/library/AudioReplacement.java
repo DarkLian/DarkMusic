@@ -27,10 +27,6 @@ final class AudioReplacement {
                 || !Objects.equals(before.fileKey(), after.fileKey())) throw conflict();
             return new Identity(before.size(), before.lastModifiedTime(), before.fileKey(), hash);
         }
-
-        boolean matches(Path path) throws IOException {
-            return equals(read(path));
-        }
     }
 
     private static IOException conflict() {

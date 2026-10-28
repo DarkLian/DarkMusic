@@ -177,7 +177,6 @@ public final class DuplicateScanner implements AutoCloseable {
                 }
             }
             int finalDone = done, finalUnavailable = unavailable, finalAudio = audioFailed;
-            boolean finalLimited = limited;
             publish(Stage.MATCHING, done, total, unavailable, audioFailed, limited, false, 0, List.of());
             DuplicateMatcher.Session incremental = audio ? new DuplicateMatcher.Session(policy, request) : null;
             DuplicateMatcher.Matches result;
@@ -189,7 +188,7 @@ public final class DuplicateScanner implements AutoCloseable {
                 }
                 result = incremental.snapshot();
             } else
-                result = new DuplicateMatcher().match(analyzed, policy, request, pairs -> publish(Stage.MATCHING, finalDone, total, finalUnavailable, finalAudio, finalLimited, false, 0, pairs));
+                result = new DuplicateMatcher().match(analyzed, policy, request, pairs -> publish(Stage.MATCHING, finalDone, total, finalUnavailable, finalAudio, limited, false, 0, pairs));
             if (audio) {
                 int processed = 0;
                 long nextPartial = System.nanoTime() + TimeUnit.SECONDS.toNanos(60), nextProgress = 0;

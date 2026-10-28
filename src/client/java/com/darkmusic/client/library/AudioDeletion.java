@@ -31,10 +31,6 @@ public final class AudioDeletion {
 
     public record Plan(Map<Path, String> roots, List<Item> items, boolean trashSupported, List<Companion> companions,
                        boolean trashCompanions) {
-        public Plan(Map<Path, String> roots, List<Item> items, boolean trashSupported) {
-            this(roots, items, trashSupported, List.of(), false);
-        }
-
         public Plan {
             roots = Map.copyOf(roots);
             items = List.copyOf(items);

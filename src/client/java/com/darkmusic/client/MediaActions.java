@@ -179,11 +179,6 @@ public final class MediaActions {
     }
 
     public CompletableFuture<AudioDeletion.Result> deleteAudio(AudioDeletion.Plan plan, AudioDeletion.Mode mode,
-                                                               Consumer<AudioDeletion.Progress> progress) {
-        return deleteAudio(plan, mode, new ProcessRunner.Token(), progress);
-    }
-
-    public CompletableFuture<AudioDeletion.Result> deleteAudio(AudioDeletion.Plan plan, AudioDeletion.Mode mode,
                                                                ProcessRunner.Token token,
                                                                Consumer<AudioDeletion.Progress> progress) {
         Objects.requireNonNull(mode);
@@ -232,7 +227,7 @@ public final class MediaActions {
                 }
                 if (!app.alive() || app.playback != player) {
                     if (completed != null) result.complete(completed);
-                    else result.completeExceptionally(failure != null ? failure : busy());
+                    else result.completeExceptionally(failure);
                     return;
                 }
                 app.lyrics.lookup.deleted(removed);

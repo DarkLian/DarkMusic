@@ -17,7 +17,6 @@ import java.util.zip.ZipInputStream;
  * Optional, verified native helper. Extraction and executable verification never run on the client thread.
  */
 public final class PipNativeTools {
-    private final Path directory;
     public final PipRuntime runtime;
     private final BooleanSupplier allowed;
     private CompletableFuture<Path> prepared;
@@ -27,7 +26,6 @@ public final class PipNativeTools {
     }
 
     public PipNativeTools(Path config, BooleanSupplier allowed) {
-        directory = config.resolve("pip-native");
         runtime = new PipRuntime(config);
         this.allowed = allowed;
     }

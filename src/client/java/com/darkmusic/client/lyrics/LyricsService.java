@@ -295,7 +295,6 @@ public final class LyricsService implements AutoCloseable {
                 text = tags.getOrDefault("lyrics", tags.getOrDefault("unsyncedlyrics", ""));
                 language = tags.getOrDefault("language", "und");
             } else if (container == AudioFormats.Container.AAC || container == AudioFormats.Container.WEBM) {
-                text = "";
                 try {
                     var info = ExternalAudio.probe(audio);
                     var tags = new HashMap<String, String>();

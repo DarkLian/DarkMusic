@@ -20,7 +20,6 @@ import java.util.function.Supplier;
  * A shared, explicit confirmation for destructive metadata/settings actions.
  */
 public final class ConfirmationScreen extends LocalScreen {
-    private final Screen parent;
     private final Screen completionScreen;
     private final Component explanation, confirmLabel;
     private final Supplier<CompletableFuture<Void>> action;
@@ -44,7 +43,6 @@ public final class ConfirmationScreen extends LocalScreen {
 
     public ConfirmationScreen(Screen parent, Component title, Component explanation, Component confirmLabel, Supplier<CompletableFuture<Void>> action, Screen completionScreen) {
         super(title, parent);
-        this.parent = parent;
         this.completionScreen = completionScreen;
         this.explanation = explanation;
         this.confirmLabel = confirmLabel;

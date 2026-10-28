@@ -40,11 +40,14 @@ final class DynamicBand {
         filter.configure(AudioEnhancements.Type.PEAK, rate, settings.frequency, settings.gain + dynamicGain, settings.q);
     }
 
-    double sample(double x, int c, boolean stereo) {
+    /**
+     * One stereo sample: the envelope follows the louder channel and updates once both are in.
+     */
+    double sample(double x, int c) {
         if (settings == null || !settings.enabled) return x;
         double detected = Math.abs(detector.sample(x, c));
         if (c == 0) leftDetector = detected;
-        if (c == 1 || !stereo) {
+        if (c == 1) {
             double peak = Math.max(leftDetector, detected);
             envelope += (peak - envelope) * (peak > envelope ? attack : release);
         }

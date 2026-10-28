@@ -572,7 +572,7 @@ public final class JavaSoundBackend implements AudioBackend {
                         boolean normalize = !selected.neutral && selected.normalization;
                         if (normalize && !flushing) {
                             normalized = normalization(request.track, selected, false).gain(selected);
-                        } else if (normalize && flushing) {
+                        } else if (normalize) {
                             normalized = normalizationGain;
                         }
                         double gainSmoothing = 1 - Math.exp(-1 / (deviceRate * .05));

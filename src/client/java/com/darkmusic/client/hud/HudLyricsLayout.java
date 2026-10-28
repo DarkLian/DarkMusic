@@ -7,7 +7,7 @@ import java.util.function.ToIntFunction;
  * Fixed lyric bands keep playback changes from resizing or moving the HUD.
  */
 public final class HudLyricsLayout {
-    public static final int WIDTH = 300, PADDING = 6, LINES = 2;
+    public static final int PADDING = 6, LINES = 2;
     public static final int CURRENT_STEP = 13, NEXT_STEP = 11, GAP = 4;
 
     private HudLyricsLayout() {

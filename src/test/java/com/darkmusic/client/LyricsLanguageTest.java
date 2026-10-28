@@ -29,7 +29,7 @@ class LyricsLanguageTest {
     @Test
     void preferencesAreOrderedAndIgnoreVideoMetadataLanguage() {
         var info = metadata("{\"fr\":[{}],\"en\":[{}],\"ja\":[{}]}");
-        assertEquals("ja", LyricsLanguages.select(info, LyricsLanguages.resolve("ja, en", "fr")));
+        assertEquals("ja", LyricsLanguages.select(info, LyricsLanguages.resolve("ja, en")));
         assertEquals("en", LyricsLanguages.select(info, List.of("ko", "en")));
         assertEquals("", LyricsLanguages.select(info, List.of("ko")));
     }
@@ -37,10 +37,9 @@ class LyricsLanguageTest {
     @Test
     void autoIsIndependentOfMinecraftLanguageAndDoesNotChooseArbitrarily() {
         var info = metadata("{\"de\":[{}],\"en\":[{}],\"ja\":[{}]}");
-        assertEquals("", LyricsLanguages.select(info, LyricsLanguages.resolve("auto", "ja_jp")));
-        assertEquals("", LyricsLanguages.select(info, LyricsLanguages.resolve("auto", "en_us")));
-        assertEquals(List.of("ja", "auto", "en"), LyricsLanguages.resolve("ja, auto, en", "zh_tw"));
-        assertEquals("ja", LyricsLanguages.select(metadata("{\"ja\":[{}]}"), LyricsLanguages.resolve("auto", "en_us")));
+        assertEquals("", LyricsLanguages.select(info, LyricsLanguages.resolve("auto")));
+        assertEquals(List.of("ja", "auto", "en"), LyricsLanguages.resolve("ja, auto, en"));
+        assertEquals("ja", LyricsLanguages.select(metadata("{\"ja\":[{}]}"), LyricsLanguages.resolve("auto")));
         assertEquals("", LyricsLanguages.select(metadata("{\"en\":[{\"is_translated\":true}]}"), List.of("auto")));
     }
 

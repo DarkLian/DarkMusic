@@ -46,7 +46,7 @@ public final class LyricsHud {
     public static Cue cue(Lrc data, double position) {
         int current = data.current(position);
         if (current < 0) return new Cue("", "");
-        return new Cue(current >= 0 ? data.lines().get(current).text() : "",
+        return new Cue(data.lines().get(current).text(),
             current + 1 < data.lines().size() ? data.lines().get(current + 1).text() : "");
     }
 
@@ -93,7 +93,7 @@ public final class LyricsHud {
             // Same shape, gradient and bevel as the player card, at the lyrics' own opacity.
             if (s.lyricsHudOpacity > 0)
                 HudSurface.draw(g, s, s.lyricsHudWidth, h, (int) Math.round(s.lyricsHudOpacity * 255) << 24);
-            (preview ? PREVIEW : LIVE).draw(g, Minecraft.getInstance().font, current, next, s.lyricsHudWidth, 0,
+            (preview ? PREVIEW : LIVE).draw(g, Minecraft.getInstance().font, current, next, s.lyricsHudWidth,
                 s.lyricsNextLine, s.lyricsHudColor, s.lyricsHudNextColor, s.lyricsTextPlate ? HudText.lyricsPlate(s.lyricsHudOpacity) : 0);
         } finally {
             g.pose().popMatrix();

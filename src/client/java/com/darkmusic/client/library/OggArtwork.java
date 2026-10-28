@@ -27,7 +27,7 @@ public final class OggArtwork {
 
     public static byte[] read(Path file) throws IOException {
         byte[] packet = commentPacket(file);
-        return packet == null ? null : comments(packet, 0);
+        return packet == null ? null : comments(packet);
     }
 
     public static Map<String, String> tags(Path file) throws IOException {
@@ -101,10 +101,9 @@ public final class OggArtwork {
         return true;
     }
 
-    private static byte[] comments(byte[] packet, int offset) {
+    private static byte[] comments(byte[] packet) {
         try {
             var buffer = ByteBuffer.wrap(packet).order(ByteOrder.LITTLE_ENDIAN);
-            buffer.position(offset);
             skip(buffer, buffer.getInt());
             int count = buffer.getInt();
             if (count < 0 || count > buffer.remaining() / 4) return null;

@@ -32,15 +32,8 @@ public final class LyricsLanguages {
         return String.join(", ", languages);
     }
 
-    /**
-     * Retained for callers migrating from the former interface-language policy.
-     */
-    public static List<String> resolve(String preferences, String automatic) {
-        return resolve(preferences);
-    }
-
     public static List<String> resolve(String preferences) {
-        // Auto is a policy, never the interface or OS language. The second argument is retained for compatibility.
+        // Auto is a policy, never the interface or OS language.
         var languages = new LinkedHashSet<String>();
         for (String part : normalize(preferences).split(", ")) languages.add(part);
         return List.copyOf(languages);

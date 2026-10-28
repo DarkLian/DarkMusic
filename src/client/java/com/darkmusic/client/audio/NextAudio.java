@@ -22,10 +22,6 @@ final class NextAudio {
     private Ready ready;
     private boolean cancelled;
 
-    NextAudio(long generation, Track track, Runnable started, Runnable ended, Consumer<String> failed) {
-        this(generation, track, started, ended, failed, new AudioBackend.Transition());
-    }
-
     NextAudio(long generation, Track track, Runnable started, Runnable ended, Consumer<String> failed, AudioBackend.Transition transition) {
         this.generation = generation;
         this.track = track;

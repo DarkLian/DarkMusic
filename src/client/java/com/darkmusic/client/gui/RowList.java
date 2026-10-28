@@ -323,13 +323,12 @@ public final class RowList extends AbstractWidget {
 
     public boolean cancelDrag() {
         scrollbar.cancel();
-        boolean had = drag != null || pressed != null;
-        if (!had) return false;
+        if (drag == null && pressed == null) return false;
         drag = null;
         pressed = null;
         dropping = null;
         resetOrder();
-        return had;
+        return true;
     }
 
     public void emptyMessage(String message) {

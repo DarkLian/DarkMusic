@@ -200,7 +200,7 @@ public final class LoudnessCache implements AutoCloseable {
 
     private static Status readingStatus(Reading reading, AudioSettings settings, double actualGain) {
         Source source = reading.source == null ? Source.LEGACY : reading.source;
-        boolean limited = reading != null && Math.clamp(settings.targetLufs - reading.lufs, -24, 12) > -1 - reading.peakDb;
+        boolean limited = Math.clamp(settings.targetLufs - reading.lufs, -24, 12) > -1 - reading.peakDb;
         return new Status(State.READY, source, settings.targetLufs, AudioDynamics.db(actualGain), limited,
             settings.gainMode == AudioSettings.Normalization.ALBUM && (source == Source.TRACK_TAGS || source == Source.ANALYSIS));
     }
@@ -445,7 +445,7 @@ public final class LoudnessCache implements AutoCloseable {
                 });
                 if (r.exit() != 0) throw new IOException("Loudness analysis failed: " + r.output());
                 int at = r.output().lastIndexOf('{'), end = r.output().lastIndexOf('}');
-                if (r.exit() == 0 && at >= 0 && end > at) {
+                if (at >= 0 && end > at) {
                     var json = JsonParser.parseString(r.output().substring(at, end + 1)).getAsJsonObject();
                     result = new Reading(json.get("input_i").getAsDouble(), json.get("input_tp").getAsDouble(), Source.ANALYSIS);
                 }

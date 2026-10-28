@@ -150,8 +150,8 @@ class UnifiedAudioBehaviorTest {
             band.block();
             for (int i = 0; i < 512; i++) {
                 double x = .5 * Math.sin(2 * Math.PI * 3000 * (block * 512 + i) / 48000);
-                band.sample(x, 0, true);
-                band.sample(x, 1, true);
+                band.sample(x, 0);
+                band.sample(x, 1);
             }
         }
         assertTrue(band.dynamicGain < -8);

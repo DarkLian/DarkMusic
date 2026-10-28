@@ -213,7 +213,7 @@ final class QueueSmokeClient {
                         new SoundEnvironmentScreen(app, actions), new DownloadToolsScreen(app, actions),
                         new DownloadPathsScreen(app, actions), new ImportHistoryScreen(app, actions),
                         new LibraryManagerScreen(app, actions), new LyricsScreen(app, actions), new PlaylistScreen(app, actions),
-                        new ColorsScreen(app, actions, true), new ColorPickerScreen(actions, 0x336699, color -> {
+                        new ColorsScreen(app, actions, true), new ColorPickerScreen(actions, 0x336699, 0x336699, color -> {
                         }),
                         new HudEditorScreen(app, actions))) {
                         mc.gui.setScreen(page);

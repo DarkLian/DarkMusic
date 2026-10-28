@@ -27,7 +27,7 @@ public final class DuplicateComparisonScreen extends LocalScreen {
     private RowList[] fields = new RowList[2];
     private final List<Button> actions = new ArrayList<>();
     private final Button[] playback = new Button[2];
-    private int side, columnWidth, columnX, cardY = 58;
+    private int side, columnWidth, cardY = 58;
     private boolean loading, loaded;
     private String notice = "";
 
@@ -43,8 +43,7 @@ public final class DuplicateComparisonScreen extends LocalScreen {
     }
 
     private Button button(String key, int x, int y, int w, Runnable run) {
-        var button = addRenderableWidget(UiButton.builder(Text.component(key), b -> run.run()).bounds(x, y, w, 20).build());
-        return button;
+        return addRenderableWidget(UiButton.builder(Text.component(key), b -> run.run()).bounds(x, y, w, 20).build());
     }
 
     @Override

@@ -146,11 +146,11 @@ public final class AudioProcessor {
                 l = filters.sample(l * headroom, 0);
                 r = filters.sample(r * headroom, 1);
                 for (var band : dynamic) {
-                    l = band.sample(l, 0, true);
-                    r = band.sample(r, 1, true);
+                    l = band.sample(l, 0);
+                    r = band.sample(r, 1);
                 }
-                l = deEsser.sample(l, 0, true);
-                r = deEsser.sample(r, 1, true);
+                l = deEsser.sample(l, 0);
+                r = deEsser.sample(r, 1);
                 if (channels == 2) {
                     double mid = (l + r) * .5, side = (l - r) * .5 * width, trim = 1 / Math.max(1, width);
                     l = (mid + side) * trim;
