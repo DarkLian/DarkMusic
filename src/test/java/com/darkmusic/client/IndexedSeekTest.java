@@ -30,8 +30,7 @@ class IndexedSeekTest {
                 var command = new ArrayList<>(List.of(ff, "-nostdin", "-v", "error", "-ss", "30", "-i", TestMusic.featured().toString(), "-t", "8", "-vn", "-map_metadata", "-1"));
                 if (extension.equals("wav")) command.addAll(List.of("-c:a", "pcm_s24le"));
                 command.add(clip.toString());
-                var result = new ProcessRunner().run(command, directory, new ProcessRunner.Token(), Duration.ofSeconds(20), 16000, line -> {
-                });
+                var result = new ProcessRunner().run(command, directory, new ProcessRunner.Token(), Duration.ofSeconds(20), 16000);
                 assertEquals(0, result.exit(), result.output());
                 for (double seconds : new double[]{1.25, 5.1}) {
                     byte[] expected;

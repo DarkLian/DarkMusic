@@ -1,6 +1,7 @@
 package com.darkmusic.client;
 
 import com.darkmusic.client.download.DownloadService;
+import com.darkmusic.client.testing.JavaTools;
 import com.darkmusic.client.tools.ProcessRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -29,7 +30,7 @@ class DownloadPreviewTest {
         runner.block = true;
         try (var service = new DownloadService(temporary, () -> {
         }, runner)) {
-            service.configure(new DownloadTest().tools());
+            service.configure(JavaTools.paths());
             service.analyze(URL, 0);
             assertTrue(runner.entered.await(3, TimeUnit.SECONDS));
             assertEquals(URL, service.lastAnalyzedUrl());
@@ -52,7 +53,7 @@ class DownloadPreviewTest {
         var runner = new Metadata();
         try (var service = new DownloadService(temporary, () -> {
         }, runner)) {
-            service.configure(new DownloadTest().tools());
+            service.configure(JavaTools.paths());
             service.analyze(URL, 0);
             DownloadTest.await(() -> !service.snapshot().analyzing());
             var preview = service.snapshot().preview();

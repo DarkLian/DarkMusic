@@ -21,8 +21,7 @@ class ProcessRunnerTest {
     @Test
     void invalidOutputLimitsAreRejectedBeforeStartingAnyExecutable() {
         assertThrows(IllegalArgumentException.class, () -> new ProcessRunner().run(List.of("nonexistent-darkmusic-test-executable"), Path.of("."),
-            new ProcessRunner.Token(), Duration.ofSeconds(1), 0, line -> {
-            }));
+            new ProcessRunner.Token(), Duration.ofSeconds(1), 0));
     }
 
     @TempDir
@@ -47,8 +46,7 @@ class ProcessRunnerTest {
                 "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script.toString(), value);
         }
         // Generous: a cold powershell.exe start on a busy CI runner has exceeded 10 s. Timing is not under test here.
-        var r = new ProcessRunner().run(echo, temp, new ProcessRunner.Token(), Duration.ofSeconds(60), 32000, s -> {
-        });
+        var r = new ProcessRunner().run(echo, temp, new ProcessRunner.Token(), Duration.ofSeconds(60), 32000);
         assertEquals(0, r.exit());
         assertEquals(value, r.output().strip());
         assertFalse(Files.exists(temp.resolve("SHOULD_NOT_EXIST")));
@@ -56,16 +54,14 @@ class ProcessRunnerTest {
 
     @Test
     void boundedOutputKeepsFinalErrorsAfterLongProgressLogs() throws Exception {
-        var result = new ProcessRunner().run(command("output"), temp, new ProcessRunner.Token(), Duration.ofSeconds(10), 1000, line -> {
-        });
+        var result = new ProcessRunner().run(command("output"), temp, new ProcessRunner.Token(), Duration.ofSeconds(10), 1000);
         assertEquals(1000, result.output().length());
         assertTrue(result.output().contains("HTTP 429 final diagnostic"));
     }
 
     @Test
     void timeoutKillsTheProcess() throws Exception {
-        assertThrows(IOException.class, () -> new ProcessRunner().run(command("wait"), temp, new ProcessRunner.Token(), Duration.ofMillis(300), 32000, s -> {
-        }));
+        assertThrows(IOException.class, () -> new ProcessRunner().run(command("wait"), temp, new ProcessRunner.Token(), Duration.ofMillis(300), 32000));
     }
 
     @Test
@@ -76,8 +72,7 @@ class ProcessRunnerTest {
         try {
             Future<?> running = executor.submit(() -> {
                 try {
-                    new ProcessRunner().run(command("tree", pid.toString()), temp, token, Duration.ofSeconds(30), 32000, s -> {
-                    });
+                    new ProcessRunner().run(command("tree", pid.toString()), temp, token, Duration.ofSeconds(30), 32000);
                 } catch (CancellationException expected) {
                 } catch (Exception e) {
                     throw new RuntimeException(e);

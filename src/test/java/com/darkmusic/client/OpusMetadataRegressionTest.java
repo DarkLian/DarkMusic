@@ -24,8 +24,7 @@ class OpusMetadataRegressionTest {
         String ff = System.getProperty("darkmusic.test.ffmpeg", ""), probe = System.getProperty("darkmusic.test.ffprobe", "");
         Assumptions.assumeFalse(ff.isBlank() || probe.isBlank(), "Private audio/existing codecs required");
         Path file = temp.resolve("derived.opus");
-        var result = new ProcessRunner().run(List.of(ff, "-nostdin", "-v", "error", "-i", TestMusic.featured().toString(), "-t", "3", "-map", "0:a:0", "-vn", "-c:a", "libopus", "-metadata", "title=Beyoncé", "-metadata", "artist=Artist", "-metadata", "album=Album", "-metadata", "lyrics=[00:01]Embedded words", "-metadata", "language=ja", file.toString()), temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 8192, l -> {
-        });
+        var result = new ProcessRunner().run(List.of(ff, "-nostdin", "-v", "error", "-i", TestMusic.featured().toString(), "-t", "3", "-map", "0:a:0", "-vn", "-c:a", "libopus", "-metadata", "title=Beyoncé", "-metadata", "artist=Artist", "-metadata", "album=Album", "-metadata", "lyrics=[00:01]Embedded words", "-metadata", "language=ja", file.toString()), temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 8192);
         assertEquals(0, result.exit(), result.output());
         ExternalAudio.configure(() -> new ExternalAudio.Paths(temp, temp.resolve("missing-ffmpeg").toString(), temp.resolve("missing-ffprobe").toString()));
         try {
@@ -44,8 +43,7 @@ class OpusMetadataRegressionTest {
                 assertTrue(stream.readNBytes(4096).length > 0, "Sub-millisecond decimal offset is accepted by the real FFmpeg");
             }
             Path bare = temp.resolve("no-lyrics.opus");
-            result = new ProcessRunner().run(List.of(ff, "-nostdin", "-v", "error", "-i", file.toString(), "-map_metadata", "-1", "-c:a", "copy", bare.toString()), temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 8192, l -> {
-            });
+            result = new ProcessRunner().run(List.of(ff, "-nostdin", "-v", "error", "-i", file.toString(), "-map_metadata", "-1", "-c:a", "copy", bare.toString()), temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 8192);
             assertEquals(0, result.exit(), result.output());
             var absent = new MetadataReader().read("r", "no-lyrics.opus", bare, Files.size(bare), Files.getLastModifiedTime(bare).toMillis());
             try (var service = new LyricsService()) {

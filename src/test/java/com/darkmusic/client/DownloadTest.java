@@ -4,6 +4,7 @@ import com.darkmusic.client.download.*;
 import com.darkmusic.client.library.MetadataReader;
 import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.testing.Await;
+import com.darkmusic.client.testing.JavaTools;
 import com.darkmusic.client.text.Text;
 import com.darkmusic.client.tools.DownloadDiagnostics;
 import com.darkmusic.client.tools.ProcessRunner;
@@ -36,11 +37,6 @@ class DownloadTest {
         Await.until(Duration.ofSeconds(15), condition, "condition");
     }
 
-    ToolPaths tools() throws Exception {
-        String executable = Path.of(System.getProperty("java.home"), "bin", System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java").toString();
-        return new ToolPaths(executable, executable, executable, "");
-    }
-
     Entry entry(String id) {
         return new Entry(1, "歌曲 音楽", "https://example.com/" + id, "Youtube", id, true);
     }
@@ -50,7 +46,7 @@ class DownloadTest {
         var fake = new FakeRunner();
         try (var service = new DownloadService(temp.resolve("preview-data"), () -> {
         }, fake)) {
-            service.configure(tools());
+            service.configure(JavaTools.paths());
             service.analyze("https://www.youtube.com/playlist?list=PL1", 1);
             await(() -> !service.snapshot().analyzing() && service.snapshot().preview() != null);
             var requests = fake.commands.stream().filter(command -> command.contains("--dump-single-json")).toList();
@@ -78,7 +74,7 @@ class DownloadTest {
         var notified = new CountDownLatch(1);
         try (var service = new DownloadService(temp.resolve("async-lyrics"), () -> {
         }, fake)) {
-            service.configure(tools());
+            service.configure(JavaTools.paths());
             service.savedObserver(file -> notified.countDown());
             service.enqueueSelected(List.of(entry("background-lyrics")), temp.resolve("saved"));
             await(() -> service.snapshot().items().size() == 1 && service.snapshot().items().getFirst().status() == Status.SAVED);
@@ -122,7 +118,7 @@ class DownloadTest {
     void pipelinePublishesOnlyAfterConversionAndSkipsDuplicates() throws Exception {
         var fake = new FakeRunner();
         var token = new ProcessRunner.Token();
-        var chain = Toolchain.resolve(tools(), temp.resolve("data"), fake, token);
+        var chain = Toolchain.resolve(JavaTools.paths(), temp.resolve("data"), fake, token);
         Path destination = Files.createDirectories(temp.resolve("chosen 音楽"));
         var pipeline = new DownloadPipeline(fake, temp.resolve("data"));
         var saved = pipeline.execute(entry("a"), destination, chain, token, (a, b) -> {
@@ -146,7 +142,7 @@ class DownloadTest {
     void thumbnailFailureFallsBackButConversionAndValidationFailuresNeverSucceed() throws Exception {
         var fake = new FakeRunner();
         var token = new ProcessRunner.Token();
-        var chain = Toolchain.resolve(tools(), temp.resolve("data"), fake, token);
+        var chain = Toolchain.resolve(JavaTools.paths(), temp.resolve("data"), fake, token);
         var pipeline = new DownloadPipeline(fake, temp.resolve("data"));
         Path destination = temp.resolve("music");
         fake.badCover = true;
@@ -171,7 +167,7 @@ class DownloadTest {
         fake.hang = true;
         try (var service = new DownloadService(temp.resolve("data"), () -> {
         }, fake)) {
-            service.configure(tools());
+            service.configure(JavaTools.paths());
             service.enqueueSelected(List.of(entry("a"), entry("b")), temp.resolve("music"));
             assertTrue(fake.entered.await(10, TimeUnit.SECONDS));
             var state = service.snapshot();
@@ -222,7 +218,7 @@ class DownloadTest {
         };
         try (var service = new DownloadService(temp.resolve("data"), () -> {
         }, fake)) {
-            service.configure(tools());
+            service.configure(JavaTools.paths());
             service.enqueueSelected(List.of(entry("bad"), entry("good")), temp.resolve("music"));
             await(() -> service.snapshot().items().size() == 2 && service.snapshot().items().stream().allMatch(i -> i.status().finished()));
             assertEquals(Status.FAILED, service.snapshot().items().getFirst().status());
@@ -237,7 +233,7 @@ class DownloadTest {
         var token = new ProcessRunner.Token();
         var missing = new ToolPaths(temp.resolve("missing.exe").toString(), "", "", "");
         assertThrows(IOException.class, () -> Toolchain.resolve(missing, temp, fake, token));
-        var chain = Toolchain.resolve(tools(), temp, fake, token);
+        var chain = Toolchain.resolve(JavaTools.paths(), temp, fake, token);
         Path destination = Files.createDirectories(temp.resolve("music"));
         Path history = destination.resolve(".darkmusic-downloads.json");
         Files.writeString(history, "broken-original");
@@ -252,7 +248,7 @@ class DownloadTest {
         fake.failConversion = true;
         try (var service = new DownloadService(temp.resolve("diagnostic-service"), () -> {
         }, fake)) {
-            service.configure(tools());
+            service.configure(JavaTools.paths());
             service.enqueueSelected(List.of(entry("retry")), temp.resolve("music"));
             await(() -> service.snapshot().items().size() == 1 && service.snapshot().items().getFirst().status() == Status.FAILED);
             long id = service.snapshot().items().getFirst().id();

@@ -2,6 +2,7 @@ package com.darkmusic.client;
 
 import com.darkmusic.client.download.DownloadService;
 import com.darkmusic.client.hud.DownloadHud;
+import com.darkmusic.client.testing.JavaTools;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -40,7 +41,7 @@ class DownloadRetryTest {
         };
         try (var service = new DownloadService(temp, () -> {
         }, runner)) {
-            service.configure(new DownloadTest().tools());
+            service.configure(JavaTools.paths());
             var entry = new Entry(1, "Private", "https://example.com/private", "Test", "private", true);
             service.enqueueSelected(List.of(entry), temp.resolve("music"));
             DownloadTest.await(() -> service.snapshot().items().size() == 1 && service.snapshot().items().getFirst().status() == Status.FAILED);
@@ -73,7 +74,7 @@ class DownloadRetryTest {
         };
         try (var service = new DownloadService(temp, () -> {
         }, runner)) {
-            service.configure(new DownloadTest().tools());
+            service.configure(JavaTools.paths());
             var bad = new Entry(1, "Bad", "https://example.com/bad", "Test", "bad", true);
             var slow = new Entry(2, "Slow", "https://example.com/slow", "Test", "slow", true);
             service.enqueueSelected(List.of(bad, slow), temp.resolve("music"));
@@ -120,7 +121,7 @@ class DownloadRetryTest {
         long size = Files.size(media);
         try (var service = new DownloadService(temp.resolve("data"), () -> {
         }, runner)) {
-            service.configure(new DownloadTest().tools());
+            service.configure(JavaTools.paths());
             service.enqueueSelected(List.of(new Entry(1, "Bad", "https://example.com/bad", "Test", "bad", true)), temp);
             DownloadTest.await(() -> service.snapshot().items().size() == 1 && service.snapshot().items().getFirst().status() == Status.FAILED);
             service.cancelAll();
@@ -135,7 +136,7 @@ class DownloadRetryTest {
         var runner = new DownloadTest.FakeRunner();
         try (var service = new DownloadService(temp, () -> {
         }, runner)) {
-            service.configure(new DownloadTest().tools());
+            service.configure(JavaTools.paths());
             service.analyze("https://example.com/playlist", 0);
             DownloadTest.await(() -> !service.snapshot().analyzing());
             var preview = service.snapshot().preview();

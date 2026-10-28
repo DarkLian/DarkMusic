@@ -38,8 +38,7 @@ class CleanupAudioTest {
                 var args = new ArrayList<>(List.of(ff.toAbsolutePath().toString(), "-nostdin", "-v", "error", "-ss", codec.equals("trim") ? "12.3" : "5", "-i", music.getFirst().toAbsolutePath().toString(), "-t", codec.equals("trim") ? "29" : "40", "-vn", "-map_metadata", "-1", "-metadata", "title=Different title " + codec, "-c:a", codec.equals("trim") ? "flac" : codec));
                 if (codec.equals("libmp3lame")) args.addAll(List.of("-b:a", "96k"));
                 args.addAll(List.of("-y", output.toString()));
-                assertEquals(0, runner.run(args, dir, token, Duration.ofSeconds(40), 8192, s -> {
-                }).exit());
+                assertEquals(0, runner.run(args, dir, token, Duration.ofSeconds(40), 8192).exit());
                 long start = System.nanoTime();
                 prints.add(new FingerprintService(new ProcessRunner(), ff.toAbsolutePath()).extract(output, dir, token));
                 System.out.println("CLEANUP_FINGERPRINT " + codec + ": ms=" + (System.nanoTime() - start) / 1_000_000);
@@ -55,8 +54,7 @@ class CleanupAudioTest {
                 for (String codec : List.of("flac", "libmp3lame")) {
                     Path output = dir.resolve("extra-" + codec + (codec.equals("flac") ? ".flac" : ".mp3"));
                     var args = List.of(ff.toAbsolutePath().toString(), "-nostdin", "-v", "error", "-i", source.toAbsolutePath().toString(), "-t", "40", "-vn", "-map_metadata", "-1", "-c:a", codec, "-y", output.toString());
-                    assertEquals(0, runner.run(args, dir, token, Duration.ofSeconds(40), 8192, s -> {
-                    }).exit());
+                    assertEquals(0, runner.run(args, dir, token, Duration.ofSeconds(40), 8192).exit());
                     fingerprints.add(new FingerprintService(new ProcessRunner(), ff.toAbsolutePath()).extract(output, dir, token));
                 }
                 assertTrue(FingerprintService.compare(fingerprints.get(0), fingerprints.get(1), DuplicatePolicy.BALANCED).matched(), "Additional real recording matches across codecs");

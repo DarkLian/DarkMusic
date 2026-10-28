@@ -32,8 +32,7 @@ class LoudnessRetryTest {
             source = files.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".mp3")).findFirst().orElseThrow();
         }
         Path tagged = temp.resolve("tagged.flac");
-        var converted = new ProcessRunner().run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", source.toString(), "-t", "2", "-vn", "-c:a", "flac", "-metadata", "replaygain_track_gain=3 dB", "-metadata", "replaygain_track_peak=0.2", tagged.toString()), temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 16000, s -> {
-        });
+        var converted = new ProcessRunner().run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", source.toString(), "-t", "2", "-vn", "-c:a", "flac", "-metadata", "replaygain_track_gain=3 dB", "-metadata", "replaygain_track_peak=0.2", tagged.toString()), temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 16000);
         assertEquals(0, converted.exit(), converted.output());
         var track = new Track("test", "tagged.flac", tagged, "Private excerpt", "", "", 2, Files.size(tagged), Files.getLastModifiedTime(tagged).toMillis(), "");
         var clock = new AtomicLong();

@@ -1,8 +1,8 @@
 package com.darkmusic.client;
 
 import com.darkmusic.client.download.DownloadService;
+import com.darkmusic.client.testing.JavaTools;
 import com.darkmusic.client.text.Text;
-import com.darkmusic.client.tools.ToolPaths;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -20,17 +20,12 @@ class ToolOperationTest {
     @TempDir
     Path temporary;
 
-    private ToolPaths tools() {
-        String java = Path.of(System.getProperty("java.home"), "bin", System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java").toString();
-        return new ToolPaths(java, java, java, "");
-    }
-
     @Test
     void toolCancellationStopsTheCheckAndResetsItsBusyState() throws Exception {
         var runner = new Blocking();
         try (var service = new DownloadService(temporary, () -> {
         }, runner)) {
-            service.configure(tools());
+            service.configure(JavaTools.paths());
             service.checkTools();
             assertTrue(runner.entered.await(3, TimeUnit.SECONDS));
             assertTrue(service.toolsBusy());
@@ -47,7 +42,7 @@ class ToolOperationTest {
         runner.url = true;
         try (var service = new DownloadService(temporary, () -> {
         }, runner)) {
-            service.configure(tools());
+            service.configure(JavaTools.paths());
             service.analyze("https://example.com/video", 0);
             assertTrue(runner.entered.await(3, TimeUnit.SECONDS));
             assertFalse(service.toolsBusy());

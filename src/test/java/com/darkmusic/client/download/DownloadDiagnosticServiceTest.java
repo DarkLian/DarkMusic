@@ -1,6 +1,7 @@
 package com.darkmusic.client.download;
 
 import com.darkmusic.client.testing.Await;
+import com.darkmusic.client.testing.JavaTools;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.tools.ToolPaths;
 import org.junit.jupiter.api.Test;
@@ -39,11 +40,6 @@ class DownloadDiagnosticServiceTest {
         }
     }
 
-    private ToolPaths tools() {
-        String java = Path.of(System.getProperty("java.home"), "bin", System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java").toString();
-        return new ToolPaths(java, java, java, "");
-    }
-
     private void idle(DownloadService service) throws Exception {
         Await.until(Duration.ofSeconds(10), () -> !service.snapshot().analyzing(), "Analysis completes");
     }
@@ -53,7 +49,7 @@ class DownloadDiagnosticServiceTest {
         var runner = new Runner();
         try (var service = new DownloadService(directory, () -> {
         }, runner)) {
-            service.configure(tools());
+            service.configure(JavaTools.paths());
             service.analyze("https://www.bilibili.com/video/id?token=secret", 0);
             idle(service);
             var first = service.analysisDiagnostic();
@@ -69,7 +65,7 @@ class DownloadDiagnosticServiceTest {
             assertSame(first, service.analysisDiagnostic(), "Checking tools must retain the prior analysis diagnostic");
             assertEquals(Category.TOOL_MISSING, service.toolDiagnostic().category());
             assertEquals(Tool.YT_DLP, service.toolDiagnostic().tool(), "Role is known even for a custom executable filename");
-            service.configure(tools());
+            service.configure(JavaTools.paths());
             service.checkTools();
             idle(service);
             assertNull(service.toolDiagnostic());
@@ -93,7 +89,7 @@ class DownloadDiagnosticServiceTest {
         var runner = new Runner();
         try (var service = new DownloadService(directory, () -> {
         }, runner)) {
-            service.configure(tools());
+            service.configure(JavaTools.paths());
             service.enqueueSelected(List.of(
                 new Entry(1, "Extractor", "https://www.bilibili.com/video/extractor", "Bilibili", "a", true),
                 new Entry(2, "Private", "https://youtu.be/private", "Youtube", "b", true),

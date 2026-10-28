@@ -89,12 +89,10 @@ class PipBundleTest {
             assertTrue(Files.size(exe.resolveSibling("DOTNET-LICENSE.TXT")) > 100);
             assertTrue(Files.size(exe.resolveSibling("licenses/CSWINRT-LICENSE.txt")) > 100);
             if (PipNativeTools.supported()) {
-                var result = new ProcessRunner().run(List.of(exe.toString(), "--pacer-test"), exe.getParent(), new ProcessRunner.Token(), Duration.ofSeconds(10), 1024, line -> {
-                });
+                var result = new ProcessRunner().run(List.of(exe.toString(), "--pacer-test"), exe.getParent(), new ProcessRunner.Token(), Duration.ofSeconds(10), 1024);
                 assertEquals(0, result.exit(), result.output());
                 assertEquals("pass", result.output().strip());
-                var reliability = new ProcessRunner().run(List.of(exe.toString(), "--reliability-test"), exe.getParent(), new ProcessRunner.Token(), Duration.ofSeconds(15), 2048, line -> {
-                });
+                var reliability = new ProcessRunner().run(List.of(exe.toString(), "--reliability-test"), exe.getParent(), new ProcessRunner.Token(), Duration.ofSeconds(15), 2048);
                 assertEquals(0, reliability.exit(), reliability.output());
                 assertEquals("pass", reliability.output().strip());
             }

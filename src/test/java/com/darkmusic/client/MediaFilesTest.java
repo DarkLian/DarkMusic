@@ -185,8 +185,7 @@ class MediaFilesTest {
         Path file = temp.resolve("source-url.m4a");
         var result = new ProcessRunner().run(List.of(ff, "-v", "error", "-i", TestMusic.featured().toString(),
                 "-t", "2", "-map", "0:a:0", "-c:a", "aac", "-metadata", "comment=" + url, file.toString()),
-            temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 4096, line -> {
-            });
+            temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 4096);
         assertEquals(0, result.exit(), result.output());
         try (var worker = Executors.newSingleThreadExecutor()) {
             var links = new SourceLinks(worker);
@@ -261,8 +260,7 @@ class MediaFilesTest {
     }
 
     private String audioHash(Path tool, Path file) throws Exception {
-        var result = new ProcessRunner().run(List.of(tool.toString(), "-v", "error", "-i", file.toAbsolutePath().toString(), "-map", "0:a:0", "-c:a", "copy", "-f", "hash", "-hash", "sha256", "pipe:1"), temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 4096, s -> {
-        });
+        var result = new ProcessRunner().run(List.of(tool.toString(), "-v", "error", "-i", file.toAbsolutePath().toString(), "-map", "0:a:0", "-c:a", "copy", "-f", "hash", "-hash", "sha256", "pipe:1"), temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 4096);
         assertEquals(0, result.exit(), result.output());
         return result.output();
     }
@@ -275,8 +273,7 @@ class MediaFilesTest {
         ExternalAudio.configure(() -> new ExternalAudio.Paths(temp, ff, tool.resolveSibling("ffprobe.exe").toString()));
         for (String[] format : List.of(new String[]{"flac", "flac"}, new String[]{"libvorbis", "ogg"}, new String[]{"aac", "m4a"}, new String[]{"pcm_s16le", "wav"}, new String[]{"pcm_s16be", "aiff"}, new String[]{"libopus", "webm"})) {
             Path file = temp.resolve("real-clip." + format[1]);
-            var converted = new ProcessRunner().run(List.of(ff, "-v", "error", "-i", TestMusic.featured().toString(), "-t", "4", "-map", "0:a:0", "-c:a", format[0], "-metadata", "title=Original title", "-metadata", "artist=Original artist", "-metadata", "album=Original album", file.toString()), temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 4096, line -> {
-            });
+            var converted = new ProcessRunner().run(List.of(ff, "-v", "error", "-i", TestMusic.featured().toString(), "-t", "4", "-map", "0:a:0", "-c:a", format[0], "-metadata", "title=Original title", "-metadata", "artist=Original artist", "-metadata", "album=Original album", file.toString()), temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 4096);
             assertEquals(0, converted.exit(), converted.output());
             String hash = audioHash(tool, file);
             Track before = track(file);

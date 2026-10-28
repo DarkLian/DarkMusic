@@ -5,8 +5,8 @@ import com.darkmusic.client.config.DownloadFormat;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.testing.Await;
+import com.darkmusic.client.testing.JavaTools;
 import com.darkmusic.client.tools.ProcessRunner;
-import com.darkmusic.client.tools.ToolPaths;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -42,7 +42,7 @@ class DownloadAwarenessTest {
         };
         try (var service = new DownloadService(temp.resolve("service"), () -> {
         }, runner)) {
-            service.configure(tools());
+            service.configure(JavaTools.paths());
             service.format(DownloadFormat.ORIGINAL);
             service.enqueueSelected(List.of(entry(), entry()), temp.resolve("downloads"));
             assertTrue(entered.await(10, TimeUnit.SECONDS));
@@ -72,11 +72,6 @@ class DownloadAwarenessTest {
         }
     }
 
-    ToolPaths tools() {
-        String java = Path.of(System.getProperty("java.home"), "bin", System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java").toString();
-        return new ToolPaths(java, java, java, "");
-    }
-
     Entry entry() {
         return new Entry(1, "Different name", "https://youtu.be/abcDEFG_123", "Youtube", "abcDEFG_123", true);
     }
@@ -98,7 +93,7 @@ class DownloadAwarenessTest {
             index.update(List.of(t), Map.of(t.file().getParent(), t.rootId()), true);
             index.settled().get(10, TimeUnit.SECONDS);
             service.awareness(index);
-            service.configure(tools());
+            service.configure(JavaTools.paths());
             service.format(DownloadFormat.ORIGINAL);
             service.enqueueSelected(List.of(entry(), entry()), temp.resolve("another-folder"));
             Await.until(Duration.ofSeconds(10), () -> !service.snapshot().analyzing(), "Preparation");
@@ -123,7 +118,7 @@ class DownloadAwarenessTest {
             index.update(List.of(t), Map.of(t.file().getParent(), t.rootId()), true);
             index.settled().get(10, TimeUnit.SECONDS);
             service.awareness(index);
-            service.configure(tools());
+            service.configure(JavaTools.paths());
             service.format(DownloadFormat.MP3);
             service.enqueueSelected(List.of(entry()), temp.resolve("new-folder"));
             Await.until(Duration.ofSeconds(10), () -> !service.snapshot().analyzing(), "Preparing format warning");
@@ -153,7 +148,7 @@ class DownloadAwarenessTest {
             index.update(List.of(t), Map.of(t.file().getParent(), t.rootId()), true);
             index.settled().get(10, TimeUnit.SECONDS);
             service.awareness(index);
-            service.configure(tools());
+            service.configure(JavaTools.paths());
             service.format(DownloadFormat.ORIGINAL);
             service.enqueueSelected(List.of(entry()), temp.resolve("first-folder"));
             Await.until(Duration.ofSeconds(10), () -> !service.snapshot().analyzing(), "First review");
@@ -182,7 +177,7 @@ class DownloadAwarenessTest {
             index.update(List.of(t), Map.of(t.file().getParent(), t.rootId()), true);
             index.settled().get(10, TimeUnit.SECONDS);
             service.awareness(index);
-            service.configure(tools());
+            service.configure(JavaTools.paths());
             service.enqueueSelected(List.of(entry()), temp.resolve("new-folder"));
             Await.until(Duration.ofSeconds(10), () -> !service.snapshot().analyzing(), "Pending review");
             service.cancelDuplicateChoice(service.duplicateChoice().id());

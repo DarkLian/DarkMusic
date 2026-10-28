@@ -24,8 +24,7 @@ class DecoderRoutingTest {
         try {
             for (String container : List.of("wav", "aiff")) {
                 Path source = scratch.resolve("real." + container);
-                var converted = new ProcessRunner().run(List.of(ff, "-nostdin", "-v", "error", "-ss", "1", "-i", TestMusic.featured().toString(), "-t", "1", "-vn", "-c:a", container.equals("wav") ? "pcm_s16le" : "pcm_s16be", "-f", container, source.toString()), scratch, new ProcessRunner.Token(), Duration.ofSeconds(30), 8192, l -> {
-                });
+                var converted = new ProcessRunner().run(List.of(ff, "-nostdin", "-v", "error", "-ss", "1", "-i", TestMusic.featured().toString(), "-t", "1", "-vn", "-c:a", container.equals("wav") ? "pcm_s16le" : "pcm_s16be", "-f", container, source.toString()), scratch, new ProcessRunner.Token(), Duration.ofSeconds(30), 8192);
                 assertEquals(0, converted.exit(), converted.output());
                 for (String suffix : List.of("mp3", "ogg", "flac")) {
                     Path mislabeled = Files.copy(source, scratch.resolve(container + "-misleading." + suffix));
@@ -36,8 +35,7 @@ class DecoderRoutingTest {
                 }
             }
             Path ogg = scratch.resolve("ogg-flac.ogg");
-            var converted = new ProcessRunner().run(List.of(ff, "-nostdin", "-v", "error", "-ss", "1", "-i", TestMusic.featured().toString(), "-t", "1", "-vn", "-c:a", "flac", "-f", "ogg", ogg.toString()), scratch, new ProcessRunner.Token(), Duration.ofSeconds(30), 8192, l -> {
-            });
+            var converted = new ProcessRunner().run(List.of(ff, "-nostdin", "-v", "error", "-ss", "1", "-i", TestMusic.featured().toString(), "-t", "1", "-vn", "-c:a", "flac", "-f", "ogg", ogg.toString()), scratch, new ProcessRunner.Token(), Duration.ofSeconds(30), 8192);
             assertEquals(0, converted.exit(), converted.output());
             assertEquals(AudioFormats.Container.UNKNOWN, AudioFormats.detect(ogg));
             ExternalAudio.configure(() -> new ExternalAudio.Paths(scratch, ff, probe));

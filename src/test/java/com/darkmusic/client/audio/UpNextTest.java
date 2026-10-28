@@ -95,13 +95,13 @@ class UpNextTest {
     }
 
     /**
-     * Moves one queued entry the way Up Next's drag does.
+     * Drags one queued entry to the head of Up Next, the way the screen does.
      */
-    boolean moveQueued(long id, int destination) {
+    boolean moveToFront(long id) {
         var ids = player.upNextSnapshot().manual().stream().map(PlaybackController.Queued::id).toList();
         var order = new ArrayList<>(IntStream.range(0, ids.size()).boxed().toList());
         order.remove(Integer.valueOf(ids.indexOf(id)));
-        order.add(destination, ids.indexOf(id));
+        order.addFirst(ids.indexOf(id));
         return player.reorderQueued(ids, order);
     }
 
@@ -204,7 +204,7 @@ class UpNextTest {
         assertNotEquals(queued.get(0).id(), queued.get(1).id());
         assertTrue(player.removeQueued(queued.get(0).id()));
         assertEquals(queued.get(1).id(), player.upNextSnapshot().manual().getFirst().id());
-        assertTrue(moveQueued(queued.get(2).id(), 0));
+        assertTrue(moveToFront(queued.get(2).id()));
         player.next();
         assertEquals(y, audio.state.track());
         player.next();
@@ -329,7 +329,7 @@ class UpNextTest {
         player.addToQueue(x);
         var duplicate = audio.prepared;
         var id = player.upNextSnapshot().manual().get(1).id();
-        moveQueued(id, 0);
+        moveToFront(id);
         assertFalse(audio.promote(duplicate, false));
         assertTrue(audio.promote(audio.prepared, false));
         assertEquals(1, player.upNextSnapshot().manual().size());

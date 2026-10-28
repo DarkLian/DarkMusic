@@ -86,8 +86,7 @@ final class AdvancedSmokeClient {
                             int i = 0;
                             for (String[] codec : List.of(new String[]{"alac", "m4a"}, new String[]{"aac", "m4a"}, new String[]{"libopus", "opus"}, new String[]{"flac", "flac"})) {
                                 Path file = work.resolve("excerpt-" + (i++) + "." + codec[1]);
-                                var result = new ProcessRunner().run(List.of(app.settings.ffmpegPath, "-nostdin", "-v", "error", "-y", "-i", song.file().toString(), "-map", "0:a:0", "-vn", "-t", "4", "-ar", i % 2 == 0 || codec[0].equals("libopus") ? "48000" : "44100", "-ac", i % 2 == 0 ? "1" : "2", "-c:a", codec[0], "-metadata", "title=" + song.title(), file.toString()), work, new ProcessRunner.Token(), Duration.ofSeconds(30), 16000, s -> {
-                                });
+                                var result = new ProcessRunner().run(List.of(app.settings.ffmpegPath, "-nostdin", "-v", "error", "-y", "-i", song.file().toString(), "-map", "0:a:0", "-vn", "-t", "4", "-ar", i % 2 == 0 || codec[0].equals("libopus") ? "48000" : "44100", "-ac", i % 2 == 0 ? "1" : "2", "-c:a", codec[0], "-metadata", "title=" + song.title(), file.toString()), work, new ProcessRunner.Token(), Duration.ofSeconds(30), 16000);
                                 require(result.exit() == 0, result.output());
                                 tracks.add(new MetadataReader().read("runtime", file.getFileName().toString(), file, Files.size(file), Files.getLastModifiedTime(file).toMillis()));
                             }

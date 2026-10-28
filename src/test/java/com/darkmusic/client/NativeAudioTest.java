@@ -70,8 +70,7 @@ class NativeAudioTest {
         var runner = new ProcessRunner();
         for (String[] format : List.of(new String[]{"alac", "m4a"}, new String[]{"aac", "m4a"}, new String[]{"aac", "aac"}, new String[]{"libopus", "opus"}, new String[]{"libvorbis", "ogg"}, new String[]{"flac", "flac"}, new String[]{"pcm_s24le", "wav"})) {
             Path target = temp.resolve(format[0] + "-音樂." + format[1]);
-            var r = runner.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", source.toString(), "-map", "0:a:0", "-c:a", format[0], "-metadata", "title=測試音樂", "-metadata", "artist=演奏者", target.toString()), temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 16000, s -> {
-            });
+            var r = runner.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", source.toString(), "-map", "0:a:0", "-c:a", format[0], "-metadata", "title=測試音樂", "-metadata", "artist=演奏者", target.toString()), temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 16000);
             assertEquals(0, r.exit(), r.output());
             byte[] before = Files.readAllBytes(target);
             try (var decoded = PcmDecoder.openPrecise(target)) {
@@ -113,8 +112,7 @@ class NativeAudioTest {
         var tools = new Toolchain(Path.of("unused-yt-dlp"), ff, ExternalAudio.tool(true), "", "");
         for (String[] codec : List.of(new String[]{"libopus", "opus"}, new String[]{"libvorbis", "ogg"})) {
             Path input = temp.resolve("source." + codec[1]);
-            assertEquals(0, real.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", source.toString(), "-c:a", codec[0], "-metadata", "title=Stale title", "-metadata", "artist=Stale artist", "-metadata", "album=Stale album", "-metadata", "track=1", "-metadata", "comment=Keep source comment", input.toString()), temp, token, Duration.ofSeconds(30), 16000, s -> {
-            }).exit());
+            assertEquals(0, real.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", source.toString(), "-c:a", codec[0], "-metadata", "title=Stale title", "-metadata", "artist=Stale artist", "-metadata", "album=Stale album", "-metadata", "track=1", "-metadata", "comment=Keep source comment", input.toString()), temp, token, Duration.ofSeconds(30), 16000).exit());
             byte[] original = Files.readAllBytes(input);
             var captionCalls = new AtomicInteger();
             var runner = new ProcessRunner() {
@@ -150,13 +148,11 @@ class NativeAudioTest {
             assertEquals("Current album", metadata.album());
             var inspected = ExternalAudio.probe(saved.file()).getAsJsonArray("streams").get(0).getAsJsonObject().getAsJsonObject("tags");
             assertTrue(inspected.entrySet().stream().anyMatch(e -> e.getKey().equalsIgnoreCase("track") && e.getValue().getAsString().equals("7")), inspected.toString());
-            var allTags = real.run(List.of(tools.ffprobe().toString(), "-v", "error", "-show_entries", "stream_tags=comment", "-of", "json", saved.file().toString()), temp, token, Duration.ofSeconds(10), 16000, s -> {
-            });
+            var allTags = real.run(List.of(tools.ffprobe().toString(), "-v", "error", "-show_entries", "stream_tags=comment", "-of", "json", saved.file().toString()), temp, token, Duration.ofSeconds(10), 16000);
             assertTrue(allTags.output().contains("Keep source comment"), allTags.output());
             Path before = temp.resolve("before-" + codec[1] + ".bin"), after = temp.resolve("after-" + codec[1] + ".bin");
             for (var pair : List.of(new Path[]{input, before}, new Path[]{saved.file(), after}))
-                assertEquals(0, real.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", pair[0].toString(), "-map", "0:a:0", "-c:a", "copy", "-f", "data", pair[1].toString()), temp, token, Duration.ofSeconds(30), 16000, s -> {
-                }).exit());
+                assertEquals(0, real.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", pair[0].toString(), "-map", "0:a:0", "-c:a", "copy", "-f", "data", pair[1].toString()), temp, token, Duration.ofSeconds(30), 16000).exit());
             assertEquals(-1, Files.mismatch(before, after), "Embedding cover art must preserve compressed audio");
             assertArrayEquals(original, Files.readAllBytes(input));
         }
@@ -170,8 +166,7 @@ class NativeAudioTest {
         var chain = new Toolchain(temp.resolve("unused-yt-dlp"), ff, ExternalAudio.tool(true), "", "");
         for (String codec : List.of("pcm_s24be", "pcm_f32be", "pcm_f64be")) {
             Path input = temp.resolve(codec + ".aiff");
-            assertEquals(0, real.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", source.toString(), "-c:a", codec, input.toString()), temp, token, Duration.ofSeconds(30), 16000, s -> {
-            }).exit());
+            assertEquals(0, real.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", source.toString(), "-c:a", codec, input.toString()), temp, token, Duration.ofSeconds(30), 16000).exit());
             var supplied = new ProcessRunner() {
                 @Override
                 public Result run(List<String> args, Path dir, Token cancellation, Duration timeout, int max, Consumer<String> lines) throws IOException, InterruptedException {
@@ -189,8 +184,7 @@ class NativeAudioTest {
             assertEquals(littleEndian, DownloadEncoding.codec(real, chain, saved.file(), temp, token));
             Path before = temp.resolve(codec + "-before.bin"), after = temp.resolve(codec + "-after.bin");
             for (var pair : List.of(new Path[]{input, before}, new Path[]{saved.file(), after}))
-                assertEquals(0, real.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", pair[0].toString(), "-map", "0:a:0", "-c:a", littleEndian, "-f", "data", pair[1].toString()), temp, token, Duration.ofSeconds(30), 16000, s -> {
-                }).exit());
+                assertEquals(0, real.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", pair[0].toString(), "-map", "0:a:0", "-c:a", littleEndian, "-f", "data", pair[1].toString()), temp, token, Duration.ofSeconds(30), 16000).exit());
             assertEquals(-1, Files.mismatch(before, after), "Endian conversion must preserve every PCM value");
             try (var pcm = PcmDecoder.openPrecise(saved.file())) {
                 assertTrue(pcm.readNBytes(4096).length > 0);
@@ -209,8 +203,7 @@ class NativeAudioTest {
         Assumptions.assumeFalse(yt.isBlank());
         var runner = new ProcessRunner();
         var token = new ProcessRunner.Token();
-        assertEquals(0, runner.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", source.toString(), "-c:a", "aac", aac.toString()), temp, token, Duration.ofSeconds(30), 16000, s -> {
-        }).exit());
+        assertEquals(0, runner.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", source.toString(), "-c:a", "aac", aac.toString()), temp, token, Duration.ofSeconds(30), 16000).exit());
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         byte[] bytes = Files.readAllBytes(aac);
         server.createContext("/authorized.m4a", exchange -> {
@@ -230,8 +223,7 @@ class NativeAudioTest {
             assertEquals("aac", DownloadEncoding.codec(runner, tools, saved.file(), temp, token));
             Path before = temp.resolve("before.aac"), after = temp.resolve("after.aac");
             for (var pair : List.of(new Path[]{aac, before}, new Path[]{saved.file(), after}))
-                assertEquals(0, runner.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", pair[0].toString(), "-map", "0:a:0", "-c:a", "copy", pair[1].toString()), temp, token, Duration.ofSeconds(30), 16000, s -> {
-                }).exit());
+                assertEquals(0, runner.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", pair[0].toString(), "-map", "0:a:0", "-c:a", "copy", pair[1].toString()), temp, token, Duration.ofSeconds(30), 16000).exit());
             assertEquals(-1, Files.mismatch(before, after), "Native download must preserve compressed audio packets");
             assertArrayEquals(bytes, Files.readAllBytes(aac));
         } finally {
@@ -288,8 +280,7 @@ class NativeAudioTest {
         var chain = new Toolchain(temp.resolve("unused-yt-dlp"), ff, ExternalAudio.tool(true), "", "");
         for (String[] format : List.of(new String[]{"libmp3lame", "mp3"}, new String[]{"aac", "m4a"}, new String[]{"alac", "m4a"}, new String[]{"libopus", "opus"}, new String[]{"libvorbis", "ogg"}, new String[]{"flac", "flac"}, new String[]{"pcm_s24le", "wav"})) {
             Path input = temp.resolve("matrix-" + format[0] + "." + format[1]);
-            assertEquals(0, real.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", source.toString(), "-c:a", format[0], input.toString()), temp, token, Duration.ofSeconds(30), 16000, s -> {
-            }).exit());
+            assertEquals(0, real.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", source.toString(), "-c:a", format[0], input.toString()), temp, token, Duration.ofSeconds(30), 16000).exit());
             byte[] original = Files.readAllBytes(input);
             var supplied = new ProcessRunner() {
                 @Override
@@ -336,8 +327,7 @@ class NativeAudioTest {
         var formats = List.of(new String[]{"libmp3lame", "mp3"}, new String[]{"aac", "m4a"}, new String[]{"alac", "m4a"}, new String[]{"flac", "flac"}, new String[]{"pcm_s24le", "wav"});
         for (String[] format : formats) {
             Path input = temp.resolve(format[0] + "." + format[1]);
-            assertEquals(0, real.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", source.toString(), "-c:a", format[0], input.toString()), temp, token, Duration.ofSeconds(30), 16000, s -> {
-            }).exit());
+            assertEquals(0, real.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", source.toString(), "-c:a", format[0], input.toString()), temp, token, Duration.ofSeconds(30), 16000).exit());
             var supplied = new ProcessRunner() {
                 @Override
                 public Result run(List<String> args, Path dir, Token cancellation, Duration timeout, int max, Consumer<String> lines) throws IOException, InterruptedException {

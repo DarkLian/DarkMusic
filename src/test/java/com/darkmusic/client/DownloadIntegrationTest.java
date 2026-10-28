@@ -50,8 +50,7 @@ class DownloadIntegrationTest {
                 case "flac", "flac24" -> "flac";
                 default -> "libvorbis";
             };
-            var result = runner.run(List.of(selected.ffmpeg(), "-nostdin", "-v", "error", "-ss", "30", "-i", source.toString(), "-t", "2", "-vn", "-c:a", codec, "-sample_fmt", format.equals("ogg") ? "fltp" : format.equals("flac24") ? "s32" : "s16", file.toString()), temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 32000, line -> {
-            });
+            var result = runner.run(List.of(selected.ffmpeg(), "-nostdin", "-v", "error", "-ss", "30", "-i", source.toString(), "-t", "2", "-vn", "-c:a", codec, "-sample_fmt", format.equals("ogg") ? "fltp" : format.equals("flac24") ? "s32" : "s16", file.toString()), temp, new ProcessRunner.Token(), Duration.ofSeconds(30), 32000);
             assertEquals(0, result.exit(), result.output());
             try (var pcm = PcmDecoder.open(file)) {
                 assertTrue(pcm.readNBytes(32768).length > 0);
@@ -97,8 +96,7 @@ class DownloadIntegrationTest {
             String url = url("http://127.0.0.1:" + server.getAddress().getPort() + "/音乐-日本語.wav");
             var args = chain.base();
             args.addAll(List.of("--dump-single-json", "--skip-download", "--no-playlist", "--", url));
-            var info = runner.run(args, data, token, Duration.ofSeconds(40), 2_000_000, s -> {
-            });
+            var info = runner.run(args, data, token, Duration.ofSeconds(40), 2_000_000);
             assertEquals(0, info.exit(), info.output());
             var preview = DownloadJson.preview(url, 1, DownloadJson.object(info.output()));
             assertFalse(preview.collection());
@@ -133,8 +131,7 @@ class DownloadIntegrationTest {
         Path data = Files.createDirectories(temp.resolve("parallel-instance"));
         var chain = Toolchain.resolve(settings(), data, runner, new ProcessRunner.Token());
         Path excerpt = temp.resolve("parallel-excerpt.wav");
-        var conversion = runner.run(List.of(chain.ffmpeg().toString(), "-nostdin", "-v", "error", "-ss", "30", "-i", TestMusic.featured().toString(), "-t", "2", "-vn", "-c:a", "pcm_s16le", excerpt.toString()), data, new ProcessRunner.Token(), Duration.ofSeconds(30), 32000, line -> {
-        });
+        var conversion = runner.run(List.of(chain.ffmpeg().toString(), "-nostdin", "-v", "error", "-ss", "30", "-i", TestMusic.featured().toString(), "-t", "2", "-vn", "-c:a", "pcm_s16le", excerpt.toString()), data, new ProcessRunner.Token(), Duration.ofSeconds(30), 32000);
         assertEquals(0, conversion.exit(), conversion.output());
         byte[] audio = Files.readAllBytes(excerpt);
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -185,8 +182,7 @@ class DownloadIntegrationTest {
         Path data = Files.createDirectories(temp.resolve("instance"));
         var chain = Toolchain.resolve(settings, data, runner, token);
         Path fixture = temp.resolve("excerpt.mp3");
-        var excerpt = runner.run(List.of(chain.ffmpeg().toString(), "-nostdin", "-v", "error", "-ss", "30", "-i", TestMusic.featured().toString(), "-t", "4", "-c:a", "libmp3lame", fixture.toString()), data, token, Duration.ofSeconds(30), 32000, line -> {
-        });
+        var excerpt = runner.run(List.of(chain.ffmpeg().toString(), "-nostdin", "-v", "error", "-ss", "30", "-i", TestMusic.featured().toString(), "-t", "4", "-c:a", "libmp3lame", fixture.toString()), data, token, Duration.ofSeconds(30), 32000);
         assertEquals(0, excerpt.exit(), excerpt.output());
         byte[] realArtwork = new MetadataReader().artwork(TestMusic.featured());
         ProcessRunner supply = new ProcessRunner() {
@@ -211,13 +207,11 @@ class DownloadIntegrationTest {
         assertEquals("作曲家", metadata.artist());
         assertEquals("专辑", metadata.album());
         assertNotNull(new MetadataReader().artwork(saved.file()));
-        var probe = runner.run(List.of(chain.ffprobe().toString(), "-v", "error", "-show_entries", "format_tags=track", "-of", "json", saved.file().toString()), data, token, Duration.ofSeconds(10), 32000, s -> {
-        });
+        var probe = runner.run(List.of(chain.ffprobe().toString(), "-v", "error", "-show_entries", "format_tags=track", "-of", "json", saved.file().toString()), data, token, Duration.ofSeconds(10), 32000);
         assertTrue(probe.output().contains("7"), probe.output());
         var untagged = new DownloadPipeline(supply, data).execute(new Entry(0, "Untagged", "https://example.com/untagged", "Test", "untagged", true), destination, chain, token, (a, b) -> {
         });
-        var tags = runner.run(List.of(chain.ffprobe().toString(), "-v", "error", "-show_entries", "format_tags", "-of", "json", untagged.file().toString()), data, token, Duration.ofSeconds(10), 32000, s -> {
-        });
+        var tags = runner.run(List.of(chain.ffprobe().toString(), "-v", "error", "-show_entries", "format_tags", "-of", "json", untagged.file().toString()), data, token, Duration.ofSeconds(10), 32000);
         var json = JsonParser.parseString(tags.output()).getAsJsonObject().getAsJsonObject("format").getAsJsonObject("tags");
         for (String key : List.of("artist", "album", "track")) assertFalse(json.has(key), tags.output());
         assertEquals(Text.get("download.no_thumbnail"), untagged.warning());

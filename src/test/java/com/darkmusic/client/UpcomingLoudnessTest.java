@@ -28,8 +28,7 @@ class UpcomingLoudnessTest {
         Assumptions.assumeFalse(configured.isBlank(), "Real FFmpeg integration is opt-in");
         Path ff = Path.of(configured), audio = directory.resolve("current.wav"), next = directory.resolve("upcoming.wav");
         var result = new ProcessRunner().run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", TestMusic.featured().toString(),
-            "-t", "4", "-vn", "-map_metadata", "-1", "-c:a", "pcm_s16le", audio.toString()), directory, new ProcessRunner.Token(), Duration.ofSeconds(15), 16000, line -> {
-        });
+            "-t", "4", "-vn", "-map_metadata", "-1", "-c:a", "pcm_s16le", audio.toString()), directory, new ProcessRunner.Token(), Duration.ofSeconds(15), 16000);
         assertEquals(0, result.exit(), result.output());
         Files.copy(audio, next);
         var current = new Track("real", "current.wav", audio, "", "", "", 4, Files.size(audio), 0, "");

@@ -43,8 +43,7 @@ class LoudnessIntegrationTest {
         }
         var runner = new ProcessRunner();
         var token = new ProcessRunner.Token();
-        var r = runner.run(List.of(ff, "-nostdin", "-v", "error", "-i", source.toString(), "-c:a", "flac", "-metadata", "replaygain_track_gain=6 dB", "-metadata", "replaygain_track_peak=0.5", tagged.toString()), temp, token, Duration.ofSeconds(30), 16000, s -> {
-        });
+        var r = runner.run(List.of(ff, "-nostdin", "-v", "error", "-i", source.toString(), "-c:a", "flac", "-metadata", "replaygain_track_gain=6 dB", "-metadata", "replaygain_track_peak=0.5", tagged.toString()), temp, token, Duration.ofSeconds(30), 16000);
         assertEquals(0, r.exit(), r.output());
         var reader = new MetadataReader();
         var track = reader.read("t", "tagged.flac", tagged, Files.size(tagged), Files.getLastModifiedTime(tagged).toMillis());
