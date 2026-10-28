@@ -162,7 +162,6 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
     public PlaybackController playback;
     private JavaSoundBackend backend;
     public ListeningHistory listeningHistory;
-    private boolean outputChanging;
     DuplicateScanner cleanupScanner;
     DuplicateReviewStore cleanupReviews;
     LibrarySourceIndex sourceIndex;
@@ -234,11 +233,11 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             result.complete(false);
             return result;
         }
-        outputChanging = true;
+        state.outputChanging = true;
         var selected = backend;
         selected.output(new OutputDevices(id, false, this::warn)).whenComplete((ok, failure) -> Minecraft.getInstance().execute(() -> {
-            outputChanging = false;
-            boolean applied = !closed && backend == selected && failure == null && ok;
+            state.outputChanging = false;
+            boolean applied = !state.closed && backend == selected && failure == null && ok;
             if (applied) {
                 settings.outputDevice = id;
                 playback.outputChanged();
@@ -263,7 +262,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             }
             keys.put("key_" + key.getName(), value);
         }
-        mediaBusy = restoring = true;
+        state.mediaBusy = state.restoring = true;
         if (restored.selection().history()) listeningHistory.suspended(true);
         var finished = new CompletableFuture<Void>();
         CompletableFuture.runAsync(() -> {
@@ -290,7 +289,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                     finished.completeExceptionally(new IOException(Text.get("backup.failed"), failure));
                     return;
                 }
-                if (closed) {
+                if (state.closed) {
                     finished.complete(null);
                     return;
                 }
@@ -311,8 +310,8 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                 save();
                 finished.complete(null);
             } finally {
-                mediaBusy = restoring = RestoreJournal.recoveryPending(config.directory());
-                listeningHistory.suspended(restoring);
+                state.mediaBusy = state.restoring = RestoreJournal.recoveryPending(config.directory());
+                listeningHistory.suspended(state.restoring);
             }
         }));
         return finished;
@@ -331,15 +330,14 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         config.directory().resolve("media-native"), action -> Minecraft.getInstance().execute(() -> mediaAction(action)));
     public final LyricsService lyrics = new LyricsService(config.directory().resolve("lyrics"));
     public boolean playlistsReady;
-    // Set while an import, edit, deletion or backup restore owns the music files; menus read it to disable actions.
-    boolean mediaBusy;
+    // Shutdown, reset and busy flags, and the checks built from them.
+    final ClientState state = new ClientState();
 
     @Override
     public boolean mediaBusy() {
-        return mediaBusy;
+        return state.mediaBusy;
     }
 
-    private boolean restoring;
     public boolean importing;
     public String importDestination = "";
     public ImportHistory importHistory;
@@ -357,28 +355,16 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         return accepting() && playback != null;
     }
 
-    private volatile boolean closed;
-    private boolean resetting;
-
-    /**
-     * Not shutting down and not resetting storage.
-     */
     boolean alive() {
-        return !closed && !resetting;
+        return state.alive();
     }
 
-    /**
-     * Alive, with no import, restore or other media operation in progress.
-     */
     public boolean idle() {
-        return alive() && !mediaBusy;
+        return state.idle();
     }
 
-    /**
-     * Idle and not switching the output device: free to start another exclusive operation.
-     */
     boolean accepting() {
-        return idle() && !outputChanging;
+        return state.accepting();
     }
 
     private enum RequestedScreen {PLAYER, HUD, LYRICS, PIP, KEYS}
@@ -399,7 +385,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
     public void announce(String text) {
         var client = Minecraft.getInstance();
         if (client != null) client.execute(() -> {
-            if (!closed && client.getNarrator().isActive())
+            if (!state.closed && client.getNarrator().isActive())
                 client.getNarrator().saySystemQueued(Component.literal(text));
         });
     }
@@ -676,7 +662,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
 
     @Override
     public void save() {
-        if (alive() && !restoring && settings != null) {
+        if (alive() && !state.restoring && settings != null) {
             configureVisualizer();
             config.save(settings);
         }
@@ -776,7 +762,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
     private final ResumeTracker resume = new ResumeTracker();
 
     private void recordResume(boolean persist) {
-        if (resume.record(settings, playback, persist) && persist && alive() && !restoring) config.save(settings);
+        if (resume.record(settings, playback, persist) && persist && alive() && !state.restoring) config.save(settings);
     }
 
     public void requestScreen(boolean layout) {
@@ -863,7 +849,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         PipController.register(pipSources);
         shortcuts.register();
         CompletableFuture.supplyAsync(config::load, io).thenAccept(loaded -> Minecraft.getInstance().execute(() -> {
-            if (!closed) {
+            if (!state.closed) {
                 settings = loaded;
                 ready();
                 save();
@@ -885,16 +871,16 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             if (pip != null) pip.tick();
             updates.tick(client);
             var current = settings;
-            if (current != null && playback != null && !resetting) {
+            if (current != null && playback != null && !state.resetting) {
                 var playing = playback.state().track();
                 // Source links resolve in the background; the status gains the artwork once the link is known.
                 String artwork = current.discordStatus && current.discordShowTitle && current.discordArtwork && playing != null
                     ? DiscordPresence.artwork(sourceLinks.get(playing)) : "";
                 discord.update(current.discordStatus, current.discordShowTitle, playback.state(), current.speed, artwork);
             } else discord.update(false, true, null, 1, "");
-            boolean media = current != null && current.mediaControls && playback != null && !resetting;
+            boolean media = current != null && current.mediaControls && playback != null && !state.resetting;
             mediaControls.update(media ? mediaPackage.executable() : null, media ? playback.state() : null, System.nanoTime());
-            boolean allowed = !resetting && settings != null && client.gui.screen() == null && client.gui.overlay() == null && client.player != null && client.player.isAlive();
+            boolean allowed = !state.resetting && settings != null && client.gui.screen() == null && client.gui.overlay() == null && client.player != null && client.player.isAlive();
             boolean pressed = false;
             while (shortcuts.open.consumeClick()) pressed = true;
             if (allowed && pressed && !shortcuts.conflicts(shortcuts.open)) open();
@@ -902,13 +888,13 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             openRequestedScreen(client);
         });
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
-            if (settings != null && playback != null && !resetting) recordResume(false);
+            if (settings != null && playback != null && !state.resetting) recordResume(false);
             updates.close();
             discord.close();
             mediaControls.close();
             mediaPackage.close();
             save();
-            closed = true;
+            state.closed = true;
             shutdown();
             io.shutdown();
             try {
@@ -927,7 +913,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         shortcuts.loadSaved();
         playlists = new PlaylistStore(config.directory(), io, this::warn);
         CompletableFuture.supplyAsync(playlists::read, io).thenAccept(list -> Minecraft.getInstance().execute(() -> {
-            if (!closed) {
+            if (!state.closed) {
                 playlists.loaded(list);
                 playlistsReady = true;
             }
@@ -966,7 +952,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         service.configure(new ToolPaths(settings.ytDlpPath, settings.ffmpegPath, settings.ffprobePath, settings.javascriptPath));
         service.format(settings.downloadFormat);
         service.savedObserver(file -> Minecraft.getInstance().execute(() -> {
-            if (!closed && settings.lyricsEnabled && settings.lyricsOnline && settings.lyricsDownloadLookup)
+            if (!state.closed && settings.lyricsEnabled && settings.lyricsOnline && settings.lyricsDownloadLookup)
                 lyrics.lookup.downloaded(file, library.roots(), settings.lyricsLanguages, settings.lyricsAutoCaptions);
         }));
         if (sourceIndex != null) service.awareness(sourceIndex);
@@ -985,13 +971,13 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             ((ThreadPoolExecutor) browsing).purge();
             return browsing.submit(task);
         } catch (RejectedExecutionException e) {
-            if (!closed) warn(Text.get("error.folder_busy"));
+            if (!state.closed) warn(Text.get("error.folder_busy"));
             return null;
         }
     }
 
     private boolean cleanMissingPlaylistEntries() {
-        if (mediaBusy || !playlistsReady || library == null || playlistCleanupPending) return false;
+        if (state.mediaBusy || !playlistsReady || library == null || playlistCleanupPending) return false;
         var snapshot = library.snapshot();
         if (snapshot.completeRoots().isEmpty()) return false;
         if (cleanedScan == snapshot.revision() && cleanedPlaylists == playlists.revision()) return true;
@@ -1035,24 +1021,24 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                 var tracks = library.snapshot().tracks();
                 if (!tracks.isEmpty()) waveformTrack = tracks.getFirst();
             }
-            waveforms.update(waveformTrack, settings.waveformProgress && !mediaBusy);
+            waveforms.update(waveformTrack, settings.waveformProgress && !state.mediaBusy);
         }
         if (settings != null && playback != null && settings.lyricsEnabled) {
             var track = playback.state().track();
             lyrics.request(track, settings.lyricsAutomaticLookup);
             if (library != null) {
                 var snapshot = library.snapshot();
-                if (snapshot.scanning() || mediaBusy) lyrics.lookup.tickRetries();
+                if (snapshot.scanning() || state.mediaBusy) lyrics.lookup.tickRetries();
                 else
                     lyrics.background(snapshot.tracks(), snapshot.completeRoots(), settings.lyricsOnline && lyrics.libraryLookupRunning());
             }
         }
-        allowed &= !mediaBusy;
+        allowed &= !state.mediaBusy;
         if (!warning.isEmpty() && System.nanoTime() >= warningUntil) warning = "";
         shortcuts.consume(allowed);
-        if (resetting || settings == null || playback == null) return;
+        if (state.resetting || settings == null || playback == null) return;
         var queuedLibrary = library.snapshot();
-        if (!mediaBusy && queuedLibraryRevision != queuedLibrary.revision()) {
+        if (!state.mediaBusy && queuedLibraryRevision != queuedLibrary.revision()) {
             queuedLibraryRevision = queuedLibrary.revision();
             if (!queuedLibrary.scanning()) lyrics.lookup.prune(queuedLibrary.tracks(),
                 new HashSet<>(library.roots().values()), queuedLibrary.completeRoots(), queuedLibrary.unreadableScopes());
@@ -1065,16 +1051,16 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                 if (cleanupScanner != null)
                     cleanupScanner.prune(queuedLibrary.tracks(), registered, cleanupRoots);
             }
-            if (sourceIndex != null && !mediaBusy) {
+            if (sourceIndex != null && !state.mediaBusy) {
                 sourceIndex.roots(library.roots());
                 if (!queuedLibrary.scanning())
                     sourceIndex.update(queuedLibrary.tracks(), library.roots(), queuedLibrary.complete());
             }
-            if (!mediaBusy && !queuedLibrary.scanning())
+            if (!state.mediaBusy && !queuedLibrary.scanning())
                 playback.reconcileQueued(playlists.index(queuedLibrary.tracks()),
                     new HashSet<>(library.roots().values()), queuedLibrary.completeRoots());
         }
-        if (listeningHistory != null && !mediaBusy) listeningHistory.flush(false);
+        if (listeningHistory != null && !state.mediaBusy) listeningHistory.flush(false);
         if (sourceIndex != null && cleanupScanner != null && sourceEvidenceRevision != cleanupScanner.snapshot().revision()) {
             sourceEvidenceRevision = cleanupScanner.snapshot().revision();
             var pairs = cleanupScanner.snapshot().pairs();
@@ -1086,11 +1072,11 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         }
         boolean playlistsClean = cleanMissingPlaylistEntries();
         var startup = library.snapshot();
-        if (autoplayPending && !mediaBusy && playlistsClean && !startup.scanning()) {
+        if (autoplayPending && !state.mediaBusy && playlistsClean && !startup.scanning()) {
             autoplayPending = false;
             startPlayback();
         }
-        if (!autoplayPending && !mediaBusy) recordResume(true);
+        if (!autoplayPending && !state.mediaBusy) recordResume(true);
         sleep.tick(playback, settings.volume);
     }
 
@@ -1101,7 +1087,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
     public CompletableFuture<Void> resetDefaults() {
         if (!idle())
             return CompletableFuture.failedFuture(new IllegalStateException(Text.get("reset.darkmusic.busy")));
-        resetting = true;
+        state.resetting = true;
         if (cleanupScanner != null) {
             cleanupScanner.close();
             cleanupScanner = null;
@@ -1156,7 +1142,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                 throw new CompletionException(e);
             }
         }, io).whenComplete((retained, failure) -> Minecraft.getInstance().execute(() -> {
-            if (closed) {
+            if (state.closed) {
                 finished.completeExceptionally(new IllegalStateException(Text.get("reset.darkmusic.closing")));
                 return;
             }
@@ -1166,7 +1152,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             waveforms = new WaveformCache(config.directory());
             library = new MusicLibrary(config.directory());
             downloads = createDownloads();
-            resetting = false;
+            state.resetting = false;
             playback.volume(settings.volume);
             playback.speed(settings.speed);
             playback.shuffle(settings.shuffle);
