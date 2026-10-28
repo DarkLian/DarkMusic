@@ -23,6 +23,7 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -96,7 +97,8 @@ public final class LyricsLookup implements AutoCloseable {
 
     private final Map<String, Attempt> automatic = new ConcurrentHashMap<>();
     private final LongSupplier clock;
-    private volatile long retryNotBefore;
+    // Raised by lyric workers on rate limits; only ever moves later.
+    private final AtomicLong retryNotBefore = new AtomicLong();
     private volatile long cacheRevision;
 
     public long requests() {
@@ -409,7 +411,7 @@ public final class LyricsLookup implements AutoCloseable {
         if (!enabled || !online || track == null || localAvailable || choice(track).selected != null || reviewSelections.containsKey(track.id()) || !loaded.contains(track.id()))
             return;
         if (pending.containsKey(track.id())) return;
-        if (clock.getAsLong() < retryNotBefore) return;
+        if (clock.getAsLong() < retryNotBefore.get()) return;
         Attempt previous = automatic.get(track.id());
         if (owner == null && previous != null) owner = previous.owner;
         if (owner != null && owner.cancelled()) return;
@@ -429,7 +431,7 @@ public final class LyricsLookup implements AutoCloseable {
     public void tickRetries() {
         if (!enabled || !online || closed || !pending.isEmpty()) return;
         long now = clock.getAsLong();
-        if (now < retryNotBefore) return;
+        if (now < retryNotBefore.get()) return;
         for (var attempt : automatic.values())
             if (attempt.retryAt != Long.MAX_VALUE && now >= attempt.retryAt) {
                 if (attempt.owner != null && attempt.owner.cancelled()) {
@@ -446,11 +448,11 @@ public final class LyricsLookup implements AutoCloseable {
     }
 
     public boolean busy() {
-        return !pending.isEmpty() || clock.getAsLong() < retryNotBefore;
+        return !pending.isEmpty() || clock.getAsLong() < retryNotBefore.get();
     }
 
     public long cooldownSeconds() {
-        long remaining = retryNotBefore - clock.getAsLong();
+        long remaining = retryNotBefore.get() - clock.getAsLong();
         return remaining <= 0 ? 0 : TimeUnit.NANOSECONDS.toSeconds(remaining - 1) + 1;
     }
 
@@ -481,7 +483,7 @@ public final class LyricsLookup implements AutoCloseable {
     public long retrySeconds(Track track) {
         Attempt attempt = track == null ? null : automatic.get(track.id());
         if (!enabled || !online || attempt == null || attempt.retryAt == Long.MAX_VALUE) return 0;
-        long delay = Math.max(attempt.retryAt, retryNotBefore) - clock.getAsLong();
+        long delay = Math.max(attempt.retryAt, retryNotBefore.get()) - clock.getAsLong();
         return delay <= 0 ? 0 : Math.max(1, TimeUnit.NANOSECONDS.toSeconds(delay) + 1);
     }
 
@@ -652,7 +654,7 @@ public final class LyricsLookup implements AutoCloseable {
                 retryAt = Long.MAX_VALUE;
             }
             if (providerWait > 0)
-                retryNotBefore = Math.max(retryNotBefore, clock.getAsLong() + TimeUnit.MILLISECONDS.toNanos(providerWait));
+                retryNotBefore.accumulateAndGet(clock.getAsLong() + TimeUnit.MILLISECONDS.toNanos(providerWait), Math::max);
             return new Attempt(track, attempt.count, retryAt, attempt.query, attempt.owner);
         });
     }

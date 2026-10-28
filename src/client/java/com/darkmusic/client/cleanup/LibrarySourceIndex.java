@@ -205,8 +205,11 @@ public final class LibrarySourceIndex implements AutoCloseable {
                 map.computeIfAbsent(DuplicateMatcher.normalize(t.title()), k -> new ArrayList<>()).add(t);
         var result = new HashMap<String, List<Track>>();
         map.forEach((k, v) -> result.put(k, v.stream().distinct().limit(8).toList()));
-        possible = Map.copyOf(result);
-        revision++;
+        // Other writers hold this lock; an unguarded revision++ could lose their update.
+        synchronized (this) {
+            possible = Map.copyOf(result);
+            revision++;
+        }
     }
 
     public static String identity(String extractor, String mediaId, String url) {
