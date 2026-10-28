@@ -47,6 +47,7 @@ import com.darkmusic.client.library.Track;
 import com.darkmusic.client.lyrics.LyricsService;
 import com.darkmusic.client.media.ExternalAudio;
 import com.darkmusic.client.pip.PipController;
+import com.darkmusic.client.pip.PipSources;
 import com.darkmusic.client.playlist.PlaylistStore;
 import com.darkmusic.client.presence.DiscordPresence;
 import com.darkmusic.client.render.UiTheme;
@@ -128,6 +129,20 @@ public class DarkMusicClient implements ClientModInitializer {
 
         public TrackWaveform waveform(Track track) {
             return waveforms == null ? null : waveforms.get(track);
+        }
+    };
+    // Same for PiP.
+    private final PipSources pipSources = new PipSources() {
+        public Settings settings() {
+            return settings;
+        }
+
+        public PlaybackController playback() {
+            return playback;
+        }
+
+        public PipController pip() {
+            return pip;
         }
     };
     public volatile Settings settings;
@@ -614,7 +629,7 @@ public class DarkMusicClient implements ClientModInitializer {
         volumeFeedback.register(hud);
         speedFeedback.register(hud);
         DownloadHud.register(hud);
-        PipController.register(this);
+        PipController.register(pipSources);
         shortcuts.register();
         CompletableFuture.supplyAsync(config::load, io).thenAccept(loaded -> Minecraft.getInstance().execute(() -> {
             if (!closed) {
@@ -688,7 +703,7 @@ public class DarkMusicClient implements ClientModInitializer {
         }));
         artwork = new ArtworkCache();
         waveforms = new WaveformCache(config.directory());
-        pip = new PipController(this);
+        pip = new PipController(config.directory(), pipSources);
         playback = createPlayback();
         playback.volume(settings.volume);
         configureVisualizer();

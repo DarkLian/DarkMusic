@@ -1,6 +1,5 @@
 package com.darkmusic.client.pip;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.PipSettings;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.render.HorizontalText;
@@ -16,13 +15,14 @@ import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWNativeWin32;
 
+import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Client-thread session owner. Capturing a window never changes music or its playback source.
  */
 public final class PipController implements AutoCloseable {
-    private final DarkMusicClient app;
+    private final PipSources sources;
     public final PipNativeTools tools;
     private final PipTexture texture = new PipTexture(Identifier.fromNamespaceAndPath("darkmusic", "pip"));
     private final SpectrumRenderer audioSpectrum = new SpectrumRenderer();
@@ -35,20 +35,20 @@ public final class PipController implements AutoCloseable {
     private boolean preparing, closed;
     private CompletableFuture<Void> stopping = CompletableFuture.completedFuture(null);
 
-    public PipController(DarkMusicClient app) {
-        this.app = app;
-        tools = new PipNativeTools(app.config.directory(), () -> app.settings != null && app.settings.pip.enabled);
+    public PipController(Path configDirectory, PipSources sources) {
+        this.sources = sources;
+        tools = new PipNativeTools(configDirectory, () -> sources.settings() != null && sources.settings().pip.enabled);
     }
 
-    public static void register(DarkMusicClient app) {
+    public static void register(PipSources sources) {
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("darkmusic", "pip"), (g, delta) -> {
             var mc = Minecraft.getInstance();
-            if (app.pip != null && mc.level != null && mc.gui.screen() == null && !mc.gui.hud.isHidden())
-                app.pip.overlay(g);
+            if (sources.pip() != null && mc.level != null && mc.gui.screen() == null && !mc.gui.hud.isHidden())
+                sources.pip().overlay(g);
         });
         ScreenEvents.AFTER_INIT.register((mc, screen, w, h) -> ScreenEvents.afterExtract(screen).register((s, g, x, y, delta) -> {
-            if (app.pip != null && app.settings != null && app.settings.pip.inMenus && !(s instanceof PipPreview))
-                app.pip.overlay(g);
+            if (sources.pip() != null && sources.settings() != null && sources.settings().pip.inMenus && !(s instanceof PipPreview))
+                sources.pip().overlay(g);
         }));
     }
 
@@ -65,7 +65,7 @@ public final class PipController implements AutoCloseable {
     }
 
     public void select(PipSource value) {
-        if (!app.settings.pip.enabled || !tools.runtime.ready()) return;
+        if (!sources.settings().pip.enabled || !tools.runtime.ready()) return;
         stop();
         source = value;
     }
@@ -79,17 +79,17 @@ public final class PipController implements AutoCloseable {
     }
 
     public void tick() {
-        if ((preparing || session != null) && !app.settings.pip.enabled) stop();
+        if ((preparing || session != null) && !sources.settings().pip.enabled) stop();
         if (session != null) {
             session.watchdog();
-            if (session.audio != null) session.audio.configure(app.settings.pip.spectrum);
+            if (session.audio != null) session.audio.configure(sources.settings().pip.spectrum);
         }
     }
 
     public void start() {
         if (closed || active() || source == null) return;
-        if (!app.settings.pip.enabled || !tools.runtime.ready()) {
-            state = app.settings.pip.enabled ? "pip.setup.required" : "pip.setup.disabled";
+        if (!sources.settings().pip.enabled || !tools.runtime.ready()) {
+            state = sources.settings().pip.enabled ? "pip.setup.required" : "pip.setup.disabled";
             return;
         }
         if (!PipNativeTools.supported()) {
@@ -100,17 +100,17 @@ public final class PipController implements AutoCloseable {
         long request = ++generation;
         preparing = true;
         state = "pip.starting";
-        app.settings.pip.validate();
+        sources.settings().pip.validate();
         tools.prepare().thenCombine(stopping, (exe, ignored) -> exe).whenComplete((exe, error) -> Minecraft.getInstance().execute(() -> {
-            if (closed || request != generation || !app.settings.pip.enabled) return;
+            if (closed || request != generation || !sources.settings().pip.enabled) return;
             preparing = false;
             if (error != null) {
                 state = PipNativeTools.failure(error);
                 return;
             }
             long window = GLFWNativeWin32.glfwGetWin32Window(Minecraft.getInstance().getWindow().handle());
-            session = new PipSession(exe, source, window, app.settings.pip, app.settings.pip.effectiveFrameRate(monitorRefreshRate()));
-            if (session.audio != null) session.audio.configure(app.settings.pip.spectrum);
+            session = new PipSession(exe, source, window, sources.settings().pip, sources.settings().pip.effectiveFrameRate(monitorRefreshRate()));
+            if (session.audio != null) session.audio.configure(sources.settings().pip.spectrum);
         }));
     }
 
@@ -163,11 +163,11 @@ public final class PipController implements AutoCloseable {
 
     public PipSettings.Bounds bounds(int width, int height) {
         var f = frame();
-        return app.settings.pip.bounds(width, height, f == null ? 16 : f.width(), f == null ? 9 : f.height());
+        return sources.settings().pip.bounds(width, height, f == null ? 16 : f.width(), f == null ? 9 : f.height());
     }
 
     public void overlay(GuiGraphicsExtractor g) {
-        if (session == null || !app.settings.pip.visible) return;
+        if (session == null || !sources.settings().pip.visible) return;
         update();
         draw(g, bounds(g.guiWidth(), g.guiHeight()), false);
     }
@@ -182,7 +182,7 @@ public final class PipController implements AutoCloseable {
 
     public void draw(GuiGraphicsExtractor g, PipSettings.Bounds b, boolean fullImage, boolean preview) {
         var f = frame();
-        var settings = app.settings.pip;
+        var settings = sources.settings().pip;
         if (f == null) {
             g.fill(b.x(), b.y(), b.x() + b.width(), b.y() + b.height(), 0xff111420);
         } else {
@@ -207,7 +207,7 @@ public final class PipController implements AutoCloseable {
      * Preview is the only path allowed to synthesize levels when capture has no audio.
      */
     public void drawSpectrum(GuiGraphicsExtractor g, PipSettings.Bounds b, boolean preview) {
-        var s = app.settings.pip.spectrum;
+        var s = sources.settings().pip.spectrum;
         var captured = audio();
         var analyzer = captured != null && captured.available() ? captured.analyzer() : null;
         if (analyzer == null && !preview) return;
@@ -219,12 +219,12 @@ public final class PipController implements AutoCloseable {
             try {
                 g.pose().translate(b.x() + (left ? 0 : b.width()), b.y() + (left ? b.height() : 0));
                 g.pose().rotate((float) (left ? -Math.PI / 2 : Math.PI / 2));
-                audioSpectrum.bars(app.settings, app.playback, g, SpectrumRenderer.Bars.at(0, 0, b.height(), b.width(), false, preview).from(analyzer, spectrumAppearance));
+                audioSpectrum.bars(sources.settings(), sources.playback(), g, SpectrumRenderer.Bars.at(0, 0, b.height(), b.width(), false, preview).from(analyzer, spectrumAppearance));
             } finally {
                 g.pose().popMatrix();
             }
         } else
-            audioSpectrum.bars(app.settings, app.playback, g, SpectrumRenderer.Bars.at(b.x(), b.y(), b.width(), b.height(), downward, preview).from(analyzer, spectrumAppearance));
+            audioSpectrum.bars(sources.settings(), sources.playback(), g, SpectrumRenderer.Bars.at(b.x(), b.y(), b.width(), b.height(), downward, preview).from(analyzer, spectrumAppearance));
     }
 
     @Override
