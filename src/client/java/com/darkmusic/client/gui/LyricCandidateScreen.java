@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.lyrics.LyricsDocument;
 import com.darkmusic.client.render.UiIcon;
@@ -11,12 +10,12 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 
 public final class LyricCandidateScreen extends LocalScreen {
-    private final DarkMusicClient app;
+    private final LyricsScreen.Sources app;
     private final Track track;
     private final LyricsDocument document;
     private String error = "";
 
-    public LyricCandidateScreen(DarkMusicClient app, Screen parent, Track track, LyricsDocument document) {
+    public LyricCandidateScreen(LyricsScreen.Sources app, Screen parent, Track track, LyricsDocument document) {
         super(Text.component("lyrics.preview"), parent);
         this.app = app;
         this.track = track;
@@ -32,7 +31,7 @@ public final class LyricCandidateScreen extends LocalScreen {
         rows.rows(lines.stream().map(line -> new RowList.Row(line, "")).toList());
         addRenderableWidget(UiButton.builder(Text.component("lyrics.apply"), b -> {
             b.active = false;
-            app.lyrics.lookup.select(track, document).whenComplete((done, failure) -> minecraft.execute(() -> {
+            app.lyrics().lookup.select(track, document).whenComplete((done, failure) -> minecraft.execute(() -> {
                 if (failure == null) onClose();
                 else {
                     error = Text.get("lyrics.operation_failed");

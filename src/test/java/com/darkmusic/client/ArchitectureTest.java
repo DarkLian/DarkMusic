@@ -33,11 +33,12 @@ class ArchitectureTest {
     private static final Set<String> DECOUPLED = Set.of("command", "hud", "pip", "render", "update");
     // Files already moved off DarkMusicClient in packages that are not done yet; the package replaces them when it is.
     private static final Set<String> DECOUPLED_FILES = Set.of("gui/AudioPage.java", "gui/ColorsScreen.java",
-        "gui/LocalScreen.java", "gui/PipEditorScreen.java", "gui/PipScreen.java", "gui/PipSourcesScreen.java",
-        "gui/PipSpectrumScreen.java");
+        "gui/LocalScreen.java", "gui/LyricCandidateScreen.java", "gui/LyricsConsent.java", "gui/LyricsLibraryScreen.java",
+        "gui/LyricsOptionsScreen.java", "gui/LyricsScreen.java", "gui/LyricsSearchScreen.java", "gui/LyricsSettingsScreen.java",
+        "gui/PipEditorScreen.java", "gui/PipScreen.java", "gui/PipSourcesScreen.java", "gui/PipSpectrumScreen.java");
     private static final Pattern ROOT_TYPE = Pattern.compile("\\bcom\\.darkmusic\\.client\\.[A-Z]\\w*");
     // Lower this as packages stop depending on DarkMusicClient; never raise it.
-    private static final int MAX_CLIENT_DEPENDENTS = 48;
+    private static final int MAX_CLIENT_DEPENDENTS = 41;
 
     @Test
     void packagesDependOnlyDownward() throws IOException {

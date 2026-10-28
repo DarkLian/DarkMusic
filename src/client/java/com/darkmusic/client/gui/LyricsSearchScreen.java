@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.lyrics.*;
 import com.darkmusic.client.render.UiIcon;
@@ -18,7 +17,7 @@ import java.util.Locale;
  * Search drafts do not modify music tags or replace the current lyric selection.
  */
 public final class LyricsSearchScreen extends LocalScreen {
-    private final DarkMusicClient app;
+    private final LyricsScreen.Sources app;
     private final Track track;
     private UiInput song, artist;
     private RowList rows;
@@ -27,7 +26,7 @@ public final class LyricsSearchScreen extends LocalScreen {
     private List<LyricsProvider.Candidate> candidates = List.of();
     private int selected = -1;
 
-    public LyricsSearchScreen(DarkMusicClient app, Screen parent, Track track) {
+    public LyricsSearchScreen(LyricsScreen.Sources app, Screen parent, Track track) {
         super(Text.component("lyrics.search"), parent);
         this.app = app;
         this.track = track;
@@ -48,23 +47,23 @@ public final class LyricsSearchScreen extends LocalScreen {
         Help.tip(song, Text.get("lyrics.search_title"));
         Help.tip(artist, Text.get("lyrics.search_artist"));
         var search = addRenderableWidget(UiButton.builder(Text.component("lyrics.search"), b -> {
-            app.lyrics.lookup.search(track, new LyricsProvider.Query(song.getValue().strip(), artist.getValue().strip(), track.album(), track.duration()), false);
+            app.lyrics().lookup.search(track, new LyricsProvider.Query(song.getValue().strip(), artist.getValue().strip(), track.album(), track.duration()), false);
         }).bounds(12, 60, half, 20).build());
         var source = addRenderableWidget(UiButton.builder(Text.component("lyrics.source_search"), b ->
-            app.lyrics.lookup.source(track, app.settings.lyricsLanguages, app.settings.lyricsAutoCaptions)).bounds(16 + half, 60, half, 20).build());
-        search.active = source.active = app.settings.lyricsEnabled && app.settings.lyricsOnline;
+            app.lyrics().lookup.source(track, app.settings().lyricsLanguages, app.settings().lyricsAutoCaptions)).bounds(16 + half, 60, half, 20).build());
+        search.active = source.active = app.settings().lyricsEnabled && app.settings().lyricsOnline;
         Help.tip(source, Text.get("lyrics.source_search.help"));
         rows = addRenderableWidget(new RowList(12, 102, width - 24, Math.max(20, height - 138), 36, title.getString(), (i, activate) -> {
             selected = i;
             if (activate) preview();
         }));
-        rows.emptyMessage(Text.get(app.settings.lyricsOnline ? "lyrics.search_prompt" : "lyrics.online_required"));
+        rows.emptyMessage(Text.get(app.settings().lyricsOnline ? "lyrics.search_prompt" : "lyrics.online_required"));
         int third = (width - 32) / 3;
         preview = addRenderableWidget(UiButton.builder(Text.component("lyrics.preview"), b -> preview()).bounds(12, height - 28, third, 20).build());
-        addRenderableWidget(UiButton.builder(Text.component("lyrics.refresh"), b -> app.lyrics.lookup.search(track,
+        addRenderableWidget(UiButton.builder(Text.component("lyrics.refresh"), b -> app.lyrics().lookup.search(track,
                 new LyricsProvider.Query(song.getValue().strip(), artist.getValue().strip(), track.album(), track.duration()), true))
-            .bounds(16 + third, height - 28, third, 20).build()).active = app.settings.lyricsEnabled && app.settings.lyricsOnline;
-        addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.cancel"), b -> app.lyrics.lookup.cancel(track)).bounds(20 + 2 * third, height - 28, third, 20).build());
+            .bounds(16 + third, height - 28, third, 20).build()).active = app.settings().lyricsEnabled && app.settings().lyricsOnline;
+        addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.cancel"), b -> app.lyrics().lookup.cancel(track)).bounds(20 + 2 * third, height - 28, third, 20).build());
         shown = null;
         tick();
     }
@@ -76,7 +75,7 @@ public final class LyricsSearchScreen extends LocalScreen {
 
     @Override
     public void tick() {
-        var snapshot = app.lyrics.lookup.snapshot(track);
+        var snapshot = app.lyrics().lookup.snapshot(track);
         if (shown != snapshot) {
             String id = selected >= 0 && selected < candidates.size() ? candidates.get(selected).document().provider() + ":" + candidates.get(selected).document().recordId() : "";
             shown = snapshot;
@@ -102,10 +101,10 @@ public final class LyricsSearchScreen extends LocalScreen {
         UiTheme.background(g, width, height);
         UiTheme.header(g, font, title, UiIcon.LYRICS);
         longText.begin();
-        String status = Text.get("lyrics.status." + app.lyrics.lookup.snapshot(track).status().name().toLowerCase(Locale.ROOT));
-        long retry = app.lyrics.lookup.retrySeconds(track);
+        String status = Text.get("lyrics.status." + app.lyrics().lookup.snapshot(track).status().name().toLowerCase(Locale.ROOT));
+        long retry = app.lyrics().lookup.retrySeconds(track);
         if (retry > 0) status += " | " + Text.get("lyrics.retry_in", retry);
-        longText.drawUpdating(g, font, "status", status, 14, 87, width - 28, UiStatus.color(UiStatus.lyrics(app.lyrics.lookup.snapshot(track).status())));
+        longText.drawUpdating(g, font, "status", status, 14, 87, width - 28, UiStatus.color(UiStatus.lyrics(app.lyrics().lookup.snapshot(track).status())));
         super.extractRenderState(g, x, y, delta);
     }
 }

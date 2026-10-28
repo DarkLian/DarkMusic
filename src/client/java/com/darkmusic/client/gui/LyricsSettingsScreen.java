@@ -1,14 +1,13 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.LyricsLanguages;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
-public final class LyricsSettingsScreen extends AudioPage<DarkMusicClient> {
+public final class LyricsSettingsScreen extends AudioPage<LyricsScreen.Sources> {
 
-    public LyricsSettingsScreen(DarkMusicClient app, Screen parent) {
+    public LyricsSettingsScreen(LyricsScreen.Sources app, Screen parent) {
         super(app, parent, "lyrics.settings");
     }
 
@@ -19,7 +18,7 @@ public final class LyricsSettingsScreen extends AudioPage<DarkMusicClient> {
 
     @Override
     protected void populate() {
-        var s = app.settings;
+        var s = app.settings();
         section("lyrics.settings");
         int find = rowCount();
         action("lyrics.library.find", () -> show(new LyricsLibraryScreen(app, this)));
@@ -40,6 +39,6 @@ public final class LyricsSettingsScreen extends AudioPage<DarkMusicClient> {
                 app.save();
             }))).navigates();
         action("lyrics.clear_cache", () -> show(new ConfirmationScreen(this, Text.component("lyrics.clear_cache"), Text.component("lyrics.clear_cache.help"),
-            Text.component("lyrics.clear_cache"), () -> app.lyrics.lookup.clearCache()))).destructive();
+            Text.component("lyrics.clear_cache"), () -> app.lyrics().lookup.clearCache()))).destructive();
     }
 }

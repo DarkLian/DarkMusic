@@ -95,7 +95,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources {
+public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources, LyricsScreen.Sources {
     public static DarkMusicClient INSTANCE;
     public final ExecutorService io = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-storage").factory());
     public final ExecutorService browsing = new ThreadPoolExecutor(2, 2, 0, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(16), Thread.ofPlatform().daemon().name("darkmusic-browse").factory(), new ThreadPoolExecutor.AbortPolicy());
@@ -319,6 +319,7 @@ public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources 
     // Set while an import, edit, deletion or backup restore owns the music files; menus read it to disable actions.
     boolean mediaBusy;
 
+    @Override
     public boolean mediaBusy() {
         return mediaBusy;
     }
@@ -465,6 +466,21 @@ public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources 
     @Override
     public PipController pip() {
         return pip;
+    }
+
+    @Override
+    public LyricsService lyrics() {
+        return lyrics;
+    }
+
+    @Override
+    public PlaybackController playback() {
+        return playback;
+    }
+
+    @Override
+    public MusicLibrary library() {
+        return library;
     }
 
     @Override
