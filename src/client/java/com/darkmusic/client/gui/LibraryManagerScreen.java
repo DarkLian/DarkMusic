@@ -1,6 +1,6 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.library.ArtworkCache;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
@@ -18,7 +18,14 @@ import java.util.Locale;
  * File selection is deliberately separate from playlist-entry removal.
  */
 public final class LibraryManagerScreen extends LocalScreen {
-    private final DarkMusicClient app;
+    /**
+     * Library songs with artwork, and the deletion and cleanup screens they open.
+     */
+    public interface Sources extends SmartCleanupScreen.Sources {
+        ArtworkCache artwork();
+    }
+
+    private final Sources app;
     private final SongSelection selection = new SongSelection();
     private List<Track> tracks = List.of();
     private RowList rows;
@@ -26,7 +33,7 @@ public final class LibraryManagerScreen extends LocalScreen {
     private String query = "";
     private long revision = -1;
 
-    public LibraryManagerScreen(DarkMusicClient app, Screen parent) {
+    public LibraryManagerScreen(Sources app, Screen parent) {
         super(Text.component("delete_audio.manage"), parent);
         this.app = app;
     }
@@ -48,14 +55,14 @@ public final class LibraryManagerScreen extends LocalScreen {
             Text.get("delete_audio.select"), (i, activated) -> {
         }));
         rows.multiple(selection);
-        rows.artwork(app.artwork, i -> i < tracks.size() ? tracks.get(i) : null);
+        rows.artwork(app.artwork(), i -> i < tracks.size() ? tracks.get(i) : null);
         int w = (width - 32) / 3;
         button("text.darkmusic.select_all", 12, height - 66, w, selection::all);
         button("text.darkmusic.deselect_all", 16 + w, height - 66, w, selection::clear);
         button("text.darkmusic.invert_selection", 20 + w * 2, height - 66, w, selection::invert);
         delete = button("delete_audio.review", 12, height - 28, width - 24, () -> {
             var ids = selection.selected();
-            var selected = app.library.snapshot().tracks().stream().filter(t -> ids.contains(t.id())).toList();
+            var selected = app.library().snapshot().tracks().stream().filter(t -> ids.contains(t.id())).toList();
             if (!selected.isEmpty()) show(new AudioDeletionScreen(app, this, selected, this));
         });
         UiButton.style(delete, UiButton.Style.DESTRUCTIVE);
@@ -67,7 +74,7 @@ public final class LibraryManagerScreen extends LocalScreen {
     }
 
     private void refresh() {
-        var snapshot = app.library.snapshot();
+        var snapshot = app.library().snapshot();
         if (!snapshot.scanning()) selection.retain(snapshot.tracks().stream().map(Track::id).toList());
         tracks = snapshot.tracks().stream().filter(t -> t.matches(query.strip().toLowerCase(Locale.ROOT))).toList();
         selection.visible(tracks.stream().map(Track::id).toList());
@@ -78,8 +85,8 @@ public final class LibraryManagerScreen extends LocalScreen {
 
     @Override
     public void tick() {
-        if (revision != app.library.snapshot().revision()) refresh();
-        delete.active = !app.mediaBusy() && !app.library.snapshot().scanning() && !selection.isEmpty();
+        if (revision != app.library().snapshot().revision()) refresh();
+        delete.active = !app.mediaBusy() && !app.library().snapshot().scanning() && !selection.isEmpty();
         rows.active = !app.mediaBusy();
     }
 
@@ -90,7 +97,7 @@ public final class LibraryManagerScreen extends LocalScreen {
         UiTheme.header(g, font, title, UiIcon.TOOLS);
         longText.draw(g, font, "selection", selection.hidden() == 0 ? Text.get("format.darkmusic.selected", selection.size()) : Text.get("playlist.darkmusic.filtered_selection", selection.size(), selection.hidden()),
             12, height - 40, width - 24, UiStatus.color(selection.hidden() > 0 ? UiStatus.Tone.WARNING : UiStatus.Tone.INFO));
-        var snapshot = app.library.snapshot();
+        var snapshot = app.library().snapshot();
         if (!snapshot.message().isBlank())
             longText.draw(g, font, "library-status", snapshot.message(), 12, 59, width - 24,
                 UiStatus.color(snapshot.scanning() ? UiStatus.Tone.INFO : UiStatus.Tone.WARNING));

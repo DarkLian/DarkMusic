@@ -1,8 +1,10 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.*;
+import com.darkmusic.client.audio.PlaybackController;
 import com.darkmusic.client.cleanup.*;
+import com.darkmusic.client.cleanup.DuplicateScanner;
+import com.darkmusic.client.config.SettingsSource;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
@@ -12,14 +14,37 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 
+import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 
 /**
  * Explicit A/B decisions; the only deletion entry point is the existing exact-path review.
  */
 public final class DuplicateComparisonScreen extends LocalScreen {
-    private final DarkMusicClient app;
+    /**
+     * Duplicate scans and reviews, the files to compare, and audition through the player.
+     */
+    public interface Sources extends SettingsSource, AudioDeletionScreen.Sources, IgnoredMatchesScreen.Sources, TrackThumbnails {
+        DuplicateScanner cleanup();
+
+        /**
+         * Null until startup creates the player.
+         */
+        PlaybackController playback();
+
+        /**
+         * The browsing pool, for file checks off the client thread.
+         */
+        ExecutorService browsing();
+
+        void warn(String text);
+
+        void openFolder(Path directory);
+    }
+
+    private final Sources app;
     private final DuplicateResult pair;
     private final Screen parent;
     private final DuplicateMediaInfo[] details = {DuplicateMediaInfo.EMPTY, DuplicateMediaInfo.EMPTY};
@@ -31,7 +56,7 @@ public final class DuplicateComparisonScreen extends LocalScreen {
     private boolean loading, loaded;
     private String notice = "";
 
-    public DuplicateComparisonScreen(DarkMusicClient app, Screen parent, DuplicateResult pair) {
+    public DuplicateComparisonScreen(Sources app, Screen parent, DuplicateResult pair) {
         super(Text.component("cleanup.compare"), parent);
         this.app = app;
         this.parent = parent;
@@ -73,7 +98,7 @@ public final class DuplicateComparisonScreen extends LocalScreen {
             var play = button(i == 0 ? "cleanup.play_a" : "cleanup.play_b", x, height - 68, w, () -> play(index));
             playback[i] = play;
             UiButton.icon(play, UiIcon.PLAY, false);
-            var location = button("cleanup.location", x + w + 4, height - 68, w, () -> app.folders.open(track(index).file().getParent()));
+            var location = button("cleanup.location", x + w + 4, height - 68, w, () -> app.openFolder(track(index).file().getParent()));
             var delete = button(i == 0 ? "cleanup.delete_a" : "cleanup.delete_b", x + (w + 4) * 2, height - 68, columnWidth - (w + 4) * 2, () -> {
                 if (app.mediaBusy()) return;
                 closePreview();
@@ -102,7 +127,7 @@ public final class DuplicateComparisonScreen extends LocalScreen {
         if (!loading && !loaded) {
             loading = true;
             try {
-                app.browsing.execute(() -> {
+                app.browsing().execute(() -> {
                     var a = DuplicateMediaInfo.read(pair.a());
                     var b = DuplicateMediaInfo.read(pair.b());
                     minecraft.execute(() -> {
@@ -152,8 +177,8 @@ public final class DuplicateComparisonScreen extends LocalScreen {
     private void play(int side) {
         if (app.mediaBusy()) return;
         if (audition == null)
-            audition = new ComparisonAudition(app.playback, () -> new JavaSoundBackend(minecraft::execute, PcmDecoder::openPrecise, new OutputDevices(app.settings.outputDevice, true, app::warn)));
-        audition.play(track(side), app.settings.volume);
+            audition = new ComparisonAudition(app.playback(), () -> new JavaSoundBackend(minecraft::execute, PcmDecoder::openPrecise, new OutputDevices(app.settings().outputDevice, true, app::warn)));
+        audition.play(track(side), app.settings().volume);
         updatePlayback();
     }
 

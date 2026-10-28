@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.cleanup.*;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
@@ -19,7 +18,13 @@ import java.util.stream.IntStream;
  * Pair rows preserve real evidence; related rows never imply untested transitive matches.
  */
 public final class SmartCleanupScreen extends LocalScreen {
-    private final DarkMusicClient app;
+    /**
+     * Duplicate scanning over the library, and the screens it opens.
+     */
+    public interface Sources extends DuplicateComparisonScreen.Sources {
+    }
+
+    private final Sources app;
     private final DuplicateScanner scanner;
     private final DuplicateReviewStore reviews;
     private RowList rows;
@@ -42,7 +47,7 @@ public final class SmartCleanupScreen extends LocalScreen {
     private List<ResultRow> displayed = List.of();
     private final Set<String> expanded = new HashSet<>();
 
-    public SmartCleanupScreen(DarkMusicClient app, Screen parent) {
+    public SmartCleanupScreen(Sources app, Screen parent) {
         super(Text.component("cleanup.title"), parent);
         this.app = app;
         scanner = app.cleanup();
@@ -90,8 +95,8 @@ public final class SmartCleanupScreen extends LocalScreen {
         rows.disclosure(i -> displayed.get(i).pair() == null ? 4 : -1, i -> toggle(displayed.get(i).group()));
         int w = (width - 36) / 4, y = height - 28;
         start = button("cleanup.start", 12, y, w, () -> {
-            if (!app.mediaBusy() && !app.library.snapshot().scanning())
-                scanner.start(app.library.snapshot().tracks(), policy, analyzeAudio);
+            if (!app.mediaBusy() && !app.library().snapshot().scanning())
+                scanner.start(app.library().snapshot().tracks(), policy, analyzeAudio);
         });
         cancel = button("cleanup.cancel", 16 + w, y, w, scanner::cancel);
         review = button("cleanup.review", 20 + w * 2, y, w, this::compare);
@@ -163,7 +168,7 @@ public final class SmartCleanupScreen extends LocalScreen {
     private void updateButtons() {
         var state = scanner.snapshot();
         boolean busy = state.running();
-        start.active = !busy && !app.mediaBusy() && !app.library.snapshot().scanning();
+        start.active = !busy && !app.mediaBusy() && !app.library().snapshot().scanning();
         cancel.active = busy;
         sensitivity.active = audio.active = !busy;
         sensitivity.setMessage(Component.literal(Text.get("cleanup.sensitivity") + ": " + Text.get("cleanup.policy." + policy.name().toLowerCase(Locale.ROOT))));
@@ -184,7 +189,7 @@ public final class SmartCleanupScreen extends LocalScreen {
         UiTheme.header(g, font, title, UiIcon.SEARCH);
         var s = scanner.snapshot();
         String status = Text.get("cleanup.stage." + s.stage().name().toLowerCase(Locale.ROOT)) + " | " + Text.get("cleanup.progress", s.done(), s.total(), visible.size());
-        if (app.library.snapshot().scanning()) status = Text.get("cleanup.wait_scan");
+        if (app.library().snapshot().scanning()) status = Text.get("cleanup.wait_scan");
         longText.draw(g, font, "progress", status, 12, height - 72, width - 24, UiStatus.color(s.stage() == DuplicateScanner.Stage.FAILED ? UiStatus.Tone.ERROR : s.stage() == DuplicateScanner.Stage.COMPLETE ? UiStatus.Tone.SUCCESS : UiStatus.Tone.INFO));
         String details = !reviews.error().isEmpty() ? Text.get(reviews.error()) : s.cacheFailed() ? Text.get("cleanup.cache_failed") : s.limited() ? Text.get("cleanup.limited") : Text.get("cleanup.skipped", s.unavailable(), s.audioFailed());
         longText.draw(g, font, "details", details, 12, height - 56, width - 24, !reviews.error().isEmpty() ? UiTheme.ERROR : s.cacheFailed() || s.limited() || s.unavailable() > 0 || s.audioFailed() > 0 ? UiTheme.WARNING : UiStatus.color(UiStatus.Tone.INFO));

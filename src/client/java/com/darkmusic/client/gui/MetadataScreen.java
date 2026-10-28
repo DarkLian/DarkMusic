@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.library.MediaFiles;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.render.HorizontalText;
@@ -13,10 +12,20 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 public final class MetadataScreen extends LocalScreen {
-    private final DarkMusicClient app;
+    /**
+     * Tag reading and editing, and deleting the song.
+     */
+    public interface Sources extends AudioDeletionScreen.Sources {
+        CompletableFuture<MediaFiles.Fields> readMetadata(Track track);
+
+        CompletableFuture<Track> editMetadata(Track track, MediaFiles.Fields original, MediaFiles.Fields fields);
+    }
+
+    private final Sources app;
     private final Track track;
     private final Consumer<Track> saved;
     private final Screen parent;
@@ -27,7 +36,7 @@ public final class MetadataScreen extends LocalScreen {
     private boolean loading, saving;
     private int left, top, panelWidth;
 
-    public MetadataScreen(DarkMusicClient app, Screen parent, Track track, Consumer<Track> saved) {
+    public MetadataScreen(Sources app, Screen parent, Track track, Consumer<Track> saved) {
         super(Text.component("library.darkmusic.edit_metadata"), parent);
         this.app = app;
         this.parent = parent;
@@ -62,7 +71,7 @@ public final class MetadataScreen extends LocalScreen {
         save.active = original != null && !saving;
         if (!loading && original == null) {
             loading = true;
-            app.media.readMetadata(track).whenComplete((fields, failure) -> minecraft.execute(() -> {
+            app.readMetadata(track).whenComplete((fields, failure) -> minecraft.execute(() -> {
                 if (failure != null) {
                     error = message(failure);
                     return;
@@ -99,7 +108,7 @@ public final class MetadataScreen extends LocalScreen {
         save.active = false;
         error = "";
         var draft = new MediaFiles.Fields(song.getValue(), artist.getValue(), album.getValue(), filename.getValue(), original.extension());
-        app.media.editMetadata(track, original, draft).whenComplete((edited, failure) -> minecraft.execute(() -> {
+        app.editMetadata(track, original, draft).whenComplete((edited, failure) -> minecraft.execute(() -> {
             saving = false;
             if (failure != null) {
                 error = message(failure);

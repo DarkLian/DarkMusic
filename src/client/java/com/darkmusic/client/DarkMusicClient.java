@@ -29,18 +29,23 @@ import com.darkmusic.client.gui.AudioSettingsScreen;
 import com.darkmusic.client.gui.BackupScreen;
 import com.darkmusic.client.gui.DesktopFolderPicker;
 import com.darkmusic.client.gui.DownloadDuplicateScreen;
+import com.darkmusic.client.gui.DuplicateComparisonScreen;
 import com.darkmusic.client.gui.FolderTree;
 import com.darkmusic.client.gui.Help;
 import com.darkmusic.client.gui.HudEditorScreen;
 import com.darkmusic.client.gui.IgnoredMatchesScreen;
 import com.darkmusic.client.gui.ImportHistoryScreen;
 import com.darkmusic.client.gui.ImportOverlay;
+import com.darkmusic.client.gui.LibraryManagerScreen;
 import com.darkmusic.client.gui.LocalScreen;
 import com.darkmusic.client.gui.LyricsScreen;
+import com.darkmusic.client.gui.MetadataScreen;
+import com.darkmusic.client.gui.MusicFoldersScreen;
 import com.darkmusic.client.gui.MusicScreen;
 import com.darkmusic.client.gui.PipScreen;
 import com.darkmusic.client.gui.PlayerProgress;
 import com.darkmusic.client.gui.RowList;
+import com.darkmusic.client.gui.SmartCleanupScreen;
 import com.darkmusic.client.gui.TrackPickerScreen;
 import com.darkmusic.client.gui.TrackThumbnails;
 import com.darkmusic.client.gui.UpdateScreen;
@@ -56,6 +61,7 @@ import com.darkmusic.client.library.ArtworkCache;
 import com.darkmusic.client.library.AudioDeletion;
 import com.darkmusic.client.library.ImportHistory;
 import com.darkmusic.client.library.ListeningHistory;
+import com.darkmusic.client.library.MediaFiles;
 import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
@@ -113,7 +119,8 @@ import java.util.stream.Collectors;
 public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources, LyricsScreen.Sources,
     AudioSettingsScreen.Sources, ImportOverlay.Sources, PlayerProgress.Sources, TrackThumbnails, AudioDeletionScreen.Sources,
     DownloadDuplicateScreen.Sources, IgnoredMatchesScreen.Sources, ImportHistoryScreen.Sources, TrackPickerScreen.Sources,
-    UpdateScreen.Sources, BackupScreen.Sources, HudEditorScreen.Sources {
+    UpdateScreen.Sources, BackupScreen.Sources, HudEditorScreen.Sources, DuplicateComparisonScreen.Sources,
+    SmartCleanupScreen.Sources, LibraryManagerScreen.Sources, MetadataScreen.Sources, MusicFoldersScreen.Sources {
     public static DarkMusicClient INSTANCE;
     public final ExecutorService io = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-storage").factory());
     public final ExecutorService browsing = new ThreadPoolExecutor(2, 2, 0, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(16), Thread.ofPlatform().daemon().name("darkmusic-browse").factory(), new ThreadPoolExecutor.AbortPolicy());
@@ -191,6 +198,7 @@ public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources,
         return sourceIndex;
     }
 
+    @Override
     public DuplicateScanner cleanup() {
         if (cleanupScanner == null)
             cleanupScanner = new DuplicateScanner(config.directory());
@@ -582,6 +590,41 @@ public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources,
     @Override
     public void openFolder(Path directory) {
         folders.open(directory);
+    }
+
+    @Override
+    public void resetMusicFolder() {
+        folders.reset();
+    }
+
+    @Override
+    public void chooseMusicFolder(Path directory, Runnable success) {
+        folders.choose(directory, success);
+    }
+
+    @Override
+    public boolean removeMusicFolder(Path directory) {
+        return folders.remove(directory);
+    }
+
+    @Override
+    public void addMusicFolder(Path directory) {
+        folders.add(directory);
+    }
+
+    @Override
+    public CompletableFuture<MediaFiles.Fields> readMetadata(Track track) {
+        return media.readMetadata(track);
+    }
+
+    @Override
+    public CompletableFuture<Track> editMetadata(Track track, MediaFiles.Fields original, MediaFiles.Fields fields) {
+        return media.editMetadata(track, original, fields);
+    }
+
+    @Override
+    public ExecutorService browsing() {
+        return browsing;
     }
 
     @Override

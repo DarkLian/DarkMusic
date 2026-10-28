@@ -32,19 +32,23 @@ class ArchitectureTest {
     // These get their services handed in and may not reach back into DarkMusicClient or its root-package helpers.
     private static final Set<String> DECOUPLED = Set.of("command", "hud", "pip", "render", "update");
     // Files already moved off DarkMusicClient in packages that are not done yet; the package replaces them when it is.
-    private static final Set<String> DECOUPLED_FILES = Set.of("gui/AudioAdvancedScreen.java", "gui/AudioAnalyzerScreen.java",
-        "gui/AudioDeletionScreen.java", "gui/AudioNodeScreen.java", "gui/AudioPage.java", "gui/AudioSettingsScreen.java",
-        "gui/BackupScreen.java", "gui/ColorsScreen.java", "gui/DesktopFolderPicker.java", "gui/DownloadDuplicateScreen.java",
-        "gui/EnvironmentPickerScreen.java", "gui/Help.java", "gui/HudEditorScreen.java", "gui/IgnoredMatchesScreen.java",
-        "gui/ImportHistoryScreen.java", "gui/ImportOverlay.java", "gui/LocalScreen.java", "gui/LyricCandidateScreen.java",
-        "gui/LyricsConsent.java", "gui/LyricsLibraryScreen.java", "gui/LyricsOptionsScreen.java", "gui/LyricsScreen.java",
-        "gui/LyricsSearchScreen.java", "gui/LyricsSettingsScreen.java", "gui/OutputDeviceScreen.java", "gui/PipEditorScreen.java",
-        "gui/PipScreen.java", "gui/PipSourcesScreen.java", "gui/PipSpectrumScreen.java", "gui/PlayerProgress.java",
-        "gui/RowList.java", "gui/SongCard.java", "gui/SoundEnvironmentScreen.java", "gui/TrackPickerScreen.java",
-        "gui/TrackThumbnails.java", "gui/UpdateScreen.java");
+    private static final Set<String> DECOUPLED_FILES = Set.of("gui/AudioAdvancedScreen.java",
+        "gui/AudioAnalyzerScreen.java", "gui/AudioDeletionScreen.java", "gui/AudioNodeScreen.java",
+        "gui/AudioPage.java", "gui/AudioSettingsScreen.java", "gui/BackupScreen.java", "gui/ColorsScreen.java",
+        "gui/DesktopFolderPicker.java", "gui/DownloadDuplicateScreen.java", "gui/DuplicateComparisonScreen.java",
+        "gui/EnvironmentPickerScreen.java", "gui/Help.java", "gui/HudEditorScreen.java",
+        "gui/IgnoredMatchesScreen.java", "gui/ImportHistoryScreen.java", "gui/ImportOverlay.java",
+        "gui/LibraryManagerScreen.java", "gui/LocalScreen.java", "gui/LyricCandidateScreen.java",
+        "gui/LyricsConsent.java", "gui/LyricsLibraryScreen.java", "gui/LyricsOptionsScreen.java",
+        "gui/LyricsScreen.java", "gui/LyricsSearchScreen.java", "gui/LyricsSettingsScreen.java",
+        "gui/MetadataScreen.java", "gui/MusicFoldersScreen.java", "gui/OutputDeviceScreen.java",
+        "gui/PipEditorScreen.java", "gui/PipScreen.java", "gui/PipSourcesScreen.java", "gui/PipSpectrumScreen.java",
+        "gui/PlayerProgress.java", "gui/RowList.java", "gui/SmartCleanupScreen.java", "gui/SongCard.java",
+        "gui/SoundEnvironmentScreen.java", "gui/TrackPickerScreen.java", "gui/TrackThumbnails.java",
+        "gui/UpdateScreen.java");
     private static final Pattern ROOT_TYPE = Pattern.compile("\\bcom\\.darkmusic\\.client\\.[A-Z]\\w*");
     // Lower this as packages stop depending on DarkMusicClient; never raise it.
-    private static final int MAX_CLIENT_DEPENDENTS = 20;
+    private static final int MAX_CLIENT_DEPENDENTS = 15;
 
     @Test
     void packagesDependOnlyDownward() throws IOException {
