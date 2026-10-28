@@ -79,6 +79,8 @@ if (providers.gradleProperty('smoke').isPresent()) {
     def smokeFolders = [pipSmoke: 'pip-smooth-run', lyricsSmoke: 'lyrics-run', cleanupSmoke: 'cleanup-run', queueSmoke: 'queue-run',
                         advancedSmoke: 'advanced-run', resetSmoke: 'reset-run', previewSmoke: 'preview-run', captureMusic: 'capture-run']
     def smokeFolder = smokeFolders.find { providers.gradleProperty(it.key).isPresent() }?.value ?: 'smoke-run'
+    // The PiP smoke client reads its control files (check-setup, stop-minecraft, ...) from this folder.
+    def pipFolder = file(providers.gradleProperty('pipFolder').getOrElse('.local-tools/verification/pip-integrated'))
     // The private collection is Opus, so every playback check needs the managed ffmpeg.
     def smokeNeedsTools = ['downloadToolsDirectory', 'lyricsSmoke', 'cleanupSmoke', 'queueSmoke', 'captureMusic', 'previewSmoke', 'advancedSmoke']
         .any { providers.gradleProperty(it).isPresent() }
@@ -100,7 +102,7 @@ if (providers.gradleProperty('smoke').isPresent()) {
                 if (providers.gradleProperty('pipWorldSource').isPresent()) vmArg "-Ddarkmusic.pipWorldSource=${file(providers.gradleProperty('pipWorldSource').get()).absolutePath}"
                 vmArg "-Ddarkmusic.pipDependencies=${file("build/libs/darkmusic-pip-dependencies-${project.version}-windows-x64.zip").absolutePath}"
                 if (providers.gradleProperty('pipTrace').isPresent()) vmArg "-Ddarkmusic.pip.trace=${file(providers.gradleProperty('pipTrace').get()).absolutePath}"
-                vmArg "-Ddarkmusic.pipFolder=${file(providers.gradleProperty('pipFolder').getOrElse('.local-tools/verification/pip-integrated')).absolutePath}"
+                vmArg "-Ddarkmusic.pipFolder=${pipFolder.absolutePath}"
                 source sourceSets.smoke
                 runDir "build/${smokeFolder}".toString()
                 vmArg "-Ddarkmusic.music=${realMusicDirectory}"
@@ -131,6 +133,8 @@ if (providers.gradleProperty('smoke').isPresent()) {
             runId.parentFile.mkdirs()
             runId.text = UUID.randomUUID().toString()
             def runFolder = smokeRunFolder
+            // The setup check expects a device without the PiP runtime and ends by installing it, so it starts clean.
+            if (pipSmoke && new File(pipFolder, 'check-setup').isFile()) new File(runFolder, 'config/darkmusic/pip-native').deleteDir()
             def font = smokeFont
             if (!font.isFile() && visualSmoke) throw new GradleException('Visual checks require run/resourcepacks/SmoothFont_1.21.zip (or -PsmokeFont=/path/to/the/pack)')
             def packs = new File(runFolder, 'resourcepacks')
