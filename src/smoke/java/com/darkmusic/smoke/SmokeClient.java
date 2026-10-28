@@ -104,7 +104,11 @@ public final class SmokeClient implements ClientModInitializer {
     }
 
     private void checkVolumeBindings(Minecraft mc, DarkMusicClient app) throws Exception {
-        require(app.shortcuts.bindings().length == 14, "Expected fourteen native bindings");
+        // Every KeyMapping field Shortcuts declares must be listed in bindings(), once.
+        long declared = Arrays.stream(app.shortcuts.getClass().getDeclaredFields()).filter(f -> f.getType() == KeyMapping.class).count();
+        var bindings = app.shortcuts.bindings();
+        require(bindings.length == declared && Arrays.stream(bindings).allMatch(Objects::nonNull)
+            && Arrays.stream(bindings).map(KeyMapping::getName).distinct().count() == declared, "bindings() does not list every native binding once");
         require(app.shortcuts.open.getDefaultKey().getValue() == 66 && app.shortcuts.mute.getDefaultKey().getValue() == 77 && app.shortcuts.toggle.getDefaultKey().getValue() == 92, "Open/mute/play defaults are wrong");
         require(app.shortcuts.slower.getDefaultKey().getValue() == 45 && app.shortcuts.faster.getDefaultKey().getValue() == 61 && app.shortcuts.normalSpeed.getDefaultKey().getValue() == 320, "Speed defaults are wrong");
         require(app.shortcuts.seekBack.getDefaultKey().getValue() == 263 && app.shortcuts.seekForward.getDefaultKey().getValue() == 262, "Seek arrow defaults are wrong");
@@ -552,7 +556,8 @@ public final class SmokeClient implements ClientModInitializer {
                     click(mc, "Select All");
                     var selection = (SongSelection) field(mc.gui.screen(), "selection");
                     require(selection.selected().size() == musicCount - 1, "Select All did not exclude the existing song: " + selection.selected().size() + " of " + musicCount + ", eligible " + app.playlists.availableToAdd(playlistId, app.library.snapshot().tracks()).size());
-                    var search = (EditBox) field(mc.gui.screen(), "search");
+                    // The picker's search box is its only text input.
+                    var search = mc.gui.screen().children().stream().filter(EditBox.class::isInstance).map(EditBox.class::cast).findFirst().orElseThrow();
                     search.setValue(app.library.snapshot().tracks().get(1).relativePath());
                     require(selection.hidden() == musicCount - 2, "Filtered selections were lost");
                     click(mc, "Deselect All");
