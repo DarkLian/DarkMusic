@@ -1,12 +1,14 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.audio.JavaSoundBackend;
+import com.darkmusic.client.audio.PlaybackController;
+import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.DownloadFormat;
 import com.darkmusic.client.download.AuditionClip;
 import com.darkmusic.client.download.AuditionPlayer;
 import com.darkmusic.client.download.DownloadModels;
+import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
@@ -22,6 +24,8 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 
+import static com.darkmusic.client.download.DownloadModels.*;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -30,10 +34,33 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static com.darkmusic.client.download.DownloadModels.*;
-
 public final class DownloadScreen extends LocalScreen {
-    private final DarkMusicClient app;
+    /**
+     * The downloader, the player it pauses for auditions, and every screen it opens.
+     */
+    public interface Sources extends DownloadToolsScreen.Sources, DownloadDuplicateScreen.Sources,
+        ExistingDownloadsScreen.Sources {
+        /**
+         * Null until startup creates the player.
+         */
+        PlaybackController playback();
+
+        /**
+         * Null until startup creates the library.
+         */
+        MusicLibrary library();
+
+        ConfigStore config();
+
+        /**
+         * The audition playing in the download screen, so shutdown can stop it; null when none.
+         */
+        AuditionPlayer audition();
+
+        void audition(AuditionPlayer player);
+    }
+
+    private final Sources app;
     private final SongSelection selection = new SongSelection();
     private final Map<String, Entry> known = new LinkedHashMap<>();
     private EditBox url, first, last, search, pageNumber;
@@ -59,10 +86,10 @@ public final class DownloadScreen extends LocalScreen {
     private Track pausedTrack;
     private double pausedPosition;
 
-    public DownloadScreen(DarkMusicClient app, Screen parent) {
+    public DownloadScreen(Sources app, Screen parent) {
         super(Text.component("text.darkmusic.downloads"), parent);
         this.app = app;
-        input = app.downloads.inputUrl();
+        input = app.downloads().inputUrl();
     }
 
     private static String key(Entry entry) {
@@ -127,7 +154,7 @@ public final class DownloadScreen extends LocalScreen {
         }, Text.get("download.darkmusic.source_panel_help")), UiIcon.SEARCH, false);
         url = input("text.darkmusic.video_or_collection_url", 4096, input, s -> {
             input = s;
-            app.downloads.rememberInput(s);
+            app.downloads().rememberInput(s);
             notice = "";
         });
         url.setHint(Text.component("text.darkmusic.paste_a_video_or_collection_url"));
@@ -143,7 +170,7 @@ public final class DownloadScreen extends LocalScreen {
                 search.setValue(query);
             }
             queueView = false;
-            app.downloads.analyze(input, 0);
+            app.downloads().analyze(input, 0);
         }, "text.darkmusic.identify_the_source_and_preview_up_to_100_entries_nothing_downloads_automatically");
         modeButton = action("phase2.source", this::cycleMode, "download.darkmusic.mode_help");
         first = input("download.darkmusic.range_start", 7, from, s -> from = s);
@@ -152,7 +179,7 @@ public final class DownloadScreen extends LocalScreen {
         Help.tip(last, Text.get("download.darkmusic.range_help"));
         format = action("audio.darkmusic.download", () -> {
             var formats = DownloadFormat.values();
-            app.settings.downloadFormat = formats[(app.settings.downloadFormat.ordinal() + 1) % formats.length];
+            app.settings().downloadFormat = formats[(app.settings().downloadFormat.ordinal() + 1) % formats.length];
             app.save();
             updateButtons();
         }, "audio.darkmusic.download_help");
@@ -188,24 +215,24 @@ public final class DownloadScreen extends LocalScreen {
         }));
         rows.rowTooltips(false);
         retrySelected = action("download.darkmusic.retry_selected", () -> {
-            if (queueView && selectedJob >= 0) app.downloads.retry(selectedJob);
+            if (queueView && selectedJob >= 0) app.downloads().retry(selectedJob);
 
         }, "download.darkmusic.retry_help");
-        retryFailed = action("download.darkmusic.retry_failed", app.downloads::retryFailed, "download.darkmusic.retry_help");
-        clearFailed = action("download.darkmusic.clear_failed", app.downloads::clearFailed, "download.darkmusic.clear_failed_help");
+        retryFailed = action("download.darkmusic.retry_failed", app.downloads()::retryFailed, "download.darkmusic.retry_help");
+        clearFailed = action("download.darkmusic.clear_failed", app.downloads()::clearFailed, "download.darkmusic.clear_failed_help");
         cancelSelected = action("text.darkmusic.cancel_selected", () -> {
-            if (selectedJob >= 0) app.downloads.cancel(selectedJob);
+            if (selectedJob >= 0) app.downloads().cancel(selectedJob);
         }, "text.darkmusic.cancel_the_selected_queued_or_active_item_other_downloads_continue");
-        cancelAll = action("text.darkmusic.cancel_all", app.downloads::cancelAll, "text.darkmusic.cancel_url_analysis_active_work_and_queued_entries_completed_songs_are_kept");
-        clearFinished = action("text.darkmusic.clear_finished", app.downloads::clearFinished, "download.darkmusic.clear_finished_help");
+        cancelAll = action("text.darkmusic.cancel_all", app.downloads()::cancelAll, "text.darkmusic.cancel_url_analysis_active_work_and_queued_entries_completed_songs_are_kept");
+        clearFinished = action("text.darkmusic.clear_finished", app.downloads()::clearFinished, "download.darkmusic.clear_finished_help");
         errorDetails = action("download.diag.title", () -> {
-            var diagnostic = queueView ? app.downloads.diagnostic(selectedJob) : app.downloads.analysisDiagnostic();
+            var diagnostic = queueView ? app.downloads().diagnostic(selectedJob) : app.downloads().analysisDiagnostic();
             if (diagnostic != null) show(new DownloadDiagnosticScreen(app, this, diagnostic, queueView
-                ? () -> app.downloads.retry(selectedJob) : () -> app.downloads.analyze(app.downloads.inputUrl(), 0)));
+                ? () -> app.downloads().retry(selectedJob) : () -> app.downloads().analyze(app.downloads().inputUrl(), 0)));
         }, "download.diag.help");
         UiButton.icon(errorDetails, UiIcon.WARNING, true);
         existingDetails = action("download.library.existing", () -> {
-            var choice = app.downloads.duplicateChoice();
+            var choice = app.downloads().duplicateChoice();
             if (choice != null) show(new DownloadDuplicateScreen(app, this, choice));
             else if (hasExistingMatches(listeningEntry)) show(new ExistingDownloadsScreen(app, this, listeningEntry));
         }, "download.library.inspect_help");
@@ -364,14 +391,14 @@ public final class DownloadScreen extends LocalScreen {
     }
 
     private void layoutDiagnostic() {
-        boolean available = (queueView ? app.downloads.diagnostic(selectedJob) : app.downloads.analysisDiagnostic()) != null;
+        boolean available = (queueView ? app.downloads().diagnostic(selectedJob) : app.downloads().analysisDiagnostic()) != null;
         int slot = queueView ? width - 36 : iconX;
         place(errorDetails, slot, searchY, 24, available);
         errorDetails.active = available;
         if (available) search.setWidth(Math.max(24, search.getWidth() - 28));
-        boolean inspect = app.downloads.duplicateChoice() != null || !queueView && listeningEntry != null;
+        boolean inspect = app.downloads().duplicateChoice() != null || !queueView && listeningEntry != null;
         place(existingDetails, slot - (available ? 28 : 0), searchY, 24, inspect);
-        existingDetails.active = app.downloads.duplicateChoice() != null || !queueView && hasExistingMatches(listeningEntry);
+        existingDetails.active = app.downloads().duplicateChoice() != null || !queueView && hasExistingMatches(listeningEntry);
         if (inspect) search.setWidth(Math.max(24, search.getWidth() - 28));
     }
 
@@ -382,7 +409,7 @@ public final class DownloadScreen extends LocalScreen {
     }
 
     private void cycleMode() {
-        var p = app.downloads.snapshot().preview();
+        var p = app.downloads().snapshot().preview();
         do {
             mode = Mode.values()[(mode.ordinal() + 1) % Mode.values().length];
         }
@@ -394,10 +421,10 @@ public final class DownloadScreen extends LocalScreen {
     }
 
     private void page(int delta) {
-        var p = app.downloads.snapshot().preview();
+        var p = app.downloads().snapshot().preview();
         if (p != null) {
             stopAudition();
-            app.downloads.analyze(p.url(), Math.max(0, (p.first() - 1) / PAGE_SIZE + delta));
+            app.downloads().analyze(p.url(), Math.max(0, (p.first() - 1) / PAGE_SIZE + delta));
         }
     }
 
@@ -406,7 +433,7 @@ public final class DownloadScreen extends LocalScreen {
     }
 
     private void jumpPage() {
-        var snapshot = app.downloads.snapshot();
+        var snapshot = app.downloads().snapshot();
         var preview = snapshot.preview();
         if (queueView || snapshot.analyzing() || !matches(preview)) return;
         try {
@@ -415,7 +442,7 @@ public final class DownloadScreen extends LocalScreen {
             notice = "";
             if (page != (preview.first() - 1) / PAGE_SIZE + 1) {
                 stopAudition();
-                app.downloads.analyze(preview.url(), page - 1);
+                app.downloads().analyze(preview.url(), page - 1);
             }
         } catch (IllegalArgumentException e) {
             notice = Text.get("download.darkmusic.page_invalid", availablePages(preview));
@@ -432,7 +459,7 @@ public final class DownloadScreen extends LocalScreen {
     }
 
     private void listen() {
-        var p = app.downloads.snapshot().preview();
+        var p = app.downloads().snapshot().preview();
         if (queueView || !matches(p) || listeningEntry == null || !listeningEntry.available()) return;
         if (audition != null && auditionEntry != null && auditionEntry.key().equals(listeningEntry.key())) {
             if (audition.snapshot().status() == AuditionPlayer.Status.PLAYING) {
@@ -447,17 +474,17 @@ public final class DownloadScreen extends LocalScreen {
         }
         if (audition == null) {
             var runner = new ProcessRunner();
-            audition = new AuditionPlayer((entry, tools, token) -> AuditionClip.fetch(entry, tools, app.config.directory(), runner, token), () -> new JavaSoundBackend(minecraft::execute), minecraft::execute, this::resumeMusic);
-            app.audition = audition;
+            audition = new AuditionPlayer((entry, tools, token) -> AuditionClip.fetch(entry, tools, app.config().directory(), runner, token), () -> new JavaSoundBackend(minecraft::execute), minecraft::execute, this::resumeMusic);
+            app.audition(audition);
         }
-        var state = app.playback.state();
+        var state = app.playback().state();
         if (pausedTrack == null && (state.status() == AudioBackend.Status.PLAYING || state.status() == AudioBackend.Status.LOADING || state.status() == AudioBackend.Status.SEEKING)) {
             pausedTrack = state.track();
             pausedPosition = state.position();
-            app.playback.pause();
+            app.playback().pause();
         }
         auditionEntry = listeningEntry;
-        audition.play(listeningEntry, new ToolPaths(app.settings.ytDlpPath, app.settings.ffmpegPath, app.settings.ffprobePath, app.settings.javascriptPath), app.settings.volume);
+        audition.play(listeningEntry, new ToolPaths(app.settings().ytDlpPath, app.settings().ffmpegPath, app.settings().ffprobePath, app.settings().javascriptPath), app.settings().volume);
     }
 
     private void resumeMusic() {
@@ -465,9 +492,9 @@ public final class DownloadScreen extends LocalScreen {
             return;
         Track track = pausedTrack;
         pausedTrack = null;
-        var state = app.playback.state();
+        var state = app.playback().state();
         if (track != null && track.equals(state.track()) && (state.status() == AudioBackend.Status.PAUSED || state.status() == AudioBackend.Status.PLAYING || state.status() == AudioBackend.Status.LOADING || state.status() == AudioBackend.Status.SEEKING) && Math.abs(state.position() - pausedPosition) < .5)
-            app.playback.resume();
+            app.playback().resume();
     }
 
     private void stopAudition() {
@@ -478,15 +505,15 @@ public final class DownloadScreen extends LocalScreen {
     private void download() {
         if (queueView) return;
         try {
-            var p = app.downloads.snapshot().preview();
+            var p = app.downloads().snapshot().preview();
             if (!matches(p))
                 throw new IllegalArgumentException(Text.get("text.darkmusic.analyze_this_url_before_downloading"));
-            var destination = app.library.root();
+            var destination = app.library().root();
             notice = "";
             switch (mode) {
                 case VIDEO -> {
-                    if (single(p)) app.downloads.enqueueSelected(List.of(p.entries().getFirst()), destination);
-                    else if (p.videoAlso()) app.downloads.enqueueVideo(p.url(), destination);
+                    if (single(p)) app.downloads().enqueueSelected(List.of(p.entries().getFirst()), destination);
+                    else if (p.videoAlso()) app.downloads().enqueueVideo(p.url(), destination);
                     else throw new IllegalArgumentException(Text.get("download.darkmusic.choose_collection_mode"));
                 }
                 case SELECTED -> {
@@ -494,18 +521,18 @@ public final class DownloadScreen extends LocalScreen {
                     var selected = known.entrySet().stream().filter(e -> checked.contains(e.getKey())).map(Map.Entry::getValue).toList();
                     if (selected.isEmpty())
                         throw new IllegalArgumentException(Text.get("text.darkmusic.check_at_least_one_preview_entry"));
-                    app.downloads.enqueueSelected(selected, destination);
+                    app.downloads().enqueueSelected(selected, destination);
                 }
                 case RANGE -> {
                     int start = positive(from), end = positive(to);
                     // Validate here so a rejected range keeps the user on the form beside its fields.
                     DownloadModels.range(start, end);
-                    app.downloads.enqueueRange(p, start, end, destination);
+                    app.downloads().enqueueRange(p, start, end, destination);
                 }
                 case ALL -> {
                     if (p.total() < 1) throw new IllegalArgumentException(Text.get("download.darkmusic.unknown_end"));
                     DownloadModels.range(1, p.total());
-                    app.downloads.enqueueRange(p, 1, p.total(), destination);
+                    app.downloads().enqueueRange(p, 1, p.total(), destination);
                 }
             }
             stopAudition();
@@ -530,14 +557,14 @@ public final class DownloadScreen extends LocalScreen {
     }
 
     private void updateButtons() {
-        var snapshot = app.downloads.snapshot();
+        var snapshot = app.downloads().snapshot();
         var p = snapshot.preview();
         boolean valid = matches(p);
         analyze.active = !snapshot.analyzing();
         download.active = !queueView && !snapshot.analyzing() && valid;
         modeButton.active = !queueView && valid && !single(p);
         modeButton.setMessage(Component.literal(Text.get("format.darkmusic.mode", mode.label())));
-        format.setMessage(Text.component("download.darkmusic.format", Text.get("download.darkmusic.format." + app.settings.downloadFormat.name().toLowerCase(Locale.ROOT))));
+        format.setMessage(Text.component("download.darkmusic.format", Text.get("download.darkmusic.format." + app.settings().downloadFormat.name().toLowerCase(Locale.ROOT))));
         format.active = !queueView && !snapshot.analyzing();
         first.visible = last.visible = !queueView && mode == Mode.RANGE;
         first.active = last.active = !queueView && valid && mode == Mode.RANGE && !snapshot.analyzing();
@@ -570,7 +597,7 @@ public final class DownloadScreen extends LocalScreen {
 
     private void refreshRows() {
         if (rows == null) return;
-        var snapshot = app.downloads.snapshot();
+        var snapshot = app.downloads().snapshot();
         long source = app.sourceIndex().revision();
         if (rowsSnapshot == snapshot && rowsQueue == queueView && sourceRevision == source) return;
         sourceRevision = source;
@@ -596,13 +623,13 @@ public final class DownloadScreen extends LocalScreen {
 
     @Override
     public void tick() {
-        var choice = app.downloads.duplicateChoice();
-        if (choice != null && choice.id() != shownChoice && !app.downloads.snapshot().analyzing()) {
+        var choice = app.downloads().duplicateChoice();
+        if (choice != null && choice.id() != shownChoice && !app.downloads().snapshot().analyzing()) {
             shownChoice = choice.id();
             show(new DownloadDuplicateScreen(app, this, choice));
             return;
         }
-        var p = app.downloads.snapshot().preview();
+        var p = app.downloads().snapshot().preview();
         if (p != displayed) {
             if (p != null && displayed == null && (width < 640 || height < 360)) sourceExpanded = false;
             if (p != null) {
@@ -661,7 +688,7 @@ public final class DownloadScreen extends LocalScreen {
         stopAudition();
         if (audition != null) {
             audition.close();
-            if (app.audition == audition) app.audition = null;
+            if (app.audition() == audition) app.audition(null);
             audition = null;
         }
         super.removed();
@@ -679,7 +706,7 @@ public final class DownloadScreen extends LocalScreen {
             UiTheme.panel(g, 180, searchY - 6, width - 190, height - searchY - 4);
         }
         if (queueView) UiTheme.panel(g, wide ? 180 : 10, height - 60, width - (wide ? 190 : 20), 54);
-        var s = app.downloads.snapshot();
+        var s = app.downloads().snapshot();
         String detail = notice.isBlank() ? s.message() : notice;
         if (audition != null && !queueView) {
             var a = audition.snapshot();
@@ -691,8 +718,8 @@ public final class DownloadScreen extends LocalScreen {
         long done = s.items().stream().filter(i -> i.status().finished()).count(), failed = s.items().stream().filter(i -> i.status() == Status.FAILED).count();
         String summary = queueView ? Text.get("format.darkmusic.queue_summary", done, s.items().size(), failed) : s.preview() == null ? "" : Text.get("format.darkmusic.preview_summary", s.preview().source(), s.preview().first(), s.preview().first() + s.preview().entries().size() - 1, s.preview().total() >= 0 ? Text.get("format.darkmusic.total", s.preview().total()) : Text.get("format.darkmusic.unknown_total"));
         summary = Text.get(queueView ? "ui.darkmusic.queue" : "ui.darkmusic.preview_entries") + (summary.isBlank() ? "" : ": " + summary);
-        if (!queueView) summary = Text.get("folders.destination", app.library.root()) + " | " + summary;
-        var tone = !notice.isBlank() || app.downloads.analysisDiagnostic() != null ? UiStatus.Tone.ERROR : UiStatus.Tone.INFO;
+        if (!queueView) summary = Text.get("folders.destination", app.library().root()) + " | " + summary;
+        var tone = !notice.isBlank() || app.downloads().analysisDiagnostic() != null ? UiStatus.Tone.ERROR : UiStatus.Tone.INFO;
         if (audition != null && audition.snapshot().status() == AuditionPlayer.Status.ERROR) tone = UiStatus.Tone.ERROR;
         longText.drawStatus(g, font, "detail", detail, summary, rows.getX(), resultTop - 13, rows.getWidth(), UiStatus.color(tone), UiTheme.SECONDARY);
         if (pageNumber.visible && matches(s.preview()))

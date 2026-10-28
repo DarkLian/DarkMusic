@@ -35,20 +35,21 @@ class ArchitectureTest {
     private static final Set<String> DECOUPLED_FILES = Set.of("gui/AudioAdvancedScreen.java",
         "gui/AudioAnalyzerScreen.java", "gui/AudioDeletionScreen.java", "gui/AudioNodeScreen.java",
         "gui/AudioPage.java", "gui/AudioSettingsScreen.java", "gui/BackupScreen.java", "gui/ColorsScreen.java",
-        "gui/DesktopFolderPicker.java", "gui/DownloadDuplicateScreen.java", "gui/DuplicateComparisonScreen.java",
-        "gui/EnvironmentPickerScreen.java", "gui/Help.java", "gui/HudEditorScreen.java",
-        "gui/IgnoredMatchesScreen.java", "gui/ImportHistoryScreen.java", "gui/ImportOverlay.java",
-        "gui/LibraryManagerScreen.java", "gui/LocalScreen.java", "gui/LyricCandidateScreen.java",
-        "gui/LyricsConsent.java", "gui/LyricsLibraryScreen.java", "gui/LyricsOptionsScreen.java",
-        "gui/LyricsScreen.java", "gui/LyricsSearchScreen.java", "gui/LyricsSettingsScreen.java",
-        "gui/MetadataScreen.java", "gui/MusicFoldersScreen.java", "gui/OutputDeviceScreen.java",
-        "gui/PipEditorScreen.java", "gui/PipScreen.java", "gui/PipSourcesScreen.java", "gui/PipSpectrumScreen.java",
-        "gui/PlayerProgress.java", "gui/RowList.java", "gui/SmartCleanupScreen.java", "gui/SongCard.java",
-        "gui/SoundEnvironmentScreen.java", "gui/TrackPickerScreen.java", "gui/TrackThumbnails.java",
-        "gui/UpdateScreen.java");
+        "gui/DesktopFolderPicker.java", "gui/DownloadDiagnosticScreen.java", "gui/DownloadDuplicateScreen.java",
+        "gui/DownloadPathsScreen.java", "gui/DownloadScreen.java", "gui/DownloadToolsScreen.java",
+        "gui/DuplicateComparisonScreen.java", "gui/EnvironmentPickerScreen.java", "gui/ExistingDownloadsScreen.java",
+        "gui/Help.java", "gui/HudEditorScreen.java", "gui/IgnoredMatchesScreen.java", "gui/ImportHistoryScreen.java",
+        "gui/ImportOverlay.java", "gui/LibraryManagerScreen.java", "gui/LocalScreen.java",
+        "gui/LyricCandidateScreen.java", "gui/LyricsConsent.java", "gui/LyricsLibraryScreen.java",
+        "gui/LyricsOptionsScreen.java", "gui/LyricsScreen.java", "gui/LyricsSearchScreen.java",
+        "gui/LyricsSettingsScreen.java", "gui/MetadataScreen.java", "gui/MusicFoldersScreen.java",
+        "gui/OutputDeviceScreen.java", "gui/PipEditorScreen.java", "gui/PipScreen.java", "gui/PipSourcesScreen.java",
+        "gui/PipSpectrumScreen.java", "gui/PlayerProgress.java", "gui/RowList.java", "gui/SmartCleanupScreen.java",
+        "gui/SongCard.java", "gui/SoundEnvironmentScreen.java", "gui/TrackPickerScreen.java",
+        "gui/TrackThumbnails.java", "gui/UpdateScreen.java");
     private static final Pattern ROOT_TYPE = Pattern.compile("\\bcom\\.darkmusic\\.client\\.[A-Z]\\w*");
     // Lower this as packages stop depending on DarkMusicClient; never raise it.
-    private static final int MAX_CLIENT_DEPENDENTS = 15;
+    private static final int MAX_CLIENT_DEPENDENTS = 10;
 
     @Test
     void packagesDependOnlyDownward() throws IOException {

@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
@@ -13,13 +12,13 @@ import java.util.Locale;
 /**
  * A local, bounded report; no network, tool installation or log collection on open.
  */
-public final class DownloadDiagnosticScreen extends AudioPage<DarkMusicClient> {
+public final class DownloadDiagnosticScreen extends AudioPage<DownloadToolsScreen.Sources> {
     private final DownloadDiagnostics.Diagnostic diagnostic;
     private final Runnable retry;
     private String copyStatus = "";
     private UiStatus.Tone copyTone = UiStatus.Tone.INFO;
 
-    public DownloadDiagnosticScreen(DarkMusicClient app, Screen parent, DownloadDiagnostics.Diagnostic diagnostic, Runnable retry) {
+    public DownloadDiagnosticScreen(DownloadToolsScreen.Sources app, Screen parent, DownloadDiagnostics.Diagnostic diagnostic, Runnable retry) {
         super(app, parent, "download.diag.title");
         this.diagnostic = diagnostic;
         this.retry = retry;
@@ -64,7 +63,7 @@ public final class DownloadDiagnosticScreen extends AudioPage<DarkMusicClient> {
                 retry.run();
                 onClose();
             }).runs();
-            enableSince(index, !app.downloads.snapshot().analyzing());
+            enableSince(index, !app.downloads().snapshot().analyzing());
         }
         if (diagnostic.toolsRelated())
             action("text.darkmusic.download_tools", () -> show(new DownloadToolsScreen(app, this))).navigates();

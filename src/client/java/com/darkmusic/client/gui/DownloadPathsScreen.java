@@ -1,10 +1,11 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
-import com.darkmusic.client.tools.ToolPaths;
+import com.darkmusic.client.config.SettingsSource;
+import com.darkmusic.client.download.DownloadService;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.ToolPaths;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -13,17 +14,27 @@ import net.minecraft.client.gui.screens.Screen;
  * Optional overrides; the normal setup requires no paths.
  */
 public final class DownloadPathsScreen extends LocalScreen {
-    private final DarkMusicClient app;
+    /**
+     * Tool paths from settings, and the downloader they configure.
+     */
+    public interface Sources extends SettingsSource {
+        /**
+         * Null until startup creates it.
+         */
+        DownloadService downloads();
+    }
+
+    private final Sources app;
     private ScrollBar scrollbar;
     private final String[] values;
     private int scroll, formX, formWidth;
     private final EditBox[] inputs = new EditBox[4];
     private final String[] keys = {"text.darkmusic.yt_dlp_executable", "text.darkmusic.ffmpeg_executable", "text.darkmusic.ffprobe_blank_alongside_ffmpeg_or_path", "text.darkmusic.deno_node_executable_optional"};
 
-    public DownloadPathsScreen(DarkMusicClient app, Screen parent) {
+    public DownloadPathsScreen(Sources app, Screen parent) {
         super(Text.component("tools.darkmusic.advanced"), parent);
         this.app = app;
-        values = new String[]{app.settings.ytDlpPath, app.settings.ffmpegPath, app.settings.ffprobePath, app.settings.javascriptPath};
+        values = new String[]{app.settings().ytDlpPath, app.settings().ffmpegPath, app.settings().ffprobePath, app.settings().javascriptPath};
     }
 
     @Override
@@ -69,11 +80,11 @@ public final class DownloadPathsScreen extends LocalScreen {
 
     @Override
     public void removed() {
-        app.settings.ytDlpPath = values[0].strip();
-        app.settings.ffmpegPath = values[1].strip();
-        app.settings.ffprobePath = values[2].strip();
-        app.settings.javascriptPath = values[3].strip();
-        app.downloads.configure(new ToolPaths(app.settings.ytDlpPath, app.settings.ffmpegPath, app.settings.ffprobePath, app.settings.javascriptPath));
+        app.settings().ytDlpPath = values[0].strip();
+        app.settings().ffmpegPath = values[1].strip();
+        app.settings().ffprobePath = values[2].strip();
+        app.settings().javascriptPath = values[3].strip();
+        app.downloads().configure(new ToolPaths(app.settings().ytDlpPath, app.settings().ffmpegPath, app.settings().ffprobePath, app.settings().javascriptPath));
         super.removed();
     }
 
