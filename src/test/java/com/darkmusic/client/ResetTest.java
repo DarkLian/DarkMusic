@@ -12,15 +12,22 @@ import com.darkmusic.client.playlist.PlaylistStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -160,7 +167,7 @@ class ResetTest {
             Files.writeString(temp.resolve("library-cache.json"), "[]");
             try (var channel = FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
                  var lock = channel.lock()) {
-                assertThrows(java.io.IOException.class, () -> ResetStorage.clear(temp, List.of()));
+                assertThrows(IOException.class, () -> ResetStorage.clear(temp, List.of()));
                 assertEquals("[]", Files.readString(temp.resolve("library-cache.json")));
             }
         }
@@ -168,15 +175,15 @@ class ResetTest {
 
     @Test
     void activeDownloadBlocksCleanupAndCancellationReleasesItsLock() throws Exception {
-        var entered = new java.util.concurrent.CountDownLatch(1);
+        var entered = new CountDownLatch(1);
         var token = new ProcessRunner.Token();
         var runner = new ProcessRunner() {
             @Override
-            public Result run(List<String> command, Path directory, Token cancellation, java.time.Duration timeout, int maximum, java.util.function.Consumer<String> output) {
+            public Result run(List<String> command, Path directory, Token cancellation, Duration timeout, int maximum, Consumer<String> output) {
                 entered.countDown();
                 while (true) {
                     cancellation.check();
-                    java.util.concurrent.locks.LockSupport.parkNanos(1_000_000);
+                    LockSupport.parkNanos(1_000_000);
                 }
             }
         };
@@ -190,17 +197,17 @@ class ResetTest {
                     pipeline.execute(entry, temp.resolve("music"), tools, token, (status, detail) -> {
                     });
                     fail("Cancelled download completed");
-                } catch (java.util.concurrent.CancellationException expected) {
+                } catch (CancellationException expected) {
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
             });
-            assertTrue(entered.await(3, java.util.concurrent.TimeUnit.SECONDS));
+            assertTrue(entered.await(3, TimeUnit.SECONDS));
             Files.writeString(temp.resolve("library-cache.json"), "[]");
-            assertThrows(java.io.IOException.class, () -> ResetStorage.clear(temp, List.of()));
+            assertThrows(IOException.class, () -> ResetStorage.clear(temp, List.of()));
             assertTrue(Files.exists(temp.resolve("library-cache.json")));
             token.cancel();
-            active.get(5, java.util.concurrent.TimeUnit.SECONDS);
+            active.get(5, TimeUnit.SECONDS);
             assertTrue(ResetStorage.clear(temp, List.of()).isEmpty());
             assertFalse(Files.exists(temp.resolve("library-cache.json")));
         } finally {
@@ -219,7 +226,7 @@ class ResetTest {
             Files.copy(real, target);
             String before = hash(target);
             if (name.endsWith(".lock"))
-                assertThrows(java.io.IOException.class, () -> ResetStorage.clear(data, List.of()));
+                assertThrows(IOException.class, () -> ResetStorage.clear(data, List.of()));
             else assertEquals(1, ResetStorage.clear(data, List.of()).size());
             assertEquals(before, hash(target));
         }

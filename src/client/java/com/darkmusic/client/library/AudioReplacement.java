@@ -5,6 +5,7 @@ import com.darkmusic.client.text.Text;
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
 import java.util.Objects;
 
 /**
@@ -16,7 +17,7 @@ final class AudioReplacement {
         void run(Path source, Path target, CopyOption... options) throws IOException;
     }
 
-    record Identity(long size, java.nio.file.attribute.FileTime modified, Object key, String hash) {
+    record Identity(long size, FileTime modified, Object key, String hash) {
         static Identity read(Path path) throws IOException {
             var before = Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
             if (!before.isRegularFile()) throw conflict();

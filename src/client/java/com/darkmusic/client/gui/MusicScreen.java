@@ -16,17 +16,33 @@ import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Util;
+import org.lwjgl.glfw.GLFW;
 
+import java.net.URI;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 public final class MusicScreen extends LocalScreen {
-    private static final java.time.format.DateTimeFormatter HISTORY_DATE = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(java.time.ZoneId.systemDefault());
+    private static final DateTimeFormatter HISTORY_DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault());
     private final DarkMusicClient app;
     private final SpectrumRenderer spectrum = new SpectrumRenderer();
     private final ImportOverlay importOverlay = new ImportOverlay();
@@ -36,7 +52,7 @@ public final class MusicScreen extends LocalScreen {
         if (!importOverlay.visible(app)) super.extractBlurredBackground(g);
     }
 
-    private final java.util.Set<String> expandedFolders = new java.util.HashSet<>();
+    private final Set<String> expandedFolders = new HashSet<>();
     private EditBox search;
     private RowList navigation, songs;
     private List<Track> visible = List.of();
@@ -46,7 +62,7 @@ public final class MusicScreen extends LocalScreen {
     private long folderRevision = -1;
     private String folderRoot = "";
     private String mode = "All", group = "", query = "";
-    private final java.util.Map<String, String> selectedGroups = new java.util.HashMap<>();
+    private final Map<String, String> selectedGroups = new HashMap<>();
 
     private void mode(String next) {
         awaitingEditedTrack = false;
@@ -132,7 +148,7 @@ public final class MusicScreen extends LocalScreen {
         rebuildWidgets();
     }
 
-    private java.nio.file.Path browseDirectory() {
+    private Path browseDirectory() {
         return MusicFolders.browseDirectory(app.library.roots(), app.library.root(), mode, group);
     }
 
@@ -285,7 +301,7 @@ public final class MusicScreen extends LocalScreen {
         int sourceX = inspector.x() + (lyricsButton == null ? 54 : 78);
         sourceLink = icon("library.darkmusic.open_source", UiIcon.LINK, sourceX, inspector.y() + 4, 22, true, () -> {
             String url = app.sourceLinks.get(selected);
-            if (!url.isEmpty()) net.minecraft.util.Util.getPlatform().openUri(java.net.URI.create(url));
+            if (!url.isEmpty()) Util.getPlatform().openUri(URI.create(url));
         });
         copySource = icon("library.darkmusic.copy_source", UiIcon.CHAIN, sourceX + 24, inspector.y() + 4, 22, true, () -> {
             String url = app.sourceLinks.get(selected);
@@ -307,7 +323,7 @@ public final class MusicScreen extends LocalScreen {
                 v -> Text.get("format.darkmusic.speed", String.format(Locale.ROOT, "%.1f", app.settings.speed)),
                 v -> app.speed(.5 + v * 2.5), app::save, 25),
             Help.withKeys(Text.get("text.darkmusic.playback_speed_0_5x_to_3_0x_in_0_1x_steps_faster_raises_pitch_slower_lowers_it"), app.shortcuts.slower, app.shortcuts.faster)));
-        speed.media(true, v -> String.format(Locale.ROOT, "%.1f×", .5 + v * 2.5));
+        speed.media(v -> String.format(Locale.ROOT, "%.1f×", .5 + v * 2.5));
         speed.mediaLabelLeft(true);
         x += sliderWidth + gap;
         UiButton.shortcuts(transportIcon("key.darkmusic.normal_speed", UiIcon.REFRESH, x, transportY, buttonWidth, () -> app.speed(1)), app.shortcuts.normalSpeed);
@@ -342,7 +358,7 @@ public final class MusicScreen extends LocalScreen {
         volume = addRenderableWidget(Help.tip(new ValueSlider(x, transportY, sliderWidth, app.settings.volume,
                 v -> Text.get("format.darkmusic.volume", Math.round(v * 100)), app::volume, app::save),
             Help.withKeys(Text.get("text.darkmusic.darkmusic_volume_independent_of_minecraft_sound_sliders"), app.shortcuts.volumeDown, app.shortcuts.volumeUp)));
-        volume.media(true, v -> Math.round(v * 100) + "%");
+        volume.media(v -> Math.round(v * 100) + "%");
         progress = addRenderableWidget(new ValueSlider(layout.dock().x() + 4, layout.seekY(), layout.dock().width() - 8, 0,
             v -> time(progress != null && progress.editing() ? v * app.playback.state().duration() : app.playback.state().position()) + " / " + time(app.playback.state().duration()),
             v -> {
@@ -386,13 +402,12 @@ public final class MusicScreen extends LocalScreen {
                 tracks.stream().map(Track::artist).distinct().sorted(String.CASE_INSENSITIVE_ORDER).toList();
             case "Albums" ->
                 tracks.stream().map(Track::album).distinct().sorted(String.CASE_INSENSITIVE_ORDER).toList();
-            default ->
-                java.util.stream.Stream.concat(java.util.stream.Stream.of(""), folderRows.stream().map(FolderTree.Entry::path)).toList();
+            default -> Stream.concat(Stream.of(""), folderRows.stream().map(FolderTree.Entry::path)).toList();
         };
         if (!mode.equals("All") && !groups.contains(group)) group = groups.isEmpty() ? "" : groups.getFirst();
         if (mode.equals("All") && !folders.contains(group)) group = "";
         navigation.emptyMessage(mode.equals("Playlists") ? (app.playlistsReady ? Text.get("text.darkmusic.no_playlists") : Text.get("text.darkmusic.loading")) : Text.get("text.darkmusic.no_entries"));
-        var counts = new java.util.HashMap<String, Integer>();
+        var counts = new HashMap<String, Integer>();
         for (Track track : tracks) {
             if (mode.equals("Artists")) counts.merge(track.artist(), 1, Integer::sum);
             else if (mode.equals("Albums")) counts.merge(track.album(), 1, Integer::sum);
@@ -403,7 +418,7 @@ public final class MusicScreen extends LocalScreen {
                     counts.merge(path.substring(0, slash), 1, Integer::sum);
             }
         }
-        navigation.rows(java.util.stream.IntStream.range(0, groups.size()).mapToObj(i -> {
+        navigation.rows(IntStream.range(0, groups.size()).mapToObj(i -> {
             String key = groups.get(i);
             String label = mode.equals("All") ? i == 0 ? Text.get("text.darkmusic.all_tracks") : folderRows.get(i - 1).name() : mode.equals("History") ? Text.get("history." + key) : mode.equals("Playlists") ? app.playlists.displayName(app.playlists.get(key)) : key.isBlank() ? Text.get(mode.equals("Artists") ? "library.artist.unknown" : "library.album.unknown") : key;
             int count = mode.equals("History") ? app.collection("History", key).size() : mode.equals("Playlists") ? app.playlists.resolve(key, tracks).size() : counts.getOrDefault(key, 0);
@@ -440,7 +455,7 @@ public final class MusicScreen extends LocalScreen {
             default -> true;
         }).toList();
         songs.emptyMessage(app.library.snapshot().tracks().isEmpty() ? Text.get("ui.darkmusic.library_empty") : playlists && source.isEmpty() ? Text.get("text.darkmusic.no_playable_songs") : Text.get("text.darkmusic.no_matching_songs"));
-        var stats = mode.equals("History") ? app.listeningHistory.snapshot() : java.util.Map.<String, ListeningHistory.Entry>of();
+        var stats = mode.equals("History") ? app.listeningHistory.snapshot() : Map.<String, ListeningHistory.Entry>of();
         var displayed = visible;
         boolean history = mode.equals("History");
         songs.rows(displayed.size(), i -> {
@@ -455,10 +470,10 @@ public final class MusicScreen extends LocalScreen {
         songs.select(visible.indexOf(selected));
     }
 
-    private String historyDetails(Track track, java.util.Map<String, ListeningHistory.Entry> values) {
+    private String historyDetails(Track track, Map<String, ListeningHistory.Entry> values) {
         var stats = values.get(track.id());
         if (stats == null) return "";
-        String date = HISTORY_DATE.format(java.time.Instant.ofEpochMilli(stats.lastPlayed()));
+        String date = HISTORY_DATE.format(Instant.ofEpochMilli(stats.lastPlayed()));
         return Text.get("history.stats", stats.plays(), (long) (stats.seconds() / 60), date);
     }
 
@@ -619,14 +634,14 @@ public final class MusicScreen extends LocalScreen {
     }
 
     @Override
-    public void onFilesDrop(java.util.List<java.nio.file.Path> files) {
+    public void onFilesDrop(List<Path> files) {
         String folder = mode.equals("All") ? group : "";
         String playlist = mode.equals("Playlists") && app.playlists.get(group) != null ? group : "";
         app.media.importAudio(files, folder, playlist);
     }
 
     @Override
-    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean twice) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean twice) {
         keyboardNavigation = false;
         boolean handled = super.mouseClicked(event, twice);
         if (!handled) setFocused(null);
@@ -634,26 +649,26 @@ public final class MusicScreen extends LocalScreen {
     }
 
     @Override
-    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+    public boolean keyPressed(KeyEvent event) {
         if (event.key() == 256 && pane != Pane.LIBRARY) {
             pane(Pane.LIBRARY);
             return true;
         }
         var focused = getFocused();
-        if (event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_TAB) {
+        if (event.key() == GLFW.GLFW_KEY_TAB) {
             keyboardNavigation = true;
             return super.keyPressed(event);
         }
         if (focused instanceof EditBox) return super.keyPressed(event);
         // Mouse selection must not capture playback keys until the user navigates with Tab.
-        if (keyboardNavigation && focused instanceof net.minecraft.client.gui.components.AbstractWidget widget && widget.visible && widget.active) {
-            boolean navigation = event.isLeft() || event.isRight() || event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN || event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_UP
-                || event.key() >= org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_UP && event.key() <= org.lwjgl.glfw.GLFW.GLFW_KEY_END;
+        if (keyboardNavigation && focused instanceof AbstractWidget widget && widget.visible && widget.active) {
+            boolean navigation = event.isLeft() || event.isRight() || event.key() == GLFW.GLFW_KEY_DOWN || event.key() == GLFW.GLFW_KEY_UP
+                || event.key() >= GLFW.GLFW_KEY_PAGE_UP && event.key() <= GLFW.GLFW_KEY_END;
             boolean activation = event.isSelection() && (focused instanceof Button || focused instanceof ValueSlider);
             if (navigation || activation) return super.keyPressed(event);
         }
-        if ((event.modifiers() & (org.lwjgl.glfw.GLFW.GLFW_MOD_CONTROL | org.lwjgl.glfw.GLFW.GLFW_MOD_ALT | org.lwjgl.glfw.GLFW.GLFW_MOD_SUPER)) == 0) {
-            if (event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE) {
+        if ((event.modifiers() & (GLFW.GLFW_MOD_CONTROL | GLFW.GLFW_MOD_ALT | GLFW.GLFW_MOD_SUPER)) == 0) {
+            if (event.key() == GLFW.GLFW_KEY_SPACE) {
                 if (!spaceDown && !app.mediaBusy()) {
                     spaceDown = true;
                     playPause();
@@ -682,8 +697,8 @@ public final class MusicScreen extends LocalScreen {
     }
 
     @Override
-    public boolean keyReleased(net.minecraft.client.input.KeyEvent event) {
-        if (event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE && spaceDown) {
+    public boolean keyReleased(KeyEvent event) {
+        if (event.key() == GLFW.GLFW_KEY_SPACE && spaceDown) {
             spaceDown = false;
             return true;
         }

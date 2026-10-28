@@ -3,7 +3,9 @@ package com.darkmusic.client.text;
 import com.google.gson.JsonParser;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,7 +26,7 @@ public final class Text {
             Map<String, String> result = new HashMap<>();
             entries.entrySet().forEach(e -> result.put(e.getKey(), e.getValue().getAsString()));
             return Map.copyOf(result);
-        } catch (java.io.IOException e) {
+        } catch (IOException e) {
             throw new IllegalStateException("Cannot read DarkMusic translations", e);
         }
     }
@@ -53,7 +55,7 @@ public final class Text {
     }
 
     public static String failure(Throwable failure, String fallback) {
-        org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Operation failed", failure);
+        LoggerFactory.getLogger("darkmusic").warn("Operation failed", failure);
         for (Throwable cause = failure; cause != null; cause = cause.getCause())
             if (isMessage(cause.getMessage())) return cause.getMessage();
         return get(fallback);

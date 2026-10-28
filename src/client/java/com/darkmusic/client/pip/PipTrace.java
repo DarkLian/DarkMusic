@@ -2,6 +2,7 @@ package com.darkmusic.client.pip;
 
 import java.nio.file.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Developer-only stage timings; never stores pixels, audio, window names or URLs.
@@ -10,7 +11,7 @@ public final class PipTrace {
     private static final PipTrace INSTANCE = create();
     private final ArrayBlockingQueue<String> pending = new ArrayBlockingQueue<>(8192);
     private volatile boolean closed;
-    private final java.util.concurrent.atomic.AtomicLong dropped = new java.util.concurrent.atomic.AtomicLong();
+    private final AtomicLong dropped = new AtomicLong();
 
     private static PipTrace create() {
         String directory = System.getProperty("darkmusic.pip.trace");

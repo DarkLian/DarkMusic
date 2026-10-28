@@ -2,10 +2,16 @@ package com.darkmusic.client.lyrics;
 
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.library.LyricsFiles;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.file.*;
+import java.security.MessageDigest;
+import java.util.Base64;
+import java.util.HexFormat;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -28,34 +34,34 @@ class LyricsLocalReadTest {
     @Test
     void localReadsAreBoundedAndRejectSymlinks() throws Exception {
         var original = Files.writeString(temp.resolve("private.txt"), "private fixture");
-        assertThrows(java.io.IOException.class, () -> LyricsService.readLocal(original, 3));
+        assertThrows(IOException.class, () -> LyricsService.readLocal(original, 3));
         var link = temp.resolve("song.lrc");
         try {
             Files.createSymbolicLink(link, original);
         } catch (UnsupportedOperationException | FileSystemException denied) {
             Assumptions.abort("No symlink privilege");
         }
-        assertThrows(java.io.IOException.class, () -> LyricsService.readLocal(link, 100));
+        assertThrows(IOException.class, () -> LyricsService.readLocal(link, 100));
     }
 
     @Test
     void siblingFormatFindsLegacyRecoveryAndResolutionArchivesWithoutOverwriting() throws Exception {
         Path audio = temp.resolve("song.flac"), lrc = LyricsFiles.companions(audio).getFirst();
         Files.writeString(lrc, "external content");
-        var c = new com.google.gson.JsonObject();
+        var c = new JsonObject();
         c.addProperty("name", "song.lrc");
-        c.addProperty("before", java.util.Base64.getEncoder().encodeToString("original".getBytes()));
+        c.addProperty("before", Base64.getEncoder().encodeToString("original".getBytes()));
         c.addProperty("existed", true);
         c.addProperty("afterHash", "f".repeat(64));
-        var j = new com.google.gson.JsonObject();
+        var j = new JsonObject();
         j.addProperty("schema", 1);
         j.addProperty("committed", false);
-        var changes = new com.google.gson.JsonArray();
+        var changes = new JsonArray();
         changes.add(c);
         j.add("changes", changes);
-        String id = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest("song.mp3".getBytes())).substring(0, 24);
+        String id = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest("song.mp3".getBytes())).substring(0, 24);
         Path pending = Files.writeString(temp.resolve(".darkmusic-lyrics-" + id + ".json"), j.toString());
-        assertTrue(assertThrows(java.io.IOException.class, () -> LyricsFiles.recover(audio)).getMessage().contains(pending.toString()));
+        assertTrue(assertThrows(IOException.class, () -> LyricsFiles.recover(audio)).getMessage().contains(pending.toString()));
         LyricsFiles.keepCurrent(audio);
         assertFalse(Files.exists(pending));
         assertEquals("external content", Files.readString(lrc));

@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -32,7 +33,7 @@ class PlaylistIndexTest {
         };
         try (var io = Executors.newSingleThreadExecutor()) {
             var store = new PlaylistStore(directory, io, message -> fail(message));
-            var playlists = java.util.stream.IntStream.range(0, 20).mapToObj(index -> new PlaylistStore.Playlist("list" + index, "List " + index,
+            var playlists = IntStream.range(0, 20).mapToObj(index -> new PlaylistStore.Playlist("list" + index, "List " + index,
                 List.of(new PlaylistStore.Entry("root", index + ".opus")))).toList();
             store.loaded(playlists);
             long start = System.nanoTime();

@@ -15,26 +15,42 @@ import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import org.slf4j.LoggerFactory;
 
+import java.util.AbstractList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.BiConsumer;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+import java.util.function.IntConsumer;
+import java.util.function.IntFunction;
+import java.util.function.IntPredicate;
+import java.util.function.IntToDoubleFunction;
+import java.util.function.IntUnaryOperator;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 /**
  * Only visible rows are extracted, even for large libraries.
  */
 public final class RowList extends AbstractWidget {
     @Override
-    public void setTooltip(net.minecraft.client.gui.components.Tooltip tooltip) {
+    public void setTooltip(Tooltip tooltip) {
         super.setTooltip(tooltip);
         Help.remember(this, tooltip);
     }
 
     @Override
-    protected void extractTooltipForNextRenderPass(net.minecraft.client.gui.GuiGraphicsExtractor g, int x, int y) {
+    protected void extractTooltipForNextRenderPass(GuiGraphicsExtractor g, int x, int y) {
         if (rowTooltips) Help.extract(this, g, x, y);
     }
 
@@ -64,7 +80,7 @@ public final class RowList extends AbstractWidget {
     }
 
     private double fractionalScroll;
-    private java.util.function.Consumer<PlaylistDrag> reorder;
+    private Consumer<PlaylistDrag> reorder;
     private MouseButtonEvent pressed;
     private int pressedIndex;
     private PlaylistDrag drag;
@@ -72,33 +88,33 @@ public final class RowList extends AbstractWidget {
     private List<Integer> order = List.of(), dropping;
     private double[] from = new double[0], targets = new double[0];
     private long animation;
-    private java.util.function.IntPredicate playing = i -> false;
-    private java.util.function.IntPredicate favorite = i -> false;
+    private IntPredicate playing = i -> false;
+    private IntPredicate favorite = i -> false;
 
-    public void favorites(java.util.function.IntPredicate favorite) {
+    public void favorites(IntPredicate favorite) {
         this.favorite = favorite;
     }
 
-    private java.util.function.Supplier<UiIcon> playingIcon = () -> UiIcon.PLAY;
+    private Supplier<UiIcon> playingIcon = () -> UiIcon.PLAY;
 
-    public void playingIcon(java.util.function.Supplier<UiIcon> icon) {
+    public void playingIcon(Supplier<UiIcon> icon) {
         playingIcon = icon;
     }
 
-    private java.util.function.IntUnaryOperator tint = i -> UiTheme.SECONDARY;
-    private java.util.function.IntFunction<Track> artwork;
+    private IntUnaryOperator tint = i -> UiTheme.SECONDARY;
+    private IntFunction<Track> artwork;
     private ArtworkCache artworkCache;
     private LyricsService lyricsService;
-    private java.util.function.IntFunction<LyricsInfo> lyrics;
-    private java.util.function.BooleanSupplier lyricsEnabled = () -> false;
+    private IntFunction<LyricsInfo> lyrics;
+    private BooleanSupplier lyricsEnabled = () -> false;
     private LyricsInfo hoveredLyrics;
 
-    public void lyrics(LyricsService service, java.util.function.BooleanSupplier enabled) {
+    public void lyrics(LyricsService service, BooleanSupplier enabled) {
         lyricsService = service;
         lyrics(i -> service.info(artwork == null ? null : artwork.apply(i)), enabled);
     }
 
-    public void lyrics(java.util.function.IntFunction<LyricsInfo> info, java.util.function.BooleanSupplier enabled) {
+    public void lyrics(IntFunction<LyricsInfo> info, BooleanSupplier enabled) {
         lyrics = info;
         lyricsEnabled = enabled;
     }
@@ -118,32 +134,32 @@ public final class RowList extends AbstractWidget {
         return Math.clamp(getY() + (long) selected * rowHeight - scroll + rowHeight / 2, getY(), getBottom());
     }
 
-    private java.util.function.IntFunction<UiIcon> icons;
-    private java.util.function.IntUnaryOperator indent = i -> 0;
-    private java.util.function.IntPredicate expanded = i -> false;
+    private IntFunction<UiIcon> icons;
+    private IntUnaryOperator indent = i -> 0;
+    private IntPredicate expanded = i -> false;
 
-    public void indent(java.util.function.IntUnaryOperator indent) {
+    public void indent(IntUnaryOperator indent) {
         this.indent = indent;
     }
 
-    public void expanded(java.util.function.IntPredicate expanded) {
+    public void expanded(IntPredicate expanded) {
         this.expanded = expanded;
     }
 
-    private java.util.function.IntToDoubleFunction progress;
+    private IntToDoubleFunction progress;
     private int hoveredRow = -2;
 
-    public void artwork(ArtworkCache cache, java.util.function.IntFunction<Track> tracks) {
+    public void artwork(ArtworkCache cache, IntFunction<Track> tracks) {
         rowTooltips(false);
         artworkCache = cache;
         artwork = tracks;
     }
 
-    public void icons(java.util.function.IntFunction<UiIcon> icons) {
+    public void icons(IntFunction<UiIcon> icons) {
         this.icons = icons;
     }
 
-    public void progress(java.util.function.IntToDoubleFunction progress) {
+    public void progress(IntToDoubleFunction progress) {
         this.progress = progress;
     }
 
@@ -156,16 +172,16 @@ public final class RowList extends AbstractWidget {
         clamp();
     }
 
-    public void playing(java.util.function.IntPredicate value) {
+    public void playing(IntPredicate value) {
         playing = value;
     }
 
-    public void tint(java.util.function.IntUnaryOperator value) {
+    public void tint(IntUnaryOperator value) {
         tint = value;
     }
 
-    private java.util.function.IntConsumer disclosure;
-    private java.util.function.IntUnaryOperator disclosureInset;
+    private IntConsumer disclosure;
+    private IntUnaryOperator disclosureInset;
 
     public RowList(int x, int y, int width, int height, int rowHeight, String label, BiConsumer<Integer, Boolean> action) {
         super(x, y, width, height, Component.literal(label));
@@ -210,16 +226,16 @@ public final class RowList extends AbstractWidget {
     /**
      * Build and retain only a small viewport of row presentation data.
      */
-    public void rows(int size, java.util.function.IntFunction<Row> factory) {
+    public void rows(int size, IntFunction<Row> factory) {
         if (size < 0) throw new IllegalArgumentException("Negative row count");
         resetClicks();
         cancelDrag();
         lazyRows = true;
-        var cached = new java.util.LinkedHashMap<Integer, Row>(32, .75f, true);
-        this.rows = new java.util.AbstractList<>() {
+        var cached = new LinkedHashMap<Integer, Row>(32, .75f, true);
+        this.rows = new AbstractList<>() {
             @Override
             public Row get(int index) {
-                java.util.Objects.checkIndex(index, size);
+                Objects.checkIndex(index, size);
                 Row row = cached.computeIfAbsent(index, factory::apply);
                 int limit = Math.max(32, height / rowHeight + 8);
                 while (cached.size() > limit) cached.remove(cached.keySet().iterator().next());
@@ -249,7 +265,7 @@ public final class RowList extends AbstractWidget {
         clamp();
     }
 
-    public void disclosure(java.util.function.IntUnaryOperator inset, java.util.function.IntConsumer action) {
+    public void disclosure(IntUnaryOperator inset, IntConsumer action) {
         disclosureInset = inset;
         disclosure = action;
     }
@@ -262,7 +278,7 @@ public final class RowList extends AbstractWidget {
         selection = value;
     }
 
-    public void reorder(java.util.function.Consumer<PlaylistDrag> action) {
+    public void reorder(Consumer<PlaylistDrag> action) {
         reorder = action;
         resetOrder();
     }
@@ -273,7 +289,7 @@ public final class RowList extends AbstractWidget {
             from = targets = new double[0];
             return;
         }
-        order = java.util.stream.IntStream.range(0, rows.size()).boxed().toList();
+        order = IntStream.range(0, rows.size()).boxed().toList();
         from = new double[rows.size()];
         targets = new double[rows.size()];
         for (int i = 0; i < rows.size(); i++) from[i] = targets[i] = i;
@@ -333,11 +349,11 @@ public final class RowList extends AbstractWidget {
         int hover = isMouseOver(mx, my) && mx < getRight() - 9 ? (my - getY() + scroll) / rowHeight : -1;
         if (hover < 0 && isFocused() && Minecraft.getInstance().getLastInputType().isKeyboard()) hover = selected;
         var lyric = lyricInfo(hover);
-        if (rowTooltips && (hover != hoveredRow || !java.util.Objects.equals(lyric, hoveredLyrics))) {
+        if (rowTooltips && (hover != hoveredRow || !Objects.equals(lyric, hoveredLyrics))) {
             hoveredRow = hover;
             hoveredLyrics = lyric;
             var row = hover >= 0 && hover < rows.size() ? rows.get(hover) : null;
-            setTooltip(row == null ? null : net.minecraft.client.gui.components.Tooltip.create(Component.literal(row.text("\n") + (lyric == null || row.subtitle().contains(Text.get(lyric.key())) ? "" : "\n" + Text.get(lyric.key())))));
+            setTooltip(row == null ? null : Tooltip.create(Component.literal(row.text("\n") + (lyric == null || row.subtitle().contains(Text.get(lyric.key())) ? "" : "\n" + Text.get(lyric.key())))));
         }
         UiTheme.panel(g, getX(), getY(), width, height);
         g.enableScissor(getX(), getY(), getRight(), getBottom());
@@ -508,7 +524,7 @@ public final class RowList extends AbstractWidget {
         try {
             reorder.accept(drag);
         } catch (RuntimeException failure) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Playlist reorder failed", failure);
+            LoggerFactory.getLogger("darkmusic").warn("Playlist reorder failed", failure);
             var app = DarkMusicClient.INSTANCE;
             if (app != null) app.warn(Text.failure(failure, "playlist.status.save_failed"));
         } finally {
@@ -602,8 +618,8 @@ public final class RowList extends AbstractWidget {
 
     public record Row(String title, String subtitle, String details, String status, UiStatus.Tone tone) {
         public String text(String separator) {
-            return java.util.stream.Stream.of(title, status, subtitle, details).filter(value -> !value.isBlank())
-                .collect(java.util.stream.Collectors.joining(separator));
+            return Stream.of(title, status, subtitle, details).filter(value -> !value.isBlank())
+                .collect(Collectors.joining(separator));
         }
 
         public Row(String title, String subtitle) {

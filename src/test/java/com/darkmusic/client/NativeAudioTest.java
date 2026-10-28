@@ -13,18 +13,28 @@ import com.darkmusic.client.media.AudioFormats;
 import com.darkmusic.client.media.ExternalAudio;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.tools.Toolchain;
+import com.google.gson.JsonParser;
+import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
+import javax.imageio.ImageIO;
 import javax.sound.sampled.AudioFileFormat;
 import javax.sound.sampled.AudioSystem;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -106,10 +116,10 @@ class NativeAudioTest {
             assertEquals(0, real.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", source.toString(), "-c:a", codec[0], "-metadata", "title=Stale title", "-metadata", "artist=Stale artist", "-metadata", "album=Stale album", "-metadata", "track=1", "-metadata", "comment=Keep source comment", input.toString()), temp, token, Duration.ofSeconds(30), 16000, s -> {
             }).exit());
             byte[] original = Files.readAllBytes(input);
-            var captionCalls = new java.util.concurrent.atomic.AtomicInteger();
+            var captionCalls = new AtomicInteger();
             var runner = new ProcessRunner() {
                 @Override
-                public Result run(List<String> args, Path dir, Token cancellation, Duration timeout, int max, java.util.function.Consumer<String> lines) throws java.io.IOException, InterruptedException {
+                public Result run(List<String> args, Path dir, Token cancellation, Duration timeout, int max, Consumer<String> lines) throws IOException, InterruptedException {
                     if (args.contains("--write-info-json")) {
                         Files.copy(input, dir.resolve("source." + codec[1]));
                         Files.write(dir.resolve("source.jpg"), artwork);
@@ -137,7 +147,7 @@ class NativeAudioTest {
             assertFalse(Files.exists(LyricsFiles.sidecar(disabled.file())));
             byte[] embedded = new MetadataReader().artwork(saved.file());
             assertNotNull(embedded, codec[1]);
-            assertNotNull(javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(embedded)));
+            assertNotNull(ImageIO.read(new ByteArrayInputStream(embedded)));
             var metadata = new MetadataReader().read("test", saved.file().getFileName().toString(), saved.file(), Files.size(saved.file()), 0);
             assertEquals("Cover test", metadata.title());
             assertEquals("Original artist", metadata.artist());
@@ -168,7 +178,7 @@ class NativeAudioTest {
             }).exit());
             var supplied = new ProcessRunner() {
                 @Override
-                public Result run(List<String> args, Path dir, Token cancellation, Duration timeout, int max, java.util.function.Consumer<String> lines) throws java.io.IOException, InterruptedException {
+                public Result run(List<String> args, Path dir, Token cancellation, Duration timeout, int max, Consumer<String> lines) throws IOException, InterruptedException {
                     if (args.contains("--write-info-json")) {
                         Files.copy(input, dir.resolve("source.aiff"));
                         return new Result(0, "");
@@ -205,7 +215,7 @@ class NativeAudioTest {
         var token = new ProcessRunner.Token();
         assertEquals(0, runner.run(List.of(ff.toString(), "-nostdin", "-v", "error", "-i", source.toString(), "-c:a", "aac", aac.toString()), temp, token, Duration.ofSeconds(30), 16000, s -> {
         }).exit());
-        var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         byte[] bytes = Files.readAllBytes(aac);
         server.createContext("/authorized.m4a", exchange -> {
             exchange.getResponseHeaders().set("Content-Type", "audio/mp4");
@@ -238,10 +248,10 @@ class NativeAudioTest {
         Path ff = tools(), audio = source();
         String yt = System.getProperty("darkmusic.test.ytdlp", "");
         Assumptions.assumeFalse(yt.isBlank());
-        var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
-        var pages = java.util.Map.of(
-            "/song.html", "<html><head><title>Private audio caption check</title></head><body><video src=\"/audio.wav\"><track kind=\"subtitles\" src=\"/captions.vtt\" srclang=\"en\" label=\"English\"></video></body></html>".getBytes(java.nio.charset.StandardCharsets.UTF_8),
-            "/captions.vtt", "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nCaption timing check\n\n00:00:02.000 --> 00:00:03.000\nNext caption\n".getBytes(java.nio.charset.StandardCharsets.UTF_8),
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        var pages = Map.of(
+            "/song.html", "<html><head><title>Private audio caption check</title></head><body><video src=\"/audio.wav\"><track kind=\"subtitles\" src=\"/captions.vtt\" srclang=\"en\" label=\"English\"></video></body></html>".getBytes(StandardCharsets.UTF_8),
+            "/captions.vtt", "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nCaption timing check\n\n00:00:02.000 --> 00:00:03.000\nNext caption\n".getBytes(StandardCharsets.UTF_8),
             "/audio.wav", Files.readAllBytes(audio));
         pages.forEach((path, bytes) -> server.createContext(path, exchange -> {
             exchange.getResponseHeaders().set("Content-Type", path.endsWith(".html") ? "text/html" : path.endsWith(".vtt") ? "text/vtt" : "audio/wav");
@@ -254,7 +264,7 @@ class NativeAudioTest {
         try {
             var chain = new Toolchain(Path.of(yt), ff, ExternalAudio.tool(true), "", "");
             var entry = new DownloadModels.Entry(1, "Private caption check", "http://127.0.0.1:" + server.getAddress().getPort() + "/song.html", "Generic", "captions", true);
-            var metadata = com.google.gson.JsonParser.parseString("{\"subtitles\":{\"en\":[{}]}}").getAsJsonObject();
+            var metadata = JsonParser.parseString("{\"subtitles\":{\"en\":[{}]}}").getAsJsonObject();
             var result = DownloadLyrics.fetch(new ProcessRunner(), chain, entry, metadata, temp, new ProcessRunner.Token());
             assertTrue(result.warning().isBlank(), result.warning());
             assertTrue(result.text().contains("Caption timing check"), result.text());
@@ -287,7 +297,7 @@ class NativeAudioTest {
             byte[] original = Files.readAllBytes(input);
             var supplied = new ProcessRunner() {
                 @Override
-                public Result run(List<String> args, Path dir, Token cancellation, Duration timeout, int max, java.util.function.Consumer<String> lines) throws java.io.IOException, InterruptedException {
+                public Result run(List<String> args, Path dir, Token cancellation, Duration timeout, int max, Consumer<String> lines) throws IOException, InterruptedException {
                     if (args.contains("--write-info-json")) {
                         Files.copy(input, dir.resolve("source." + format[1]));
                         Files.write(dir.resolve("source.jpg"), cover);
@@ -334,7 +344,7 @@ class NativeAudioTest {
             }).exit());
             var supplied = new ProcessRunner() {
                 @Override
-                public Result run(List<String> args, Path dir, Token cancellation, Duration timeout, int max, java.util.function.Consumer<String> lines) throws java.io.IOException, InterruptedException {
+                public Result run(List<String> args, Path dir, Token cancellation, Duration timeout, int max, Consumer<String> lines) throws IOException, InterruptedException {
                     if (args.contains("--write-info-json")) {
                         Files.copy(input, dir.resolve("source." + format[1]));
                         if (!format[1].equals("wav")) Files.write(dir.resolve("source.jpg"), artwork);

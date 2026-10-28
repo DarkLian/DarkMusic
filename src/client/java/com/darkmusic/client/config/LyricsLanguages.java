@@ -7,9 +7,11 @@ import com.google.gson.JsonObject;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.IllformedLocaleException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.StreamSupport;
 
 /**
  * User language preferences select captions; neither video metadata nor captions verify a song's language.
@@ -67,7 +69,7 @@ public final class LyricsLanguages {
             return "";
         try {
             return new Locale.Builder().setLanguageTag(value.replace('_', '-')).build().toLanguageTag();
-        } catch (java.util.IllformedLocaleException e) {
+        } catch (IllformedLocaleException e) {
             return "";
         }
     }
@@ -88,7 +90,7 @@ public final class LyricsLanguages {
                 for (var entry : subtitles.entrySet()) {
                     if (!tag(entry.getKey()).isEmpty() && entry.getValue().isJsonArray()
                         && !entry.getValue().getAsJsonArray().isEmpty()
-                        && java.util.stream.StreamSupport.stream(entry.getValue().getAsJsonArray().spliterator(), false).allMatch(f -> manual(f, generated))) {
+                        && StreamSupport.stream(entry.getValue().getAsJsonArray().spliterator(), false).allMatch(f -> manual(f, generated))) {
                         sole = entry.getKey();
                         eligible++;
                     }
@@ -175,7 +177,7 @@ public final class LyricsLanguages {
         };
         try {
             return new Locale.Builder().setLanguageTag(tag).build().toLanguageTag();
-        } catch (java.util.IllformedLocaleException invalid) {
+        } catch (IllformedLocaleException invalid) {
             return "und";
         }
     }

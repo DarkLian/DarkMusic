@@ -3,43 +3,53 @@ package com.darkmusic.client.library;
 import com.darkmusic.client.media.AudioFormats;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.text.Text;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * Read-only local library; all file work stays off Minecraft's thread.
  */
 public final class MusicLibrary implements AutoCloseable {
-    private final java.util.Set<Path> reportedWork = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Set<Path> reportedWork = ConcurrentHashMap.newKeySet();
     private final ExecutorService scanner = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-scan").factory());
     private final ExecutorService rootScanner = Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("darkmusic-root-", 0).factory());
-    private final Map<Path, RootJob> rootJobs = new java.util.concurrent.ConcurrentHashMap<>();
-    private final Map<String, java.util.concurrent.Semaphore> storeWalkers = new java.util.concurrent.ConcurrentHashMap<>();
-    private final java.util.function.Consumer<Path> beforeRoot;
-    private final java.util.function.Predicate<Path> readableDirectory;
+    private final Map<Path, RootJob> rootJobs = new ConcurrentHashMap<>();
+    private final Map<String, Semaphore> storeWalkers = new ConcurrentHashMap<>();
+    private final Consumer<Path> beforeRoot;
+    private final Predicate<Path> readableDirectory;
     private final long rootTimeoutNanos;
     private final ScheduledExecutorService monitor = Executors.newSingleThreadScheduledExecutor(Thread.ofPlatform().daemon().name("darkmusic-watch").factory());
     private final AtomicBoolean running = new AtomicBoolean(), requested = new AtomicBoolean();
     private final AtomicLong generation = new AtomicLong(), revisions = new AtomicLong();
     private final MetadataReader metadata = new MetadataReader();
     private final Path cacheFile;
-    private final Map<String, Cached> cache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, Cached> cache = new ConcurrentHashMap<>();
     private final AtomicBoolean delayed = new AtomicBoolean();
     private volatile Map<Path, String> roots = Map.of();
     private volatile Path root;
     private volatile String rootId;
     private volatile boolean closed;
     private final Object watchLock = new Object();
-    private final java.util.concurrent.CompletableFuture<Void> watchClosed = new java.util.concurrent.CompletableFuture<>();
+    private final CompletableFuture<Void> watchClosed = new CompletableFuture<>();
     private volatile WatchService watcher;
     private volatile Set<Path> watchedDirectories = Set.of();
     private volatile Set<Path> desiredWatchDirectories = Set.of();
@@ -55,11 +65,11 @@ public final class MusicLibrary implements AutoCloseable {
         }, 15_000);
     }
 
-    MusicLibrary(Path data, java.util.function.Consumer<Path> beforeRoot, long timeoutMillis) {
+    MusicLibrary(Path data, Consumer<Path> beforeRoot, long timeoutMillis) {
         this(data, beforeRoot, timeoutMillis, Files::isReadable);
     }
 
-    MusicLibrary(Path data, java.util.function.Consumer<Path> beforeRoot, long timeoutMillis, java.util.function.Predicate<Path> readableDirectory) {
+    MusicLibrary(Path data, Consumer<Path> beforeRoot, long timeoutMillis, Predicate<Path> readableDirectory) {
         this.beforeRoot = beforeRoot;
         this.readableDirectory = readableDirectory;
         rootTimeoutNanos = TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
@@ -148,7 +158,7 @@ public final class MusicLibrary implements AutoCloseable {
                 delayed.set(false);
                 rescan();
             }, 400, TimeUnit.MILLISECONDS);
-        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+        } catch (RejectedExecutionException ignored) {
             delayed.set(false);
         }
     }
@@ -165,7 +175,7 @@ public final class MusicLibrary implements AutoCloseable {
                     if (requested.get() && !closed) rescan();
                 }
             });
-        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+        } catch (RejectedExecutionException ignored) {
             running.set(false);
         }
     }
@@ -244,7 +254,7 @@ public final class MusicLibrary implements AutoCloseable {
                         cacheDirty = false;
                     } catch (IOException e) {
                         cacheDirty = true;
-                        org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Could not save library index", e);
+                        LoggerFactory.getLogger("darkmusic").warn("Could not save library index", e);
                     }
                 }
                 var directories = new ArrayList<Path>();
@@ -267,8 +277,8 @@ public final class MusicLibrary implements AutoCloseable {
     private Snapshot combined(long ticket, Map<Path, String> selected, Map<Path, RootJob> jobs, Snapshot prior, boolean scanning) {
         var tracks = new ArrayList<Track>();
         var folders = new LinkedHashSet<String>();
-        var priorTracks = prior.tracks().stream().collect(java.util.stream.Collectors.groupingBy(Track::rootId));
-        var priorFolders = prior.folders().stream().collect(java.util.stream.Collectors.groupingBy(MusicLibrary::folderRoot));
+        var priorTracks = prior.tracks().stream().collect(Collectors.groupingBy(Track::rootId));
+        var priorFolders = prior.folders().stream().collect(Collectors.groupingBy(MusicLibrary::folderRoot));
         var complete = new HashSet<String>();
         var unreadableScopes = new HashMap<String, List<String>>();
         var failures = new ArrayList<String>();
@@ -326,7 +336,7 @@ public final class MusicLibrary implements AutoCloseable {
         private final Path directory;
         private final String id;
         private final long ticket;
-        private final java.util.concurrent.CompletableFuture<RootResult> result = new java.util.concurrent.CompletableFuture<>();
+        private final CompletableFuture<RootResult> result = new CompletableFuture<>();
         private volatile RootResult partial;
         private volatile long progressAt = System.nanoTime();
         private volatile long revision;
@@ -346,7 +356,7 @@ public final class MusicLibrary implements AutoCloseable {
             folders.add("@" + id);
             int[] unreadable = {0}, recoveryDirectories = {0};
             var unreadablePaths = new ArrayList<Path>();
-            java.util.concurrent.Semaphore permit = null;
+            Semaphore permit = null;
             boolean acquired = false;
             long[] publishedAt = {System.nanoTime()};
             boolean complete = false;
@@ -356,7 +366,7 @@ public final class MusicLibrary implements AutoCloseable {
                 if (!Files.isDirectory(directory) || !Files.isReadable(directory))
                     throw new IOException(Text.get("library.status.unavailable"));
                 String store = Files.getFileStore(directory).toString();
-                permit = storeWalkers.computeIfAbsent(store, key -> new java.util.concurrent.Semaphore(2, true));
+                permit = storeWalkers.computeIfAbsent(store, key -> new Semaphore(2, true));
                 while (!permit.tryAcquire(250, TimeUnit.MILLISECONDS)) {
                     if (cancelled || closed || ticket != generation.get()) return;
                 }
@@ -375,7 +385,7 @@ public final class MusicLibrary implements AutoCloseable {
                         if (!dir.equals(directory) && dir.getFileName().toString().startsWith(".darkmusic-work-")) {
                             recoveryDirectories[0]++;
                             if (reportedWork.add(dir))
-                                org.slf4j.LoggerFactory.getLogger("darkmusic-library").warn("Metadata recovery files retained; inspect before removing: {}", dir);
+                                LoggerFactory.getLogger("darkmusic-library").warn("Metadata recovery files retained; inspect before removing: {}", dir);
                             return FileVisitResult.SKIP_SUBTREE;
                         }
                         if (dir.toAbsolutePath().normalize().equals(cacheFile.toAbsolutePath().getParent().resolve("downloads/work")))
@@ -478,7 +488,7 @@ public final class MusicLibrary implements AutoCloseable {
 
     private void watchFailed(Exception failure) {
         if (watchWarning.compareAndSet(false, true))
-            org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Some music folders cannot be watched; successful watches are retained and periodic scans remain active", failure);
+            LoggerFactory.getLogger("darkmusic").warn("Some music folders cannot be watched; successful watches are retained and periodic scans remain active", failure);
     }
 
     private void poll() {
@@ -491,7 +501,7 @@ public final class MusicLibrary implements AutoCloseable {
             }
         } catch (Throwable failure) {
             if (pollWarning.compareAndSet(false, true))
-                org.slf4j.LoggerFactory.getLogger("darkmusic-library").warn("Library change polling failed; polling will retry and periodic rescans remain enabled", failure);
+                LoggerFactory.getLogger("darkmusic-library").warn("Library change polling failed; polling will retry and periodic rescans remain enabled", failure);
             if (!closed) requestRescan();
         }
     }
@@ -593,7 +603,7 @@ public final class MusicLibrary implements AutoCloseable {
         try {
             watchClosed.get(seconds, TimeUnit.SECONDS);
             return true;
-        } catch (java.util.concurrent.TimeoutException | java.util.concurrent.ExecutionException failure) {
+        } catch (TimeoutException | ExecutionException failure) {
             return false;
         }
     }
@@ -604,7 +614,7 @@ public final class MusicLibrary implements AutoCloseable {
             tracks = List.copyOf(tracks);
             folders = List.copyOf(folders);
             completeRoots = Set.copyOf(completeRoots);
-            unreadableScopes = unreadableScopes.entrySet().stream().collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> List.copyOf(e.getValue())));
+            unreadableScopes = unreadableScopes.entrySet().stream().collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> List.copyOf(e.getValue())));
         }
 
         public Snapshot(long revision, List<Track> tracks, boolean scanning, String message, List<String> folders, boolean complete, Set<String> completeRoots) {

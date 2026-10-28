@@ -11,7 +11,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Queue visibility outlives its screen; completion notices expire even while menus are open.
@@ -20,11 +23,11 @@ public final class DownloadHud {
     private final Map<Long, DownloadModels.Status> finishedStates = new HashMap<>();
     private DownloadService service;
     private DownloadModels.Snapshot snapshot;
-    private DownloadProgress progress = DownloadProgress.of(java.util.List.of());
+    private DownloadProgress progress = DownloadProgress.of(List.of());
     private String notice = "";
     private long noticed;
     private boolean failure;
-    private java.util.List<DownloadModels.Item> activeItems = java.util.List.of();
+    private List<DownloadModels.Item> activeItems = List.of();
 
     public static void register(DarkMusicClient app) {
         var hud = new DownloadHud();
@@ -38,8 +41,8 @@ public final class DownloadHud {
             snapshot = null;
             finishedStates.clear();
             notice = "";
-            progress = DownloadProgress.of(java.util.List.of());
-            activeItems = java.util.List.of();
+            progress = DownloadProgress.of(List.of());
+            activeItems = List.of();
         }
         if (current == null) return;
         var next = current.snapshot();
@@ -49,11 +52,11 @@ public final class DownloadHud {
         activeItems = next.items().stream().filter(item -> !item.status().finished()).limit(DownloadService.PARALLEL_DOWNLOADS).toList();
         for (var item : next.items())
             if (item.status().finished() && finishedStates.put(item.id(), item.status()) != item.status()) {
-                notice = Text.get("state.darkmusic." + item.status().name().toLowerCase(java.util.Locale.ROOT)) + ": " + item.title();
+                notice = Text.get("state.darkmusic." + item.status().name().toLowerCase(Locale.ROOT)) + ": " + item.title();
                 noticed = now;
                 failure = item.status() == DownloadModels.Status.FAILED;
             }
-        var present = next.items().stream().filter(item -> item.status().finished()).map(DownloadModels.Item::id).collect(java.util.stream.Collectors.toSet());
+        var present = next.items().stream().filter(item -> item.status().finished()).map(DownloadModels.Item::id).collect(Collectors.toSet());
         finishedStates.keySet().retainAll(present);
     }
 
@@ -81,7 +84,7 @@ public final class DownloadHud {
         int rowY = y + 25;
         for (var item : rows) {
             String percent = item.progress() >= 0 ? " " + Math.round(item.progress() * 100) + "%" : "";
-            String label = Text.get("state.darkmusic." + item.status().name().toLowerCase(java.util.Locale.ROOT)) + percent + ": " + item.title();
+            String label = Text.get("state.darkmusic." + item.status().name().toLowerCase(Locale.ROOT)) + percent + ": " + item.title();
             g.text(font, HorizontalText.ellipsize(font, label, width - 12), x + 6, rowY, color);
             rowY += 12;
         }

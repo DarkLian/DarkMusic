@@ -10,9 +10,12 @@ import org.joml.Matrix3x2f;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.function.ToDoubleFunction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -43,7 +46,7 @@ class CircularHudTest {
         Arrays.fill(levels, 1);
         for (var style : new Settings.SpectrumStyle[]{Settings.SpectrumStyle.ROUNDED_BARS, Settings.SpectrumStyle.BARS, Settings.SpectrumStyle.FILLED_WAVE})
             for (double mode : new double[]{-1, -2, -3}) {
-                var radii = new java.util.ArrayList<Double>();
+                var radii = new ArrayList<Double>();
                 VertexConsumer consumer = (VertexConsumer) Proxy.newProxyInstance(VertexConsumer.class.getClassLoader(), new Class<?>[]{VertexConsumer.class}, (proxy, method, args) -> {
                     if (method.getName().equals("addVertex")) radii.add(Math.hypot((float) args[0], (float) args[1]));
                     if (method.getName().equals("setColor"))
@@ -98,7 +101,7 @@ class CircularHudTest {
         new CircularHudMesh.Rings(new Matrix3x2f(), null, null, layout.centerX(), layout.centerY(), -1,
             levels, 8, Settings.SpectrumStyle.FILLED_SPIKE, 0, 0, 0xff123456, 0xffabcdef,
             Settings.SurfaceFinish.FLAT, Settings.SurfaceFinish.FLAT, 96, true).buildVertices(consumer);
-        java.util.function.ToDoubleFunction<Point> radius = p -> Math.hypot(p.x() - layout.centerX(), p.y() - layout.centerY());
+        ToDoubleFunction<Point> radius = p -> Math.hypot(p.x() - layout.centerX(), p.y() - layout.centerY());
         for (int i = 0; i < points.size(); i += 12) {
             assertEquals(radius.applyAsDouble(points.get(i)), radius.applyAsDouble(points.get(i + 9)), .0001);
             assertEquals(radius.applyAsDouble(points.get(i + 3)), radius.applyAsDouble(points.get(i + 10)), .0001);
@@ -117,7 +120,7 @@ class CircularHudTest {
         float[] levels = new float[64];
         Arrays.fill(levels, 1);
         for (var style : new Settings.SpectrumStyle[]{Settings.SpectrumStyle.BARS, Settings.SpectrumStyle.FILLED_WAVE, Settings.SpectrumStyle.FILLED_SPIKE}) {
-            var colors = new java.util.HashSet<Integer>();
+            var colors = new HashSet<Integer>();
             VertexConsumer consumer = (VertexConsumer) Proxy.newProxyInstance(VertexConsumer.class.getClassLoader(), new Class<?>[]{VertexConsumer.class}, (proxy, method, args) -> {
                 if (method.getName().equals("addVertex")) {
                     float x = (float) args[0], y = (float) args[1];
@@ -292,7 +295,7 @@ class CircularHudTest {
         for (int width = 0; width <= 20; width++) {
             String fitted = CircularHudRenderer.ellipsis(value, width, s -> s.codePointCount(0, s.length()));
             assertTrue(fitted.codePointCount(0, fitted.length()) <= width);
-            assertEquals(fitted, new String(fitted.getBytes(java.nio.charset.StandardCharsets.UTF_8), java.nio.charset.StandardCharsets.UTF_8));
+            assertEquals(fitted, new String(fitted.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8));
         }
         assertEquals(value, CircularHudRenderer.ellipsis(value, 100, String::length));
     }
@@ -306,7 +309,7 @@ class CircularHudTest {
         settings.hudVisualizer = false;
         settings.waveformProgress = true;
         var layout = CircularHudLayout.of(settings);
-        var colors = new java.util.HashSet<Integer>();
+        var colors = new HashSet<Integer>();
         var points = new ArrayList<Point>();
         VertexConsumer consumer = (VertexConsumer) Proxy.newProxyInstance(VertexConsumer.class.getClassLoader(), new Class<?>[]{VertexConsumer.class}, (proxy, method, args) -> {
             if (method.getName().equals("addVertex")) {

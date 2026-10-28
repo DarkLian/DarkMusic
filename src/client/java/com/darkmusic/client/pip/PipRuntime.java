@@ -4,13 +4,17 @@ import com.darkmusic.client.tools.ManagedTools;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.update.GitHubRelease;
 import com.google.gson.JsonParser;
+import net.fabricmc.loader.api.FabricLoader;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.*;
+import java.util.function.Consumer;
 
 /**
  * Explicit, instance-local runtime setup. Construction never starts a process or network request.
@@ -60,7 +64,7 @@ public final class PipRuntime implements AutoCloseable {
 
     @FunctionalInterface
     interface Download {
-        void fetch(URI uri, Path out, long max, ProcessRunner.Token token, java.util.function.Consumer<Long> progress) throws Exception;
+        void fetch(URI uri, Path out, long max, ProcessRunner.Token token, Consumer<Long> progress) throws Exception;
     }
 
     @FunctionalInterface
@@ -79,7 +83,7 @@ public final class PipRuntime implements AutoCloseable {
     private final Graphics graphics;
 
     public PipRuntime(Path config) {
-        this(config, PipRuntime::resource, developmentDownload(net.fabricmc.loader.api.FabricLoader.getInstance().isDevelopmentEnvironment(),
+        this(config, PipRuntime::resource, developmentDownload(FabricLoader.getInstance().isDevelopmentEnvironment(),
             System.getProperty("darkmusic.pipDependencies", ""), ManagedTools::download), null, PipRuntime::graphics);
     }
 
@@ -185,7 +189,7 @@ public final class PipRuntime implements AutoCloseable {
         if (!PipNativeTools.supported()) return 0;
         String system = System.getenv("SystemRoot");
         if (system == null) return 0;
-        var result = new ProcessRunner().run(java.util.List.of(Path.of(system, "System32/WindowsPowerShell/v1.0/powershell.exe").toString(),
+        var result = new ProcessRunner().run(List.of(Path.of(system, "System32/WindowsPowerShell/v1.0/powershell.exe").toString(),
                 "-NoProfile", "-NonInteractive", "-Command",
                 "$v=[Environment]::OSVersion.Version; if($v.Build -ge 19041 -and [Windows.Graphics.Capture.GraphicsCaptureSession,Windows.Graphics.Capture,ContentType=WindowsRuntime]::IsSupported()){ 'supported '+$v.Build }"),
             root.getParent(), request, Duration.ofSeconds(15), 4096, line -> {
@@ -201,7 +205,7 @@ public final class PipRuntime implements AutoCloseable {
     }
 
     static boolean graphics(Path exe, ProcessRunner.Token request) throws Exception {
-        var probe = new ProcessRunner().run(java.util.List.of(exe.toString(), "--requirements"), exe.getParent(), request, Duration.ofSeconds(15), 4096, line -> {
+        var probe = new ProcessRunner().run(List.of(exe.toString(), "--requirements"), exe.getParent(), request, Duration.ofSeconds(15), 4096, line -> {
         });
         return probe.exit() == 0 && probe.output().strip().equals("supported");
     }
@@ -237,7 +241,7 @@ public final class PipRuntime implements AutoCloseable {
                     try {
                         PipStorage.removeOtherPackages(root, archive());
                     } catch (IOException cleanup) {
-                        org.slf4j.LoggerFactory.getLogger("darkmusic-pip-setup").warn("Old PiP package cleanup deferred", cleanup);
+                        LoggerFactory.getLogger("darkmusic-pip-setup").warn("Old PiP package cleanup deferred", cleanup);
                     }
                     // A valid cached archive needs no download; a damaged one is replaced, never trusted.
                     if (install && !cached()) {
@@ -287,12 +291,12 @@ public final class PipRuntime implements AutoCloseable {
                     try {
                         PipStorage.prune(root, exe.getParent(), System.currentTimeMillis());
                     } catch (Exception cleanup) {
-                        org.slf4j.LoggerFactory.getLogger("darkmusic-pip-setup").warn("Unused PiP runtime cleanup deferred", cleanup);
+                        LoggerFactory.getLogger("darkmusic-pip-setup").warn("Unused PiP runtime cleanup deferred", cleanup);
                     }
                 }
             } catch (Exception error) {
                 if (!request.cancelled())
-                    org.slf4j.LoggerFactory.getLogger("darkmusic-pip-setup").warn("PiP runtime setup failed", error);
+                    LoggerFactory.getLogger("darkmusic-pip-setup").warn("PiP runtime setup failed", error);
                 status = request.cancelled() ? "pip.setup.cancelled" : PipNativeTools.failure(error);
                 if (status.equals("pip.capture_error"))
                     status = install ? "pip.setup.install_failed" : "pip.setup.check_failed";

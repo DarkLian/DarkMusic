@@ -15,13 +15,13 @@ public final class InfoHint extends AbstractWidget {
     private final boolean marker;
 
     @Override
-    public void setTooltip(net.minecraft.client.gui.components.Tooltip tooltip) {
+    public void setTooltip(Tooltip tooltip) {
         super.setTooltip(tooltip);
         Help.remember(this, tooltip);
     }
 
     @Override
-    protected void extractTooltipForNextRenderPass(net.minecraft.client.gui.GuiGraphicsExtractor g, int x, int y) {
+    protected void extractTooltipForNextRenderPass(GuiGraphicsExtractor g, int x, int y) {
         Help.extract(this, g, x, y);
     }
 

@@ -13,18 +13,29 @@ import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.SpectrumRenderer;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiTheme;
+import com.darkmusic.client.systemmedia.MediaControlsPackage;
 import com.darkmusic.client.text.Text;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.DoubleConsumer;
 import java.util.function.DoubleFunction;
+import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
 /**
  * One scrollable settings form with a fixed, independently contained live preview.
@@ -43,7 +54,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
     private long scaleChanged;
     private int folderY;
     private String folderPath = "";
-    private List<net.minecraft.util.FormattedCharSequence> folderLines = List.of();
+    private List<FormattedCharSequence> folderLines = List.of();
     private int scroll, top, bottom, formWidth, cursor, previewX, previewY, previewWidth, previewHeight;
     private int formX, selectedSection, buildingSection;
     private static final String[] SECTION_KEYS = {"phase2.section.0", "settings.audio_section", "lyrics.section", "settings.appearance_section", "phase2.section.1", "phase2.section.2", "phase2.section.5"};
@@ -54,7 +65,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
     private String subsectionTitle = "";
     private UiInput search;
     private final List<Section> searchHeadings = new ArrayList<>();
-    private final java.util.Map<AbstractWidget, Integer> searchRows = new java.util.HashMap<>();
+    private final Map<AbstractWidget, Integer> searchRows = new HashMap<>();
 
     public SettingsScreen(DarkMusicClient app, Screen parent) {
         super(Text.component("text.darkmusic.darkmusic_settings"), parent);
@@ -102,31 +113,31 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
     /**
      * A row that steps through choices on each click and shows the current one.
      */
-    private void choice(String key, java.util.function.Supplier<String> value, Runnable next, String help) {
+    private void choice(String key, Supplier<String> value, Runnable next, String help) {
         action(key, () -> {
             next.run();
             app.save();
             rebuildWidgets();
         }, help);
-        controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get(key) + ": " + value.get()));
+        controls.getLast().widget().setMessage(Component.literal(Text.get(key) + ": " + value.get()));
     }
 
-    private void finish(String key, java.util.function.Supplier<Settings.SurfaceFinish> get, Consumer<Settings.SurfaceFinish> set) {
+    private void finish(String key, Supplier<Settings.SurfaceFinish> get, Consumer<Settings.SurfaceFinish> set) {
         action(key, () -> {
             set.accept(get.get() == Settings.SurfaceFinish.FLAT ? Settings.SurfaceFinish.BEVELED : Settings.SurfaceFinish.FLAT);
             app.save();
             rebuildWidgets();
         }, "finish.darkmusic.help");
-        controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get(key) + ": " + Text.get("finish.darkmusic." + get.get().name().toLowerCase(Locale.ROOT))));
+        controls.getLast().widget().setMessage(Component.literal(Text.get(key) + ": " + Text.get("finish.darkmusic." + get.get().name().toLowerCase(Locale.ROOT))));
     }
 
-    private void rotation(String key, java.util.function.Supplier<Settings.Rotation> get, Consumer<Settings.Rotation> set, String help) {
+    private void rotation(String key, Supplier<Settings.Rotation> get, Consumer<Settings.Rotation> set, String help) {
         action(key, () -> {
             set.accept(Settings.Rotation.values()[(get.get().ordinal() + 1) % Settings.Rotation.values().length]);
             app.save();
             rebuildWidgets();
         }, help);
-        controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get(key) + ": " + Text.get("circle.darkmusic.rotation." + get.get().name().toLowerCase(Locale.ROOT))));
+        controls.getLast().widget().setMessage(Component.literal(Text.get(key) + ": " + Text.get("circle.darkmusic.rotation." + get.get().name().toLowerCase(Locale.ROOT))));
     }
 
     private void slider(double initial, DoubleFunction<String> label, DoubleConsumer change, int steps, String help) {
@@ -134,13 +145,11 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
             change.accept(v);
             app.configureVisualizer();
         }, app::save, steps);
-        slider.plain(true);
         put(slider, Text.get(help));
     }
 
     private void waveformSlider(double initial, DoubleFunction<String> label, DoubleConsumer change, int steps, String help) {
         var slider = new ValueSlider(12, 0, formWidth, initial, label, change, app::save, steps);
-        slider.plain(true);
         put(slider, Text.get(help));
     }
 
@@ -152,7 +161,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
             scaleChanged = 0;
             scroll = 0;
             previewWheel = new HudScale();
-            java.util.Arrays.fill(sectionScroll, 0);
+            Arrays.fill(sectionScroll, 0);
             selectedSection = 0;
         }
         shownSettings = app.settings;
@@ -224,7 +233,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         action("folders.title", () -> show(new MusicFoldersScreen(app, this)), "folders.scope");
         folderY = cursor;
         folderPath = app.library.root().toString();
-        folderLines = font.split(net.minecraft.network.chat.Component.literal(folderPath), formWidth - 14);
+        folderLines = font.split(Component.literal(folderPath), formWidth - 14);
         cursor += folderLines.size() * 10 + 4;
         toggle("text.darkmusic.autoplay_on_launch", () -> s.autoplay, v -> s.autoplay = v, "text.darkmusic.automatically_start_the_library_after_minecraft_launches_disabled_by_default");
         toggle("resume.darkmusic.enabled", () -> s.resumeLast, v -> s.resumeLast = v, "resume.darkmusic.enabled_help");
@@ -247,9 +256,9 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         mediaControlsRows(s);
         action("backup.title", () -> show(new BackupScreen(app, this)), "backup.scope");
         action("history.clear", () -> show(new ConfirmationScreen(this, Text.component("history.clear"), Text.component("history.clear_help"), Text.component("history.clear"), () -> {
-            app.listeningHistory.replace(java.util.Map.of());
+            app.listeningHistory.replace(Map.of());
             app.listeningHistory.flush(true);
-            return java.util.concurrent.CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(null);
         })), "history.clear_help").destructive();
         section("settings.audio_section");
         action("audio.darkmusic.title", () -> show(new AudioSettingsScreen(app, this)), "audio.darkmusic.options_help");
@@ -310,7 +319,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                 app.save();
                 rebuildWidgets();
             }, "circle.darkmusic.style_help");
-            controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("circle.darkmusic.style") + ": " + Text.get("circle.darkmusic.style." + s.hudStyle.name().toLowerCase(Locale.ROOT))));
+            controls.getLast().widget().setMessage(Component.literal(Text.get("circle.darkmusic.style") + ": " + Text.get("circle.darkmusic.style." + s.hudStyle.name().toLowerCase(Locale.ROOT))));
             if (classic) {
                 toggle("text.darkmusic.hud_artwork", () -> s.hudArtwork, v -> s.hudArtwork = v, "hud.darkmusic.artwork_help");
                 toggle("hud.darkmusic.next_song", () -> s.hudNextSong, v -> s.hudNextSong = v, "hud.darkmusic.next_song_help");
@@ -322,7 +331,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                     app.save();
                     rebuildWidgets();
                 }, "hud.image_source.help");
-                controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("hud.image_source") + ": " +
+                controls.getLast().widget().setMessage(Component.literal(Text.get("hud.image_source") + ": " +
                     Text.get("hud.image_source." + s.hudImage().name().toLowerCase(Locale.ROOT))));
             }
 
@@ -346,7 +355,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                     rebuildWidgets();
                 }, "circle.darkmusic.pulse_help");
                 String pulse = !s.circularIconPulse ? "off" : s.visualQuality.beatReactive ? "beat" : "level";
-                controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("circle.darkmusic.pulse") + ": " + Text.get("circle.darkmusic.pulse." + pulse)));
+                controls.getLast().widget().setMessage(Component.literal(Text.get("circle.darkmusic.pulse") + ": " + Text.get("circle.darkmusic.pulse." + pulse)));
                 rotation("circle.darkmusic.rotation", () -> s.circularRotation, v -> s.circularRotation = v, "circle.darkmusic.rotation_help");
                 if (s.circularRotation != Settings.Rotation.OFF || s.hudProgress && s.circularProgressRotation != Settings.Rotation.OFF)
                     waveformSlider((s.circularRotationSeconds - 4) / 116.0, v -> Text.get("circle.darkmusic.rotation_speed", s.circularRotationSeconds),
@@ -358,7 +367,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                     app.save();
                     rebuildWidgets();
                 }, "style.darkmusic.shape_help");
-                controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("style.darkmusic.shape") + ": " + Text.get("style.darkmusic.shape." + s.hudShape.name().toLowerCase(Locale.ROOT))));
+                controls.getLast().widget().setMessage(Component.literal(Text.get("style.darkmusic.shape") + ": " + Text.get("style.darkmusic.shape." + s.hudShape.name().toLowerCase(Locale.ROOT))));
                 toggle("style.darkmusic.raised", () -> s.hudRaised, v -> s.hudRaised = v, "style.darkmusic.raised_help");
                 toggle("hud.text_plate", () -> s.hudTextPlate, v -> s.hudTextPlate = v, "hud.text_plate.help");
             }
@@ -422,7 +431,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                 app.save();
                 rebuildWidgets();
             }, "waveform.style.help");
-            controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("waveform.style") + ": " +
+            controls.getLast().widget().setMessage(Component.literal(Text.get("waveform.style") + ": " +
                 Text.get("waveform.style." + s.waveform.style.name().toLowerCase(Locale.ROOT))));
             action("waveform.unplayed", () -> show(new ColorPickerScreen(this, s.waveform.unplayedColor, 0x555D78, color -> {
                 s.waveform.unplayedColor = color;
@@ -466,7 +475,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
             rebuildWidgets();
         }, linear ? "style.darkmusic.spectrum_help" : "circle.darkmusic.spectrum_help");
         var chosenStyle = linear ? s.spectrumStyle : s.circularSpectrumStyle;
-        controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("style.darkmusic.spectrum") + ": " + Text.get((linear ? "style.darkmusic.spectrum." : "circle.darkmusic.spectrum.") + chosenStyle.name().toLowerCase(Locale.ROOT))));
+        controls.getLast().widget().setMessage(Component.literal(Text.get("style.darkmusic.spectrum") + ": " + Text.get((linear ? "style.darkmusic.spectrum." : "circle.darkmusic.spectrum.") + chosenStyle.name().toLowerCase(Locale.ROOT))));
         if (s.hudEnabled && linear) {
             if (!spectrumOnly) {
                 action("hud.darkmusic.position", () -> {
@@ -477,7 +486,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                     app.save();
                     rebuildWidgets();
                 }, artwork ? "hud.darkmusic.artwork_position_help" : "hud.darkmusic.position_help");
-                controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("hud.darkmusic.position") + ": " + Text.get("hud.darkmusic.position." + (artwork ? s.artworkSpectrumPosition.name() : s.spectrumPosition.name()).toLowerCase(Locale.ROOT))));
+                controls.getLast().widget().setMessage(Component.literal(Text.get("hud.darkmusic.position") + ": " + Text.get("hud.darkmusic.position." + (artwork ? s.artworkSpectrumPosition.name() : s.spectrumPosition.name()).toLowerCase(Locale.ROOT))));
             }
             if (!artwork || s.artworkSpectrumPosition == Settings.ArtworkSpectrumPosition.ABOVE
                 || s.artworkSpectrumPosition == Settings.ArtworkSpectrumPosition.BELOW) {
@@ -486,7 +495,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                     app.save();
                     rebuildWidgets();
                 }, "hud.darkmusic.direction_help");
-                controls.getLast().widget().setMessage(net.minecraft.network.chat.Component.literal(Text.get("hud.darkmusic.direction") + ": " + Text.get("hud.darkmusic.direction." + s.spectrumDirection.name().toLowerCase(Locale.ROOT))));
+                controls.getLast().widget().setMessage(Component.literal(Text.get("hud.darkmusic.direction") + ": " + Text.get("hud.darkmusic.direction." + s.spectrumDirection.name().toLowerCase(Locale.ROOT))));
             }
         }
         finish("finish.darkmusic.spectrum", () -> s.spectrumFinish, v -> s.spectrumFinish = v);
@@ -593,9 +602,9 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
     }
 
     @Override
-    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+    public boolean keyPressed(KeyEvent event) {
         var rows = controls.stream().filter(p -> searching() ? searchRows.containsKey(p.widget()) : p.section() == selectedSection).toList();
-        int current = java.util.stream.IntStream.range(0, rows.size()).filter(i -> rows.get(i).widget() == getFocused()).findFirst().orElse(-1);
+        int current = IntStream.range(0, rows.size()).filter(i -> rows.get(i).widget() == getFocused()).findFirst().orElse(-1);
         if (!previewOnly && event.key() == 258 && current >= 0) {
             int next = FocusRows.next(rows.stream().map(p -> p.widget().active).toList(), current, event.hasShiftDown(), false);
             if (next >= 0) {
@@ -671,19 +680,19 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                 var row = action("media.darkmusic.install", () -> {
                 }, "media.darkmusic.install_help");
                 row.active = false;
-                row.setMessage(net.minecraft.network.chat.Component.literal(Text.get("media.darkmusic.installing",
+                row.setMessage(Component.literal(Text.get("media.darkmusic.installing",
                     media.size() > 0 ? Math.round(media.downloaded() * 100.0 / media.size()) : 0)));
             }
             default -> {
                 var row = action("media.darkmusic.install", () -> show(new ConfirmationScreen(this, Text.component("media.darkmusic.install"),
                     Text.component("media.darkmusic.install_body", megabytes), Text.component("media.darkmusic.install_confirm"),
-                    () -> media.install().thenRun(() -> net.minecraft.client.Minecraft.getInstance().execute(() -> {
-                        if (media.state() == com.darkmusic.client.systemmedia.MediaControlsPackage.State.READY) {
+                    () -> media.install().thenRun(() -> Minecraft.getInstance().execute(() -> {
+                        if (media.state() == MediaControlsPackage.State.READY) {
                             s.mediaControls = true;
                             app.save();
                         }
                     })))), "media.darkmusic.install_help");
-                if (media.state() == com.darkmusic.client.systemmedia.MediaControlsPackage.State.FAILED)
+                if (media.state() == MediaControlsPackage.State.FAILED)
                     Help.tip(row, Text.get("media.darkmusic.install_help") + " " + Text.get(media.failure()));
             }
         }

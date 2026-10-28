@@ -4,10 +4,15 @@ import com.darkmusic.client.media.AudioFormats;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.text.Text;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.*;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -21,7 +26,7 @@ class ReviewReliabilityTest {
         var track = new Track("r", "file.mp3", temp.resolve("missing.mp3"), "T", "A", "", 1, 0, 0, "");
         var fields = new MediaFiles.Fields("T", "A", "", "file", ".mp3");
         for (String name : List.of("a\r\nb", "a\nb\nc", "x\u0085y\u0085z")) {
-            var error = assertThrows(java.io.IOException.class, () -> new MediaFiles().edit(track, fields, new MediaFiles.Fields("T", "A", "", name, ".mp3"), new ProcessRunner.Token()));
+            var error = assertThrows(IOException.class, () -> new MediaFiles().edit(track, fields, new MediaFiles.Fields("T", "A", "", name, ".mp3"), new ProcessRunner.Token()));
             assertEquals(Text.get("library.darkmusic.invalid_filename"), error.getMessage());
         }
     }
@@ -45,9 +50,9 @@ class ReviewReliabilityTest {
     void importedPermissionsPreservePrivacyAndDownloadsFollowOrdinaryCreation() throws Exception {
         Path normal = Files.createFile(temp.resolve("normal"));
         Path incoming = LibraryFiles.incoming(temp, ".darkmusic-");
-        org.junit.jupiter.api.Assumptions.assumeTrue(Files.getFileAttributeView(normal, java.nio.file.attribute.PosixFileAttributeView.class) != null);
+        Assumptions.assumeTrue(Files.getFileAttributeView(normal, PosixFileAttributeView.class) != null);
         assertEquals(Files.getPosixFilePermissions(normal), Files.getPosixFilePermissions(incoming));
-        Files.setPosixFilePermissions(normal, java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
+        Files.setPosixFilePermissions(normal, PosixFilePermissions.fromString("rw-------"));
         LibraryFiles.preservePermissions(normal, incoming);
         assertEquals(Files.getPosixFilePermissions(normal), Files.getPosixFilePermissions(incoming));
     }
@@ -55,7 +60,7 @@ class ReviewReliabilityTest {
     @Test
     void unsupportedImageBrandsAndVideoExtensionsDoNotBecomeLibrarySongs() throws Exception {
         for (String brand : List.of("heic", "avif", "mif1", "qt  ")) {
-            Path file = Files.write(temp.resolve(brand.strip() + ".bin"), java.nio.ByteBuffer.allocate(24).putInt(24).put("ftyp".getBytes()).put(brand.getBytes()).array());
+            Path file = Files.write(temp.resolve(brand.strip() + ".bin"), ByteBuffer.allocate(24).putInt(24).put("ftyp".getBytes()).put(brand.getBytes()).array());
             assertEquals(AudioFormats.Container.UNKNOWN, AudioFormats.detect(file));
             assertFalse(MusicLibrary.supported(file));
         }

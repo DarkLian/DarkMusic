@@ -11,6 +11,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 
 import java.util.Locale;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.DoubleConsumer;
 import java.util.function.DoubleFunction;
 
@@ -56,7 +58,7 @@ public final class PipSpectrumScreen extends AudioPage implements PipPreview {
         action("pip.placement", () -> show(new PipEditorScreen(app, this, false)));
     }
 
-    private <E extends Enum<E>> void cycle(String key, String prefix, E current, E[] values, java.util.function.Consumer<E> write, String help) {
+    private <E extends Enum<E>> void cycle(String key, String prefix, E current, E[] values, Consumer<E> write, String help) {
         labeledAction(Text.get(key) + ": " + Text.get(prefix + current.name().toLowerCase(Locale.ROOT)), Text.get(help), () -> {
             write.accept(values[(current.ordinal() + 1) % values.length]);
             changed();
@@ -65,12 +67,11 @@ public final class PipSpectrumScreen extends AudioPage implements PipPreview {
 
     private void control(double value, DoubleFunction<String> label, DoubleConsumer write, int steps, String help) {
         var slider = new ValueSlider(formX, 0, formWidth, value, label, write, app::save, steps);
-        slider.plain(true);
         Help.tip(slider, Text.get(help));
         place(slider);
     }
 
-    private void effect(String key, java.util.function.BooleanSupplier read, java.util.function.Consumer<Boolean> write) {
+    private void effect(String key, BooleanSupplier read, Consumer<Boolean> write) {
         var row = new SettingRow(formX, 0, formWidth, Text.get(key), read, () -> {
             write.accept(!read.getAsBoolean());
             changed();

@@ -6,14 +6,16 @@ import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public final class TextPromptScreen extends LocalScreen {
     private final Screen parent;
     private final String initial;
-    private final java.util.function.Function<String, Boolean> accept;
+    private final Function<String, Boolean> accept;
     private final int maxLength;
     private EditBox text;
     private String error = "";
@@ -26,7 +28,7 @@ public final class TextPromptScreen extends LocalScreen {
         });
     }
 
-    private TextPromptScreen(Screen parent, String label, String initial, int maxLength, java.util.function.Function<String, Boolean> accept) {
+    private TextPromptScreen(Screen parent, String label, String initial, int maxLength, Function<String, Boolean> accept) {
         super(Component.literal(label), parent);
         this.parent = parent;
         this.initial = initial;
@@ -34,7 +36,7 @@ public final class TextPromptScreen extends LocalScreen {
         this.maxLength = maxLength;
     }
 
-    public static TextPromptScreen validated(Screen parent, String label, String initial, int maxLength, java.util.function.Function<String, Boolean> accept) {
+    public static TextPromptScreen validated(Screen parent, String label, String initial, int maxLength, Function<String, Boolean> accept) {
         return new TextPromptScreen(parent, label, initial, maxLength, accept);
     }
 
@@ -48,7 +50,7 @@ public final class TextPromptScreen extends LocalScreen {
     }
 
     @Override
-    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+    public boolean keyPressed(KeyEvent event) {
         if (event.isConfirmation() && text.isFocused()) {
             submit();
             return true;

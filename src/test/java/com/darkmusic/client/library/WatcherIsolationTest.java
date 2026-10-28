@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.*;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
@@ -73,7 +74,7 @@ class WatcherIsolationTest {
             });
             try {
                 assertTrue(entered.await(2, TimeUnit.SECONDS));
-                assertTimeoutPreemptively(java.time.Duration.ofSeconds(2), () -> {
+                assertTimeoutPreemptively(Duration.ofSeconds(2), () -> {
                     synchronized (library) {
                         assertNotNull(library.snapshot());
                     }

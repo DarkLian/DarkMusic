@@ -14,6 +14,8 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.UnsupportedAudioFileException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.Locale;
 
@@ -25,7 +27,7 @@ public final class PcmDecoder {
         try {
             ExternalAudio.tool(false);
             ExternalAudio.tool(true);
-        } catch (java.io.IOException unavailable) {
+        } catch (IOException unavailable) {
             return new OpenedAudio(openPrecise(file), 0);
         }
         return ExternalAudio.openAt(file, seconds);
@@ -44,7 +46,7 @@ public final class PcmDecoder {
                 ExternalAudio.tool(false);
                 ExternalAudio.tool(true);
                 toolsAvailable = true;
-            } catch (java.io.IOException missing) {
+            } catch (IOException missing) {
                 toolsAvailable = false;
             }
             if (toolsAvailable) return sixteen(ExternalAudio.open(file));
@@ -78,7 +80,7 @@ public final class PcmDecoder {
             } else converted = AudioSystem.getAudioInputStream(pcm, source);
             return new AudioInputStream(converted, converted.getFormat(), converted.getFrameLength()) {
                 @Override
-                public void close() throws java.io.IOException {
+                public void close() throws IOException {
                     try {
                         super.close();
                     } finally {
@@ -97,7 +99,7 @@ public final class PcmDecoder {
         try {
             ExternalAudio.tool(false);
             ExternalAudio.tool(true);
-        } catch (java.io.IOException unavailable) {
+        } catch (IOException unavailable) {
             var type = AudioFormats.detect(file);
             if (type == AudioFormats.Container.FLAC) {
                 var source = new FlacAudioFileReader().getAudioInputStream(file.toFile());
@@ -124,14 +126,14 @@ public final class PcmDecoder {
     private static AudioInputStream sixteen(AudioInputStream source) {
         var rate = new PcmRateConverter(source);
         var f = source.getFormat();
-        return new AudioInputStream(new java.io.InputStream() {
+        return new AudioInputStream(new InputStream() {
             @Override
-            public int read() throws java.io.IOException {
-                throw new java.io.IOException("Read complete PCM frames");
+            public int read() throws IOException {
+                throw new IOException("Read complete PCM frames");
             }
 
             @Override
-            public int read(byte[] b, int off, int len) throws java.io.IOException {
+            public int read(byte[] b, int off, int len) throws IOException {
                 if (off == 0) return rate.read(b, len, 1);
                 byte[] data = new byte[len];
                 int n = rate.read(data, len, 1);
@@ -140,7 +142,7 @@ public final class PcmDecoder {
             }
 
             @Override
-            public void close() throws java.io.IOException {
+            public void close() throws IOException {
                 source.close();
             }
         }, new AudioFormat(f.getSampleRate(), 16, f.getChannels(), true, false), -1);

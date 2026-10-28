@@ -12,6 +12,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.darkmusic.client.download.DownloadModels.Item;
 import static org.junit.jupiter.api.Assertions.*;
@@ -82,7 +84,7 @@ class DownloadPreviewTest {
             String range = args.get(args.indexOf("--playlist-items") + 1);
             ranges.add(range);
             int first = Integer.parseInt(range.split(":")[0]), last = Math.min(5, range.contains(":") ? Integer.parseInt(range.split(":")[1]) : first);
-            String entries = java.util.stream.IntStream.rangeClosed(first, last).mapToObj(i -> "{\"id\":\"" + i + "\",\"playlist_index\":" + i + ",\"title\":\"Song " + i + "\",\"url\":\"https://example.com/" + i + "\",\"availability\":\"private\"}").collect(java.util.stream.Collectors.joining(","));
+            String entries = IntStream.rangeClosed(first, last).mapToObj(i -> "{\"id\":\"" + i + "\",\"playlist_index\":" + i + ",\"title\":\"Song " + i + "\",\"url\":\"https://example.com/" + i + "\",\"availability\":\"private\"}").collect(Collectors.joining(","));
             return new Result(0, "{\"playlist_count\":5,\"entries\":[" + entries + "]}");
         }
     }

@@ -3,12 +3,18 @@ package com.darkmusic.client.library;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Embedded Xiph picture comments; bounded header inspection, never linked artwork.
@@ -24,33 +30,33 @@ public final class OggArtwork {
         return packet == null ? null : comments(packet, 0);
     }
 
-    public static java.util.Map<String, String> tags(Path file) throws IOException {
+    public static Map<String, String> tags(Path file) throws IOException {
         byte[] packet = commentPacket(file);
         if (packet == null) throw new IOException("Ogg comments unavailable within inspection bounds");
-        var tags = new java.util.HashMap<String, String>();
+        var tags = new HashMap<String, String>();
         try {
             var buffer = ByteBuffer.wrap(packet).order(ByteOrder.LITTLE_ENDIAN);
             skip(buffer, buffer.getInt());
             int count = buffer.getInt();
-            if (count < 0 || count > buffer.remaining() / 4) return java.util.Map.of();
+            if (count < 0 || count > buffer.remaining() / 4) return Map.of();
             for (int i = 0; i < count; i++) {
                 int length = buffer.getInt();
-                if (length < 0 || length > buffer.remaining()) return java.util.Map.of();
+                if (length < 0 || length > buffer.remaining()) return Map.of();
                 if (length <= 1_000_000) {
                     String text = new String(packet, buffer.position(), length, StandardCharsets.UTF_8);
                     int equals = text.indexOf('=');
                     if (equals > 0) {
-                        String key = text.substring(0, equals).toLowerCase(java.util.Locale.ROOT);
-                        if (java.util.Set.of("title", "artist", "album", "lyrics", "unsyncedlyrics", "language").contains(key))
+                        String key = text.substring(0, equals).toLowerCase(Locale.ROOT);
+                        if (Set.of("title", "artist", "album", "lyrics", "unsyncedlyrics", "language").contains(key))
                             tags.putIfAbsent(key, text.substring(equals + 1));
                     }
                 }
                 skip(buffer, length);
             }
-        } catch (IllegalArgumentException | java.nio.BufferUnderflowException malformed) {
+        } catch (IllegalArgumentException | BufferUnderflowException malformed) {
             throw new IOException("Invalid Ogg comments", malformed);
         }
-        return java.util.Map.copyOf(tags);
+        return Map.copyOf(tags);
     }
 
     private static byte[] commentPacket(Path file) throws IOException {
@@ -79,9 +85,9 @@ public final class OggArtwork {
                         packet.reset();
                         packets++;
                         if (starts(complete, "OpusTags", 0))
-                            return java.util.Arrays.copyOfRange(complete, 8, complete.length);
+                            return Arrays.copyOfRange(complete, 8, complete.length);
                         if (complete.length > 0 && complete[0] == 3 && starts(complete, "vorbis", 1))
-                            return java.util.Arrays.copyOfRange(complete, 7, complete.length);
+                            return Arrays.copyOfRange(complete, 7, complete.length);
                     }
                 }
             }
@@ -125,7 +131,7 @@ public final class OggArtwork {
                     return image;
                 }
             }
-        } catch (IllegalArgumentException | java.nio.BufferUnderflowException ignored) {
+        } catch (IllegalArgumentException | BufferUnderflowException ignored) {
             // Malformed optional artwork cannot prevent audio playback.
         }
         return null;

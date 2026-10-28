@@ -10,6 +10,7 @@ import org.junit.jupiter.api.io.TempDir;
 import javax.sound.sampled.AudioFormat;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -65,7 +66,7 @@ class DecoderTest {
         Path path = temp.resolve("zero-rate.wav");
         StorageTest.writeWav(path);
         byte[] bytes = Files.readAllBytes(path);
-        java.util.Arrays.fill(bytes, 24, 32, (byte) 0);
+        Arrays.fill(bytes, 24, 32, (byte) 0);
         Files.write(path, bytes);
         var track = new MetadataReader().read("real", "zero-rate.wav", path, bytes.length, 0);
         assertTrue(Double.isFinite(track.duration()) && track.duration() >= 0);

@@ -7,13 +7,14 @@ import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Native folder picking with explicit, non-destructive scan registration and write routing.
  */
 public final class MusicFoldersScreen extends AudioPage {
-    private java.util.Map<Path, String> shown;
+    private Map<Path, String> shown;
     private Path destination;
 
     public MusicFoldersScreen(DarkMusicClient app, Screen parent) {

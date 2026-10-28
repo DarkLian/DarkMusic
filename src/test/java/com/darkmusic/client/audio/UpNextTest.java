@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -253,7 +254,7 @@ class UpNextTest {
 
     @Test
     void shuffleDoesNotChangeManualOrderAndLargeSourcePreviewStaysBounded() {
-        var huge = java.util.stream.IntStream.range(0, 100000).mapToObj(i -> track("root", "Song" + i)).toList();
+        var huge = IntStream.range(0, 100000).mapToObj(i -> track("root", "Song" + i)).toList();
         player.play(huge, huge.getFirst());
         player.addToQueue(x);
         player.addToQueue(y);

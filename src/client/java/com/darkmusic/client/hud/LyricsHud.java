@@ -4,6 +4,7 @@ import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.lyrics.Lrc;
 import com.darkmusic.client.lyrics.LyricsLookup;
+import com.darkmusic.client.render.HudFade;
 import com.darkmusic.client.render.HudSurface;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
@@ -26,7 +27,7 @@ public final class LyricsHud {
         HudLayer.add(app, "lyrics", g -> {
             if (app.settings != null && enabled(app.settings) && app.playback != null && app.playback.state().track() != null)
                 // Hides with the player HUD when idle; fading suits a centered line better than sliding.
-                com.darkmusic.client.render.HudFade.run(1 - NowPlayingHud.idleAmount(app.settings), () -> render(app, g, false));
+                HudFade.run(1 - NowPlayingHud.idleAmount(app.settings), () -> render(app, g, false));
         });
     }
 

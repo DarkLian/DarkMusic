@@ -2,6 +2,7 @@ package com.darkmusic.client.lyrics;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,7 +15,7 @@ class LyricInputTest {
         assertEquals(text, LyricsService.decode(("\ufeff" + text).getBytes(StandardCharsets.UTF_8)));
         assertEquals(text, LyricsService.decode(("\ufeff" + text).getBytes(StandardCharsets.UTF_16LE)));
         assertEquals(text, LyricsService.decode(("\ufeff" + text).getBytes(StandardCharsets.UTF_16BE)));
-        assertThrows(java.nio.charset.CharacterCodingException.class, () -> LyricsService.decode(new byte[]{(byte) 0x81}));
+        assertThrows(CharacterCodingException.class, () -> LyricsService.decode(new byte[]{(byte) 0x81}));
     }
 
     @Test

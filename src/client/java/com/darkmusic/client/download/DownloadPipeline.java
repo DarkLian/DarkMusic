@@ -13,18 +13,25 @@ import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.tools.Toolchain;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.function.BiConsumer;
+import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 import static com.darkmusic.client.download.DownloadJson.text;
 import static com.darkmusic.client.download.DownloadModels.*;
@@ -72,7 +79,7 @@ public final class DownloadPipeline {
     }
 
     public static String filename(String title, String identity, String extension) {
-        if (!java.util.Set.of("mp3", "m4a", "opus", "ogg", "flac", "wav").contains(extension))
+        if (!Set.of("mp3", "m4a", "opus", "ogg", "flac", "wav").contains(extension))
             throw new IllegalArgumentException("Unsupported download extension");
         String safe = title.replaceAll("[\\p{Cntrl}<>:\"/\\\\|?*]", "_").strip().replaceAll("^[. ]+|[. ]+$", "");
         if (safe.isBlank()) safe = "Audio";
@@ -80,7 +87,7 @@ public final class DownloadPipeline {
         try {
             byte[] hash = MessageDigest.getInstance("SHA-256").digest(identity.getBytes(StandardCharsets.UTF_8));
             return safe + " [" + HexFormat.of().formatHex(hash, 0, 8) + "]." + extension;
-        } catch (java.security.NoSuchAlgorithmException e) {
+        } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
         }
     }
@@ -104,7 +111,7 @@ public final class DownloadPipeline {
         if (workspace != null) try {
             workspace.close();
         } catch (IOException e) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Cannot close workspace", e);
+            LoggerFactory.getLogger("darkmusic-download").warn("Cannot close workspace", e);
         } finally {
             workspace = null;
         }
@@ -118,15 +125,15 @@ public final class DownloadPipeline {
         return execute(entry, destination, tools, token, progress, format, () -> false);
     }
 
-    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format, java.util.function.BooleanSupplier lyricsEnabled) throws Exception {
+    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format, BooleanSupplier lyricsEnabled) throws Exception {
         return execute(entry, destination, tools, token, progress, format, lyricsEnabled, () -> LyricsLanguages.resolve("auto"));
     }
 
-    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format, java.util.function.BooleanSupplier lyricsEnabled, java.util.function.Supplier<List<String>> lyricsLanguages) throws Exception {
+    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format, BooleanSupplier lyricsEnabled, Supplier<List<String>> lyricsLanguages) throws Exception {
         return execute(entry, destination, tools, token, progress, format, lyricsEnabled, lyricsLanguages, () -> false);
     }
 
-    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format, java.util.function.BooleanSupplier lyricsEnabled, java.util.function.Supplier<List<String>> lyricsLanguages, java.util.function.BooleanSupplier autoCaptions) throws Exception {
+    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format, BooleanSupplier lyricsEnabled, Supplier<List<String>> lyricsLanguages, BooleanSupplier autoCaptions) throws Exception {
         token.check();
         DownloadDiagnostics.at(DownloadDiagnostics.Stage.COMMIT, DownloadDiagnostics.Tool.NONE, () -> {
             prepare();
@@ -139,7 +146,7 @@ public final class DownloadPipeline {
         }
     }
 
-    private Saved download(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format, java.util.function.BooleanSupplier lyricsEnabled, java.util.function.Supplier<List<String>> lyricsLanguages, java.util.function.BooleanSupplier autoCaptions) throws Exception {
+    private Saved download(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format, BooleanSupplier lyricsEnabled, Supplier<List<String>> lyricsLanguages, BooleanSupplier autoCaptions) throws Exception {
         DownloadDiagnostics.Stage stage = DownloadDiagnostics.Stage.COMMIT;
         DownloadDiagnostics.Tool tool = DownloadDiagnostics.Tool.NONE;
         try {
@@ -169,7 +176,7 @@ public final class DownloadPipeline {
                 var result = runner.run(command, work, token, Duration.ofMinutes(30), 128_000, s -> {
                     if (s.startsWith("DM_PROGRESS:")) progress.accept(Status.DOWNLOADING, s.substring(12).strip());
                     else if (!s.isBlank())
-                        org.slf4j.LoggerFactory.getLogger("darkmusic-download").debug("yt-dlp: {}", s);
+                        LoggerFactory.getLogger("darkmusic-download").debug("yt-dlp: {}", s);
                 });
                 if (result.exit() != 0)
                     throw new DownloadDiagnostics.Failure(stage, tool, result.exit(), result.output());
@@ -200,17 +207,17 @@ public final class DownloadPipeline {
                 stage = DownloadDiagnostics.Stage.PROCESSING;
                 tool = DownloadDiagnostics.Tool.FFMPEG;
                 Path pictureTags = null;
-                if (cover != null && java.util.Set.of("opus", "ogg").contains(plan.extension())) {
+                if (cover != null && Set.of("opus", "ogg").contains(plan.extension())) {
                     try {
                         pictureTags = DownloadEncoding.pictureComment(runner, tools, cover, work, token);
                     } catch (Exception unavailable) {
                         token.check();
-                        org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Cannot prepare embedded artwork", unavailable);
+                        LoggerFactory.getLogger("darkmusic-download").warn("Cannot prepare embedded artwork", unavailable);
                         warning = Text.get("download.thumbnail_failed");
                     }
                     cover = null;
                 }
-                boolean coverSupported = java.util.Set.of("mp3", "m4a", "flac").contains(plan.extension());
+                boolean coverSupported = Set.of("mp3", "m4a", "flac").contains(plan.extension());
                 if (!coverSupported && cover != null) {
                     cover = null;
                     warning = Text.get("download.artwork_unsupported");
@@ -270,7 +277,7 @@ public final class DownloadPipeline {
                     if (prior != null)
                         return new Saved(prior, true, Text.get("download.already_saved"));
                     Path target = destination.resolve(name);
-                    for (int suffix = 2; Files.exists(target) || LyricsFiles.companions(target).stream().anyMatch(p -> Files.exists(p, java.nio.file.LinkOption.NOFOLLOW_LINKS)); suffix++)
+                    for (int suffix = 2; Files.exists(target) || LyricsFiles.companions(target).stream().anyMatch(p -> Files.exists(p, LinkOption.NOFOLLOW_LINKS)); suffix++)
                         target = destination.resolve(name.substring(0, name.lastIndexOf('.')) + " (" + suffix + ")." + plan.extension());
                     DownloadCommit.prepare(incoming, target, identity, entry.url());
                     Files.move(incoming, target);
@@ -282,7 +289,7 @@ public final class DownloadPipeline {
                             DownloadLyrics.document(lyrics).save(target, false);
                         } catch (Exception failure) {
                             warning = (warning + "; " + Text.get("lyrics.darkmusic.save_failed")).replaceFirst("^; ", "");
-                            org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not save lyric companions; audio remains saved", failure);
+                            LoggerFactory.getLogger("darkmusic-download").warn("Could not save lyric companions; audio remains saved", failure);
                         }
                     }
                     archive.addProperty(identity, target.getFileName().toString());
@@ -290,7 +297,7 @@ public final class DownloadPipeline {
                         ConfigStore.atomicWrite(history, ConfigStore.JSON.toJson(archive));
                         DownloadCommit.finish(target, identity);
                     } catch (IOException e) {
-                        org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not save download history {}", history, e);
+                        LoggerFactory.getLogger("darkmusic-download").warn("Could not save download history {}", history, e);
                         warning = (warning + "; " + Text.get("download.history_write")).replaceFirst("^; ", "");
                     }
                     return new Saved(target, false, warning);
@@ -302,10 +309,10 @@ public final class DownloadPipeline {
                         for (Path file : files.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(file);
                     }
                 } catch (IOException e) {
-                    org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not clean download scratch files in {}", work, e);
+                    LoggerFactory.getLogger("darkmusic-download").warn("Could not clean download scratch files in {}", work, e);
                 }
             }
-        } catch (DownloadDiagnostics.Failure | java.util.concurrent.CancellationException |
+        } catch (DownloadDiagnostics.Failure | CancellationException |
                  InterruptedException failure) {
             throw failure;
         } catch (Exception failure) {

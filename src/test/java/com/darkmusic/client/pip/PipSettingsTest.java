@@ -5,6 +5,10 @@ import com.darkmusic.client.config.Settings;
 import com.google.gson.Gson;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.concurrent.CompletionException;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class PipSettingsTest {
@@ -70,8 +74,8 @@ class PipSettingsTest {
         s.frameRate = 24;
         assertEquals(24, s.effectiveFrameRate(240));
         assertArrayEquals(new int[]{0, 15, 24, 30, 48, 60, 90, 100, 120, 144, 165, 180, 200, 240, 280, 300, 360, 480}, PipSettings.frameRateOptions(100));
-        assertEquals(1, java.util.Arrays.stream(PipSettings.frameRateOptions(144)).filter(n -> n == 144).count());
-        assertFalse(java.util.Arrays.stream(PipSettings.frameRateOptions(1000)).anyMatch(n -> n == 1000));
+        assertEquals(1, Arrays.stream(PipSettings.frameRateOptions(144)).filter(n -> n == 144).count());
+        assertFalse(Arrays.stream(PipSettings.frameRateOptions(1000)).anyMatch(n -> n == 1000));
         s.frameRate = 0;
         assertEquals(0, new Gson().fromJson(new Gson().toJson(s), PipSettings.class).frameRate);
     }
@@ -143,9 +147,9 @@ class PipSettingsTest {
 
     @Test
     void failuresExposeOnlyLocalizedAllowlistedKeys() {
-        assertEquals("pip.bundle_missing", PipNativeTools.failure(new java.util.concurrent.CompletionException(new java.io.IOException("pip.bundle_missing"))));
-        assertEquals("pip.capture_error", PipNativeTools.failure(new java.io.IOException()));
-        assertEquals("pip.capture_error", PipNativeTools.failure(new java.io.IOException("private/path/unknown")));
+        assertEquals("pip.bundle_missing", PipNativeTools.failure(new CompletionException(new IOException("pip.bundle_missing"))));
+        assertEquals("pip.capture_error", PipNativeTools.failure(new IOException()));
+        assertEquals("pip.capture_error", PipNativeTools.failure(new IOException("private/path/unknown")));
     }
 
     @Test

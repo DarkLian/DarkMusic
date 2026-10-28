@@ -16,6 +16,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -68,8 +69,8 @@ class DownloadTest {
                 assertFalse(args.contains("--write-subs") || args.contains("--write-auto-subs"), "Captions must be retrieved after the audio job finishes");
                 var result = super.run(args, dir, token, timeout, max, line);
                 if (args.contains("--write-info-json")) {
-                    var info = com.google.gson.JsonParser.parseString(Files.readString(dir.resolve("source.info.json"))).getAsJsonObject();
-                    info.add("subtitles", com.google.gson.JsonParser.parseString("{\"ja\":[{}]}"));
+                    var info = JsonParser.parseString(Files.readString(dir.resolve("source.info.json"))).getAsJsonObject();
+                    info.add("subtitles", JsonParser.parseString("{\"ja\":[{}]}"));
                     Files.writeString(dir.resolve("source.info.json"), info.toString());
                 }
                 return result;
@@ -312,7 +313,7 @@ class DownloadTest {
             if (args.contains("libmp3lame") || args.contains("copy")) {
                 if (failConversion || (badCover && args.contains("attached_pic")))
                     return new Result(1, "Conversion failed");
-                Files.copy(media, Path.of(args.getLast()), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                Files.copy(media, Path.of(args.getLast()), StandardCopyOption.REPLACE_EXISTING);
                 return new Result(0, "");
             }
             throw new IOException("Unexpected command " + args);

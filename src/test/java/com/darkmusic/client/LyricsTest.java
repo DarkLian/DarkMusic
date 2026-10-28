@@ -15,10 +15,12 @@ import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -41,7 +43,7 @@ class LyricsTest {
         var entry = new DownloadModels.Entry(1, "Song", "https://example.com/song", "test", "song", true);
         var runner = new ProcessRunner() {
             @Override
-            public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, java.util.function.Consumer<String> line) throws java.io.IOException {
+            public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) throws IOException {
                 assertTrue(args.contains("--skip-download"));
                 assertTrue(args.contains("--no-write-auto-subs"));
                 assertEquals("lrc", args.get(args.indexOf("--convert-subs") + 1));
@@ -54,7 +56,7 @@ class LyricsTest {
         assertTrue(result.text().contains("Timed caption"));
         var failed = new ProcessRunner() {
             @Override
-            public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, java.util.function.Consumer<String> line) {
+            public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) {
                 return new Result(1, "HTTP 429");
             }
         };

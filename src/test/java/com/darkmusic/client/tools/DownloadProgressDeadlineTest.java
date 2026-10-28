@@ -3,6 +3,8 @@ package com.darkmusic.client.tools;
 import org.junit.jupiter.api.Test;
 
 import java.io.*;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,7 +16,7 @@ class DownloadProgressDeadlineTest {
         var input = new ByteArrayInputStream(new byte[20]) {
             @Override
             public synchronized int read(byte[] b, int off, int len) {
-                now.addAndGet(java.util.concurrent.TimeUnit.MINUTES.toNanos(1));
+                now.addAndGet(TimeUnit.MINUTES.toNanos(1));
                 return super.read(b, off, Math.min(1, len));
             }
         };
@@ -27,7 +29,7 @@ class DownloadProgressDeadlineTest {
         }, System::nanoTime));
         var token = new ProcessRunner.Token();
         token.cancel();
-        assertThrows(java.util.concurrent.CancellationException.class, () -> ManagedTools.transfer(new ByteArrayInputStream(new byte[1]), new ByteArrayOutputStream(), 20, token, n -> {
+        assertThrows(CancellationException.class, () -> ManagedTools.transfer(new ByteArrayInputStream(new byte[1]), new ByteArrayOutputStream(), 20, token, n -> {
         }, System::nanoTime));
     }
 
@@ -40,7 +42,7 @@ class DownloadProgressDeadlineTest {
             }
 
             public int read(byte[] b, int o, int n) {
-                now.addAndGet(java.util.concurrent.TimeUnit.MINUTES.toNanos(1));
+                now.addAndGet(TimeUnit.MINUTES.toNanos(1));
                 return 0;
             }
         };

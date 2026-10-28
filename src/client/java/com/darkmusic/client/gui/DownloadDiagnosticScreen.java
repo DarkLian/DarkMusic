@@ -5,7 +5,10 @@ import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
 import com.darkmusic.client.tools.DownloadDiagnostics;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.screens.Screen;
+
+import java.util.Locale;
 
 /**
  * A local, bounded report; no network, tool installation or log collection on open.
@@ -30,9 +33,9 @@ public final class DownloadDiagnosticScreen extends AudioPage {
     @Override
     protected void populate() {
         section("download.diag.what");
-        info(() -> Text.get("download.diag.stage." + diagnostic.stage().name().toLowerCase(java.util.Locale.ROOT)));
+        info(() -> Text.get("download.diag.stage." + diagnostic.stage().name().toLowerCase(Locale.ROOT)));
         status(diagnostic::summary, () -> UiStatus.Tone.ERROR);
-        info(() -> Text.get("download.diag.source", Text.get("download.diag.source." + diagnostic.source().name().toLowerCase(java.util.Locale.ROOT))));
+        info(() -> Text.get("download.diag.source", Text.get("download.diag.source." + diagnostic.source().name().toLowerCase(Locale.ROOT))));
         section("download.diag.meaning");
         status(diagnostic::explanation, () -> UiStatus.Tone.WARNING);
         section("download.diag.try");
@@ -44,7 +47,7 @@ public final class DownloadDiagnosticScreen extends AudioPage {
         info("download.diag.privacy");
         action("download.diag.copy", () -> {
             try {
-                String version = net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("darkmusic").orElseThrow().getMetadata().getVersion().getFriendlyString();
+                String version = FabricLoader.getInstance().getModContainer("darkmusic").orElseThrow().getMetadata().getVersion().getFriendlyString();
                 minecraft.keyboardHandler.setClipboard(diagnostic.report(version));
                 copyStatus = Text.get("download.diag.copied");
                 copyTone = UiStatus.Tone.SUCCESS;

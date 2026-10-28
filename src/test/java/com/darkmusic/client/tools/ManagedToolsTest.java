@@ -9,15 +9,20 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileTime;
 import java.security.MessageDigest;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.function.Consumer;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
@@ -49,19 +54,19 @@ class ManagedToolsTest {
     @Test
     void cleanupPreservesCurrentPreviousLeasedAndUnknownDirectories() throws Exception {
         Path root = Files.createDirectories(temp.resolve("managed"));
-        var copies = new java.util.ArrayList<Path>();
+        var copies = new ArrayList<Path>();
         for (int i = 0; i < 4; i++) {
-            Path p = Files.createDirectory(root.resolve("bundle-" + java.util.UUID.randomUUID()));
+            Path p = Files.createDirectory(root.resolve("bundle-" + UUID.randomUUID()));
             Files.writeString(p.resolve("ffmpeg"), "metadata fixture");
             copies.add(p);
             Files.writeString(p.resolve("manifest.json"), "{}");
-            Files.setLastModifiedTime(p.resolve("manifest.json"), java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis() - (10 - i) * 86_400_000L));
-            Files.setLastModifiedTime(p, java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis() - (10 - i) * 86_400_000L));
+            Files.setLastModifiedTime(p.resolve("manifest.json"), FileTime.fromMillis(System.currentTimeMillis() - (10 - i) * 86_400_000L));
+            Files.setLastModifiedTime(p, FileTime.fromMillis(System.currentTimeMillis() - (10 - i) * 86_400_000L));
         }
         Path unknown = Files.createDirectory(root.resolve("personal-files"));
         Path stage = Files.createDirectory(root.resolve("staging-123456"));
-        Files.setLastModifiedTime(stage, java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis() - 3 * 86_400_000L));
-        try (var channel = java.nio.channels.FileChannel.open(copies.get(1).resolve("usage.lock"), StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
+        Files.setLastModifiedTime(stage, FileTime.fromMillis(System.currentTimeMillis() - 3 * 86_400_000L));
+        try (var channel = FileChannel.open(copies.get(1).resolve("usage.lock"), StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
              var lock = channel.lock(0, Long.MAX_VALUE, true)) {
             ManagedTools.prune(root, copies.get(3));
             assertFalse(Files.exists(copies.get(0)));
@@ -133,7 +138,7 @@ class ManagedToolsTest {
         assertEquals(original, ManagedTools.current(temp));
         publisher.corrupt = false;
         publisher.cancel = true;
-        assertThrows(java.util.concurrent.CancellationException.class, () -> installer.install(capabilities, new ProcessRunner.Token(), text -> {
+        assertThrows(CancellationException.class, () -> installer.install(capabilities, new ProcessRunner.Token(), text -> {
         }));
         assertEquals(original, ManagedTools.current(temp));
         try (var children = Files.list(temp.resolve("tools/managed"))) {

@@ -8,6 +8,7 @@ import com.darkmusic.client.tools.DownloadDiagnostics;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.tools.Toolchain;
 import com.google.gson.JsonObject;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -73,7 +74,7 @@ public final class DownloadLyrics {
         } catch (Exception failure) {
             token.check();
             if (failure instanceof InterruptedException) throw failure;
-            org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Optional lyric captions could not be downloaded", failure);
+            LoggerFactory.getLogger("darkmusic-download").warn("Optional lyric captions could not be downloaded", failure);
             var category = DownloadDiagnostics.classify(failure, DownloadDiagnostics.Stage.OPTIONAL, link, 0, 1, "").category();
             return new Result("", Text.get("lyrics.darkmusic.download_failed"), "und", false, category);
         }

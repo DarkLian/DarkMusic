@@ -5,6 +5,8 @@ import com.darkmusic.client.hud.DownloadHud;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
@@ -28,7 +30,7 @@ class DownloadRetryTest {
         var attempts = new AtomicInteger();
         var runner = new DownloadTest.FakeRunner() {
             @Override
-            public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) throws java.io.IOException, InterruptedException {
+            public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) throws IOException, InterruptedException {
                 if (args.contains("--write-info-json")) {
                     attempts.incrementAndGet();
                     return new Result(1, "Private video");
@@ -57,7 +59,7 @@ class DownloadRetryTest {
         var repaired = new AtomicBoolean();
         var runner = new DownloadTest.FakeRunner() {
             @Override
-            public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) throws java.io.IOException, InterruptedException {
+            public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) throws IOException, InterruptedException {
                 if (args.contains("--write-info-json")) {
                     String id = args.getLast();
                     attempts.computeIfAbsent(id, ignored -> new AtomicInteger()).incrementAndGet();
@@ -109,14 +111,14 @@ class DownloadRetryTest {
     void cancelAllDisablesAutomaticRetriesAndClearFailedDoesNotRemoveAudio() throws Exception {
         var runner = new DownloadTest.FakeRunner() {
             @Override
-            public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) throws java.io.IOException, InterruptedException {
+            public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) throws IOException, InterruptedException {
                 if (args.contains("--write-info-json")) return new Result(1, "HTTP Error 429");
                 return super.run(args, dir, token, timeout, max, line);
             }
         };
         Path media = temp.resolve("original.mp3");
-        java.nio.file.Files.copy(TestMusic.featured(), media);
-        long size = java.nio.file.Files.size(media);
+        Files.copy(TestMusic.featured(), media);
+        long size = Files.size(media);
         try (var service = new DownloadService(temp.resolve("data"), () -> {
         }, runner)) {
             service.configure(new DownloadTest().tools());
@@ -125,7 +127,7 @@ class DownloadRetryTest {
             service.cancelAll();
             service.clearFailed();
             assertTrue(service.snapshot().items().isEmpty());
-            assertEquals(size, java.nio.file.Files.size(media));
+            assertEquals(size, Files.size(media));
         }
     }
 

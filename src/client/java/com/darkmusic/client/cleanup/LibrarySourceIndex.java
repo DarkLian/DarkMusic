@@ -4,8 +4,10 @@ import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.DownloadFormat;
 import com.darkmusic.client.library.*;
 import com.google.gson.*;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -69,7 +71,7 @@ public final class LibrarySourceIndex implements AutoCloseable {
                                 cache.put(v.id, v);
                     }
             } catch (Exception e) {
-                org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").warn("Cannot read source index cache", e);
+                LoggerFactory.getLogger("darkmusic-cleanup").warn("Cannot read source index cache", e);
             }
         });
     }
@@ -169,7 +171,7 @@ public final class LibrarySourceIndex implements AutoCloseable {
                     cacheDirty = false;
                 }
             } catch (Exception e) {
-                org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").warn("Cannot save source index", e);
+                LoggerFactory.getLogger("darkmusic-cleanup").warn("Cannot save source index", e);
             }
         }
     }
@@ -241,7 +243,7 @@ public final class LibrarySourceIndex implements AutoCloseable {
                 try {
                     var root = roots.entrySet().stream().filter(e -> path.toAbsolutePath().normalize().startsWith(e.getKey())).findFirst().orElse(null);
                     if (root == null) return;
-                    var a = Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class);
+                    var a = Files.readAttributes(path, BasicFileAttributes.class);
                     var t = new Track(root.getValue(), root.getKey().relativize(path).toString().replace('\\', '/'), path, entry.title(), "", "", 0, a.size(), a.lastModifiedTime().toMillis(), "");
                     String name = path.getFileName().toString();
                     var existing = new Existing(t, name.substring(name.lastIndexOf('.') + 1), Set.of(format), DuplicateScanner.stamp(t, a));
@@ -258,7 +260,7 @@ public final class LibrarySourceIndex implements AutoCloseable {
                 } catch (Exception ignored) {
                 }
             });
-        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+        } catch (RejectedExecutionException ignored) {
         }
     }
 

@@ -1,6 +1,8 @@
 package com.darkmusic.client.audio;
 
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.concurrent.*;
 
 /**
@@ -27,7 +29,7 @@ final class ConvolutionReverb {
         t.setDaemon(true);
         return t;
     }, new ThreadPoolExecutor.AbortPolicy());
-    private static final java.util.Map<Key, CompletableFuture<Kernel>> CACHE = new java.util.LinkedHashMap<>();
+    private static final Map<Key, CompletableFuture<Kernel>> CACHE = new LinkedHashMap<>();
     private final CompletableFuture<Prepared> future;
     private final boolean unsupported;
     private final double[][] input = new double[2][SIZE], imaginary = new double[2][SIZE];

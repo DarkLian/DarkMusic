@@ -1,5 +1,7 @@
 package com.darkmusic.client.audio;
 
+import java.util.Arrays;
+
 /**
  * Feed-forward low-pass crossfeed with a 0.25 ms delay; no feedback and no mono widening.
  */
@@ -14,8 +16,8 @@ final class HeadphoneCrossfeed {
         length = Math.clamp((int) Math.round(rate * .00025), 1, 127);
         coefficient = 1 - Math.exp(-2 * Math.PI * 700 / rate);
         cursor = 0;
-        for (var d : delay) java.util.Arrays.fill(d, 0);
-        java.util.Arrays.fill(low, 0);
+        for (var d : delay) Arrays.fill(d, 0);
+        Arrays.fill(low, 0);
     }
 
     void process(double l, double r, double amount) {

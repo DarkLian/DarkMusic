@@ -3,11 +3,16 @@ package com.darkmusic.client.audio;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.media.ExternalAudio;
+import com.darkmusic.client.tools.Hashes;
+import org.slf4j.LoggerFactory;
 
 import javax.sound.sampled.AudioInputStream;
+import java.io.IOException;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.concurrent.*;
+import javax.sound.sampled.UnsupportedAudioFileException;
 
 /**
  * One optional, coalesced background decoder. No network, DSP or render-thread I/O.
@@ -64,7 +69,7 @@ public final class WaveformCache implements AutoCloseable {
                 Path file = directory.resolve(hash(key) + ".json");
                 TrackWaveform result = load(file, key);
                 if (result == null) {
-                    if (!matches(track)) throw new java.io.IOException("Waveform identity changed");
+                    if (!matches(track)) throw new IOException("Waveform identity changed");
                     try (var pcm = PcmDecoder.open(track.file())) {
                         active = pcm;
                         result = TrackWaveform.analyze(pcm, () -> closed || request != generation || !key.equals(wanted));
@@ -72,13 +77,13 @@ public final class WaveformCache implements AutoCloseable {
                         active = null;
                     }
                     if (closed || request != generation || !key.equals(wanted)) return;
-                    if (!matches(track)) throw new java.io.IOException("Waveform identity changed");
+                    if (!matches(track)) throw new IOException("Waveform identity changed");
                     try {
                         store(file, key, result);
                     } catch (Exception failure) {
-                        org.slf4j.LoggerFactory.getLogger("darkmusic-waveform").debug("Waveform cache could not be saved", failure);
+                        LoggerFactory.getLogger("darkmusic-waveform").debug("Waveform cache could not be saved", failure);
                     }
-                } else if (!matches(track)) throw new java.io.IOException("Waveform identity changed");
+                } else if (!matches(track)) throw new IOException("Waveform identity changed");
                 if (!closed && request == generation && key.equals(wanted)) {
                     retries.succeeded(key);
                     current = new Published(key, request, result);
@@ -87,8 +92,8 @@ public final class WaveformCache implements AutoCloseable {
                 Thread.currentThread().interrupt();
             } catch (Exception failure) {
                 if (request == generation && key.equals(wanted))
-                    retries.failed(key, System.nanoTime(), failure instanceof TrackWaveform.AnalysisLimit || failure instanceof javax.sound.sampled.UnsupportedAudioFileException);
-                org.slf4j.LoggerFactory.getLogger("darkmusic-waveform").debug("Waveform unavailable; using normal progress bar", failure);
+                    retries.failed(key, System.nanoTime(), failure instanceof TrackWaveform.AnalysisLimit || failure instanceof UnsupportedAudioFileException);
+                LoggerFactory.getLogger("darkmusic-waveform").debug("Waveform unavailable; using normal progress bar", failure);
             }
         });
     }
@@ -103,12 +108,12 @@ public final class WaveformCache implements AutoCloseable {
     }
 
     private static boolean matches(Track track) throws Exception {
-        var attrs = Files.readAttributes(track.file(), java.nio.file.attribute.BasicFileAttributes.class);
+        var attrs = Files.readAttributes(track.file(), BasicFileAttributes.class);
         return attrs.isRegularFile() && attrs.size() == track.size() && attrs.lastModifiedTime().toMillis() == track.modified();
     }
 
     private static String hash(String key) {
-        return com.darkmusic.client.tools.Hashes.sha256(key);
+        return Hashes.sha256(key);
     }
 
     private TrackWaveform load(Path file, String key) {

@@ -2,11 +2,13 @@ package com.darkmusic.client.pip;
 
 import com.darkmusic.client.tools.ManagedTools;
 import com.darkmusic.client.tools.ProcessRunner;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.*;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.security.MessageDigest;
@@ -23,7 +25,7 @@ class PipRuntimeTest {
 
     @Test
     void publishedDependenciesInstallWithTheProductionTransport() throws Exception {
-        org.junit.jupiter.api.Assumptions.assumeTrue(Boolean.getBoolean("darkmusic.test.pipNetwork") && Boolean.getBoolean("darkmusic.test.desktop") && PipNativeTools.supported(), "Explicit live PiP runtime installation check");
+        Assumptions.assumeTrue(Boolean.getBoolean("darkmusic.test.pipNetwork") && Boolean.getBoolean("darkmusic.test.desktop") && PipNativeTools.supported(), "Explicit live PiP runtime installation check");
         String releaseJar = System.getProperty("darkmusic.test.pipReleaseJar", "");
         assertFalse(releaseJar.isBlank(), "Supply -PpipRuntimeReleaseJar pointing to the downloaded release JAR");
         // CI can use a different .NET patch. Verify the runtime pinned by the actual release, not a local rebuild.
@@ -59,7 +61,7 @@ class PipRuntimeTest {
         try {
             Files.createSymbolicLink(alias, target);
         } catch (UnsupportedOperationException | FileSystemException unavailable) {
-            org.junit.jupiter.api.Assumptions.abort("Symbolic-link creation unavailable: " + unavailable.getClass().getSimpleName());
+            Assumptions.abort("Symbolic-link creation unavailable: " + unavailable.getClass().getSimpleName());
         }
         byte[] deps = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1}, "runtime.dll", new byte[]{2}));
         try (var runtime = new PipRuntime(alias, resources(deps), (u, p, m, t, c) -> fail("No download through a linked directory"), t -> 26300, (e, t) -> true)) {
@@ -72,7 +74,7 @@ class PipRuntimeTest {
 
     @Test
     void realWindowsRequirementsAndInstalledRuntimeWithoutNetwork() throws Exception {
-        org.junit.jupiter.api.Assumptions.assumeTrue(Boolean.getBoolean("darkmusic.test.desktop") && PipNativeTools.supported(), "Optional Windows desktop runtime check");
+        Assumptions.assumeTrue(Boolean.getBoolean("darkmusic.test.desktop") && PipNativeTools.supported(), "Optional Windows desktop runtime check");
         var payload = Path.of(System.getProperty("darkmusic.test.pipDependencies"));
         try (var runtime = new PipRuntime(temp, PipRuntime::resource, (uri, out, max, token, progress) -> {
             token.check();
@@ -136,7 +138,7 @@ class PipRuntimeTest {
         }
         var request = new ProcessRunner.Token();
         request.cancel();
-        assertThrows(Exception.class, () -> transfer.fetch(java.net.URI.create("https://example.invalid"), temp.resolve("cancelled"), deps.length, request, n -> {
+        assertThrows(Exception.class, () -> transfer.fetch(URI.create("https://example.invalid"), temp.resolve("cancelled"), deps.length, request, n -> {
         }));
     }
 

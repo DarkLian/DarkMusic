@@ -1,5 +1,9 @@
 package com.darkmusic.client.lyrics;
 
+import java.util.EnumMap;
+import java.util.Locale;
+import java.util.Map;
+
 /**
  * Inspection outcome, kept separate from playable lyric data and source-caption candidates.
  */
@@ -24,10 +28,10 @@ public record LyricsInfo(State state, Evidence evidence, String lookupKey) {
     public static final LyricsInfo CAPTIONS = new LyricsInfo(State.UNKNOWN, Evidence.CAPTIONS);
     public static final LyricsInfo NO_CAPTIONS = new LyricsInfo(State.UNAVAILABLE, Evidence.CAPTIONS);
 
-    private static final java.util.Map<LyricsLookup.Status, LyricsInfo> LOOKUP_STATES = lookupStates();
+    private static final Map<LyricsLookup.Status, LyricsInfo> LOOKUP_STATES = lookupStates();
 
-    private static java.util.Map<LyricsLookup.Status, LyricsInfo> lookupStates() {
-        var states = new java.util.EnumMap<LyricsLookup.Status, LyricsInfo>(LyricsLookup.Status.class);
+    private static Map<LyricsLookup.Status, LyricsInfo> lookupStates() {
+        var states = new EnumMap<LyricsLookup.Status, LyricsInfo>(LyricsLookup.Status.class);
         for (var status : LyricsLookup.Status.values()) {
             if (status == LyricsLookup.Status.IDLE) continue;
             Evidence evidence = switch (status) {
@@ -37,9 +41,9 @@ public record LyricsInfo(State state, Evidence evidence, String lookupKey) {
                 default -> Evidence.LOOKUP;
             };
             states.put(status, new LyricsInfo(status == LyricsLookup.Status.NOT_FOUND ? State.UNAVAILABLE : State.UNKNOWN,
-                evidence, "lyrics.status." + status.name().toLowerCase(java.util.Locale.ROOT)));
+                evidence, "lyrics.status." + status.name().toLowerCase(Locale.ROOT)));
         }
-        return java.util.Map.copyOf(states);
+        return Map.copyOf(states);
     }
 
     public static LyricsInfo lookup(LyricsLookup.Status status) {
@@ -50,7 +54,7 @@ public record LyricsInfo(State state, Evidence evidence, String lookupKey) {
         if (lookupKey != null && !lookupKey.isEmpty()) return lookupKey;
         if (evidence == Evidence.CAPTIONS)
             return state == State.UNAVAILABLE ? "lyrics.darkmusic.no_manual_captions" : "lyrics.darkmusic.captions_detected";
-        return "lyrics.darkmusic.availability." + state.name().toLowerCase(java.util.Locale.ROOT);
+        return "lyrics.darkmusic.availability." + state.name().toLowerCase(Locale.ROOT);
     }
 
     public int color() {

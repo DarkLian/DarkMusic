@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Timeout;
 import javax.sound.sampled.*;
 import java.io.*;
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
+import java.util.List;
 import java.util.concurrent.atomic.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -22,10 +24,10 @@ class UnifiedPlaybackTest {
         byte[] music = clip.bytes();
         var phase = new AtomicInteger();
         var frames = new AtomicLong();
-        var error = new java.util.concurrent.atomic.DoubleAdder[5];
+        var error = new DoubleAdder[5];
         var counts = new LongAdder[5];
         for (int i = 0; i < 5; i++) {
-            error[i] = new java.util.concurrent.atomic.DoubleAdder();
+            error[i] = new DoubleAdder();
             counts[i] = new LongAdder();
         }
         var running = new AtomicBoolean();
@@ -88,8 +90,8 @@ class UnifiedPlaybackTest {
             controller.configure(a, e);
             backend.diagnostics().panels(AudioDiagnostics.ALL);
             var file = TestMusic.featured();
-            var track = new MetadataReader().read("live", file.getFileName().toString(), file, java.nio.file.Files.size(file), 0);
-            controller.play(java.util.List.of(track), track);
+            var track = new MetadataReader().read("live", file.getFileName().toString(), file, Files.size(file), 0);
+            controller.play(List.of(track), track);
             StorageTest.await(() -> counts[0].sum() > 4000);
             assertEquals(0, error[0].sum() / counts[0].sum(), 1e-7);
             phase.set(1);

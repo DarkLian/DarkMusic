@@ -13,6 +13,7 @@ import net.minecraft.client.gui.screens.Screen;
 
 import java.util.*;
 import java.util.function.IntToDoubleFunction;
+import java.util.regex.Pattern;
 
 /**
  * Device-clock measurements only; never consumes the synthetic HUD settings preview.
@@ -130,7 +131,7 @@ public final class AudioAnalyzerScreen extends AudioPage {
 
     private void legend(GuiGraphicsExtractor g, Graph graph, int x, int y) {
         int[] colors = legendColors(graph.kind);
-        String[] items = Text.get(graph.legend).split(java.util.regex.Pattern.quote(SEPARATOR));
+        String[] items = Text.get(graph.legend).split(Pattern.quote(SEPARATOR));
         int right = formX + formWidth - 6;
         for (int i = 0; i < items.length && x < right; i++) {
             if (i > 0) {

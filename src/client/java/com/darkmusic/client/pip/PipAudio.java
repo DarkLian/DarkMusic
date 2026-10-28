@@ -6,6 +6,7 @@ import com.darkmusic.client.config.PipSpectrumSettings;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.concurrent.locks.LockSupport;
 
 /**
  * Session-owned PCM analysis. Nothing is played, recorded or fed into music DSP.
@@ -99,7 +100,7 @@ public final class PipAudio implements AutoCloseable {
                 progress = System.nanoTime();
             } else {
                 if (System.nanoTime() - progress > 5_000_000_000L) throw new IOException("PiP audio made no progress");
-                java.util.concurrent.locks.LockSupport.parkNanos(1_000_000);
+                LockSupport.parkNanos(1_000_000);
             }
         }
         if (closed) throw new EOFException("Closed PiP audio");

@@ -7,6 +7,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 
+import java.net.URI;
+
 /**
  * DarkMusic's menu colors for chat. Chat always draws on a dark backdrop, so only the accent follows the menu
  * settings, lightened until it stays readable there; text tones keep the default dark-theme values.
@@ -54,7 +56,7 @@ public record ChatPalette(int accent, int text, int secondary, int muted, int su
 
     public MutableComponent link(String key, String url) {
         return plain("[", muted).append(key(key, accent)).append(plain("]", muted))
-            .withStyle(style -> style.withClickEvent(new ClickEvent.OpenUrl(java.net.URI.create(url)))
+            .withStyle(style -> style.withClickEvent(new ClickEvent.OpenUrl(URI.create(url)))
                 .withHoverEvent(new HoverEvent.ShowText(Component.literal(url).withColor(secondary))));
     }
 

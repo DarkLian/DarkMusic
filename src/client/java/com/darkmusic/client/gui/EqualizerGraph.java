@@ -5,6 +5,7 @@ import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.input.KeyEvent;
@@ -34,7 +35,7 @@ public final class EqualizerGraph extends AbstractWidget {
     private int focusedBand, draggingBand = -1;
 
     @Override
-    public void setTooltip(net.minecraft.client.gui.components.Tooltip tooltip) {
+    public void setTooltip(Tooltip tooltip) {
         super.setTooltip(tooltip);
         Help.remember(this, tooltip);
     }

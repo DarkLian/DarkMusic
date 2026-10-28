@@ -9,15 +9,20 @@ import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
 import com.mojang.brigadier.CommandDispatcher;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -45,10 +50,10 @@ class NavigationAndCommandsTest {
 
     @Test
     void librarySnapshotIncludesEmptyAndNestedFoldersWithoutRenderThreadFileAccess(@org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
-        Path music = java.nio.file.Files.createDirectories(temp.resolve("music"));
-        java.nio.file.Files.createDirectories(music.resolve("Empty/Nested"));
-        java.nio.file.Files.createDirectories(music.resolve("Music/Nested"));
-        java.nio.file.Files.copy(TestMusic.featured(), music.resolve("Music/Nested/Track.mp3"));
+        Path music = Files.createDirectories(temp.resolve("music"));
+        Files.createDirectories(music.resolve("Empty/Nested"));
+        Files.createDirectories(music.resolve("Music/Nested"));
+        Files.copy(TestMusic.featured(), music.resolve("Music/Nested/Track.mp3"));
         try (var library = new MusicLibrary(temp.resolve("config"))) {
             library.setRoot(music, "navigation");
             DownloadTest.await(() -> !library.snapshot().scanning());
@@ -118,10 +123,10 @@ class NavigationAndCommandsTest {
         // Title, three section headings, fifteen command lines and the links: 20 lines, the height of open chat.
         assertEquals(40, messages.size());
         // A command and its argument hint are separate text parts sharing one click.
-        var clicks = new java.util.LinkedHashSet<String>();
+        var clicks = new LinkedHashSet<String>();
         for (var message : messages.subList(0, 20))
             for (var part : message.toFlatList())
-                if (part.getStyle().getClickEvent() instanceof net.minecraft.network.chat.ClickEvent.SuggestCommand suggest) {
+                if (part.getStyle().getClickEvent() instanceof ClickEvent.SuggestCommand suggest) {
                     clicks.add(suggest.command());
                     assertNotNull(part.getStyle().getHoverEvent());
                 }
@@ -129,9 +134,9 @@ class NavigationAndCommandsTest {
             "/da volume ", "/da mute", "/da speed ", "/da seek ", "/da shuffle ", "/da repeat ", "/da sleep ", "/da stopafter", "/da", "/da gui",
             "/da lyrics", "/da pip", "/da keys", "/da update"), List.copyOf(clicks));
         var links = messages.get(19).toFlatList().stream()
-            .map(part -> part.getStyle().getClickEvent()).filter(java.util.Objects::nonNull).distinct().toList();
+            .map(part -> part.getStyle().getClickEvent()).filter(Objects::nonNull).distinct().toList();
         assertEquals(3, links.size());
-        for (var link : links) assertInstanceOf(net.minecraft.network.chat.ClickEvent.OpenUrl.class, link);
+        for (var link : links) assertInstanceOf(ClickEvent.OpenUrl.class, link);
     }
 
     @Test
@@ -154,7 +159,7 @@ class NavigationAndCommandsTest {
     @Test
     void bothLyricsAliasesReturnLocalizedFeedbackOrScheduleOnlyTheLyricsAction() throws Exception {
         var dispatcher = new CommandDispatcher<FabricClientCommandSource>();
-        var result = new java.util.concurrent.atomic.AtomicReference<>("lyrics.darkmusic.disabled");
+        var result = new AtomicReference<>("lyrics.darkmusic.disabled");
         var requested = new AtomicInteger();
         var messages = new ArrayList<Component>();
         var source = source(messages);

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Assumptions;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import java.io.ByteArrayInputStream;
+import java.io.EOFException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -54,7 +55,7 @@ final class TestMusic {
                 while (remaining > 0) {
                     int read = pcm.read(discard, 0, (int) Math.min(remaining, discard.length));
                     if (read < 0)
-                        throw new java.io.EOFException("Real music excerpt ended before the requested position");
+                        throw new EOFException("Real music excerpt ended before the requested position");
                     remaining -= read;
                 }
                 byte[] bytes = pcm.readNBytes((int) format.getFrameRate() * format.getFrameSize() * 4);

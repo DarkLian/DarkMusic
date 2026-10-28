@@ -1,5 +1,9 @@
 package com.darkmusic.client.config;
 
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 /**
  * Audio-only preferences. Neutral is an explicit bypass, independent of rendering quality.
  */
@@ -16,7 +20,7 @@ public final class AudioSettings {
     public double duckGain = .35, duckAttack = .03, duckHold = .4, duckRelease = .5;
     public double[] bands = new double[10];
     public String eqPreset = "FLAT", profile = "DEFAULT";
-    public java.util.Map<String, String> savedProfiles = new java.util.LinkedHashMap<>();
+    public Map<String, String> savedProfiles = new LinkedHashMap<>();
     public AudioEnhancements enhancements = new AudioEnhancements();
 
     public enum Reverb {DRY, STUDIO, SMALL_ROOM, CONCERT_HALL}
@@ -69,7 +73,7 @@ public final class AudioSettings {
             && reverb == other.reverb && gainMode == other.gainMode && listening == other.listening
             && ambientGain == other.ambientGain && focusGain == other.focusGain && ducking == other.ducking
             && duckGain == other.duckGain && duckAttack == other.duckAttack && duckHold == other.duckHold
-            && duckRelease == other.duckRelease && java.util.Arrays.equals(bands, other.bands)
+            && duckRelease == other.duckRelease && Arrays.equals(bands, other.bands)
             && enhancements.same(other.enhancements);
     }
 
@@ -89,7 +93,7 @@ public final class AudioSettings {
         if (reverb == null) reverb = Reverb.DRY;
         if (gainMode == null) gainMode = Normalization.TRACK;
         if (listening == null) listening = Listening.NORMAL;
-        if (savedProfiles == null) savedProfiles = new java.util.LinkedHashMap<>();
+        if (savedProfiles == null) savedProfiles = new LinkedHashMap<>();
         if (eqPreset == null) eqPreset = "CUSTOM";
         if (profile == null) profile = "CUSTOM";
         if (enhancements == null) enhancements = new AudioEnhancements();

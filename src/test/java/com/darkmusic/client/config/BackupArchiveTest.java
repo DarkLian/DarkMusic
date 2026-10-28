@@ -3,11 +3,19 @@ package com.darkmusic.client.config;
 import com.darkmusic.client.backup.BackupArchive;
 import com.darkmusic.client.library.*;
 import com.darkmusic.client.playlist.PlaylistStore;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -21,15 +29,15 @@ class BackupArchiveTest {
             var json = ConfigStore.JSON.toJsonTree(valid).getAsJsonObject();
             var playlist = json.getAsJsonArray("playlists").get(0).getAsJsonObject();
             if (field.equals("rootId") || field.equals("path"))
-                playlist.getAsJsonArray("entries").get(0).getAsJsonObject().add(field, com.google.gson.JsonNull.INSTANCE);
-            else playlist.add(field, com.google.gson.JsonNull.INSTANCE);
+                playlist.getAsJsonArray("entries").get(0).getAsJsonObject().add(field, JsonNull.INSTANCE);
+            else playlist.add(field, JsonNull.INSTANCE);
             Path file = directory.resolve("malformed-" + field + ".zip");
-            try (var zip = new java.util.zip.ZipOutputStream(Files.newOutputStream(file))) {
-                zip.putNextEntry(new java.util.zip.ZipEntry("setup.json"));
-                zip.write(json.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            try (var zip = new ZipOutputStream(Files.newOutputStream(file))) {
+                zip.putNextEntry(new ZipEntry("setup.json"));
+                zip.write(json.toString().getBytes(StandardCharsets.UTF_8));
                 zip.closeEntry();
             }
-            assertThrows(java.io.IOException.class, () -> BackupArchive.read(file), field);
+            assertThrows(IOException.class, () -> BackupArchive.read(file), field);
         }
     }
 
@@ -108,26 +116,26 @@ class BackupArchiveTest {
                 zip.putNextEntry(new ZipEntry(entry));
                 zip.write("{}".getBytes());
             }
-            assertThrows(java.io.IOException.class, () -> BackupArchive.read(file));
+            assertThrows(IOException.class, () -> BackupArchive.read(file));
         }
         Path extra = directory.resolve("extra.zip");
         try (var zip = new ZipOutputStream(Files.newOutputStream(extra))) {
             zip.putNextEntry(new ZipEntry("setup.json"));
-            zip.write(ConfigStore.JSON.toJson(data()).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zip.write(ConfigStore.JSON.toJson(data()).getBytes(StandardCharsets.UTF_8));
             zip.closeEntry();
             zip.putNextEntry(new ZipEntry("other"));
         }
-        assertThrows(java.io.IOException.class, () -> BackupArchive.read(extra));
+        assertThrows(IOException.class, () -> BackupArchive.read(extra));
         Path bomb = directory.resolve("oversized.zip");
         try (var zip = new ZipOutputStream(Files.newOutputStream(bomb))) {
             zip.putNextEntry(new ZipEntry("setup.json"));
             zip.write(new byte[8 * 1024 * 1024 + 1]);
         }
-        assertThrows(java.io.IOException.class, () -> BackupArchive.read(bomb));
+        assertThrows(IOException.class, () -> BackupArchive.read(bomb));
         Path future = directory.resolve("future.zip");
         var d = data();
         BackupArchive.write(future, new BackupArchive.Data(99, d.root(), d.settings(), d.playlists(), d.history()));
-        assertThrows(java.io.IOException.class, () -> BackupArchive.read(future));
+        assertThrows(IOException.class, () -> BackupArchive.read(future));
     }
 
     @Test
@@ -137,9 +145,9 @@ class BackupArchiveTest {
         var contents = new LinkedHashMap<String, String>();
         contents.put("config.json", "replacement");
         contents.put("playlists.json", "replacement");
-        var writes = new java.util.concurrent.atomic.AtomicInteger();
-        assertThrows(java.io.IOException.class, () -> RestoreJournal.install(directory, contents, (path, value) -> {
-            if (writes.incrementAndGet() == 2) throw new java.io.IOException("Injected full disk");
+        var writes = new AtomicInteger();
+        assertThrows(IOException.class, () -> RestoreJournal.install(directory, contents, (path, value) -> {
+            if (writes.incrementAndGet() == 2) throw new IOException("Injected full disk");
             ConfigStore.atomicWrite(path, value);
         }));
         assertEquals("original settings", Files.readString(directory.resolve("config.json")));
@@ -147,12 +155,12 @@ class BackupArchiveTest {
         try (var files = Files.walk(directory.resolve("backups"))) {
             assertEquals(2, files.filter(Files::isRegularFile).count());
         }
-        assertThrows(java.io.IOException.class, () -> RestoreJournal.install(directory, Map.of("../other", "bad")));
+        assertThrows(IOException.class, () -> RestoreJournal.install(directory, Map.of("../other", "bad")));
     }
 
     @Test
     void unmatchedImportsSurviveCleanupAndRestartUntilTheyAppear() throws Exception {
-        try (var io = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+        try (var io = Executors.newSingleThreadExecutor()) {
             var entry = new PlaylistStore.Entry("root", "later.opus");
             var store = new PlaylistStore(directory, io, s -> fail(s));
             store.restore(List.of(new PlaylistStore.Playlist("id", "Imported", List.of(entry))), Set.of(entry));
@@ -178,7 +186,7 @@ class BackupArchiveTest {
         var input = new BackupArchive.Data(1, "source", data().settings(),
             List.of(new PlaylistStore.Playlist("large", "Large", entries)), Map.of());
         long started = System.nanoTime();
-        var restored = assertTimeout(java.time.Duration.ofSeconds(10), () -> BackupArchive.prepare(input,
+        var restored = assertTimeout(Duration.ofSeconds(10), () -> BackupArchive.prepare(input,
             new BackupArchive.Selection(false, true, false, false, true, true), new Settings(), "local", List.of(), List.of(), Map.of(), Set.of()));
         System.out.println("BACKUP_100K_PREPARE_MS=" + (System.nanoTime() - started) / 1_000_000);
         var result = restored.playlists().getFirst().entries();
@@ -201,9 +209,9 @@ class BackupArchiveTest {
             replacement.put("options.txt", "new shortcuts");
             for (String name : replacement.keySet())
                 Files.writeString(name.equals("options.txt") ? options : root.resolve(name), "original " + name);
-            var count = new java.util.concurrent.atomic.AtomicInteger();
+            var count = new AtomicInteger();
             int selected = failAt;
-            assertThrows(java.io.IOException.class, () -> RestoreJournal.install(root, replacement, (path, value) -> {
+            assertThrows(IOException.class, () -> RestoreJournal.install(root, replacement, (path, value) -> {
                 if (count.incrementAndGet() == selected) {
                     if (selected % 2 == 0) throw new AccessDeniedException(path.toString());
                     throw new FileSystemException(path.toString(), null, "No space left on device");
@@ -232,13 +240,13 @@ class BackupArchiveTest {
         update.put("playlists.json", "[]");
         update.put("listening-history.json", "newly created");
         update.put("options.txt", "changed");
-        var count = new java.util.concurrent.atomic.AtomicInteger();
+        var count = new AtomicInteger();
         assertThrows(AssertionError.class, () -> RestoreJournal.install(root, update, (path, value) -> {
             ConfigStore.atomicWrite(path, value);
             if (count.incrementAndGet() == 4) throw new AssertionError("Simulated process termination");
         }));
         assertTrue(RestoreJournal.recoveryPending(root));
-        try (var io = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+        try (var io = Executors.newSingleThreadExecutor()) {
             var warnings = new ArrayList<String>();
             var config = new ConfigStore(root, io, warnings::add);
             var loaded = config.load();
@@ -259,15 +267,15 @@ class BackupArchiveTest {
         Path archive = directory.resolve("corrupt.zip");
         try (var zip = new ZipOutputStream(Files.newOutputStream(archive))) {
             zip.putNextEntry(new ZipEntry("setup.json"));
-            zip.write("{\"version\":".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zip.write("{\"version\":".getBytes(StandardCharsets.UTF_8));
         }
-        assertThrows(java.io.IOException.class, () -> BackupArchive.read(archive));
+        assertThrows(IOException.class, () -> BackupArchive.read(archive));
         Files.write(archive, new byte[]{80, 75, 3, 4, 0});
-        assertThrows(java.io.IOException.class, () -> BackupArchive.read(archive));
+        assertThrows(IOException.class, () -> BackupArchive.read(archive));
         Files.writeString(directory.resolve("config.json"), "keep");
         Files.writeString(directory.resolve("restore-pending.json"),
             "{\"version\":1,\"backup\":\"../../outside\",\"existed\":{\"config.json\":true}}");
-        assertThrows(java.io.IOException.class, () -> RestoreJournal.recover(directory));
+        assertThrows(IOException.class, () -> RestoreJournal.recover(directory));
         assertEquals("keep", Files.readString(directory.resolve("config.json")));
         assertTrue(RestoreJournal.recoveryPending(directory));
     }
@@ -284,7 +292,7 @@ class BackupArchiveTest {
         var replacements = new LinkedHashMap<String, String>();
         replacements.put("config.json", "changed");
         replacements.put("playlists.json", "changed");
-        var failure = assertThrows(java.io.IOException.class, () -> RestoreJournal.install(root, replacements, (path, value) -> {
+        var failure = assertThrows(IOException.class, () -> RestoreJournal.install(root, replacements, (path, value) -> {
             if (path.getFileName().toString().equals("playlists.json")) {
                 Files.delete(path);
                 Files.createDirectory(path);
@@ -294,9 +302,9 @@ class BackupArchiveTest {
         }));
         assertTrue(failure.getSuppressed().length > 0);
         assertTrue(RestoreJournal.recoveryPending(root));
-        try (var io = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+        try (var io = Executors.newSingleThreadExecutor()) {
             var store = new ConfigStore(root, io, message -> fail("Partial user data must not be loaded"));
-            assertThrows(java.util.concurrent.CompletionException.class, store::load);
+            assertThrows(CompletionException.class, store::load);
             Files.delete(root.resolve("playlists.json"));
             assertTrue(RestoreJournal.recover(root));
             assertEquals(.42, store.load().volume);
@@ -308,7 +316,7 @@ class BackupArchiveTest {
 
     @Test
     void publishingCommittedPlaylistsDoesNotQueueAnotherDiskWrite() {
-        var io = java.util.concurrent.Executors.newSingleThreadExecutor();
+        var io = Executors.newSingleThreadExecutor();
         io.shutdown(); // Any hidden serialization/write submission would fail this test.
         var entry = new PlaylistStore.Entry("library", "favorite.opus");
         var values = List.of(new PlaylistStore.Playlist(PlaylistStore.FAVORITES, "Favorite Music", List.of(entry)));
@@ -334,7 +342,7 @@ class BackupArchiveTest {
         }));
         Files.writeString(root.resolve("config.json"), "external newer config");
         Files.writeString(root.resolve("playlists.json"), "external newly created playlists");
-        assertThrows(java.io.IOException.class, () -> RestoreJournal.recover(root));
+        assertThrows(IOException.class, () -> RestoreJournal.recover(root));
         assertEquals("external newer config", Files.readString(root.resolve("config.json")));
         assertEquals("external newly created playlists", Files.readString(root.resolve("playlists.json")));
         assertTrue(RestoreJournal.recoveryPending(root));
@@ -342,7 +350,7 @@ class BackupArchiveTest {
             assertTrue(paths.filter(Files::isRegularFile).anyMatch(p -> {
                 try {
                     return Files.readString(p).equals("external newer config");
-                } catch (java.io.IOException e) {
+                } catch (IOException e) {
                     return false;
                 }
             }));
@@ -363,7 +371,7 @@ class BackupArchiveTest {
         Files.writeString(directory.resolve("config.json"), "unrecognized");
         Files.writeString(directory.resolve("restore-pending.json"),
             "{\"version\":1,\"backup\":\"" + id + "\",\"existed\":{\"config.json\":true}}");
-        assertThrows(java.io.IOException.class, () -> RestoreJournal.recover(directory));
+        assertThrows(IOException.class, () -> RestoreJournal.recover(directory));
         assertEquals("unrecognized", Files.readString(directory.resolve("config.json")));
     }
 
@@ -374,7 +382,7 @@ class BackupArchiveTest {
             ConfigStore.atomicWrite(path, value);
             throw new AssertionError("Interrupted");
         }));
-        var journal = com.google.gson.JsonParser.parseString(Files.readString(directory.resolve("restore-pending.json"))).getAsJsonObject();
+        var journal = JsonParser.parseString(Files.readString(directory.resolve("restore-pending.json"))).getAsJsonObject();
         Path originals = directory.resolve("backups").resolve(journal.get("backup").getAsString());
         Files.move(directory.resolve("config.json"), originals.resolve("recover-config.json"));
         assertTrue(RestoreJournal.recover(directory));

@@ -6,8 +6,12 @@ import com.darkmusic.client.text.Text;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static com.darkmusic.client.tools.DownloadDiagnostics.*;
@@ -91,13 +95,13 @@ class DownloadDiagnosticsTest {
     void failedProbeKeepsItsExitCodeAndDoesNotBecomeAWebsiteFailure() {
         var runner = new ProcessRunner() {
             @Override
-            public Result run(java.util.List<String> args, java.nio.file.Path directory, Token token,
-                              java.time.Duration timeout, int limit, java.util.function.Consumer<String> output) {
+            public Result run(List<String> args, Path directory, Token token,
+                              Duration timeout, int limit, Consumer<String> output) {
                 return new Result(7, "Unable to extract an audio stream https://private.host/id?token=secret");
             }
         };
-        var tools = new Toolchain(java.nio.file.Path.of("yt-dlp"), java.nio.file.Path.of("ffmpeg"), java.nio.file.Path.of("ffprobe"), "", "");
-        var failure = assertThrows(Failure.class, () -> DownloadEncoding.codec(runner, tools, java.nio.file.Path.of("audio"), java.nio.file.Path.of("."), new ProcessRunner.Token()));
+        var tools = new Toolchain(Path.of("yt-dlp"), Path.of("ffmpeg"), Path.of("ffprobe"), "", "");
+        var failure = assertThrows(Failure.class, () -> DownloadEncoding.codec(runner, tools, Path.of("audio"), Path.of("."), new ProcessRunner.Token()));
         var result = classify(failure, Stage.DOWNLOAD, "https://www.bilibili.com/video/id", 1, 1, "");
         assertEquals(Category.OUTPUT_VALIDATION_FAILURE, result.category());
         assertEquals(Stage.VALIDATION, result.stage());

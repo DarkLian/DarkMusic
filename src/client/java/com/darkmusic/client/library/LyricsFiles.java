@@ -3,10 +3,15 @@ package com.darkmusic.client.library;
 import com.darkmusic.client.media.AudioFormats;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.Hashes;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.nio.file.attribute.FileTime;
 import java.util.*;
 
 /**
@@ -67,7 +72,7 @@ public final class LyricsFiles {
     }
 
     private static String hash(byte[] bytes) {
-        return bytes == null ? null : com.darkmusic.client.tools.Hashes.sha256(bytes);
+        return bytes == null ? null : Hashes.sha256(bytes);
     }
 
     private static Path journal(Path audio) {
@@ -78,8 +83,8 @@ public final class LyricsFiles {
         safe(file);
         Path temp = Files.createTempFile(file.getParent(), ".darkmusic-lyric-write-", ".tmp");
         try {
-            try (var channel = java.nio.channels.FileChannel.open(temp, StandardOpenOption.WRITE)) {
-                var buffer = java.nio.ByteBuffer.wrap(bytes);
+            try (var channel = FileChannel.open(temp, StandardOpenOption.WRITE)) {
+                var buffer = ByteBuffer.wrap(bytes);
                 while (buffer.hasRemaining()) channel.write(buffer);
                 channel.force(true);
             }
@@ -99,7 +104,7 @@ public final class LyricsFiles {
         }
     }
 
-    private record RecoveryIndex(java.nio.file.attribute.FileTime modified, Map<String, List<Path>> byCompanion) {
+    private record RecoveryIndex(FileTime modified, Map<String, List<Path>> byCompanion) {
     }
 
     private static final LinkedHashMap<Path, RecoveryIndex> recoveryIndexes = new LinkedHashMap<>();
@@ -145,7 +150,7 @@ public final class LyricsFiles {
                 safeJournal(pending);
                 Path archived = pending.resolveSibling(".darkmusic-lyrics-recovery-" + UUID.randomUUID() + ".json");
                 Files.move(pending, archived);
-                org.slf4j.LoggerFactory.getLogger("darkmusic-lyrics").warn("Kept current lyric files; recovery data archived at {}", archived);
+                LoggerFactory.getLogger("darkmusic-lyrics").warn("Kept current lyric files; recovery data archived at {}", archived);
             }
         }
     }

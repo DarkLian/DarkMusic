@@ -4,10 +4,12 @@ import com.darkmusic.client.audio.AudioFft;
 import com.darkmusic.client.media.ExternalAudio;
 import com.darkmusic.client.tools.ProcessRunner;
 
+import java.io.IOException;
 import java.nio.*;
 import java.nio.file.*;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Offline, versioned log-band spectral signatures. Not Chromaprint or an AcoustID client.
@@ -35,11 +37,11 @@ public final class FingerprintService {
         if (!Files.isDirectory(scratch, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(scratch)) return;
         try (var files = Files.list(scratch)) {
             for (Path file : files.filter(p -> p.getFileName().toString().matches("fingerprint-[0-9]+\\.pcm")).toList())
-                if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) && now - Files.getLastModifiedTime(file, LinkOption.NOFOLLOW_LINKS).toMillis() > java.util.concurrent.TimeUnit.DAYS.toMillis(1))
+                if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) && now - Files.getLastModifiedTime(file, LinkOption.NOFOLLOW_LINKS).toMillis() > TimeUnit.DAYS.toMillis(1))
                     try {
                         Files.deleteIfExists(file);
-                    } catch (java.io.IOException busy) { /* Retain files that are still in use. */ }
-        } catch (java.io.IOException unavailable) { /* Optional maintenance must not abort discovery. */ }
+                    } catch (IOException busy) { /* Retain files that are still in use. */ }
+        } catch (IOException unavailable) { /* Optional maintenance must not abort discovery. */ }
     }
 
     public int[] extract(Path file, Path scratch, ProcessRunner.Token token) throws Exception {
@@ -52,7 +54,7 @@ public final class FingerprintService {
             var result = runner.run(command, scratch, token, Duration.ofSeconds(90), 8192, s -> {
             });
             if (result.exit() != 0 || Files.size(pcm) > 8_000_000)
-                throw new java.io.IOException("Fingerprint decoding failed");
+                throw new IOException("Fingerprint decoding failed");
             token.check();
             return samples(ByteBuffer.wrap(Files.readAllBytes(pcm)).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer(), token);
         } finally {

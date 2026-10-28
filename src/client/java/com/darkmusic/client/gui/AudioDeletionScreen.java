@@ -12,8 +12,12 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
  * Reviews exact paths before any file operation; failures never switch to permanent deletion.
@@ -97,10 +101,10 @@ public final class AudioDeletionScreen extends LocalScreen {
 
     private void refreshRows() {
         var tracks = plan == null ? requested : plan.items().stream().map(AudioDeletion.Item::track).toList();
-        var failures = result == null ? java.util.Map.<String, String>of() : result.failed().stream()
-            .collect(java.util.stream.Collectors.toMap(f -> f.track().id(), AudioDeletion.Failure::message));
-        var cancelled = result == null ? java.util.Set.<String>of() : result.cancelled().stream()
-            .map(Track::id).collect(java.util.stream.Collectors.toSet());
+        var failures = result == null ? Map.<String, String>of() : result.failed().stream()
+            .collect(Collectors.toMap(f -> f.track().id(), AudioDeletion.Failure::message));
+        var cancelled = result == null ? Set.<String>of() : result.cancelled().stream()
+            .map(Track::id).collect(Collectors.toSet());
         rows.rows(tracks.size(), i -> {
             var track = tracks.get(i);
             String status = result == null ? "" : Text.get(cancelled.contains(track.id()) ? "delete_audio.item_cancelled"
@@ -108,7 +112,7 @@ public final class AudioDeletionScreen extends LocalScreen {
             return new RowList.Row(status + track.title(), track.file().toString() + (failures.containsKey(track.id()) ? " | " + failures.get(track.id()) : ""));
         });
         if (plan != null && trashCompanions && result == null) {
-            var audioRows = tracks.stream().map(t -> new RowList.Row(t.title(), t.file().toString())).collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+            var audioRows = tracks.stream().map(t -> new RowList.Row(t.title(), t.file().toString())).collect(Collectors.toCollection(ArrayList::new));
             for (var companion : plan.companions())
                 audioRows.add(new RowList.Row(Text.get("delete_audio.companion"), companion.file().toString()));
             rows.rows(audioRows);

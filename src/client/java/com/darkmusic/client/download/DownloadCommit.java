@@ -4,9 +4,13 @@ import com.darkmusic.client.cleanup.DuplicateScanner;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.library.SourceLinks;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A bounded, file-bound receipt repairs only bookkeeping after an interrupted download commit.
@@ -20,7 +24,7 @@ final class DownloadCommit {
         return destination.resolve(".darkmusic-download-commit-" + DuplicateScanner.digest(identity) + ".json");
     }
 
-    private static final java.util.concurrent.ConcurrentHashMap<Path, Long> pruned = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Path, Long> pruned = new ConcurrentHashMap<>();
 
     static void prune(Path destination, long now) throws IOException {
         Path base = destination.toAbsolutePath().normalize();
@@ -39,14 +43,14 @@ final class DownloadCommit {
                         if (receipt != null && receipt.schema == 1 && receipt.filename != null && !receipt.filename.contains("/") && !receipt.filename.contains("\\") && !receipt.filename.startsWith(".")) {
                             Path target = base.resolve(receipt.filename);
                             try {
-                                var a = Files.readAttributes(target, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+                                var a = Files.readAttributes(target, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
                                 repairable = a.isRegularFile() && a.size() == receipt.size && a.lastModifiedTime().toMillis() == receipt.modified;
                             } catch (NoSuchFileException absent) {
                                 // Positive absence is safe; permission/offline I/O errors defer cleanup instead.
                             }
                         }
                     }
-                } catch (com.google.gson.JsonParseException invalid) {
+                } catch (JsonParseException invalid) {
                 }
                 // Never touch the recording, source associations or lyric companions here.
                 if (!repairable) Files.deleteIfExists(pending);
@@ -58,11 +62,11 @@ final class DownloadCommit {
         try {
             prune(target.getParent(), System.currentTimeMillis());
         } catch (IOException cleanup) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic-download").debug("Receipt cleanup deferred", cleanup);
+            LoggerFactory.getLogger("darkmusic-download").debug("Receipt cleanup deferred", cleanup);
         }
         Path pending = file(target.getParent(), identity);
         if (Files.isSymbolicLink(pending)) throw new IOException("Unsafe download commit receipt");
-        var a = Files.readAttributes(incoming, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        var a = Files.readAttributes(incoming, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         var receipt = new Receipt(1, identity, target.getFileName().toString(), SourceLinks.safe(url), a.size(), a.lastModifiedTime().toMillis(), SourceLinks.contentHash(incoming));
         ConfigStore.atomicWrite(pending, ConfigStore.JSON.toJson(receipt));
     }
@@ -92,7 +96,7 @@ final class DownloadCommit {
         Path target = destination.resolve(receipt.filename).normalize();
         if (!target.getParent().equals(destination.toAbsolutePath().normalize()) || Files.isSymbolicLink(target)
             || !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) return null;
-        var a = Files.readAttributes(target, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        var a = Files.readAttributes(target, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         if (a.size() != receipt.size || a.lastModifiedTime().toMillis() != receipt.modified || !receipt.hash.equals(SourceLinks.contentHash(target)))
             return null;
         if (!SourceLinks.record(target, receipt.url, identity, receipt.hash)) return null;
@@ -103,7 +107,7 @@ final class DownloadCommit {
             Files.deleteIfExists(pending);
         } catch (IOException failure) {
             // Keep the receipt; the verified audio can still be recognized without claiming a new download.
-            org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Download bookkeeping recovery remains pending", failure);
+            LoggerFactory.getLogger("darkmusic-download").warn("Download bookkeeping recovery remains pending", failure);
         }
         return target;
     }

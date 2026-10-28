@@ -8,13 +8,21 @@ import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.testing.Await;
 import com.darkmusic.client.tools.ProcessRunner;
+import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.file.*;
 import java.net.InetAddress;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -37,14 +45,14 @@ class LyricsSafetyTest {
     @Test
     void explicitLegacyEncodingAndCompactLegacyDocumentsRemainReadable() throws Exception {
         String words = "[00:01.00]繁體中文歌詞";
-        byte[] big5 = words.getBytes(java.nio.charset.Charset.forName("Big5"));
+        byte[] big5 = words.getBytes(Charset.forName("Big5"));
         assertEquals(words, LyricsService.decode(big5, "Big5"));
-        assertThrows(java.nio.charset.CharacterCodingException.class, () -> LyricsService.decode(big5));
+        assertThrows(CharacterCodingException.class, () -> LyricsService.decode(big5));
         var d = document(words);
         // Older files also stored the derived fields, which reading ignores and rebuilds.
         var tree = ConfigStore.JSON.toJsonTree(d).getAsJsonObject();
-        tree.add("timed", com.google.gson.JsonParser.parseString("{\"lines\":[{\"time\":1000,\"text\":\"stale\"}]}"));
-        tree.add("plain", com.google.gson.JsonParser.parseString("[\"stale\"]"));
+        tree.add("timed", JsonParser.parseString("{\"lines\":[{\"time\":1000,\"text\":\"stale\"}]}"));
+        tree.add("plain", JsonParser.parseString("[\"stale\"]"));
         tree.addProperty("script", "LATIN");
         String legacy = tree.toString();
         assertTrue(legacy.contains("\"timed\""));
@@ -70,7 +78,7 @@ class LyricsSafetyTest {
             lookup.captions((t, p, g, token) -> caption);
             lookup.load(track);
             lookup.automatic(track, false);
-            Await.until(java.time.Duration.ofSeconds(5), () -> caption.equals(lookup.choice(track).selected()), "Caption fallback applies a reliable result");
+            Await.until(Duration.ofSeconds(5), () -> caption.equals(lookup.choice(track).selected()), "Caption fallback applies a reliable result");
             assertEquals(2, lookup.snapshot(track).candidates().size());
             assertTrue(lookup.snapshot(track).candidates().stream().anyMatch(c -> c.document().equals(weak) && !c.reliable()));
         }
@@ -79,8 +87,8 @@ class LyricsSafetyTest {
     @Test
     void emptyProviderResultIsNotFinalWhileCaptionFallbackIsRunning() throws Exception {
         Track track = identity("pending-caption.dat");
-        var entered = new java.util.concurrent.CountDownLatch(1);
-        var release = new java.util.concurrent.CountDownLatch(1);
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
         LyricsProvider provider = new LyricsProvider() {
             public String id() {
                 return "empty-provider";
@@ -94,7 +102,7 @@ class LyricsSafetyTest {
             lookup.configure(true, true);
             lookup.captions((t, p, g, token) -> {
                 entered.countDown();
-                if (!release.await(5, TimeUnit.SECONDS)) throw new java.io.IOException("Caption test timed out");
+                if (!release.await(5, TimeUnit.SECONDS)) throw new IOException("Caption test timed out");
                 return LyricsDocument.EMPTY;
             });
             lookup.load(track);
@@ -106,7 +114,7 @@ class LyricsSafetyTest {
             } finally {
                 release.countDown();
             }
-            Await.until(java.time.Duration.ofSeconds(5),
+            Await.until(Duration.ofSeconds(5),
                 () -> lookup.snapshot(track).status() == LyricsLookup.Status.NOT_FOUND, "Final miss follows completed caption fallback");
             assertEquals(LyricsInfo.State.UNAVAILABLE, LyricsInfo.lookup(lookup.snapshot(track).status()).state());
             assertNull(lookup.choice(track).selected());
@@ -120,9 +128,9 @@ class LyricsSafetyTest {
         var first = identity("first.dat");
         var second = identity("second.dat");
         var manual = identity("manual.dat");
-        var entered = new java.util.concurrent.CountDownLatch(1);
-        var release = new java.util.concurrent.CountDownLatch(1);
-        var order = new java.util.concurrent.CopyOnWriteArrayList<String>();
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var order = new CopyOnWriteArrayList<String>();
         LyricsProvider provider = new LyricsProvider() {
             public String id() {
                 return "test";
@@ -145,7 +153,7 @@ class LyricsSafetyTest {
             lookup.automatic(second, false);
             lookup.search(manual, LyricsProvider.Query.of(manual), true);
             release.countDown();
-            Await.until(java.time.Duration.ofSeconds(5), () -> order.size() == 3, "Requests complete");
+            Await.until(Duration.ofSeconds(5), () -> order.size() == 3, "Requests complete");
             assertEquals(List.of(first.title(), manual.title(), second.title()), List.copyOf(order));
         } finally {
             release.countDown();
@@ -298,7 +306,7 @@ class LyricsSafetyTest {
         }
         String saved = Files.readString(path);
         Files.writeString(path, "{invalid");
-        var now = new java.util.concurrent.atomic.AtomicLong();
+        var now = new AtomicLong();
         try (var lookup = new LyricsLookup(settings, provider, now::get)) {
             lookup.load(track);
             assertNull(lookup.choice(track).selected());

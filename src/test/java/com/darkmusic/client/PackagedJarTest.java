@@ -1,6 +1,7 @@
 package com.darkmusic.client;
 
 import com.google.gson.JsonParser;
+import com.jcraft.jorbis.Info;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.objectweb.asm.ClassReader;
@@ -11,6 +12,7 @@ import org.objectweb.asm.Opcodes;
 import javax.sound.sampled.AudioInputStream;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -31,7 +33,7 @@ class PackagedJarTest {
         List<URL> urls = new ArrayList<>();
         urls.add(artifact.toUri().toURL());
         // JOrbis is provided by Minecraft and intentionally not bundled twice.
-        urls.add(com.jcraft.jorbis.Info.class.getProtectionDomain().getCodeSource().getLocation());
+        urls.add(Info.class.getProtectionDomain().getCodeSource().getLocation());
         try (var jar = new JarFile(artifact.toFile())) {
             var nested = jar.stream().filter(e -> e.getName().startsWith("META-INF/jars/") && e.getName().endsWith(".jar")).toList();
             assertEquals(6, nested.size());
@@ -58,27 +60,27 @@ class PackagedJarTest {
         try (var jar = new JarFile(System.getProperty("darkmusic.jar"))) {
             for (var entry : jar.stream().toList())
                 assertFalse(entry.getName().matches("(?i).*(\\.(exe|mp3|wav|flac|ogg)|(^|/)(Music|images_private)/.*)$"), "Development resources must not ship: " + entry.getName());
-            var metadata = JsonParser.parseString(new String(jar.getInputStream(jar.getJarEntry("fabric.mod.json")).readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+            var metadata = JsonParser.parseString(new String(jar.getInputStream(jar.getJarEntry("fabric.mod.json")).readAllBytes(), StandardCharsets.UTF_8)).getAsJsonObject();
             assertEquals("client", metadata.get("environment").getAsString());
             assertEquals("LicenseRef-DarkMusic-All-Rights-Reserved", metadata.get("license").getAsString());
             var projectLicense = jar.stream().filter(e -> e.getName().startsWith("LICENSE_")).findFirst().orElseThrow();
-            String license = new String(jar.getInputStream(projectLicense).readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            String license = new String(jar.getInputStream(projectLicense).readAllBytes(), StandardCharsets.UTF_8);
             assertTrue(license.contains("## Permitted Uses") && license.contains("## Restricted Uses"));
             assertTrue(license.contains("Those previously released portions"), "The current license must not revoke prior dedications");
             assertNotNull(jar.getJarEntry("licenses/CC0-1.0.txt"));
             assertEquals(Set.of("client"), metadata.getAsJsonObject("entrypoints").keySet());
             assertNotNull(jar.getJarEntry("THIRD-PARTY-NOTICES.md"));
             assertNotNull(jar.getJarEntry("licenses/LGPL-2.1.txt"));
-            String notices = new String(jar.getInputStream(jar.getJarEntry("THIRD-PARTY-NOTICES.md")).readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            String notices = new String(jar.getInputStream(jar.getJarEntry("THIRD-PARTY-NOTICES.md")).readAllBytes(), StandardCharsets.UTF_8);
             assertTrue(notices.contains("darkmusic-" + metadata.get("version").getAsString() + "-third-party-sources.zip"));
             assertTrue(jar.getJarEntry("assets/darkmusic/icon.png").getSize() < 1024 * 1024, "Packaged icon exceeded the 1 MiB budget");
-            var english = JsonParser.parseString(new String(jar.getInputStream(jar.getJarEntry("assets/darkmusic/lang/en_us.json")).readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+            var english = JsonParser.parseString(new String(jar.getInputStream(jar.getJarEntry("assets/darkmusic/lang/en_us.json")).readAllBytes(), StandardCharsets.UTF_8)).getAsJsonObject();
             assertFalse(english.isEmpty());
-            var chinese = JsonParser.parseString(new String(jar.getInputStream(jar.getJarEntry("assets/darkmusic/lang/zh_tw.json")).readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+            var chinese = JsonParser.parseString(new String(jar.getInputStream(jar.getJarEntry("assets/darkmusic/lang/zh_tw.json")).readAllBytes(), StandardCharsets.UTF_8)).getAsJsonObject();
             assertEquals(english.keySet(), chinese.keySet());
             for (var entry : jar.stream().filter(e -> e.getName().endsWith(".class")).toList()) {
                 assertFalse(entry.getName().contains("smoke") || entry.getName().contains("Test"));
-                String constants = new String(jar.getInputStream(entry).readAllBytes(), java.nio.charset.StandardCharsets.ISO_8859_1);
+                String constants = new String(jar.getInputStream(entry).readAllBytes(), StandardCharsets.ISO_8859_1);
                 // Catching a timeout does not create a socket. Keep the real Socket prohibition intact.
                 constants = constants.replace("java/net/SocketTimeoutException", "");
                 new ClassReader(jar.getInputStream(entry).readAllBytes()).accept(new ClassVisitor(Opcodes.ASM9) {
@@ -95,13 +97,13 @@ class PackagedJarTest {
                     }
                 }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
                 for (String forbidden : List.of("net/minecraft/network/protocol/", "net/minecraft/network/Connection", "net/fabricmc/fabric/api/client/networking/", "java/net/Socket", "java/net/http/", "net/minecraft/server/", "net/minecraft/client/multiplayer/MultiPlayerGameMode"))
-                    assertFalse(constants.contains(forbidden) && !(entry.getName().startsWith("com/darkmusic/client/tools/ManagedTools") && java.util.Set.of("java/net/URL", "java/net/http/").contains(forbidden))
+                    assertFalse(constants.contains(forbidden) && !(entry.getName().startsWith("com/darkmusic/client/tools/ManagedTools") && Set.of("java/net/URL", "java/net/http/").contains(forbidden))
                         && !(entry.getName().startsWith("com/darkmusic/client/update/UpdateService") && forbidden.equals("java/net/http/"))
                         // Discord status on Linux/macOS: a local Unix domain socket file (java/net/SocketAddress), never a network socket.
                         && !(entry.getName().equals("com/darkmusic/client/presence/DiscordIpc$UnixSocket.class") && forbidden.equals("java/net/Socket")
                         && constants.contains("java/net/UnixDomainSocketAddress") && !constants.contains("java/net/InetSocketAddress"))
                         // The opt-in provider is the only lyrics class allowed to perform HTTP. Gameplay networking remains forbidden.
-                        && !(java.util.Set.of("com/darkmusic/client/lyrics/LrclibProvider.class", "com/darkmusic/client/lyrics/LrclibProvider$BoundedBody.class").contains(entry.getName()) && forbidden.equals("java/net/http/")), entry.getName() + " references " + forbidden);
+                        && !(Set.of("com/darkmusic/client/lyrics/LrclibProvider.class", "com/darkmusic/client/lyrics/LrclibProvider$BoundedBody.class").contains(entry.getName()) && forbidden.equals("java/net/http/")), entry.getName() + " references " + forbidden);
             }
             var depends = metadata.getAsJsonObject("depends");
             assertFalse(depends.has("fabric-networking-api-v1"));

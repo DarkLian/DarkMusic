@@ -2,6 +2,8 @@ package com.darkmusic.client.audio;
 
 import com.darkmusic.client.config.AudioEnhancements.Type;
 
+import java.util.Arrays;
+
 /**
  * RBJ filters with bounded frequency/Q and coefficient ramps; state belongs to one worker.
  */
@@ -17,10 +19,10 @@ public final class Biquad {
     }
 
     public void reset() {
-        java.util.Arrays.fill(x1, 0);
-        java.util.Arrays.fill(x2, 0);
-        java.util.Arrays.fill(y1, 0);
-        java.util.Arrays.fill(y2, 0);
+        Arrays.fill(x1, 0);
+        Arrays.fill(x2, 0);
+        Arrays.fill(y1, 0);
+        Arrays.fill(y2, 0);
     }
 
     public void identity() {

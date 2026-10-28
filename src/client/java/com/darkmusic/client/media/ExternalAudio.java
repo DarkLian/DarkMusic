@@ -13,12 +13,14 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
@@ -30,7 +32,7 @@ public final class ExternalAudio {
     }
 
     private static volatile Supplier<Paths> configuration;
-    private static final Map<AudioInputStream, Process> active = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<AudioInputStream, Process> active = new ConcurrentHashMap<>();
 
     private ExternalAudio() {
     }
@@ -103,7 +105,7 @@ public final class ExternalAudio {
         double offset = Math.floor(seconds * rate) / rate;
         if (offset > 0) {
             int input = command.indexOf("-i");
-            command.addAll(input, List.of("-ss", java.math.BigDecimal.valueOf(offset).toPlainString()));
+            command.addAll(input, List.of("-ss", BigDecimal.valueOf(offset).toPlainString()));
         }
         Process process = new ProcessBuilder(command).start();
         boolean registered = false;

@@ -8,6 +8,7 @@ import com.darkmusic.client.tools.ToolPaths;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -122,7 +123,7 @@ class AuditionPlayerTest {
             assertEquals(AuditionPlayer.Status.STOPPED, player.snapshot().status());
         }
         try (var player = new AuditionPlayer((e, t, k) -> {
-            throw new java.io.IOException("HTTP Error 403");
+            throw new IOException("HTTP Error 403");
         }, Audio::new, Runnable::run, () -> {
         })) {
             player.play(entry("bad"), new ToolPaths("", "", "", ""), .2);

@@ -13,7 +13,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
+import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWNativeWin32;
+
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Client-thread session owner. Capturing a window never changes music or its playback source.
@@ -30,7 +33,7 @@ public final class PipController implements AutoCloseable {
     private String state = "pip.idle";
     private long generation;
     private boolean preparing, closed;
-    private java.util.concurrent.CompletableFuture<Void> stopping = java.util.concurrent.CompletableFuture.completedFuture(null);
+    private CompletableFuture<Void> stopping = CompletableFuture.completedFuture(null);
 
     public PipController(DarkMusicClient app) {
         this.app = app;
@@ -114,7 +117,7 @@ public final class PipController implements AutoCloseable {
     public int monitorRefreshRate() {
         var monitor = Minecraft.getInstance().getWindow().findBestMonitor();
         if (monitor == null) return 0;
-        var mode = org.lwjgl.glfw.GLFW.glfwGetVideoMode(monitor.monitor());
+        var mode = GLFW.glfwGetVideoMode(monitor.monitor());
         return mode == null ? 0 : mode.refreshRate();
     }
 

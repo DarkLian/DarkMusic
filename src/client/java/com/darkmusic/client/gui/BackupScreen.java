@@ -7,9 +7,12 @@ import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 /**
  * Backup preview and category selection; no audio files are ever imported or exported.
@@ -79,7 +82,7 @@ public final class BackupScreen extends AudioPage {
                         previewFailed = true;
                         status = Text.get("backup.failed");
                         statusTone = UiStatus.Tone.ERROR;
-                        org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Backup preview failed", error);
+                        LoggerFactory.getLogger("darkmusic").warn("Backup preview failed", error);
                     }
                     if (isCurrent()) rebuildWidgets();
                 }));
@@ -140,7 +143,7 @@ public final class BackupScreen extends AudioPage {
     }
 
     private void transfer(Path path, boolean export) {
-        var bindings = new java.util.LinkedHashMap<String, String>();
+        var bindings = new LinkedHashMap<String, String>();
         if (export) for (var key : app.shortcuts.bindings()) bindings.put(key.getName(), key.saveString());
         var job = export ? new BackupArchive.Export(app.config.snapshotJson(), app.library.rootId(), app.playlists.all(),
             bindings, app.listeningHistory.snapshotSource()) : null;
@@ -152,7 +155,7 @@ public final class BackupScreen extends AudioPage {
                 }
                 return BackupArchive.read(path);
             } catch (Exception failure) {
-                throw new java.util.concurrent.CompletionException(failure);
+                throw new CompletionException(failure);
             }
         }, app.io).whenComplete((loaded, error) -> minecraft.execute(() -> {
             if (error == null) {
@@ -174,7 +177,7 @@ public final class BackupScreen extends AudioPage {
     private void finish(Throwable failure) {
         busy = false;
         if (failure != null) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Backup operation failed", failure);
+            LoggerFactory.getLogger("darkmusic").warn("Backup operation failed", failure);
             status = Text.get("backup.failed");
             statusTone = UiStatus.Tone.ERROR;
         }

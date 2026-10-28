@@ -10,12 +10,14 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 
+import java.util.List;
+
 public final class DownloadToolsScreen extends LocalScreen {
     private final DarkMusicClient app;
     private Button install, check, advanced, cancel;
     private Button details;
     private ToolCards tools;
-    private java.util.List<String> displayed = java.util.List.of();
+    private List<String> displayed = List.of();
 
     public DownloadToolsScreen(DarkMusicClient app, Screen parent) {
         super(Text.component("text.darkmusic.download_tools"), parent);

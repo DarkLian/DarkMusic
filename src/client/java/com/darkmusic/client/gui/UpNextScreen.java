@@ -9,7 +9,9 @@ import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 
 import java.util.List;
 import java.util.Locale;
@@ -32,7 +34,7 @@ public final class UpNextScreen extends LocalScreen {
     private String query = "";
     private List<Track> source = List.of();
     private Object sourceBasis;
-    private net.minecraft.client.gui.components.EditBox search;
+    private EditBox search;
     private int manualTitleY, automaticTitleY, automaticX, listWidth;
 
     public UpNextScreen(DarkMusicClient app, Screen parent) {
@@ -179,7 +181,7 @@ public final class UpNextScreen extends LocalScreen {
     }
 
     @Override
-    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean twice) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean twice) {
         collectionDrag = null;
         draggingCollection = false;
         if (event.button() == 0 && app.canEditQueue() && automatic.isMouseOver(event.x(), event.y()) && event.x() < automatic.getRight() - 10) {
@@ -194,7 +196,7 @@ public final class UpNextScreen extends LocalScreen {
     }
 
     @Override
-    public boolean mouseDragged(net.minecraft.client.input.MouseButtonEvent event, double dx, double dy) {
+    public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
         if (collectionDrag != null) {
             if (Math.hypot(event.x() - dragX, event.y() - dragY) >= 4) draggingCollection = true;
             return true;
@@ -203,7 +205,7 @@ public final class UpNextScreen extends LocalScreen {
     }
 
     @Override
-    public boolean mouseReleased(net.minecraft.client.input.MouseButtonEvent event) {
+    public boolean mouseReleased(MouseButtonEvent event) {
         if (collectionDrag != null) {
             if (draggingCollection && manual.isMouseOver(event.x(), event.y()) && app.canEditQueue()) {
                 int insertion = Math.clamp((int) (event.y() - manual.getY() + manual.scrollOffset() + 14) / 28, 0, snapshot.manual().size());

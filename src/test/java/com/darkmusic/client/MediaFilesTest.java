@@ -9,6 +9,7 @@ import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.library.LyricsFiles;
 import com.darkmusic.client.playlist.PlaylistStore;
+import com.google.gson.JsonParser;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -17,9 +18,11 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -52,7 +55,7 @@ class MediaFilesTest {
         assertEquals("original.mp3", edited.file().getFileName().toString());
         assertArrayEquals(bytes, Files.readAllBytes(edited.file()));
         assertTrue(Files.isRegularFile(LyricsFiles.sidecar(edited.file())));
-        assertEquals("original.mp3", com.google.gson.JsonParser.parseString(Files.readString(temp.resolve(".darkmusic-downloads.json"))).getAsJsonObject().get("source:id").getAsString());
+        assertEquals("original.mp3", JsonParser.parseString(Files.readString(temp.resolve(".darkmusic-downloads.json"))).getAsJsonObject().get("source:id").getAsString());
         try (var entries = Files.list(temp)) {
             assertTrue(entries.anyMatch(p -> p.getFileName().toString().equals("original.mp3")));
         }
@@ -145,7 +148,7 @@ class MediaFilesTest {
         Files.writeString(LyricsFiles.sidecar(copy), "[00:00.00]Real track lyric sidecar");
         var edited = files.edit(before, tags, new MediaFiles.Fields("新しい曲名", "演出者", "專輯", "更新後", ".exe"), new ProcessRunner.Token());
         assertEquals("更新後.mp3", edited.file().getFileName().toString());
-        var archive = com.google.gson.JsonParser.parseString(Files.readString(history)).getAsJsonObject();
+        var archive = JsonParser.parseString(Files.readString(history)).getAsJsonObject();
         assertEquals("更新後.mp3", archive.get("youtube:downloaded").getAsString());
         assertEquals("更新後.mp3", archive.get("youtube:downloaded:original").getAsString());
         assertFalse(Files.exists(copy));
@@ -194,7 +197,7 @@ class MediaFilesTest {
             assertEquals(url, links.get(track));
         }
         var unavailable = new SourceLinks(task -> {
-            throw new java.util.concurrent.RejectedExecutionException();
+            throw new RejectedExecutionException();
         });
         assertEquals("", unavailable.get(track(file)));
     }
@@ -224,7 +227,7 @@ class MediaFilesTest {
             assertThrows(Exception.class, () -> files.edit(before, tags, new MediaFiles.Fields(tags.title(), tags.artist(), tags.album(), invalid, tags.extension()), new ProcessRunner.Token()));
         Path collision = Files.copy(copy, temp.resolve("exists.mp3"));
         assertThrows(Exception.class, () -> files.edit(before, tags, new MediaFiles.Fields(tags.title(), tags.artist(), tags.album(), "exists", tags.extension()), new ProcessRunner.Token()));
-        Files.setLastModifiedTime(copy, java.nio.file.attribute.FileTime.fromMillis(before.modified() + 2000));
+        Files.setLastModifiedTime(copy, FileTime.fromMillis(before.modified() + 2000));
         assertThrows(Exception.class, () -> files.edit(before, tags, new MediaFiles.Fields("changed", "", "", "before", tags.extension()), new ProcessRunner.Token()));
         assertArrayEquals(bytes, Files.readAllBytes(copy));
         assertArrayEquals(bytes, Files.readAllBytes(collision));

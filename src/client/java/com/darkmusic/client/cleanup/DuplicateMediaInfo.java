@@ -5,6 +5,9 @@ import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
 import com.google.gson.JsonObject;
 
+import java.util.Locale;
+import java.util.Set;
+
 public record DuplicateMediaInfo(String codec, String sampleRate, String channels, String bitrate, String source) {
     public static final DuplicateMediaInfo EMPTY = new DuplicateMediaInfo("", "", "", "", "");
 
@@ -23,7 +26,7 @@ public record DuplicateMediaInfo(String codec, String sampleRate, String channel
             for (var object : new JsonObject[]{format, audio})
                 if (source.isEmpty() && object != null && object.has("tags")) {
                     for (var tag : object.getAsJsonObject("tags").entrySet())
-                        if (java.util.Set.of("purl", "source_url", "webpage_url", "url", "comment").contains(tag.getKey().toLowerCase(java.util.Locale.ROOT))) {
+                        if (Set.of("purl", "source_url", "webpage_url", "url", "comment").contains(tag.getKey().toLowerCase(Locale.ROOT))) {
                             source = SourceLinks.safe(tag.getValue().getAsString());
                             if (!source.isEmpty()) break;
                         }

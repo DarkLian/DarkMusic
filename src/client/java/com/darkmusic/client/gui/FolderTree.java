@@ -3,6 +3,7 @@ package com.darkmusic.client.gui;
 import com.darkmusic.client.library.MusicFolders;
 import com.darkmusic.client.library.Track;
 
+import java.nio.file.Path;
 import java.util.*;
 
 /**
@@ -30,7 +31,7 @@ public final class FolderTree {
         }
     }
 
-    public FolderTree(List<Track> tracks, List<String> folders, Map<java.nio.file.Path, String> roots) {
+    public FolderTree(List<Track> tracks, List<String> folders, Map<Path, String> roots) {
         for (var entry : roots.entrySet()) {
             String path = "@" + entry.getValue();
             String name = MusicFolders.label(entry.getKey(), roots.keySet());

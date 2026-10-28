@@ -7,6 +7,7 @@ import java.nio.file.LinkOption;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
 /**
@@ -19,7 +20,7 @@ public final class Hashes {
     private static MessageDigest sha256() {
         try {
             return MessageDigest.getInstance("SHA-256");
-        } catch (java.security.NoSuchAlgorithmException impossible) {
+        } catch (NoSuchAlgorithmException impossible) {
             throw new AssertionError(impossible);
         }
     }

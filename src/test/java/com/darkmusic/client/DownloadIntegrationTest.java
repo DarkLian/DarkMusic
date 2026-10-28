@@ -16,12 +16,16 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static com.darkmusic.client.download.DownloadModels.*;
@@ -147,7 +151,7 @@ class DownloadIntegrationTest {
         Path destination = temp.resolve("parallel-music");
         var pipeline = new DownloadPipeline(runner, data);
         try (var workers = Executors.newFixedThreadPool(3)) {
-            var futures = new java.util.ArrayList<java.util.concurrent.Future<DownloadPipeline.Saved>>();
+            var futures = new ArrayList<Future<DownloadPipeline.Saved>>();
             for (int i = 0; i < 3; i++) {
                 String id = "entry" + i;
                 var entry = new Entry(i + 1, id, "http://127.0.0.1:" + server.getAddress().getPort() + "/" + id + ".wav", "Generic", id, true);
@@ -155,7 +159,7 @@ class DownloadIntegrationTest {
                 })));
             }
             for (var future : futures) {
-                var saved = future.get(60, java.util.concurrent.TimeUnit.SECONDS);
+                var saved = future.get(60, TimeUnit.SECONDS);
                 assertFalse(saved.skipped());
                 try (var pcm = PcmDecoder.open(saved.file())) {
                     assertTrue(pcm.readNBytes(10000).length > 0);
@@ -187,7 +191,7 @@ class DownloadIntegrationTest {
         byte[] realArtwork = new MetadataReader().artwork(TestMusic.featured());
         ProcessRunner supply = new ProcessRunner() {
             @Override
-            public Result run(List<String> args, Path dir, Token t, Duration timeout, int max, Consumer<String> lines) throws java.io.IOException, InterruptedException {
+            public Result run(List<String> args, Path dir, Token t, Duration timeout, int max, Consumer<String> lines) throws IOException, InterruptedException {
                 if (!args.contains("--write-info-json")) return super.run(args, dir, t, timeout, max, lines);
                 Files.copy(fixture, dir.resolve("source.mp3"));
                 if (args.getLast().endsWith("/untagged")) {

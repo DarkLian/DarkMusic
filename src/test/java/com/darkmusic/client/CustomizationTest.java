@@ -14,6 +14,7 @@ import com.darkmusic.client.playlist.PlaylistStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.awt.Color;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.Executors;
@@ -32,7 +33,7 @@ class CustomizationTest {
         assertEquals(0xFFFFFF, ColorSpectrum.rgb(.75f, 0, 1));
         assertEquals(0, ColorSpectrum.rgb(.75f, 1, 0));
         for (int color : new int[]{0x123456, 0xFFEECC, 0x578CFF, 0x888888}) {
-            float[] hsv = java.awt.Color.RGBtoHSB(color >> 16 & 255, color >> 8 & 255, color & 255, null);
+            float[] hsv = Color.RGBtoHSB(color >> 16 & 255, color >> 8 & 255, color & 255, null);
             assertEquals(color, ColorSpectrum.rgb(hsv[0], hsv[1], hsv[2]));
         }
     }

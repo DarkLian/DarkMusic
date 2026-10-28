@@ -12,14 +12,22 @@ import com.darkmusic.client.testing.Await;
 import com.darkmusic.client.tools.DownloadDiagnostics;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.tools.Toolchain;
+import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.net.SocketTimeoutException;
+import java.net.URI;
 import java.time.Duration;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -91,7 +99,7 @@ class MultilingualLyricsTest {
     @Test
     void sourceToolFailureDoesNotHideARetryableProviderFailureAndCancelStopsRetry() throws Exception {
         Track track = identity("provider-and-source");
-        var now = new java.util.concurrent.atomic.AtomicLong();
+        var now = new AtomicLong();
         var calls = new AtomicInteger();
         var p = new LyricsProvider() {
             public String id() {
@@ -127,7 +135,7 @@ class MultilingualLyricsTest {
     void backgroundIgnoresOfflineRootsAndResumesWhenTheyRecover() throws Exception {
         Track track = identity("offline-library");
         var tracks = List.of(track);
-        var now = new java.util.concurrent.atomic.AtomicLong();
+        var now = new AtomicLong();
         var calls = new AtomicInteger();
         try (var service = new LyricsService(temp.resolve("offline-library-prefs"), provider(q -> {
             calls.incrementAndGet();
@@ -165,7 +173,7 @@ class MultilingualLyricsTest {
         };
         var entered = new CountDownLatch(1);
         var release = new CountDownLatch(1);
-        var now = new java.util.concurrent.atomic.AtomicLong();
+        var now = new AtomicLong();
         var p = new LyricsProvider() {
             public String id() {
                 return "large-library";
@@ -199,7 +207,7 @@ class MultilingualLyricsTest {
     @Test
     void failedManualSearchRetriesItsEditedQueryWithoutSelectionOrAutomaticApplication() throws Exception {
         Track track = identity("manual-retry");
-        var now = new java.util.concurrent.atomic.AtomicLong();
+        var now = new AtomicLong();
         var calls = new AtomicInteger();
         var p = new LyricsProvider() {
             public String id() {
@@ -240,8 +248,8 @@ class MultilingualLyricsTest {
             var t = identity(title);
             tracks.add(new Track(t.rootId(), t.relativePath(), t.file(), title, t.artist(), t.album(), t.duration(), t.size(), t.modified(), ""));
         }
-        var now = new java.util.concurrent.atomic.AtomicLong();
-        var calls = new java.util.concurrent.ConcurrentHashMap<String, AtomicInteger>();
+        var now = new AtomicLong();
+        var calls = new ConcurrentHashMap<String, AtomicInteger>();
         var p = new LyricsProvider() {
             public String id() {
                 return "background";
@@ -329,11 +337,11 @@ class MultilingualLyricsTest {
         return new Track("root", path.getFileName().toString(), path, "Song", "Artist", "Album", 180, Files.size(path), Files.getLastModifiedTime(path).toMillis(), "");
     }
 
-    private static void await(java.util.function.BooleanSupplier condition) throws Exception {
+    private static void await(BooleanSupplier condition) throws Exception {
         Await.until(Duration.ofSeconds(5), condition, "condition");
     }
 
-    private static LyricsProvider provider(java.util.function.Function<LyricsProvider.Query, List<LyricsProvider.Candidate>> results) {
+    private static LyricsProvider provider(Function<LyricsProvider.Query, List<LyricsProvider.Candidate>> results) {
         return new LyricsProvider() {
             public String id() {
                 return "test";
@@ -370,7 +378,7 @@ class MultilingualLyricsTest {
 
     @Test
     void lrclibExactMatchUsesFixedEndpointAndDoesNotFetchArbitraryLyricsUrls() throws Exception {
-        var requests = new ArrayList<java.net.URI>();
+        var requests = new ArrayList<URI>();
         try (var p = new LrclibProvider((uri, token) -> {
             requests.add(uri);
             return new LrclibProvider.Reply(200, "{\"id\":42,\"trackName\":\"Song\",\"artistName\":\"Artist\",\"duration\":180,\"syncedLyrics\":\"[00:01]Words\",\"lyricsfile\":\"https://evil.test/token\"}", "");
@@ -438,7 +446,7 @@ class MultilingualLyricsTest {
     @Test
     void automaticFailuresRetryAfterBackoffWithoutRepeatedTickRequests() throws Exception {
         Track track = identity("automatic-retry");
-        var now = new java.util.concurrent.atomic.AtomicLong();
+        var now = new AtomicLong();
         var calls = new AtomicInteger();
         var provider = new LyricsProvider() {
             public String id() {
@@ -471,7 +479,7 @@ class MultilingualLyricsTest {
     @Test
     void automaticRetryUsesIncreasingDelaysAndEquivalentCatalogRecordsCanBeApplied() throws Exception {
         Track failed = identity("limited-retry"), duplicate = identity("equivalent-records");
-        var now = new java.util.concurrent.atomic.AtomicLong();
+        var now = new AtomicLong();
         var calls = new AtomicInteger();
         var failing = new LyricsProvider() {
             public String id() {
@@ -591,7 +599,7 @@ class MultilingualLyricsTest {
                 assertEquals(code == 429 ? LrclibProvider.Problem.RATE_LIMITED : LrclibProvider.Problem.PROVIDER, failure.problem);
             }
         try (var p = new LrclibProvider((uri, token) -> {
-            throw new java.net.SocketTimeoutException();
+            throw new SocketTimeoutException();
         })) {
             assertEquals(LrclibProvider.Problem.NETWORK, assertThrows(LrclibProvider.Failure.class, () -> p.search(new LyricsProvider.Query("Song", "Artist", "", 180), new ProcessRunner.Token())).problem);
         }
@@ -877,12 +885,12 @@ class MultilingualLyricsTest {
 
     @Test
     void autogeneratedCaptionsAreExplicitAndRemainLabeled() throws Exception {
-        var metadata = com.google.gson.JsonParser.parseString("{\"automatic_captions\":{\"ja\":[{\"kind\":\"asr\"}],\"en\":[{\"is_translated\":true}]}}").getAsJsonObject();
+        var metadata = JsonParser.parseString("{\"automatic_captions\":{\"ja\":[{\"kind\":\"asr\"}],\"en\":[{\"is_translated\":true}]}}").getAsJsonObject();
         assertEquals("", LyricsLanguages.select(metadata, List.of("auto")));
         assertEquals("ja", LyricsLanguages.select(metadata, List.of("auto"), true));
         var runner = new ProcessRunner() {
             @Override
-            public Result run(List<String> args, Path dir, Token token, java.time.Duration timeout, int max, java.util.function.Consumer<String> line) throws java.io.IOException {
+            public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) throws IOException {
                 assertTrue(args.contains("--skip-download"));
                 assertTrue(args.contains("--write-auto-subs"));
                 assertTrue(args.contains("--no-write-subs"));

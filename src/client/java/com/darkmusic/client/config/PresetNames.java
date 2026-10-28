@@ -2,6 +2,7 @@ package com.darkmusic.client.config;
 
 import com.darkmusic.client.text.Text;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -51,7 +52,7 @@ public final class PresetNames {
         if (collision != null && !collision.equals(old))
             throw new IllegalArgumentException(Text.get("preset.name_exists"));
         if (!presets.containsKey(old)) throw new IllegalArgumentException(Text.get("preset.not_found"));
-        var renamed = new java.util.LinkedHashMap<String, T>();
+        var renamed = new LinkedHashMap<String, T>();
         presets.forEach((k, v) -> renamed.put(k.equals(old) ? name : k, v));
         presets.clear();
         presets.putAll(renamed);

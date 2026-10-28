@@ -1,6 +1,8 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.playlist.PlaylistDrag;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
@@ -16,8 +18,8 @@ class RowListReliabilityTest {
             if (activate) activated.add(i);
         });
         list.rows(List.of(new RowList.Row("A", ""), new RowList.Row("B", "")));
-        var a = new net.minecraft.client.input.MouseButtonEvent(40, 12, new net.minecraft.client.input.MouseButtonInfo(0, 0));
-        var b = new net.minecraft.client.input.MouseButtonEvent(40, 48, new net.minecraft.client.input.MouseButtonInfo(0, 0));
+        var a = new MouseButtonEvent(40, 12, new MouseButtonInfo(0, 0));
+        var b = new MouseButtonEvent(40, 48, new MouseButtonInfo(0, 0));
         list.onClick(a, false);
         list.onClick(b, true);
         list.onClick(a, true);

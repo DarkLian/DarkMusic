@@ -12,15 +12,27 @@ import com.darkmusic.client.hud.HudLayout;
 import com.darkmusic.client.hud.NowPlayingHud;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
+import com.google.gson.JsonParser;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.*;
 import net.minecraft.client.gui.screens.*;
 import net.minecraft.client.input.*;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import javax.swing.SwingUtilities;
+import javax.swing.Timer;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Development-only checks in an isolated title-screen client; no server connections.
@@ -55,11 +67,11 @@ public final class SmokeClient implements ClientModInitializer {
         if (label.startsWith("View: "))
             return Text.get("format.darkmusic.view", Text.get("view.darkmusic." + label.substring(6).toLowerCase(Locale.ROOT)));
         try (var input = getClass().getResourceAsStream("/assets/darkmusic/lang/en_us.json")) {
-            var catalog = com.google.gson.JsonParser.parseString(new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+            var catalog = JsonParser.parseString(new String(input.readAllBytes(), StandardCharsets.UTF_8)).getAsJsonObject();
             for (var entry : catalog.entrySet())
                 if (entry.getValue().getAsString().equals(label))
                     return Text.get(entry.getKey());
-        } catch (java.io.IOException e) {
+        } catch (IOException e) {
             throw new IllegalStateException(e);
         }
         return label;
@@ -99,8 +111,8 @@ public final class SmokeClient implements ClientModInitializer {
         require(app.shortcuts.stop.getDefaultKey().getValue() == 80 && app.shortcuts.jump.getDefaultKey().getValue() == 79, "Stop/locate defaults are wrong");
         require(app.shortcuts.next.getDefaultKey().getValue() == 93 && app.shortcuts.previous.getDefaultKey().getValue() == 91, "Track bracket defaults are wrong");
         require(app.shortcuts.volumeUp.getDefaultKey().getValue() == 265 && app.shortcuts.volumeDown.getDefaultKey().getValue() == 264, "Volume arrow defaults are wrong");
-        var up = com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.up");
-        var down = com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.down");
+        var up = InputConstants.getKey("key.keyboard.up");
+        var down = InputConstants.getKey("key.keyboard.down");
         var oldMute = app.shortcuts.mute.saveString();
         var oldUp = app.shortcuts.volumeUp.saveString();
         var oldDown = app.shortcuts.volumeDown.saveString();
@@ -111,57 +123,57 @@ public final class SmokeClient implements ClientModInitializer {
         try {
             app.shortcuts.volumeUp.setKey(up);
             app.shortcuts.volumeDown.setKey(down);
-            app.shortcuts.toggle.setKey(com.mojang.blaze3d.platform.InputConstants.UNKNOWN);
-            net.minecraft.client.KeyMapping.resetMapping();
-            app.shortcuts.mute.setKey(com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f8"));
-            var muteKey = com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f8");
-            net.minecraft.client.KeyMapping.resetMapping();
+            app.shortcuts.toggle.setKey(InputConstants.UNKNOWN);
+            KeyMapping.resetMapping();
+            app.shortcuts.mute.setKey(InputConstants.getKey("key.keyboard.f8"));
+            var muteKey = InputConstants.getKey("key.keyboard.f8");
+            KeyMapping.resetMapping();
             app.volume(.5);
-            net.minecraft.client.KeyMapping.click(muteKey);
+            KeyMapping.click(muteKey);
             tick.invoke(app, mc, false);
             require(app.settings.volume == .5, "Mute shortcut fired in a menu");
-            net.minecraft.client.KeyMapping.click(muteKey);
+            KeyMapping.click(muteKey);
             tick.invoke(app, mc, true);
             require(app.settings.volume == 0 && app.settings.lastAudibleVolume == .5, "Mute did not remember audible volume");
             require(app.volumeFeedback.opacity(System.nanoTime()) > 0, "Mute feedback was not shown");
-            net.minecraft.client.KeyMapping.click(muteKey);
+            KeyMapping.click(muteKey);
             tick.invoke(app, mc, true);
             require(app.settings.volume == .5, "Unmute did not restore volume");
-            net.minecraft.client.KeyMapping.click(up);
+            KeyMapping.click(up);
             tick.invoke(app, mc, false);
             require(app.settings.volume == .5, "Volume shortcut fired while menus were blocked");
-            net.minecraft.client.KeyMapping.click(up);
+            KeyMapping.click(up);
             tick.invoke(app, mc, true);
             require(app.settings.volume == .55, "Volume up step failed");
-            net.minecraft.client.KeyMapping.click(down);
+            KeyMapping.click(down);
             tick.invoke(app, mc, true);
             require(app.settings.volume == .5, "Volume down step failed");
             app.volume(1);
-            net.minecraft.client.KeyMapping.click(up);
+            KeyMapping.click(up);
             tick.invoke(app, mc, true);
             require(app.settings.volume == 1, "Volume exceeded 100%");
             app.volume(0);
-            net.minecraft.client.KeyMapping.click(down);
+            KeyMapping.click(down);
             tick.invoke(app, mc, true);
             require(app.settings.volume == 0, "Volume dropped below zero");
             app.volume(.5);
             app.shortcuts.toggle.setKey(up);
-            net.minecraft.client.KeyMapping.resetMapping();
-            net.minecraft.client.KeyMapping.click(up);
+            KeyMapping.resetMapping();
+            KeyMapping.click(up);
             tick.invoke(app, mc, true);
             require(app.settings.volume == .5, "Conflicting volume shortcut fired");
             require(app.warning.contains("Shortcut conflict"), "Conflicting shortcut needs a visible warning");
             app.warning = "";
-            app.shortcuts.toggle.setKey(com.mojang.blaze3d.platform.InputConstants.UNKNOWN);
-            app.shortcuts.volumeUp.setKey(com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f10"));
+            app.shortcuts.toggle.setKey(InputConstants.UNKNOWN);
+            app.shortcuts.volumeUp.setKey(InputConstants.getKey("key.keyboard.f10"));
             app.save();
             require(app.shortcuts.volumeUp.saveString().equals("key.keyboard.f10"), "Native volume binding did not change");
         } finally {
-            app.shortcuts.mute.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldMute));
-            app.shortcuts.volumeUp.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldUp));
-            app.shortcuts.volumeDown.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldDown));
-            app.shortcuts.toggle.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldToggle));
-            net.minecraft.client.KeyMapping.resetMapping();
+            app.shortcuts.mute.setKey(InputConstants.getKey(oldMute));
+            app.shortcuts.volumeUp.setKey(InputConstants.getKey(oldUp));
+            app.shortcuts.volumeDown.setKey(InputConstants.getKey(oldDown));
+            app.shortcuts.toggle.setKey(InputConstants.getKey(oldToggle));
+            KeyMapping.resetMapping();
             app.volume(oldVolume);
         }
     }
@@ -169,35 +181,35 @@ public final class SmokeClient implements ClientModInitializer {
     private void checkSpeedBindings(Minecraft mc, DarkMusicClient app) throws Exception {
         String oldUp = app.shortcuts.faster.saveString(), oldDown = app.shortcuts.slower.saveString(), oldNormal = app.shortcuts.normalSpeed.saveString();
         double old = app.settings.speed;
-        var up = com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f13");
-        var down = com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f14");
-        var normal = com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f15");
+        var up = InputConstants.getKey("key.keyboard.f13");
+        var down = InputConstants.getKey("key.keyboard.f14");
+        var normal = InputConstants.getKey("key.keyboard.f15");
         var tick = DarkMusicClient.class.getDeclaredMethod("tick", Minecraft.class, boolean.class);
         tick.setAccessible(true);
         try {
             app.shortcuts.faster.setKey(up);
             app.shortcuts.slower.setKey(down);
             app.shortcuts.normalSpeed.setKey(normal);
-            net.minecraft.client.KeyMapping.resetMapping();
+            KeyMapping.resetMapping();
             app.speed(1);
-            net.minecraft.client.KeyMapping.click(up);
+            KeyMapping.click(up);
             tick.invoke(app, mc, false);
             require(app.settings.speed == 1, "Speed shortcut fired in a menu");
-            net.minecraft.client.KeyMapping.click(up);
+            KeyMapping.click(up);
             tick.invoke(app, mc, true);
             require(app.settings.speed == 1.1 && app.speedFeedback.opacity(System.nanoTime()) > 0, "Speed shortcut feedback missing");
-            net.minecraft.client.KeyMapping.click(down);
+            KeyMapping.click(down);
             tick.invoke(app, mc, true);
             require(app.settings.speed == 1, "Speed down shortcut failed");
             app.speed(1.5);
-            net.minecraft.client.KeyMapping.click(normal);
+            KeyMapping.click(normal);
             tick.invoke(app, mc, true);
             require(app.settings.speed == 1 && app.speedFeedback.opacity(System.nanoTime()) > 0, "Reset-speed feedback missing");
         } finally {
-            app.shortcuts.faster.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldUp));
-            app.shortcuts.slower.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldDown));
-            app.shortcuts.normalSpeed.setKey(com.mojang.blaze3d.platform.InputConstants.getKey(oldNormal));
-            net.minecraft.client.KeyMapping.resetMapping();
+            app.shortcuts.faster.setKey(InputConstants.getKey(oldUp));
+            app.shortcuts.slower.setKey(InputConstants.getKey(oldDown));
+            app.shortcuts.normalSpeed.setKey(InputConstants.getKey(oldNormal));
+            KeyMapping.resetMapping();
             app.speed(old);
         }
     }
@@ -241,7 +253,7 @@ public final class SmokeClient implements ClientModInitializer {
         var second = tracks.get(1);
         selectGroup(mc, playlistId);
         require(field("group").equals(playlistId), "Smoke playlist was not selected");
-        app.playlists.removeAll(playlistId, tracks.stream().map(Track::id).collect(java.util.stream.Collectors.toSet()));
+        app.playlists.removeAll(playlistId, tracks.stream().map(Track::id).collect(Collectors.toSet()));
         app.playlists.addAll(playlistId, List.of(second, first));
         player.tick();
         require(field("visible").equals(List.of(second, first)), "Playlist order was lost");
@@ -290,10 +302,10 @@ public final class SmokeClient implements ClientModInitializer {
         var search = (EditBox) field("search");
         var current = app.playback.state().track();
         require(current != null, "Jump test needs current playback");
-        var visible = (java.util.List<?>) field("visible");
+        var visible = (List<?>) field("visible");
         require(visible.stream().anyMatch(t -> ((Track) t).id().equals(current.id())), "Playing track missing before filtering");
         search.setValue("No matching title for navigation check");
-        require(((java.util.List<?>) field("visible")).isEmpty(), "Search did not hide playing track");
+        require(((List<?>) field("visible")).isEmpty(), "Search did not hide playing track");
         player.jumpToPlaying();
         var selected = (Track) field("selected");
         require(selected.id().equals(current.id()), "Jump did not select the currently playing track");
@@ -328,8 +340,8 @@ public final class SmokeClient implements ClientModInitializer {
         player.jumpToPlaying();
         var list = (RowList) field("songs");
         require(Text.get("text.darkmusic.scroll_long_text").equals("text.darkmusic.scroll_long_text"), "Long-text hover hint remains translated");
-        var originalRows = (java.util.List<RowList.Row>) field(list, "rows");
-        list.rows(java.util.stream.IntStream.range(0, 100).mapToObj(i -> new RowList.Row(current.title(), "")).toList());
+        var originalRows = (List<RowList.Row>) field(list, "rows");
+        list.rows(IntStream.range(0, 100).mapToObj(i -> new RowList.Row(current.title(), "")).toList());
         list.reveal(99);
         require(list.selected() == 99 && (int) field(list, "scroll") > 0, "Jump did not scroll the target row into view");
         list.rows(originalRows);
@@ -452,7 +464,7 @@ public final class SmokeClient implements ClientModInitializer {
                     var backend = backendField.get(app.playback);
                     var generationField = backend.getClass().getDeclaredField("generation");
                     generationField.setAccessible(true);
-                    var generation = (java.util.concurrent.atomic.AtomicLong) generationField.get(backend);
+                    var generation = (AtomicLong) generationField.get(backend);
                     long before = generation.get();
                     double y = slider.getY() + 8;
                     mc.gui.screen().mouseClicked(mouse(slider.getX() + 12, y), false);
@@ -470,7 +482,7 @@ public final class SmokeClient implements ClientModInitializer {
                     if (!app.settings.lyricsEnabled) click(mc, "Enable Lyrics");
                     click(mc, "Enable Lyrics");
                     require(!app.settings.lyricsEnabled, "Global lyrics toggle did not disable lyrics");
-                    var lyricsControls = mc.gui.screen().children().stream().filter(w -> w instanceof AbstractWidget a && a.visible).map(w -> ((AbstractWidget) w).getMessage().getString()).filter(text -> java.util.Set.of("Advanced Lyrics", "Lyrics in HUD", "Show Next Line").contains(text)).toList();
+                    var lyricsControls = mc.gui.screen().children().stream().filter(w -> w instanceof AbstractWidget a && a.visible).map(w -> ((AbstractWidget) w).getMessage().getString()).filter(text -> Set.of("Advanced Lyrics", "Lyrics in HUD", "Show Next Line").contains(text)).toList();
                     require(lyricsControls.isEmpty(), "Disabled lyrics controls remained visible: " + lyricsControls + " on " + mc.gui.screen().getClass().getSimpleName());
                     click(mc, "Enable Lyrics");
                     require(app.settings.lyricsEnabled, "Global lyrics toggle did not re-enable lyrics");
@@ -511,11 +523,11 @@ public final class SmokeClient implements ClientModInitializer {
                     require(Arrays.asList(mc.options.keyMappings).containsAll(Arrays.asList(app.shortcuts.bindings())), "Native controls are missing DarkMusic bindings");
                     checkVolumeBindings(mc, app);
                     checkSpeedBindings(mc, app);
-                    app.shortcuts.faster.setKey(com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.f9"));
+                    app.shortcuts.faster.setKey(InputConstants.getKey("key.keyboard.f9"));
                     app.save();
                     require(app.shortcuts.faster.saveString().equals("key.keyboard.f9"), "Native speed binding did not change");
-                    app.shortcuts.faster.setKey(com.mojang.blaze3d.platform.InputConstants.UNKNOWN);
-                    net.minecraft.client.KeyMapping.resetMapping();
+                    app.shortcuts.faster.setKey(InputConstants.UNKNOWN);
+                    KeyMapping.resetMapping();
                     app.save();
                     escape(mc);
                     require(mc.gui.screen() == player, "Escape did not return to player");
@@ -591,9 +603,9 @@ public final class SmokeClient implements ClientModInitializer {
                 }
                 case 11 -> {
                     click(mc, "Settings");
-                    javax.swing.SwingUtilities.invokeLater(() -> {
-                        var closer = new javax.swing.Timer(300, event -> {
-                            if (!DesktopFolderPicker.isOpen()) ((javax.swing.Timer) event.getSource()).stop();
+                    SwingUtilities.invokeLater(() -> {
+                        var closer = new Timer(300, event -> {
+                            if (!DesktopFolderPicker.isOpen()) ((Timer) event.getSource()).stop();
                             else DesktopFolderPicker.cancel();
                         });
                         closer.start();
@@ -724,13 +736,13 @@ public final class SmokeClient implements ClientModInitializer {
                 }
                 default -> {
                     app.playback.stop();
-                    org.slf4j.LoggerFactory.getLogger("darkmusic-smoke").info("DARKMUSIC_SMOKE_PASS:" + java.nio.file.Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip() + " command screen requests, jump to playing, removed row tooltips, row reveal, unified settings/player and HUD toggles/combined HUD drag/compact layouts, downloader navigation/invalid URL/queue/tools/layouts, bulk selection/search/cancel, speed/pause/seek, shortcuts, HUD drag/scale, Escape, layouts, actual device playback: {}", playing);
+                    LoggerFactory.getLogger("darkmusic-smoke").info("DARKMUSIC_SMOKE_PASS:" + Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip() + " command screen requests, jump to playing, removed row tooltips, row reveal, unified settings/player and HUD toggles/combined HUD drag/compact layouts, downloader navigation/invalid URL/queue/tools/layouts, bulk selection/search/cancel, speed/pause/seek, shortcuts, HUD drag/scale, Escape, layouts, actual device playback: {}", playing);
                     mc.stop();
                 }
             }
         } catch (Throwable e) {
             failed = true;
-            org.slf4j.LoggerFactory.getLogger("darkmusic-smoke").error("DARKMUSIC_SMOKE_FAIL", e);
+            LoggerFactory.getLogger("darkmusic-smoke").error("DARKMUSIC_SMOKE_FAIL", e);
             mc.stop();
         }
     }

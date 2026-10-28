@@ -8,6 +8,10 @@ import com.darkmusic.client.tools.Toolchain;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import javax.imageio.ImageIO;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -55,9 +59,9 @@ public final class DownloadEncoding {
         try {
             var array = JsonParser.parseString(r.output()).getAsJsonObject().getAsJsonArray("streams");
             if (array == null || array.isEmpty())
-                throw new java.io.IOException(Text.get("download.media_missing"));
+                throw new IOException(Text.get("download.media_missing"));
             return array.get(0).getAsJsonObject().get("codec_name").getAsString();
-        } catch (RuntimeException | java.io.IOException invalid) {
+        } catch (RuntimeException | IOException invalid) {
             throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.OUTPUT_VALIDATION_FAILURE,
                 DownloadDiagnostics.Stage.VALIDATION, DownloadDiagnostics.Tool.FFPROBE, r.exit(), "", invalid);
         }
@@ -98,14 +102,14 @@ public final class DownloadEncoding {
         Path jpeg = work.resolve("embedded-cover.jpg");
         var converted = runner.run(List.of(tools.ffmpeg().toString(), "-nostdin", "-v", "error", "-y", "-protocol_whitelist", "file,pipe", "-i", cover.toString(), "-frames:v", "1", "-vf", "scale=1024:1024:force_original_aspect_ratio=decrease", jpeg.toString()), work, token, Duration.ofSeconds(30), 16_000, s -> {
         });
-        if (converted.exit() != 0 || !java.nio.file.Files.isRegularFile(jpeg) || java.nio.file.Files.size(jpeg) > 8 * 1024 * 1024)
-            throw new java.io.IOException(Text.get("download.thumbnail_failed"));
-        byte[] bytes = java.nio.file.Files.readAllBytes(jpeg);
-        var image = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(bytes));
+        if (converted.exit() != 0 || !Files.isRegularFile(jpeg) || Files.size(jpeg) > 8 * 1024 * 1024)
+            throw new IOException(Text.get("download.thumbnail_failed"));
+        byte[] bytes = Files.readAllBytes(jpeg);
+        var image = ImageIO.read(new ByteArrayInputStream(bytes));
         if (image == null)
-            throw new java.io.IOException(Text.get("download.thumbnail_failed"));
+            throw new IOException(Text.get("download.thumbnail_failed"));
         Path tags = work.resolve("artwork.ffmetadata");
-        java.nio.file.Files.writeString(tags, ";FFMETADATA1\nMETADATA_BLOCK_PICTURE=" + OggArtwork.picture(bytes, image.getWidth(), image.getHeight()) + "\n");
+        Files.writeString(tags, ";FFMETADATA1\nMETADATA_BLOCK_PICTURE=" + OggArtwork.picture(bytes, image.getWidth(), image.getHeight()) + "\n");
         return tags;
     }
 }

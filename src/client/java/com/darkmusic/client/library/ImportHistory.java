@@ -3,12 +3,15 @@ package com.darkmusic.client.library;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.text.Text;
 import com.google.gson.reflect.TypeToken;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
 /**
@@ -57,7 +60,7 @@ public final class ImportHistory {
                 try (var reader = Files.newBufferedReader(file)) {
                     List<Batch> loaded = ConfigStore.JSON.fromJson(reader, new TypeToken<List<Batch>>() {
                     }.getType());
-                    if (loaded == null || loaded.stream().anyMatch(java.util.Objects::isNull))
+                    if (loaded == null || loaded.stream().anyMatch(Objects::isNull))
                         throw new IllegalArgumentException("Invalid import history");
                     batches = bounded(loaded);
                 }
@@ -96,8 +99,8 @@ public final class ImportHistory {
                     warning.accept(Text.get("import.history.save_failed", e.getMessage()));
                 }
             });
-        } catch (java.util.concurrent.RejectedExecutionException e) {
-            org.slf4j.LoggerFactory.getLogger(ImportHistory.class).debug("Import history storage is closing", e);
+        } catch (RejectedExecutionException e) {
+            LoggerFactory.getLogger(ImportHistory.class).debug("Import history storage is closing", e);
         }
     }
 

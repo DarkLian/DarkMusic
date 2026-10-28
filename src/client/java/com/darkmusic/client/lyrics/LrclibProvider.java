@@ -2,7 +2,9 @@ package com.darkmusic.client.lyrics;
 
 import com.darkmusic.client.tools.ProcessRunner;
 import com.google.gson.*;
+import net.fabricmc.loader.api.FabricLoader;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -10,9 +12,14 @@ import java.net.http.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.Flow;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Anonymous, bounded requests to LRCLIB only. No uploads or provider-controlled redirects.
@@ -47,7 +54,7 @@ public final class LrclibProvider implements LyricsProvider, AutoCloseable {
 
     private final HttpClient client;
     private final Transport transport;
-    private final java.util.concurrent.atomic.AtomicLong requestCount = new java.util.concurrent.atomic.AtomicLong();
+    private final AtomicLong requestCount = new AtomicLong();
 
     @Override
     public long requestCount() {
@@ -55,14 +62,14 @@ public final class LrclibProvider implements LyricsProvider, AutoCloseable {
     }
 
     private long nextRequest, cooldownUntil;
-    private final java.util.concurrent.locks.ReentrantLock requests = new java.util.concurrent.locks.ReentrantLock(true);
+    private final ReentrantLock requests = new ReentrantLock(true);
     private Problem cooldownProblem = Problem.RATE_LIMITED;
     private int cooldownStatus;
 
     private static String userAgent() {
         String version = "development";
         try {
-            version = net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer("darkmusic").orElseThrow().getMetadata().getVersion().getFriendlyString();
+            version = FabricLoader.getInstance().getModContainer("darkmusic").orElseThrow().getMetadata().getVersion().getFriendlyString();
         } catch (RuntimeException ignored) {
         }
         return "DarkMusic/" + version.replaceAll("[^A-Za-z0-9._+-]", "") + " (https://github.com/DarkLian/DarkMusic)";
@@ -156,7 +163,7 @@ public final class LrclibProvider implements LyricsProvider, AutoCloseable {
                 seconds = Long.parseLong(reply.retryAfter);
             } catch (Exception ignored) {
                 try {
-                    seconds = java.time.Duration.between(java.time.Instant.now(), java.time.ZonedDateTime.parse(reply.retryAfter, java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME).toInstant()).getSeconds();
+                    seconds = Duration.between(Instant.now(), ZonedDateTime.parse(reply.retryAfter, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant()).getSeconds();
                 } catch (Exception alsoIgnored) {
                 }
             }
@@ -234,7 +241,7 @@ public final class LrclibProvider implements LyricsProvider, AutoCloseable {
 
     private static final class BoundedBody implements HttpResponse.BodySubscriber<byte[]> {
         private final CompletableFuture<byte[]> result = new CompletableFuture<>();
-        private final java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         private Flow.Subscription subscription;
 
         public CompletionStage<byte[]> getBody() {

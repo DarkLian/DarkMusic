@@ -4,6 +4,7 @@ import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.text.Clock;
 import com.darkmusic.client.text.Text;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
@@ -20,6 +21,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Supplier;
@@ -218,7 +220,7 @@ public final class LocalCommands {
         SuggestionProvider<FabricClientCommandSource> songs = (context, builder) -> {
             String typed = builder.getRemainingLowerCase();
             actions.songs().stream().filter(title -> title.toLowerCase(Locale.ROOT).contains(typed))
-                .sorted(java.util.Comparator.comparing((String title) -> !title.toLowerCase(Locale.ROOT).startsWith(typed)))
+                .sorted(Comparator.comparing((String title) -> !title.toLowerCase(Locale.ROOT).startsWith(typed)))
                 .limit(50).forEach(builder::suggest);
             return builder.buildFuture();
         };
@@ -425,6 +427,6 @@ public final class LocalCommands {
     }
 
     public static String time(double seconds) {
-        return com.darkmusic.client.text.Clock.format(seconds);
+        return Clock.format(seconds);
     }
 }

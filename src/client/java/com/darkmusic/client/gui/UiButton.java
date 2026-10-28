@@ -3,6 +3,8 @@ package com.darkmusic.client.gui;
 import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiTheme;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
@@ -16,14 +18,14 @@ import java.util.function.IntSupplier;
  */
 public final class UiButton extends Button {
     @Override
-    public void setTooltip(net.minecraft.client.gui.components.Tooltip tooltip) {
+    public void setTooltip(Tooltip tooltip) {
         super.setTooltip(tooltip);
         Help.remember(this, tooltip);
         automaticTooltip = false;
     }
 
     @Override
-    protected void extractTooltipForNextRenderPass(net.minecraft.client.gui.GuiGraphicsExtractor g, int x, int y) {
+    protected void extractTooltipForNextRenderPass(GuiGraphicsExtractor g, int x, int y) {
         Help.extract(this, g, x, y);
     }
 
@@ -36,7 +38,7 @@ public final class UiButton extends Button {
     private boolean iconOnly;
     private boolean playOutline;
     private boolean automaticTooltip;
-    private net.minecraft.client.KeyMapping[] shortcuts = new net.minecraft.client.KeyMapping[0];
+    private KeyMapping[] shortcuts = new KeyMapping[0];
     private long transitionAt = System.nanoTime();
     private float emphasis;
 
@@ -61,7 +63,7 @@ public final class UiButton extends Button {
         automaticTooltip = true;
     }
 
-    public static Button shortcuts(Button button, net.minecraft.client.KeyMapping... bindings) {
+    public static Button shortcuts(Button button, KeyMapping... bindings) {
         if (button instanceof UiButton themed) {
             themed.shortcuts = bindings;
             themed.actionTooltip();
@@ -163,12 +165,12 @@ public final class UiButton extends Button {
      * True when the visible label is shortened; smoke checks use it to keep common labels whole.
      */
     public boolean labelTruncated() {
-        var font = net.minecraft.client.Minecraft.getInstance().font;
+        var font = Minecraft.getInstance().font;
         return !iconOnly && font.width(getMessage().getString()) > labelRight() - labelLeft();
     }
 
     private void label(GuiGraphicsExtractor g) {
-        var font = net.minecraft.client.Minecraft.getInstance().font;
+        var font = Minecraft.getInstance().font;
         int left = labelLeft(), right = labelRight();
         String message = getMessage().getString();
         String shown = HorizontalText.ellipsize(font, message, Math.max(0, right - left));

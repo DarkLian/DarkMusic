@@ -12,6 +12,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Search drafts do not modify music tags or replace the current lyric selection.
@@ -84,7 +85,7 @@ public final class LyricsSearchScreen extends LocalScreen {
             rows.rows(candidates.stream().map(c -> {
                 var d = c.document();
                 return new RowList.Row(d.title() + " | " + d.artist(), d.provider() + " | " + MusicScreen.time(d.duration()),
-                    d.album() + "\n" + Text.get(c.evidence()) + "\n" + d.language() + " | " + Text.get("lyrics.variant." + d.variant().name().toLowerCase(java.util.Locale.ROOT)))
+                    d.album() + "\n" + Text.get(c.evidence()) + "\n" + d.language() + " | " + Text.get("lyrics.variant." + d.variant().name().toLowerCase(Locale.ROOT)))
                     .status(Text.get(d.synchronizedLyrics() ? "lyrics.synced" : d.instrumental() ? "lyrics.instrumental" : "lyrics.plain") + " | "
                         + Text.get(c.reliable() ? "lyrics.match.reliable" : "lyrics.match.review"), c.reliable() ? UiStatus.Tone.SUCCESS : UiStatus.Tone.WARNING);
             }).toList());
@@ -101,7 +102,7 @@ public final class LyricsSearchScreen extends LocalScreen {
         UiTheme.background(g, width, height);
         UiTheme.header(g, font, title, UiIcon.LYRICS);
         longText.begin();
-        String status = Text.get("lyrics.status." + app.lyrics.lookup.snapshot(track).status().name().toLowerCase(java.util.Locale.ROOT));
+        String status = Text.get("lyrics.status." + app.lyrics.lookup.snapshot(track).status().name().toLowerCase(Locale.ROOT));
         long retry = app.lyrics.lookup.retrySeconds(track);
         if (retry > 0) status += " | " + Text.get("lyrics.retry_in", retry);
         longText.drawUpdating(g, font, "status", status, 14, 87, width - 28, UiStatus.color(UiStatus.lyrics(app.lyrics.lookup.snapshot(track).status())));

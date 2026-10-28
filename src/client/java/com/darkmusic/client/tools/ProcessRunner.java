@@ -1,12 +1,14 @@
 package com.darkmusic.client.tools;
 
 import com.darkmusic.client.text.Text;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.*;
@@ -61,7 +63,7 @@ public class ProcessRunner {
             reader.get(5, TimeUnit.SECONDS);
             String captured = output.text();
             if (process.exitValue() != 0)
-                org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("{} exited with code {}: {}", Path.of(command.getFirst()).getFileName(), process.exitValue(), captured);
+                LoggerFactory.getLogger("darkmusic-download").warn("{} exited with code {}: {}", Path.of(command.getFirst()).getFileName(), process.exitValue(), captured);
             return new Result(process.exitValue(), captured);
         } catch (ExecutionException | TimeoutException | CompletionException e) {
             Throwable cause = e.getCause() == null ? e : e.getCause();
@@ -124,7 +126,7 @@ public class ProcessRunner {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             } catch (ExecutionException | TimeoutException e) {
-                org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Timed out waiting for tool process termination", e);
+                LoggerFactory.getLogger("darkmusic-download").warn("Timed out waiting for tool process termination", e);
             }
             descendants.removeIf(h -> !h.isAlive());
         }
@@ -145,7 +147,7 @@ public class ProcessRunner {
 
         void append(char value) {
             if (size == data.length && size < maximum)
-                data = java.util.Arrays.copyOf(data, Math.min(maximum, data.length * 2));
+                data = Arrays.copyOf(data, Math.min(maximum, data.length * 2));
             if (size < data.length) data[size++] = value;
             else {
                 data[cursor] = value;

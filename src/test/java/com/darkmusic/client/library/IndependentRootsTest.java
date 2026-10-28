@@ -8,6 +8,7 @@ import java.nio.file.*;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -19,7 +20,7 @@ class IndependentRootsTest {
     void blockedRootDoesNotDelayOtherRootCompletionOrStartDuplicateScans() throws Exception {
         Path slow = Files.createDirectories(directory.resolve("slow")), local = Files.createDirectories(directory.resolve("local/nested")).getParent();
         var release = new CountDownLatch(1);
-        var started = new java.util.concurrent.atomic.AtomicInteger();
+        var started = new AtomicInteger();
         try (var library = new MusicLibrary(directory.resolve("config"), path -> {
             if (path.equals(slow)) {
                 started.incrementAndGet();

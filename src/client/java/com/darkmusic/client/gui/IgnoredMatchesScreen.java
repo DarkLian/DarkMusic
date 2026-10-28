@@ -7,9 +7,12 @@ import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 
 public final class IgnoredMatchesScreen extends LocalScreen {
     private final DuplicateReviewStore store;
@@ -17,7 +20,7 @@ public final class IgnoredMatchesScreen extends LocalScreen {
     private List<DuplicateReviewStore.Ignored> shown = List.of();
     private String selected = "";
     private long revision = -1;
-    private net.minecraft.client.gui.components.Button restore, clear;
+    private Button restore, clear;
 
     public IgnoredMatchesScreen(DarkMusicClient app, Screen parent) {
         super(Text.component("cleanup.ignored"), parent);
@@ -36,7 +39,7 @@ public final class IgnoredMatchesScreen extends LocalScreen {
         restore = addRenderableWidget(UiButton.builder(Text.component("cleanup.restore"), b -> store.restore(selected)).bounds(12, height - 28, w, 20).build());
         clear = addRenderableWidget(UiButton.builder(Text.component("cleanup.restore_all"), b -> show(new ConfirmationScreen(this, Text.component("cleanup.restore_all"), Text.component("cleanup.restore_confirm"), Text.component("cleanup.restore_all"), () -> {
             store.clear();
-            return java.util.concurrent.CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(null);
         }))).bounds(16 + w, height - 28, w, 20).build());
         revision = -1;
         tick();
@@ -49,7 +52,7 @@ public final class IgnoredMatchesScreen extends LocalScreen {
             shown = store.snapshot();
             var list = shown;
             rows.rows(list.size(), i -> new RowList.Row(list.get(i).titleA() + " / " + list.get(i).titleB(), list.get(i).pathA() + " / " + list.get(i).pathB()));
-            rows.select(java.util.stream.IntStream.range(0, shown.size()).filter(i -> shown.get(i).key().equals(selected)).findFirst().orElse(-1));
+            rows.select(IntStream.range(0, shown.size()).filter(i -> shown.get(i).key().equals(selected)).findFirst().orElse(-1));
             rows.scrollOffset(scroll);
             revision = store.revision();
         }

@@ -5,10 +5,13 @@ import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
+import java.nio.file.Path;
+import java.util.Objects;
+
 final class UpdateScreen extends AudioPage {
     private String status = "update.checking";
     private boolean started;
-    private java.nio.file.Path shownFailure;
+    private Path shownFailure;
 
     UpdateScreen(DarkMusicClient app, Screen parent) {
         super(app, parent, "update.check");
@@ -44,7 +47,7 @@ final class UpdateScreen extends AudioPage {
     @Override
     public void tick() {
         super.tick();
-        if (!java.util.Objects.equals(shownFailure, app.updates.installFailureLog())) rebuildWidgets();
+        if (!Objects.equals(shownFailure, app.updates.installFailureLog())) rebuildWidgets();
         if (!started) {
             started = true;
             check();

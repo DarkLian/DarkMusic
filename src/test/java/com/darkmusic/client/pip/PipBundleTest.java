@@ -1,12 +1,15 @@
 package com.darkmusic.client.pip;
 
 import com.darkmusic.client.tools.ProcessRunner;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.util.*;
 import java.util.zip.*;
 
@@ -77,8 +80,8 @@ class PipBundleTest {
     @Test
     void actualOptionalPackageExtractsHelperAndRuntimeWithLicensesWhenPresent() throws Exception {
         try (var manifest = PipNativeTools.class.getResourceAsStream("/assets/darkmusic/pip/windows-x64/dependencies.json")) {
-            org.junit.jupiter.api.Assumptions.assumeTrue(manifest != null, "Java-only build omits optional native manifest");
-            var bundle = PipRuntime.Bundle.parse(new String(manifest.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+            Assumptions.assumeTrue(manifest != null, "Java-only build omits optional native manifest");
+            var bundle = PipRuntime.Bundle.parse(new String(manifest.readAllBytes(), StandardCharsets.UTF_8));
             var dependencies = Path.of(System.getProperty("darkmusic.test.pipDependencies"));
             bundle.verify(dependencies);
             var exe = PipNativeTools.unpack(dependencies, bundle.sha256(), temp);
@@ -86,11 +89,11 @@ class PipBundleTest {
             assertTrue(Files.size(exe.resolveSibling("DOTNET-LICENSE.TXT")) > 100);
             assertTrue(Files.size(exe.resolveSibling("licenses/CSWINRT-LICENSE.txt")) > 100);
             if (PipNativeTools.supported()) {
-                var result = new ProcessRunner().run(java.util.List.of(exe.toString(), "--pacer-test"), exe.getParent(), new ProcessRunner.Token(), java.time.Duration.ofSeconds(10), 1024, line -> {
+                var result = new ProcessRunner().run(List.of(exe.toString(), "--pacer-test"), exe.getParent(), new ProcessRunner.Token(), Duration.ofSeconds(10), 1024, line -> {
                 });
                 assertEquals(0, result.exit(), result.output());
                 assertEquals("pass", result.output().strip());
-                var reliability = new ProcessRunner().run(java.util.List.of(exe.toString(), "--reliability-test"), exe.getParent(), new ProcessRunner.Token(), java.time.Duration.ofSeconds(15), 2048, line -> {
+                var reliability = new ProcessRunner().run(List.of(exe.toString(), "--reliability-test"), exe.getParent(), new ProcessRunner.Token(), Duration.ofSeconds(15), 2048, line -> {
                 });
                 assertEquals(0, reliability.exit(), reliability.output());
                 assertEquals("pass", reliability.output().strip());

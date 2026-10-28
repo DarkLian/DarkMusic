@@ -1,5 +1,7 @@
 package com.darkmusic.client.audio;
 
+import java.util.Arrays;
+
 /**
  * Stereo-linked 8x windowed-sinc intersample detector with 64-frame lookahead.
  */
@@ -14,8 +16,8 @@ final class TruePeakLimiter {
     double left, right, estimatedPeak, reductionDb;
 
     void begin(double rate) {
-        for (var h : history) java.util.Arrays.fill(h, 0);
-        java.util.Arrays.fill(peaks, 0);
+        for (var h : history) Arrays.fill(h, 0);
+        Arrays.fill(peaks, 0);
         frame = 0;
         gain = 1;
         release = 1 - Math.exp(-1 / (rate * .1));

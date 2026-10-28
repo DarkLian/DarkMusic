@@ -3,11 +3,16 @@ package com.darkmusic.client.gui;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+
 /**
  * Keep invisible desktop helpers from auto-minimizing an exclusive fullscreen window.
  */
 public final class DesktopWindowGuard implements AutoCloseable {
-    private static final java.util.Map<Long, Lease> ACTIVE = new java.util.HashMap<>();
+    private static final Map<Long, Lease> ACTIVE = new HashMap<>();
     private final Minecraft client;
     private final long handle;
     private final Lease lease;
@@ -30,7 +35,7 @@ public final class DesktopWindowGuard implements AutoCloseable {
         closed = true;
         // Let queued native focus messages settle after the helper exits. Overlapping
         // requests retain the original attribute until the last request releases it.
-        java.util.concurrent.CompletableFuture.delayedExecutor(250, java.util.concurrent.TimeUnit.MILLISECONDS).execute(() -> client.execute(() -> {
+        CompletableFuture.delayedExecutor(250, TimeUnit.MILLISECONDS).execute(() -> client.execute(() -> {
             if (--lease.users == 0) {
                 ACTIVE.remove(handle, lease);
                 if (client.getWindow().handle() == handle)

@@ -5,6 +5,7 @@ import com.darkmusic.client.library.Track;
 import com.darkmusic.client.media.ExternalAudio;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.*;
 import java.util.*;
@@ -15,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class LoudnessPrefetchTest {
     @Test
     void immediateShutdownDoesNotDiscardTheInitialLoadCompletion() throws Exception {
-        org.slf4j.LoggerFactory.getLogger(getClass());
+        LoggerFactory.getLogger(getClass());
         ExternalAudio.configure(null);
         try (var caller = Executors.newSingleThreadExecutor()) {
             for (int i = 0; i < 25; i++) {
@@ -57,7 +58,7 @@ class LoudnessPrefetchTest {
 
     @Test
     void upcomingRequestsReturnWithoutWaitingAndPrioritizeTheBoundedQueue() throws Exception {
-        org.slf4j.LoggerFactory.getLogger(getClass());
+        LoggerFactory.getLogger(getClass());
         ExternalAudio.configure(null);
         var entered = new CountDownLatch(1);
         var release = new CountDownLatch(1);
@@ -97,7 +98,7 @@ class LoudnessPrefetchTest {
 
     @Test
     void aPrefetchDuringDiskLoadingDoesNotProbeAnAlreadyCachedTrack() throws Exception {
-        org.slf4j.LoggerFactory.getLogger(getClass());
+        LoggerFactory.getLogger(getClass());
         var track = track("cached");
         String key = track.file().toAbsolutePath() + ":10:20:TRACK";
         Files.writeString(directory.resolve("loudness-cache.json"), ConfigStore.JSON.toJson(
@@ -118,7 +119,7 @@ class LoudnessPrefetchTest {
 
     @Test
     void malformedTrailingCacheDataIsPreservedAndNeverUsedForTheFirstSample() throws Exception {
-        org.slf4j.LoggerFactory.getLogger(getClass());
+        LoggerFactory.getLogger(getClass());
         var track = track("cached");
         String key = track.file().toAbsolutePath() + ":10:20:TRACK";
         Path file = directory.resolve("loudness-cache.json");

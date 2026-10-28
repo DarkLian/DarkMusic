@@ -5,9 +5,14 @@ import com.darkmusic.client.text.Text;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.URI;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 
@@ -76,7 +81,7 @@ public final class DiscordPresence implements AutoCloseable {
     private long nextSend, nextConnect, sentAt;
     private boolean refused, unreachableReported;
     private volatile String state = "discord.darkmusic.state.waiting";
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger("darkmusic-discord");
+    private static final Logger LOG = LoggerFactory.getLogger("darkmusic-discord");
 
     public DiscordPresence() {
         this(DiscordPresence::connect, true);
@@ -283,8 +288,8 @@ public final class DiscordPresence implements AutoCloseable {
     public static String artwork(String source) {
         if (source == null || source.isBlank()) return "";
         try {
-            var uri = java.net.URI.create(source.strip());
-            String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(java.util.Locale.ROOT);
+            var uri = URI.create(source.strip());
+            String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
             String path = uri.getPath() == null ? "" : uri.getPath();
             String id = "";
             if (host.equals("youtu.be")) id = path.replaceFirst("^/", "");
@@ -293,7 +298,7 @@ public final class DiscordPresence implements AutoCloseable {
                     for (String pair : uri.getRawQuery().split("&"))
                         if (pair.startsWith("v=")) id = pair.substring(2);
                 var parts = path.split("/");
-                if (parts.length >= 3 && java.util.Set.of("shorts", "live", "embed").contains(parts[1])) id = parts[2];
+                if (parts.length >= 3 && Set.of("shorts", "live", "embed").contains(parts[1])) id = parts[2];
             }
             return id.matches("[A-Za-z0-9_-]{11}") ? "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg" : "";
         } catch (RuntimeException invalid) {

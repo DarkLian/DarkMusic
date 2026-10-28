@@ -1,5 +1,6 @@
 package com.darkmusic.client.audio;
 
+import java.io.InputStream;
 import javax.sound.sampled.*;
 
 import org.junit.jupiter.api.Test;
@@ -9,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class ResamplerKernelTest {
     private double[] kernel(double ratio) throws Exception {
         // Inspect coefficients only: no dummy audio file, playback or generated PCM.
-        var input = new AudioInputStream(java.io.InputStream.nullInputStream(), new AudioFormat(192000, 16, 1, true, false), 0);
+        var input = new AudioInputStream(InputStream.nullInputStream(), new AudioFormat(192000, 16, 1, true, false), 0);
         var converter = new PcmRateConverter(input);
         var prepare = PcmRateConverter.class.getDeclaredMethod("prepare", double.class);
         prepare.setAccessible(true);

@@ -2,6 +2,9 @@ package com.darkmusic.client.render;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.function.BiFunction;
+import java.util.function.ToIntFunction;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class HorizontalTextTest {
@@ -23,8 +26,8 @@ class HorizontalTextTest {
 
     @Test
     void ellipsizeKeepsFittingTextAndMarksTruncatedText() {
-        java.util.function.ToIntFunction<String> measure = String::length;
-        java.util.function.BiFunction<String, Integer, String> prefix = (text, width) -> text.substring(0, Math.min(text.length(), width));
+        ToIntFunction<String> measure = String::length;
+        BiFunction<String, Integer, String> prefix = (text, width) -> text.substring(0, Math.min(text.length(), width));
         assertEquals("Short", HorizontalText.ellipsize("Short", 5, measure, prefix));
         assertEquals("Pirates…", HorizontalText.ellipsize("Pirates Of The Caribbean", 9, measure, prefix));
         assertEquals("", HorizontalText.ellipsize("Long", 0, measure, prefix));

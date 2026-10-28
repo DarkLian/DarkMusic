@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 
 /**
@@ -38,7 +39,7 @@ public final class DownloadArchive {
     public static void forgetRecorded(Path audio) throws IOException {
         synchronized (LOCK) {
             Path file = audio.resolveSibling(FILE);
-            if (!Files.exists(file, java.nio.file.LinkOption.NOFOLLOW_LINKS)) return;
+            if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) return;
             var archive = read(file);
             boolean changed = archive.entrySet().removeIf(e -> e.getValue().isJsonPrimitive() && audio.getFileName().toString().equals(e.getValue().getAsString()));
             if (changed) ConfigStore.atomicWrite(file, ConfigStore.JSON.toJson(archive));

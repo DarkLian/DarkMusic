@@ -2,7 +2,9 @@ package com.darkmusic.client.lyrics;
 
 import com.darkmusic.client.library.SourceLinks;
 
+import java.io.IOException;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /**
@@ -39,8 +41,8 @@ public final class CaptionUrls {
     private static String query(URI uri, String key) {
         for (String part : Objects.toString(uri.getRawQuery(), "").split("&")) {
             String[] pair = part.split("=", 2);
-            if (pair.length == 2 && URLDecoder.decode(pair[0], java.nio.charset.StandardCharsets.UTF_8).equals(key))
-                return URLDecoder.decode(pair[1], java.nio.charset.StandardCharsets.UTF_8);
+            if (pair.length == 2 && URLDecoder.decode(pair[0], StandardCharsets.UTF_8).equals(key))
+                return URLDecoder.decode(pair[1], StandardCharsets.UTF_8);
         }
         return "";
     }
@@ -58,14 +60,14 @@ public final class CaptionUrls {
     /**
      * Called off-thread immediately before starting the external tool.
      */
-    public static String publicUrl(String value) throws java.io.IOException {
+    public static String publicUrl(String value) throws IOException {
         String safe = SourceLinks.safe(value);
-        if (safe.isEmpty()) throw new java.io.IOException("Invalid caption URL");
+        if (safe.isEmpty()) throw new IOException("Invalid caption URL");
         URI uri = URI.create(safe);
         if (uri.getPort() != -1 && uri.getPort() != 80 && uri.getPort() != 443)
-            throw new java.io.IOException("Unsupported caption port");
+            throw new IOException("Unsupported caption port");
         for (InetAddress address : InetAddress.getAllByName(uri.getHost()))
-            if (!publicAddress(address)) throw new java.io.IOException("Non-public caption address");
+            if (!publicAddress(address)) throw new IOException("Non-public caption address");
         return safe;
     }
 }

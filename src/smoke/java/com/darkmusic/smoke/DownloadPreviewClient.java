@@ -10,7 +10,9 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.*;
 import net.minecraft.client.input.*;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.file.*;
 import java.util.*;
@@ -80,8 +82,8 @@ final class DownloadPreviewClient {
     private void finish(Minecraft mc, Throwable failure) {
         if (server != null) server.stop(0);
         if (failure == null)
-            org.slf4j.LoggerFactory.getLogger("darkmusic-preview-smoke").info("DARKMUSIC_SMOKE_PASS:{} URL and preview retention across menu re-entry, preview search/range/check modes, temporary real-device audition/stop/exit/music restore, single visualizer settings entry", readId());
-        else org.slf4j.LoggerFactory.getLogger("darkmusic-preview-smoke").error("DARKMUSIC_SMOKE_FAIL", failure);
+            LoggerFactory.getLogger("darkmusic-preview-smoke").info("DARKMUSIC_SMOKE_PASS:{} URL and preview retention across menu re-entry, preview search/range/check modes, temporary real-device audition/stop/exit/music restore, single visualizer settings entry", readId());
+        else LoggerFactory.getLogger("darkmusic-preview-smoke").error("DARKMUSIC_SMOKE_FAIL", failure);
         step = 999;
         mc.stop();
     }
@@ -133,7 +135,7 @@ final class DownloadPreviewClient {
                 exchange.sendResponseHeaders(range == null ? 200 : 206, size);
                 try {
                     exchange.getResponseBody().write(bytes, first, size);
-                } catch (java.io.IOException ignored) {
+                } catch (IOException ignored) {
                 }
             }
             exchange.close();

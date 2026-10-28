@@ -1,7 +1,12 @@
 package com.darkmusic.client.tools;
 
 
+import java.io.InterruptedIOException;
+import java.net.ConnectException;
+import java.net.UnknownHostException;
+import java.nio.file.FileSystemException;
 import java.util.Locale;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Automatic retries are for temporary transport failures; manual retry remains available.
@@ -13,10 +18,10 @@ public final class RetryPolicy {
     public static boolean automatic(Throwable failure) {
         boolean transientFailure = false;
         for (int depth = 0; failure != null && depth < 16; depth++, failure = failure.getCause()) {
-            if (failure instanceof java.nio.file.FileSystemException || failure instanceof IllegalArgumentException)
+            if (failure instanceof FileSystemException || failure instanceof IllegalArgumentException)
                 return false;
-            if (failure instanceof java.io.InterruptedIOException || failure instanceof java.net.ConnectException ||
-                failure instanceof java.net.UnknownHostException || failure instanceof java.util.concurrent.TimeoutException)
+            if (failure instanceof InterruptedIOException || failure instanceof ConnectException ||
+                failure instanceof UnknownHostException || failure instanceof TimeoutException)
                 transientFailure = true;
             if (failure instanceof DownloadDiagnostics.Failure f && f.category != null &&
                 f.category != DownloadDiagnostics.Category.NETWORK_FAILURE && f.category != DownloadDiagnostics.Category.NETWORK_TIMEOUT &&

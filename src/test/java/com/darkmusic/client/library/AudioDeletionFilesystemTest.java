@@ -4,11 +4,13 @@ import com.darkmusic.client.tools.ProcessRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.FileTime;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -25,7 +27,7 @@ class AudioDeletionFilesystemTest {
         return new Track("root", name, path, name, "", "", 0, Files.size(path), Files.getLastModifiedTime(path).toMillis(), "");
     }
 
-    private AudioDeletion service(boolean supported, java.util.function.Predicate<AudioDeletion.Item> move) {
+    private AudioDeletion service(boolean supported, Predicate<AudioDeletion.Item> move) {
         return new AudioDeletion(new AudioDeletion.Trash() {
             public boolean supported() {
                 return supported;
@@ -95,7 +97,7 @@ class AudioDeletionFilesystemTest {
     void rootValidationAndAudioValidationRemainMandatory() throws Exception {
         var selected = file("document.txt");
         var service = service(false, item -> false);
-        assertThrows(java.io.IOException.class, () -> service.prepare(Map.of(directory.resolve("other"), "root"), List.of(selected)));
+        assertThrows(IOException.class, () -> service.prepare(Map.of(directory.resolve("other"), "root"), List.of(selected)));
         var checked = new AtomicInteger();
         var reject = new AudioDeletion(new AudioDeletion.Trash() {
             public boolean supported() {
@@ -109,11 +111,11 @@ class AudioDeletionFilesystemTest {
             checked.incrementAndGet();
             return false;
         });
-        assertThrows(java.io.IOException.class, () -> reject.prepare(Map.of(directory, "root"), List.of(selected)));
+        assertThrows(IOException.class, () -> reject.prepare(Map.of(directory, "root"), List.of(selected)));
         assertEquals(1, checked.get());
         assertTrue(Files.exists(selected.file()));
         // The production constructor must reject this ordinary document too.
-        assertThrows(java.io.IOException.class, () -> new AudioDeletion().prepare(Map.of(directory, "root"), List.of(selected)));
+        assertThrows(IOException.class, () -> new AudioDeletion().prepare(Map.of(directory, "root"), List.of(selected)));
     }
 
     @Test

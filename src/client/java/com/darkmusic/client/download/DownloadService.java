@@ -14,14 +14,26 @@ import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.tools.RetryPolicy;
 import com.darkmusic.client.tools.ToolPaths;
 import com.darkmusic.client.tools.Toolchain;
+import org.jaudiotagger.audio.AudioFileIO;
+import org.jaudiotagger.tag.FieldKey;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.*;
+import java.util.function.Consumer;
 
 import static com.darkmusic.client.download.DownloadModels.*;
 
@@ -31,7 +43,7 @@ import static com.darkmusic.client.download.DownloadModels.*;
 public final class DownloadService implements AutoCloseable {
     public static final int PARALLEL_DOWNLOADS = 3;
     public static final int MAX_RETRIES = 3;
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger("darkmusic-download");
+    private static final Logger LOG = LoggerFactory.getLogger("darkmusic-download");
     private final Path data;
     private final ProcessRunner runner;
     private final DownloadPipeline pipeline;
@@ -42,7 +54,7 @@ public final class DownloadService implements AutoCloseable {
     private final ScheduledExecutorService bookkeeping = Executors.newSingleThreadScheduledExecutor(Thread.ofPlatform().daemon().name("darkmusic-download-repair").factory());
     private final BlockingQueue<Work> pending = new LinkedBlockingQueue<>();
     private final List<Work> work = new ArrayList<>();
-    private final java.util.Set<ActiveKey> activeKeys = new java.util.HashSet<>();
+    private final Set<ActiveKey> activeKeys = new HashSet<>();
     private long ids;
     private long analysisIds;
     private DownloadDiagnostics.Diagnostic analysisDiagnostic;
@@ -62,7 +74,7 @@ public final class DownloadService implements AutoCloseable {
 
     public record DuplicateChoice(long id, List<Entry> entries, Path destination, ToolPaths tools,
                                   DownloadFormat format,
-                                  java.util.Map<String, List<LibrarySourceIndex.Existing>> matches) {
+                                  Map<String, List<LibrarySourceIndex.Existing>> matches) {
     }
 
     private DuplicateChoice duplicateChoice;
@@ -92,7 +104,7 @@ public final class DownloadService implements AutoCloseable {
             duplicateChoice = null;
         }
         start(Text.get("download.darkmusic.preparing_selected"), token -> {
-            var skipped = new java.util.HashSet<String>();
+            var skipped = new HashSet<String>();
             var index = awareness;
             if (skip && index != null) for (Entry e : choice.entries())
                 if (index.verified(e).stream().anyMatch(v -> v.sameFormat(choice.format()))) skipped.add(e.key());
@@ -102,12 +114,12 @@ public final class DownloadService implements AutoCloseable {
 
     private volatile boolean lyricsEnabled = true;
     private volatile boolean autoCaptions;
-    private static final java.util.function.Consumer<Path> NO_OBSERVER = file -> {
+    private static final Consumer<Path> NO_OBSERVER = file -> {
     };
-    private volatile java.util.function.Consumer<Path> savedObserver = NO_OBSERVER;
+    private volatile Consumer<Path> savedObserver = NO_OBSERVER;
 
-    public void savedObserver(java.util.function.Consumer<Path> observer) {
-        savedObserver = java.util.Objects.requireNonNull(observer);
+    public void savedObserver(Consumer<Path> observer) {
+        savedObserver = Objects.requireNonNull(observer);
     }
 
     public boolean hasSavedObserver() {
@@ -150,9 +162,9 @@ public final class DownloadService implements AutoCloseable {
         if (link.isBlank()) return null;
         try {
             link = CaptionUrls.publicUrl(link);
-        } catch (java.net.UnknownHostException network) {
+        } catch (UnknownHostException network) {
             throw network;
-        } catch (java.io.IOException rejected) {
+        } catch (IOException rejected) {
             throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.UNSUPPORTED_URL, DownloadDiagnostics.Stage.OPTIONAL,
                 DownloadDiagnostics.Tool.YT_DLP, null, "", rejected);
         }
@@ -173,9 +185,9 @@ public final class DownloadService implements AutoCloseable {
             var metadata = DownloadJson.object(result.output());
             var entry = new Entry(1, track.title(), link, "", "", true);
             try {
-                var tag = org.jaudiotagger.audio.AudioFileIO.read(track.file().toFile()).getTag();
+                var tag = AudioFileIO.read(track.file().toFile()).getTag();
                 if (tag != null)
-                    preferences = LyricsLanguages.preferSongLanguage(preferences, tag.getFirst(org.jaudiotagger.tag.FieldKey.LANGUAGE));
+                    preferences = LyricsLanguages.preferSongLanguage(preferences, tag.getFirst(FieldKey.LANGUAGE));
             } catch (
                 Exception unavailable) { /* Unknown song language remains Auto; video/UI language is not substituted. */ }
             var lyrics = DownloadLyrics.fetch(runner, chain, entry, metadata, work, token, LyricsLanguages.resolve(preferences), generated);
@@ -184,13 +196,13 @@ public final class DownloadService implements AutoCloseable {
             return lyrics.text().isBlank() ? null : DownloadLyrics.document(lyrics);
         } finally {
             try (var files = Files.walk(work)) {
-                for (Path path : files.sorted(java.util.Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
+                for (Path path : files.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
             }
         }
     }
 
     public synchronized void format(DownloadFormat value) {
-        format = java.util.Objects.requireNonNull(value);
+        format = Objects.requireNonNull(value);
     }
 
     private volatile Cache cache;
@@ -226,7 +238,7 @@ public final class DownloadService implements AutoCloseable {
     }
 
     public synchronized DownloadDiagnostics.Diagnostic diagnostic(long id) {
-        return work.stream().filter(w -> w.id == id).map(w -> w.diagnostic).filter(java.util.Objects::nonNull).findFirst().orElse(null);
+        return work.stream().filter(w -> w.id == id).map(w -> w.diagnostic).filter(Objects::nonNull).findFirst().orElse(null);
     }
 
     public void installTools() {
@@ -449,7 +461,7 @@ public final class DownloadService implements AutoCloseable {
             requested = format;
         }
         if (index != null) {
-            var found = new java.util.LinkedHashMap<String, List<LibrarySourceIndex.Existing>>();
+            var found = new LinkedHashMap<String, List<LibrarySourceIndex.Existing>>();
             for (Entry entry : entries) {
                 token.check();
                 var matches = index.verified(entry);
@@ -458,16 +470,16 @@ public final class DownloadService implements AutoCloseable {
             if (!found.isEmpty()) synchronized (this) {
                 token.check();
                 // The newest request replaces an unanswered review; keeping the old one would drop this batch.
-                duplicateChoice = new DuplicateChoice(++choiceIds, List.copyOf(entries), destination, selected, requested, java.util.Map.copyOf(found));
+                duplicateChoice = new DuplicateChoice(++choiceIds, List.copyOf(entries), destination, selected, requested, Map.copyOf(found));
                 message = Text.get("download.library.review_needed", found.size());
                 published = null;
                 return;
             }
         }
-        commit(entries, destination, selected, token, requested, java.util.Set.of());
+        commit(entries, destination, selected, token, requested, Set.of());
     }
 
-    private synchronized void commit(List<Entry> entries, Path destination, ToolPaths selected, ProcessRunner.Token token, DownloadFormat requested, java.util.Set<String> skipped) throws IOException {
+    private synchronized void commit(List<Entry> entries, Path destination, ToolPaths selected, ProcessRunner.Token token, DownloadFormat requested, Set<String> skipped) throws IOException {
         token.check();
         if (closed || token != analysisToken) throw new CancellationException();
         if (entries.isEmpty())

@@ -2,6 +2,8 @@ package com.darkmusic.client.audio;
 
 import com.darkmusic.client.config.SoundEnvironmentSettings.Parameters;
 
+import java.util.Arrays;
+
 /**
  * Parameterized Schroeder space. Buffers are allocated at rate initialization, never per sample.
  */
@@ -30,14 +32,14 @@ final class EnvironmentRoom {
     void clear() {
         if (predelay == null) return;
         for (int c = 0; c < 2; c++) {
-            java.util.Arrays.fill(predelay[c], 0);
+            Arrays.fill(predelay[c], 0);
             for (int i = 0; i < 4; i++) {
-                java.util.Arrays.fill(comb[c][i], 0);
+                Arrays.fill(comb[c][i], 0);
                 at[c][i] = 0;
                 low[c][i] = 0;
             }
             for (int i = 0; i < 2; i++) {
-                java.util.Arrays.fill(allpass[c][i], 0);
+                Arrays.fill(allpass[c][i], 0);
                 allAt[c][i] = 0;
             }
         }

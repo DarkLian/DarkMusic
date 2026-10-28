@@ -8,7 +8,9 @@ import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 
 import java.util.*;
 import java.util.function.*;
@@ -24,7 +26,7 @@ abstract class AudioPage extends LocalScreen {
     private final List<Heading> headings = new ArrayList<>();
     private final List<Detail> details = new ArrayList<>();
     private ScrollBar scrollbar;
-    private net.minecraft.client.gui.components.Button back;
+    private Button back;
 
     AudioPage(DarkMusicClient app, Screen parent, String title) {
         super(Text.component(title), parent);
@@ -104,7 +106,7 @@ abstract class AudioPage extends LocalScreen {
     }
 
     @Override
-    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+    public boolean keyPressed(KeyEvent event) {
         if (event.key() == 258 && (getFocused() == null || getFocused() == back || rows.contains(getFocused()))) {
             var enabled = new ArrayList<>(rows.stream().map(w -> w.active).toList());
             enabled.add(true);
@@ -178,7 +180,6 @@ abstract class AudioPage extends LocalScreen {
                 app.save();
                 return true;
             })));
-        slider.plain(true);
         place(slider);
         Help.tip(slider, Text.get(key + ".help") + " " + Text.get("audio.parameter.help"));
     }

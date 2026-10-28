@@ -5,6 +5,7 @@ import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.gui.*;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
@@ -117,7 +118,7 @@ final class PipSpectrumSmoke {
         SmokeUi.captureReady(mc);
         var root = Path.of("../../docs/images_private/pip-spectrum").toAbsolutePath().normalize();
         Files.createDirectories(root.resolve("screenshots"));
-        net.minecraft.client.Screenshot.grab(root.toFile(), name + "-" + mc.options.languageCode + ".png", mc.gameRenderer.mainRenderTarget(), 1, text -> {
+        Screenshot.grab(root.toFile(), name + "-" + mc.options.languageCode + ".png", mc.gameRenderer.mainRenderTarget(), 1, text -> {
         });
     }
 }

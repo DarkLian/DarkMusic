@@ -9,6 +9,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.file.*;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.*;
@@ -74,7 +75,7 @@ class UpdateTest {
     void installerReplacesOnlyTheExpectedJarAndPreservesBackupAndMusic() throws Exception {
         var p = fixture();
         Path music = Files.writeString(root.resolve("music-untouched.txt"), "sentinel");
-        var preserved = new java.util.LinkedHashMap<Path, String>();
+        var preserved = new LinkedHashMap<Path, String>();
         for (String name : List.of("config/darkmusic/config.json", "config/darkmusic/playlists.json", "resourcepacks/custom/pack.mcmeta", "mods/other-mod.jar")) {
             Path path = root.resolve(name);
             Files.createDirectories(path.getParent());

@@ -1,11 +1,16 @@
 package com.darkmusic.client.pip;
 
 import com.darkmusic.client.tools.ProcessRunner;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.channels.*;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 
 /**
  * Instance-local setup lock and per-runtime leases protect other running clients during cleanup.
@@ -17,7 +22,7 @@ final class PipStorage {
         private final Path path;
 
         Lease(Path path, ProcessRunner.Token token) throws IOException {
-            this(path, token, java.util.concurrent.TimeUnit.SECONDS.toNanos(30));
+            this(path, token, TimeUnit.SECONDS.toNanos(30));
         }
 
         Lease(Path path, ProcessRunner.Token token, long timeoutNanos) throws IOException {
@@ -35,7 +40,7 @@ final class PipStorage {
                     }
                     if (acquired == null) {
                         if (System.nanoTime() > deadline) throw new IOException("pip.setup.busy");
-                        java.util.concurrent.locks.LockSupport.parkNanos(20_000_000);
+                        LockSupport.parkNanos(20_000_000);
                     }
                 }
                 lock = acquired;
@@ -157,7 +162,7 @@ final class PipStorage {
                     locks.add(lock);
                 }
             }
-        } catch (IOException | OverlappingFileLockException | java.io.UncheckedIOException busy) {
+        } catch (IOException | OverlappingFileLockException | UncheckedIOException busy) {
             deferred(directory, busy);
             return false;
         } finally {
@@ -179,7 +184,7 @@ final class PipStorage {
             Files.move(directory, claimed);
             removeTree(root, claimed);
             return true;
-        } catch (IOException | java.io.UncheckedIOException busy) {
+        } catch (IOException | UncheckedIOException busy) {
             // Keep remaining disposable runtime files for the next cleanup attempt.
             deferred(claimed != null && Files.exists(claimed, LinkOption.NOFOLLOW_LINKS) ? claimed : directory, busy);
             return false;
@@ -187,7 +192,7 @@ final class PipStorage {
     }
 
     private static void deferred(Path path, Exception reason) {
-        org.slf4j.LoggerFactory.getLogger("darkmusic-pip-setup").debug("PiP cleanup deferred for {}", path, reason);
+        LoggerFactory.getLogger("darkmusic-pip-setup").debug("PiP cleanup deferred for {}", path, reason);
     }
 
     private static boolean leased(Path directory) throws IOException {
@@ -195,7 +200,7 @@ final class PipStorage {
         try (var files = Files.newDirectoryStream(directory, ".lease-*")) {
             for (Path file : files) {
                 try {
-                    var attrs = Files.readAttributes(file, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+                    var attrs = Files.readAttributes(file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
                     if (!file.getFileName().toString().matches("\\.lease-[a-f0-9-]{36}") || !attrs.isRegularFile() || attrs.size() != 0) {
                         inUse = true;
                         continue;

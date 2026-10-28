@@ -8,9 +8,12 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.Supplier;
 
 /**
@@ -21,7 +24,7 @@ public final class ConfirmationScreen extends LocalScreen {
     private final Screen completionScreen;
     private final Component explanation, confirmLabel;
     private final Supplier<CompletableFuture<Void>> action;
-    private List<net.minecraft.util.FormattedCharSequence> lines;
+    private List<FormattedCharSequence> lines;
     private Button confirm, cancel;
     private ScrollBar scrollbar;
     private int left, top, panelWidth, panelHeight, scroll, bodyHeight;
@@ -77,11 +80,11 @@ public final class ConfirmationScreen extends LocalScreen {
                 if (failure == null) show(completionScreen);
                 else {
                     Throwable cause = failure;
-                    while (cause instanceof java.util.concurrent.CompletionException && cause.getCause() != null)
+                    while (cause instanceof CompletionException && cause.getCause() != null)
                         cause = cause.getCause();
                     error = Text.get("reset.darkmusic.failed", Text.failure(cause, "error.operation"));
                     confirm.active = cancel.active = true;
-                    org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Confirmed action failed", failure);
+                    LoggerFactory.getLogger("darkmusic").warn("Confirmed action failed", failure);
                 }
             }));
         } catch (Exception e) {

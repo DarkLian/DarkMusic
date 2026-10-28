@@ -10,11 +10,17 @@ import com.darkmusic.client.library.Track;
 import com.darkmusic.client.lyrics.LyricsInfo;
 import com.darkmusic.client.lyrics.LyricsService;
 import com.google.gson.JsonParser;
+import org.jaudiotagger.audio.AudioFileIO;
+import org.jaudiotagger.tag.FieldKey;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -29,17 +35,17 @@ class UiPolishTest {
     @Test
     void embeddedTimedLyricsAreValidatedOnAPrivateRealMusicCopy() throws Exception {
         var original = TestMusic.files().stream().filter(p -> p.toString().matches("(?i).*\\.(mp3|flac)$")).findFirst();
-        org.junit.jupiter.api.Assumptions.assumeTrue(original.isPresent(), "An editable real MP3/FLAC copy is required");
+        Assumptions.assumeTrue(original.isPresent(), "An editable real MP3/FLAC copy is required");
         var source = original.orElseThrow();
-        byte[] before = java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(source));
+        byte[] before = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(source));
         Path copy = temp.resolve(source.getFileName());
         Files.copy(source, copy);
         var track = new Track("copy", copy.getFileName().toString(), copy, "", "", "", 10, 0, 0, "");
         try (var service = new LyricsService()) {
             for (String text : new String[]{"", "Plain untimed lyrics", "[00:01.00]日本語の歌詞"}) {
-                var audio = org.jaudiotagger.audio.AudioFileIO.read(copy.toFile());
+                var audio = AudioFileIO.read(copy.toFile());
                 var tag = audio.getTagOrCreateAndSetDefault();
-                tag.setField(org.jaudiotagger.tag.FieldKey.LYRICS, text);
+                tag.setField(FieldKey.LYRICS, text);
                 audio.commit();
                 service.enabled(false);
                 service.enabled(true);
@@ -49,7 +55,7 @@ class UiPolishTest {
             }
             assertEquals("日本語の歌詞", service.get(track).lines().getFirst().text());
         }
-        assertArrayEquals(before, java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(source)), "Original music must remain byte-identical");
+        assertArrayEquals(before, MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(source)), "Original music must remain byte-identical");
     }
 
     @Test
@@ -83,7 +89,7 @@ class UiPolishTest {
         enriched.add("subtitles", JsonParser.parseString("{\"ja\":[{}]}"));
         enriched.add("automatic_captions", JsonParser.parseString("{\"en\":[{}]}"));
         assertEquals(DownloadJson.preview("https://example.com/song", 1, plain), DownloadJson.preview("https://example.com/song", 1, enriched));
-        assertTrue(java.util.Arrays.stream(DownloadModels.Entry.class.getRecordComponents()).noneMatch(field -> field.getName().equals("lyrics")));
+        assertTrue(Arrays.stream(DownloadModels.Entry.class.getRecordComponents()).noneMatch(field -> field.getName().equals("lyrics")));
     }
 
     @Test
@@ -102,7 +108,7 @@ class UiPolishTest {
             assertEquals(LyricsInfo.AVAILABLE, service.info(timed));
             assertEquals(LyricsInfo.PLAIN, service.info(plain));
             assertFalse(service.document(plain).synchronizedLyrics());
-            assertEquals(java.util.List.of("Untimed words"), service.document(plain).plain());
+            assertEquals(List.of("Untimed words"), service.document(plain).plain());
             assertEquals(LyricsInfo.LOCAL_MISSING, service.info(absent));
             assertEquals(LyricsInfo.State.UNKNOWN, service.info(absent).state());
             assertEquals("?", service.info(absent).mark());

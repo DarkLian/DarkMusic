@@ -4,6 +4,8 @@ import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.library.MetadataReader;
 import com.darkmusic.client.library.Track;
 import com.google.gson.JsonObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -16,6 +18,7 @@ import java.nio.file.Path;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -26,7 +29,7 @@ import java.util.function.Consumer;
 public final class MediaControls implements AutoCloseable {
     // Windows shows the timeline from the last update, so playing positions are refreshed this often.
     static final long POSITION_REFRESH = TimeUnit.SECONDS.toNanos(5);
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger("darkmusic-media");
+    private static final Logger LOG = LoggerFactory.getLogger("darkmusic-media");
 
     /**
      * What Windows shows. Artwork is a file path, or "".
@@ -220,7 +223,7 @@ public final class MediaControls implements AutoCloseable {
                             LOG.debug("No artwork for Media Controls", unreadable);
                         }
                     });
-                } catch (java.util.concurrent.RejectedExecutionException closing) {
+                } catch (RejectedExecutionException closing) {
                     // Shutting down.
                 }
             }

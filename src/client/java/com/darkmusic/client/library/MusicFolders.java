@@ -1,7 +1,9 @@
 package com.darkmusic.client.library;
 
 import com.darkmusic.client.config.Settings;
+import org.slf4j.LoggerFactory;
 
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.*;
 
@@ -23,8 +25,8 @@ public final class MusicFolders {
             Path path;
             try {
                 path = Path.of(name).toAbsolutePath().normalize();
-            } catch (java.nio.file.InvalidPathException invalid) {
-                org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Ignoring invalid saved music folder", invalid);
+            } catch (InvalidPathException invalid) {
+                LoggerFactory.getLogger("darkmusic").warn("Ignoring invalid saved music folder", invalid);
                 continue;
             }
             if (!path.equals(destination) && overlaps(List.of(destination), path)) continue;
@@ -36,7 +38,7 @@ public final class MusicFolders {
                         id = remembered.getValue();
                         break;
                     }
-                } catch (java.nio.file.InvalidPathException ignored) {
+                } catch (InvalidPathException ignored) {
                 }
             }
             if (id == null) id = UUID.randomUUID().toString();

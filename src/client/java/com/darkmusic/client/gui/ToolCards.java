@@ -8,8 +8,10 @@ import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -19,13 +21,13 @@ import java.util.List;
  */
 public final class ToolCards extends AbstractWidget {
     @Override
-    public void setTooltip(net.minecraft.client.gui.components.Tooltip tooltip) {
+    public void setTooltip(Tooltip tooltip) {
         super.setTooltip(tooltip);
         Help.remember(this, tooltip);
     }
 
     @Override
-    protected void extractTooltipForNextRenderPass(net.minecraft.client.gui.GuiGraphicsExtractor g, int x, int y) {
+    protected void extractTooltipForNextRenderPass(GuiGraphicsExtractor g, int x, int y) {
         Help.extract(this, g, x, y);
     }
 
@@ -52,17 +54,17 @@ public final class ToolCards extends AbstractWidget {
     }
 
     @Override
-    public void onClick(net.minecraft.client.input.MouseButtonEvent event, boolean twice) {
+    public void onClick(MouseButtonEvent event, boolean twice) {
         if (scrollbar.hit(event.x(), event.y())) scrollbar.onClick(event, twice);
     }
 
     @Override
-    protected void onDrag(net.minecraft.client.input.MouseButtonEvent event, double dx, double dy) {
+    protected void onDrag(MouseButtonEvent event, double dx, double dy) {
         scrollbar.drag(event.y());
     }
 
     @Override
-    public void onRelease(net.minecraft.client.input.MouseButtonEvent event) {
+    public void onRelease(MouseButtonEvent event) {
         scrollbar.cancel();
     }
 

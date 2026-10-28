@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -42,7 +43,7 @@ public final class AudioFormats {
     }
 
     public static boolean candidate(Path file) {
-        String n = file.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
+        String n = file.getFileName().toString().toLowerCase(Locale.ROOT);
         return n.matches(".*\\.(mp3|flac|wav|ogg|oga|opus|m4a|mp4|aac|webm|aif|aiff)$");
     }
 }

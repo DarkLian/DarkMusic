@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -15,6 +16,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
 import static com.darkmusic.client.download.DownloadModels.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,7 +34,7 @@ class DownloadParallelTest {
         var maximum = new AtomicInteger();
         var runner = new DownloadTest.FakeRunner() {
             @Override
-            public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) throws java.io.IOException, InterruptedException {
+            public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) throws IOException, InterruptedException {
                 if (!args.contains("--write-info-json")) return super.run(args, dir, token, timeout, max, line);
                 int count = running.incrementAndGet();
                 maximum.accumulateAndGet(count, Math::max);
@@ -51,7 +53,7 @@ class DownloadParallelTest {
         try (var service = new DownloadService(temp.resolve("data"), () -> {
         }, runner)) {
             service.configure(new ToolPaths(executable, executable, executable, ""));
-            var entries = java.util.stream.IntStream.range(0, 8).mapToObj(i -> new Entry(i, "Track " + i, "https://example.com/" + i, "Test", "id" + i, true)).toList();
+            var entries = IntStream.range(0, 8).mapToObj(i -> new Entry(i, "Track " + i, "https://example.com/" + i, "Test", "id" + i, true)).toList();
             service.enqueueSelected(entries, music);
             assertTrue(threeStarted.await(10, TimeUnit.SECONDS), "Three independent downloads must reach the runner together");
             assertEquals(3, maximum.get());

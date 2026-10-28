@@ -4,6 +4,8 @@ import com.darkmusic.client.tools.Hashes;
 import com.darkmusic.client.tools.ManagedTools;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.google.gson.JsonParser;
+import net.fabricmc.loader.api.FabricLoader;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -12,10 +14,12 @@ import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.Comparator;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.zip.ZipInputStream;
 
@@ -68,7 +72,7 @@ public final class MediaControlsPackage implements AutoCloseable {
     private volatile String failure = "";
 
     public MediaControlsPackage(Path config) {
-        this(config, manifest(), developmentDownload(net.fabricmc.loader.api.FabricLoader.getInstance().isDevelopmentEnvironment(),
+        this(config, manifest(), developmentDownload(FabricLoader.getInstance().isDevelopmentEnvironment(),
             System.getProperty("darkmusic.mediaControls", ""), ManagedTools::download), supported());
     }
 
@@ -83,7 +87,7 @@ public final class MediaControlsPackage implements AutoCloseable {
 
     static boolean supported() {
         return System.getProperty("os.name", "").startsWith("Windows")
-            && java.util.Set.of("amd64", "x86_64").contains(System.getProperty("os.arch", ""));
+            && Set.of("amd64", "x86_64").contains(System.getProperty("os.arch", ""));
     }
 
     private static Manifest manifest() {
@@ -91,7 +95,7 @@ public final class MediaControlsPackage implements AutoCloseable {
             // Java-only builds carry no manifest; the feature is then simply unavailable.
             return in == null ? null : Manifest.parse(new String(in.readNBytes(4096), StandardCharsets.UTF_8));
         } catch (IOException damaged) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic-media").warn("Media Controls manifest unreadable", damaged);
+            LoggerFactory.getLogger("darkmusic-media").warn("Media Controls manifest unreadable", damaged);
             return null;
         }
     }
@@ -148,7 +152,7 @@ public final class MediaControlsPackage implements AutoCloseable {
                 state = State.READY;
             }
         } catch (IOException unreadable) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic-media").debug("Media Controls not installed", unreadable);
+            LoggerFactory.getLogger("darkmusic-media").debug("Media Controls not installed", unreadable);
         }
     }
 
@@ -171,7 +175,7 @@ public final class MediaControlsPackage implements AutoCloseable {
                 executable = install(manifest);
                 state = State.READY;
             } catch (Exception error) {
-                org.slf4j.LoggerFactory.getLogger("darkmusic-media").warn("Media Controls installation failed", error);
+                LoggerFactory.getLogger("darkmusic-media").warn("Media Controls installation failed", error);
                 failure = error.getMessage() != null && error.getMessage().startsWith("media.") ? error.getMessage() : "media.install_failed";
                 state = State.FAILED;
             }
@@ -258,11 +262,11 @@ public final class MediaControlsPackage implements AutoCloseable {
                     if (Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS)) deleteTree(child);
                     else Files.deleteIfExists(child);
                 } catch (IOException busy) {
-                    org.slf4j.LoggerFactory.getLogger("darkmusic-media").debug("Kept {} for now", child, busy);
+                    LoggerFactory.getLogger("darkmusic-media").debug("Kept {} for now", child, busy);
                 }
             }
         } catch (IOException unreadable) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic-media").debug("Media Controls cleanup deferred", unreadable);
+            LoggerFactory.getLogger("darkmusic-media").debug("Media Controls cleanup deferred", unreadable);
         }
     }
 
@@ -284,7 +288,7 @@ public final class MediaControlsPackage implements AutoCloseable {
     }
 
     void removeAll() {
-        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         while (true) {
             try (var children = Files.list(root)) {
                 for (Path child : children.toList()) {
@@ -297,7 +301,7 @@ public final class MediaControlsPackage implements AutoCloseable {
                 return;
             } catch (IOException busy) {
                 if (System.nanoTime() > deadline) {
-                    org.slf4j.LoggerFactory.getLogger("darkmusic-media").warn("Some Media Controls files are still in use", busy);
+                    LoggerFactory.getLogger("darkmusic-media").warn("Some Media Controls files are still in use", busy);
                     return;
                 }
                 try {

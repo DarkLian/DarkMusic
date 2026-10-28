@@ -15,6 +15,9 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -37,7 +40,7 @@ class TransitionAudioTest {
                     var ended = new AtomicBoolean();
                     var secondStarted = new AtomicBoolean();
                     var error = new AtomicReference<String>();
-                    var nextReady = new java.util.concurrent.CountDownLatch(1);
+                    var nextReady = new CountDownLatch(1);
                     SourceDataLine output = (SourceDataLine) Proxy.newProxyInstance(getClass().getClassLoader(), new Class[]{SourceDataLine.class}, (p, m, a) -> switch (m.getName()) {
                         case "getFormat" -> initial;
                         case "available", "getBufferSize" -> 1024;
@@ -47,7 +50,7 @@ class TransitionAudioTest {
                         case "write" -> {
                             int count = (int) a[2];
                             frames.addAndGet(count / initial.getFrameSize());
-                            assertTrue(nextReady.await(5, java.util.concurrent.TimeUnit.SECONDS), "Next decoder did not prepare");
+                            assertTrue(nextReady.await(5, TimeUnit.SECONDS), "Next decoder did not prepare");
                             yield count;
                         }
                         case "close" -> {
@@ -94,11 +97,11 @@ class TransitionAudioTest {
                         backend.play(a, () -> {
                         }, error::set);
                         backend.nextTrack(b, () -> secondStarted.set(true), () -> ended.set(true), error::set);
-                        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(20);
+                        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
                         while (!ended.get() && error.get() == null && System.nanoTime() < deadline) Thread.sleep(10);
                         assertNull(error.get());
                         assertTrue(secondStarted.get(), "Prepared track must become audible");
-                        assertTrue(ended.get(), () -> "Transition did not finish: crossfade=" + crossfade + ", state=" + backend.state() + ", outputFrames=" + frames.get() + ", workers=" + Thread.getAllStackTraces().entrySet().stream().filter(e -> e.getKey().getName().startsWith("darkmusic-audio")).map(e -> e.getKey().getName() + java.util.Arrays.toString(e.getValue())).toList());
+                        assertTrue(ended.get(), () -> "Transition did not finish: crossfade=" + crossfade + ", state=" + backend.state() + ", outputFrames=" + frames.get() + ", workers=" + Thread.getAllStackTraces().entrySet().stream().filter(e -> e.getKey().getName().startsWith("darkmusic-audio")).map(e -> e.getKey().getName() + Arrays.toString(e.getValue())).toList());
                         assertEquals(1, opens.get(), "Queue transition must retain its output device");
                     }
                     assertTrue(closed.get());

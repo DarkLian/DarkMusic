@@ -1,5 +1,6 @@
 package com.darkmusic.client.pip;
 
+import com.darkmusic.client.tools.Hashes;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.update.GitHubRelease;
 import com.google.gson.Gson;
@@ -9,6 +10,7 @@ import java.nio.file.*;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.BooleanSupplier;
 import java.util.zip.ZipInputStream;
 
 /**
@@ -17,14 +19,14 @@ import java.util.zip.ZipInputStream;
 public final class PipNativeTools {
     private final Path directory;
     public final PipRuntime runtime;
-    private final java.util.function.BooleanSupplier allowed;
+    private final BooleanSupplier allowed;
     private CompletableFuture<Path> prepared;
 
     public PipNativeTools(Path config) {
         this(config, () -> false);
     }
 
-    public PipNativeTools(Path config, java.util.function.BooleanSupplier allowed) {
+    public PipNativeTools(Path config, BooleanSupplier allowed) {
         directory = config.resolve("pip-native");
         runtime = new PipRuntime(config);
         this.allowed = allowed;
@@ -94,7 +96,7 @@ public final class PipNativeTools {
         try {
             int count = 0;
             long total = 0;
-            java.util.Set<Path> seen = new HashSet<>();
+            Set<Path> seen = new HashSet<>();
             for (var archive : archives)
                 try (var zip = new ZipInputStream(archive.open())) {
                     for (var entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
@@ -143,7 +145,7 @@ public final class PipNativeTools {
     }
 
     private static String hash(byte[] bytes) {
-        return com.darkmusic.client.tools.Hashes.sha256(bytes);
+        return Hashes.sha256(bytes);
     }
 
     public CompletableFuture<List<PipSource>> windows(ProcessRunner.Token token) {

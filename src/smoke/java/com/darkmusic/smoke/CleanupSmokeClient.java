@@ -10,6 +10,7 @@ import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
 
@@ -32,7 +33,7 @@ final class CleanupSmokeClient {
         SmokeUi.captureReady(mc);
         Path images = Path.of(System.getProperty("darkmusic.privateImages"));
         Files.createDirectories(images.resolve("screenshots"));
-        net.minecraft.client.Screenshot.grab(images.toFile(), "cleanup-" + name + ".png", mc.gameRenderer.mainRenderTarget(), 1, s -> {
+        Screenshot.grab(images.toFile(), "cleanup-" + name + ".png", mc.gameRenderer.mainRenderTarget(), 1, s -> {
         });
     }
 

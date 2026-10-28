@@ -6,6 +6,8 @@ import com.darkmusic.client.tools.ProcessRunner;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.*;
 import java.time.Duration;
 import java.util.*;
@@ -50,8 +52,8 @@ class IndexedSeekTest {
                         actual = input.readNBytes(expected.length);
                     }
                     assertEquals(expected.length, actual.length);
-                    var a = java.nio.ByteBuffer.wrap(expected).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer();
-                    var b = java.nio.ByteBuffer.wrap(actual).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer();
+                    var a = ByteBuffer.wrap(expected).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer();
+                    var b = ByteBuffer.wrap(actual).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer();
                     double error = 0, power = 0;
                     while (a.hasRemaining()) {
                         double x = a.get(), y = b.get();

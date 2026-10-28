@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -29,7 +30,7 @@ class LyricsLibraryRunTest {
     void startingDuringProviderCooldownStillInitializesProgress() throws Exception {
         Track a = track("a.dat"), b = track("b.dat");
         var now = new AtomicLong();
-        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var calls = new AtomicInteger();
         LyricsProvider provider = new LyricsProvider() {
             public String id() {
                 return "cooldown";
@@ -116,7 +117,7 @@ class LyricsLibraryRunTest {
     void repeatedSongNetworkFailuresDoNotFreezeLaterLibrarySongs() throws Exception {
         Track bad = track("bad.dat"), good = track("good.dat");
         var now = new AtomicLong();
-        var failures = new java.util.concurrent.atomic.AtomicInteger();
+        var failures = new AtomicInteger();
         LyricsProvider provider = new LyricsProvider() {
             public String id() {
                 return "per-song-retry";
@@ -161,7 +162,7 @@ class LyricsLibraryRunTest {
     void shortServerWaitIsNotInflatedToTheSongsRetryBackoff() throws Exception {
         Track bad = track("limited.dat"), good = track("later.dat");
         var now = new AtomicLong();
-        var goodCalls = new java.util.concurrent.atomic.AtomicInteger();
+        var goodCalls = new AtomicInteger();
         LyricsProvider provider = new LyricsProvider() {
             public String id() {
                 return "short-server-wait";

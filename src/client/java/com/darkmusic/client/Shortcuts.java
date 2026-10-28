@@ -1,5 +1,6 @@
 package com.darkmusic.client;
 
+import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.gui.MusicScreen;
 import com.darkmusic.client.text.Text;
 import com.mojang.blaze3d.platform.InputConstants;
@@ -7,7 +8,13 @@ import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
+import org.lwjgl.glfw.GLFW;
+import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -29,25 +36,25 @@ public final class Shortcuts {
      */
     void register() {
         var category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("darkmusic", "controls"));
-        open = binding("open", org.lwjgl.glfw.GLFW.GLFW_KEY_B, category);
-        toggle = binding("toggle", org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSLASH, category);
-        next = binding("next", org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_BRACKET, category);
-        previous = binding("previous", org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_BRACKET, category);
-        faster = binding("faster", org.lwjgl.glfw.GLFW.GLFW_KEY_EQUAL, category);
-        slower = binding("slower", org.lwjgl.glfw.GLFW.GLFW_KEY_MINUS, category);
-        seekBack = binding("seek_back", org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT, category);
-        seekForward = binding("seek_forward", org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT, category);
-        stop = binding("stop", org.lwjgl.glfw.GLFW.GLFW_KEY_P, category);
-        jump = binding("jump", org.lwjgl.glfw.GLFW.GLFW_KEY_O, category);
-        normalSpeed = binding("normal_speed", org.lwjgl.glfw.GLFW.GLFW_KEY_KP_0, category);
-        volumeUp = binding("volume_up", org.lwjgl.glfw.GLFW.GLFW_KEY_UP, category);
-        volumeDown = binding("volume_down", org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN, category);
-        mute = binding("mute", org.lwjgl.glfw.GLFW.GLFW_KEY_M, category);
-        hud = binding("toggle_hud", org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN, category);
-        lyrics = binding("toggle_lyrics", org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN, category);
-        favorite = binding("favorite", org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN, category);
-        shuffle = binding("shuffle", org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN, category);
-        repeat = binding("repeat", org.lwjgl.glfw.GLFW.GLFW_KEY_UNKNOWN, category);
+        open = binding("open", GLFW.GLFW_KEY_B, category);
+        toggle = binding("toggle", GLFW.GLFW_KEY_BACKSLASH, category);
+        next = binding("next", GLFW.GLFW_KEY_RIGHT_BRACKET, category);
+        previous = binding("previous", GLFW.GLFW_KEY_LEFT_BRACKET, category);
+        faster = binding("faster", GLFW.GLFW_KEY_EQUAL, category);
+        slower = binding("slower", GLFW.GLFW_KEY_MINUS, category);
+        seekBack = binding("seek_back", GLFW.GLFW_KEY_LEFT, category);
+        seekForward = binding("seek_forward", GLFW.GLFW_KEY_RIGHT, category);
+        stop = binding("stop", GLFW.GLFW_KEY_P, category);
+        jump = binding("jump", GLFW.GLFW_KEY_O, category);
+        normalSpeed = binding("normal_speed", GLFW.GLFW_KEY_KP_0, category);
+        volumeUp = binding("volume_up", GLFW.GLFW_KEY_UP, category);
+        volumeDown = binding("volume_down", GLFW.GLFW_KEY_DOWN, category);
+        mute = binding("mute", GLFW.GLFW_KEY_M, category);
+        hud = binding("toggle_hud", GLFW.GLFW_KEY_UNKNOWN, category);
+        lyrics = binding("toggle_lyrics", GLFW.GLFW_KEY_UNKNOWN, category);
+        favorite = binding("favorite", GLFW.GLFW_KEY_UNKNOWN, category);
+        shuffle = binding("shuffle", GLFW.GLFW_KEY_UNKNOWN, category);
+        repeat = binding("repeat", GLFW.GLFW_KEY_UNKNOWN, category);
     }
 
     private KeyMapping binding(String name, int key, KeyMapping.Category category) {
@@ -74,7 +81,7 @@ public final class Shortcuts {
             }
         }
         migrateSpeedBindings();
-        if (settings.nativeShortcutNames.containsAll(java.util.Arrays.stream(bindings()).map(KeyMapping::getName).toList()))
+        if (settings.nativeShortcutNames.containsAll(Arrays.stream(bindings()).map(KeyMapping::getName).toList()))
             settings.shortcuts.clear();
         KeyMapping.resetMapping();
     }
@@ -89,12 +96,12 @@ public final class Shortcuts {
         slower.setKey(slower.getDefaultKey());
         settings.shortcuts.put(faster.getName(), faster.saveString());
         settings.shortcuts.put(slower.getName(), slower.saveString());
-        var updated = java.util.Map.of("key_" + faster.getName(), faster.saveString(), "key_" + slower.getName(), slower.saveString());
+        var updated = Map.of("key_" + faster.getName(), faster.saveString(), "key_" + slower.getName(), slower.saveString());
         app.io.execute(() -> {
             try {
                 app.config.resetShortcuts(updated);
             } catch (Exception failure) {
-                org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Cannot migrate default speed bindings", failure);
+                LoggerFactory.getLogger("darkmusic").warn("Cannot migrate default speed bindings", failure);
                 Minecraft.getInstance().execute(() -> app.warn(Text.get("error.shortcut_migrate")));
             }
         });
@@ -143,12 +150,9 @@ public final class Shortcuts {
         if (!app.idle() || app.settings == null || app.playback == null || conflicts(key))
             return;
         var playback = app.playback;
-        var library = app.library;
         if (key == toggle) {
-            var tracks = library.snapshot().tracks();
-            if (playback.state().track() == null) {
-                if (!app.resumeLast(false) && !tracks.isEmpty()) playback.play(tracks, tracks.getFirst());
-            } else playback.toggle();
+            if (playback.state().track() == null) app.startPlayback();
+            else playback.toggle();
         } else if (key == next) playback.next();
         else if (key == previous) playback.previous();
         else if (key == faster) speed(app.settings.speed + .1);
@@ -188,9 +192,9 @@ public final class Shortcuts {
             app.shuffle(!playback.shuffle());
             notice(playback.shuffle() ? "text.darkmusic.shuffle_on" : "text.darkmusic.shuffle_off");
         } else if (key == repeat) {
-            var values = com.darkmusic.client.config.Repeat.values();
+            var values = Repeat.values();
             app.repeat(values[(playback.repeat().ordinal() + 1) % values.length]);
-            notice("command.darkmusic.repeat_now", Text.get("command.darkmusic.repeat_" + playback.repeat().name().toLowerCase(java.util.Locale.ROOT)));
+            notice("command.darkmusic.repeat_now", Text.get("command.darkmusic.repeat_" + playback.repeat().name().toLowerCase(Locale.ROOT)));
         }
     }
 
@@ -214,8 +218,8 @@ public final class Shortcuts {
     /**
      * The options.txt entries that Reset to Defaults writes back.
      */
-    java.util.Map<String, String> defaults() {
-        var keys = new java.util.LinkedHashMap<String, String>();
+    Map<String, String> defaults() {
+        var keys = new LinkedHashMap<String, String>();
         for (KeyMapping key : bindings()) keys.put("key_" + key.getName(), key.getDefaultKey().getName());
         return keys;
     }

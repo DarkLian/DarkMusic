@@ -2,11 +2,16 @@ package com.darkmusic.client.library;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
+import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
 import javax.imageio.stream.MemoryCacheImageInputStream;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -35,7 +40,7 @@ public final class ArtworkCache implements AutoCloseable {
     /**
      * Omit only symmetric, uniformly black edge bands embedded in the source cover.
      */
-    public static java.awt.image.BufferedImage trimLetterbox(java.awt.image.BufferedImage image) {
+    public static BufferedImage trimLetterbox(BufferedImage image) {
         int width = image.getWidth(), height = image.getHeight();
         int top = 0, bottom = 0, left = 0, right = 0;
         while (top < height / 4 && blackLine(image, top, true)) top++;
@@ -49,7 +54,7 @@ public final class ArtworkCache implements AutoCloseable {
         return top + bottom + left + right == 0 ? image : image.getSubimage(left, top, width - left - right, height - top - bottom);
     }
 
-    private static boolean blackLine(java.awt.image.BufferedImage image, int line, boolean horizontal) {
+    private static boolean blackLine(BufferedImage image, int line, boolean horizontal) {
         int count = horizontal ? image.getWidth() : image.getHeight();
         for (int index = 0; index < count; index++) {
             int pixel = image.getRGB(horizontal ? index : line, horizontal ? line : index);
@@ -59,13 +64,13 @@ public final class ArtworkCache implements AutoCloseable {
         return true;
     }
 
-    public static java.awt.image.BufferedImage fitArtwork(java.awt.image.BufferedImage original) {
+    public static BufferedImage fitArtwork(BufferedImage original) {
         var fit = fit(original.getWidth(), original.getHeight());
         int size = fit.size();
-        var image = new java.awt.image.BufferedImage(size, size, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        var image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         var graphics = image.createGraphics();
         try {
-            graphics.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
             graphics.drawImage(original, (size - fit.width()) / 2, (size - fit.height()) / 2, fit.width(), fit.height(), null);
         } finally {
             graphics.dispose();
@@ -82,18 +87,18 @@ public final class ArtworkCache implements AutoCloseable {
     public record Fit(int size, int width, int height) {
     }
 
-    public static void draw(net.minecraft.client.gui.GuiGraphicsExtractor g, Cover cover, int x, int y, int size) {
-        g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, cover.id(), x, y, 0, 0, size, size, cover.size(), cover.size(), cover.size(), cover.size());
+    public static void draw(GuiGraphicsExtractor g, Cover cover, int x, int y, int size) {
+        g.blit(RenderPipelines.GUI_TEXTURED, cover.id(), x, y, 0, 0, size, size, cover.size(), cover.size(), cover.size(), cover.size());
     }
 
     /**
      * Only the transparent fit gutters generated here are omitted; every source-image pixel is retained.
      */
-    public static void drawTopAligned(net.minecraft.client.gui.GuiGraphicsExtractor g, Cover cover, int x, int y, int size) {
+    public static void drawTopAligned(GuiGraphicsExtractor g, Cover cover, int x, int y, int size) {
         double ratio = Math.min((double) size / cover.contentWidth(), (double) size / cover.contentHeight());
         int width = Math.max(1, (int) Math.round(cover.contentWidth() * ratio));
         int height = Math.max(1, (int) Math.round(cover.contentHeight() * ratio));
-        g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, cover.id(), x + (size - width) / 2, y,
+        g.blit(RenderPipelines.GUI_TEXTURED, cover.id(), x + (size - width) / 2, y,
             (cover.size() - cover.contentWidth()) / 2, (cover.size() - cover.contentHeight()) / 2,
             width, height, cover.contentWidth(), cover.contentHeight(), cover.size(), cover.size());
     }
@@ -101,7 +106,7 @@ public final class ArtworkCache implements AutoCloseable {
     /**
      * Only equal, uniform pillarboxes around a square cover are omitted in menus.
      */
-    public static int menuInset(java.awt.image.BufferedImage image) {
+    public static int menuInset(BufferedImage image) {
         int width = image.getWidth(), height = image.getHeight();
         if (width <= height || (width - height) % 2 != 0) return 0;
         int inset = (width - height) / 2;
@@ -119,16 +124,16 @@ public final class ArtworkCache implements AutoCloseable {
             && Math.abs((first >> 8 & 255) - (next >> 8 & 255)) <= tolerance && Math.abs((first & 255) - (next & 255)) <= tolerance;
     }
 
-    public static void drawMenu(net.minecraft.client.gui.GuiGraphicsExtractor g, Cover cover, int x, int y, int size) {
+    public static void drawMenu(GuiGraphicsExtractor g, Cover cover, int x, int y, int size) {
         drawMenu(g, cover, x, y, size, size);
     }
 
-    public static void drawMenu(net.minecraft.client.gui.GuiGraphicsExtractor g, Cover cover, int x, int y, int maxWidth, int maxHeight) {
+    public static void drawMenu(GuiGraphicsExtractor g, Cover cover, int x, int y, int maxWidth, int maxHeight) {
         int sourceWidth = cover.contentWidth() - 2 * cover.menuInset();
         double ratio = Math.min((double) maxWidth / sourceWidth, (double) maxHeight / cover.contentHeight());
         int width = Math.max(1, (int) Math.round(sourceWidth * ratio));
         int height = Math.max(1, (int) Math.round(cover.contentHeight() * ratio));
-        g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, cover.id(), x + (maxWidth - width) / 2, y + (maxHeight - height) / 2,
+        g.blit(RenderPipelines.GUI_TEXTURED, cover.id(), x + (maxWidth - width) / 2, y + (maxHeight - height) / 2,
             (cover.size() - cover.contentWidth()) / 2 + cover.menuInset(), (cover.size() - cover.contentHeight()) / 2,
             width, height, sourceWidth, cover.contentHeight(), cover.size(), cover.size());
     }
@@ -206,7 +211,7 @@ public final class ArtworkCache implements AutoCloseable {
                             Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(() -> "DarkMusic artwork", prepared));
                         } catch (RuntimeException failure) {
                             prepared.close();
-                            org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Artwork texture registration failed", failure);
+                            LoggerFactory.getLogger("darkmusic").warn("Artwork texture registration failed", failure);
                             cache.put(key, null);
                             return;
                         }

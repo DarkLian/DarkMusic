@@ -17,10 +17,13 @@ import javax.sound.sampled.SourceDataLine;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -33,7 +36,7 @@ class AudioWorkerTest {
         var clip = TestMusic.clip();
         var track = StorageTest.track("real", "empty-read", TestMusic.featured());
         for (boolean recover : List.of(false, true)) {
-            var reads = new java.util.concurrent.atomic.AtomicInteger();
+            var reads = new AtomicInteger();
             var failure = new AtomicReference<String>();
             var resources = new CopyOnWriteArrayList<AtomicBoolean>();
             try (var backend = new JavaSoundBackend(Runnable::run, path -> new AudioInputStream(clip.stream(), clip.format(), clip.bytes().length / clip.format().getFrameSize()) {
@@ -42,15 +45,15 @@ class AudioWorkerTest {
                     int n = reads.incrementAndGet();
                     return !recover || n <= 4 ? 0 : super.read(bytes, off, len);
                 }
-            }, f -> output(resources), java.time.Duration.ofSeconds(2), java.time.Duration.ofMillis(100))) {
+            }, f -> output(resources), Duration.ofSeconds(2), Duration.ofMillis(100))) {
                 backend.play(track, () -> {
                 }, failure::set);
                 if (recover) {
-                    Await.until(java.time.Duration.ofSeconds(5), () -> backend.state().position() > .01 || failure.get() != null, "Priming ends");
+                    Await.until(Duration.ofSeconds(5), () -> backend.state().position() > .01 || failure.get() != null, "Priming ends");
                     assertNull(failure.get());
                     assertTrue(reads.get() > 4);
                 } else {
-                    Await.until(java.time.Duration.ofSeconds(5), () -> failure.get() != null, "Empty decoder is bounded");
+                    Await.until(Duration.ofSeconds(5), () -> failure.get() != null, "Empty decoder is bounded");
                     assertEquals(AudioBackend.Status.ERROR, backend.state().status());
                     assertTrue(reads.get() > 1);
                     assertTrue(backend.awaitIdle(3));
@@ -64,7 +67,7 @@ class AudioWorkerTest {
         var lines = new CopyOnWriteArrayList<AtomicBoolean>();
         var failure = new AtomicReference<String>();
         Path file = TestMusic.featured();
-        var track = new MetadataReader().read("real", file.getFileName().toString(), file, java.nio.file.Files.size(file), 0);
+        var track = new MetadataReader().read("real", file.getFileName().toString(), file, Files.size(file), 0);
         try (var backend = new JavaSoundBackend(Runnable::run, path -> PcmDecoder.open(path), f -> output(lines))) {
             for (int i = 0; i < 8; i++) {
                 backend.playFrom(track, 30 + i * .1, true, () -> fail("Unexpected completion"), failure::set);
@@ -130,7 +133,7 @@ class AudioWorkerTest {
             };
         }, f -> output(lines));
         try {
-            var track = new MetadataReader().read("real", source.getFileName().toString(), source, java.nio.file.Files.size(source), 0);
+            var track = new MetadataReader().read("real", source.getFileName().toString(), source, Files.size(source), 0);
             AtomicReference<String> failure = new AtomicReference<>();
             backend.play(track, () -> {
             }, failure::set);
@@ -237,7 +240,7 @@ class AudioWorkerTest {
                 if (method.getName().equals("write")) return 0;
                 return method.invoke(delegate, args);
             });
-            try (var backend = new JavaSoundBackend(Runnable::run, path -> TestMusic.clip().stream(), f -> stalled, java.time.Duration.ofMillis(300))) {
+            try (var backend = new JavaSoundBackend(Runnable::run, path -> TestMusic.clip().stream(), f -> stalled, Duration.ofMillis(300))) {
                 backend.play(StorageTest.track("real", "stalled", TestMusic.featured()), () -> fail("Unexpected completion"), failure::set);
                 StorageTest.await(() -> failure.get() != null);
                 assertTrue(failure.get().contains("Audio"));
@@ -276,7 +279,7 @@ class AudioWorkerTest {
                 if (method.getName().equals("available") || method.getName().equals("getBufferSize")) return 4096;
                 return method.invoke(delegate, args);
             });
-        }, java.time.Duration.ofMillis(100))) {
+        }, Duration.ofMillis(100))) {
             backend.play(StorageTest.track("real", "slow-decoder", TestMusic.featured()), () -> completed.set(true), failure::set);
             StorageTest.await(() -> completed.get() || failure.get() != null);
             assertNull(failure.get());

@@ -4,6 +4,8 @@ import com.darkmusic.client.tools.ProcessRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.*;
 import java.util.List;
 
@@ -30,8 +32,8 @@ class MetadataCommitSafetyTest {
                 try {
                     Path external = Files.writeString(directory.resolve("external.txt"), "External replacement must survive");
                     Files.move(external, source, StandardCopyOption.REPLACE_EXISTING);
-                } catch (java.io.IOException failure) {
-                    throw new java.io.UncheckedIOException(failure);
+                } catch (IOException failure) {
+                    throw new UncheckedIOException(failure);
                 }
             });
             var original = new MediaFiles.Fields("", "", "", "original", ".txt");

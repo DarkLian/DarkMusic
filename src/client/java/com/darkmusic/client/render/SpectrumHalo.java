@@ -1,6 +1,7 @@
 package com.darkmusic.client.render;
 
 import com.darkmusic.client.config.Settings;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
@@ -50,7 +51,7 @@ final class SpectrumHalo {
                 float[] tops, float[] bottoms, boolean bars, Settings.HudShape shape, int hudHeight, int first,
                 int last) implements GuiElementRenderState {
         @Override
-        public com.mojang.blaze3d.pipeline.RenderPipeline pipeline() {
+        public RenderPipeline pipeline() {
             return RenderPipelines.GUI;
         }
 

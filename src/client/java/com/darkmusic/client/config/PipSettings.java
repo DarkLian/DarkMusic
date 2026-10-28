@@ -1,5 +1,7 @@
 package com.darkmusic.client.config;
 
+import java.util.TreeSet;
+
 /**
  * Display/audio-analysis preferences only: window identities and active capture never persist.
  */
@@ -41,7 +43,7 @@ public final class PipSettings {
     }
 
     public static int[] frameRateOptions(int monitorRate) {
-        var options = new java.util.TreeSet<Integer>();
+        var options = new TreeSet<Integer>();
         for (int rate : new int[]{0, 15, 24, 30, 48, 60, 90, 120, 144, 165, 180, 200, 240, 280, 300, 360, 480})
             options.add(rate);
         if (monitorRate >= 15 && monitorRate <= MAX_FRAME_RATE) options.add(monitorRate);

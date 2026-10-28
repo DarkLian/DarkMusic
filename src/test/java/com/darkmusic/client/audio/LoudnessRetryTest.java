@@ -5,6 +5,7 @@ import com.darkmusic.client.library.Track;
 import com.darkmusic.client.media.ExternalAudio;
 import com.darkmusic.client.testing.Await;
 import com.darkmusic.client.tools.ProcessRunner;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -12,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,7 +26,7 @@ class LoudnessRetryTest {
     @Test
     void unavailableToolsRecoverAfterBackoffWithoutRecreatingCacheOrHammeringEveryBuffer() throws Exception {
         String configured = System.getProperty("darkmusic.test.ffmpeg", "");
-        org.junit.jupiter.api.Assumptions.assumeFalse(configured.isBlank(), "Real FFmpeg integration is opt-in");
+        Assumptions.assumeFalse(configured.isBlank(), "Real FFmpeg integration is opt-in");
         Path ff = Path.of(configured), source;
         try (var files = Files.walk(Path.of(System.getProperty("darkmusic.test.music")))) {
             source = files.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".mp3")).findFirst().orElseThrow();
@@ -41,7 +43,7 @@ class LoudnessRetryTest {
             assertEquals(1, cache.gain(track, settings));
             var retryField = LoudnessCache.class.getDeclaredField("retryAfter");
             retryField.setAccessible(true);
-            var retries = (java.util.Map<?, ?>) retryField.get(cache);
+            var retries = (Map<?, ?>) retryField.get(cache);
             Await.until(Duration.ofSeconds(5), () -> !retries.isEmpty(), "retry scheduled");
             assertEquals(1, retries.size());
             ExternalAudio.configure(() -> new ExternalAudio.Paths(temp, ff.toString(), ff.resolveSibling(ff.getFileName().toString().replace("ffmpeg", "ffprobe")).toString()));

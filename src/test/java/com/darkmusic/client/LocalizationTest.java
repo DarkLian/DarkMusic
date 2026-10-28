@@ -14,7 +14,10 @@ import org.junit.jupiter.api.Test;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.regex.MatchResult;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -73,11 +76,11 @@ class LocalizationTest {
         english.forEach((key, value) -> assertFalse(value.isBlank(), key));
         var chinese = catalog("zh_tw");
         assertEquals(english.keySet(), chinese.keySet());
-        var placeholders = java.util.regex.Pattern.compile("%(?:[0-9]+\\$)?[a-zA-Z%]");
+        var placeholders = Pattern.compile("%(?:[0-9]+\\$)?[a-zA-Z%]");
         english.forEach((key, value) -> {
             assertFalse(chinese.get(key).isBlank(), key);
-            assertEquals(placeholders.matcher(value).results().map(java.util.regex.MatchResult::group).toList(),
-                placeholders.matcher(chinese.get(key)).results().map(java.util.regex.MatchResult::group).toList(), key);
+            assertEquals(placeholders.matcher(value).results().map(MatchResult::group).toList(),
+                placeholders.matcher(chinese.get(key)).results().map(MatchResult::group).toList(), key);
             assertEquals(value.chars().filter(c -> c == '\n').count(),
                 chinese.get(key).chars().filter(c -> c == '\n').count(), key);
         });
@@ -127,9 +130,9 @@ class LocalizationTest {
     void allDynamicHudChoicesHaveEnglishLabels() throws Exception {
         var english = catalog("en_us");
         for (var choice : Settings.SpectrumPosition.values())
-            assertTrue(english.containsKey("hud.darkmusic.position." + choice.name().toLowerCase(java.util.Locale.ROOT)));
+            assertTrue(english.containsKey("hud.darkmusic.position." + choice.name().toLowerCase(Locale.ROOT)));
         for (var choice : Settings.SpectrumDirection.values())
-            assertTrue(english.containsKey("hud.darkmusic.direction." + choice.name().toLowerCase(java.util.Locale.ROOT)));
+            assertTrue(english.containsKey("hud.darkmusic.direction." + choice.name().toLowerCase(Locale.ROOT)));
     }
 
     @Test

@@ -5,11 +5,17 @@ import com.darkmusic.client.media.AudioFormats;
 import com.darkmusic.client.config.*;
 import com.darkmusic.client.gui.*;
 import com.darkmusic.client.text.Text;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.*;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.*;
+import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -23,7 +29,7 @@ final class ResetSmokeClient {
     private Path data, custom, source;
     private CompletableFuture<Void> prepared;
     private String playlist, retainedPlaylist, jumpKey;
-    private net.minecraft.client.gui.screens.Screen settingsScreen;
+    private Screen settingsScreen;
     private CompletableFuture<Settings> saved;
 
     private static List<String> differences(Settings expected, Settings actual) {
@@ -39,7 +45,7 @@ final class ResetSmokeClient {
     }
 
     private static String hash(Path file) throws Exception {
-        return HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(file)));
+        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(file)));
     }
 
     void start() {
@@ -150,8 +156,8 @@ final class ResetSmokeClient {
                     app.settings.hudX = .7;
                     app.settings.speed = 2.3;
                     app.settings.volume = .1;
-                    app.shortcuts.next.setKey(com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard.n"));
-                    net.minecraft.client.KeyMapping.resetMapping();
+                    app.shortcuts.next.setKey(InputConstants.getKey("key.keyboard.n"));
+                    KeyMapping.resetMapping();
                     jumpKey = mc.options.keyJump.saveString();
                     app.playback.play(app.library.snapshot().tracks(), app.library.snapshot().tracks().getFirst());
                     mc.gui.setScreen(new PlaylistScreen(app, null));
@@ -202,7 +208,7 @@ final class ResetSmokeClient {
                     require(mc.getWindow().isFullscreen() && mc.options.guiScale().get() == 2 && mc.getWindow().getGuiScale() == 2, "Confirmation capture is not fullscreen GUI scale 2: " + mc.getWindow().isFullscreen() + "/" + mc.options.guiScale().get() + "/" + mc.getWindow().getGuiScale());
                     Path images = Path.of(System.getProperty("darkmusic.privateImages"));
                     Files.createDirectories(images.resolve("screenshots"));
-                    net.minecraft.client.Screenshot.grab(images.toFile(), "reset-confirmation.png", mc.gameRenderer.mainRenderTarget(), 1, text -> {
+                    Screenshot.grab(images.toFile(), "reset-confirmation.png", mc.gameRenderer.mainRenderTarget(), 1, text -> {
                     });
                     click(mc, "reset.darkmusic.confirm");
                     escape(mc);
@@ -250,7 +256,7 @@ final class ResetSmokeClient {
                     stage = 20;
                 }
                 case 20 -> {
-                    org.slf4j.LoggerFactory.getLogger("darkmusic-reset-smoke").info("DARKMUSIC_SMOKE_PASS:{} reset confirmation/cancel/Escape, playlist confirmation, real-media integrity, installed tools kept, history clearing, defaults/native keys, default folder rescan, and persistence; restart={}",
+                    LoggerFactory.getLogger("darkmusic-reset-smoke").info("DARKMUSIC_SMOKE_PASS:{} reset confirmation/cancel/Escape, playlist confirmation, real-media integrity, installed tools kept, history clearing, defaults/native keys, default folder rescan, and persistence; restart={}",
                         Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip(), Boolean.getBoolean("darkmusic.verifyHudRestart"));
                     stage = 999;
                     mc.stop();
@@ -258,7 +264,7 @@ final class ResetSmokeClient {
                 default -> throw new IllegalStateException("Unknown reset stage");
             }
         } catch (Throwable e) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic-reset-smoke").error("DARKMUSIC_SMOKE_FAIL stage=" + stage, e);
+            LoggerFactory.getLogger("darkmusic-reset-smoke").error("DARKMUSIC_SMOKE_FAIL stage=" + stage, e);
             stage = 999;
             mc.stop();
         }

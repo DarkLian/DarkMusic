@@ -3,6 +3,7 @@ package com.darkmusic.client.download;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -22,7 +23,7 @@ class WorkspaceTest {
             assertFalse(Files.exists(stale));
             assertTrue(Files.isDirectory(keep));
             Path active = Files.createDirectories(root.resolve("item-active"));
-            assertThrows(java.io.IOException.class, () -> new DownloadWorkspace(data));
+            assertThrows(IOException.class, () -> new DownloadWorkspace(data));
             assertTrue(Files.exists(active));
         }
         try (var recovered = new DownloadWorkspace(data)) {

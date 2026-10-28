@@ -11,6 +11,8 @@ import com.darkmusic.client.tools.ProcessRunner;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.components.AbstractWidget;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.*;
 import java.time.Duration;
@@ -136,7 +138,7 @@ final class AdvancedSmokeClient {
                     app.settings.audio.equalizer = true;
                     app.settings.audio.neutral = true;
                     mc.gui.setScreen(new AudioSettingsScreen(app, null));
-                    require(mc.gui.screen().children().stream().filter(w -> w instanceof net.minecraft.client.gui.components.AbstractWidget).map(w -> (net.minecraft.client.gui.components.AbstractWidget) w).filter(w -> w.getMessage().getString().equals("10-Band Equalizer")).noneMatch(w -> w.active), "Neutral did not disable bypassed EQ controls");
+                    require(mc.gui.screen().children().stream().filter(w -> w instanceof AbstractWidget).map(w -> (AbstractWidget) w).filter(w -> w.getMessage().getString().equals("10-Band Equalizer")).noneMatch(w -> w.active), "Neutral did not disable bypassed EQ controls");
                     require(mc.gui.screen().children().stream().filter(w -> w instanceof EqualizerGraph).map(w -> (EqualizerGraph) w).noneMatch(w -> w.active), "Neutral did not disable the EQ graph");
                     app.settings.audio.neutral = false;
                     mc.gui.setScreen(new AudioSettingsScreen(app, null));
@@ -187,13 +189,13 @@ final class AdvancedSmokeClient {
                         Files.delete(file);
                     }
                     app.save();
-                    org.slf4j.LoggerFactory.getLogger("darkmusic-advanced-smoke").info("DARKMUSIC_SMOKE_PASS:{} real-device ALAC/AAC/Opus/FLAC transitions, sample-rate/channel adaptation, pause/seek, neutral and DSP, live Extreme Circular HUD and lyrics view, background loudness cache; three private fullscreen GUI-scale-2 captures", Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip());
+                    LoggerFactory.getLogger("darkmusic-advanced-smoke").info("DARKMUSIC_SMOKE_PASS:{} real-device ALAC/AAC/Opus/FLAC transitions, sample-rate/channel adaptation, pause/seek, neutral and DSP, live Extreme Circular HUD and lyrics view, background loudness cache; three private fullscreen GUI-scale-2 captures", Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip());
                     stage = 999;
                     mc.stop();
                 }
             }
         } catch (Throwable e) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic-advanced-smoke").error("DARKMUSIC_SMOKE_FAIL stage=" + stage, e);
+            LoggerFactory.getLogger("darkmusic-advanced-smoke").error("DARKMUSIC_SMOKE_FAIL stage=" + stage, e);
             stage = 999;
             mc.stop();
         }

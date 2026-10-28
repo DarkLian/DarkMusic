@@ -8,23 +8,27 @@ import com.darkmusic.client.render.ColorStrip;
 import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.render.WaveformProgress;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractSliderButton;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 import java.util.function.DoubleConsumer;
 import java.util.function.DoubleFunction;
+import java.util.function.Supplier;
 
 public final class ValueSlider extends AbstractSliderButton {
     @Override
-    public void setTooltip(net.minecraft.client.gui.components.Tooltip tooltip) {
+    public void setTooltip(Tooltip tooltip) {
         super.setTooltip(tooltip);
         Help.remember(this, tooltip);
     }
 
     @Override
-    protected void extractTooltipForNextRenderPass(net.minecraft.client.gui.GuiGraphicsExtractor g, int x, int y) {
+    protected void extractTooltipForNextRenderPass(GuiGraphicsExtractor g, int x, int y) {
         Help.extract(this, g, x, y);
     }
 
@@ -34,8 +38,8 @@ public final class ValueSlider extends AbstractSliderButton {
     private final int steps;
     private long adjusted;
     private boolean dragging;
-    private boolean trackOnly, plain, simpleProgress;
-    private boolean media, mediaFill, mediaLabelLeft;
+    private boolean trackOnly, simpleProgress;
+    private boolean media, mediaLabelLeft;
     private DoubleFunction<String> mediaLabel;
     private String mediaText = "";
     private Runnable exactEditor;
@@ -53,13 +57,8 @@ public final class ValueSlider extends AbstractSliderButton {
         return super.mouseClicked(event, twice);
     }
 
-    public void plain(boolean value) {
-        plain = value;
-    }
-
-    public void media(boolean filled, DoubleFunction<String> valueLabel) {
+    public void media(DoubleFunction<String> valueLabel) {
         media = true;
-        mediaFill = filled;
         mediaLabel = valueLabel;
         mediaText = valueLabel.apply(value);
     }
@@ -69,11 +68,11 @@ public final class ValueSlider extends AbstractSliderButton {
     }
 
     private int mediaTrackStart() {
-        return getX() + (mediaLabelLeft && getWidth() >= 72 ? net.minecraft.client.Minecraft.getInstance().font.width("3.0×") + 10 : 4);
+        return getX() + (mediaLabelLeft && getWidth() >= 72 ? Minecraft.getInstance().font.width("3.0×") + 10 : 4);
     }
 
     private int mediaTrackWidth() {
-        int labelWidth = net.minecraft.client.Minecraft.getInstance().font.width(mediaLabelLeft ? "3.0×" : "100%");
+        int labelWidth = Minecraft.getInstance().font.width(mediaLabelLeft ? "3.0×" : "100%");
         return Math.max(1, getWidth() - (getWidth() < 72 ? 8 : labelWidth + 14));
     }
 
@@ -90,18 +89,18 @@ public final class ValueSlider extends AbstractSliderButton {
         trackOnly = value;
     }
 
-    private java.util.function.Supplier<TrackWaveform> waveform;
+    private Supplier<TrackWaveform> waveform;
 
-    private java.util.function.Supplier<WaveformSettings> waveformOptions;
+    private Supplier<WaveformSettings> waveformOptions;
 
-    public void waveform(java.util.function.Supplier<TrackWaveform> source,
-                         java.util.function.Supplier<WaveformSettings> options) {
+    public void waveform(Supplier<TrackWaveform> source,
+                         Supplier<WaveformSettings> options) {
         waveform = source;
         waveformOptions = options;
     }
 
-    private java.util.function.Supplier<VisualColors> colors;
-    private java.util.function.Supplier<Settings.SurfaceFinish> finish = () -> Settings.SurfaceFinish.FLAT;
+    private Supplier<VisualColors> colors;
+    private Supplier<Settings.SurfaceFinish> finish = () -> Settings.SurfaceFinish.FLAT;
 
     public ValueSlider(int x, int y, int width, double value, DoubleFunction<String> label, DoubleConsumer changed, Runnable committed) {
         this(x, y, width, value, label, changed, committed, 0);
@@ -116,25 +115,25 @@ public final class ValueSlider extends AbstractSliderButton {
         updateMessage();
     }
 
-    public void colors(java.util.function.Supplier<VisualColors> value) {
+    public void colors(Supplier<VisualColors> value) {
         colors = value;
     }
 
-    public void finish(java.util.function.Supplier<Settings.SurfaceFinish> value) {
+    public void finish(Supplier<Settings.SurfaceFinish> value) {
         finish = value;
     }
 
     @Override
-    public void extractWidgetRenderState(net.minecraft.client.gui.GuiGraphicsExtractor g, int mx, int my, float delta) {
+    public void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
         if (media) {
-            var font = net.minecraft.client.Minecraft.getInstance().font;
+            var font = Minecraft.getInstance().font;
             boolean compact = getWidth() < 72;
             int start = mediaTrackStart(), length = mediaTrackWidth();
             int centerY = getY() + (compact ? 16 : 10);
             int marker = start + (int) Math.round(value * length);
             int color = active ? UiTheme.ACCENT : UiTheme.MUTED;
             g.fill(start, centerY - 1, start + length, centerY + 1, UiTheme.BORDER);
-            if (mediaFill) g.fill(start, centerY - 1, marker, centerY + 1, color);
+            g.fill(start, centerY - 1, marker, centerY + 1, color);
             int halfHeight = compact ? 4 : 6;
             g.fill(marker - 2, centerY - halfHeight, marker + 2, centerY + halfHeight, active && isHoveredOrFocused() ? UiTheme.TEXT : color);
             String text = mediaText;
@@ -166,7 +165,7 @@ public final class ValueSlider extends AbstractSliderButton {
                 g.fill(getX() + 4, trackY, Math.max(getX() + 4, handle + 4), trackY + 2, active ? UiTheme.ACCENT : UiTheme.MUTED);
             }
             g.fill(handle + 2, trackY - 2, handle + 6, trackY + 4, active && isHoveredOrFocused() ? UiTheme.TEXT : active ? UiTheme.ACCENT : UiTheme.BORDER);
-            var font = net.minecraft.client.Minecraft.getInstance().font;
+            var font = Minecraft.getInstance().font;
             String[] parts = labelParts(getMessage().getString());
             int valueWidth = font.width(parts[1]);
             int labelWidth = Math.max(1, getWidth() - 12 - (valueWidth > 0 ? valueWidth + 8 : 0));

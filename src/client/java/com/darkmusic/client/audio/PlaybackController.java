@@ -7,6 +7,7 @@ import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
 
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
@@ -34,10 +35,10 @@ public final class PlaybackController implements AutoCloseable {
     private long sequence;
     private long orderVersion;
     private Source source = new Source("All", "", "", "");
-    private java.util.function.BiConsumer<Source, List<Track>> sourceChanged = (source, tracks) -> {
+    private BiConsumer<Source, List<Track>> sourceChanged = (source, tracks) -> {
     };
 
-    public void onSourceChanged(java.util.function.BiConsumer<Source, List<Track>> listener) {
+    public void onSourceChanged(BiConsumer<Source, List<Track>> listener) {
         sourceChanged = Objects.requireNonNull(listener);
     }
 
@@ -260,7 +261,7 @@ public final class PlaybackController implements AutoCloseable {
     public boolean reorderQueued(List<Long> expectedIds, List<Integer> order) {
         settlePromotion();
         if (!manual.stream().map(Queued::id).toList().equals(expectedIds) || order.size() != manual.size()
-            || new java.util.HashSet<>(order).size() != manual.size()
+            || new HashSet<>(order).size() != manual.size()
             || order.stream().anyMatch(i -> i == null || i < 0 || i >= manual.size())) return false;
         var reordered = order.stream().map(manual::get).toList();
         if (reordered.equals(manual)) return false;

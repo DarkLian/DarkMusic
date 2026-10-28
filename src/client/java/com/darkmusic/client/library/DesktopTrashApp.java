@@ -4,6 +4,9 @@ import java.awt.Desktop;
 import java.io.*;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.security.MessageDigest;
+import java.util.HexFormat;
+import java.util.Objects;
 
 /**
  * JDK-only desktop helper: Minecraft deliberately initializes its own AWT as headless.
@@ -14,20 +17,20 @@ public final class DesktopTrashApp {
 
     static boolean matchesHash(Path file, String expected) throws Exception {
         if (expected == null || !expected.matches("[a-f0-9]{64}")) return false;
-        var digest = java.security.MessageDigest.getInstance("SHA-256");
+        var digest = MessageDigest.getInstance("SHA-256");
         try (var input = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS)) {
             byte[] buffer = new byte[65536];
             int count;
             while ((count = input.read(buffer)) >= 0) if (count > 0) digest.update(buffer, 0, count);
         }
-        return java.util.HexFormat.of().formatHex(digest.digest()).equals(expected);
+        return HexFormat.of().formatHex(digest.digest()).equals(expected);
     }
 
     private static boolean unchanged(Path file, BasicFileAttributes before) throws IOException {
         var after = Files.readAttributes(file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         return after.isRegularFile() && !Files.isSymbolicLink(file) && before.size() == after.size()
             && before.lastModifiedTime().equals(after.lastModifiedTime())
-            && java.util.Objects.equals(before.fileKey(), after.fileKey());
+            && Objects.equals(before.fileKey(), after.fileKey());
     }
 
     public static void main(String[] args) {

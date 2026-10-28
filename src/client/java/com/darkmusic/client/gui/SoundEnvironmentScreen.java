@@ -7,6 +7,8 @@ import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
 
 public final class SoundEnvironmentScreen extends AudioPage {
     private boolean advanced;
@@ -38,9 +40,9 @@ public final class SoundEnvironmentScreen extends AudioPage {
             if (v && e.preset == SoundEnvironmentSettings.Preset.OFF) e.select(SoundEnvironmentSettings.Preset.BEDROOM);
             e.enabled = v;
         });
-        labeledAction(Text.get("environment.preset") + ": " + Text.get("dsp.value." + e.preset.name().toLowerCase(java.util.Locale.ROOT)),
+        labeledAction(Text.get("environment.preset") + ": " + Text.get("dsp.value." + e.preset.name().toLowerCase(Locale.ROOT)),
             Text.get("environment.preset.help"), () -> show(new EnvironmentPickerScreen(app, this)))
-            .description(Text.get("environment.description." + e.preset.name().toLowerCase(java.util.Locale.ROOT))).navigates();
+            .description(Text.get("environment.description." + e.preset.name().toLowerCase(Locale.ROOT))).navigates();
         if (e.custom) info("environment.custom_recipe");
         slider("environment.intensity", e.intensity * 100, 0, 100, 100, v -> e.intensity = v / 100, "%");
         info(() -> Text.get(e.ownsReverb() ? "environment.owns_reverb" : "environment.allows_reverb"));
@@ -141,7 +143,7 @@ public final class SoundEnvironmentScreen extends AudioPage {
                 e.userPresets.remove(name);
                 notice = Text.get("preset.deleted");
                 app.save();
-                return java.util.concurrent.CompletableFuture.completedFuture(null);
+                return CompletableFuture.completedFuture(null);
             }))).destructive();
         }
         action("environment.reset", () -> {

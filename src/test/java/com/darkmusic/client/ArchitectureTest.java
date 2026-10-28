@@ -48,6 +48,27 @@ class ArchitectureTest {
         assertEquals(List.of(), violations.stream().distinct().sorted().toList());
     }
 
+    /**
+     * Types are imported, not written out in full inside code: "java.util.List.of()" becomes "List.of()".
+     */
+    @Test
+    void codeImportsTypesInsteadOfQualifyingThem() throws IOException {
+        var qualified = Pattern.compile("(?<![\\w.$@])(?:java|javax|net|com|org|it)\\.(?:[a-z_][a-z0-9_]*\\.)+[A-Z]\\w*");
+        var violations = new ArrayList<String>();
+        try (var files = Files.walk(Path.of("src"))) {
+            for (Path file : files.filter(p -> p.toString().endsWith(".java") && p.getNameCount() > 2
+                && p.getName(2).toString().equals("java")).toList()) {
+                var code = COMMENTS_AND_STRINGS.matcher(Files.readString(file)).replaceAll(" ");
+                for (String line : code.lines().toList()) {
+                    if (line.startsWith("import ") || line.startsWith("package ")) continue;
+                    var matcher = qualified.matcher(line);
+                    if (matcher.find()) violations.add(file + ": " + matcher.group());
+                }
+            }
+        }
+        assertEquals(List.of(), violations);
+    }
+
     private static boolean allowed(String from, String to) {
         Integer source = CORE.get(from), target = CORE.get(to);
         if (source != null) return target != null && target < source;

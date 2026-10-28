@@ -15,12 +15,20 @@ import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
+import net.minecraft.network.chat.Component;
 
 import java.nio.file.*;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Native UI and playback-clock checks with private audio. No online requests or writes to music folders.
@@ -35,14 +43,14 @@ final class LyricsSmokeClient {
     private boolean scrollVerified;
 
     private void scrollProbe(Minecraft mc) {
-        mc.gui.setScreen(new LocalScreen(net.minecraft.network.chat.Component.literal("Live text regression"), null) {
+        mc.gui.setScreen(new LocalScreen(Component.literal("Live text regression"), null) {
             @Override
-            public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor g, int x, int y, float delta) {
+            public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
                 if (scrollVerified) return;
                 longText.begin();
                 longText.drawUpdating(g, font, "status", "The lyrics provider request failed | Retrying automatically in 120 s", 12, 40, 80, 0xffffffff);
                 longText.pan("status", 10_000);
-                var entries = (java.util.Map<?, ?>) SmokeUi.field(longText, "lines");
+                var entries = (Map<?, ?>) SmokeUi.field(longText, "lines");
                 Object line = entries.get("status");
                 double before = (double) SmokeUi.field(line, "offset");
                 longText.drawUpdating(g, font, "status", "The lyrics provider request failed | Retrying automatically in 119 s", 12, 40, 80, 0xffffffff);
@@ -57,7 +65,7 @@ final class LyricsSmokeClient {
     }
 
     private void statusProbe(Minecraft mc) {
-        mc.gui.setScreen(new LocalScreen(net.minecraft.network.chat.Component.literal("Status and metadata"), null) {
+        mc.gui.setScreen(new LocalScreen(Component.literal("Status and metadata"), null) {
             @Override
             protected void init() {
                 var list = addRenderableWidget(new RowList(16, 54, width - 32, Math.min(180, height - 78), 38, "Status samples", (i, activate) -> {
@@ -71,7 +79,7 @@ final class LyricsSmokeClient {
             }
 
             @Override
-            public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor g, int x, int y, float delta) {
+            public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
                 UiTheme.background(g, width, height);
                 g.text(font, title, 16, 12, UiTheme.TEXT);
                 super.extractRenderState(g, x, y, delta);
@@ -88,15 +96,15 @@ final class LyricsSmokeClient {
     }
 
     private static void doubleClicks(Minecraft mc) {
-        var activations = new java.util.concurrent.atomic.AtomicInteger();
-        var screen = new LocalScreen(net.minecraft.network.chat.Component.literal("Click regression"), null) {
+        var activations = new AtomicInteger();
+        var screen = new LocalScreen(Component.literal("Click regression"), null) {
             @Override
             protected void init() {
                 var rows = addRenderableWidget(new RowList(12, 40, 120, 80, 36, "Rows", (i, activate) -> {
                     if (activate) activations.incrementAndGet();
                 }));
                 rows.rows(List.of(new RowList.Row("A", ""), new RowList.Row("B", "")));
-                addRenderableWidget(UiButton.builder(net.minecraft.network.chat.Component.literal("Other"), b -> {
+                addRenderableWidget(UiButton.builder(Component.literal("Other"), b -> {
                 }).bounds(160, 40, 80, 20).build());
             }
         };
@@ -118,7 +126,7 @@ final class LyricsSmokeClient {
     }
 
     private static void click(Screen screen, double x, double y, boolean twice) {
-        var event = new net.minecraft.client.input.MouseButtonEvent(x, y, new net.minecraft.client.input.MouseButtonInfo(0, 0));
+        var event = new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0));
         screen.mouseClicked(event, twice);
         screen.mouseReleased(event);
     }
@@ -139,7 +147,7 @@ final class LyricsSmokeClient {
         SmokeUi.displayReady(mc);
         Path images = Path.of(System.getProperty("darkmusic.privateImages"));
         Files.createDirectories(images.resolve("screenshots"));
-        net.minecraft.client.Screenshot.grab(images.toFile(), "waveform-" + name + "-" + mc.options.languageCode + ".png",
+        Screenshot.grab(images.toFile(), "waveform-" + name + "-" + mc.options.languageCode + ".png",
             mc.gameRenderer.mainRenderTarget(), 1, ignored -> {
             });
     }
@@ -201,7 +209,7 @@ final class LyricsSmokeClient {
                 if (Boolean.getBoolean("darkmusic.smoothFontAvailable")) {
                     Path images = Path.of(System.getProperty("darkmusic.privateImages"));
                     Files.createDirectories(images.resolve("screenshots"));
-                    net.minecraft.client.Screenshot.grab(images.toFile(), "semantic-status-" + mc.options.languageCode + ".png", mc.gameRenderer.mainRenderTarget(), 1, ignored -> {
+                    Screenshot.grab(images.toFile(), "semantic-status-" + mc.options.languageCode + ".png", mc.gameRenderer.mainRenderTarget(), 1, ignored -> {
                     });
                 }
                 System.out.println("DARKMUSIC_STATUS_UI_PASS: separate semantic status prefix and neutral file metadata, selected row, CJK text");
@@ -265,9 +273,9 @@ final class LyricsSmokeClient {
                     double cx = lyricBounds.x() + lyricBounds.width() / 2.0, cy = lyricBounds.y() + lyricBounds.height() / 2.0;
                     editor.mouseScrolled(cx, cy, 0, 1);
                     check(app.settings.hudScale == playerScale, "Lyrics resize must not resize music HUD");
-                    var mouse = new net.minecraft.client.input.MouseButtonEvent(cx, cy, new net.minecraft.client.input.MouseButtonInfo(0, 0));
+                    var mouse = new MouseButtonEvent(cx, cy, new MouseButtonInfo(0, 0));
                     check(editor.mouseClicked(mouse, false), "Lyrics can be independently selected");
-                    var moved = new net.minecraft.client.input.MouseButtonEvent(cx - 40, cy - 50, new net.minecraft.client.input.MouseButtonInfo(0, 0));
+                    var moved = new MouseButtonEvent(cx - 40, cy - 50, new MouseButtonInfo(0, 0));
                     editor.mouseDragged(moved, -40, -50);
                     editor.mouseReleased(moved);
                     check(app.settings.hudX == playerX && app.settings.hudY == playerY, "Lyrics drag must preserve music anchor");
@@ -296,7 +304,7 @@ final class LyricsSmokeClient {
                 if (Boolean.getBoolean("darkmusic.smoothFontAvailable")) {
                     Path images = Path.of(System.getProperty("darkmusic.privateImages"));
                     Files.createDirectories(images.resolve("screenshots"));
-                    net.minecraft.client.Screenshot.grab(images.toFile(), "lyrics-timed-" + mc.options.languageCode + ".png", mc.gameRenderer.mainRenderTarget(), 1, ignored -> {
+                    Screenshot.grab(images.toFile(), "lyrics-timed-" + mc.options.languageCode + ".png", mc.gameRenderer.mainRenderTarget(), 1, ignored -> {
                     });
                 }
                 check(app.lyrics.get(a).current(paused) == -1, "Positive offset displays lyrics later");
@@ -309,7 +317,7 @@ final class LyricsSmokeClient {
                 if (ticks - since < 20) return;
                 if (Boolean.getBoolean("darkmusic.smoothFontAvailable")) {
                     Path images = Path.of(System.getProperty("darkmusic.privateImages"));
-                    net.minecraft.client.Screenshot.grab(images.toFile(), "lyrics-hud-editor-" + mc.options.languageCode + ".png", mc.gameRenderer.mainRenderTarget(), 1, ignored -> {
+                    Screenshot.grab(images.toFile(), "lyrics-hud-editor-" + mc.options.languageCode + ".png", mc.gameRenderer.mainRenderTarget(), 1, ignored -> {
                     });
                 }
                 check(Math.abs(paused - app.playback.state().position()) < .1, "Pause keeps the lyric clock stable");
@@ -457,7 +465,7 @@ final class LyricsSmokeClient {
                 if (elapsed < 18) {
                     app.settings.hudStyle = styles[elapsed / 6];
                     if (elapsed % 6 == 5)
-                        captureWaveform(mc, styles[elapsed / 6].name().toLowerCase(java.util.Locale.ROOT));
+                        captureWaveform(mc, styles[elapsed / 6].name().toLowerCase(Locale.ROOT));
                     return;
                 }
                 check(app.playback.state().status() == AudioBackend.Status.PAUSED, "Waveform rendering preserves pause");
@@ -551,7 +559,7 @@ final class LyricsSmokeClient {
                 if (sample < styles.length) {
                     app.settings.hudStyle = styles[sample];
                     if ((elapsed - 5) % 8 == 7)
-                        captureWaveform(mc, "rounded-spectrum-" + styles[sample].name().toLowerCase(java.util.Locale.ROOT));
+                        captureWaveform(mc, "rounded-spectrum-" + styles[sample].name().toLowerCase(Locale.ROOT));
                     return;
                 }
                 app.playback.pause();

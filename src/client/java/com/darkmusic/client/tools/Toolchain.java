@@ -1,12 +1,15 @@
 package com.darkmusic.client.tools;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 
 public record Toolchain(Path ytDlp, Path ffmpeg, Path ffprobe, String runtime, String versions) {
@@ -56,7 +59,7 @@ public record Toolchain(Path ytDlp, Path ffmpeg, Path ffprobe, String runtime, S
         if (kind.isEmpty())
             throw incompatibleRuntime();
         String value = version(path, List.of("--version"), runner, token, config);
-        var match = java.util.regex.Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)").matcher(value);
+        var match = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)").matcher(value);
         if (!match.find())
             throw incompatibleRuntime();
         int major = Integer.parseInt(match.group(1)), minor = Integer.parseInt(match.group(2));
@@ -107,13 +110,13 @@ public record Toolchain(Path ytDlp, Path ffmpeg, Path ffprobe, String runtime, S
         var dirs = new ArrayList<Path>();
         dirs.add(tools);
         if (sibling != null) dirs.add(sibling);
-        for (String entry : searchPath.split(java.io.File.pathSeparator)) {
+        for (String entry : searchPath.split(File.pathSeparator)) {
             entry = entry.strip();
             if (entry.startsWith("\"") && entry.endsWith("\"") && entry.length() >= 2)
                 entry = entry.substring(1, entry.length() - 1);
             if (!entry.isBlank()) try {
                 dirs.add(Path.of(entry));
-            } catch (java.nio.file.InvalidPathException ignored) {
+            } catch (InvalidPathException ignored) {
             }
         }
         for (Path dir : dirs)

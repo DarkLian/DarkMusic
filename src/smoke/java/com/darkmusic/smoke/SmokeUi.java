@@ -5,6 +5,9 @@ import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.input.*;
+import net.minecraft.resources.Identifier;
+
+import java.util.Locale;
 
 /**
  * Test navigation follows the actual compact panels and section buttons, never service shortcuts.
@@ -24,7 +27,7 @@ final class SmokeUi {
     }
 
     private static void requireSmoothFont(Minecraft mc) {
-        var font = mc.getResourceManager().getResource(net.minecraft.resources.Identifier.withDefaultNamespace("textures/font/ascii.png")).orElseThrow();
+        var font = mc.getResourceManager().getResource(Identifier.withDefaultNamespace("textures/font/ascii.png")).orElseThrow();
         if (!font.sourcePackId().equals("file/SmoothFont_1.21.zip"))
             throw new IllegalStateException("SmoothFont is not applied");
     }
@@ -67,7 +70,7 @@ final class SmokeUi {
             library(mc);
             for (int i = 0; i < 4 && find(mc, label) == null; i++) {
                 String mode = field(mc.gui.screen(), "mode").toString();
-                var cycle = find(mc, Text.get("format.darkmusic.view", Text.get("view.darkmusic." + mode.toLowerCase(java.util.Locale.ROOT))));
+                var cycle = find(mc, Text.get("format.darkmusic.view", Text.get("view.darkmusic." + mode.toLowerCase(Locale.ROOT))));
                 press(mc, cycle == null ? find(mc, Text.get("view.darkmusic.playlists")) : cycle);
             }
         }

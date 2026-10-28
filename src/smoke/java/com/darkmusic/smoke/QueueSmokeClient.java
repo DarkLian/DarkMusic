@@ -11,11 +11,13 @@ import com.darkmusic.client.tools.DownloadDiagnostics;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.*;
 
 import java.nio.file.*;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Isolated native UI and real-collection/device checks; never contacts an external website.
@@ -159,11 +161,11 @@ final class QueueSmokeClient {
                     pressView(queue, "upnext.view.collection");
                     check((boolean) field(queue, "allSongs"), "View did not switch to All Songs");
                     String term = b.title().strip();
-                    var searchBox = (net.minecraft.client.gui.components.EditBox) field(queue, "search");
+                    var searchBox = (EditBox) field(queue, "search");
                     searchBox.setValue(term.substring(0, Math.min(6, term.length())));
                     queue.tick();
                     @SuppressWarnings("unchecked") var matches = (List<Track>) field(queue, "source");
-                    check(!matches.isEmpty() && matches.stream().allMatch(track -> track.matches(term.substring(0, Math.min(6, term.length())).toLowerCase(java.util.Locale.ROOT))), "Search did not filter All Songs");
+                    check(!matches.isEmpty() && matches.stream().allMatch(track -> track.matches(term.substring(0, Math.min(6, term.length())).toLowerCase(Locale.ROOT))), "Search did not filter All Songs");
                     var found = (RowList) field(queue, "automatic");
                     var hit = new MouseButtonEvent(found.getX() + 48, found.getY() + 8, new MouseButtonInfo(0, 0));
                     found.mouseClicked(hit, false);

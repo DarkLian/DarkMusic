@@ -8,6 +8,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.locks.LockSupport;
+import java.util.function.BooleanSupplier;
+import java.util.function.LongSupplier;
 
 /**
  * One helper, one receiver, bounded latest frames. No process or pipe waits on Minecraft's thread.
@@ -121,7 +124,7 @@ public final class PipSession implements AutoCloseable {
 
     private void receiveAudio() {
         receiveAudio(audio, () -> closed, () -> new FileInputStream("\\\\.\\pipe\\" + pipe + ".audio"),
-            () -> java.util.concurrent.locks.LockSupport.parkNanos(25_000_000), System::nanoTime);
+            () -> LockSupport.parkNanos(25_000_000), System::nanoTime);
     }
 
     @FunctionalInterface
@@ -129,8 +132,8 @@ public final class PipSession implements AutoCloseable {
         InputStream open() throws IOException;
     }
 
-    static void receiveAudio(PipAudio audio, java.util.function.BooleanSupplier stopped, AudioConnection connection,
-                             Runnable wait, java.util.function.LongSupplier clock) {
+    static void receiveAudio(PipAudio audio, BooleanSupplier stopped, AudioConnection connection,
+                             Runnable wait, LongSupplier clock) {
         for (int attempt = 0; attempt < 3 && !stopped.getAsBoolean(); attempt++) {
             long deadline = clock.getAsLong() + TimeUnit.SECONDS.toNanos(20);
             boolean opened = false;

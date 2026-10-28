@@ -2,8 +2,11 @@ package com.darkmusic.client.cleanup;
 
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.library.SourceLinks;
+import com.darkmusic.client.tools.Hashes;
 import com.darkmusic.client.tools.ProcessRunner;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
@@ -68,8 +71,8 @@ public final class DuplicateScanner implements AutoCloseable {
             cache.remove(ids);
             try {
                 cache.flush();
-            } catch (java.io.IOException failure) {
-                org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").warn("Could not prune duplicate cache", failure);
+            } catch (IOException failure) {
+                LoggerFactory.getLogger("darkmusic-cleanup").warn("Could not prune duplicate cache", failure);
             }
         });
         var s = snapshot;
@@ -94,8 +97,8 @@ public final class DuplicateScanner implements AutoCloseable {
             cache.prune(present, registered, complete);
             try {
                 cache.flush();
-            } catch (java.io.IOException failure) {
-                org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").warn("Could not prune duplicate cache", failure);
+            } catch (IOException failure) {
+                LoggerFactory.getLogger("darkmusic-cleanup").warn("Could not prune duplicate cache", failure);
             }
         });
     }
@@ -150,14 +153,14 @@ public final class DuplicateScanner implements AutoCloseable {
                     if (hash.isEmpty() && sizes.get(t.size()) > 1) hash = hash(t.file(), request);
                     request.check();
                     if (!stamp.equals(stamp(t, attributes(t))))
-                        throw new java.io.IOException("File changed during analysis");
+                        throw new IOException("File changed during analysis");
                     cache.put(t.id(), stamp, hash, verifiedSource || source.isEmpty() ? source : "unverified:" + source, fingerprint);
                     analyzed.add(new DuplicateMatcher.Entry(t, stamp, hash, source, audio ? fingerprint : new int[0], verifiedSource));
-                } catch (java.util.concurrent.CancellationException cancelled) {
+                } catch (CancellationException cancelled) {
                     throw cancelled;
                 } catch (Exception failure) {
                     unavailable++;
-                    org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").debug("Cannot inspect {}", t.file(), failure);
+                    LoggerFactory.getLogger("darkmusic-cleanup").debug("Cannot inspect {}", t.file(), failure);
                 }
                 done++;
                 if (System.nanoTime() >= nextUpdate) {
@@ -168,7 +171,7 @@ public final class DuplicateScanner implements AutoCloseable {
                     try {
                         cache.flush();
                     } catch (Exception failure) {
-                        org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").warn("Duplicate cache checkpoint failed", failure);
+                        LoggerFactory.getLogger("darkmusic-cleanup").warn("Duplicate cache checkpoint failed", failure);
                     }
                     nextFlush = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
                 }
@@ -200,19 +203,19 @@ public final class DuplicateScanner implements AutoCloseable {
                     }
                     if (e.fingerprint().length == 0) try {
                         if (!e.stamp().equals(stamp(e.track(), attributes(e.track()))))
-                            throw new java.io.IOException("File changed");
+                            throw new IOException("File changed");
                         int[] fingerprint = fingerprints.extract(e.track().file(), scratch, request);
                         String source = e.source().isEmpty() ? DuplicateMediaInfo.read(e.track(), "").source() : e.source();
                         if (!e.stamp().equals(stamp(e.track(), attributes(e.track()))))
-                            throw new java.io.IOException("File changed");
+                            throw new IOException("File changed");
                         analyzed.set(i, new DuplicateMatcher.Entry(e.track(), e.stamp(), e.hash(), source, fingerprint, e.verifiedSource()));
                         incremental.update(i, analyzed.get(i));
                         cache.put(e.track().id(), e.stamp(), e.hash(), e.verifiedSource() || source.isEmpty() ? source : "unverified:" + source, fingerprint);
-                    } catch (java.util.concurrent.CancellationException cancelled) {
+                    } catch (CancellationException cancelled) {
                         throw cancelled;
                     } catch (Exception failure) {
                         audioFailed++;
-                        org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").debug("Cannot fingerprint {}", e.track().file(), failure);
+                        LoggerFactory.getLogger("darkmusic-cleanup").debug("Cannot fingerprint {}", e.track().file(), failure);
                     }
                     if (System.nanoTime() >= nextPartial) {
                         result = incremental.snapshot();
@@ -226,17 +229,17 @@ public final class DuplicateScanner implements AutoCloseable {
                 result = incremental.snapshot();
             }
             publish(Stage.COMPLETE, done, total, unavailable, audioFailed, limited || result.limited(), false, result.comparisons(), result.pairs());
-        } catch (java.util.concurrent.CancellationException cancelled) {
+        } catch (CancellationException cancelled) {
             var s = snapshot;
             publish(Stage.CANCELLED, done, total, unavailable, audioFailed, limited || s.limited, false, s.comparisons, s.pairs);
         } catch (Throwable failure) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").warn("Duplicate scan failed", failure);
+            LoggerFactory.getLogger("darkmusic-cleanup").warn("Duplicate scan failed", failure);
             publish(Stage.FAILED, done, total, unavailable, audioFailed, limited, false, 0, snapshot.pairs);
         } finally {
             try {
                 cache.flush();
             } catch (Exception failure) {
-                org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").warn("Could not persist duplicate analysis", failure);
+                LoggerFactory.getLogger("darkmusic-cleanup").warn("Could not persist duplicate analysis", failure);
                 var s = snapshot;
                 publish(s.stage, s.done, s.total, s.unavailable, s.audioFailed, s.limited, true, s.comparisons, s.pairs);
             }
@@ -249,7 +252,7 @@ public final class DuplicateScanner implements AutoCloseable {
     public static BasicFileAttributes attributes(Track track) throws Exception {
         var a = Files.readAttributes(track.file(), BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         if (!a.isRegularFile() || a.size() != track.size() || a.lastModifiedTime().toMillis() != track.modified())
-            throw new java.io.IOException("Changed or unavailable file");
+            throw new IOException("Changed or unavailable file");
         return a;
     }
 
@@ -258,11 +261,11 @@ public final class DuplicateScanner implements AutoCloseable {
     }
 
     public static String digest(String text) {
-        return com.darkmusic.client.tools.Hashes.sha256(text);
+        return Hashes.sha256(text);
     }
 
     static String hash(Path file, ProcessRunner.Token token) throws Exception {
-        return com.darkmusic.client.tools.Hashes.sha256(file, token);
+        return Hashes.sha256(file, token);
     }
 
     @Override

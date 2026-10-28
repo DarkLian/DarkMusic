@@ -10,6 +10,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.util.concurrent.ExecutorService;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -56,7 +58,7 @@ class ReviewRegressionTest {
             StorageTest.await(() -> !lyrics.get(track).lines().isEmpty());
             assertSame(original, lyrics.get(track), "Unchanged lyrics must not be reparsed");
             Files.writeString(sidecar, "[00:02.00]Other line");
-            Files.setLastModifiedTime(sidecar, java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis() + 2000));
+            Files.setLastModifiedTime(sidecar, FileTime.fromMillis(System.currentTimeMillis() + 2000));
             lyrics.enabled(false);
             lyrics.enabled(true);
             lyrics.request(track);
@@ -68,7 +70,7 @@ class ReviewRegressionTest {
             lyrics.request(track);
             var worker = LyricsService.class.getDeclaredField("io");
             worker.setAccessible(true);
-            ((java.util.concurrent.ExecutorService) worker.get(lyrics)).submit(() -> {
+            ((ExecutorService) worker.get(lyrics)).submit(() -> {
             }).get();
             assertTrue(lyrics.get(track).lines().isEmpty());
         }

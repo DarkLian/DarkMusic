@@ -4,6 +4,7 @@ import com.darkmusic.client.tools.ProcessRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -63,7 +64,7 @@ class ProcessRunnerTest {
 
     @Test
     void timeoutKillsTheProcess() throws Exception {
-        assertThrows(java.io.IOException.class, () -> new ProcessRunner().run(command("wait"), temp, new ProcessRunner.Token(), Duration.ofMillis(300), 32000, s -> {
+        assertThrows(IOException.class, () -> new ProcessRunner().run(command("wait"), temp, new ProcessRunner.Token(), Duration.ofMillis(300), 32000, s -> {
         }));
     }
 

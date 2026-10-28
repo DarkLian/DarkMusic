@@ -3,12 +3,22 @@ package com.darkmusic.client.library;
 import com.darkmusic.client.media.ExternalAudio;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.Hashes;
 import com.google.gson.*;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.nio.file.*;
 import java.net.URI;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 /**
  * File-bound provenance. Filename-only legacy records are retained but never treated as verified.
@@ -17,13 +27,13 @@ public final class SourceLinks implements AutoCloseable {
     private static final Object LOCK = new Object();
     private final Map<String, String> cache = Collections.synchronizedMap(new LinkedHashMap<>());
     private final Executor executor;
-    private java.util.concurrent.ExecutorService owned;
+    private ExecutorService owned;
 
     public SourceLinks() {
-        this(new java.util.concurrent.ThreadPoolExecutor(1, 1, 0, java.util.concurrent.TimeUnit.SECONDS,
-            new java.util.concurrent.ArrayBlockingQueue<>(16), Thread.ofPlatform().daemon().name("darkmusic-source-links").factory(),
-            new java.util.concurrent.ThreadPoolExecutor.AbortPolicy()));
-        owned = (java.util.concurrent.ExecutorService) executor;
+        this(new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(16), Thread.ofPlatform().daemon().name("darkmusic-source-links").factory(),
+            new ThreadPoolExecutor.AbortPolicy()));
+        owned = (ExecutorService) executor;
     }
 
     @Override
@@ -61,7 +71,7 @@ public final class SourceLinks implements AutoCloseable {
                     if (cache.containsKey(key)) cache.put(key, url);
                 }
             });
-        } catch (java.util.concurrent.RejectedExecutionException unavailable) {
+        } catch (RejectedExecutionException unavailable) {
             cache.remove(key);
         }
         return "";
@@ -94,7 +104,7 @@ public final class SourceLinks implements AutoCloseable {
                 for (var entry : json(audio.resolveSibling(".darkmusic-downloads.json")).entrySet()) {
                     if (!entry.getValue().isJsonPrimitive() || !entry.getValue().getAsString().equals(audio.getFileName().toString()))
                         continue;
-                    var match = java.util.regex.Pattern.compile("(?i)youtube:([A-Za-z0-9_-]{11})(?::original)?").matcher(entry.getKey());
+                    var match = Pattern.compile("(?i)youtube:([A-Za-z0-9_-]{11})(?::original)?").matcher(entry.getKey());
                     if (match.matches()) return "https://www.youtube.com/watch?v=" + match.group(1);
                 }
             } catch (Exception ignored) {
@@ -113,26 +123,26 @@ public final class SourceLinks implements AutoCloseable {
         return "";
     }
 
-    private static JsonObject json(Path path) throws java.io.IOException {
+    private static JsonObject json(Path path) throws IOException {
         if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) return new JsonObject();
         if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) || Files.size(path) > 64_000_000)
-            throw new java.io.IOException("Invalid source history");
+            throw new IOException("Invalid source history");
         try (var reader = Files.newBufferedReader(path)) {
             return JsonParser.parseReader(reader).getAsJsonObject();
         } catch (RuntimeException invalid) {
-            throw new java.io.IOException("Invalid source history", invalid);
+            throw new IOException("Invalid source history", invalid);
         }
     }
 
-    public static String contentHash(Path audio) throws java.io.IOException {
-        return com.darkmusic.client.tools.Hashes.sha256(audio, LinkOption.NOFOLLOW_LINKS);
+    public static String contentHash(Path audio) throws IOException {
+        return Hashes.sha256(audio, LinkOption.NOFOLLOW_LINKS);
     }
 
-    private static boolean valid(Path audio, JsonElement element, boolean contents) throws java.io.IOException {
+    private static boolean valid(Path audio, JsonElement element, boolean contents) throws IOException {
         if (element == null || !element.isJsonObject() || Files.isSymbolicLink(audio)) return false;
         try {
             var o = element.getAsJsonObject();
-            var attrs = Files.readAttributes(audio, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+            var attrs = Files.readAttributes(audio, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
             return attrs.isRegularFile() && o.get("schema").getAsInt() == 2
                 && attrs.size() == o.get("size").getAsLong() && attrs.lastModifiedTime().toMillis() == o.get("modified").getAsLong()
                 && !safe(o.get("url").getAsString()).isEmpty()
@@ -143,17 +153,17 @@ public final class SourceLinks implements AutoCloseable {
         }
     }
 
-    private static boolean unchanged(Path file, java.nio.file.attribute.BasicFileAttributes before, String expectedHash) throws java.io.IOException {
+    private static boolean unchanged(Path file, BasicFileAttributes before, String expectedHash) throws IOException {
         if (!contentHash(file).equals(expectedHash)) return false;
-        var after = Files.readAttributes(file, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        var after = Files.readAttributes(file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         return after.isRegularFile() && before.size() == after.size() && before.lastModifiedTime().equals(after.lastModifiedTime())
             && Objects.equals(before.fileKey(), after.fileKey());
     }
 
-    private static JsonObject binding(Path audio, String url, String identity) throws java.io.IOException {
-        if (Files.isSymbolicLink(audio)) throw new java.io.IOException("Symbolic-link audio provenance");
-        var attrs = Files.readAttributes(audio, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-        if (!attrs.isRegularFile()) throw new java.io.IOException("Not a regular audio file");
+    private static JsonObject binding(Path audio, String url, String identity) throws IOException {
+        if (Files.isSymbolicLink(audio)) throw new IOException("Symbolic-link audio provenance");
+        var attrs = Files.readAttributes(audio, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        if (!attrs.isRegularFile()) throw new IOException("Not a regular audio file");
         var o = new JsonObject();
         o.addProperty("schema", 2);
         o.addProperty("url", safe(url));
@@ -161,9 +171,9 @@ public final class SourceLinks implements AutoCloseable {
         o.addProperty("size", attrs.size());
         o.addProperty("modified", attrs.lastModifiedTime().toMillis());
         o.addProperty("sha256", contentHash(audio));
-        var after = Files.readAttributes(audio, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        var after = Files.readAttributes(audio, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         if (after.size() != attrs.size() || !after.lastModifiedTime().equals(attrs.lastModifiedTime()) || !Objects.equals(after.fileKey(), attrs.fileKey()))
-            throw new java.io.IOException("File changed while recording provenance");
+            throw new IOException("File changed while recording provenance");
         return o;
     }
 
@@ -223,7 +233,7 @@ public final class SourceLinks implements AutoCloseable {
                         Path audio = directory.resolve(entry.getKey()).normalize();
                         if (audio.getParent().equals(directory.normalize()) && valid(audio, entry.getValue(), false))
                             result.put(entry.getKey(), entry.getValue().getAsJsonObject().get(archiveIdentity ? "identity" : "url").getAsString());
-                    } catch (java.io.IOException |
+                    } catch (IOException |
                              RuntimeException unavailable) { /* One stale entry cannot hide its neighbours. */ }
                 }
             } catch (Exception ignored) {
@@ -244,7 +254,7 @@ public final class SourceLinks implements AutoCloseable {
         try {
             var association = safe(url).isEmpty() ? null : binding(audio, url, identity);
             if (association != null && expectedHash != null && !expectedHash.equals(association.get("sha256").getAsString()))
-                throw new java.io.IOException("Audio changed before provenance repair");
+                throw new IOException("Audio changed before provenance repair");
             synchronized (LOCK) {
                 Path file = audio.resolveSibling(".darkmusic-sources.json");
                 var data = json(file);
@@ -252,19 +262,19 @@ public final class SourceLinks implements AutoCloseable {
                     if (data.remove(audio.getFileName().toString()) == null) return true;
                 } else {
                     if (!valid(audio, association, false))
-                        throw new java.io.IOException("Audio changed before provenance commit");
+                        throw new IOException("Audio changed before provenance commit");
                     data.add(audio.getFileName().toString(), association);
                 }
                 ConfigStore.atomicWrite(file, ConfigStore.JSON.toJson(data));
             }
             return true;
         } catch (Exception failure) {
-            org.slf4j.LoggerFactory.getLogger(SourceLinks.class).warn("Could not save source association", failure);
+            LoggerFactory.getLogger(SourceLinks.class).warn("Could not save source association", failure);
             return false;
         }
     }
 
-    public static void forget(Path audio) throws java.io.IOException {
+    public static void forget(Path audio) throws IOException {
         synchronized (LOCK) {
             Path file = audio.resolveSibling(".darkmusic-sources.json");
             if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) return;
@@ -277,11 +287,11 @@ public final class SourceLinks implements AutoCloseable {
     /**
      * Called only after the media operation succeeded; the caller owns rollback on failure.
      */
-    public static void renamed(Path source, Path target, String verifiedSource) throws java.io.IOException {
+    public static void renamed(Path source, Path target, String verifiedSource) throws IOException {
         renamed(source, target, verifiedSource, null);
     }
 
-    public static void renamed(Path source, Path target, String verifiedSource, String expectedHash) throws java.io.IOException {
+    public static void renamed(Path source, Path target, String verifiedSource, String expectedHash) throws IOException {
         synchronized (LOCK) {
             Path file = source.resolveSibling(".darkmusic-sources.json");
             var data = json(file);
@@ -293,7 +303,7 @@ public final class SourceLinks implements AutoCloseable {
                 String identity = o.has("identity") ? o.get("identity").getAsString() : "";
                 var next = binding(target, o.get("url").getAsString(), identity);
                 if (expectedHash != null && !expectedHash.equals(next.get("sha256").getAsString()))
-                    throw new java.io.IOException(Text.get("library.darkmusic.file_changed"));
+                    throw new IOException(Text.get("library.darkmusic.file_changed"));
                 data.add(target.getFileName().toString(), next);
             } else if (prior.isJsonPrimitive()) data.add(target.getFileName().toString(), prior);
             ConfigStore.atomicWrite(file, ConfigStore.JSON.toJson(data));

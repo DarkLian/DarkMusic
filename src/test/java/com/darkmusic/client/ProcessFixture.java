@@ -1,5 +1,6 @@
 package com.darkmusic.client;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -10,7 +11,7 @@ import java.nio.file.StandardCopyOption;
 public final class ProcessFixture {
     static void main(String[] args) throws Exception {
         if (args[0].equals("echo")) {
-            System.out.write((args[1] + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            System.out.write((args[1] + "\n").getBytes(StandardCharsets.UTF_8));
             return;
         }
         if (args[0].equals("tree")) {

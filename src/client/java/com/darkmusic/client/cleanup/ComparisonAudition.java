@@ -2,6 +2,7 @@ package com.darkmusic.client.cleanup;
 
 import com.darkmusic.client.audio.*;
 import com.darkmusic.client.library.Track;
+import org.slf4j.LoggerFactory;
 
 import java.util.function.Supplier;
 
@@ -50,7 +51,7 @@ public final class ComparisonAudition implements AutoCloseable {
             }, error -> failure = error);
         } catch (RuntimeException error) {
             failure = "Preview unavailable";
-            org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").warn("Could not start comparison preview", error);
+            LoggerFactory.getLogger("darkmusic-cleanup").warn("Could not start comparison preview", error);
             restore();
         }
     }

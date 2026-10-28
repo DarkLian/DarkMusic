@@ -3,6 +3,7 @@ package com.darkmusic.client.tools;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -22,7 +23,7 @@ class ToolPathTest {
         Path copy = valid.resolve(binary);
         Files.copy(actual, copy);
         assertTrue(copy.toFile().setExecutable(true));
-        String paths = "bad\u0000entry" + java.io.File.pathSeparator + "\"" + valid + "\"";
+        String paths = "bad\u0000entry" + File.pathSeparator + "\"" + valid + "\"";
         assertEquals(copy, Toolchain.executable("java", tools, null, paths));
     }
 }

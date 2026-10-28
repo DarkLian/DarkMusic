@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -14,7 +15,7 @@ class TransitionOrderTest {
     void anAlreadyDispatchedTransitionDoesNotUndoANewShuffleOrder() throws Exception {
         var audio = new Backend();
         var controller = new PlaybackController(audio, message -> fail(message));
-        var tracks = java.util.stream.IntStream.range(0, 12).mapToObj(i -> new Track("root", "song" + i, Path.of("song" + i), "", "", "", 120, 0, 0, "")).toList();
+        var tracks = IntStream.range(0, 12).mapToObj(i -> new Track("root", "song" + i, Path.of("song" + i), "", "", "", 120, 0, 0, "")).toList();
         controller.play(tracks, tracks.getFirst());
         Runnable dispatched = audio.started;
         audio.state = new AudioBackend.State(tracks.get(1), AudioBackend.Status.PLAYING, 0, 120, "");

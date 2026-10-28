@@ -5,6 +5,8 @@ import com.darkmusic.client.config.AudioEnhancements.Type;
 import com.darkmusic.client.config.SoundEnvironmentSettings;
 import com.darkmusic.client.config.SoundEnvironmentSettings.Parameters;
 
+import java.util.Arrays;
+
 /**
  * Two bounded engines permit clickless preset changes without allocating in the sample loop.
  */
@@ -66,7 +68,7 @@ public final class SoundEnvironmentProcessor {
         var y = b.parameters;
         return a.preset == b.preset && a.texture == b.texture && a.ambience == b.ambience && x.mono == y.mono && x.acoustic == y.acoustic &&
             x.reverbEngine == y.reverbEngine && x.impulse == y.impulse && x.roomSize == y.roomSize && x.predelay == y.predelay &&
-            x.echoTime == y.echoTime && x.modulationMs == y.modulationMs && java.util.Arrays.equals(x.reflectionTimes, y.reflectionTimes);
+            x.echoTime == y.echoTime && x.modulationMs == y.modulationMs && Arrays.equals(x.reflectionTimes, y.reflectionTimes);
     }
 
     public boolean ownsReverb() {
@@ -163,9 +165,9 @@ public final class SoundEnvironmentProcessor {
 
         void clear() {
             if (history == null) return;
-            for (var h : history) java.util.Arrays.fill(h, 0);
-            for (var h : modulation) java.util.Arrays.fill(h, 0);
-            java.util.Arrays.fill(damping, 0);
+            for (var h : history) Arrays.fill(h, 0);
+            for (var h : modulation) Arrays.fill(h, 0);
+            Arrays.fill(damping, 0);
             room.clear();
             high.reset();
             low.reset();

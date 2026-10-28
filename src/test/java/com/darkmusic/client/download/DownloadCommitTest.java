@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.*;
+import java.nio.file.attribute.FileTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -73,7 +74,7 @@ class DownloadCommitTest {
         Files.move(b, temp.resolve("retained.txt"));
         try (var paths = Files.newDirectoryStream(temp, ".darkmusic-download-commit-*.json")) {
             for (Path file : paths)
-                Files.setLastModifiedTime(file, java.nio.file.attribute.FileTime.fromMillis(now - 45L * 86_400_000));
+                Files.setLastModifiedTime(file, FileTime.fromMillis(now - 45L * 86_400_000));
         }
         DownloadCommit.prune(temp, now + 2L * 86_400_000);
         assertFalse(DownloadCommit.pending(temp, "Youtube:abcdefghijk"));

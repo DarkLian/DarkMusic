@@ -8,6 +8,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 
 import java.util.List;
+import java.util.Locale;
 
 final class HudSettingsSmoke {
     static void check(Minecraft mc, DarkMusicClient app) throws Exception {
@@ -30,7 +31,7 @@ final class HudSettingsSmoke {
                     for (String key : List.of("style.darkmusic.spectrum", "finish.darkmusic.spectrum", "colors.darkmusic.spectrum", "quality.darkmusic.peaks", "finish.darkmusic.progress", "colors.darkmusic.progress", "progress.darkmusic.waveform", "waveform.style"))
                         if (labels.stream().noneMatch(label -> label.startsWith(Text.get(key))))
                             throw new IllegalStateException("Shared player control disappeared: " + key);
-                    String selected = Text.get("style.darkmusic.spectrum") + ": " + Text.get("style.darkmusic.spectrum." + s.spectrumStyle.name().toLowerCase(java.util.Locale.ROOT));
+                    String selected = Text.get("style.darkmusic.spectrum") + ": " + Text.get("style.darkmusic.spectrum." + s.spectrumStyle.name().toLowerCase(Locale.ROOT));
                     if (!labels.contains(selected))
                         throw new IllegalStateException("HUD-off style must edit the linear main-player spectrum");
                 }

@@ -8,12 +8,24 @@ import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
 import com.darkmusic.client.tools.DownloadDiagnostics;
+import com.darkmusic.client.tools.Hashes;
 import com.darkmusic.client.tools.ProcessRunner;
+import org.jaudiotagger.audio.AudioFileIO;
+import org.jaudiotagger.tag.FieldKey;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * User choices and bounded online work. Rendering never performs I/O.
@@ -62,8 +74,8 @@ public final class LyricsLookup implements AutoCloseable {
     }
 
     private final Map<String, Known> known = new ConcurrentHashMap<>();
-    private static final Map<Status, Snapshot> EMPTY_SNAPSHOTS = java.util.Arrays.stream(Status.values())
-        .collect(java.util.stream.Collectors.toUnmodifiableMap(s -> s, s -> new Snapshot(s, List.of())));
+    private static final Map<Status, Snapshot> EMPTY_SNAPSHOTS = Arrays.stream(Status.values())
+        .collect(Collectors.toUnmodifiableMap(s -> s, s -> new Snapshot(s, List.of())));
     private final Map<String, ProcessRunner.Token> latestOperations = new ConcurrentHashMap<>();
     private final Map<String, String> activeQueries = new ConcurrentHashMap<>();
     private final Map<String, ProcessRunner.Token> pending = new ConcurrentHashMap<>();
@@ -83,7 +95,7 @@ public final class LyricsLookup implements AutoCloseable {
     }
 
     private final Map<String, Attempt> automatic = new ConcurrentHashMap<>();
-    private final java.util.function.LongSupplier clock;
+    private final LongSupplier clock;
     private volatile long retryNotBefore;
     private volatile long cacheRevision;
 
@@ -101,7 +113,7 @@ public final class LyricsLookup implements AutoCloseable {
     private volatile String captionPreferences = "auto";
     private volatile boolean generatedCaptions;
     private static final Snapshot IDLE = new Snapshot(Status.IDLE, List.of());
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(LyricsLookup.class);
+    private static final Logger LOG = LoggerFactory.getLogger(LyricsLookup.class);
 
     public LyricsLookup(Path directory) {
         this(directory, new LrclibProvider());
@@ -111,7 +123,7 @@ public final class LyricsLookup implements AutoCloseable {
         this(directory, provider, System::nanoTime);
     }
 
-    LyricsLookup(Path directory, LyricsProvider provider, java.util.function.LongSupplier clock) {
+    LyricsLookup(Path directory, LyricsProvider provider, LongSupplier clock) {
         this.directory = directory;
         this.provider = provider;
         this.clock = clock;
@@ -211,14 +223,14 @@ public final class LyricsLookup implements AutoCloseable {
             try {
                 Path path = preference(track);
                 try {
-                    var attrs = Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-                    if (!attrs.isRegularFile()) throw new java.io.IOException("Invalid saved lyric preferences");
+                    var attrs = Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+                    if (!attrs.isRegularFile()) throw new IOException("Invalid saved lyric preferences");
                 } catch (NoSuchFileException missing) {
                     loadRetryAfter.remove(track.id());
                     return;
                 }
                 Saved data = read(path, Saved.class);
-                if (data == null || data.schema != 1) throw new java.io.IOException("Invalid saved lyric preferences");
+                if (data == null || data.schema != 1) throw new IOException("Invalid saved lyric preferences");
                 loadRetryAfter.remove(track.id());
                 encodings.put(track.id(), validEncoding(data.encoding));
                 LyricsDocument document = data.selected == null ? null : validated(data.selected);
@@ -370,12 +382,12 @@ public final class LyricsLookup implements AutoCloseable {
             var root = roots.entrySet().stream().filter(e -> normalized.startsWith(e.getKey()))
                 .max(Comparator.comparingInt(e -> e.getKey().getNameCount())).orElse(null);
             if (root == null || Files.exists(LyricsFiles.sidecar(normalized))) return;
-            var attributes = Files.readAttributes(normalized, java.nio.file.attribute.BasicFileAttributes.class);
+            var attributes = Files.readAttributes(normalized, BasicFileAttributes.class);
             var track = new MetadataReader().read(root.getValue(), root.getKey().relativize(normalized).toString().replace('\\', '/'), normalized, attributes.size(), attributes.lastModifiedTime().toMillis());
             // Existing embedded text remains authoritative even if it has no timing.
             try {
-                var tags = org.jaudiotagger.audio.AudioFileIO.read(normalized.toFile()).getTag();
-                if (tags != null && !tags.getFirst(org.jaudiotagger.tag.FieldKey.LYRICS).isBlank()) return;
+                var tags = AudioFileIO.read(normalized.toFile()).getTag();
+                if (tags != null && !tags.getFirst(FieldKey.LYRICS).isBlank()) return;
             } catch (Exception ignored) {
             }
             load(track);
@@ -650,7 +662,7 @@ public final class LyricsLookup implements AutoCloseable {
         if (failure instanceof CancellationException || failure instanceof InterruptedException)
             return Status.CANCELLED;
         if (failure instanceof LrclibProvider.Failure provider) return Status.valueOf(provider.problem.name());
-        if (failure instanceof java.net.UnknownHostException || failure instanceof java.net.ConnectException || failure instanceof java.net.SocketTimeoutException)
+        if (failure instanceof UnknownHostException || failure instanceof ConnectException || failure instanceof SocketTimeoutException)
             return Status.NETWORK;
         if (failure instanceof DownloadDiagnostics.Failure) {
             var category = DownloadDiagnostics.classify(failure,
@@ -734,10 +746,10 @@ public final class LyricsLookup implements AutoCloseable {
             load(track);
             if (!path.getFileName().toString().matches("(?i).+\\.(lrc|txt)") || Files.isSymbolicLink(path)
                 || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) || Files.size(path) > 1_000_000)
-                throw new java.io.IOException("Invalid lyric file");
+                throw new IOException("Invalid lyric file");
             String text = LyricsService.decode(Files.readAllBytes(path), encoding(track));
             var document = LyricsDocument.of("import", "", track.title(), track.artist(), track.album(), track.duration(), "und", LyricsDocument.Variant.UNKNOWN, false, false, text);
-            if (!document.available()) throw new java.io.IOException("Empty lyric file");
+            if (!document.available()) throw new IOException("Empty lyric file");
             Choice next = new Choice(document, choice(track).offset, choice(track).language, true);
             LyricsDocument review = reviewSelections.remove(track.id());
             try {
@@ -755,7 +767,7 @@ public final class LyricsLookup implements AutoCloseable {
     public CompletableFuture<Void> save(Track track, LyricsDocument document, boolean replace) {
         return submit(() -> {
             if (!sameFile(track) || !document.available())
-                throw new java.io.IOException(Text.get("lyrics.file_changed"));
+                throw new IOException(Text.get("lyrics.file_changed"));
             document.save(track.file(), replace);
             publish(track, new Snapshot(Status.SAVED, snapshot(track).candidates));
         });
@@ -768,7 +780,7 @@ public final class LyricsLookup implements AutoCloseable {
     public CompletableFuture<Void> restore(Track track) {
         return submit(() -> {
             if (!sameFile(track))
-                throw new java.io.IOException(Text.get("lyrics.file_changed"));
+                throw new IOException(Text.get("lyrics.file_changed"));
             LyricsFiles.restore(track.file());
         });
     }
@@ -783,7 +795,7 @@ public final class LyricsLookup implements AutoCloseable {
 
     private static boolean sameFile(Track track) {
         try {
-            var a = Files.readAttributes(track.file(), java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+            var a = Files.readAttributes(track.file(), BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
             return a.isRegularFile() && a.size() == track.size() && a.lastModifiedTime().toMillis() == track.modified();
         } catch (Exception e) {
             return false;
@@ -843,11 +855,11 @@ public final class LyricsLookup implements AutoCloseable {
     }
 
     private static String hash(String value) {
-        return com.darkmusic.client.tools.Hashes.sha256(value);
+        return Hashes.sha256(value);
     }
 
     static <T> T read(Path path, Class<T> type) throws Exception {
-        if (Files.size(path) > 8_000_000) throw new java.io.IOException("Lyric record too large");
+        if (Files.size(path) > 8_000_000) throw new IOException("Lyric record too large");
         return ConfigStore.JSON.fromJson(Files.readString(path), type);
     }
 

@@ -3,6 +3,7 @@ package com.darkmusic.client.systemmedia;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.tools.Hashes;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -146,7 +147,7 @@ class MediaControlsTest {
     @Test
     void theBuiltPackageInstallsAndItsHelperConnectsToWindowsAndStopsCleanly() throws Exception {
         String built = System.getProperty("darkmusic.test.mediaControls", "");
-        org.junit.jupiter.api.Assumptions.assumeTrue(Boolean.getBoolean("darkmusic.test.desktop") && MediaControlsPackage.supported()
+        Assumptions.assumeTrue(Boolean.getBoolean("darkmusic.test.desktop") && MediaControlsPackage.supported()
             && !built.isBlank() && Files.isRegularFile(Path.of(built)), "Optional Windows desktop Media Controls check");
         byte[] archive = Files.readAllBytes(Path.of(built));
         Path unpacked = temp.resolve("read");

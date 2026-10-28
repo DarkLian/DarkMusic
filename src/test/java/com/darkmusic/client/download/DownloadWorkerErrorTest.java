@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import static com.darkmusic.client.download.DownloadModels.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -23,7 +24,7 @@ class DownloadWorkerErrorTest {
         var attempts = new AtomicInteger();
         var runner = new ProcessRunner() {
             @Override
-            public Result run(List<String> args, Path cwd, Token token, Duration timeout, int max, java.util.function.Consumer<String> output) {
+            public Result run(List<String> args, Path cwd, Token token, Duration timeout, int max, Consumer<String> output) {
                 if (args.contains("--version") || args.contains("-version")) return new Result(0, "2026.08.19");
                 if (args.contains("--help"))
                     return new Result(0, "--dump-single-json --flat-playlist --progress-template --no-playlist --no-plugin-dirs");

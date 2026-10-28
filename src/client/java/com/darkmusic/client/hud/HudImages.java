@@ -5,6 +5,7 @@ import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.library.ArtworkCache;
 import com.darkmusic.client.library.Track;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 
 /**
@@ -24,7 +25,7 @@ public final class HudImages {
         if (cover != null) ArtworkCache.drawMenu(g, cover, x, y, width, height);
         else {
             int size = Math.min(width, height);
-            g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, ICON, x + (width - size) / 2, y + (height - size) / 2,
+            g.blit(RenderPipelines.GUI_TEXTURED, ICON, x + (width - size) / 2, y + (height - size) / 2,
                 0, 0, size, size, 512, 512, 512, 512);
         }
     }

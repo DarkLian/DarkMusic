@@ -10,10 +10,20 @@ import com.darkmusic.client.text.Text;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.*;
+import net.minecraft.network.chat.Component;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.*;
 
 /**
@@ -54,11 +64,11 @@ final class HudSmokeClient {
         int vertical = (int) field(rows, "scroll");
         var text = field(rows, "horizontal");
         Object zone = null;
-        for (var candidate : (java.util.List<?>) field(text, "zones"))
+        for (var candidate : (List<?>) field(text, "zones"))
             if (field(candidate, "key").equals("title0")) zone = candidate;
         require(zone != null, "Visible title has no horizontal text hit zone");
         require(rows.mouseScrolled((int) field(zone, "x") + 1, (int) field(zone, "y") + 1, -1000, 0), "Horizontal trackpad input was ignored");
-        var lines = (java.util.Map<?, ?>) field(text, "lines");
+        var lines = (Map<?, ?>) field(text, "lines");
         var line = lines.get("title0");
         double end = (double) field(line, "offset");
         require(end > 0 && end == (int) field(line, "maximum"), "Long Unicode title did not pan fully right");
@@ -173,7 +183,7 @@ final class HudSmokeClient {
                     state++;
                 }
                 case 4, 6, 8, 10 -> {
-                    capture(mc, s.spectrumPosition.name().toLowerCase(java.util.Locale.ROOT) + "-" + s.spectrumDirection.name().toLowerCase(java.util.Locale.ROOT));
+                    capture(mc, s.spectrumPosition.name().toLowerCase(Locale.ROOT) + "-" + s.spectrumDirection.name().toLowerCase(Locale.ROOT));
                     state++;
                 }
                 case 11 -> {
@@ -260,9 +270,9 @@ final class HudSmokeClient {
                     app.volume(.55);
                     app.toggleMute();
                     require(s.volume == 0, "Mute did not apply to actual playback volume");
-                    mc.gui.setScreen(new net.minecraft.client.gui.screens.Screen(net.minecraft.network.chat.Component.literal("HUD feedback verification")) {
+                    mc.gui.setScreen(new Screen(Component.literal("HUD feedback verification")) {
                         @Override
-                        public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor g, int x, int y, float delta) {
+                        public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
                             g.fill(0, 0, width, height, 0xFF20283A);
                             app.volumeFeedback.render(g);
                         }
@@ -298,8 +308,8 @@ final class HudSmokeClient {
                     var cover = app.artwork.get(track);
                     require(cover != null && cover.size() > 256, "High-resolution cover was not loaded");
                     String title = (track.title() + " 音樂 ").repeat(8) + "終點";
-                    ((RowList) field(music, "songs")).rows(java.util.List.of(new RowList.Row(title, track.relativePath().repeat(6))));
-                    ((RowList) field(music, "navigation")).rows(java.util.List.of(new RowList.Row(title, "")));
+                    ((RowList) field(music, "songs")).rows(List.of(new RowList.Row(title, track.relativePath().repeat(6))));
+                    ((RowList) field(music, "navigation")).rows(List.of(new RowList.Row(title, "")));
                     state++;
                 }
                 case 27 -> {
@@ -312,10 +322,10 @@ final class HudSmokeClient {
                     var downloads = new DownloadScreen(app, mc.gui.screen());
                     mc.gui.setScreen(downloads);
                     String link = "https://example.com/collection";
-                    ((net.minecraft.client.gui.components.EditBox) field(downloads, "url")).setValue(link);
+                    ((EditBox) field(downloads, "url")).setValue(link);
                     var track = app.library.snapshot().tracks().getFirst();
                     var entry = new DownloadModels.Entry(1, (track.title() + " 日本語 中文 ").repeat(12) + "終點", link, "Generic", "one", true);
-                    set(app.downloads, "preview", new DownloadModels.Preview(link, "Collection", "Generic", true, false, 1, 1, false, java.util.List.of(entry)));
+                    set(app.downloads, "preview", new DownloadModels.Preview(link, "Collection", "Generic", true, false, 1, 1, false, List.of(entry)));
                     set(app.downloads, "message", ("Collection details: " + track.relativePath() + " ").repeat(10));
                     set(app.downloads, "published", null);
                     downloads.tick();
@@ -334,11 +344,11 @@ final class HudSmokeClient {
                     mc.gui.setScreen(new DownloadToolsScreen(app, mc.gui.screen()));
                     var cancel = (AbstractWidget) field(mc.gui.screen(), "cancel");
                     require(!cancel.visible, "Idle tools screen still shows a Cancel button");
-                    var check = (net.minecraft.client.gui.components.Button) field(mc.gui.screen(), "check");
+                    var check = (Button) field(mc.gui.screen(), "check");
                     check.onClick(mouse(check.getX() + 3, check.getY() + 3), false);
                     mc.gui.screen().tick();
                     require(cancel.visible, "Running tool check has no operation-cancel button");
-                    var cancelButton = (net.minecraft.client.gui.components.Button) cancel;
+                    var cancelButton = (Button) cancel;
                     cancelButton.onClick(mouse(cancelButton.getX() + 3, cancelButton.getY() + 3), false);
                     state++;
                 }
@@ -353,9 +363,9 @@ final class HudSmokeClient {
                     app.speed(1.5);
                     app.speedFeedback.show(s.speed);
                     app.volumeFeedback.show(s.volume);
-                    mc.gui.setScreen(new net.minecraft.client.gui.screens.Screen(net.minecraft.network.chat.Component.literal("Speed feedback verification")) {
+                    mc.gui.setScreen(new Screen(Component.literal("Speed feedback verification")) {
                         @Override
-                        public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor g, int x, int y, float delta) {
+                        public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
                             g.fill(0, 0, width, height, 0xFF20283A);
                             app.speedFeedback.render(g);
                             app.volumeFeedback.render(g);
@@ -429,7 +439,7 @@ final class HudSmokeClient {
                 case 40 -> {
                     float[] after = new float[64];
                     app.playback.spectrum().copyTo(after);
-                    require(java.util.Arrays.equals(pausedStyleLevels, after), "Paused spectrum moved with the new styles");
+                    require(Arrays.equals(pausedStyleLevels, after), "Paused spectrum moved with the new styles");
                     capture(mc, "smooth-paused");
                     app.playback.resume();
                     s.spectrumStyle = Settings.SpectrumStyle.FILLED_WAVE;
@@ -540,7 +550,7 @@ final class HudSmokeClient {
                 case 51 -> {
                     float[] after = new float[64];
                     app.playback.spectrum().copyTo(after);
-                    require(java.util.Arrays.equals(pausedStyleLevels, after), "Circular spectrum analysis moved while paused");
+                    require(Arrays.equals(pausedStyleLevels, after), "Circular spectrum analysis moved while paused");
                     app.playback.seek(35);
                     app.playback.resume();
                     state++;
@@ -807,13 +817,13 @@ final class HudSmokeClient {
                 default -> {
                     require(captures >= 24, "Private captures did not complete");
                     String id = Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip();
-                    org.slf4j.LoggerFactory.getLogger("darkmusic-hud-smoke").info("DARKMUSIC_SMOKE_PASS:{} download re-entry/search/range/audition and combined HUD: 96 runtime combinations, GUI scales 2/3/6, live and idle previews, master switch, combined drag/wheel, disk reload; 180 visual style/shape/depth/direction/GUI-scale combinations and paused wave synchronization; Circular HUD controls, 24 toggle/GUI-scale combinations, disk reload, wheel/drag, seek/pause/stop and icon preview; three filled circular shapes, hidden text, pulse with spectrum hidden and paused pulse; independent Flat/Beveled finishes, all shapes, main-player progress, bounded lighting and finish reload; circular rotation rows, speed and synchronized opposite rotation; waveform preview requested outside the Progress section", id);
+                    LoggerFactory.getLogger("darkmusic-hud-smoke").info("DARKMUSIC_SMOKE_PASS:{} download re-entry/search/range/audition and combined HUD: 96 runtime combinations, GUI scales 2/3/6, live and idle previews, master switch, combined drag/wheel, disk reload; 180 visual style/shape/depth/direction/GUI-scale combinations and paused wave synchronization; Circular HUD controls, 24 toggle/GUI-scale combinations, disk reload, wheel/drag, seek/pause/stop and icon preview; three filled circular shapes, hidden text, pulse with spectrum hidden and paused pulse; independent Flat/Beveled finishes, all shapes, main-player progress, bounded lighting and finish reload; circular rotation rows, speed and synchronized opposite rotation; waveform preview requested outside the Progress section", id);
                     state = 999;
                     mc.stop();
                 }
             }
         } catch (Throwable failure) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic-hud-smoke").error("DARKMUSIC_SMOKE_FAIL", failure);
+            LoggerFactory.getLogger("darkmusic-hud-smoke").error("DARKMUSIC_SMOKE_FAIL", failure);
             state = 999;
             mc.stop();
         }

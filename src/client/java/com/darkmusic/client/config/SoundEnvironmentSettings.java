@@ -1,5 +1,6 @@
 package com.darkmusic.client.config;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -48,8 +49,8 @@ public final class SoundEnvironmentSettings {
                 && decay == p.decay && damping == p.damping && wet == p.wet && predelay == p.predelay
                 && echoTime == p.echoTime && echoGain == p.echoGain && modulationMs == p.modulationMs
                 && modulationHz == p.modulationHz && noiseDb == p.noiseDb && mono == p.mono && acoustic == p.acoustic
-                && java.util.Arrays.equals(reflectionTimes, p.reflectionTimes)
-                && java.util.Arrays.equals(reflectionGains, p.reflectionGains);
+                && Arrays.equals(reflectionTimes, p.reflectionTimes)
+                && Arrays.equals(reflectionGains, p.reflectionGains);
         }
 
         public void validate() {
@@ -77,8 +78,8 @@ public final class SoundEnvironmentSettings {
                 reflectionGains = new double[]{0, 0, 0};
             }
             int count = Math.min(8, Math.min(reflectionTimes.length, reflectionGains.length));
-            reflectionTimes = java.util.Arrays.copyOf(reflectionTimes, count);
-            reflectionGains = java.util.Arrays.copyOf(reflectionGains, count);
+            reflectionTimes = Arrays.copyOf(reflectionTimes, count);
+            reflectionGains = Arrays.copyOf(reflectionGains, count);
             for (int i = 0; i < count; i++) {
                 reflectionTimes[i] = AudioEnhancements.finite(reflectionTimes[i], .001, 1.6, .02);
                 reflectionGains[i] = AudioEnhancements.finite(reflectionGains[i], -.35, .35, 0);

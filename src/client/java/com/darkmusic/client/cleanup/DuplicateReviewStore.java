@@ -3,7 +3,10 @@ package com.darkmusic.client.cleanup;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.library.Track;
 import com.google.gson.Gson;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
@@ -45,7 +48,7 @@ public final class DuplicateReviewStore {
                 }
             } catch (Exception failure) {
                 error = "cleanup.store_failed";
-                org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").warn("Could not read ignored matches", failure);
+                LoggerFactory.getLogger("darkmusic-cleanup").warn("Could not read ignored matches", failure);
             }
             synchronized (this) {
                 ready = true;
@@ -153,13 +156,13 @@ public final class DuplicateReviewStore {
             }
             try {
                 String json = new Gson().toJson(values);
-                if (json.getBytes(java.nio.charset.StandardCharsets.UTF_8).length >= 16_000_000)
-                    throw new java.io.IOException("Ignored-match storage capacity exceeded");
+                if (json.getBytes(StandardCharsets.UTF_8).length >= 16_000_000)
+                    throw new IOException("Ignored-match storage capacity exceeded");
                 ConfigStore.atomicWrite(path, json);
                 error = "";
             } catch (Exception failure) {
                 error = "cleanup.store_failed";
-                org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").warn("Could not save ignored matches", failure);
+                LoggerFactory.getLogger("darkmusic-cleanup").warn("Could not save ignored matches", failure);
                 synchronized (this) {
                     writing = false;
                 }

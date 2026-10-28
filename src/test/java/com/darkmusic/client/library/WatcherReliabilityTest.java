@@ -6,6 +6,8 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -67,16 +69,16 @@ class WatcherReliabilityTest {
             snapshot.set(library, new MusicLibrary.Snapshot(1, List.of(track), true, ""));
             assertTrue(library.knownWatchPath(audio));
             snapshot.set(library, new MusicLibrary.Snapshot(2, List.of(track), false, ""));
-            ((java.util.concurrent.atomic.AtomicBoolean) field(library, "running")).set(true);
+            ((AtomicBoolean) field(library, "running")).set(true);
             assertTrue(library.knownWatchPath(audio), "Cache publication cannot hide a deleted extensionless song");
-            ((java.util.concurrent.atomic.AtomicBoolean) field(library, "running")).set(false);
+            ((AtomicBoolean) field(library, "running")).set(false);
             assertFalse(library.knownWatchPath(root.resolve("never-indexed.mp3")));
         }
     }
 
     @Test
     void unexpectedPollingErrorDoesNotDisableFuturePolls() throws Exception {
-        var attempts = new java.util.concurrent.atomic.AtomicInteger();
+        var attempts = new AtomicInteger();
         WatchService service = new WatchService() {
             public WatchKey poll() {
                 if (attempts.getAndIncrement() == 0) throw new AssertionError("injected watcher failure");

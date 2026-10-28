@@ -4,7 +4,10 @@ import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.text.Text;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -29,11 +32,11 @@ public abstract class LocalScreen extends Screen {
         if (isCurrent()) minecraft.gui.setScreen(next);
     }
 
-    protected final net.minecraft.client.gui.components.Button backButton() {
+    protected final Button backButton() {
         return backButton(width - 80, 4, 68);
     }
 
-    protected final net.minecraft.client.gui.components.Button backButton(int x, int y, int width) {
+    protected final Button backButton(int x, int y, int width) {
         var button = addRenderableWidget(UiButton.builder(Text.component("phase2.back"), b -> onClose())
             .bounds(x, y, width, 20).build());
         UiButton.icon(button, UiIcon.BACK, width < 40);
@@ -47,10 +50,10 @@ public abstract class LocalScreen extends Screen {
     protected void rebuildWidgets() {
         var editing = children().stream().filter(c -> c instanceof UiInput).map(c -> (UiInput) c)
             .map(c -> new EditorState(c.getMessage().getString(), c.getValue(), c.getCursorPosition(), c.selectionEnd(), c.isFocused())).toList();
-        var focused = getFocused() instanceof net.minecraft.client.gui.components.AbstractWidget w ? w.getMessage() : null;
+        var focused = getFocused() instanceof AbstractWidget w ? w.getMessage() : null;
         super.rebuildWidgets();
         for (var child : children())
-            if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget && widget.visible && widget.active) {
+            if (child instanceof AbstractWidget widget && widget.visible && widget.active) {
                 if (focused != null && focused.equals(widget.getMessage())) setFocused(widget);
                 if (widget instanceof UiInput input) for (var saved : editing)
                     if (saved.label().equals(input.getMessage().getString()) && saved.value().equals(input.getValue())) {
@@ -65,7 +68,7 @@ public abstract class LocalScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean twice) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean twice) {
         for (var child : children())
             if (child instanceof RowList rows && (event.button() != 0 || !rows.isMouseOver(event.x(), event.y())))
                 rows.resetClicks();

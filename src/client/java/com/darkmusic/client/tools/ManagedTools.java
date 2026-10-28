@@ -5,16 +5,22 @@ import com.darkmusic.client.text.Text;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.nio.channels.FileChannel;
+import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.*;
+import java.time.Duration;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.LongSupplier;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
@@ -75,14 +81,14 @@ public final class ManagedTools {
                             continue;
                         for (Path child : entries) if (!child.equals(lease)) Files.delete(child);
                     }
-                } catch (java.nio.channels.OverlappingFileLockException busy) {
+                } catch (OverlappingFileLockException busy) {
                     continue;
                 }
                 Files.deleteIfExists(lease);
                 Files.delete(path);
             }
         } catch (Exception failure) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic-download").debug("Deferred managed-tool cleanup", failure);
+            LoggerFactory.getLogger("darkmusic-download").debug("Deferred managed-tool cleanup", failure);
         }
     }
 
@@ -111,7 +117,7 @@ public final class ManagedTools {
             try {
                 pin(value);
             } catch (IOException failure) {
-                org.slf4j.LoggerFactory.getLogger("darkmusic-download").debug("Could not lease read-only managed tools", failure);
+                LoggerFactory.getLogger("darkmusic-download").debug("Could not lease read-only managed tools", failure);
             }
             return value;
         } catch (Exception e) {
@@ -142,7 +148,7 @@ public final class ManagedTools {
     static void extractZip(Path archive, String name, Path output, ProcessRunner.Token token) throws IOException {
         boolean found = false;
         try (var zip = new ZipInputStream(Files.newInputStream(archive))) {
-            java.util.zip.ZipEntry entry;
+            ZipEntry entry;
             while ((entry = zip.getNextEntry()) != null) {
                 token.check();
                 // Only the expected root executable is copied. No archive path is ever resolved on disk.
@@ -215,15 +221,15 @@ public final class ManagedTools {
         throw new IOException(Text.get("tools.error.address"));
     }
 
-    static void transfer(java.io.InputStream input, java.io.OutputStream out, long limit, ProcessRunner.Token token,
-                         Consumer<Long> progress, java.util.function.LongSupplier clock) throws Exception {
+    static void transfer(InputStream input, OutputStream out, long limit, ProcessRunner.Token token,
+                         Consumer<Long> progress, LongSupplier clock) throws Exception {
         byte[] buffer = new byte[65536];
         long size = 0, notified = 0, lastProgress = clock.getAsLong();
         int count;
         while ((count = input.read(buffer)) != -1) {
             token.check();
             long now = clock.getAsLong();
-            if (now - lastProgress > java.time.Duration.ofMinutes(10).toNanos())
+            if (now - lastProgress > Duration.ofMinutes(10).toNanos())
                 throw new IOException(Text.get("tools.error.timeout"));
             if (count == 0) {
                 Thread.yield();
@@ -329,7 +335,7 @@ public final class ManagedTools {
             } finally {
                 if (Files.exists(stage)) FileTrees.remove(stage);
             }
-        } catch (java.nio.channels.OverlappingFileLockException e) {
+        } catch (OverlappingFileLockException e) {
             throw new IOException(Text.get("tools.error.busy"), e);
         }
     }

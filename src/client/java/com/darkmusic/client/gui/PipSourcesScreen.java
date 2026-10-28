@@ -11,6 +11,7 @@ import com.darkmusic.client.text.Text;
 import com.darkmusic.client.tools.ProcessRunner;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 
 import java.util.*;
@@ -20,7 +21,7 @@ public final class PipSourcesScreen extends LocalScreen implements PipPreview {
     private List<PipSource> sources = List.of();
     private ProcessRunner.Token token;
     private RowList list;
-    private net.minecraft.client.gui.components.Button choose;
+    private Button choose;
     private int selected = -1;
     private String status = "pip.windows_loading";
 

@@ -1,8 +1,10 @@
 package com.darkmusic.client.gui;
 
 import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 
 /**
  * JDK-only helper entry point. Minecraft deliberately makes its own AWT environment headless.
@@ -27,10 +29,10 @@ public final class DesktopFolderDialog {
                     picker.setFileSelectionMode(mode.equals("folder") ? JFileChooser.DIRECTORIES_ONLY : JFileChooser.FILES_ONLY);
                     picker.setAcceptAllFileFilterUsed(false);
                     if (!mode.equals("folder"))
-                        picker.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("DarkMusic ZIP", "zip"));
+                        picker.setFileFilter(new FileNameExtensionFilter("DarkMusic ZIP", "zip"));
                     if ((mode.equals("save") ? picker.showSaveDialog(null) : picker.showOpenDialog(null)) == JFileChooser.APPROVE_OPTION) {
                         Path selected = picker.getSelectedFile().toPath();
-                        if (mode.equals("save") && !selected.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".zip"))
+                        if (mode.equals("save") && !selected.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".zip"))
                             selected = selected.resolveSibling(selected.getFileName() + ".zip");
                         if (!mode.equals("save") || !Files.exists(selected) || JOptionPane.showConfirmDialog(picker, (args.length > 5 ? args[5] : args[1]) + "\n" + selected.getFileName(), args[1], JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION)
                             Files.writeString(Path.of(args[2]), selected.toString());

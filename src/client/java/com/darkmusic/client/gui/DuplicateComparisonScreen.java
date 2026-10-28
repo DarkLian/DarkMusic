@@ -13,6 +13,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 
 import java.util.*;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * Explicit A/B decisions; the only deletion entry point is the existing exact-path review.
@@ -113,7 +114,7 @@ public final class DuplicateComparisonScreen extends LocalScreen {
                         if (isCurrent()) fill();
                     });
                 });
-            } catch (java.util.concurrent.RejectedExecutionException busy) {
+            } catch (RejectedExecutionException busy) {
                 loading = false;
                 notice = Text.get("library.darkmusic.busy");
             }

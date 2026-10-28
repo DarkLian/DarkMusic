@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.CancellationException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -90,7 +91,7 @@ class DuplicateMatcherTest {
         assertTrue(matches.pairs().isEmpty());
         var cancelled = new ProcessRunner.Token();
         cancelled.cancel();
-        assertThrows(java.util.concurrent.CancellationException.class, () -> new DuplicateMatcher().match(entries, DuplicatePolicy.LOOSE, cancelled, v -> {
+        assertThrows(CancellationException.class, () -> new DuplicateMatcher().match(entries, DuplicatePolicy.LOOSE, cancelled, v -> {
         }));
     }
 }

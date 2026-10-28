@@ -1,7 +1,10 @@
 package com.darkmusic.client.library;
 
 import java.nio.file.Path;
+import java.text.Normalizer;
 import java.util.Arrays;
+import java.util.Locale;
+import java.util.Objects;
 
 public final class Track {
     private final String rootId, relativePath, title, artist, album, problem;
@@ -102,7 +105,7 @@ public final class Track {
     }
 
     static String normalize(String text) {
-        String decomposed = java.text.Normalizer.normalize(java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFKC), java.text.Normalizer.Form.NFD);
+        String decomposed = Normalizer.normalize(Normalizer.normalize(text, Normalizer.Form.NFKC), Normalizer.Form.NFD);
         var out = new StringBuilder(decomposed.length());
         boolean latin = false;
         for (int point : decomposed.codePoints().toArray()) {
@@ -112,21 +115,21 @@ public final class Track {
             out.appendCodePoint(point);
             if (!mark) latin = Character.UnicodeScript.of(point) == Character.UnicodeScript.LATIN;
         }
-        return java.text.Normalizer.normalize(out, java.text.Normalizer.Form.NFC).toLowerCase(java.util.Locale.ROOT);
+        return Normalizer.normalize(out, Normalizer.Form.NFC).toLowerCase(Locale.ROOT);
     }
 
     @Override
     public boolean equals(Object other) {
         if (this == other) return true;
         if (!(other instanceof Track t)) return false;
-        return Double.compare(duration, t.duration) == 0 && size == t.size && modified == t.modified && java.util.Objects.equals(rootId, t.rootId)
-            && java.util.Objects.equals(relativePath, t.relativePath) && java.util.Objects.equals(file, t.file) && java.util.Objects.equals(title, t.title)
-            && java.util.Objects.equals(artist, t.artist) && java.util.Objects.equals(album, t.album) && java.util.Objects.equals(problem, t.problem);
+        return Double.compare(duration, t.duration) == 0 && size == t.size && modified == t.modified && Objects.equals(rootId, t.rootId)
+            && Objects.equals(relativePath, t.relativePath) && Objects.equals(file, t.file) && Objects.equals(title, t.title)
+            && Objects.equals(artist, t.artist) && Objects.equals(album, t.album) && Objects.equals(problem, t.problem);
     }
 
     @Override
     public int hashCode() {
-        return java.util.Objects.hash(rootId, relativePath, file, title, artist, album, duration, size, modified, problem);
+        return Objects.hash(rootId, relativePath, file, title, artist, album, duration, size, modified, problem);
     }
 
     @Override

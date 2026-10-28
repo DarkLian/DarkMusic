@@ -1,5 +1,6 @@
 package com.darkmusic.client.gui;
 
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
@@ -38,7 +39,7 @@ final class TransportOutline {
     private record Stroke(Matrix3x2f pose, ScreenRectangle scissorArea, ScreenRectangle bounds,
                           float x, float y, float width, float height, int color) implements GuiElementRenderState {
         @Override
-        public com.mojang.blaze3d.pipeline.RenderPipeline pipeline() {
+        public RenderPipeline pipeline() {
             return RenderPipelines.GUI;
         }
 

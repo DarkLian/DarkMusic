@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.*;
+import java.nio.file.attribute.FileTime;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -21,9 +22,9 @@ class UpdatePruningTest {
             try (var out = Files.newOutputStream(job.resolve("install.properties"))) {
                 p.store(out, "");
             }
-            Files.setLastModifiedTime(job.resolve("install.properties"), java.nio.file.attribute.FileTime.fromMillis(time));
+            Files.setLastModifiedTime(job.resolve("install.properties"), FileTime.fromMillis(time));
         }
-        Files.setLastModifiedTime(job, java.nio.file.attribute.FileTime.fromMillis(time));
+        Files.setLastModifiedTime(job, FileTime.fromMillis(time));
         return job;
     }
 
@@ -33,7 +34,7 @@ class UpdatePruningTest {
         Path old = job("installed", now - 4 * day), latest = job("installed", now - 2 * day), pending = job("", now - 3 * day), failed = job("failed", now - 3 * day);
         Path orphan = job(null, now - 2 * day), young = job(null, now), unknown = job(null, now - 2 * day);
         Files.writeString(unknown.resolve("user-notes.txt"), "Keep unknown material");
-        Files.setLastModifiedTime(unknown, java.nio.file.attribute.FileTime.fromMillis(now - 2 * day));
+        Files.setLastModifiedTime(unknown, FileTime.fromMillis(now - 2 * day));
         UpdateRecovery.prune(temp, now);
         assertFalse(Files.exists(old));
         assertFalse(Files.exists(orphan));

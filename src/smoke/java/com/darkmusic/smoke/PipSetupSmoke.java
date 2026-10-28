@@ -6,8 +6,10 @@ import com.darkmusic.client.text.Text;
 import com.google.gson.JsonParser;
 import net.minecraft.client.Minecraft;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 /**
  * Isolated UI acceptance check. No network, window enumeration or capture is approved by this test.
@@ -48,12 +50,12 @@ final class PipSetupSmoke {
                 // Model an offline download cache, using only this build's verified runtime archive.
                 staged = CompletableFuture.runAsync(() -> {
                     try (var input = getClass().getResourceAsStream("/assets/darkmusic/pip/windows-x64/dependencies.json")) {
-                        var manifest = JsonParser.parseString(new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+                        var manifest = JsonParser.parseString(new String(input.readAllBytes(), StandardCharsets.UTF_8)).getAsJsonObject();
                         var root = app.config.directory().resolve("pip-native");
                         Files.createDirectories(root);
                         Files.copy(Path.of(System.getProperty("darkmusic.pipDependencies")), root.resolve("dependencies-" + manifest.get("sha256").getAsString() + ".zip"));
                     } catch (Exception e) {
-                        throw new java.util.concurrent.CompletionException(e);
+                        throw new CompletionException(e);
                     }
                 });
                 stage++;

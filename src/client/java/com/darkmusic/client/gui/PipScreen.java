@@ -11,6 +11,8 @@ import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
+import java.util.concurrent.CompletableFuture;
+
 /**
  * Uses the existing scrollable settings rows at both wide and compact scales.
  */
@@ -111,7 +113,6 @@ public final class PipScreen extends AudioPage implements PipPreview {
             changed();
         }).active = !pip.active();
         var opacity = new ValueSlider(formX, 0, formWidth, (s.opacity - .1) / .9, v -> Text.get("pip.opacity", Math.round((.1 + v * .9) * 100)), v -> s.opacity = .1 + v * .9, app::save, 90);
-        opacity.plain(true);
         place(opacity);
         labeledAction(Text.get("pip.focus_key", s.focusKey - 111), Text.get("pip.shortcuts.help"), () -> cycleKey(true)).active = !pip.active();
         labeledAction(Text.get("pip.return_key", s.returnKey - 111), Text.get("pip.shortcuts.help"), () -> cycleKey(false)).active = !pip.active();
@@ -127,7 +128,7 @@ public final class PipScreen extends AudioPage implements PipPreview {
     private void confirm(String title, String explanation, Runnable action) {
         show(new ConfirmationScreen(this, Text.component(title), Text.component(explanation), Text.component(title), () -> {
             action.run();
-            return java.util.concurrent.CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(null);
         }).nonDestructive());
     }
 

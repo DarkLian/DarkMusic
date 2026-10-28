@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.*;
 import java.nio.*;
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioSystem;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -35,9 +37,9 @@ class PipAudioTest {
     @Test
     void realMusicProducesLevelsAndDuplicateSequencesAreRejected() throws Exception {
         var clip = TestMusic.clip();
-        var format = new javax.sound.sampled.AudioFormat(44100, 16, 2, true, false);
+        var format = new AudioFormat(44100, 16, 2, true, false);
         byte[] pcm;
-        try (var converted = javax.sound.sampled.AudioSystem.getAudioInputStream(format, clip.stream())) {
+        try (var converted = AudioSystem.getAudioInputStream(format, clip.stream())) {
             pcm = converted.readNBytes(44100 * 4 * 2);
         }
         var data = new ByteArrayOutputStream();

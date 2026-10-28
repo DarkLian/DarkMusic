@@ -1,14 +1,20 @@
 package com.darkmusic.client.lyrics;
 
 import com.darkmusic.client.config.ConfigStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -20,10 +26,10 @@ final class LyricsResultCache {
     private record Cached(int schema, long expires, List<LyricsProvider.Candidate> candidates) {
     }
 
-    record CacheFile(Path path, long size, java.nio.file.attribute.FileTime modified, Object fileKey) {
+    record CacheFile(Path path, long size, FileTime modified, Object fileKey) {
     }
 
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(LyricsLookup.class);
+    private static final Logger LOG = LoggerFactory.getLogger(LyricsLookup.class);
     private final Path directory;
     private final Consumer<Runnable> background;
     private final LinkedHashMap<String, Cached> results = new LinkedHashMap<>(16, .75f, true);
@@ -38,7 +44,7 @@ final class LyricsResultCache {
     /**
      * Forgets every result in memory and on disk; {@code alongside} runs under the same lock.
      */
-    void clear(Runnable alongside) throws java.io.IOException {
+    void clear(Runnable alongside) throws IOException {
         synchronized (results) {
             results.clear();
             alongside.run();
@@ -106,12 +112,12 @@ final class LyricsResultCache {
         }
     }
 
-    static CacheFile file(Path path) throws java.io.IOException {
-        var a = Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+    static CacheFile file(Path path) throws IOException {
+        var a = Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         return a.isRegularFile() ? new CacheFile(path, a.size(), a.lastModifiedTime(), a.fileKey()) : null;
     }
 
-    boolean discard(CacheFile candidate) throws java.io.IOException {
+    boolean discard(CacheFile candidate) throws IOException {
         synchronized (files) {
             CacheFile current = file(candidate.path);
             if (!candidate.equals(current)) return false; // A refresh won the race; keep its new result.
@@ -129,10 +135,10 @@ final class LyricsResultCache {
                     var all = files.filter(p -> p.getFileName().toString().matches("[a-f0-9]{64}\\.json")).map(p -> {
                         try {
                             return file(p);
-                        } catch (java.io.IOException vanished) {
+                        } catch (IOException vanished) {
                             return null;
                         }
-                    }).filter(java.util.Objects::nonNull).sorted(Comparator.comparing(CacheFile::modified)).toList();
+                    }).filter(Objects::nonNull).sorted(Comparator.comparing(CacheFile::modified)).toList();
                     long bytes = all.stream().mapToLong(CacheFile::size).sum(), count = all.size();
                     for (CacheFile file : all) {
                         if (count <= 256_000 && bytes <= limit) break;

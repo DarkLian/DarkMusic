@@ -8,7 +8,12 @@ import com.darkmusic.client.testing.Await;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.file.*;
+import javax.sound.sampled.AudioInputStream;
+import java.nio.file.attribute.FileTime;
+import java.security.MessageDigest;
 import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -81,9 +86,9 @@ class WaveformProgressTest {
         }
         assertTrue(variation);
         assertEquals(1, data.peak(0, 1), .00001);
-        try (var smallReads = new javax.sound.sampled.AudioInputStream(clip.stream(), clip.format(), -1) {
+        try (var smallReads = new AudioInputStream(clip.stream(), clip.format(), -1) {
             @Override
-            public int read(byte[] bytes, int offset, int length) throws java.io.IOException {
+            public int read(byte[] bytes, int offset, int length) throws IOException {
                 return super.read(bytes, offset, Math.min(length, 64 * getFormat().getFrameSize()));
             }
         }) {
@@ -100,7 +105,7 @@ class WaveformProgressTest {
                 swapped[i + 2] = a;
                 swapped[i + 3] = b;
             }
-            try (var pcm = new javax.sound.sampled.AudioInputStream(new java.io.ByteArrayInputStream(swapped), clip.format(), swapped.length / 4)) {
+            try (var pcm = new AudioInputStream(new ByteArrayInputStream(swapped), clip.format(), swapped.length / 4)) {
                 var reversed = TrackWaveform.analyze(pcm, () -> false);
                 for (int i = 0; i < TrackWaveform.BINS; i++)
                     assertEquals(data.level(i), reversed.level(i), "Opposite stereo channels must not cancel");
@@ -111,7 +116,7 @@ class WaveformProgressTest {
     @Test
     void persistentCacheReusesRealAudioAndInvalidatesChangedOrCorruptEntries() throws Exception {
         Path original = TestMusic.featured();
-        byte[] before = java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(original));
+        byte[] before = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(original));
         Path audio = temp.resolve(original.getFileName());
         Files.copy(original, audio);
         Track track = track(audio);
@@ -137,20 +142,20 @@ class WaveformProgressTest {
             Await.until(Duration.ofSeconds(20), () -> cache.get(track) != null, "Saved waveform reloads");
             assertEquals(savedContents, Files.readString(saved), "Cache hits do not rewrite files");
             for (int i = 0; i < TrackWaveform.BINS; i++) assertEquals(first.level(i), cache.get(track).level(i));
-            Files.setLastModifiedTime(audio, java.nio.file.attribute.FileTime.fromMillis(track.modified() + 2000));
+            Files.setLastModifiedTime(audio, FileTime.fromMillis(track.modified() + 2000));
             Track changed = track(audio);
             cache.update(changed, true);
             assertNull(cache.get(track), "Old metadata cannot retrieve a new waveform");
             Await.until(Duration.ofSeconds(20), () -> cache.get(changed) != null, "Changed identity is analyzed again");
         }
         Files.writeString(saved, "invalid cache");
-        Files.setLastModifiedTime(audio, java.nio.file.attribute.FileTime.fromMillis(track.modified()));
+        Files.setLastModifiedTime(audio, FileTime.fromMillis(track.modified()));
         try (var cache = new WaveformCache(cacheDirectory)) {
             cache.update(track, true);
             Await.until(Duration.ofSeconds(20), () -> cache.get(track) != null, "Corrupt entry is rebuilt from real audio");
             assertNotEquals("invalid cache", Files.readString(saved));
         }
-        assertArrayEquals(before, java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(original)));
+        assertArrayEquals(before, MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(original)));
     }
 
     private static Track track(Path path) throws Exception {

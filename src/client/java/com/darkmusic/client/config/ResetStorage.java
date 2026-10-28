@@ -3,6 +3,7 @@ package com.darkmusic.client.config;
 import com.darkmusic.client.text.Text;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -103,7 +104,7 @@ public final class ResetStorage {
 
     private void keep(Path file, Exception error) {
         retained.add(file.toString());
-        org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Reset preserved unrecognized, linked, or inaccessible file: {}", file, error);
+        LoggerFactory.getLogger("darkmusic").warn("Reset preserved unrecognized, linked, or inaccessible file: {}", file, error);
     }
 
     private record Locked(FileChannel channel, FileLock lock) implements AutoCloseable {

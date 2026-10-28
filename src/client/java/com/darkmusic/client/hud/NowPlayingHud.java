@@ -6,6 +6,7 @@ import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.render.ColorStrip;
 import com.darkmusic.client.render.HorizontalText;
+import com.darkmusic.client.render.HudFade;
 import com.darkmusic.client.render.HudSurface;
 import com.darkmusic.client.render.SpectrumRenderer;
 import com.darkmusic.client.render.UiStatus;
@@ -37,7 +38,7 @@ public final class NowPlayingHud {
             if (away >= 1) return;
             var b = bounds(app, g.guiWidth(), g.guiHeight());
             if (app.settings.hudIdleAnimation == Settings.Motion.FADE)
-                com.darkmusic.client.render.HudFade.run(1 - away, () -> renderAt(app, g, b.x(), b.y(), b.scale(), false, false, null));
+                HudFade.run(1 - away, () -> renderAt(app, g, b.x(), b.y(), b.scale(), false, false, null));
             else
                 renderAt(app, g, b.x() + HudMotion.exit(b.x(), b.width(), g.guiWidth(), away), b.y(), b.scale(), false, false, null);
         });

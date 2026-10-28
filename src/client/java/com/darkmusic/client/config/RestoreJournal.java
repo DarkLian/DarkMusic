@@ -1,10 +1,13 @@
 package com.darkmusic.client.config;
 
 import com.darkmusic.client.text.Text;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
 /**
@@ -158,9 +161,9 @@ public final class RestoreJournal {
 
     private static String digest(String value) {
         try {
-            return HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                 .digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (java.security.NoSuchAlgorithmException impossible) {
+        } catch (NoSuchAlgorithmException impossible) {
             throw new AssertionError(impossible);
         }
     }
@@ -221,7 +224,7 @@ public final class RestoreJournal {
                 Files.delete(path);
             }
         } catch (IOException failure) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic").debug("Deferred old recovery-copy cleanup", failure);
+            LoggerFactory.getLogger("darkmusic").debug("Deferred old recovery-copy cleanup", failure);
         }
     }
 

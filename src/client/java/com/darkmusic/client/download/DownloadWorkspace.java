@@ -2,6 +2,7 @@ package com.darkmusic.client.download;
 
 import com.darkmusic.client.text.Text;
 import com.darkmusic.client.tools.FileTrees;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -45,7 +46,7 @@ final class DownloadWorkspace implements AutoCloseable {
                     try {
                         FileTrees.remove(child);
                     } catch (IOException e) {
-                        org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Could not remove stale download workspace {}", child, e);
+                        LoggerFactory.getLogger("darkmusic-download").warn("Could not remove stale download workspace {}", child, e);
                     }
                 }
             }

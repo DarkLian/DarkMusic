@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -36,7 +37,7 @@ class BulkEditingTest {
         var io = Executors.newSingleThreadExecutor();
         try {
             var store = new PlaylistStore(temp, io, message -> fail(message));
-            var library = java.util.stream.IntStream.range(0, 5).mapToObj(i -> StorageTest.track("r", i + ".mp3", temp.resolve(i + ".mp3"))).toList();
+            var library = IntStream.range(0, 5).mapToObj(i -> StorageTest.track("r", i + ".mp3", temp.resolve(i + ".mp3"))).toList();
             String id = store.create("Drag");
             store.addAll(id, library.subList(0, 2));
             assertEquals(library.subList(2, 5), store.availableToAdd(id, library));

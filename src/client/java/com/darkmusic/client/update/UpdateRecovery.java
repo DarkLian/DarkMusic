@@ -1,14 +1,22 @@
 package com.darkmusic.client.update;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.file.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Reads the latest local installation result without requiring a network check.
  */
 final class UpdateRecovery {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger("darkmusic-update");
+    private static final Logger LOG = LoggerFactory.getLogger("darkmusic-update");
 
     private UpdateRecovery() {
     }
@@ -19,25 +27,25 @@ final class UpdateRecovery {
     static void discard(Path job) throws IOException {
         if (job == null || !job.getFileName().toString().matches("[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}")
             || !Files.isDirectory(job, LinkOption.NOFOLLOW_LINKS)) return;
-        java.util.List<Path> paths;
+        List<Path> paths;
         try (var walk = Files.walk(job)) {
             paths = walk.toList();
         }
         boolean owned = paths.stream().allMatch(p -> {
             if (Files.isSymbolicLink(p)) return false;
             String relative = job.relativize(p).toString().replace('\\', '/');
-            return Files.isDirectory(p, LinkOption.NOFOLLOW_LINKS) ? java.util.Set.of("", "com", "com/darkmusic", "com/darkmusic/client", "com/darkmusic/client/update").contains(relative)
-                : java.util.Set.of("download.jar", "previous.jar", "install.properties", "install.log", "com/darkmusic/client/update/UpdateInstaller.class").contains(relative);
+            return Files.isDirectory(p, LinkOption.NOFOLLOW_LINKS) ? Set.of("", "com", "com/darkmusic", "com/darkmusic/client", "com/darkmusic/client/update").contains(relative)
+                : Set.of("download.jar", "previous.jar", "install.properties", "install.log", "com/darkmusic/client/update/UpdateInstaller.class").contains(relative);
         });
         if (!owned) return;
-        for (Path path : paths.stream().sorted(java.util.Comparator.reverseOrder()).toList())
+        for (Path path : paths.stream().sorted(Comparator.reverseOrder()).toList())
             Files.deleteIfExists(path);
     }
 
     static void prune(Path directory, long now) throws IOException {
         if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(directory)) return;
-        var completed = new java.util.ArrayList<Path>();
-        var abandoned = new java.util.ArrayList<Path>();
+        var completed = new ArrayList<Path>();
+        var abandoned = new ArrayList<Path>();
         try (var jobs = Files.list(directory)) {
             for (Path job : jobs.toList())
                 try {
@@ -56,12 +64,12 @@ final class UpdateRecovery {
                     LOG.warn("Cannot inspect update staging {}", job, failure);
                 }
         }
-        completed.sort(java.util.Comparator.comparingLong((Path p) -> p.resolve("install.properties").toFile().lastModified()).reversed());
+        completed.sort(Comparator.comparingLong((Path p) -> p.resolve("install.properties").toFile().lastModified()).reversed());
         if (!completed.isEmpty()) completed.removeFirst(); // Keep the newest successful rollback, even if young.
         completed.addAll(abandoned);
         for (Path job : completed)
             try {
-                if (now - Files.getLastModifiedTime(job, LinkOption.NOFOLLOW_LINKS).toMillis() < java.util.concurrent.TimeUnit.DAYS.toMillis(1))
+                if (now - Files.getLastModifiedTime(job, LinkOption.NOFOLLOW_LINKS).toMillis() < TimeUnit.DAYS.toMillis(1))
                     continue;
                 discard(job);
             } catch (IOException failure) {

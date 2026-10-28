@@ -5,6 +5,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
+import java.security.MessageDigest;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -19,17 +22,17 @@ class DeletionCompanionTest {
     @Test
     void simulatedNullFileKeysRequireMatchingContentsEvenWithPreservedSizeAndTime() throws Exception {
         var t = track("null-key.dat");
-        var before = Files.readAttributes(t.file(), java.nio.file.attribute.BasicFileAttributes.class);
-        var noKey = new java.nio.file.attribute.BasicFileAttributes() {
-            public java.nio.file.attribute.FileTime lastModifiedTime() {
+        var before = Files.readAttributes(t.file(), BasicFileAttributes.class);
+        var noKey = new BasicFileAttributes() {
+            public FileTime lastModifiedTime() {
                 return before.lastModifiedTime();
             }
 
-            public java.nio.file.attribute.FileTime lastAccessTime() {
+            public FileTime lastAccessTime() {
                 return before.lastAccessTime();
             }
 
-            public java.nio.file.attribute.FileTime creationTime() {
+            public FileTime creationTime() {
                 return before.creationTime();
             }
 
@@ -57,9 +60,9 @@ class DeletionCompanionTest {
                 return null;
             }
         };
-        String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(t.file())));
+        String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(t.file())));
         var item = new AudioDeletion.Item(t, t.file(), null, hash);
-        var matches = AudioDeletion.class.getDeclaredMethod("sameIdentity", AudioDeletion.Item.class, java.nio.file.attribute.BasicFileAttributes.class);
+        var matches = AudioDeletion.class.getDeclaredMethod("sameIdentity", AudioDeletion.Item.class, BasicFileAttributes.class);
         matches.setAccessible(true);
         assertEquals(true, matches.invoke(null, item, noKey));
         Files.writeString(t.file(), "Changed identity!! ");

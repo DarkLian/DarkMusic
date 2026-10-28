@@ -1,5 +1,7 @@
 package com.darkmusic.client.pip;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.FilterMode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
@@ -40,7 +42,7 @@ public final class PipTexture implements AutoCloseable {
     private static final class VideoTexture extends DynamicTexture {
         private VideoTexture(int width, int height) {
             super("DarkMusic PiP", width, height, false);
-            sampler = com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getClampToEdge(com.mojang.blaze3d.textures.FilterMode.LINEAR);
+            sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
         }
     }
 

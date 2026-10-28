@@ -4,6 +4,7 @@ import com.darkmusic.client.text.Text;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -103,7 +104,7 @@ public final class DownloadJson {
             return Text.get("text.darkmusic.youtube_needs_a_compatible_deno_node_runtime_and_current_yt_dlp_check_download_too");
         if (s.contains("timed out") || s.contains("timeout") || s.contains("network is unreachable") || s.contains("connection refused") || s.contains("unable to resolve") || s.contains("name resolution"))
             return Text.get("text.darkmusic.network_request_timed_out_or_failed_check_your_connection_and_retry");
-        org.slf4j.LoggerFactory.getLogger("darkmusic-download").debug("Tool failure details: {}", details);
+        LoggerFactory.getLogger("darkmusic-download").debug("Tool failure details: {}", details);
         return Text.get("download.error.unknown");
     }
 }

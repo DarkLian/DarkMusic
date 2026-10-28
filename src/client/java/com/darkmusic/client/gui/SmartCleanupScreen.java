@@ -9,8 +9,11 @@ import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Pair rows preserve real evidence; related rows never imply untested transitive matches.
@@ -140,13 +143,13 @@ public final class SmartCleanupScreen extends LocalScreen {
             var row = list.get(i);
             if (row.pair() == null)
                 return new RowList.Row(Text.get("cleanup.group", row.group().tracks().size(), row.group().pairs().size()),
-                    row.group().tracks().stream().map(t -> t.title()).collect(java.util.stream.Collectors.joining(" / ")));
+                    row.group().tracks().stream().map(t -> t.title()).collect(Collectors.joining(" / ")));
             var p = row.pair();
             return new RowList.Row(p.a().title() + "  /  " + p.b().title(),
                 reasons(p)).status(Text.get("cleanup.strength." + p.strength().name().toLowerCase(Locale.ROOT)),
                 p.strength() == DuplicateResult.Strength.STRONG ? UiStatus.Tone.SUCCESS : UiStatus.Tone.WARNING);
         });
-        int index = java.util.stream.IntStream.range(0, list.size()).filter(i -> list.get(i).id().equals(selected)).findFirst().orElse(-1);
+        int index = IntStream.range(0, list.size()).filter(i -> list.get(i).id().equals(selected)).findFirst().orElse(-1);
         rows.select(index);
         rows.scrollOffset(scroll);
         revision = state.revision();
@@ -154,7 +157,7 @@ public final class SmartCleanupScreen extends LocalScreen {
     }
 
     static String reasons(DuplicateResult pair) {
-        return pair.evidence().stream().sorted().map(e -> Text.get("cleanup.evidence." + e.name().toLowerCase(Locale.ROOT))).collect(java.util.stream.Collectors.joining("; "));
+        return pair.evidence().stream().sorted().map(e -> Text.get("cleanup.evidence." + e.name().toLowerCase(Locale.ROOT))).collect(Collectors.joining("; "));
     }
 
     private void updateButtons() {
@@ -163,8 +166,8 @@ public final class SmartCleanupScreen extends LocalScreen {
         start.active = !busy && !app.mediaBusy() && !app.library.snapshot().scanning();
         cancel.active = busy;
         sensitivity.active = audio.active = !busy;
-        sensitivity.setMessage(net.minecraft.network.chat.Component.literal(Text.get("cleanup.sensitivity") + ": " + Text.get("cleanup.policy." + policy.name().toLowerCase(Locale.ROOT))));
-        audio.setMessage(net.minecraft.network.chat.Component.literal(Text.get("cleanup.audio") + ": " + Text.get(analyzeAudio ? "cleanup.enabled" : "cleanup.disabled")));
+        sensitivity.setMessage(Component.literal(Text.get("cleanup.sensitivity") + ": " + Text.get("cleanup.policy." + policy.name().toLowerCase(Locale.ROOT))));
+        audio.setMessage(Component.literal(Text.get("cleanup.audio") + ": " + Text.get(analyzeAudio ? "cleanup.enabled" : "cleanup.disabled")));
         review.active = !app.mediaBusy() && visible.stream().anyMatch(p -> p.id().equals(selected));
     }
 

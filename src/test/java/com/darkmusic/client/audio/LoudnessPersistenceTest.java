@@ -3,12 +3,14 @@ package com.darkmusic.client.audio;
 import com.darkmusic.client.config.AudioSettings;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.media.ExternalAudio;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.ExecutorService;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -33,7 +35,7 @@ class LoudnessPersistenceTest {
         try (var cache = new LoudnessCache()) {
             var executor = LoudnessCache.class.getDeclaredField("executor");
             executor.setAccessible(true);
-            ((java.util.concurrent.ExecutorService) executor.get(cache)).submit(() -> {
+            ((ExecutorService) executor.get(cache)).submit(() -> {
             }).get();
             var t = track("new.opus", 1);
             cache.remember(t, key(t), new LoudnessCache.Reading(-20, -3));
@@ -45,11 +47,11 @@ class LoudnessPersistenceTest {
 
     @Test
     void cachesLargerThanTheOldReadLimitLoadWithoutReanalysis() throws Exception {
-        var json = new com.google.gson.JsonObject();
+        var json = new JsonObject();
         Track selected = null;
         for (int i = 0; i < 24000; i++) {
             var t = track("collection-" + "a".repeat(160) + "-" + i + ".opus", 1);
-            var reading = new com.google.gson.JsonObject();
+            var reading = new JsonObject();
             reading.addProperty("lufs", -20);
             reading.addProperty("peakDb", -3);
             json.add(key(t), reading);
@@ -62,7 +64,7 @@ class LoudnessPersistenceTest {
         try (var cache = new LoudnessCache()) {
             var executor = LoudnessCache.class.getDeclaredField("executor");
             executor.setAccessible(true);
-            ((java.util.concurrent.ExecutorService) executor.get(cache)).submit(() -> {
+            ((ExecutorService) executor.get(cache)).submit(() -> {
             }).get();
             assertEquals(Math.pow(10, 2 / 20.0), cache.gain(selected, new AudioSettings()), 1e-12);
         } finally {
@@ -79,7 +81,7 @@ class LoudnessPersistenceTest {
                 // Wait for initial loading, as normal inspections do on its single worker.
                 var executor = LoudnessCache.class.getDeclaredField("executor");
                 executor.setAccessible(true);
-                ((java.util.concurrent.ExecutorService) executor.get(cache)).submit(() -> {
+                ((ExecutorService) executor.get(cache)).submit(() -> {
                 }).get();
                 for (int i = 0; i < 1000; i++) {
                     var t = track("song-" + i + ".opus", 1);
@@ -91,7 +93,7 @@ class LoudnessPersistenceTest {
             try (var cache = new LoudnessCache()) {
                 var executor = LoudnessCache.class.getDeclaredField("executor");
                 executor.setAccessible(true);
-                ((java.util.concurrent.ExecutorService) executor.get(cache)).submit(() -> {
+                ((ExecutorService) executor.get(cache)).submit(() -> {
                 }).get();
                 var original = track("song-0.opus", 1);
                 assertEquals(Math.pow(10, 2 / 20.0), cache.gain(original, settings), 1e-12);
@@ -116,7 +118,7 @@ class LoudnessPersistenceTest {
         try (var cache = new LoudnessCache()) {
             var executor = LoudnessCache.class.getDeclaredField("executor");
             executor.setAccessible(true);
-            ((java.util.concurrent.ExecutorService) executor.get(cache)).submit(() -> {
+            ((ExecutorService) executor.get(cache)).submit(() -> {
             }).get();
             var t = track("real-reference.opus", 1);
             cache.remember(t, key(t), new LoudnessCache.Reading(-20, -3));

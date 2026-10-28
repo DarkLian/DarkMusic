@@ -1,11 +1,17 @@
 package com.darkmusic.client.update;
 
+import com.darkmusic.client.tools.Hashes;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonParser;
+import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.Version;
+import net.fabricmc.loader.api.metadata.version.VersionPredicate;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.zip.ZipFile;
 
@@ -33,13 +39,13 @@ public record GitHubRelease(String version, String name, URI url, long size, Str
             if (size <= 0 || size > MAX_JAR || !digest.matches("sha256:[0-9a-fA-F]{64}") ||
                 !url.toString().equals("https://github.com/DarkLian/DarkMusic/releases/download/" + tag + "/" + name))
                 throw new IOException("Invalid release asset or missing checksum");
-            return Optional.of(new GitHubRelease(version, name, url, size, digest.substring(7).toLowerCase(java.util.Locale.ROOT)));
+            return Optional.of(new GitHubRelease(version, name, url, size, digest.substring(7).toLowerCase(Locale.ROOT)));
         }
         return Optional.empty();
     }
 
     public static String hash(Path path) throws Exception {
-        return com.darkmusic.client.tools.Hashes.sha256(path);
+        return Hashes.sha256(path);
     }
 
     public void verify(Path jar) throws Exception {
@@ -48,17 +54,17 @@ public record GitHubRelease(String version, String name, URI url, long size, Str
             var entry = zip.getEntry("fabric.mod.json");
             if (entry == null || entry.getSize() > 65536) throw new IOException("Missing mod metadata");
             try (var input = zip.getInputStream(entry)) {
-                var metadata = JsonParser.parseString(new String(input.readNBytes(65537), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+                var metadata = JsonParser.parseString(new String(input.readNBytes(65537), StandardCharsets.UTF_8)).getAsJsonObject();
                 if (!"darkmusic".equals(metadata.get("id").getAsString()) || !version.equals(metadata.get("version").getAsString()))
                     throw new IOException("Unexpected mod identity");
-                var loader = net.fabricmc.loader.api.FabricLoader.getInstance();
+                var loader = FabricLoader.getInstance();
                 for (var dependency : metadata.getAsJsonObject("depends").entrySet()) {
                     var installed = loader.getModContainer(dependency.getKey()).orElseThrow(() -> new IOException("Missing dependency: " + dependency.getKey()));
-                    var ranges = dependency.getValue().isJsonArray() ? dependency.getValue().getAsJsonArray() : new com.google.gson.JsonArray();
+                    var ranges = dependency.getValue().isJsonArray() ? dependency.getValue().getAsJsonArray() : new JsonArray();
                     if (!dependency.getValue().isJsonArray()) ranges.add(dependency.getValue());
                     boolean compatible = false;
                     for (var range : ranges)
-                        compatible |= net.fabricmc.loader.api.metadata.version.VersionPredicate.parse(range.getAsString()).test(installed.getMetadata().getVersion());
+                        compatible |= VersionPredicate.parse(range.getAsString()).test(installed.getMetadata().getVersion());
                     if (!compatible) throw new IOException("Incompatible dependency: " + dependency.getKey());
                 }
             }

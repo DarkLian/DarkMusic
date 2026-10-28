@@ -12,6 +12,7 @@ import com.darkmusic.client.tools.ToolPaths;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -22,6 +23,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -133,7 +135,7 @@ class AuditRegressionTest {
             service.cancelAll();
             var add = DownloadService.class.getDeclaredMethod("add", List.class, Path.class, ToolPaths.class, ProcessRunner.Token.class);
             add.setAccessible(true);
-            var failure = assertThrows(java.lang.reflect.InvocationTargetException.class, () -> add.invoke(service, List.of(new DownloadModels.Entry(1, "Entry", "https://example.com/a", "Test", "a", true)), temp, new ToolPaths("", "", "", ""), token));
+            var failure = assertThrows(InvocationTargetException.class, () -> add.invoke(service, List.of(new DownloadModels.Entry(1, "Entry", "https://example.com/a", "Test", "a", true)), temp, new ToolPaths("", "", "", ""), token));
             assertInstanceOf(CancellationException.class, failure.getCause());
             assertTrue(service.snapshot().items().isEmpty());
         }
@@ -146,7 +148,7 @@ class AuditRegressionTest {
         try (var service = new DownloadService(temp, () -> {
         }, runner)) {
             service.configure(new ToolPaths(executable, executable, executable, ""));
-            var entries = java.util.stream.IntStream.range(0, 1000).mapToObj(i -> new DownloadModels.Entry(i + 1, "Unavailable " + i, "", "Test", "" + i, false)).toList();
+            var entries = IntStream.range(0, 1000).mapToObj(i -> new DownloadModels.Entry(i + 1, "Unavailable " + i, "", "Test", "" + i, false)).toList();
             service.enqueueSelected(entries, temp.resolve("music"));
             DownloadTest.await(() -> !service.snapshot().analyzing());
             var snapshot = service.snapshot();
@@ -181,7 +183,7 @@ class AuditRegressionTest {
         byte[] legacy = {'l', 'a', 's', 't', 'S', 'e', 'r', 'v', 'e', 'r', ':', (byte) 0xA4, (byte) 0xA4, '\n',
             'k', 'e', 'y', '_', 'k', 'e', 'y', '.', 'd', 'a', 'r', 'k', 'm', 'u', 's', 'i', 'c', '.', 'n', 'e', 'x', 't', ':', 'k', '\n'};
         Files.write(temp.resolve("legacy/options.txt"), legacy);
-        var warnings = new java.util.concurrent.CopyOnWriteArrayList<String>();
+        var warnings = new CopyOnWriteArrayList<String>();
         try (var io = Executors.newSingleThreadExecutor()) {
             var store = new ConfigStore(directory, io, warnings::add);
             var settings = io.submit(store::load).get();

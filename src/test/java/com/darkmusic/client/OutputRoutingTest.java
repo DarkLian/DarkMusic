@@ -10,9 +10,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.InputStream;
 import javax.sound.sampled.*;
 import java.lang.reflect.Proxy;
 import java.nio.file.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 
@@ -52,7 +56,7 @@ class OutputRoutingTest {
                 case "write" -> {
                     int n = (int) args[2];
                     if (first == null)
-                        first = java.util.Arrays.copyOfRange((byte[]) args[0], (int) args[1], (int) args[1] + n);
+                        first = Arrays.copyOfRange((byte[]) args[0], (int) args[1], (int) args[1] + n);
                     frames.addAndGet(n / format.getFrameSize());
                     Thread.sleep(2);
                     yield n;
@@ -64,7 +68,7 @@ class OutputRoutingTest {
 
     private AudioInputStream loop(TestMusic.Clip clip) {
         byte[] bytes = clip.bytes();
-        var input = new java.io.InputStream() {
+        var input = new InputStream() {
             int at;
 
             public int read() {
@@ -209,8 +213,8 @@ class OutputRoutingTest {
         var results = LoudnessCache.class.getDeclaredField("results");
         results.setAccessible(true);
         var type = Class.forName("com.darkmusic.client.audio.LoudnessCache$Reading");
-        Object reading = ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(java.util.Map.of("lufs", lufs, "peakDb", -6, "source", "ANALYSIS")), type);
-        ((java.util.Map<String, Object>) results.get(cache)).put(track.file().toAbsolutePath() + ":" + track.size() + ":" + track.modified() + ":TRACK", reading);
+        Object reading = ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(Map.of("lufs", lufs, "peakDb", -6, "source", "ANALYSIS")), type);
+        ((Map<String, Object>) results.get(cache)).put(track.file().toAbsolutePath() + ":" + track.size() + ":" + track.modified() + ":TRACK", reading);
     }
 
     private Track realTrack() throws Exception {
@@ -224,7 +228,7 @@ class OutputRoutingTest {
         var clip = TestMusic.clip();
         var track = realTrack();
         String key = track.file().toAbsolutePath() + ":" + track.size() + ":" + track.modified() + ":TRACK";
-        Files.writeString(directory.resolve("loudness-cache.json"), ConfigStore.JSON.toJson(java.util.Map.of(key, java.util.Map.of("lufs", -8, "peakDb", -2, "source", "ANALYSIS"))));
+        Files.writeString(directory.resolve("loudness-cache.json"), ConfigStore.JSON.toJson(Map.of(key, Map.of("lufs", -8, "peakDb", -2, "source", "ANALYSIS"))));
         ExternalAudio.configure(() -> new ExternalAudio.Paths(directory, "", ""));
         var line = new AtomicReference<Line>();
         var errors = new AtomicReference<String>();
@@ -292,7 +296,7 @@ class OutputRoutingTest {
             }, errors::set);
             StorageTest.await(() -> backend.state().status() == AudioBackend.Status.PLAYING && backend.state().position() > .1);
             cacheReading(backend, track, -8);
-            var changes = new java.util.ArrayList<CompletableFuture<Boolean>>();
+            var changes = new ArrayList<CompletableFuture<Boolean>>();
             for (int i = 0; i < 24; i++) {
                 boolean reject = i % 3 == 0;
                 changes.add(backend.output(f -> {
@@ -330,7 +334,7 @@ class OutputRoutingTest {
             var second = new Track("real", "second", data.resolve("second"), "", "", "", 4, 10, 20, "");
             String aKey = first.file().toAbsolutePath() + ":10:20:TRACK", bKey = second.file().toAbsolutePath() + ":10:20:TRACK";
             Files.writeString(data.resolve("loudness-cache.json"), ConfigStore.JSON.toJson(
-                java.util.Map.of(aKey, java.util.Map.of("lufs", -8, "peakDb", -6), bKey, java.util.Map.of("lufs", -6, "peakDb", -6))));
+                Map.of(aKey, Map.of("lufs", -8, "peakDb", -6), bKey, Map.of("lufs", -6, "peakDb", -6))));
             var settings = new AudioSettings();
             settings.neutral = false;
             settings.normalization = true;

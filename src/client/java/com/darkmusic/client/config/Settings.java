@@ -2,7 +2,10 @@ package com.darkmusic.client.config;
 
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * Mutable only on the client thread after loading.
@@ -10,11 +13,11 @@ import java.util.Map;
 public final class Settings {
     public int schemaVersion = 1;
     public String musicDirectory = "";
-    public java.util.List<String> musicFolders;
+    public List<String> musicFolders;
     public String outputDevice = "";
     public Map<String, String> roots = new LinkedHashMap<>();
     public Map<String, String> shortcuts = new LinkedHashMap<>();
-    public transient java.util.Set<String> nativeShortcutNames = java.util.Set.of();
+    public transient Set<String> nativeShortcutNames = Set.of();
     public double volume = 1;
     public double lastAudibleVolume = 1;
     public boolean shuffle;
@@ -144,7 +147,7 @@ public final class Settings {
     private void validateLibrary() {
         if (musicDirectory == null) musicDirectory = "";
         if (musicFolders != null)
-            musicFolders = musicFolders.stream().filter(java.util.Objects::nonNull).filter(p -> !p.isBlank()).distinct().toList();
+            musicFolders = musicFolders.stream().filter(Objects::nonNull).filter(p -> !p.isBlank()).distinct().toList();
         if (roots == null) roots = new LinkedHashMap<>();
         if (shortcuts == null) shortcuts = new LinkedHashMap<>();
     }
@@ -226,7 +229,7 @@ public final class Settings {
         waveform.validate();
         if (hudBackgroundColors == null) hudBackgroundColors = backgroundColors();
         hudBackgroundColors.validate();
-        if (!java.util.Set.of("TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT").contains(hudPosition == null ? "" : hudPosition))
+        if (!Set.of("TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT").contains(hudPosition == null ? "" : hudPosition))
             hudPosition = "TOP_LEFT";
         if (progressColors == null) progressColors = defaultVisualColors();
         progressColors.validate();

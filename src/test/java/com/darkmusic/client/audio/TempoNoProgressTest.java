@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.sound.sampled.*;
 import java.io.*;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -20,7 +21,7 @@ class TempoNoProgressTest {
             }
         };
         var converter = new PcmRateConverter(input);
-        assertTimeoutPreemptively(java.time.Duration.ofSeconds(2), () -> {
+        assertTimeoutPreemptively(Duration.ofSeconds(2), () -> {
             assertEquals(0, converter.read(new float[2048], 2048, 1.2, 44100, true));
             assertEquals(0, converter.read(new float[2048], 2048, 1.2, 44100, true));
         });

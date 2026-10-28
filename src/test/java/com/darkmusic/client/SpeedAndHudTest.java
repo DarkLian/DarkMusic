@@ -9,6 +9,7 @@ import com.darkmusic.client.library.ArtworkCache;
 import com.darkmusic.client.library.MetadataReader;
 import org.junit.jupiter.api.Test;
 
+import javax.imageio.ImageIO;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import java.io.ByteArrayInputStream;
@@ -107,7 +108,7 @@ class SpeedAndHudTest {
     @Test
     void realEmbeddedArtworkIsLetterboxedWithoutStretching() throws Exception {
         byte[] bytes = new MetadataReader().artwork(TestMusic.featured());
-        var original = javax.imageio.ImageIO.read(new ByteArrayInputStream(bytes));
+        var original = ImageIO.read(new ByteArrayInputStream(bytes));
         var image = ArtworkCache.fitArtwork(original);
         assertEquals(Math.min(ArtworkCache.MAX_SIZE, Math.max(original.getWidth(), original.getHeight())), image.getWidth());
         assertEquals(image.getWidth(), image.getHeight());

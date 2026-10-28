@@ -10,7 +10,11 @@ import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+
+import java.util.Locale;
 
 /**
  * Timed playback view and readable untimed text share the selected lyric document.
@@ -19,7 +23,7 @@ public final class LyricsScreen extends LocalScreen {
     private final DarkMusicClient app;
     private final Track fixed;
     private RowList plain;
-    private net.minecraft.client.gui.components.Button search, versions, options;
+    private Button search, versions, options;
     private LyricsDocument rendered;
     private int first;
     private boolean browsing;
@@ -101,7 +105,7 @@ public final class LyricsScreen extends LocalScreen {
             longText.draw(g, font, "track", track.title() + " | " + track.artist(), 22, 42, width - 44, UiTheme.TEXT);
         String language = app.lyrics.lookup.choice(track).language();
         if (language.equals("auto"))
-            language = document.language().equals("und") ? Text.get("lyrics.script." + document.script().name().toLowerCase(java.util.Locale.ROOT)) : document.language();
+            language = document.language().equals("und") ? Text.get("lyrics.script." + document.script().name().toLowerCase(Locale.ROOT)) : document.language();
         longText.draw(g, font, "provider", Text.get("lyrics.provenance", Text.get("lyrics.provider." + (document.provider().isBlank() ? "unknown" : document.provider())),
             Text.get(document.synchronizedLyrics() ? "lyrics.synced" : "lyrics.plain"), language,
             document.generated() ? Text.get("lyrics.generated") : ""), 22, 60, width - 44, UiTheme.SECONDARY);
@@ -112,7 +116,7 @@ public final class LyricsScreen extends LocalScreen {
             String key = !app.settings.lyricsEnabled ? "lyrics.darkmusic.disabled" : document.instrumental() ? "lyrics.instrumental"
                 : !app.lyrics.inspected(track) || status == LyricsLookup.Status.SEARCHING ? "lyrics.status.searching"
                 : status != LyricsLookup.Status.IDLE && status != LyricsLookup.Status.DISABLED
-                ? "lyrics.status." + status.name().toLowerCase(java.util.Locale.ROOT) : "lyrics.find_prompt";
+                ? "lyrics.status." + status.name().toLowerCase(Locale.ROOT) : "lyrics.find_prompt";
             g.centeredText(font, Text.get(key), width / 2, Math.max(90, height / 2), UiStatus.color(!app.settings.lyricsEnabled ? UiStatus.Tone.WARNING : document.instrumental() ? UiStatus.Tone.SUCCESS : UiStatus.lyrics(status)));
         } else if (document.synchronizedLyrics()) {
             int visible = Math.max(1, (height - 120) / 24);
@@ -132,11 +136,11 @@ public final class LyricsScreen extends LocalScreen {
     }
 
     @Override
-    public net.minecraft.network.chat.Component getNarrationMessage() {
+    public Component getNarrationMessage() {
         var track = track();
         var data = app.lyrics.get(track);
         int current = current();
-        return net.minecraft.network.chat.Component.literal(title.getString() + (track == null ? "" : ": " + track.title())
+        return Component.literal(title.getString() + (track == null ? "" : ": " + track.title())
             + (current >= 0 && current < data.lines().size() ? ": " + data.lines().get(current).text() : ""));
     }
 }

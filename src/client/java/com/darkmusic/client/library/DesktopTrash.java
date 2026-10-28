@@ -1,6 +1,9 @@
 package com.darkmusic.client.library;
 
+import org.slf4j.LoggerFactory;
+
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.*;
@@ -41,7 +44,7 @@ final class DesktopTrash implements AudioDeletion.Trash {
             var tail = diagnostics;
             var errors = process.getErrorStream();
             Thread.ofVirtual().name("darkmusic-trash-errors").start(() -> {
-                try (var reader = new InputStreamReader(errors, java.nio.charset.StandardCharsets.UTF_8)) {
+                try (var reader = new InputStreamReader(errors, StandardCharsets.UTF_8)) {
                     char[] buffer = new char[512];
                     int count;
                     while ((count = reader.read(buffer)) >= 0) if (count > 0) tail.append(new String(buffer, 0, count));
@@ -53,7 +56,7 @@ final class DesktopTrash implements AudioDeletion.Trash {
             available = response(input::readBoolean, 10);
             return available;
         } catch (Exception failure) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Desktop Trash is unavailable", failure);
+            LoggerFactory.getLogger("darkmusic").warn("Desktop Trash is unavailable", failure);
             close();
             return false;
         }
@@ -74,10 +77,10 @@ final class DesktopTrash implements AudioDeletion.Trash {
                 return input.readBoolean();
             }, 120);
             if (!moved)
-                org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Desktop Trash rejected {}: {}", file, diagnostics);
+                LoggerFactory.getLogger("darkmusic").warn("Desktop Trash rejected {}: {}", file, diagnostics);
             return moved;
         } catch (Exception failure) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Desktop Trash operation failed for {}: {}", file, diagnostics, failure);
+            LoggerFactory.getLogger("darkmusic").warn("Desktop Trash operation failed for {}: {}", file, diagnostics, failure);
             close();
             return false;
         }

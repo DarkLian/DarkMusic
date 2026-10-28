@@ -6,12 +6,17 @@ import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.gui.PipEditorScreen;
 import com.darkmusic.client.gui.PipScreen;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 
+import java.io.IOException;
 import java.nio.file.*;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.*;
 
 /**
@@ -51,7 +56,7 @@ final class PipSmoothClient {
             }
         });
         ScreenEvents.AFTER_INIT.register((mc, screen, w, h) -> ScreenEvents.afterExtract(screen).register((s, g, x, y, delta) -> record(mc)));
-        net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry.addLast(net.minecraft.resources.Identifier.fromNamespaceAndPath("darkmusic_smoke", "pip_metrics"), (g, delta) -> {
+        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("darkmusic_smoke", "pip_metrics"), (g, delta) -> {
             var mc = Minecraft.getInstance();
             if (mc.gui.screen() == null) record(mc);
         });
@@ -78,7 +83,7 @@ final class PipSmoothClient {
     /**
      * Disposable copy of an existing development world, so the shared run folder is never opened.
      */
-    private void joinBenchmarkWorld(Minecraft mc) throws java.io.IOException {
+    private void joinBenchmarkWorld(Minecraft mc) throws IOException {
         if (System.getProperty("darkmusic.pipWorldSource") == null)
             throw new IllegalStateException("Joining a world needs -PpipWorldSource=<existing world folder>");
         var source = Path.of(System.getProperty("darkmusic.pipWorldSource"));
@@ -128,7 +133,7 @@ final class PipSmoothClient {
     private void note(String text) {
         try {
             Files.writeString(folder.resolve("select.log"), System.currentTimeMillis() + " " + text + System.lineSeparator(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (java.io.IOException ignored) {
+        } catch (IOException ignored) {
         }
     }
 
@@ -184,7 +189,7 @@ final class PipSmoothClient {
                     GLFW.glfwFocusWindow(mc.getWindow().handle());
                     refocuses++;
                 }
-                if (mc.gui.screen() instanceof net.minecraft.client.gui.screens.PauseScreen) mc.gui.setScreen(null);
+                if (mc.gui.screen() instanceof PauseScreen) mc.gui.setScreen(null);
                 titledSource(mc, app);
             }
             if (stage == 2 && Files.exists(folder.resolve("check-spectrum"))) {
@@ -202,7 +207,7 @@ final class PipSmoothClient {
             if (stage == 2 && ticks % 20 == 0) {
                 if (Files.isRegularFile(folder.resolve("phase"))) {
                     String requested = Files.readString(folder.resolve("phase")).strip();
-                    if (!requested.equals(phase) && java.util.Set.of("off", "video", "video4", "audio").contains(requested) && app.pip.source() != null) {
+                    if (!requested.equals(phase) && Set.of("off", "video", "video4", "audio").contains(requested) && app.pip.source() != null) {
                         app.pip.stop();
                         phase = requested;
                         if (requested.equals("video4")) System.setProperty("darkmusic.pip.minIntervalMs", "4");

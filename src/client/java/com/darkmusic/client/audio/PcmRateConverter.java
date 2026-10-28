@@ -2,6 +2,7 @@ package com.darkmusic.client.audio;
 
 import com.darkmusic.client.config.Settings;
 
+import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import java.io.IOException;
 
@@ -29,7 +30,7 @@ public final class PcmRateConverter {
         this.input = input;
         channels = input.getFormat().getChannels();
         sampleBytes = input.getFormat().getSampleSizeInBits() / 8;
-        floating = input.getFormat().getEncoding().equals(javax.sound.sampled.AudioFormat.Encoding.PCM_FLOAT);
+        floating = input.getFormat().getEncoding().equals(AudioFormat.Encoding.PCM_FLOAT);
         frameSize = channels * sampleBytes;
         if (channels < 1 || channels > 2 || sampleBytes < 2 || sampleBytes > 4 || floating && sampleBytes != 4 || input.getFormat().isBigEndian())
             throw new IllegalArgumentException("Expected little-endian 16/24/32-bit or float mono/stereo PCM");

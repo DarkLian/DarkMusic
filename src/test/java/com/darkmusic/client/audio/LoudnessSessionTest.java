@@ -6,6 +6,7 @@ import com.darkmusic.client.library.Track;
 import com.darkmusic.client.media.ExternalAudio;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.*;
 import java.util.Map;
@@ -15,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class LoudnessSessionTest {
     @org.junit.jupiter.api.BeforeAll
     static void initializeLoggingBeforeBackgroundWorkers() {
-        org.slf4j.LoggerFactory.getLogger(LoudnessSessionTest.class);
+        LoggerFactory.getLogger(LoudnessSessionTest.class);
     }
 
     @TempDir

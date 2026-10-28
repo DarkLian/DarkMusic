@@ -5,6 +5,7 @@ import com.darkmusic.client.audio.OutputDevices;
 import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -61,7 +62,7 @@ public final class OutputDeviceScreen extends AudioPage {
             } else {
                 status = Text.get("device.failed");
                 statusTone = UiStatus.Tone.ERROR;
-                org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Cannot enumerate audio outputs", error);
+                LoggerFactory.getLogger("darkmusic").warn("Cannot enumerate audio outputs", error);
             }
             if (isCurrent()) rebuildWidgets();
         }));

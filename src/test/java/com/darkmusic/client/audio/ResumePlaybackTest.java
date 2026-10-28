@@ -1,6 +1,7 @@
 package com.darkmusic.client.audio;
 
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.config.Settings;
 import org.junit.jupiter.api.Test;
 
@@ -57,9 +58,9 @@ class ResumePlaybackTest {
         assertEquals(b, playback.upcoming());
         playback.addToQueue(c);
         assertEquals(c, playback.upcoming());
-        playback.repeat(com.darkmusic.client.config.Repeat.ONE);
+        playback.repeat(Repeat.ONE);
         assertEquals(a, playback.upcoming());
-        playback.repeat(com.darkmusic.client.config.Repeat.OFF);
+        playback.repeat(Repeat.OFF);
         playback.stopAfterCurrent(true);
         assertNull(playback.upcoming());
     }

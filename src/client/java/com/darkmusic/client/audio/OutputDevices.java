@@ -1,6 +1,7 @@
 package com.darkmusic.client.audio;
 
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.Hashes;
 
 import javax.sound.sampled.*;
 import java.util.*;
@@ -27,7 +28,7 @@ public final class OutputDevices implements JavaSoundBackend.Output {
     }
 
     static String id(Mixer.Info info) {
-        return com.darkmusic.client.tools.Hashes.sha256(info.getName() + "\n" + info.getVendor() + "\n" + info.getDescription() + "\n" + info.getVersion());
+        return Hashes.sha256(info.getName() + "\n" + info.getVendor() + "\n" + info.getDescription() + "\n" + info.getVersion());
     }
 
     private static List<Mixer.Info> mixers() {

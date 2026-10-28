@@ -7,10 +7,12 @@ import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 import java.util.function.BooleanSupplier;
 
@@ -19,13 +21,13 @@ import java.util.function.BooleanSupplier;
  */
 public final class SettingRow extends AbstractWidget {
     @Override
-    public void setTooltip(net.minecraft.client.gui.components.Tooltip tooltip) {
+    public void setTooltip(Tooltip tooltip) {
         super.setTooltip(tooltip);
         Help.remember(this, tooltip);
     }
 
     @Override
-    protected void extractTooltipForNextRenderPass(net.minecraft.client.gui.GuiGraphicsExtractor g, int x, int y) {
+    protected void extractTooltipForNextRenderPass(GuiGraphicsExtractor g, int x, int y) {
         Help.extract(this, g, x, y);
     }
 
@@ -193,7 +195,7 @@ public final class SettingRow extends AbstractWidget {
     }
 
     @Override
-    protected net.minecraft.network.chat.MutableComponent createNarrationMessage() {
+    protected MutableComponent createNarrationMessage() {
         var label = kind == Kind.OPTION && chosen ? Text.component("ui.darkmusic.option_selected", getMessage()) : getMessage();
         return wrapDefaultNarrationMessage(checked == null ? description.isEmpty() ? label : label.copy().append(". " + description) : Text.component(checked.getAsBoolean() ? "format.darkmusic.setting_on" : "format.darkmusic.setting_off", getMessage()));
     }

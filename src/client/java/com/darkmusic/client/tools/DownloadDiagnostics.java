@@ -3,6 +3,9 @@ package com.darkmusic.client.tools;
 import com.darkmusic.client.text.Text;
 
 import java.io.IOException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
+import java.nio.file.FileSystemException;
 import java.util.Locale;
 import java.util.concurrent.CancellationException;
 import java.util.regex.Pattern;
@@ -118,7 +121,7 @@ public final class DownloadDiagnostics {
         for (Throwable cause = error; cause != null && depth++ < 16; cause = cause.getCause()) {
             if (typed == null && cause instanceof Failure f) typed = f;
             cancelled |= cause instanceof CancellationException || cause instanceof InterruptedException;
-            storage |= cause instanceof java.nio.file.FileSystemException;
+            storage |= cause instanceof FileSystemException;
         }
         Stage stage = typed == null ? fallback : typed.stage;
         Tool tool = typed == null ? Tool.NONE : typed.tool;
@@ -146,9 +149,9 @@ public final class DownloadDiagnostics {
             else if ((tool == Tool.YT_DLP || tool == Tool.NONE && (stage == Stage.ANALYSIS || stage == Stage.COLLECTION))
                 && contains(text, "unable to extract", "failed to extract", "extractor error"))
                 category = Category.EXTRACTOR_FAILURE;
-            else if (contains(text, "timed out", "timeout") || error instanceof java.net.SocketTimeoutException)
+            else if (contains(text, "timed out", "timeout") || error instanceof SocketTimeoutException)
                 category = Category.NETWORK_TIMEOUT;
-            else if (contains(text, "name resolution", "unable to resolve", "connection refused", "connection reset", "network is unreachable", "remote end closed") || error instanceof java.net.UnknownHostException)
+            else if (contains(text, "name resolution", "unable to resolve", "connection refused", "connection reset", "network is unreachable", "remote end closed") || error instanceof UnknownHostException)
                 category = Category.NETWORK_FAILURE;
             else if (contains(text, "requested format is not available"))
                 category = Category.TOOL_INCOMPATIBLE;

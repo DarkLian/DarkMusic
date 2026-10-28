@@ -3,9 +3,13 @@ package com.darkmusic.client;
 import com.darkmusic.client.library.MusicFolders;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
+import net.minecraft.util.Util;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Music folder choices from menus. Checks run on the browse pool; settings change on the client thread only.
@@ -40,7 +44,7 @@ public final class FolderActions {
         app.browse(() -> {
             try {
                 if (!Files.isDirectory(directory) || !Files.isReadable(directory))
-                    throw new java.io.IOException("Directory unavailable or unreadable");
+                    throw new IOException("Directory unavailable or unreadable");
                 Path canonical = directory.toRealPath();
                 Minecraft.getInstance().execute(() -> {
                     if (app.idle() && ticket == generation) {
@@ -50,9 +54,9 @@ public final class FolderActions {
                             return;
                         }
                         var settings = app.settings;
-                        var folders = new java.util.ArrayList<>(settings.musicFolders);
+                        var folders = new ArrayList<>(settings.musicFolders);
                         if (!folders.contains(canonical.toString())) folders.add(canonical.toString());
-                        settings.musicFolders = java.util.List.copyOf(folders);
+                        settings.musicFolders = List.copyOf(folders);
                         settings.musicDirectory = canonical.toString();
                         activate(canonical);
                         success.run();
@@ -87,7 +91,7 @@ public final class FolderActions {
             try {
                 var canonical = directory.toRealPath();
                 if (!Files.isDirectory(canonical) || !Files.isReadable(canonical))
-                    throw new java.io.IOException("Unreadable music folder");
+                    throw new IOException("Unreadable music folder");
                 Minecraft.getInstance().execute(() -> {
                     if (!app.idle() || ticket != generation) return;
                     if (MusicFolders.overlaps(app.library.roots().keySet(), canonical)) {
@@ -95,9 +99,9 @@ public final class FolderActions {
                         return;
                     }
                     var settings = app.settings;
-                    var folders = new java.util.ArrayList<>(settings.musicFolders);
+                    var folders = new ArrayList<>(settings.musicFolders);
                     folders.add(canonical.toString());
-                    settings.musicFolders = java.util.List.copyOf(folders);
+                    settings.musicFolders = List.copyOf(folders);
                     activate(app.library.root());
                 });
             } catch (Exception e) {
@@ -125,8 +129,8 @@ public final class FolderActions {
         app.browse(() -> {
             try {
                 if (!Files.isDirectory(directory))
-                    throw new java.io.IOException("The configured music directory is unavailable");
-                net.minecraft.util.Util.getPlatform().openPath(directory);
+                    throw new IOException("The configured music directory is unavailable");
+                Util.getPlatform().openPath(directory);
             } catch (Exception e) {
                 app.warn(Text.failure(e, "error.folder"));
             }

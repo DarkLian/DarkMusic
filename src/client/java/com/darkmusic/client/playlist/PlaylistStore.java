@@ -3,6 +3,8 @@ package com.darkmusic.client.playlist;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
+import com.google.gson.JsonParser;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -74,7 +76,7 @@ public final class PlaylistStore {
                 try {
                     ConfigStore.atomicWrite(file.resolveSibling("playlist-retained.json"), json);
                 } catch (Exception e) {
-                    org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Cannot save imported playlist references", e);
+                    LoggerFactory.getLogger("darkmusic").warn("Cannot save imported playlist references", e);
                 }
             });
         }
@@ -95,11 +97,11 @@ public final class PlaylistStore {
             }
         } catch (Exception e) {
             retainedHealthy = false;
-            org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Cannot load imported playlist references", e);
+            LoggerFactory.getLogger("darkmusic").warn("Cannot load imported playlist references", e);
         }
         try {
             if (Files.exists(file)) try (var reader = Files.newBufferedReader(file)) {
-                var json = com.google.gson.JsonParser.parseReader(reader);
+                var json = JsonParser.parseReader(reader);
                 if (!json.isJsonArray()) throw new IllegalArgumentException("Missing playlist array");
                 var result = new ArrayList<Playlist>();
                 var ids = new HashSet<String>();
@@ -348,7 +350,7 @@ public final class PlaylistStore {
             try {
                 ConfigStore.atomicWrite(file.resolveSibling("playlist-retained.json"), retainedJson);
             } catch (Exception e) {
-                org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Cannot save imported playlist references", e);
+                LoggerFactory.getLogger("darkmusic").warn("Cannot save imported playlist references", e);
             }
         });
         refreshFavorites();

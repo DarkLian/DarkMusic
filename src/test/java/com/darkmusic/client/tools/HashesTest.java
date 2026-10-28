@@ -3,6 +3,7 @@ package com.darkmusic.client.tools;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -20,7 +21,7 @@ class HashesTest {
     void textBytesAndFilesShareOneLowercaseDigest() throws Exception {
         Path file = Files.writeString(temp.resolve("abc.txt"), "abc");
         assertEquals(ABC, Hashes.sha256("abc"));
-        assertEquals(ABC, Hashes.sha256("abc".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        assertEquals(ABC, Hashes.sha256("abc".getBytes(StandardCharsets.UTF_8)));
         assertEquals(ABC, Hashes.sha256(file));
         assertEquals(ABC, Hashes.sha256(file, LinkOption.NOFOLLOW_LINKS));
         assertEquals(ABC, Hashes.sha256(file, new ProcessRunner.Token()));

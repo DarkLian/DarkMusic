@@ -3,15 +3,18 @@ package com.darkmusic.client.gui;
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
 
 /**
  * The desktop modal loop lives in an isolated JDK helper, never Minecraft's render thread.
@@ -57,8 +60,8 @@ public final class DesktopFolderPicker {
                     try (var input = Files.newInputStream(log)) {
                         details = new String(input.readNBytes(8192), StandardCharsets.UTF_8);
                     }
-                    org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Desktop dialog failed: {}", details);
-                    throw new java.io.IOException(Text.get("error.folder"));
+                    LoggerFactory.getLogger("darkmusic").warn("Desktop dialog failed: {}", details);
+                    throw new IOException(Text.get("error.folder"));
                 }
                 String selected = Files.readString(result);
                 return selected.isBlank() ? null : Path.of(selected);
@@ -71,7 +74,7 @@ public final class DesktopFolderPicker {
                 for (Path file : new Path[]{result, log})
                     if (file != null) try {
                         Files.deleteIfExists(file);
-                    } catch (java.io.IOException ignored) {
+                    } catch (IOException ignored) {
                     }
                 OPEN.set(false);
             }
@@ -82,7 +85,7 @@ public final class DesktopFolderPicker {
         CANCELLED.set(true);
     }
 
-    public static void open(DarkMusicClient app, java.util.function.BooleanSupplier current) {
+    public static void open(DarkMusicClient app, BooleanSupplier current) {
         if (OPEN.get()) return;
         var mc = Minecraft.getInstance();
         boolean fullscreen = mc.getWindow().isFullscreen();

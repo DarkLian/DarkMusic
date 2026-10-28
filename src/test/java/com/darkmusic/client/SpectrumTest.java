@@ -6,12 +6,14 @@ import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.hud.HudLayout;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class SpectrumTest {
     private static byte[] music(int frames, double volume) throws Exception {
         var clip = TestMusic.clip();
-        byte[] pcm = java.util.Arrays.copyOf(clip.bytes(), frames * clip.format().getFrameSize());
+        byte[] pcm = Arrays.copyOf(clip.bytes(), frames * clip.format().getFrameSize());
         JavaSoundBackend.scale(pcm, pcm.length, volume);
         return pcm;
     }

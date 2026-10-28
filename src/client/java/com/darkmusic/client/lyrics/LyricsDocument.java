@@ -8,6 +8,7 @@ import com.google.gson.annotations.JsonAdapter;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Immutable lyric content; timing and provenance never depend on the interface language.
@@ -49,7 +50,7 @@ public record LyricsDocument(String provider, String recordId, String title, Str
         if (!timed.lines().isEmpty()) plain = timed.lines().stream().map(Lrc.Line::text).toList();
         if (plain.stream().allMatch(String::isBlank)) plain = List.of();
         return new LyricsDocument(provider, id, title, artist, album, duration,
-            LyricsLanguages.normalizeLanguage(language), variant == null ? Variant.UNKNOWN : variant, generated, instrumental, text, timed, plain, LyricsScript.detect(timed.lines().isEmpty() ? text : timed.lines().stream().map(Lrc.Line::text).collect(java.util.stream.Collectors.joining("\n"))));
+            LyricsLanguages.normalizeLanguage(language), variant == null ? Variant.UNKNOWN : variant, generated, instrumental, text, timed, plain, LyricsScript.detect(timed.lines().isEmpty() ? text : timed.lines().stream().map(Lrc.Line::text).collect(Collectors.joining("\n"))));
     }
 
     public boolean synchronizedLyrics() {

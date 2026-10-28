@@ -2,12 +2,19 @@ package com.darkmusic.client.library;
 
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.text.Text;
+import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.nio.file.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * Device-clock listening totals. Storage never runs on the audio or render thread.
@@ -26,7 +33,7 @@ public final class ListeningHistory {
     private final Path file;
     private final Executor io;
     private final Consumer<String> warning;
-    private volatile java.util.concurrent.ConcurrentMap<String, Entry> entries = new java.util.concurrent.ConcurrentHashMap<>();
+    private volatile ConcurrentMap<String, Entry> entries = new ConcurrentHashMap<>();
     private long session = -1, lastFlush, revision;
     private double heard;
     private boolean counted, dirty, ready;
@@ -102,8 +109,8 @@ public final class ListeningHistory {
         try {
             Map<String, Entry> loaded = Map.of();
             if (Files.exists(file)) {
-                if (Files.size(file) > 32_000_000) throw new java.io.IOException("Listening history exceeds 32 MB");
-                var json = com.google.gson.JsonParser.parseString(Files.readString(file)).getAsJsonObject();
+                if (Files.size(file) > 32_000_000) throw new IOException("Listening history exceeds 32 MB");
+                var json = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
                 if (json.has("version")) {
                     var data = ConfigStore.JSON.fromJson(json, Data.class);
                     if (data.version != 1) throw new IllegalArgumentException("Unsupported history version");
@@ -113,7 +120,7 @@ public final class ListeningHistory {
             }
             validate(loaded);
             synchronized (this) {
-                entries = new java.util.concurrent.ConcurrentHashMap<>(loaded);
+                entries = new ConcurrentHashMap<>(loaded);
                 ready = true;
                 revision++;
             }
@@ -122,7 +129,7 @@ public final class ListeningHistory {
                 ready = true;
                 writable = false;
             }
-            org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Cannot load listening history", e);
+            LoggerFactory.getLogger("darkmusic").warn("Cannot load listening history", e);
             // Preserve unreadable data until an explicit clear or import replaces it.
             warning.accept(Text.get("history.load_failed"));
         }
@@ -148,7 +155,7 @@ public final class ListeningHistory {
         String key = track.id();
         if (!entries.containsKey(key) && entries.size() >= 100_000) {
             if (!capacityReported)
-                org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Listening history reached its 100,000-track limit; existing history retained");
+                LoggerFactory.getLogger("darkmusic").warn("Listening history reached its 100,000-track limit; existing history retained");
             capacityReported = true;
             return;
         }
@@ -171,7 +178,7 @@ public final class ListeningHistory {
     /**
      * Retain this history generation; copying its immutable records is deferred to the storage worker.
      */
-    public java.util.function.Supplier<Map<String, Entry>> snapshotSource() {
+    public Supplier<Map<String, Entry>> snapshotSource() {
         var source = entries;
         return () -> Map.copyOf(source);
     }
@@ -186,7 +193,7 @@ public final class ListeningHistory {
 
     public synchronized void replace(Map<String, Entry> values) {
         validate(values);
-        entries = new java.util.concurrent.ConcurrentHashMap<>(values);
+        entries = new ConcurrentHashMap<>(values);
         ready = writable = true;
         dirty = true;
         revision++;
@@ -224,10 +231,10 @@ public final class ListeningHistory {
                 synchronized (this) {
                     dirty = true;
                     long failedAt = System.nanoTime();
-                    notify = lastWriteWarning == 0 || failedAt - lastWriteWarning >= java.util.concurrent.TimeUnit.MINUTES.toNanos(5);
+                    notify = lastWriteWarning == 0 || failedAt - lastWriteWarning >= TimeUnit.MINUTES.toNanos(5);
                     if (notify) lastWriteWarning = failedAt;
                 }
-                org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Cannot save listening history", e);
+                LoggerFactory.getLogger("darkmusic").warn("Cannot save listening history", e);
                 if (notify) warning.accept(Text.get("history.save_failed"));
             }
         });

@@ -8,11 +8,17 @@ import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 
 public final class PlaylistScreen extends LocalScreen {
     private final DarkMusicClient app;
@@ -48,7 +54,7 @@ public final class PlaylistScreen extends LocalScreen {
     }
 
     @Override
-    public void onFilesDrop(List<java.nio.file.Path> files) {
+    public void onFilesDrop(List<Path> files) {
         app.media.importAudio(files, "", selected() == null ? "" : selectedId);
     }
 
@@ -88,7 +94,7 @@ public final class PlaylistScreen extends LocalScreen {
                 app.playlists.delete(playlist.id());
                 selectedId = "";
                 selection.clear();
-                return java.util.concurrent.CompletableFuture.completedFuture(null);
+                return CompletableFuture.completedFuture(null);
             }));
         }, Text.get("confirm.darkmusic.delete_help")), UiIcon.DELETE, true);
         create.visible = rename.visible = delete.visible = !compact || browsing;
@@ -129,7 +135,7 @@ public final class PlaylistScreen extends LocalScreen {
         }, Text.get("text.darkmusic.select_library_songs_not_already_added_to_this_playlist"));
         remove = button(Text.get("text.darkmusic.remove_selected"), entryX + entryWidth - actionWidth, 38, actionWidth, () -> {
             String id = selectedId;
-            var keys = java.util.Set.copyOf(selection.selected());
+            var keys = Set.copyOf(selection.selected());
             Runnable removeEntries = () -> {
                 app.playlists.removeAll(id, keys);
                 selection.clear();
@@ -138,7 +144,7 @@ public final class PlaylistScreen extends LocalScreen {
             if (keys.size() > 1) show(new ConfirmationScreen(this, Text.component("text.darkmusic.remove_selected"),
                 Text.component("playlist.confirm_remove_entries", keys.size()), Text.component("text.darkmusic.remove_selected"), () -> {
                 removeEntries.run();
-                return java.util.concurrent.CompletableFuture.completedFuture(null);
+                return CompletableFuture.completedFuture(null);
             }));
             else removeEntries.run();
         }, Text.get("text.darkmusic.remove_all_checked_entries_from_this_playlist"));
@@ -152,7 +158,7 @@ public final class PlaylistScreen extends LocalScreen {
         lists.emptyMessage(Text.get("ui.darkmusic.no_playlists"));
         if (compact && browsing)
             for (int i = footerStart; i < children().size(); i++)
-                if (children().get(i) instanceof net.minecraft.client.gui.components.AbstractWidget widget)
+                if (children().get(i) instanceof AbstractWidget widget)
                     widget.visible = false;
         refresh();
         lists.scrollOffset(listScroll);
@@ -169,7 +175,7 @@ public final class PlaylistScreen extends LocalScreen {
         }
         var library = app.library.snapshot().tracks();
         lists.rows(all.stream().map(p -> new RowList.Row(app.playlists.displayName(p) + " (" + app.playlists.resolve(p.id(), library).size() + ")", "")).toList());
-        lists.select(java.util.stream.IntStream.range(0, all.size()).filter(i -> all.get(i).id().equals(selectedId)).findFirst().orElse(-1));
+        lists.select(IntStream.range(0, all.size()).filter(i -> all.get(i).id().equals(selectedId)).findFirst().orElse(-1));
         refreshEntries();
     }
 
@@ -205,7 +211,7 @@ public final class PlaylistScreen extends LocalScreen {
     }
 
     @Override
-    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+    public boolean keyPressed(KeyEvent event) {
         if (event.key() == 256 && entries != null && entries.cancelDrag()) return true;
         if (event.key() == 256 && width < 480 && !browsing) {
             browsing = true;

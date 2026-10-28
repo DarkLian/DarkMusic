@@ -3,6 +3,7 @@ package com.darkmusic.client.library;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.Map;
 
@@ -24,7 +25,7 @@ public final class OpusMetadata {
         if (head.length < 47 || head[0] != 'O' || head[1] != 'g' || head[2] != 'g' || head[3] != 'S')
             throw new IOException("Invalid Opus header");
         int packet = 27 + (head[26] & 255);
-        if (packet + 19 > head.length || !new String(head, packet, 8, java.nio.charset.StandardCharsets.US_ASCII).equals("OpusHead"))
+        if (packet + 19 > head.length || !new String(head, packet, 8, StandardCharsets.US_ASCII).equals("OpusHead"))
             throw new IOException("Invalid Opus identification packet");
         var first = ByteBuffer.wrap(head).order(ByteOrder.LITTLE_ENDIAN);
         int serial = first.getInt(14), preSkip = Short.toUnsignedInt(first.getShort(packet + 10));

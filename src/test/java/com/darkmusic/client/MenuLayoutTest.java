@@ -12,9 +12,11 @@ import net.minecraft.client.gui.components.EditBox;
 import org.joml.Matrix3x2f;
 import org.junit.jupiter.api.Test;
 
+import javax.imageio.ImageIO;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.jar.JarFile;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -99,11 +101,11 @@ class MenuLayoutTest {
 
     @Test
     void packagedIconAtlasContainsEveryNativeWidgetIcon() throws Exception {
-        try (var jar = new java.util.jar.JarFile(System.getProperty("darkmusic.jar"))) {
+        try (var jar = new JarFile(System.getProperty("darkmusic.jar"))) {
             var entry = jar.getJarEntry("assets/darkmusic/textures/gui/icons.png");
             assertNotNull(entry, "The shared icon atlas must ship in the client JAR");
             try (var input = jar.getInputStream(entry)) {
-                var atlas = javax.imageio.ImageIO.read(input);
+                var atlas = ImageIO.read(input);
                 assertEquals(UiIcon.values().length * UiIcon.CELL, atlas.getWidth());
                 assertEquals(UiIcon.CELL, atlas.getHeight());
                 for (var icon : UiIcon.values()) {

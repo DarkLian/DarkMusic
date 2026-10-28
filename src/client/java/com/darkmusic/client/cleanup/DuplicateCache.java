@@ -2,6 +2,7 @@ package com.darkmusic.client.cleanup;
 
 import com.darkmusic.client.config.ConfigStore;
 import com.google.gson.*;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.*;
@@ -70,7 +71,7 @@ public final class DuplicateCache {
                         if (!current) dirty.add(assigned);
                     }
             } catch (Exception failure) {
-                org.slf4j.LoggerFactory.getLogger("darkmusic-cleanup").warn("Ignoring damaged duplicate cache shard {}", shard, failure);
+                LoggerFactory.getLogger("darkmusic-cleanup").warn("Ignoring damaged duplicate cache shard {}", shard, failure);
             }
         }
     }

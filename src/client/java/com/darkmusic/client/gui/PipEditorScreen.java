@@ -8,8 +8,11 @@ import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.*;
+
+import java.util.Locale;
 
 /**
  * Placement preserves source aspect ratio. Cropping changes UV coordinates, never the source window.
@@ -18,7 +21,7 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
     private final DarkMusicClient app;
     private final boolean crop;
     private boolean dragging, resizing;
-    private net.minecraft.client.gui.components.Button back, reset;
+    private Button back, reset;
     private double anchorX, anchorY, offsetX, offsetY, endX, endY;
 
     public PipEditorScreen(DarkMusicClient app, Screen parent, boolean crop) {
@@ -42,7 +45,7 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
         }).bounds(12, 4, 80, 20).build());
         if (crop) addRenderableWidget(UiButton.builder(Text.component("pip.crop_exact"), b -> {
             var s = app.settings.pip;
-            show(TextPromptScreen.validated(this, Text.get("pip.crop_exact.help"), String.format(java.util.Locale.ROOT, "%.1f %.1f %.1f %.1f", s.left * 100, s.top * 100, s.right * 100, s.bottom * 100), 128, input -> {
+            show(TextPromptScreen.validated(this, Text.get("pip.crop_exact.help"), String.format(Locale.ROOT, "%.1f %.1f %.1f %.1f", s.left * 100, s.top * 100, s.right * 100, s.bottom * 100), 128, input -> {
                 if (!s.cropPercent(input)) throw new IllegalArgumentException(Text.get("pip.crop_invalid"));
                 app.save();
                 return true;
@@ -182,7 +185,7 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
         positionControl(back, image, spectrum);
     }
 
-    private void positionControl(net.minecraft.client.gui.components.Button button, PipSettings.Bounds image, PipSettings.Bounds spectrum) {
+    private void positionControl(Button button, PipSettings.Bounds image, PipSettings.Bounds spectrum) {
         button.setY(PipEditorLayout.buttonY(height, image, spectrum, button.getX(), button.getWidth()));
         // A full-screen PiP has no free corner. Reveal the whole image while it is being dragged.
         button.visible = !dragging || PipEditorLayout.overlap(new PipSettings.Bounds(button.getX(), button.getY(), button.getWidth(), button.getHeight()), image, spectrum) == 0;

@@ -8,6 +8,7 @@ import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public final class LyricsOptionsScreen extends AudioPage {
@@ -68,7 +69,7 @@ public final class LyricsOptionsScreen extends AudioPage {
             show(new ConfirmationScreen(this, Text.component("lyrics.recovery.keep"), Text.component("lyrics.recovery.help"), Text.component("lyrics.recovery.keep"),
                 () -> app.lyrics.lookup.keepCurrentRecovery(track)).nonDestructive())).runs();
         labeledAction(Text.get("lyrics.encoding") + ": " + app.lyrics.lookup.encoding(track), Text.get("lyrics.encoding.help"), () -> {
-            var values = java.util.List.of("Auto", "Big5", "GB18030", "windows-31j", "EUC-KR");
+            var values = List.of("Auto", "Big5", "GB18030", "windows-31j", "EUC-KR");
             int index = values.indexOf(app.lyrics.lookup.encoding(track));
             result(app.lyrics.lookup.encoding(track, values.get((index + 1) % values.size())));
         });
@@ -112,7 +113,7 @@ public final class LyricsOptionsScreen extends AudioPage {
     }
 
     @Override
-    public void onFilesDrop(java.util.List<Path> files) {
+    public void onFilesDrop(List<Path> files) {
         if (files.size() == 1) confirmImport(files.getFirst());
         else {
             feedback = Text.get("lyrics.import.single");

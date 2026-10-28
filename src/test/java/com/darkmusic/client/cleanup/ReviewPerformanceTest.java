@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.*;
+import java.nio.file.attribute.FileTime;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -22,7 +23,7 @@ class ReviewPerformanceTest {
         for (int i = 0; i < 5000; i++) cache.put("id" + i, "stamp" + i, "", "", fingerprint);
         cache.flush();
         Path folder = temp.resolve("cleanup-cache/v2");
-        var old = java.nio.file.attribute.FileTime.fromMillis(1_000_000);
+        var old = FileTime.fromMillis(1_000_000);
         try (var files = Files.list(folder)) {
             for (Path file : files.toList()) Files.setLastModifiedTime(file, old);
         }

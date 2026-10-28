@@ -8,6 +8,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -55,7 +56,7 @@ class ImportHistoryTest {
 
     @Test
     void recordsQueuedBeforeLoadingFinishPersistNewestFirstWithFailuresAndUnicode() throws Exception {
-        var warnings = new java.util.concurrent.CopyOnWriteArrayList<String>();
+        var warnings = new CopyOnWriteArrayList<String>();
         var io = Executors.newSingleThreadExecutor();
         try {
             var history = new ImportHistory(temp, io, warnings::add);

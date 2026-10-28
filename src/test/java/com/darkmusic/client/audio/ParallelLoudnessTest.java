@@ -6,6 +6,7 @@ import com.darkmusic.client.library.Track;
 import com.darkmusic.client.media.ExternalAudio;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.*;
 import java.util.*;
@@ -19,7 +20,7 @@ class ParallelLoudnessTest {
 
     @BeforeAll
     static void logging() {
-        org.slf4j.LoggerFactory.getLogger(ParallelLoudnessTest.class);
+        LoggerFactory.getLogger(ParallelLoudnessTest.class);
     }
 
     private AudioSettings settings(boolean parallel) {

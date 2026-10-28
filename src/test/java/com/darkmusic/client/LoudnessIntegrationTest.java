@@ -15,6 +15,7 @@ import javax.sound.sampled.AudioFileFormat;
 import javax.sound.sampled.AudioSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.util.List;
 
@@ -70,7 +71,7 @@ class LoudnessIntegrationTest {
                 Thread.sleep(30);
             }
             assertTrue(Files.readString(temp.resolve("loudness-cache.json")).contains("source.wav"));
-            Files.setLastModifiedTime(source, java.nio.file.attribute.FileTime.fromMillis(Files.getLastModifiedTime(source).toMillis() + 2000));
+            Files.setLastModifiedTime(source, FileTime.fromMillis(Files.getLastModifiedTime(source).toMillis() + 2000));
             var changed = reader.read("t", "source.wav", source, Files.size(source), Files.getLastModifiedTime(source).toMillis());
             options.analyzeLoudness = false;
             assertEquals(1, cache.gain(changed, options), "Changed files must not reuse stale measured gain");

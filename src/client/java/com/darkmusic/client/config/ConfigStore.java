@@ -9,10 +9,20 @@ import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  * All filesystem access runs on the supplied serial I/O executor.
@@ -49,11 +59,11 @@ public final class ConfigStore {
      * Immutable preferences already serialized by load/save; safe to capture without doing export work on the UI thread.
      */
     public String snapshotJson() {
-        return java.util.Objects.requireNonNull(snapshotJson, "Settings have not loaded");
+        return Objects.requireNonNull(snapshotJson, "Settings have not loaded");
     }
 
     public void committedSnapshot(String json) {
-        snapshotJson = java.util.Objects.requireNonNull(json);
+        snapshotJson = Objects.requireNonNull(json);
     }
 
     public ConfigStore(Path directory, ExecutorService io, Consumer<String> warning) {
@@ -66,7 +76,7 @@ public final class ConfigStore {
         Files.createDirectories(destination.getParent());
         Path temporary = Files.createTempFile(destination.getParent(), destination.getFileName().toString(), ".tmp");
         try {
-            try (var channel = java.nio.channels.FileChannel.open(temporary, StandardOpenOption.WRITE)) {
+            try (var channel = FileChannel.open(temporary, StandardOpenOption.WRITE)) {
                 var bytes = StandardCharsets.UTF_8.encode(contents);
                 while (bytes.hasRemaining()) channel.write(bytes);
                 channel.force(true);
@@ -97,7 +107,7 @@ public final class ConfigStore {
                 warning.accept(Text.get("backup.recovered"));
         } catch (IOException failure) {
             // Never load or save partially restored data when recovery cannot finish.
-            throw new java.util.concurrent.CompletionException(failure);
+            throw new CompletionException(failure);
         }
         Settings settings = new Settings();
         try {
@@ -122,14 +132,14 @@ public final class ConfigStore {
         Path options = game.resolve("options.txt");
         if (Files.isRegularFile(options)) try (var lines = Files.lines(options)) {
             var bindings = lines.filter(s -> s.startsWith("key_key.darkmusic.") && s.indexOf(':') > 4).toList();
-            settings.nativeShortcutNames = recovered ? java.util.Set.of() : bindings.stream()
-                .map(s -> s.substring(4, s.indexOf(':'))).collect(java.util.stream.Collectors.toUnmodifiableSet());
+            settings.nativeShortcutNames = recovered ? Set.of() : bindings.stream()
+                .map(s -> s.substring(4, s.indexOf(':'))).collect(Collectors.toUnmodifiableSet());
             // Minecraft loaded options before the mod recovered the file. Reapply recovered keys in ready().
             if (recovered) for (String binding : bindings) {
                 int colon = binding.indexOf(':');
                 settings.shortcuts.put(binding.substring(4, colon), binding.substring(colon + 1));
             }
-        } catch (IOException | java.io.UncheckedIOException e) {
+        } catch (IOException | UncheckedIOException e) {
             // Files.lines decodes lazily: a non-UTF-8 options.txt fails while streaming, not when opened.
             warning.accept(Text.failure(e, "error.shortcut_load"));
         }
@@ -140,7 +150,7 @@ public final class ConfigStore {
     /**
      * Writes only DarkMusic's native bindings; Options.save() would broadcast unrelated options.
      */
-    public void resetShortcuts(java.util.Map<String, String> defaults) throws IOException {
+    public void resetShortcuts(Map<String, String> defaults) throws IOException {
         Path options = directory.toAbsolutePath().getParent().getParent().resolve("options.txt");
         if (Files.isSymbolicLink(options) || Files.exists(options, LinkOption.NOFOLLOW_LINKS)
             && (!Files.isRegularFile(options, LinkOption.NOFOLLOW_LINKS) || Files.size(options) > 16_000_000))
@@ -148,13 +158,13 @@ public final class ConfigStore {
         atomicWrite(options, shortcutsContents(defaults));
     }
 
-    public String shortcutsContents(java.util.Map<String, String> defaults) throws IOException {
+    public String shortcutsContents(Map<String, String> defaults) throws IOException {
         Path options = directory.toAbsolutePath().getParent().getParent().resolve("options.txt");
         if (Files.isSymbolicLink(options) || Files.exists(options) && (!Files.isRegularFile(options) || Files.size(options) > 16_000_000))
             throw new IOException("Unsafe options file");
-        var lines = Files.exists(options) ? Files.readAllLines(options, StandardCharsets.UTF_8) : java.util.List.<String>of();
-        var remaining = new java.util.LinkedHashMap<>(defaults);
-        var updated = new java.util.ArrayList<String>();
+        var lines = Files.exists(options) ? Files.readAllLines(options, StandardCharsets.UTF_8) : List.<String>of();
+        var remaining = new LinkedHashMap<>(defaults);
+        var updated = new ArrayList<String>();
         for (String line : lines) {
             int colon = line.indexOf(':');
             String name = colon < 0 ? "" : line.substring(0, colon);

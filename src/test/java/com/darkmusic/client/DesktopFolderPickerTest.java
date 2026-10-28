@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -20,7 +21,7 @@ class DesktopFolderPickerTest {
         Path result = Files.createTempFile(temporary, "dialog", ".txt");
         Path log = temporary.resolve("dialog.log");
         String binary = System.getProperty("os.name").startsWith("Windows") ? "javaw.exe" : "java";
-        String classes = Path.of(DialogAutomation.class.getProtectionDomain().getCodeSource().getLocation().toURI()) + java.io.File.pathSeparator + Path.of(System.getProperty("darkmusic.jar"));
+        String classes = Path.of(DialogAutomation.class.getProtectionDomain().getCodeSource().getLocation().toURI()) + File.pathSeparator + Path.of(System.getProperty("darkmusic.jar"));
         Process child = new ProcessBuilder(List.of(Path.of(System.getProperty("java.home"), "bin", binary).toString(), "-Djava.awt.headless=false", "-cp", classes, DialogAutomation.class.getName(), directory.toString(), "DarkMusic folder self-test", result.toString(), Long.toString(ProcessHandle.current().pid()), approve ? "approve" : "cancel"))
             .redirectErrorStream(true).redirectOutput(log.toFile()).start();
         try {

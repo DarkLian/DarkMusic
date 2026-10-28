@@ -4,6 +4,7 @@ import com.darkmusic.client.config.AudioSettings;
 import com.darkmusic.client.config.SoundEnvironmentSettings;
 import com.darkmusic.client.library.Track;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 public interface AudioBackend extends AutoCloseable {
@@ -65,7 +66,7 @@ public interface AudioBackend extends AutoCloseable {
      * Atomic ownership of a prepared handoff, independent of delayed client callbacks.
      */
     final class Transition {
-        private final java.util.concurrent.atomic.AtomicInteger state = new java.util.concurrent.atomic.AtomicInteger();
+        private final AtomicInteger state = new AtomicInteger();
         private boolean legacy;
 
         void observe(Track audible, Track from, Track target) {

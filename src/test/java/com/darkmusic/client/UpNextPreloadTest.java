@@ -13,6 +13,7 @@ import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.*;
 
@@ -38,7 +39,7 @@ class UpNextPreloadTest {
             var frames = new AtomicLong();
             var devices = new AtomicInteger();
             var errors = new ArrayList<String>();
-            var opens = new java.util.concurrent.ConcurrentHashMap<Path, AtomicInteger>();
+            var opens = new ConcurrentHashMap<Path, AtomicInteger>();
             Track a = track("A"), b = track("B"), x = track("X"), y = track("Y");
             JavaSoundBackend.Output output = format -> {
                 devices.incrementAndGet();

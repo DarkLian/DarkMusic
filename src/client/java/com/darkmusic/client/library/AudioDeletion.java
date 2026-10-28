@@ -3,11 +3,15 @@ package com.darkmusic.client.library;
 import com.darkmusic.client.media.AudioFormats;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.Hashes;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
@@ -170,13 +174,13 @@ public final class AudioDeletion {
                                 throw new IOException("Companion Trash failed");
                         } catch (Exception failure) {
                             companionFailures.add(companion.file());
-                            org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Could not trash selected lyric companion {}", companion.file(), failure);
+                            LoggerFactory.getLogger("darkmusic").warn("Could not trash selected lyric companion {}", companion.file(), failure);
                         }
                     }
-                } catch (java.util.concurrent.CancellationException cancellation) {
+                } catch (CancellationException cancellation) {
                     cancelled.add(item.track());
                 } catch (Exception failure) {
-                    org.slf4j.LoggerFactory.getLogger("darkmusic").warn("Could not delete selected audio {}", item.file(), failure);
+                    LoggerFactory.getLogger("darkmusic").warn("Could not delete selected audio {}", item.file(), failure);
                     failed.add(new Failure(item.track(), Text.failure(failure, "delete_audio.failed")));
                 }
                 progress.accept(new Progress(++completed, plan.items().size(), item.file().getFileName().toString()));
@@ -208,11 +212,11 @@ public final class AudioDeletion {
     }
 
     private static String hash(Path file) throws IOException {
-        return com.darkmusic.client.tools.Hashes.sha256(file, LinkOption.NOFOLLOW_LINKS);
+        return Hashes.sha256(file, LinkOption.NOFOLLOW_LINKS);
     }
 
     private void deletePermanently(Plan plan, Item item, ProcessRunner.Token token) throws Exception {
-        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(3);
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
         while (true) {
             token.check();
             var attributes = validate(plan.roots(), item.track());

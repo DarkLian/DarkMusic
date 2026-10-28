@@ -3,6 +3,8 @@ package com.darkmusic.client.command;
 import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.render.UiTheme;
+import com.darkmusic.client.text.Clock;
+import com.darkmusic.client.text.Text;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
@@ -13,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -152,7 +155,7 @@ class LocalCommandsTest {
             @Override
             public List<LocalCommands.Shortcut> shortcuts() {
                 return List.of(new LocalCommands.Shortcut("key.darkmusic.open", List.of("B")),
-                    new LocalCommands.Shortcut("command.darkmusic.keys.volume", java.util.Arrays.asList(null, "Up Arrow")));
+                    new LocalCommands.Shortcut("command.darkmusic.keys.volume", Arrays.asList(null, "Up Arrow")));
             }
         });
         return dispatcher;
@@ -213,7 +216,7 @@ class LocalCommandsTest {
         assertEquals(0, dispatcher.execute("da update install", clicked));
         assertEquals(0, dispatcher.execute("da update install guess", clicked));
         assertEquals(List.of(), calls);
-        assertEquals(com.darkmusic.client.text.Text.get("update.install_typed"), messages.getLast().getString());
+        assertEquals(Text.get("update.install_typed"), messages.getLast().getString());
         assertEquals(1, dispatcher.execute("da update install c0de", clicked));
         assertEquals(1, dispatcher.execute("darkmusic update install", source(true)));
         assertEquals(List.of("install", "install"), calls);
@@ -285,8 +288,8 @@ class LocalCommandsTest {
         assertEquals("0:00", LocalCommands.time(Double.NaN));
         assertEquals("1:05", LocalCommands.time(65.9));
         assertEquals("1:01:01", LocalCommands.time(3661));
-        assertEquals("1:23 / 3:45", com.darkmusic.client.text.Clock.progress(83.9, 225));
-        assertEquals("0:07", com.darkmusic.client.text.Clock.progress(7, Double.NaN), "Unknown length shows only the position");
+        assertEquals("1:23 / 3:45", Clock.progress(83.9, 225));
+        assertEquals("0:07", Clock.progress(7, Double.NaN), "Unknown length shows only the position");
     }
 
     @Test

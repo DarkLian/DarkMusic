@@ -3,12 +3,20 @@ package com.darkmusic.client.library;
 import com.darkmusic.client.media.AudioFormats;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.testing.Await;
+import com.sun.nio.file.ExtendedOpenOption;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.file.*;
+import java.nio.file.attribute.FileTime;
+import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -36,7 +44,7 @@ class AudioDeletionTest {
         return new Track("root", name, file, name, "", "", 1, Files.size(file), Files.getLastModifiedTime(file).toMillis(), "");
     }
 
-    private AudioDeletion service(boolean supported, java.util.function.Predicate<Path> move) {
+    private AudioDeletion service(boolean supported, Predicate<Path> move) {
         return new AudioDeletion(new AudioDeletion.Trash() {
             public boolean supported() {
                 return supported;
@@ -85,7 +93,7 @@ class AudioDeletionTest {
         var good = copy("good.audio");
         var service = service(false, p -> false);
         var plan = service.prepare(Map.of(temp, "root"), List.of(changed, good));
-        Files.setLastModifiedTime(changed.file(), java.nio.file.attribute.FileTime.fromMillis(changed.modified() + 2000));
+        Files.setLastModifiedTime(changed.file(), FileTime.fromMillis(changed.modified() + 2000));
         var result = service.delete(plan, AudioDeletion.Mode.PERMANENT, new ProcessRunner.Token(), p -> {
         });
         assertEquals(List.of(good), result.removed());
@@ -98,10 +106,10 @@ class AudioDeletionTest {
     void pathsOutsideRegisteredRootAndNonAudioFilesAreRejected() throws Exception {
         var track = copy("outside.audio");
         var service = service(false, p -> false);
-        assertThrows(java.io.IOException.class, () -> service.prepare(Map.of(temp.resolve("other"), "root"), List.of(track)));
+        assertThrows(IOException.class, () -> service.prepare(Map.of(temp.resolve("other"), "root"), List.of(track)));
         Path text = Files.writeString(temp.resolve("notes.txt"), "Unrelated notes");
         var fake = new Track("root", "notes.txt", text, "", "", "", 0, Files.size(text), Files.getLastModifiedTime(text).toMillis(), "");
-        assertThrows(java.io.IOException.class, () -> service.prepare(Map.of(temp, "root"), List.of(fake)));
+        assertThrows(IOException.class, () -> service.prepare(Map.of(temp, "root"), List.of(fake)));
         assertTrue(Files.exists(text));
         assertTrue(Files.exists(track.file()));
     }
@@ -146,19 +154,19 @@ class AudioDeletionTest {
         var track = copy("temporarily-locked.audio");
         var service = service(false, p -> false);
         var plan = service.prepare(Map.of(temp, "root"), List.of(track));
-        var worker = new java.util.concurrent.atomic.AtomicReference<Thread>();
-        try (var handle = Files.newByteChannel(track.file(), java.util.Set.of(StandardOpenOption.READ, com.sun.nio.file.ExtendedOpenOption.NOSHARE_DELETE));
-             var executor = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+        var worker = new AtomicReference<Thread>();
+        try (var handle = Files.newByteChannel(track.file(), Set.of(StandardOpenOption.READ, ExtendedOpenOption.NOSHARE_DELETE));
+             var executor = Executors.newSingleThreadExecutor()) {
             var future = executor.submit(() -> {
                 worker.set(Thread.currentThread());
                 return service.delete(plan, AudioDeletion.Mode.PERMANENT, new ProcessRunner.Token(), p -> {
                 });
             });
-            Await.until(java.time.Duration.ofSeconds(2),
+            Await.until(Duration.ofSeconds(2),
                 () -> worker.get() != null && worker.get().getState() == Thread.State.TIMED_WAITING, "Sharing-violation retry");
             assertTrue(Files.exists(track.file()));
             handle.close();
-            assertEquals(List.of(track), future.get(5, java.util.concurrent.TimeUnit.SECONDS).removed());
+            assertEquals(List.of(track), future.get(5, TimeUnit.SECONDS).removed());
             assertFalse(Files.exists(track.file()));
         }
     }

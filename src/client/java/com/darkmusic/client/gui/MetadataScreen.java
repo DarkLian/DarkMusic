@@ -12,6 +12,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 
+import java.util.List;
 import java.util.function.Consumer;
 
 public final class MetadataScreen extends LocalScreen {
@@ -54,7 +55,7 @@ public final class MetadataScreen extends LocalScreen {
         int actionWidth = (panelWidth - 28) / 2;
         save = addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.save"), b -> save()).bounds(left + 12, top + 181, actionWidth, 20).build());
         delete = addRenderableWidget(UiButton.builder(Text.component("delete_audio.single"), b -> {
-            if (!saving && !app.mediaBusy()) show(new AudioDeletionScreen(app, this, java.util.List.of(track), parent));
+            if (!saving && !app.mediaBusy()) show(new AudioDeletionScreen(app, this, List.of(track), parent));
         }).bounds(left + 16 + actionWidth, top + 181, actionWidth, 20).build());
         UiButton.style(delete, UiButton.Style.DESTRUCTIVE);
         UiButton.style(save, UiButton.Style.PRIMARY);

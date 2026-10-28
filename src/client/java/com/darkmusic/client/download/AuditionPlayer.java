@@ -3,11 +3,14 @@ package com.darkmusic.client.download;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.tools.ToolPaths;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /**
@@ -64,7 +67,7 @@ public final class AuditionPlayer implements AutoCloseable {
             } catch (CancellationException e) {
                 release();
             } catch (Exception e) {
-                org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Cannot prepare audio preview for {}", entry.title(), e);
+                LoggerFactory.getLogger("darkmusic-download").warn("Cannot prepare audio preview for {}", entry.title(), e);
                 release();
                 complete(ticket, String.valueOf(e.getMessage()));
             }
@@ -118,8 +121,8 @@ public final class AuditionPlayer implements AutoCloseable {
         clip = null;
         if (current != null) try {
             current.close();
-        } catch (java.io.IOException e) {
-            org.slf4j.LoggerFactory.getLogger("darkmusic-download").warn("Cannot remove temporary audition", e);
+        } catch (IOException e) {
+            LoggerFactory.getLogger("darkmusic-download").warn("Cannot remove temporary audition", e);
         }
     }
 
@@ -132,7 +135,7 @@ public final class AuditionPlayer implements AutoCloseable {
     }
 
     public boolean awaitStopped(long seconds) throws InterruptedException {
-        return worker.awaitTermination(seconds, java.util.concurrent.TimeUnit.SECONDS);
+        return worker.awaitTermination(seconds, TimeUnit.SECONDS);
     }
 
     public enum Status {STOPPED, LOADING, PLAYING, PAUSED, ERROR}

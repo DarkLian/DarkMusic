@@ -12,13 +12,14 @@ import org.junit.jupiter.api.io.TempDir;
 
 import javax.sound.sampled.AudioFileFormat;
 import javax.sound.sampled.AudioSystem;
-import java.time.Duration;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -36,7 +37,7 @@ class StorageTest {
         }
     }
 
-    static void await(java.util.function.BooleanSupplier condition) throws Exception {
+    static void await(BooleanSupplier condition) throws Exception {
         Await.until(Duration.ofSeconds(12), condition, "asynchronous operation");
     }
 

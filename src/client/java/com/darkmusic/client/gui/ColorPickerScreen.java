@@ -6,6 +6,7 @@ import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 import java.util.Locale;
 import java.util.function.IntConsumer;
@@ -41,7 +42,7 @@ public final class ColorPickerScreen extends LocalScreen {
             rebuildWidgets();
         }).bounds(x, 36, (w - 4) / 2, 20).build());
         visualMode.active = !spectrum;
-        var rgbMode = addRenderableWidget(UiButton.builder(net.minecraft.network.chat.Component.literal("RGB"), b -> {
+        var rgbMode = addRenderableWidget(UiButton.builder(Component.literal("RGB"), b -> {
             spectrum = false;
             rebuildWidgets();
         }).bounds(x + (w + 4) / 2, 36, (w - 4) / 2, 20).build());
@@ -50,7 +51,7 @@ public final class ColorPickerScreen extends LocalScreen {
             0x111420, 0x263547, 0x5B416F, 0x367B78, 0xFFFFFF, 0x000000};
         for (int i = 0; i < palette.length; i++) {
             final int value = palette[i];
-            var button = addRenderableWidget(UiButton.builder(net.minecraft.network.chat.Component.empty(), b -> {
+            var button = addRenderableWidget(UiButton.builder(Component.empty(), b -> {
                 update(value);
                 rebuildWidgets();
             }).bounds(x + i % 6 * (w / 6), y + i / 6 * 20, w / 6 - 4, 18).build());
@@ -67,7 +68,6 @@ public final class ColorPickerScreen extends LocalScreen {
                 v -> Text.get("colors.darkmusic." + key) + ": " + (color >> shift & 255),
                 v -> update((color & ~(255 << shift)) | ((int) Math.round(v * 255) << shift)), () -> {
             }, 255));
-            slider.plain(true);
         }
         hex = addRenderableWidget(new UiInput(font, x, 196, w - 90, 20, Text.component("colors.darkmusic.hex_help")));
         hex.setMaxLength(7);

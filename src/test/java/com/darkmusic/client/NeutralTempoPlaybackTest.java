@@ -8,9 +8,12 @@ import org.junit.jupiter.api.Timeout;
 
 import javax.sound.sampled.SourceDataLine;
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.*;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -40,7 +43,7 @@ class NeutralTempoPlaybackTest {
         try (var backend = new JavaSoundBackend(Runnable::run, path -> {
             opens.incrementAndGet();
             byte[] music = clip.bytes();
-            var loop = new java.io.InputStream() {
+            var loop = new InputStream() {
                 int at;
 
                 public int read() {
@@ -52,7 +55,7 @@ class NeutralTempoPlaybackTest {
                     return len;
                 }
             };
-            return new javax.sound.sampled.AudioInputStream(loop, format, javax.sound.sampled.AudioSystem.NOT_SPECIFIED);
+            return new AudioInputStream(loop, format, AudioSystem.NOT_SPECIFIED);
         }, f -> line)) {
             var a = new AudioSettings();
             backend.configure(a);

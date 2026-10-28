@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.BiFunction;
+import java.util.function.ToIntFunction;
 
 /**
  * Bounded, Unicode-safe panning for read-only lines; ordinary wheel scrolling stays vertical.
@@ -101,8 +103,8 @@ public final class HorizontalText {
         return ellipsize(text, width, font::width, (value, limit) -> font.plainSubstrByWidth(value, limit));
     }
 
-    static String ellipsize(String text, int width, java.util.function.ToIntFunction<String> measure,
-                            java.util.function.BiFunction<String, Integer, String> prefix) {
+    static String ellipsize(String text, int width, ToIntFunction<String> measure,
+                            BiFunction<String, Integer, String> prefix) {
         if (text == null || text.isEmpty() || measure.applyAsInt(text) <= width) return text == null ? "" : text;
         int mark = measure.applyAsInt(ELLIPSIS);
         if (width < mark) return "";

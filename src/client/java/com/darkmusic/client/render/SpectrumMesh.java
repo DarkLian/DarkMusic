@@ -1,6 +1,7 @@
 package com.darkmusic.client.render;
 
 import com.darkmusic.client.config.Settings;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
@@ -8,6 +9,8 @@ import net.minecraft.client.gui.render.TextureSetup;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.state.gui.GuiElementRenderState;
 import org.joml.Matrix3x2f;
+
+import java.util.Arrays;
 
 /**
  * Batches the existing pixel-exact spectrum rectangles without changing their geometry or layering.
@@ -132,8 +135,8 @@ public final class SpectrumMesh {
         if (count + 5 > rectangles.length) {
             // Drop excess detail rather than throw from HUD rendering, which would end the game session.
             if (rectangles.length / 5 >= MAX_RECTANGLES) return;
-            rectangles = java.util.Arrays.copyOf(rectangles, Math.min(rectangles.length * 2, MAX_RECTANGLES * 5));
-            bottomColors = java.util.Arrays.copyOf(bottomColors, rectangles.length / 5 + 1);
+            rectangles = Arrays.copyOf(rectangles, Math.min(rectangles.length * 2, MAX_RECTANGLES * 5));
+            bottomColors = Arrays.copyOf(bottomColors, rectangles.length / 5 + 1);
         }
         bottomColors[count / 5] = bottomColor;
         hasGradient |= topColor != bottomColor;
@@ -158,14 +161,14 @@ public final class SpectrumMesh {
         var bounds = new ScreenRectangle(left, top, right - left, bottom - top).transformMaxBounds(pose);
         if (clip != null) bounds = clip.intersection(bounds);
         if (bounds != null)
-            g.guiRenderState.addGuiElement(new Snapshot(pose, clip, bounds, java.util.Arrays.copyOf(rectangles, count),
-                hasGradient ? java.util.Arrays.copyOf(bottomColors, count / 5) : null));
+            g.guiRenderState.addGuiElement(new Snapshot(pose, clip, bounds, Arrays.copyOf(rectangles, count),
+                hasGradient ? Arrays.copyOf(bottomColors, count / 5) : null));
     }
 
     record Snapshot(Matrix3x2f pose, ScreenRectangle scissorArea, ScreenRectangle bounds,
                     int[] rectangles, int[] bottomColors) implements GuiElementRenderState {
         @Override
-        public com.mojang.blaze3d.pipeline.RenderPipeline pipeline() {
+        public RenderPipeline pipeline() {
             return RenderPipelines.GUI;
         }
 

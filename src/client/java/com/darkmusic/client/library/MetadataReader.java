@@ -3,11 +3,15 @@ package com.darkmusic.client.library;
 import com.darkmusic.client.media.AudioFormats;
 import com.darkmusic.client.media.ExternalAudio;
 import com.darkmusic.client.text.Text;
+import com.google.gson.JsonObject;
 import org.jaudiotagger.audio.AudioFileIO;
 import org.jaudiotagger.tag.FieldKey;
 import org.jaudiotagger.tag.Tag;
 
+import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Locale;
+import java.util.Set;
 
 /**
  * Only read operations; linked artwork is never resolved.
@@ -27,8 +31,8 @@ public final class MetadataReader {
                     return new Track(root, relative, file, opus.tags().getOrDefault("title", title),
                         opus.tags().getOrDefault("artist", ""), opus.tags().getOrDefault("album", ""), opus.duration(), size, modified, "");
             }
-            if (java.util.Set.of(AudioFormats.Container.OPUS, AudioFormats.Container.AAC, AudioFormats.Container.WEBM).contains(container))
-                throw new java.io.IOException("Use codec-aware metadata inspection");
+            if (Set.of(AudioFormats.Container.OPUS, AudioFormats.Container.AAC, AudioFormats.Container.WEBM).contains(container))
+                throw new IOException("Use codec-aware metadata inspection");
             var audio = AudioFileIO.read(file.toFile());
             Tag tag = audio.getTag();
             if (tag != null) {
@@ -44,11 +48,11 @@ public final class MetadataReader {
                 var info = ExternalAudio.probe(file);
                 var format = info.getAsJsonObject("format");
                 var stream = info.getAsJsonArray("streams").get(0).getAsJsonObject();
-                var tags = format != null && format.has("tags") ? format.getAsJsonObject("tags") : new com.google.gson.JsonObject();
+                var tags = format != null && format.has("tags") ? format.getAsJsonObject("tags") : new JsonObject();
                 if (stream.has("tags"))
                     for (var tag : stream.getAsJsonObject("tags").entrySet()) tags.add(tag.getKey(), tag.getValue());
                 for (var tag : tags.entrySet())
-                    switch (tag.getKey().toLowerCase(java.util.Locale.ROOT)) {
+                    switch (tag.getKey().toLowerCase(Locale.ROOT)) {
                         case "title" -> {
                             if (!tag.getValue().getAsString().isBlank()) title = tag.getValue().getAsString();
                         }

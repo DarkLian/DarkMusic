@@ -13,6 +13,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -93,7 +94,7 @@ class PlaybackTest {
     }
 
     List<Track> tracks() {
-        return java.util.stream.IntStream.range(0, 5).mapToObj(i -> StorageTest.track("root", i + ".wav", Path.of(i + ".wav"))).toList();
+        return IntStream.range(0, 5).mapToObj(i -> StorageTest.track("root", i + ".wav", Path.of(i + ".wav"))).toList();
     }
 
     @Test

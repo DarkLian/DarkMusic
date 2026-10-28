@@ -10,6 +10,8 @@ import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Bounded inverted retrieval, followed by independent evidence checks. No transitive matches.
@@ -43,7 +45,7 @@ public final class DuplicateMatcher {
             .replaceAll("\\.(mp3|flac|wav|ogg|opus|m4a|aac|mp4|webm|aiff?)$", "")
             .replaceAll("\\[(?:[a-z0-9_-]{11}|bv[a-z0-9]+)\\]$", "")
             .replaceAll("[\\p{P}\\p{S}\\s_]+", " ").strip();
-        return Arrays.stream(s.split(" +")).filter(t -> !DECORATIONS.contains(t)).collect(java.util.stream.Collectors.joining(" "));
+        return Arrays.stream(s.split(" +")).filter(t -> !DECORATIONS.contains(t)).collect(Collectors.joining(" "));
     }
 
     static Set<String> tokens(String text) {
@@ -89,7 +91,7 @@ public final class DuplicateMatcher {
                 if (path.matches("/(shorts|embed|live)/[^/]+.*")) return youtube(path.split("/")[2]);
             }
             if (host.equals("bilibili.com") || host.endsWith(".bilibili.com")) {
-                var m = java.util.regex.Pattern.compile("/(BV[A-Za-z0-9]+|av[0-9]+)", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(path);
+                var m = Pattern.compile("/(BV[A-Za-z0-9]+|av[0-9]+)", Pattern.CASE_INSENSITIVE).matcher(path);
                 if (m.find()) return "bilibili:" + m.group(1) + ":" + query.getOrDefault("p", "1");
             }
             // No arbitrary URL query stripping: unrelated generic collection entries must not collapse.

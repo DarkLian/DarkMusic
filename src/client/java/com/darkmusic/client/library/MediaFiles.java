@@ -6,14 +6,21 @@ import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.text.Text;
 import org.jaudiotagger.audio.AudioFileIO;
 import org.jaudiotagger.tag.FieldKey;
+import org.jaudiotagger.tag.Tag;
+import org.jaudiotagger.tag.wav.WavTag;
+import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.util.*;
+import javax.imageio.ImageIO;
+import javax.imageio.stream.MemoryCacheImageInputStream;
 
 /**
  * File work only. Callers own playback coordination and client-thread playlist updates.
@@ -163,9 +170,9 @@ public final class MediaFiles {
                 else {
                     var audio = AudioFileIO.read(staged.toFile());
                     var tag = audio.getTagOrCreateAndSetDefault();
-                    if (tag instanceof org.jaudiotagger.tag.wav.WavTag wav) {
+                    if (tag instanceof WavTag wav) {
                         if (wav.getID3Tag() == null)
-                            wav.setID3Tag(org.jaudiotagger.tag.wav.WavTag.createDefaultID3Tag());
+                            wav.setID3Tag(WavTag.createDefaultID3Tag());
                         writeTags(wav.getID3Tag(), requested);
                         if (wav.getInfoTag() != null) writeTags(wav.getInfoTag(), requested);
                     } else writeTags(tag, requested);
@@ -180,7 +187,7 @@ public final class MediaFiles {
             if (AudioFormats.detect(source) != AudioFormats.detect(staged))
                 throw new IOException(Text.get("library.darkmusic.format_changed"));
             if (Files.getLastModifiedTime(staged).toMillis() == track.modified())
-                Files.setLastModifiedTime(staged, java.nio.file.attribute.FileTime.fromMillis(track.modified() + 1));
+                Files.setLastModifiedTime(staged, FileTime.fromMillis(track.modified() + 1));
             token.check();
             checkSource(track);
             beforeCommit.run();
@@ -238,7 +245,7 @@ public final class MediaFiles {
             throw failure;
         } finally {
             if (preserveWork) {
-                org.slf4j.LoggerFactory.getLogger(MediaFiles.class).error("Original audio retained for recovery in {}", work);
+                LoggerFactory.getLogger(MediaFiles.class).error("Original audio retained for recovery in {}", work);
             } else
                 try {
                     try (var paths = Files.list(work)) {
@@ -246,7 +253,7 @@ public final class MediaFiles {
                     }
                     Files.deleteIfExists(work);
                 } catch (IOException cleanup) {
-                    org.slf4j.LoggerFactory.getLogger(MediaFiles.class).warn("Could not remove metadata staging directory {}", work, cleanup);
+                    LoggerFactory.getLogger(MediaFiles.class).warn("Could not remove metadata staging directory {}", work, cleanup);
                 }
         }
     }
@@ -275,7 +282,7 @@ public final class MediaFiles {
         }
     }
 
-    private static void writeTags(org.jaudiotagger.tag.Tag tag, Fields fields) throws Exception {
+    private static void writeTags(Tag tag, Fields fields) throws Exception {
         tag.setField(FieldKey.TITLE, fields.title());
         tag.setField(FieldKey.ARTIST, fields.artist());
         tag.setField(FieldKey.ALBUM, fields.album());
@@ -286,8 +293,8 @@ public final class MediaFiles {
         byte[] artwork = container == AudioFormats.Container.OPUS ? metadata.artwork(source) : null;
         if (artwork != null) {
             int width, height;
-            try (var input = new javax.imageio.stream.MemoryCacheImageInputStream(new java.io.ByteArrayInputStream(artwork))) {
-                var readers = javax.imageio.ImageIO.getImageReaders(input);
+            try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(artwork))) {
+                var readers = ImageIO.getImageReaders(input);
                 if (!readers.hasNext()) throw new IOException(Text.get("library.darkmusic.cover_unreadable"));
                 var reader = readers.next();
                 try {

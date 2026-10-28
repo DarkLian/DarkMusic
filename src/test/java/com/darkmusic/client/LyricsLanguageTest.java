@@ -14,6 +14,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -89,7 +90,7 @@ class LyricsLanguageTest {
     void anUnmatchedLanguageDoesNotInvokeAnySubtitleDownload() throws Exception {
         var runner = new ProcessRunner() {
             @Override
-            public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, java.util.function.Consumer<String> line) {
+            public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) {
                 fail("No process should run for an unacceptable language");
                 return null;
             }

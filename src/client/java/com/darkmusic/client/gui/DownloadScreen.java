@@ -15,15 +15,20 @@ import com.darkmusic.client.text.Text;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.tools.ToolPaths;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.darkmusic.client.download.DownloadModels.*;
 
@@ -101,7 +106,7 @@ public final class DownloadScreen extends LocalScreen {
         return button(Text.get(key), 0, 0, 1, callback, Text.get(help));
     }
 
-    private UiInput input(String key, int max, String value, java.util.function.Consumer<String> change) {
+    private UiInput input(String key, int max, String value, Consumer<String> change) {
         var field = addRenderableWidget(new UiInput(font, 0, 0, 1, 20, Text.component(key)));
         field.setMaxLength(max);
         field.setValue(value);
@@ -230,7 +235,7 @@ public final class DownloadScreen extends LocalScreen {
         tick();
     }
 
-    private void place(net.minecraft.client.gui.components.AbstractWidget widget, int x, int y, int w, boolean visible) {
+    private void place(AbstractWidget widget, int x, int y, int w, boolean visible) {
         int previousWidth = widget.getWidth();
         widget.setX(x);
         widget.setY(y);
@@ -329,7 +334,7 @@ public final class DownloadScreen extends LocalScreen {
         place(download, 16, modeY + (mode == Mode.RANGE ? 56 : 30), side, !queueView);
         place(format, 16, modeY + (mode == Mode.RANGE ? 82 : 56), side, !queueView);
         // Wide enough for its longest state, so the label never needs shortening.
-        int listenWidth = Math.clamp(java.util.stream.Stream.of("download.darkmusic.listen", "text.darkmusic.pause", "text.darkmusic.resume")
+        int listenWidth = Math.clamp(Stream.of("download.darkmusic.listen", "text.darkmusic.pause", "text.darkmusic.resume")
             .mapToInt(key -> font.width(Text.get(key))).max().orElse(0) + 33, 72, 160);
         place(search, rightX, searchY, rightWidth - (queueView ? 0 : listenWidth + 40), true);
         place(listen, width - 40 - listenWidth, searchY, listenWidth, !queueView);
@@ -418,7 +423,7 @@ public final class DownloadScreen extends LocalScreen {
     }
 
     @Override
-    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+    public boolean keyPressed(KeyEvent event) {
         if (pageNumber != null && pageNumber.visible && pageNumber.isFocused() && event.isConfirmation()) {
             jumpPage();
             return true;
@@ -577,7 +582,7 @@ public final class DownloadScreen extends LocalScreen {
             String filter = query.strip().toLowerCase(Locale.ROOT);
             visibleJobs = snapshot.items().stream().filter(i -> filter.isEmpty() || (i.title() + " " + Text.get("state.darkmusic." + i.status().name().toLowerCase(Locale.ROOT)) + " " + i.message() + " " + i.directory()).toLowerCase(Locale.ROOT).contains(filter)).toList();
             rows.rows(visibleJobs.stream().map(i -> jobRow(i)).toList());
-            rows.select(java.util.stream.IntStream.range(0, visibleJobs.size()).filter(i -> visibleJobs.get(i).id() == selectedJob).findFirst().orElse(-1));
+            rows.select(IntStream.range(0, visibleJobs.size()).filter(i -> visibleJobs.get(i).id() == selectedJob).findFirst().orElse(-1));
             rows.emptyMessage(Text.get(snapshot.items().isEmpty() ? "text.darkmusic.no_downloads_queued" : "download.darkmusic.no_queue_matches"));
         } else {
             String filter = query.strip().toLowerCase(Locale.ROOT);

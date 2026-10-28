@@ -8,8 +8,10 @@ import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 import java.util.Locale;
 
@@ -78,7 +80,7 @@ public final class ColorsScreen extends LocalScreen implements HudPreview {
         for (int i = 0; i < perPage && presetPage * perPage + i < presets.length; i++) {
             var preset = presets[presetPage * perPage + i];
             String name = Text.get("colors.darkmusic." + preset.name().toLowerCase(Locale.ROOT));
-            var tile = addRenderableWidget(UiButton.builder(net.minecraft.network.chat.Component.literal(name), button -> {
+            var tile = addRenderableWidget(UiButton.builder(Component.literal(name), button -> {
                 var selected = colors();
                 if (preset == VisualColors.Preset.CUSTOM) {
                     selected.start = selected.first();
@@ -137,7 +139,7 @@ public final class ColorsScreen extends LocalScreen implements HudPreview {
         previewY = 36;
         if (!wide) {
             if (previewOnly) for (var child : children())
-                if (child instanceof net.minecraft.client.gui.components.AbstractWidget widget) widget.visible = false;
+                if (child instanceof AbstractWidget widget) widget.visible = false;
             UiButton.icon(addRenderableWidget(UiButton.builder(Text.component(previewOnly ? "phase2.settings_form" : "phase2.preview"), b -> {
                 previewOnly = !previewOnly;
                 rebuildWidgets();

@@ -8,6 +8,7 @@ import java.nio.file.*;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -119,7 +120,7 @@ class LibraryRetentionTest {
     void reconfigurationKeepsRegisteredOfflineRootButRemovesUnregisteredEntries() throws Exception {
         Path kept = Files.createDirectory(directory.resolve("kept")), removed = Files.createDirectory(directory.resolve("removed"));
         Path added = directory.resolve("offline-added");
-        var offline = new java.util.concurrent.atomic.AtomicBoolean();
+        var offline = new AtomicBoolean();
         try (var library = new MusicLibrary(directory.resolve("config"), path -> {
             if (offline.get()) throw new IllegalStateException("Unavailable test root");
         }, 1000)) {

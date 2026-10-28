@@ -5,13 +5,16 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.*;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class ListeningHistoryTest {
     @Test
     void rankingIsPreparedOffTheCallerAndPublishesBothViewsTogether() throws Exception {
-        var tasks = new java.util.concurrent.LinkedBlockingQueue<Runnable>();
+        var tasks = new LinkedBlockingQueue<Runnable>();
         var h = new ListeningHistory(directory, tasks::add, message -> fail(message));
         var song = track("song.opus", 120);
         var library = List.of(song);
@@ -19,8 +22,8 @@ class ListeningHistoryTest {
         assertTrue(h.collection(library, false).isEmpty());
         assertTrue(h.collection(library, true).isEmpty());
         assertEquals(1, tasks.size());
-        try (var io = java.util.concurrent.Executors.newSingleThreadExecutor()) {
-            io.submit(tasks.remove()).get(5, java.util.concurrent.TimeUnit.SECONDS);
+        try (var io = Executors.newSingleThreadExecutor()) {
+            io.submit(tasks.remove()).get(5, TimeUnit.SECONDS);
         }
         assertEquals(library, h.collection(library, false));
         assertEquals(library, h.collection(library, true));

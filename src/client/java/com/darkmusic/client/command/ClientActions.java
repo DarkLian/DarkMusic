@@ -137,13 +137,9 @@ final class ClientActions implements LocalCommands.Actions {
         var state = app.playback.state();
         if (state.status() == AudioBackend.Status.PLAYING) return palette.info("command.darkmusic.already_playing");
         if (state.track() == null) {
-            if (app.resumeLast(false)) {
-                var resumed = app.playback.state().track();
-                return resumed == null ? null : palette.value("command.darkmusic.playing", resumed.title());
-            }
-            if (tracks.isEmpty()) return palette.error("command.darkmusic.no_songs");
-            app.playback.play(tracks, tracks.getFirst());
-            return palette.value("command.darkmusic.playing", tracks.getFirst().title());
+            var started = app.startPlayback();
+            if (started != null) return palette.value("command.darkmusic.playing", started.title());
+            return tracks.isEmpty() ? palette.error("command.darkmusic.no_songs") : null;
         }
         if (state.status() == AudioBackend.Status.PAUSED) app.playback.resume();
         else app.playback.toggle();
@@ -208,7 +204,7 @@ final class ClientActions implements LocalCommands.Actions {
             status.append(palette.plain(" · ", palette.muted())).append(palette.key("text.darkmusic.shuffle", palette.secondary()));
         if (app.playback.stopAfterCurrent())
             status.append(palette.plain(" · ", palette.muted())).append(palette.key("command.darkmusic.stopafter_short", palette.warning()));
-        long sleep = app.sleepRemaining();
+        long sleep = app.sleep.remaining();
         if (sleep >= 0)
             status.append(palette.plain(" · ", palette.muted())).append(palette.key("command.darkmusic.sleep_short", palette.warning(), LocalCommands.time(sleep)));
         if (app.playback.repeat() != Repeat.OFF)
@@ -307,7 +303,7 @@ final class ClientActions implements LocalCommands.Actions {
     public Component sleep(Integer minutes) {
         if (!ready()) return unavailable();
         if (minutes != null) app.sleepTimer(minutes);
-        long left = app.sleepRemaining();
+        long left = app.sleep.remaining();
         return left < 0 ? palette().info("command.darkmusic.sleep_off")
             : palette().value("command.darkmusic.sleep_in", LocalCommands.time(left));
     }

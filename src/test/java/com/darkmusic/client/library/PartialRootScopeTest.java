@@ -5,12 +5,15 @@ import com.darkmusic.client.lyrics.LyricsDocument;
 import com.darkmusic.client.lyrics.LyricsLookup;
 import com.darkmusic.client.lyrics.LyricsProvider;
 import com.darkmusic.client.testing.Await;
+import com.google.gson.JsonObject;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.*;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -38,11 +41,11 @@ class PartialRootScopeTest {
         };
         var document = LyricsDocument.of("import", "1", "Song", "Artist", "", 180, "ja", LyricsDocument.Variant.ORIGINAL, false, false, "[00:01]Retained");
         try (var lyrics = new LyricsLookup(prefs, provider)) {
-            lyrics.select(kept, document).get(5, java.util.concurrent.TimeUnit.SECONDS);
-            lyrics.offset(kept, 650).get(5, java.util.concurrent.TimeUnit.SECONDS);
-            lyrics.language(kept, "ja").get(5, java.util.concurrent.TimeUnit.SECONDS);
-            lyrics.encoding(kept, "Big5").get(5, java.util.concurrent.TimeUnit.SECONDS);
-            lyrics.offset(gone, 100).get(5, java.util.concurrent.TimeUnit.SECONDS);
+            lyrics.select(kept, document).get(5, TimeUnit.SECONDS);
+            lyrics.offset(kept, 650).get(5, TimeUnit.SECONDS);
+            lyrics.language(kept, "ja").get(5, TimeUnit.SECONDS);
+            lyrics.encoding(kept, "Big5").get(5, TimeUnit.SECONDS);
+            lyrics.offset(gone, 100).get(5, TimeUnit.SECONDS);
         }
         try (var library = new MusicLibrary(temp.resolve("no-index-data"), p -> {
         }, 2000, p -> !p.equals(denied));
@@ -53,7 +56,7 @@ class PartialRootScopeTest {
             assertTrue(scan.tracks().isEmpty());
             assertEquals(List.of("denied"), scan.unreadableScopes().get("r"));
             lyrics.prune(scan.tracks(), Set.of("r"), scan.completeRoots(), scan.unreadableScopes());
-            lyrics.offset(kept, 650).get(5, java.util.concurrent.TimeUnit.SECONDS); // Storage barrier, not a timing sleep.
+            lyrics.offset(kept, 650).get(5, TimeUnit.SECONDS); // Storage barrier, not a timing sleep.
             try (var records = Files.list(prefs.resolve("tracks"))) {
                 assertEquals(1, records.count());
             }
@@ -67,14 +70,14 @@ class PartialRootScopeTest {
     @Test
     void queuedWalkerDoesNotKeepTheLibraryScanningBehindStalledWalkers() throws Exception {
         Path first = Files.createDirectories(temp.resolve("first")), second = Files.createDirectories(temp.resolve("second")), third = Files.createDirectories(temp.resolve("third"));
-        var entered = new java.util.concurrent.CountDownLatch(2);
-        var release = new java.util.concurrent.CountDownLatch(1);
+        var entered = new CountDownLatch(2);
+        var release = new CountDownLatch(1);
         try (var library = new MusicLibrary(temp.resolve("queue-data"), p -> {
         }, 300, p -> {
             if (p.equals(first) || p.equals(second)) {
                 entered.countDown();
                 try {
-                    release.await(5, java.util.concurrent.TimeUnit.SECONDS);
+                    release.await(5, TimeUnit.SECONDS);
                 } catch (InterruptedException interrupted) {
                     Thread.currentThread().interrupt();
                 }
@@ -82,7 +85,7 @@ class PartialRootScopeTest {
             return true;
         })) {
             library.setRoots(Map.of(first, "first", second, "second", third, "third"), first);
-            assertTrue(entered.await(3, java.util.concurrent.TimeUnit.SECONDS));
+            assertTrue(entered.await(3, TimeUnit.SECONDS));
             Await.until(Duration.ofSeconds(3), () -> !library.snapshot().scanning(), "Queued and stalled roots time out independently");
             assertFalse(library.snapshot().complete());
             release.countDown();
@@ -97,7 +100,7 @@ class PartialRootScopeTest {
         Path root = Files.createDirectories(temp.resolve("restart-library"));
         Path denied = Files.createDirectories(root.resolve("denied"));
         Path data = Files.createDirectories(temp.resolve("restart-data"));
-        var saved = new com.google.gson.JsonObject();
+        var saved = new JsonObject();
         saved.addProperty("root", "r");
         saved.addProperty("path", "denied/kept.dat");
         saved.addProperty("title", "Retained");

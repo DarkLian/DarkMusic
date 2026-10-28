@@ -16,16 +16,19 @@ import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.DoubleConsumer;
 import java.util.function.DoubleFunction;
+import java.util.function.Supplier;
 
 /**
  * Audio controls use the existing setting rows, sliders, scrolling and automatic save behavior.
@@ -54,7 +57,7 @@ public final class AudioSettingsScreen extends LocalScreen {
         cursor += 24;
     }
 
-    private void info(java.util.function.Supplier<String> text) {
+    private void info(Supplier<String> text) {
         details.add(new Detail(text, cursor, null));
         cursor += 22;
     }
@@ -98,7 +101,6 @@ public final class AudioSettingsScreen extends LocalScreen {
             app.settings.audio.profile = "CUSTOM";
             app.configureVisualizer();
         }, app::save, steps);
-        slider.plain(true);
         var parameter = switch (key) {
             case "audio.darkmusic.target" -> new AudioParameter(-24, -9, false, " LUFS");
             case "audio.darkmusic.band" -> new AudioParameter(-12, 12, false, " dB");
@@ -249,7 +251,7 @@ public final class AudioSettingsScreen extends LocalScreen {
                     app.settings.audio.savedProfiles.remove(name);
                     notice = Text.get("preset.deleted");
                     app.save();
-                    return java.util.concurrent.CompletableFuture.completedFuture(null);
+                    return CompletableFuture.completedFuture(null);
                 }))).bounds(formX + formWidth - 24, 0, 24, 20).build(), UiIcon.DELETE, true);
             UiButton.style(delete, UiButton.Style.DESTRUCTIVE);
             rows.add(addRenderableWidget(delete));
@@ -283,7 +285,7 @@ public final class AudioSettingsScreen extends LocalScreen {
     }
 
     @Override
-    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+    public boolean keyPressed(KeyEvent event) {
         // The focused EQ graph owns Page Up/Down and Home before they scroll the page.
         if (getFocused() instanceof EqualizerGraph graph && graph.keyPressed(event)) return true;
         if (event.key() == 258 && (getFocused() == null || rows.contains(getFocused()))) {
@@ -352,7 +354,7 @@ public final class AudioSettingsScreen extends LocalScreen {
     private record Section(String title, int y) {
     }
 
-    private record Detail(java.util.function.Supplier<String> text, int y,
-                          java.util.function.Supplier<UiStatus.Tone> tone) {
+    private record Detail(Supplier<String> text, int y,
+                          Supplier<UiStatus.Tone> tone) {
     }
 }

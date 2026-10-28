@@ -12,6 +12,7 @@ import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 
@@ -38,7 +39,7 @@ public class HudEditorScreen extends LocalScreen implements HudPreview {
     private boolean dragging;
     private double dragX, dragY;
     private long scaleChanged;
-    private net.minecraft.client.gui.components.AbstractWidget reset, help, back, select;
+    private AbstractWidget reset, help, back, select;
 
     public HudEditorScreen(DarkMusicClient app, Screen parent) {
         this(app, parent, Element.PLAYER);

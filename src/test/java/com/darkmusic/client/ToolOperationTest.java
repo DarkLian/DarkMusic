@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -68,7 +69,7 @@ class ToolOperationTest {
                 entered.countDown();
                 while (!release) {
                     token.check();
-                    java.util.concurrent.locks.LockSupport.parkNanos(1_000_000);
+                    LockSupport.parkNanos(1_000_000);
                 }
             }
             if (args.contains("--dump-single-json"))

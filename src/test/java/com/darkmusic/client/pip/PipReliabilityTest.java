@@ -2,8 +2,19 @@ package com.darkmusic.client.pip;
 
 import com.darkmusic.client.config.PipSettings;
 import com.darkmusic.client.tools.ProcessRunner;
+import com.sun.nio.file.ExtendedOpenOption;
+import org.junit.jupiter.api.Assumptions;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.channels.FileChannel;
 import java.nio.file.*;
+import java.nio.file.attribute.FileTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.Test;
@@ -19,8 +30,8 @@ class PipReliabilityTest {
     void failedProbeIsDistinctFromUnsupportedHardware() throws Exception {
         assertEquals(0, PipRuntime.requirementsResult(0, ""));
         assertEquals(26300, PipRuntime.requirementsResult(0, "supported 26300"));
-        assertThrows(java.io.IOException.class, () -> PipRuntime.requirementsResult(1, ""));
-        assertThrows(java.io.IOException.class, () -> PipRuntime.requirementsResult(0, "policy failure"));
+        assertThrows(IOException.class, () -> PipRuntime.requirementsResult(1, ""));
+        assertThrows(IOException.class, () -> PipRuntime.requirementsResult(0, "policy failure"));
     }
 
     @Test
@@ -51,11 +62,11 @@ class PipReliabilityTest {
         Path young = Files.createDirectory(temp.resolve("d".repeat(64)));
         Path busyFile = Files.writeString(legacy.resolve("DarkMusic.Pip.exe"), "Disposable runtime fixture");
         Path sibling = Files.writeString(legacy.resolve("runtime.dll"), "Keep this too while any file is busy");
-        Files.setLastModifiedTime(young, java.nio.file.attribute.FileTime.fromMillis(now));
+        Files.setLastModifiedTime(young, FileTime.fromMillis(now));
         String currentZip = "dependencies-" + "a".repeat(64) + ".zip";
         try (var setup = PipStorage.setup(temp, token); var live = PipStorage.use(current, currentZip, token)) {
             var oldLease = PipStorage.use(old, "dependencies-" + "b".repeat(64) + ".zip", token);
-            try (var channel = java.nio.channels.FileChannel.open(busyFile, StandardOpenOption.WRITE); var lock = channel.lock()) {
+            try (var channel = FileChannel.open(busyFile, StandardOpenOption.WRITE); var lock = channel.lock()) {
                 PipStorage.prune(temp, current, now);
                 assertTrue(Files.exists(old));
                 assertTrue(Files.exists(legacy));
@@ -99,13 +110,13 @@ class PipReliabilityTest {
 
     @Test
     void windowsSharingViolationKeepsTheWholeLegacyRuntime() throws Exception {
-        org.junit.jupiter.api.Assumptions.assumeTrue(PipNativeTools.supported(), "Windows file sharing check");
+        Assumptions.assumeTrue(PipNativeTools.supported(), "Windows file sharing check");
         temp = temp.toRealPath();
         Path current = Files.createDirectory(temp.resolve("a".repeat(64)));
         Path legacy = Files.createDirectory(temp.resolve("b".repeat(64)));
         Path exe = Files.writeString(legacy.resolve("DarkMusic.Pip.exe"), "Disposable executable placeholder");
         Path dll = Files.writeString(legacy.resolve("runtime.dll"), "Preserve siblings");
-        try (var handle = Files.newByteChannel(exe, java.util.Set.of(StandardOpenOption.READ, com.sun.nio.file.ExtendedOpenOption.NOSHARE_WRITE))) {
+        try (var handle = Files.newByteChannel(exe, Set.of(StandardOpenOption.READ, ExtendedOpenOption.NOSHARE_WRITE))) {
             PipStorage.prune(temp, current, System.currentTimeMillis() + 2L * 86_400_000);
             assertTrue(Files.exists(exe));
             assertEquals("Preserve siblings", Files.readString(dll));
@@ -121,7 +132,7 @@ class PipReliabilityTest {
         Path archive = Files.writeString(temp.resolve("dependencies-" + "a".repeat(64) + ".zip"), "fixture");
         var token = new ProcessRunner.Token();
         try (var setup = PipStorage.setup(temp, token); var live = PipStorage.use(current, archive.getFileName().toString(), token)) {
-            Path stale = Files.createFile(current.resolve(".lease-" + java.util.UUID.randomUUID()));
+            Path stale = Files.createFile(current.resolve(".lease-" + UUID.randomUUID()));
             PipStorage.prune(temp, current, System.currentTimeMillis());
             assertFalse(Files.exists(stale));
             try (var files = Files.list(current)) {
@@ -135,19 +146,19 @@ class PipReliabilityTest {
         temp = temp.toRealPath();
         var token = new ProcessRunner.Token();
         try (var held = PipStorage.setup(temp, token)) {
-            var error = assertThrows(java.io.IOException.class, () -> new PipStorage.Lease(temp.resolve(".setup-lock"), token, 0));
+            var error = assertThrows(IOException.class, () -> new PipStorage.Lease(temp.resolve(".setup-lock"), token, 0));
             assertEquals("pip.setup.busy", PipNativeTools.failure(error));
             var cancelled = new ProcessRunner.Token();
             cancelled.cancel();
-            assertThrows(java.util.concurrent.CancellationException.class, () -> new PipStorage.Lease(temp.resolve(".setup-lock"), cancelled, 0));
+            assertThrows(CancellationException.class, () -> new PipStorage.Lease(temp.resolve(".setup-lock"), cancelled, 0));
         }
     }
 
     @Test
     void extractionFailuresCleanTheirOwnStaging() throws Exception {
-        byte[] deps = PipRuntimeTest.zip(java.util.Map.of("DarkMusic.Pip.exe", new byte[]{1}, "../escape.dll", new byte[]{2}));
+        byte[] deps = PipRuntimeTest.zip(Map.of("DarkMusic.Pip.exe", new byte[]{1}, "../escape.dll", new byte[]{2}));
         Path archive = Files.write(temp.resolve("deps.zip"), deps);
-        assertThrows(java.io.IOException.class, () -> PipNativeTools.unpack(archive, PipRuntimeTest.hash(deps), temp));
+        assertThrows(IOException.class, () -> PipNativeTools.unpack(archive, PipRuntimeTest.hash(deps), temp));
         try (var files = Files.list(temp)) {
             assertTrue(files.noneMatch(p -> p.getFileName().toString().startsWith("prepare-")));
         }
@@ -155,24 +166,24 @@ class PipReliabilityTest {
 
     @Test
     void competingPublicationIsReusedOnlyAfterFullVerification() throws Exception {
-        byte[] deps = PipRuntimeTest.zip(java.util.Map.of("DarkMusic.Pip.exe", new byte[]{1}, "runtime.dll", new byte[]{2}));
+        byte[] deps = PipRuntimeTest.zip(Map.of("DarkMusic.Pip.exe", new byte[]{1}, "runtime.dll", new byte[]{2}));
         String dh = PipRuntimeTest.hash(deps);
         Path archive = Files.write(temp.resolve("deps.zip"), deps);
         String combined = dh;
-        for (boolean valid : java.util.List.of(true, false)) {
+        for (boolean valid : List.of(true, false)) {
             Path root = Files.createDirectory(temp.resolve(valid ? "valid" : "invalid"));
             Runnable publish = () -> {
                 try {
                     Path winner = Files.createDirectory(root.resolve(combined));
                     Files.write(winner.resolve("DarkMusic.Pip.exe"), new byte[]{(byte) (valid ? 1 : 9)});
                     Files.write(winner.resolve("runtime.dll"), new byte[]{2});
-                } catch (java.io.IOException e) {
-                    throw new java.io.UncheckedIOException(e);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
                 }
             };
             if (valid) assertTrue(Files.isRegularFile(PipNativeTools.unpack(archive, dh, root, publish)));
             else
-                assertThrows(java.io.IOException.class, () -> PipNativeTools.unpack(archive, dh, root, publish));
+                assertThrows(IOException.class, () -> PipNativeTools.unpack(archive, dh, root, publish));
             try (var files = Files.list(root)) {
                 assertTrue(files.noneMatch(f -> f.getFileName().toString().startsWith("prepare-")));
             }

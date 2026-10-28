@@ -3,14 +3,19 @@ package com.darkmusic.client.lyrics;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.testing.Await;
+import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.URI;
 import java.nio.file.*;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
+import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -27,7 +32,7 @@ class LyricsOwnershipTest {
         return LyricsDocument.of("fixture", "1", "Song", "Artist", "", 180, "ja", LyricsDocument.Variant.ORIGINAL, false, false, "[00:01]Words");
     }
 
-    private LyricsProvider provider(java.util.function.Function<LyricsProvider.Query, List<LyricsProvider.Candidate>> search) {
+    private LyricsProvider provider(Function<LyricsProvider.Query, List<LyricsProvider.Candidate>> search) {
         return new LyricsProvider() {
             public String id() {
                 return "owner-test";
@@ -133,14 +138,14 @@ class LyricsOwnershipTest {
 
     @Test
     void actualHttpAdapterPreservesMissingRetryAfter() throws Exception {
-        var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress(java.net.InetAddress.getLoopbackAddress(), 0), 0);
+        var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
         server.createContext("/", exchange -> {
             exchange.sendResponseHeaders(503, -1);
             exchange.close();
         });
         server.start();
         try (var provider = new LrclibProvider()) {
-            var uri = new java.net.URI("http", null, server.getAddress().getAddress().getHostAddress(), server.getAddress().getPort(), "/", null, null);
+            var uri = new URI("http", null, server.getAddress().getAddress().getHostAddress(), server.getAddress().getPort(), "/", null, null);
             var reply = provider.http(uri, new ProcessRunner.Token());
             assertEquals(503, reply.status());
             assertNull(reply.retryAfter());

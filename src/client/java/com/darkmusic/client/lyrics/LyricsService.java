@@ -8,15 +8,34 @@ import com.darkmusic.client.media.AudioFormats;
 import com.darkmusic.client.media.ExternalAudio;
 import com.darkmusic.client.text.Text;
 import com.darkmusic.client.tools.ProcessRunner;
+import org.jaudiotagger.audio.AudioFileIO;
+import org.jaudiotagger.audio.exceptions.CannotReadException;
+import org.jaudiotagger.tag.FieldKey;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 
 /**
  * Bounded, deduplicated local inspection. Rendering reads immutable track-keyed snapshots only.
@@ -24,7 +43,7 @@ import java.util.concurrent.TimeUnit;
 public final class LyricsService implements AutoCloseable {
     private static final Lrc EMPTY = new Lrc(List.of());
     public final LyricsLookup lookup;
-    private final java.util.concurrent.ConcurrentHashMap<String, Shifted> shifted = new java.util.concurrent.ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Shifted> shifted = new ConcurrentHashMap<>();
     private static final int MAX_CACHED = 64, MAX_PENDING = 8;
     private final LinkedBlockingDeque<Runnable> queue = new LinkedBlockingDeque<>(MAX_PENDING);
     private final ThreadPoolExecutor io = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, queue,
@@ -35,15 +54,15 @@ public final class LyricsService implements AutoCloseable {
     private volatile boolean enabled = true;
     private boolean closed;
     private long generation;
-    private final java.util.function.LongSupplier clock;
+    private final LongSupplier clock;
     private List<Track> backgroundTracks = List.of();
     private int backgroundCursor;
     private Track backgroundTrack;
     private long backgroundAt;
     private boolean backgroundActive;
     private long backgroundCacheRevision = -1;
-    private final Map<String, Track> backgroundVisited = new java.util.HashMap<>();
-    private java.util.Set<String> backgroundRoots;
+    private final Map<String, Track> backgroundVisited = new HashMap<>();
+    private Set<String> backgroundRoots;
     private boolean libraryRun;
     private ProcessRunner.Token libraryOwner;
     private long libraryRequestStart;
@@ -98,7 +117,7 @@ public final class LyricsService implements AutoCloseable {
         this(directory, provider, System::nanoTime);
     }
 
-    LyricsService(Path directory, LyricsProvider provider, java.util.function.LongSupplier clock) {
+    LyricsService(Path directory, LyricsProvider provider, LongSupplier clock) {
         this.clock = clock;
         lookup = new LyricsLookup(directory, provider, clock);
         io.prestartCoreThread();
@@ -111,7 +130,7 @@ public final class LyricsService implements AutoCloseable {
         background(tracks, null, active);
     }
 
-    public void background(List<Track> tracks, java.util.Set<String> healthyRoots, boolean active) {
+    public void background(List<Track> tracks, Set<String> healthyRoots, boolean active) {
         lookup.tickRetries();
         if (!enabled || closed || !active) {
             backgroundActive = false;
@@ -127,7 +146,7 @@ public final class LyricsService implements AutoCloseable {
             backgroundTrack = null;
             backgroundVisited.clear();
         } else if (backgroundTrack == null && backgroundCursor >= backgroundTracks.size()
-            && (backgroundTracks != tracks || !java.util.Objects.equals(backgroundRoots, healthyRoots))) {
+            && (backgroundTracks != tracks || !Objects.equals(backgroundRoots, healthyRoots))) {
             // Finish the current pass before adopting a rescan, so early songs cannot starve later ones.
             backgroundTracks = tracks;
             backgroundRoots = healthyRoots;
@@ -243,7 +262,7 @@ public final class LyricsService implements AutoCloseable {
                     result = new Cached(fingerprint, previous.document, previous.info, System.nanoTime());
                 else result = read(track.file(), sidecar, fingerprint);
             } catch (Exception failure) {
-                org.slf4j.LoggerFactory.getLogger("darkmusic-lyrics").debug("Lyric inspection failed for {}", track.file(), failure);
+                LoggerFactory.getLogger("darkmusic-lyrics").debug("Lyric inspection failed for {}", track.file(), failure);
                 result = new Cached(null, LyricsDocument.EMPTY, LyricsInfo.LOCAL_ERROR, System.nanoTime());
             }
             synchronized (LyricsService.this) {
@@ -279,12 +298,12 @@ public final class LyricsService implements AutoCloseable {
                 text = "";
                 try {
                     var info = ExternalAudio.probe(audio);
-                    var tags = new java.util.HashMap<String, String>();
+                    var tags = new HashMap<String, String>();
                     if (info.has("format") && info.getAsJsonObject("format").has("tags"))
-                        info.getAsJsonObject("format").getAsJsonObject("tags").entrySet().forEach(e -> tags.put(e.getKey().toLowerCase(java.util.Locale.ROOT), e.getValue().getAsString()));
+                        info.getAsJsonObject("format").getAsJsonObject("tags").entrySet().forEach(e -> tags.put(e.getKey().toLowerCase(Locale.ROOT), e.getValue().getAsString()));
                     if (info.has("streams")) for (var stream : info.getAsJsonArray("streams"))
                         if (stream.getAsJsonObject().has("tags"))
-                            stream.getAsJsonObject().getAsJsonObject("tags").entrySet().forEach(e -> tags.put(e.getKey().toLowerCase(java.util.Locale.ROOT), e.getValue().getAsString()));
+                            stream.getAsJsonObject().getAsJsonObject("tags").entrySet().forEach(e -> tags.put(e.getKey().toLowerCase(Locale.ROOT), e.getValue().getAsString()));
                     text = tags.getOrDefault("lyrics", tags.getOrDefault("unsyncedlyrics", ""));
                     language = tags.getOrDefault("language", "und");
                 } catch (Exception unavailable) {
@@ -292,10 +311,10 @@ public final class LyricsService implements AutoCloseable {
                 }
             } else {
                 try {
-                    var tag = org.jaudiotagger.audio.AudioFileIO.read(audio.toFile()).getTag();
-                    text = tag == null ? "" : tag.getFirst(org.jaudiotagger.tag.FieldKey.LYRICS);
-                    language = tag == null ? "und" : tag.getFirst(org.jaudiotagger.tag.FieldKey.LANGUAGE);
-                } catch (org.jaudiotagger.audio.exceptions.CannotReadException unsupported) {
+                    var tag = AudioFileIO.read(audio.toFile()).getTag();
+                    text = tag == null ? "" : tag.getFirst(FieldKey.LYRICS);
+                    language = tag == null ? "und" : tag.getFirst(FieldKey.LANGUAGE);
+                } catch (CannotReadException unsupported) {
                     if (unsupported.getMessage() == null || !unsupported.getMessage().contains("No Reader associated"))
                         throw unsupported;
                     return new Cached(fingerprint, LyricsDocument.EMPTY, LyricsInfo.LOCAL_MISSING, System.nanoTime());
@@ -307,9 +326,9 @@ public final class LyricsService implements AutoCloseable {
         text = LyricsDocument.localText(text);
         var document = LyricsDocument.of(fingerprint.sidecar.size >= 0 ? "sidecar" : "embedded", "", "", "", "", 0, language, LyricsDocument.Variant.UNKNOWN, false, false, text);
         Path provenance = sidecar.resolveSibling(sidecar.getFileName() + ".darkmusic.json");
-        if (fingerprint.sidecar.size >= 0 && Files.isRegularFile(provenance, java.nio.file.LinkOption.NOFOLLOW_LINKS) && Files.size(provenance) <= 4_000_000)
+        if (fingerprint.sidecar.size >= 0 && Files.isRegularFile(provenance, LinkOption.NOFOLLOW_LINKS) && Files.size(provenance) <= 4_000_000)
             try {
-                var saved = ConfigStore.JSON.fromJson(new String(readLocal(provenance, 4_000_000), java.nio.charset.StandardCharsets.UTF_8), LyricsDocument.class);
+                var saved = ConfigStore.JSON.fromJson(new String(readLocal(provenance, 4_000_000), StandardCharsets.UTF_8), LyricsDocument.class);
                 if (saved != null && text.equals(saved.text()))
                     document = LyricsDocument.of(saved.provider(), saved.recordId(), saved.title(), saved.artist(), saved.album(), saved.duration(), saved.language(), saved.variant(), saved.generated(), saved.instrumental(), text);
             } catch (RuntimeException ignored) {
@@ -318,24 +337,24 @@ public final class LyricsService implements AutoCloseable {
         return new Cached(fingerprint, document, info, System.nanoTime());
     }
 
-    static String decode(byte[] bytes) throws java.nio.charset.CharacterCodingException {
+    static String decode(byte[] bytes) throws CharacterCodingException {
         int skip = 0;
-        java.nio.charset.Charset charset = java.nio.charset.StandardCharsets.UTF_8;
+        Charset charset = StandardCharsets.UTF_8;
         if (bytes.length >= 3 && bytes[0] == (byte) 0xef && bytes[1] == (byte) 0xbb && bytes[2] == (byte) 0xbf)
             skip = 3;
         else if (bytes.length >= 2 && bytes[0] == (byte) 0xff && bytes[1] == (byte) 0xfe) {
-            charset = java.nio.charset.StandardCharsets.UTF_16LE;
+            charset = StandardCharsets.UTF_16LE;
             skip = 2;
         } else if (bytes.length >= 2 && bytes[0] == (byte) 0xfe && bytes[1] == (byte) 0xff) {
-            charset = java.nio.charset.StandardCharsets.UTF_16BE;
+            charset = StandardCharsets.UTF_16BE;
             skip = 2;
         }
-        return charset.newDecoder().decode(java.nio.ByteBuffer.wrap(bytes, skip, bytes.length - skip)).toString();
+        return charset.newDecoder().decode(ByteBuffer.wrap(bytes, skip, bytes.length - skip)).toString();
     }
 
-    static String decode(byte[] bytes, String encoding) throws java.nio.charset.CharacterCodingException {
+    static String decode(byte[] bytes, String encoding) throws CharacterCodingException {
         if (encoding == null || encoding.equals("Auto")) return decode(bytes);
-        return java.nio.charset.Charset.forName(encoding).newDecoder().decode(java.nio.ByteBuffer.wrap(bytes)).toString();
+        return Charset.forName(encoding).newDecoder().decode(ByteBuffer.wrap(bytes)).toString();
     }
 
     public LyricsDocument document(Track track) {
@@ -423,25 +442,25 @@ public final class LyricsService implements AutoCloseable {
         shifted.clear();
     }
 
-    static byte[] readLocal(Path file, int limit) throws java.io.IOException {
-        try (var input = Files.newInputStream(file, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+    static byte[] readLocal(Path file, int limit) throws IOException {
+        try (var input = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS)) {
             byte[] bytes = input.readNBytes(limit + 1);
-            if (bytes.length > limit) throw new java.io.IOException("Oversized lyric file");
+            if (bytes.length > limit) throw new IOException("Oversized lyric file");
             return bytes;
         }
     }
 
-    private static Stamp stamp(Path file) throws java.io.IOException {
+    private static Stamp stamp(Path file) throws IOException {
         try {
-            var attributes = Files.readAttributes(file, java.nio.file.attribute.BasicFileAttributes.class, java.nio.file.LinkOption.NOFOLLOW_LINKS);
-            if (attributes.isSymbolicLink()) throw new java.io.IOException("Symbolic lyric path");
+            var attributes = Files.readAttributes(file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+            if (attributes.isSymbolicLink()) throw new IOException("Symbolic lyric path");
             return new Stamp(attributes.size(), attributes.lastModifiedTime());
-        } catch (java.nio.file.NoSuchFileException missing) {
+        } catch (NoSuchFileException missing) {
             return new Stamp(-1, null);
         }
     }
 
-    private record Stamp(long size, java.nio.file.attribute.FileTime modified) {
+    private record Stamp(long size, FileTime modified) {
     }
 
     private record Fingerprint(Stamp audio, Stamp sidecar, Stamp backup, Stamp provenance, String encoding) {

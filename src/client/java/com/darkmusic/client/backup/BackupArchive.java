@@ -12,6 +12,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.zip.*;
 
 /**
@@ -41,7 +42,7 @@ public final class BackupArchive {
      */
     public record Export(String settingsJson, String root, List<PlaylistStore.Playlist> playlists,
                          Map<String, String> shortcuts,
-                         java.util.function.Supplier<Map<String, ListeningHistory.Entry>> history) {
+                         Supplier<Map<String, ListeningHistory.Entry>> history) {
         public Export {
             Objects.requireNonNull(settingsJson);
             Objects.requireNonNull(history);

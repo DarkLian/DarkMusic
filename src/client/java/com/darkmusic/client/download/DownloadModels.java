@@ -8,6 +8,7 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.IntStream;
 
 public final class DownloadModels {
     public static final int PAGE_SIZE = 100, MAX_BATCH = 1000;
@@ -32,7 +33,7 @@ public final class DownloadModels {
     public static List<Integer> range(int first, int last) {
         if (first < 1 || last < first || (long) last - first + 1 > MAX_BATCH)
             throw new IllegalArgumentException(Text.get("download.range_invalid", MAX_BATCH));
-        return java.util.stream.IntStream.rangeClosed(first, last).boxed().toList();
+        return IntStream.rangeClosed(first, last).boxed().toList();
     }
 
     public enum Status {

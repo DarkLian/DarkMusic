@@ -4,6 +4,8 @@ import com.darkmusic.client.library.Track;
 import com.darkmusic.client.media.ExternalAudio;
 
 import javax.sound.sampled.AudioInputStream;
+import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
 
@@ -62,13 +64,13 @@ final class NextAudio {
         return result;
     }
 
-    synchronized java.util.concurrent.CompletableFuture<Void> cancel() {
+    synchronized CompletableFuture<Void> cancel() {
         cancelled = true;
         if (future != null) future.cancel(true);
         if (ready != null) {
             var abandoned = ready.stream;
             ExternalAudio.abort(abandoned);
-            var released = new java.util.concurrent.CompletableFuture<Void>();
+            var released = new CompletableFuture<Void>();
             Thread.ofVirtual().name("darkmusic-decoder-close").start(() -> {
                 try {
                     close(abandoned);
@@ -79,13 +81,13 @@ final class NextAudio {
             ready = null;
             return released;
         }
-        return java.util.concurrent.CompletableFuture.completedFuture(null);
+        return CompletableFuture.completedFuture(null);
     }
 
     static void close(AudioInputStream stream) {
         try {
             stream.close();
-        } catch (java.io.IOException ignored) {
+        } catch (IOException ignored) {
         }
     }
 

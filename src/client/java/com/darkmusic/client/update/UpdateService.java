@@ -8,26 +8,37 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Util;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.*;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.security.SecureRandom;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.Flow;
+import java.util.function.Consumer;
 
 /**
  * Client-only notices and consent-driven staging. No Minecraft connection is used for updates.
  */
 public final class UpdateService implements AutoCloseable {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger("darkmusic-update");
+    private static final Logger LOG = LoggerFactory.getLogger("darkmusic-update");
     private final DarkMusicClient app;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-update").factory());
     // Install buttons carry this code, so only DarkMusic's own buttons install without the command being typed.
-    private final String installCode = java.util.HexFormat.of().formatHex(randomBytes());
+    private final String installCode = HexFormat.of().formatHex(randomBytes());
     private final String install = "/da update install " + installCode;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15)).followRedirects(HttpClient.Redirect.NEVER).build();
     private final Path installed, directory;
@@ -36,7 +47,7 @@ public final class UpdateService implements AutoCloseable {
     private GitHubRelease release;
     private boolean checking, downloading, closed;
     private long checkedAt;
-    private final java.util.ArrayList<java.util.function.Consumer<String>> checkListeners = new java.util.ArrayList<>();
+    private final ArrayList<Consumer<String>> checkListeners = new ArrayList<>();
     private volatile Path pending;
     private Path installFailureLog;
     private boolean recoveryReady, failureNotified;
@@ -86,7 +97,7 @@ public final class UpdateService implements AutoCloseable {
         }
     }
 
-    public void checkNow(java.util.function.Consumer<String> result) {
+    public void checkNow(Consumer<String> result) {
         if (closed) {
             result.accept("update.check_failed");
             return;
@@ -116,7 +127,7 @@ public final class UpdateService implements AutoCloseable {
         if (log == null || closed) return;
         CompletableFuture.runAsync(() -> {
             try {
-                net.minecraft.util.Util.getPlatform().openPath(Files.isRegularFile(log) ? log : log.getParent());
+                Util.getPlatform().openPath(Files.isRegularFile(log) ? log : log.getParent());
             } catch (Exception failure) {
                 LOG.warn("Cannot open update installation log", failure);
                 Minecraft.getInstance().execute(() -> app.warn(Text.get("update.log_failed")));
@@ -134,7 +145,7 @@ public final class UpdateService implements AutoCloseable {
         boolean[] failed = {false};
         CompletableFuture.supplyAsync(() -> {
             try {
-                return GitHubRelease.parse(new String(fetch(URI.create(GitHubRelease.API), 2 * 1024 * 1024), java.nio.charset.StandardCharsets.UTF_8), current).orElse(null);
+                return GitHubRelease.parse(new String(fetch(URI.create(GitHubRelease.API), 2 * 1024 * 1024), StandardCharsets.UTF_8), current).orElse(null);
             } catch (Exception failure) {
                 LOG.warn("Update check failed", failure);
                 failed[0] = true;
@@ -180,7 +191,7 @@ public final class UpdateService implements AutoCloseable {
 
     private static byte[] randomBytes() {
         byte[] bytes = new byte[16];
-        new java.security.SecureRandom().nextBytes(bytes);
+        new SecureRandom().nextBytes(bytes);
         return bytes;
     }
 
@@ -232,9 +243,9 @@ public final class UpdateService implements AutoCloseable {
             Path staged = null, job = null;
             try {
                 byte[] bytes = fetch(selected.url(), selected.size());
-                if (bytes.length != selected.size()) throw new java.io.IOException("Unexpected asset size");
+                if (bytes.length != selected.size()) throw new IOException("Unexpected asset size");
                 Files.createDirectories(directory);
-                job = Files.createDirectory(directory.resolve(java.util.UUID.randomUUID().toString()));
+                job = Files.createDirectory(directory.resolve(UUID.randomUUID().toString()));
                 staged = job.resolve("download.jar");
                 Files.write(staged, bytes, StandardOpenOption.CREATE_NEW);
                 selected.verify(staged);
@@ -249,7 +260,7 @@ public final class UpdateService implements AutoCloseable {
                 Path helper = job.resolve(resource);
                 Files.createDirectories(helper.getParent());
                 try (var input = UpdateInstaller.class.getClassLoader().getResourceAsStream(resource)) {
-                    if (input == null) throw new java.io.IOException("Installer class unavailable");
+                    if (input == null) throw new IOException("Installer class unavailable");
                     Files.copy(input, helper);
                 }
                 try (var output = Files.newOutputStream(manifest, StandardOpenOption.CREATE_NEW)) {
@@ -277,7 +288,7 @@ public final class UpdateService implements AutoCloseable {
 
     private byte[] fetch(URI url, long limit) throws Exception {
         for (int redirects = 0; redirects <= 5; redirects++) {
-            if (!trusted(url)) throw new java.io.IOException("Untrusted update host");
+            if (!trusted(url)) throw new IOException("Untrusted update host");
             var request = HttpRequest.newBuilder(url).timeout(Duration.ofSeconds(90)).header("User-Agent", "DarkMusic/" + current)
                 .header("Accept", url.getHost().equals("api.github.com") ? "application/vnd.github+json" : "application/octet-stream").GET().build();
             var response = http.send(request, info -> limited(info.statusCode() >= 300 && info.statusCode() < 400 ? 65536 : limit));
@@ -285,15 +296,15 @@ public final class UpdateService implements AutoCloseable {
                 url = url.resolve(response.headers().firstValue("location").orElseThrow());
                 continue;
             }
-            if (response.statusCode() != 200) throw new java.io.IOException("GitHub HTTP " + response.statusCode());
+            if (response.statusCode() != 200) throw new IOException("GitHub HTTP " + response.statusCode());
             return response.body();
         }
-        throw new java.io.IOException("Too many update redirects");
+        throw new IOException("Too many update redirects");
     }
 
     static boolean trusted(URI url) {
         return "https".equals(url.getScheme()) && url.getHost() != null && url.getUserInfo() == null && (url.getPort() == -1 || url.getPort() == 443) &&
-            java.util.Set.of("api.github.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com").contains(url.getHost());
+            Set.of("api.github.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com").contains(url.getHost());
     }
 
     static HttpResponse.BodySubscriber<byte[]> limited(long limit) {
@@ -315,7 +326,7 @@ public final class UpdateService implements AutoCloseable {
                 for (var buffer : buffers) count += buffer.remaining();
                 if (count > limit) {
                     subscription.cancel();
-                    delegate.onError(new java.io.IOException("Update response too large"));
+                    delegate.onError(new IOException("Update response too large"));
                 } else delegate.onNext(buffers);
             }
 

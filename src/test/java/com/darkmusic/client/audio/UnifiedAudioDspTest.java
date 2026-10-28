@@ -4,8 +4,11 @@ import com.darkmusic.client.config.*;
 import com.darkmusic.client.testing.Await;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
 import java.time.Duration;
 import java.util.*;
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioInputStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -24,8 +27,8 @@ class UnifiedAudioDspTest {
                         bytes[i * 4 + c * 2 + 1] = (byte) (v >> 8);
                     }
                 }
-                var format = new javax.sound.sampled.AudioFormat(48000, 16, 2, true, false);
-                try (var stream = new javax.sound.sampled.AudioInputStream(new java.io.ByteArrayInputStream(bytes), format, frames)) {
+                var format = new AudioFormat(48000, 16, 2, true, false);
+                try (var stream = new AudioInputStream(new ByteArrayInputStream(bytes), format, frames)) {
                     var converter = new PcmRateConverter(stream);
                     float[] out = new float[2048];
                     long count = 0, positiveCrossings = 0;
@@ -58,8 +61,8 @@ class UnifiedAudioDspTest {
                         bytes[(i * channels + c) * 2 + 1] = (byte) (value >> 8);
                     }
                 }
-                var format = new javax.sound.sampled.AudioFormat(rate, 16, channels, true, false);
-                try (var stream = new javax.sound.sampled.AudioInputStream(new java.io.ByteArrayInputStream(bytes), format, frames)) {
+                var format = new AudioFormat(rate, 16, channels, true, false);
+                try (var stream = new AudioInputStream(new ByteArrayInputStream(bytes), format, frames)) {
                     var converter = new PcmRateConverter(stream);
                     float[] out = new float[2048];
                     // A clean 440 Hz sine never moves further than this between neighbouring samples.

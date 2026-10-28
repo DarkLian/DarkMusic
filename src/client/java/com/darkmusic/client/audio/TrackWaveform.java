@@ -1,7 +1,10 @@
 package com.darkmusic.client.audio;
 
+import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -72,7 +75,7 @@ public final class TrackWaveform {
         int channels = format.getChannels(), frameSize = format.getFrameSize();
         double rate = format.getSampleRate();
         if (format.getSampleSizeInBits() != 16 || format.isBigEndian() ||
-            !format.getEncoding().equals(javax.sound.sampled.AudioFormat.Encoding.PCM_SIGNED) ||
+            !format.getEncoding().equals(AudioFormat.Encoding.PCM_SIGNED) ||
             channels < 1 || channels > 2 || frameSize != channels * 2 || !Double.isFinite(rate) || rate <= 0)
             throw new AnalysisLimit("Unsupported waveform PCM");
         float[] peaks = new float[BINS * 2];
@@ -80,7 +83,7 @@ public final class TrackWaveform {
         long perBin = 256, frames = 0, inBin = 0;
         int bins = 0;
         byte[] bytes = new byte[16384 / frameSize * frameSize];
-        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(90);
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(90);
         long progressed = System.nanoTime();
         while (true) {
             if (cancelled.getAsBoolean() || Thread.currentThread().isInterrupted()) throw new InterruptedException();
@@ -88,7 +91,7 @@ public final class TrackWaveform {
             int read = pcm.read(bytes);
             if (read < 0) break;
             if (read == 0) {
-                if (System.nanoTime() - progressed > java.util.concurrent.TimeUnit.SECONDS.toNanos(5))
+                if (System.nanoTime() - progressed > TimeUnit.SECONDS.toNanos(5))
                     throw new IOException("Waveform decoder made no progress");
                 Thread.sleep(2);
                 continue;
@@ -100,8 +103,8 @@ public final class TrackWaveform {
                         peaks[i] = Math.max(peaks[i * 2], peaks[i * 2 + 1]);
                         energy[i] = energy[i * 2] + energy[i * 2 + 1];
                     }
-                    java.util.Arrays.fill(energy, BINS, energy.length, 0);
-                    java.util.Arrays.fill(peaks, BINS, peaks.length, 0);
+                    Arrays.fill(energy, BINS, energy.length, 0);
+                    Arrays.fill(peaks, BINS, peaks.length, 0);
                     bins = BINS;
                     perBin *= 2;
                 }

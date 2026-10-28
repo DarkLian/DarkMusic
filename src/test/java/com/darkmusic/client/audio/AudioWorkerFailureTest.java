@@ -2,8 +2,10 @@ package com.darkmusic.client.audio;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.darkmusic.client.library.Track;
 
@@ -12,10 +14,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class AudioWorkerFailureTest {
     @Test
     void codecErrorDoesNotKillThePlaybackWorker() throws Exception {
-        var count = new java.util.concurrent.atomic.AtomicInteger();
+        var count = new AtomicInteger();
         try (var backend = new JavaSoundBackend(Runnable::run, p -> {
             if (count.getAndIncrement() == 0) throw new NoClassDefFoundError("injected");
-            throw new java.io.IOException("second request");
+            throw new IOException("second request");
         }, f -> {
             throw new AssertionError("No output for failed decoder");
         })) {

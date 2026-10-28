@@ -5,6 +5,9 @@ import org.junit.jupiter.api.Test;
 import java.io.*;
 import java.nio.*;
 import java.nio.channels.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -73,7 +76,7 @@ class PipFramesTest {
     @Test
     void buffersAreReusedAndLatePublicationCannotReviveClosedCapture() throws Exception {
         var frames = new PipFrames();
-        var buffers = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<ByteBuffer, Boolean>());
+        var buffers = Collections.newSetFromMap(new IdentityHashMap<ByteBuffer, Boolean>());
         for (int i = 1; i <= 100; i++) {
             try (var writer = frames.writing(frame(i))) {
                 buffers.add(writer.pixels());
@@ -118,7 +121,7 @@ class PipFramesTest {
 
     @Test
     void truncatedAndStalledStreamsFailInsteadOfPublishingPartialPixels() throws Exception {
-        byte[] truncated = java.util.Arrays.copyOf(header(2, 2, 1), 70);
+        byte[] truncated = Arrays.copyOf(header(2, 2, 1), 70);
         try (var frames = new PipFrames(); var reader = new PipFrameReader(Channels.newChannel(new ByteArrayInputStream(truncated)), frames)) {
             assertThrows(EOFException.class, reader::read);
             assertNull(frames.latest());

@@ -4,8 +4,10 @@ import com.darkmusic.client.library.Track;
 import com.darkmusic.client.media.ExternalAudio;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.*;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -18,7 +20,7 @@ class LoudnessWriteBackoffTest {
     void failedPersistenceDefersTheNextBackgroundAttemptAndKeepsTheReading() throws Exception {
         Files.createDirectory(directory.resolve("loudness-cache.json"));
         ExternalAudio.configure(() -> new ExternalAudio.Paths(directory, "", ""));
-        org.slf4j.LoggerFactory.getLogger(getClass());
+        LoggerFactory.getLogger(getClass());
         var track = new Track("root", "unavailable.opus", directory.resolve("unavailable.opus"), "", "", "", 10, 1, 1, "");
         try (var cache = new LoudnessCache()) {
             cache.remember(track, track.file().toAbsolutePath() + ":1:1:TRACK", new LoudnessCache.Reading(-12, -1));
@@ -30,7 +32,7 @@ class LoudnessWriteBackoffTest {
             assertTrue(next.getLong(cache) - System.nanoTime() > TimeUnit.SECONDS.toNanos(50));
             var results = LoudnessCache.class.getDeclaredField("results");
             results.setAccessible(true);
-            assertEquals(1, ((java.util.Map<?, ?>) results.get(cache)).size());
+            assertEquals(1, ((Map<?, ?>) results.get(cache)).size());
         } finally {
             ExternalAudio.configure(null);
         }
