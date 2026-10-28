@@ -275,6 +275,29 @@ public final class MusicScreen extends LocalScreen {
         songs.playing(i -> i < visible.size() && visible.get(i).id().equals(playingId));
         songs.playingIcon(() -> playingIcon);
         songs.favorites(i -> i < visible.size() && app.playlists.favorite(visible.get(i)));
+        detailButtons(library);
+        transportControls();
+        if (drawer) {
+            icon("text.darkmusic.open_folder", UiIcon.FOLDER, 84, contextY, 24, true, app.folders::open);
+            icon("import.darkmusic.history", UiIcon.PLAYLIST, 112, contextY, 24, true, () -> show(new ImportHistoryScreen(app, this)));
+            icon("text.darkmusic.refresh_library", UiIcon.REFRESH, 140, contextY, 24, true, () -> app.library.rescan());
+        }
+        if (shuffle != null) UiButton.selected(shuffle, () -> app.playback.shuffle());
+        if (repeat != null) UiButton.selected(repeat, () -> app.playback.repeat() != Repeat.OFF);
+        refresh();
+        songs.scrollOffset(songScroll);
+        navigation.scrollOffset(collectionScroll);
+        if (revealOnEntry) {
+            revealOnEntry = false;
+            if (app.playback.state().track() != null) jumpToPlaying();
+            else revealResume();
+        }
+    }
+
+    /**
+     * The selected song's buttons above its details: actions, favorite, edit, lyrics and its source link.
+     */
+    private void detailButtons(boolean library) {
         var inspector = pane == Pane.DETAILS ? new PlayerLayout.Rect(12, 96, width - 24, layout.dock().y() - 108) : layout.inspector();
         queueActions = icon("upnext.actions", UiIcon.MORE, inspector.right() - 28, inspector.y() + 4, 22, true,
             () -> show(new SongActionsScreen(app, this, selected)));
@@ -314,6 +337,12 @@ public final class MusicScreen extends LocalScreen {
         });
         favorite.visible = edit.visible = sourceLink.visible = copySource.visible = selected != null && (pane == Pane.DETAILS || library && inspector.width() > 0);
         if (lyricsButton != null) lyricsButton.visible = copySource.visible;
+    }
+
+    /**
+     * Speed, the playback buttons, volume and the seek bar along the bottom dock.
+     */
+    private void transportControls() {
         int transportY = layout.transportY();
         int x = layout.transportX();
         int sliderWidth = layout.controlWidth();
@@ -363,21 +392,6 @@ public final class MusicScreen extends LocalScreen {
                 seekDragging = progress != null && progress.editing();
             }, this::commitSeek));
         PlayerProgress.configure(progress, app, () -> app.playback.state().track());
-        if (drawer) {
-            icon("text.darkmusic.open_folder", UiIcon.FOLDER, 84, contextY, 24, true, app.folders::open);
-            icon("import.darkmusic.history", UiIcon.PLAYLIST, 112, contextY, 24, true, () -> show(new ImportHistoryScreen(app, this)));
-            icon("text.darkmusic.refresh_library", UiIcon.REFRESH, 140, contextY, 24, true, () -> app.library.rescan());
-        }
-        if (shuffle != null) UiButton.selected(shuffle, () -> app.playback.shuffle());
-        if (repeat != null) UiButton.selected(repeat, () -> app.playback.repeat() != Repeat.OFF);
-        refresh();
-        songs.scrollOffset(songScroll);
-        navigation.scrollOffset(collectionScroll);
-        if (revealOnEntry) {
-            revealOnEntry = false;
-            if (app.playback.state().track() != null) jumpToPlaying();
-            else revealResume();
-        }
     }
 
     private void refresh() {

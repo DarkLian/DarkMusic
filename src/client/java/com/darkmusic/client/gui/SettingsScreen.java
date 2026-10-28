@@ -122,22 +122,31 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         controls.getLast().widget().setMessage(Component.literal(Text.get(key) + ": " + value.get()));
     }
 
+    /**
+     * A choice row over every value of an enum, named by {@code prefix} plus the value's lowercase name.
+     */
+    private <E extends Enum<E>> void choice(String key, String prefix, Supplier<E> get, Consumer<E> set, String help) {
+        choice(key, () -> Text.get(prefix + name(get.get())), () -> set.accept(next(get.get())), help);
+    }
+
+    /**
+     * The value after {@code value} in declaration order, wrapping to the first.
+     */
+    static <E extends Enum<E>> E next(E value) {
+        var values = value.getDeclaringClass().getEnumConstants();
+        return values[(value.ordinal() + 1) % values.length];
+    }
+
+    private static String name(Enum<?> value) {
+        return value.name().toLowerCase(Locale.ROOT);
+    }
+
     private void finish(String key, Supplier<Settings.SurfaceFinish> get, Consumer<Settings.SurfaceFinish> set) {
-        action(key, () -> {
-            set.accept(get.get() == Settings.SurfaceFinish.FLAT ? Settings.SurfaceFinish.BEVELED : Settings.SurfaceFinish.FLAT);
-            app.save();
-            rebuildWidgets();
-        }, "finish.darkmusic.help");
-        controls.getLast().widget().setMessage(Component.literal(Text.get(key) + ": " + Text.get("finish.darkmusic." + get.get().name().toLowerCase(Locale.ROOT))));
+        choice(key, "finish.darkmusic.", get, set, "finish.darkmusic.help");
     }
 
     private void rotation(String key, Supplier<Settings.Rotation> get, Consumer<Settings.Rotation> set, String help) {
-        action(key, () -> {
-            set.accept(Settings.Rotation.values()[(get.get().ordinal() + 1) % Settings.Rotation.values().length]);
-            app.save();
-            rebuildWidgets();
-        }, help);
-        controls.getLast().widget().setMessage(Component.literal(Text.get(key) + ": " + Text.get("circle.darkmusic.rotation." + get.get().name().toLowerCase(Locale.ROOT))));
+        choice(key, "circle.darkmusic.rotation.", get, set, help);
     }
 
     private void slider(double initial, DoubleFunction<String> label, DoubleConsumer change, int steps, String help) {
@@ -229,6 +238,24 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                 .bounds(previewX + (previewWidth - layoutButtonWidth) / 2, previewY + previewHeight + 4, layoutButtonWidth, 24).build()), UiIcon.EDIT, false);
         }
         var s = app.settings;
+        generalSettings(s);
+        audioSettings();
+        lyricsSettings(s);
+        appearanceSettings(s);
+        hudSettings(s);
+        spectrumSettings(s);
+        section("reset.darkmusic.section");
+        action("reset.darkmusic.button", () -> show(new ConfirmationScreen(this, Text.component("reset.darkmusic.title"),
+            Text.component("reset.darkmusic.body"), Text.component("reset.darkmusic.confirm"), app::resetDefaults)), "reset.darkmusic.help").destructive();
+        scrollbar = addRenderableWidget(new ScrollBar(() -> scroll, value -> {
+            scroll = value;
+            position();
+        }));
+        position();
+        app.configureVisualizer();
+    }
+
+    private void generalSettings(Settings s) {
         section("text.darkmusic.general_settings");
         action("folders.title", () -> show(new MusicFoldersScreen(app, this)), "folders.scope");
         folderY = cursor;
@@ -260,9 +287,15 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
             app.listeningHistory.flush(true);
             return CompletableFuture.completedFuture(null);
         })), "history.clear_help").destructive();
+    }
+
+    private void audioSettings() {
         section("settings.audio_section");
         action("audio.darkmusic.title", () -> show(new AudioSettingsScreen(app, this)), "audio.darkmusic.options_help");
         action("environment.title", () -> show(new SoundEnvironmentScreen(app, this)), "environment.scope");
+    }
+
+    private void lyricsSettings(Settings s) {
         section("lyrics.section");
         toggle("lyrics.darkmusic.enabled", () -> s.lyricsEnabled, v -> {
             s.lyricsEnabled = v;
@@ -294,6 +327,9 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                 app.save();
             })), "lyrics.hud.next_color.help");
         }
+    }
+
+    private void appearanceSettings(Settings s) {
         section("settings.appearance_section");
         action("settings.darkmusic.menu_background", () -> show(new ColorPickerScreen(this, s.menuBackgroundColor, 0x000000, color -> {
             s.menuBackgroundColor = color;
@@ -303,36 +339,26 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
             s.menuAccentColor = color;
             app.save();
         })), "settings.darkmusic.menu_accent_help");
+    }
+
+    private void hudSettings(Settings s) {
         section("text.darkmusic.hud_settings");
         toggle("text.darkmusic.now_playing_hud", () -> s.hudEnabled, v -> {
             s.hudEnabled = v;
             rebuildWidgets();
         }, "hud.darkmusic.master_help");
-        boolean classic = s.hudStyle == Settings.HudStyle.CLASSIC;
-        boolean artwork = s.hudStyle == Settings.HudStyle.ARTWORK;
-        boolean spectrumOnly = s.hudStyle == Settings.HudStyle.SPECTRUM;
-        boolean linear = !s.hudEnabled || classic || artwork || spectrumOnly;
+        var style = HudKind.of(s);
+        boolean classic = style.classic(), artwork = style.artwork(), spectrumOnly = style.spectrumOnly(), linear = style.linear();
         if (s.hudEnabled) {
             subsection("hud.darkmusic.group.appearance");
-            action("circle.darkmusic.style", () -> {
-                s.hudStyle = Settings.HudStyle.values()[(s.hudStyle.ordinal() + 1) % Settings.HudStyle.values().length];
-                app.save();
-                rebuildWidgets();
-            }, "circle.darkmusic.style_help");
-            controls.getLast().widget().setMessage(Component.literal(Text.get("circle.darkmusic.style") + ": " + Text.get("circle.darkmusic.style." + s.hudStyle.name().toLowerCase(Locale.ROOT))));
+            choice("circle.darkmusic.style", "circle.darkmusic.style.", () -> s.hudStyle, v -> s.hudStyle = v, "circle.darkmusic.style_help");
             if (classic) {
                 toggle("text.darkmusic.hud_artwork", () -> s.hudArtwork, v -> s.hudArtwork = v, "hud.darkmusic.artwork_help");
                 toggle("hud.darkmusic.next_song", () -> s.hudNextSong, v -> s.hudNextSong = v, "hud.darkmusic.next_song_help");
             }
 
             if (!spectrumOnly) {
-                action("hud.image_source", () -> {
-                    s.hudImage(s.hudImage() == Settings.HudImage.ARTWORK ? Settings.HudImage.ICON : Settings.HudImage.ARTWORK);
-                    app.save();
-                    rebuildWidgets();
-                }, "hud.image_source.help");
-                controls.getLast().widget().setMessage(Component.literal(Text.get("hud.image_source") + ": " +
-                    Text.get("hud.image_source." + s.hudImage().name().toLowerCase(Locale.ROOT))));
+                choice("hud.image_source", "hud.image_source.", s::hudImage, s::hudImage, "hud.image_source.help");
             }
 
             toggle("hud.darkmusic.spectrum", () -> s.hudVisualizer, v -> s.hudVisualizer = v, "hud.darkmusic.spectrum_help");
@@ -345,29 +371,22 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                 }, "circle.darkmusic.text_help");
                 if (s.circularText)
                     toggle("hud.text_plate", () -> s.hudTextPlate, v -> s.hudTextPlate = v, "hud.text_plate.help");
-                action("circle.darkmusic.pulse", () -> {
+                // Off, then following the level, then the beat.
+                choice("circle.darkmusic.pulse", () -> Text.get("circle.darkmusic.pulse."
+                    + (!s.circularIconPulse ? "off" : s.visualQuality.beatReactive ? "beat" : "level")), () -> {
                     if (!s.circularIconPulse) {
                         s.circularIconPulse = true;
                         s.visualQuality.beatReactive = false;
                     } else if (!s.visualQuality.beatReactive) s.visualQuality.beatReactive = true;
                     else s.circularIconPulse = false;
-                    app.save();
-                    rebuildWidgets();
                 }, "circle.darkmusic.pulse_help");
-                String pulse = !s.circularIconPulse ? "off" : s.visualQuality.beatReactive ? "beat" : "level";
-                controls.getLast().widget().setMessage(Component.literal(Text.get("circle.darkmusic.pulse") + ": " + Text.get("circle.darkmusic.pulse." + pulse)));
                 rotation("circle.darkmusic.rotation", () -> s.circularRotation, v -> s.circularRotation = v, "circle.darkmusic.rotation_help");
                 if (s.circularRotation != Settings.Rotation.OFF || s.hudProgress && s.circularProgressRotation != Settings.Rotation.OFF)
                     waveformSlider((s.circularRotationSeconds - 4) / 116.0, v -> Text.get("circle.darkmusic.rotation_speed", s.circularRotationSeconds),
                         v -> s.circularRotationSeconds = 4 + (int) Math.round(v * 116), 116, "circle.darkmusic.rotation_speed_help");
             }
             if (classic) {
-                action("style.darkmusic.shape", () -> {
-                    s.hudShape = Settings.HudShape.values()[(s.hudShape.ordinal() + 1) % Settings.HudShape.values().length];
-                    app.save();
-                    rebuildWidgets();
-                }, "style.darkmusic.shape_help");
-                controls.getLast().widget().setMessage(Component.literal(Text.get("style.darkmusic.shape") + ": " + Text.get("style.darkmusic.shape." + s.hudShape.name().toLowerCase(Locale.ROOT))));
+                choice("style.darkmusic.shape", "style.darkmusic.shape.", () -> s.hudShape, v -> s.hudShape = v, "style.darkmusic.shape_help");
                 toggle("style.darkmusic.raised", () -> s.hudRaised, v -> s.hudRaised = v, "style.darkmusic.raised_help");
                 toggle("hud.text_plate", () -> s.hudTextPlate, v -> s.hudTextPlate = v, "hud.text_plate.help");
             }
@@ -388,17 +407,14 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                     + (s.hudIdleHide == 0 ? Text.get("hud.darkmusic.idle_off") : Text.get("hud.darkmusic.seconds", s.hudIdleHide)),
                 v -> s.hudIdleHide = (int) Math.round(v * Settings.IDLE_HIDE_MAX), Settings.IDLE_HIDE_MAX, "hud.darkmusic.idle_hide_help");
             if (s.hudIdleHide > 0)
-                choice("hud.darkmusic.idle_animation", () -> Text.get("hud.darkmusic.motion." + s.hudIdleAnimation.name().toLowerCase(Locale.ROOT)),
-                    () -> s.hudIdleAnimation = Settings.Motion.values()[(s.hudIdleAnimation.ordinal() + 1) % Settings.Motion.values().length],
+                choice("hud.darkmusic.idle_animation", "hud.darkmusic.motion.", () -> s.hudIdleAnimation, v -> s.hudIdleAnimation = v,
                     "hud.darkmusic.idle_animation_help");
             toggle("hud.darkmusic.transitions", () -> s.hudTransitions, v -> s.hudTransitions = v, "hud.darkmusic.transitions_help");
         }
         subsection("hud.darkmusic.group.card");
-        choice("hud.darkmusic.song_card", () -> Text.get("hud.darkmusic.song_card." + s.songCard.name().toLowerCase(Locale.ROOT)),
-            () -> s.songCard = Settings.SongCard.values()[(s.songCard.ordinal() + 1) % Settings.SongCard.values().length], "hud.darkmusic.song_card_help");
+        choice("hud.darkmusic.song_card", "hud.darkmusic.song_card.", () -> s.songCard, v -> s.songCard = v, "hud.darkmusic.song_card_help");
         if (s.songCard != Settings.SongCard.OFF) {
-            choice("hud.darkmusic.card_animation", () -> Text.get("hud.darkmusic.motion." + s.songCardAnimation.name().toLowerCase(Locale.ROOT)),
-                () -> s.songCardAnimation = Settings.Motion.values()[(s.songCardAnimation.ordinal() + 1) % Settings.Motion.values().length],
+            choice("hud.darkmusic.card_animation", "hud.darkmusic.motion.", () -> s.songCardAnimation, v -> s.songCardAnimation = v,
                 "hud.darkmusic.card_animation_help");
             action("hud.darkmusic.card_position", () -> show(new HudEditorScreen(app, this, HudEditorScreen.Element.CARD)), "hud.darkmusic.card_position_help");
         }
@@ -412,8 +428,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                 rebuildWidgets();
             }, "hud.darkmusic.time_help");
             if (s.hudTime)
-                choice("hud.darkmusic.time_position", () -> Text.get("hud.darkmusic.time_position." + s.hudTimePosition.name().toLowerCase(Locale.ROOT)),
-                    () -> s.hudTimePosition = Settings.TimePosition.values()[(s.hudTimePosition.ordinal() + 1) % Settings.TimePosition.values().length],
+                choice("hud.darkmusic.time_position", "hud.darkmusic.time_position.", () -> s.hudTimePosition, v -> s.hudTimePosition = v,
                     "hud.darkmusic.time_position_help");
         }
         if (!linear && s.hudProgress)
@@ -425,14 +440,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         finish("finish.darkmusic.progress", () -> s.progressFinish, v -> s.progressFinish = v);
         action("colors.darkmusic.progress", () -> show(new ColorsScreen(app, this, false)), "colors.darkmusic.help");
         if (s.waveformProgress) {
-            action("waveform.style", () -> {
-                s.waveform.style = s.waveform.style == WaveformSettings.Style.FILLED
-                    ? WaveformSettings.Style.BARS : WaveformSettings.Style.FILLED;
-                app.save();
-                rebuildWidgets();
-            }, "waveform.style.help");
-            controls.getLast().widget().setMessage(Component.literal(Text.get("waveform.style") + ": " +
-                Text.get("waveform.style." + s.waveform.style.name().toLowerCase(Locale.ROOT))));
+            choice("waveform.style", "waveform.style.", () -> s.waveform.style, v -> s.waveform.style = v, "waveform.style.help");
             action("waveform.unplayed", () -> show(new ColorPickerScreen(this, s.waveform.unplayedColor, 0x555D78, color -> {
                 s.waveform.unplayedColor = color;
                 app.save();
@@ -456,14 +464,20 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                 rebuildWidgets();
             }, "waveform.reset.help").destructive();
         }
+    }
+
+    private void spectrumSettings(Settings s) {
+        var style = HudKind.of(s);
+        boolean artwork = style.artwork(), spectrumOnly = style.spectrumOnly(), linear = style.linear();
         section("hud.darkmusic.section_spectrum");
-        action("style.darkmusic.spectrum", () -> {
+        var chosenStyle = linear ? s.spectrumStyle : s.circularSpectrumStyle;
+        choice("style.darkmusic.spectrum", () -> Text.get((linear ? "style.darkmusic.spectrum." : "circle.darkmusic.spectrum.") + name(chosenStyle)), () -> {
             if (linear)
                 s.spectrumStyle = switch (s.spectrumStyle) {
                     case BARS -> Settings.SpectrumStyle.ROUNDED_BARS;
                     case ROUNDED_BARS -> Settings.SpectrumStyle.SMOOTH_WAVE;
                     case FILLED_SPIKE -> Settings.SpectrumStyle.BARS;
-                    default -> Settings.SpectrumStyle.values()[s.spectrumStyle.ordinal() + 1];
+                    default -> next(s.spectrumStyle);
                 };
             else s.circularSpectrumStyle = switch (s.circularSpectrumStyle) {
                 case BARS -> Settings.SpectrumStyle.ROUNDED_BARS;
@@ -471,31 +485,20 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                 case FILLED_WAVE -> Settings.SpectrumStyle.FILLED_SPIKE;
                 default -> Settings.SpectrumStyle.BARS;
             };
-            app.save();
-            rebuildWidgets();
         }, linear ? "style.darkmusic.spectrum_help" : "circle.darkmusic.spectrum_help");
-        var chosenStyle = linear ? s.spectrumStyle : s.circularSpectrumStyle;
-        controls.getLast().widget().setMessage(Component.literal(Text.get("style.darkmusic.spectrum") + ": " + Text.get((linear ? "style.darkmusic.spectrum." : "circle.darkmusic.spectrum.") + chosenStyle.name().toLowerCase(Locale.ROOT))));
         if (s.hudEnabled && linear) {
             if (!spectrumOnly) {
-                action("hud.darkmusic.position", () -> {
-                    if (artwork)
-                        s.artworkSpectrumPosition = Settings.ArtworkSpectrumPosition.values()[(s.artworkSpectrumPosition.ordinal() + 1) % Settings.ArtworkSpectrumPosition.values().length];
-                    else
-                        s.spectrumPosition = s.spectrumPosition == Settings.SpectrumPosition.ABOVE ? Settings.SpectrumPosition.BELOW : Settings.SpectrumPosition.ABOVE;
-                    app.save();
-                    rebuildWidgets();
-                }, artwork ? "hud.darkmusic.artwork_position_help" : "hud.darkmusic.position_help");
-                controls.getLast().widget().setMessage(Component.literal(Text.get("hud.darkmusic.position") + ": " + Text.get("hud.darkmusic.position." + (artwork ? s.artworkSpectrumPosition.name() : s.spectrumPosition.name()).toLowerCase(Locale.ROOT))));
+                if (artwork)
+                    choice("hud.darkmusic.position", "hud.darkmusic.position.", () -> s.artworkSpectrumPosition, v -> s.artworkSpectrumPosition = v,
+                        "hud.darkmusic.artwork_position_help");
+                else
+                    choice("hud.darkmusic.position", "hud.darkmusic.position.", () -> s.spectrumPosition, v -> s.spectrumPosition = v,
+                        "hud.darkmusic.position_help");
             }
             if (!artwork || s.artworkSpectrumPosition == Settings.ArtworkSpectrumPosition.ABOVE
                 || s.artworkSpectrumPosition == Settings.ArtworkSpectrumPosition.BELOW) {
-                action("hud.darkmusic.direction", () -> {
-                    s.spectrumDirection = s.spectrumDirection == Settings.SpectrumDirection.UPWARD ? Settings.SpectrumDirection.DOWNWARD : Settings.SpectrumDirection.UPWARD;
-                    app.save();
-                    rebuildWidgets();
-                }, "hud.darkmusic.direction_help");
-                controls.getLast().widget().setMessage(Component.literal(Text.get("hud.darkmusic.direction") + ": " + Text.get("hud.darkmusic.direction." + s.spectrumDirection.name().toLowerCase(Locale.ROOT))));
+                choice("hud.darkmusic.direction", "hud.darkmusic.direction.", () -> s.spectrumDirection, v -> s.spectrumDirection = v,
+                    "hud.darkmusic.direction_help");
             }
         }
         finish("finish.darkmusic.spectrum", () -> s.spectrumFinish, v -> s.spectrumFinish = v);
@@ -518,15 +521,6 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                     else if (linear) s.classicSpectrumHeight = 8 + (int) Math.round(v * 92);
                     else s.circularSpectrumHeight = 4 + (int) Math.round(v * 56);
                 }, linear ? 92 : 56, "hud.darkmusic.spectrum_height_help");
-        section("reset.darkmusic.section");
-        action("reset.darkmusic.button", () -> show(new ConfirmationScreen(this, Text.component("reset.darkmusic.title"),
-            Text.component("reset.darkmusic.body"), Text.component("reset.darkmusic.confirm"), app::resetDefaults)), "reset.darkmusic.help").destructive();
-        scrollbar = addRenderableWidget(new ScrollBar(() -> scroll, value -> {
-            scroll = value;
-            position();
-        }));
-        position();
-        app.configureVisualizer();
     }
 
     private boolean searching() {
@@ -788,6 +782,19 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
     /**
      * A row and, for search, its help text with its section and group names.
      */
+    /**
+     * Which rows the chosen HUD style offers. Every style but the circular one draws its spectrum in a line, and so
+     * does a hidden HUD.
+     */
+    private record HudKind(boolean classic, boolean artwork, boolean spectrumOnly, boolean linear) {
+        static HudKind of(Settings s) {
+            boolean classic = s.hudStyle == Settings.HudStyle.CLASSIC;
+            boolean artwork = s.hudStyle == Settings.HudStyle.ARTWORK;
+            boolean spectrumOnly = s.hudStyle == Settings.HudStyle.SPECTRUM;
+            return new HudKind(classic, artwork, spectrumOnly, !s.hudEnabled || classic || artwork || spectrumOnly);
+        }
+    }
+
     private record Placed(AbstractWidget widget, int y, int section, String details) {
     }
 
