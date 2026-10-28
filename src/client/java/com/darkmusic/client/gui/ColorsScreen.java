@@ -197,7 +197,7 @@ public final class ColorsScreen extends LocalScreen implements HudPreview {
             int inset = height - previewY > 50 ? 22 : 4;
             g.enableScissor(previewX + 2, previewY + inset, previewX + previewWidth - 2, height - 10);
             if (customPreview == null)
-                NowPlayingHud.renderPreview(app, g, previewX + 8, previewY + inset, previewWidth - 16, height - previewY - inset - 12, 1, longText);
+                NowPlayingHud.renderPreview(app.hud, g, previewX + 8, previewY + inset, previewWidth - 16, height - previewY - inset - 12, 1, longText);
             else
                 customPreview.render(g, previewX + 8, previewY + inset, previewWidth - 16, height - previewY - inset - 12);
             g.disableScissor();

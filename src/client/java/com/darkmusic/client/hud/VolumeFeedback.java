@@ -1,6 +1,5 @@
 package com.darkmusic.client.hud;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.UiTheme;
@@ -15,8 +14,8 @@ public final class VolumeFeedback {
     private final FeedbackTimer timer = new FeedbackTimer();
     private double volume;
 
-    public static void register(DarkMusicClient app) {
-        HudLayer.add(app, "volume_feedback", g -> app.volumeFeedback.render(g));
+    public void register(HudSources sources) {
+        HudLayer.add(sources, "volume_feedback", this::render);
     }
 
     public void show(double value) {

@@ -501,12 +501,12 @@ public final class SmokeClient implements ClientModInitializer {
                 }
                 case 3 -> {
                     require(mc.gui.screen() instanceof HudEditorScreen, "HUD editor not opened");
-                    var b = NowPlayingHud.bounds(app, mc.gui.screen().width, mc.gui.screen().height);
+                    var b = NowPlayingHud.bounds(app.hud, mc.gui.screen().width, mc.gui.screen().height);
                     mc.gui.screen().mouseClicked(mouse(b.x() + 5, b.y() + 5), false);
                     mc.gui.screen().mouseDragged(mouse(b.x() + 105, b.y() + 85), 100, 80);
                     mc.gui.screen().mouseReleased(mouse(b.x() + 105, b.y() + 85));
                     require(app.settings.hudX > 0 && app.settings.hudY > 0, "HUD did not drag");
-                    var resized = NowPlayingHud.bounds(app, mc.gui.screen().width, mc.gui.screen().height);
+                    var resized = NowPlayingHud.bounds(app.hud, mc.gui.screen().width, mc.gui.screen().height);
                     mc.gui.screen().mouseScrolled(resized.x() + 5, resized.y() + 5, 0, 1);
                     require(app.settings.hudScale == 1.1, "Scale did not change by 0.1");
                     require(mc.gui.screen().children().stream().noneMatch(x -> x instanceof ValueSlider), "HUD scale slider was not removed");

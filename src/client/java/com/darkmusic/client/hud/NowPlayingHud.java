@@ -1,6 +1,5 @@
 package com.darkmusic.client.hud;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.library.Track;
@@ -29,18 +28,18 @@ public final class NowPlayingHud {
     private NowPlayingHud() {
     }
 
-    public static void register(DarkMusicClient app) {
-        HudLayer.add(app, "now_playing", g -> {
-            if (app.settings == null || !app.settings.hudEnabled || app.playback == null) return;
-            var state = app.playback.state();
+    public static void register(HudSources sources) {
+        HudLayer.add(sources, "now_playing", g -> {
+            if (sources.settings() == null || !sources.settings().hudEnabled || sources.playback() == null) return;
+            var state = sources.playback().state();
             if (state.track() == null) return;
-            double away = MOTION.hidden(app.settings, state, System.nanoTime());
+            double away = MOTION.hidden(sources.settings(), state, System.nanoTime());
             if (away >= 1) return;
-            var b = bounds(app, g.guiWidth(), g.guiHeight());
-            if (app.settings.hudIdleAnimation == Settings.Motion.FADE)
-                HudFade.run(1 - away, () -> renderAt(app, g, b.x(), b.y(), b.scale(), false, false, null));
+            var b = bounds(sources, g.guiWidth(), g.guiHeight());
+            if (sources.settings().hudIdleAnimation == Settings.Motion.FADE)
+                HudFade.run(1 - away, () -> renderAt(sources, g, b.x(), b.y(), b.scale(), false, false, null));
             else
-                renderAt(app, g, b.x() + HudMotion.exit(b.x(), b.width(), g.guiWidth(), away), b.y(), b.scale(), false, false, null);
+                renderAt(sources, g, b.x() + HudMotion.exit(b.x(), b.width(), g.guiWidth(), away), b.y(), b.scale(), false, false, null);
         });
     }
 
@@ -61,75 +60,75 @@ public final class NowPlayingHud {
     /**
      * Preview stand-in. One snapshot read: a rescan may publish an empty library between two reads.
      */
-    private static Track firstTrack(DarkMusicClient app) {
-        var tracks = app.library.snapshot().tracks();
+    private static Track firstTrack(HudSources sources) {
+        var tracks = sources.tracks();
         return tracks.isEmpty() ? null : tracks.getFirst();
     }
 
-    public static HudLayout.Bounds bounds(DarkMusicClient app, int width, int height) {
-        return HudLayout.bounds(app.settings, width, height, content(app));
+    public static HudLayout.Bounds bounds(HudSources sources, int width, int height) {
+        return HudLayout.bounds(sources.settings(), width, height, content(sources));
     }
 
-    public static HudLayout.Content content(DarkMusicClient app) {
-        var track = app.playback.state().track();
-        if (track == null) track = firstTrack(app);
-        var cover = app.settings.hudStyle == Settings.HudStyle.ARTWORK ? HudImages.cover(app, track) : null;
-        return HudLayout.content(app.settings, Integer.MAX_VALUE, cover == null ? 1 : cover.contentWidth() - 2 * cover.menuInset(), cover == null ? 1 : cover.contentHeight());
+    public static HudLayout.Content content(HudSources sources) {
+        var track = sources.playback().state().track();
+        if (track == null) track = firstTrack(sources);
+        var cover = sources.settings().hudStyle == Settings.HudStyle.ARTWORK ? HudImages.cover(sources, track) : null;
+        return HudLayout.content(sources.settings(), Integer.MAX_VALUE, cover == null ? 1 : cover.contentWidth() - 2 * cover.menuInset(), cover == null ? 1 : cover.contentHeight());
     }
 
     /**
      * The layout editor uses the exact gameplay renderer, including image fitting and scale.
      */
-    public static void render(DarkMusicClient app, GuiGraphicsExtractor g, boolean preview) {
-        var b = bounds(app, g.guiWidth(), g.guiHeight());
-        renderAt(app, g, b.x(), b.y(), b.scale(), preview, false, null);
+    public static void render(HudSources sources, GuiGraphicsExtractor g, boolean preview) {
+        var b = bounds(sources, g.guiWidth(), g.guiHeight());
+        renderAt(sources, g, b.x(), b.y(), b.scale(), preview, false, null);
     }
 
-    public static void render(DarkMusicClient app, GuiGraphicsExtractor g, HorizontalText text) {
-        var b = bounds(app, g.guiWidth(), g.guiHeight());
-        renderAt(app, g, b.x(), b.y(), b.scale(), true, false, text);
+    public static void render(HudSources sources, GuiGraphicsExtractor g, HorizontalText text) {
+        var b = bounds(sources, g.guiWidth(), g.guiHeight());
+        renderAt(sources, g, b.x(), b.y(), b.scale(), true, false, text);
     }
 
-    public static void renderPreview(DarkMusicClient app, GuiGraphicsExtractor g, int x, int y, int width, int height, double previewScale, HorizontalText text) {
-        if (!app.settings.hudEnabled) return;
-        var layout = content(app);
+    public static void renderPreview(HudSources sources, GuiGraphicsExtractor g, int x, int y, int width, int height, double previewScale, HorizontalText text) {
+        if (!sources.settings().hudEnabled) return;
+        var layout = content(sources);
         double scale = Math.min(previewScale, Math.min(width / (double) layout.width(), height / (double) layout.height()));
-        renderAt(app, g, x + (width - layout.width() * scale) / 2, y + (height - layout.height() * scale) / 2, scale, true, true, text);
+        renderAt(sources, g, x + (width - layout.width() * scale) / 2, y + (height - layout.height() * scale) / 2, scale, true, true, text);
     }
 
-    private static void renderAt(DarkMusicClient app, GuiGraphicsExtractor g, double x, double y, double scale, boolean preview, boolean settingsPreview, HorizontalText text) {
+    private static void renderAt(HudSources sources, GuiGraphicsExtractor g, double x, double y, double scale, boolean preview, boolean settingsPreview, HorizontalText text) {
         var mc = Minecraft.getInstance();
-        var state = app.playback.state();
+        var state = sources.playback().state();
         var track = state.track();
         if (track == null && !preview) return;
-        if (track == null) track = firstTrack(app);
-        var art = (app.settings.hudStyle == Settings.HudStyle.ARTWORK || app.settings.hudStyle == Settings.HudStyle.CLASSIC && app.settings.hudArtwork) ? HudImages.cover(app, track) : null;
-        var layout = content(app);
+        if (track == null) track = firstTrack(sources);
+        var art = (sources.settings().hudStyle == Settings.HudStyle.ARTWORK || sources.settings().hudStyle == Settings.HudStyle.CLASSIC && sources.settings().hudArtwork) ? HudImages.cover(sources, track) : null;
+        var layout = content(sources);
         int w = layout.width(), h = layout.height(), main = layout.mainY();
         // A new song fades in; previews and the layout editor always show it settled.
-        double arrival = preview || !app.settings.hudTransitions ? 1 : MOTION.arrival(System.nanoTime());
+        double arrival = preview || !sources.settings().hudTransitions ? 1 : MOTION.arrival(System.nanoTime());
         int titleColor = HudMotion.fade(0xFFB5B0FF, arrival), detailColor = HudMotion.fade(0xFFE0DDEE, arrival);
         int veil = HudMotion.fade(0xFF0B0D16, 1 - arrival);
         g.pose().pushMatrix();
         try {
             g.pose().translate((float) x, (float) y);
             g.pose().scale((float) scale);
-            if (app.settings.hudStyle == Settings.HudStyle.SPECTRUM) {
+            if (sources.settings().hudStyle == Settings.HudStyle.SPECTRUM) {
                 if (layout.spectrum())
-                    (settingsPreview ? PREVIEW : LIVE).bars(app, g, SpectrumRenderer.Bars.at(0, 0, w, layout.spectrumHeight(),
-                        app.settings.spectrumDirection == Settings.SpectrumDirection.DOWNWARD, settingsPreview));
+                    (settingsPreview ? PREVIEW : LIVE).bars(sources.settings(), sources.playback(), g, SpectrumRenderer.Bars.at(0, 0, w, layout.spectrumHeight(),
+                        sources.settings().spectrumDirection == Settings.SpectrumDirection.DOWNWARD, settingsPreview));
                 return;
             }
-            if (app.settings.hudStyle == Settings.HudStyle.ARTWORK) {
-                HudSurface.draw(g, app.settings, w, h);
-                var artworkLayout = ArtworkHudLayout.of(app.settings, art == null ? 1 : art.contentWidth() - 2 * art.menuInset(), art == null ? 1 : art.contentHeight());
+            if (sources.settings().hudStyle == Settings.HudStyle.ARTWORK) {
+                HudSurface.draw(g, sources.settings(), w, h);
+                var artworkLayout = ArtworkHudLayout.of(sources.settings(), art == null ? 1 : art.contentWidth() - 2 * art.menuInset(), art == null ? 1 : art.contentHeight());
                 g.pose().pushMatrix();
                 g.enableScissor(artworkLayout.artworkX(), artworkLayout.artworkY(),
                     artworkLayout.artworkX() + artworkLayout.artworkWidth(), artworkLayout.artworkY() + artworkLayout.artworkHeight());
-                if (app.settings.artworkReactive) {
+                if (sources.settings().artworkReactive) {
                     var levels = settingsPreview ? PREVIEW_ART_LEVELS : LIVE_ART_LEVELS;
-                    boolean analyzed = (settingsPreview ? PREVIEW : LIVE).copyLevels(app, levels, settingsPreview);
-                    float zoom = analyzed ? CircularHudLayout.iconZoom(levels, app.settings.visualizerBars) : 1;
+                    boolean analyzed = (settingsPreview ? PREVIEW : LIVE).copyLevels(sources.settings(), sources.playback(), levels, settingsPreview);
+                    float zoom = analyzed ? CircularHudLayout.iconZoom(levels, sources.settings().visualizerBars) : 1;
                     float cx = artworkLayout.artworkX() + artworkLayout.artworkWidth() / 2f;
                     float cy = artworkLayout.artworkY() + artworkLayout.artworkHeight() / 2f;
                     g.pose().translate(cx, cy);
@@ -142,13 +141,13 @@ public final class NowPlayingHud {
                         artworkLayout.artworkY() + artworkLayout.artworkHeight(), veil);
                 g.pose().popMatrix();
                 g.disableScissor();
-                if (app.settings.hudProgress) {
+                if (sources.settings().hudProgress) {
                     double progress = CircularHudLayout.progress(state.position(), state.duration(), preview);
-                    drawProgress(app, g, track, artworkLayout.artworkX(), artworkLayout.progressY(), artworkLayout.artworkWidth(), progress);
+                    drawProgress(sources, g, track, artworkLayout.artworkX(), artworkLayout.progressY(), artworkLayout.artworkWidth(), progress);
                 }
                 if (artworkLayout.captionY() >= 0) {
                     int left = artworkLayout.artworkX(), top = artworkLayout.captionY(), width = artworkLayout.artworkWidth();
-                    int scrim = HudLayout.textScrim(app.settings);
+                    int scrim = HudLayout.textScrim(sources.settings());
                     if (scrim != 0) g.fill(left, top + 1, left + width, top + ArtworkHudLayout.CAPTION, scrim);
                     String title = track == null ? Text.get("text.darkmusic.song_title") : track.title();
                     if (titleColor != 0)
@@ -159,42 +158,42 @@ public final class NowPlayingHud {
                 }
                 if (layout.spectrum()) {
                     var renderer = settingsPreview ? PREVIEW : LIVE;
-                    if (artworkLayout.sideways(app.settings)) {
-                        boolean left = app.settings.artworkSpectrumPosition == Settings.ArtworkSpectrumPosition.LEFT;
+                    if (artworkLayout.sideways(sources.settings())) {
+                        boolean left = sources.settings().artworkSpectrumPosition == Settings.ArtworkSpectrumPosition.LEFT;
                         g.pose().pushMatrix();
                         try {
-                            g.pose().translate(artworkLayout.spectrumX() + (left ? 0 : app.settings.artworkSpectrumHeight),
+                            g.pose().translate(artworkLayout.spectrumX() + (left ? 0 : sources.settings().artworkSpectrumHeight),
                                 artworkLayout.spectrumY() + (left ? artworkLayout.artworkHeight() : 0));
                             g.pose().rotate((float) (left ? -Math.PI / 2 : Math.PI / 2));
-                            renderer.bars(app, g, SpectrumRenderer.Bars.at(0, 0, artworkLayout.artworkHeight(), app.settings.artworkSpectrumHeight, false, settingsPreview));
+                            renderer.bars(sources.settings(), sources.playback(), g, SpectrumRenderer.Bars.at(0, 0, artworkLayout.artworkHeight(), sources.settings().artworkSpectrumHeight, false, settingsPreview));
                         } finally {
                             g.pose().popMatrix();
                         }
                     } else
-                        renderer.bars(app, g, SpectrumRenderer.Bars.at(artworkLayout.spectrumX(), artworkLayout.spectrumY(),
-                            artworkLayout.artworkWidth(), app.settings.artworkSpectrumHeight,
-                            app.settings.spectrumDirection == Settings.SpectrumDirection.DOWNWARD, settingsPreview));
+                        renderer.bars(sources.settings(), sources.playback(), g, SpectrumRenderer.Bars.at(artworkLayout.spectrumX(), artworkLayout.spectrumY(),
+                            artworkLayout.artworkWidth(), sources.settings().artworkSpectrumHeight,
+                            sources.settings().spectrumDirection == Settings.SpectrumDirection.DOWNWARD, settingsPreview));
                 }
                 return;
             }
-            if (app.settings.hudStyle == Settings.HudStyle.CIRCULAR) {
-                var circle = CircularHudLayout.of(app.settings);
+            if (sources.settings().hudStyle == Settings.HudStyle.CIRCULAR) {
+                var circle = CircularHudLayout.of(sources.settings());
                 g.pose().pushMatrix();
                 try {
                     g.pose().translate((w - circle.width()) / 2f, 0);
-                    (settingsPreview ? PREVIEW_CIRCLE : LIVE_CIRCLE).render(app, g, track, state, preview, settingsPreview);
+                    (settingsPreview ? PREVIEW_CIRCLE : LIVE_CIRCLE).render(sources, g, track, state, preview, settingsPreview);
                 } finally {
                     g.pose().popMatrix();
                 }
                 return;
             }
-            HudSurface.draw(g, app.settings, w, h);
-            int textX = app.settings.hudArtwork ? 42 : 6;
-            int next = HudLayout.nextLine(app.settings);
-            int scrim = app.settings.hudTextPlate ? HudLayout.textScrim(app.settings) : 0;
+            HudSurface.draw(g, sources.settings(), w, h);
+            int textX = sources.settings().hudArtwork ? 42 : 6;
+            int next = HudLayout.nextLine(sources.settings());
+            int scrim = sources.settings().hudTextPlate ? HudLayout.textScrim(sources.settings()) : 0;
             // Kept clear of the card's chamfer, rounding and raised bevel.
             if (scrim != 0) g.fill(Math.max(4, textX - 3), main + 3, w - 4, main + 33 + next, scrim);
-            if (app.settings.hudArtwork) {
+            if (sources.settings().hudArtwork) {
                 HudImages.draw(g, art, 5, main + 3, 32, 32);
                 if (veil != 0) g.fill(5, main + 3, 37, main + 35, veil);
             }
@@ -208,9 +207,9 @@ public final class NowPlayingHud {
                 : state.status() == AudioBackend.Status.PLAYING ? "" : UiStatus.label(state.status().name());
             String detail = status.isEmpty() ? artist : status + " | " + artist;
             int detailWidth = Math.max(1, w - textX - 6);
-            int timeLine = HudLayout.timeLine(app.settings);
+            int timeLine = HudLayout.timeLine(sources.settings());
             int timeColor = HudMotion.fade(0xFFA8A6BC, arrival);
-            if (app.settings.hudTime && timeLine == 0) {
+            if (sources.settings().hudTime && timeLine == 0) {
                 // Shares the artist line, right-aligned, so the card keeps its height.
                 String clock = state.track() == null ? Clock.progress(83, 225) : Clock.progress(state.position(), state.duration());
                 int clockWidth = mc.font.width(clock);
@@ -222,12 +221,12 @@ public final class NowPlayingHud {
             else if (detailColor != 0)
                 g.text(mc.font, HorizontalText.ellipsize(mc.font, detail, detailWidth), textX, main + 21, detailColor);
             if (next > 0) {
-                String upcoming = nextLabel(app, state.track() == null);
+                String upcoming = nextLabel(sources, state.track() == null);
                 g.text(mc.font, HorizontalText.ellipsize(mc.font, upcoming, Math.max(1, w - textX - 6)), textX, main + 33, 0xFFA8A6BC);
             }
-            if (app.settings.hudProgress) {
+            if (sources.settings().hudProgress) {
                 double progress = state.duration() > 0 ? Math.clamp(state.position() / state.duration(), 0, 1) : preview ? .4 : 0;
-                drawProgress(app, g, track, 6, main + 39 + next, w - 12, progress);
+                drawProgress(sources, g, track, 6, main + 39 + next, w - 12, progress);
             }
             if (timeLine > 0 && timeColor != 0) {
                 // Like the player: position under the start of the bar, length under its end.
@@ -240,7 +239,7 @@ public final class NowPlayingHud {
                 }
             }
             if (layout.spectrum())
-                (settingsPreview ? PREVIEW : LIVE).bars(app, g, SpectrumRenderer.Bars.at(0, layout.spectrumY(), w, layout.spectrumHeight(), app.settings.spectrumDirection == Settings.SpectrumDirection.DOWNWARD, settingsPreview).inHud(h));
+                (settingsPreview ? PREVIEW : LIVE).bars(sources.settings(), sources.playback(), g, SpectrumRenderer.Bars.at(0, layout.spectrumY(), w, layout.spectrumHeight(), sources.settings().spectrumDirection == Settings.SpectrumDirection.DOWNWARD, settingsPreview).inHud(h));
         } finally {
             if (text != null) text.transform(0, 0, 1);
             g.pose().popMatrix();
@@ -250,23 +249,23 @@ public final class NowPlayingHud {
     /**
      * "Next: …" for the Classic HUD, or why nothing follows.
      */
-    private static String nextLabel(DarkMusicClient app, boolean preview) {
+    private static String nextLabel(HudSources sources, boolean preview) {
         if (preview) return Text.get("hud.darkmusic.next", Text.get("text.darkmusic.song_title"));
-        if (app.playback.stopAfterCurrent()) return Text.get("command.darkmusic.stopafter_short");
-        var upcoming = app.playback.upcoming();
+        if (sources.playback().stopAfterCurrent()) return Text.get("command.darkmusic.stopafter_short");
+        var upcoming = sources.playback().upcoming();
         return upcoming == null ? Text.get("hud.darkmusic.next_none") : Text.get("hud.darkmusic.next", upcoming.title());
     }
 
-    private static void drawProgress(DarkMusicClient app, GuiGraphicsExtractor g, Track track,
+    private static void drawProgress(HudSources sources, GuiGraphicsExtractor g, Track track,
                                      int x, int y, int width, double progress) {
-        int height = app.settings.waveformProgress ? app.settings.waveform.height + 2 : 3;
-        var waveform = app.settings.waveformProgress && app.waveforms != null ? app.waveforms.get(track) : null;
-        if (WaveformProgress.draw(g, waveform, app.settings.progressColors, app.settings.waveform, x, y + 1, width, Math.max(3, height - 2),
-            progress, app.settings.progressFinish)) return;
+        int height = sources.settings().waveformProgress ? sources.settings().waveform.height + 2 : 3;
+        var waveform = sources.settings().waveformProgress ? sources.waveform(track) : null;
+        if (WaveformProgress.draw(g, waveform, sources.settings().progressColors, sources.settings().waveform, x, y + 1, width, Math.max(3, height - 2),
+            progress, sources.settings().progressFinish)) return;
         int railY = y + (height - 3) / 2;
-        ColorStrip.track(g, x, railY, width, 3, app.settings.progressFinish);
-        ColorStrip.draw(g, app.settings.progressColors, x, railY, width, 3,
-            (int) (width * progress), app.settings.progressFinish);
+        ColorStrip.track(g, x, railY, width, 3, sources.settings().progressFinish);
+        ColorStrip.draw(g, sources.settings().progressColors, x, railY, width, 3,
+            (int) (width * progress), sources.settings().progressFinish);
     }
 
 }

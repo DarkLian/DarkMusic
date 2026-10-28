@@ -65,9 +65,9 @@ public class HudEditorScreen extends LocalScreen implements HudPreview {
 
     private HudLayout.Bounds bounds(Element element) {
         return switch (element) {
-            case PLAYER -> NowPlayingHud.bounds(app, width, height);
+            case PLAYER -> NowPlayingHud.bounds(app.hud, width, height);
             case LYRICS -> LyricsHud.bounds(app.settings, width, height);
-            case CARD -> SongCard.bounds(app, width, height);
+            case CARD -> SongCard.bounds(app.hud, width, height);
         };
     }
 
@@ -181,7 +181,7 @@ public class HudEditorScreen extends LocalScreen implements HudPreview {
      */
     private void pinCard() {
         if (app.settings.songCardX != null && app.settings.songCardY != null) return;
-        var b = SongCard.bounds(app, width, height);
+        var b = SongCard.bounds(app.hud, width, height);
         app.settings.songCardX = HudLayout.normalized(b.x(), width, b.width());
         app.settings.songCardY = HudLayout.normalized(b.y(), height, b.height());
     }
@@ -240,9 +240,9 @@ public class HudEditorScreen extends LocalScreen implements HudPreview {
         int subdued = (UiTheme.ACCENT & 0x00FFFFFF) | 0x35000000;
         g.fill(width / 2, 0, width / 2 + 1, height, centeredX ? UiTheme.ACCENT : subdued);
         g.fill(0, height / 2, width, height / 2 + 1, centeredY ? UiTheme.ACCENT : subdued);
-        NowPlayingHud.render(app, g, longText);
-        LyricsHud.render(app, g, true);
-        if (available(Element.CARD)) SongCard.renderPreview(app, g);
+        NowPlayingHud.render(app.hud, g, longText);
+        LyricsHud.render(app.hud, g, true);
+        if (available(Element.CARD)) SongCard.renderPreview(app.hud, g);
         for (var element : elements())
             if (element != selected) {
                 var other = bounds(element);

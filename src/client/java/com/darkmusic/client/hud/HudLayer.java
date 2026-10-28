@@ -1,6 +1,5 @@
 package com.darkmusic.client.hud;
 
-import com.darkmusic.client.DarkMusicClient;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.Minecraft;
@@ -17,22 +16,22 @@ public final class HudLayer {
     private HudLayer() {
     }
 
-    public static void add(DarkMusicClient app, String id, Consumer<GuiGraphicsExtractor> draw) {
+    public static void add(HudSources sources, String id, Consumer<GuiGraphicsExtractor> draw) {
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("darkmusic", id), (g, delta) -> {
             var mc = Minecraft.getInstance();
             if (mc.level != null && mc.gui.screen() == null && !mc.gui.hud.isHidden()) draw.accept(g);
         });
         ScreenEvents.AFTER_INIT.register((mc, screen, w, h) -> ScreenEvents.afterExtract(screen).register((s, g, x, y, delta) -> {
-            if (inMenus(app, s)) draw.accept(g);
+            if (inMenus(sources, s)) draw.accept(g);
         }));
     }
 
     /**
      * Only above Minecraft's own menus: DarkMusic screens show playback themselves, and its Settings preview the HUD.
      */
-    static boolean inMenus(DarkMusicClient app, Screen screen) {
+    static boolean inMenus(HudSources sources, Screen screen) {
         var mc = Minecraft.getInstance();
-        return app.settings != null && app.settings.hudInMenus && mc.level != null && !mc.gui.hud.isHidden()
+        return sources.settings() != null && sources.settings().hudInMenus && mc.level != null && !mc.gui.hud.isHidden()
             && !screen.getClass().getName().startsWith("com.darkmusic.");
     }
 }

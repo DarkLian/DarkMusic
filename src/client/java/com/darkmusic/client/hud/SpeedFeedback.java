@@ -1,6 +1,5 @@
 package com.darkmusic.client.hud;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
@@ -16,8 +15,8 @@ public final class SpeedFeedback {
     private final FeedbackTimer timer = new FeedbackTimer();
     private double speed = 1;
 
-    public static void register(DarkMusicClient app) {
-        HudLayer.add(app, "speed_feedback", g -> app.speedFeedback.render(g));
+    public void register(HudSources sources) {
+        HudLayer.add(sources, "speed_feedback", this::render);
     }
 
     public void clear() {

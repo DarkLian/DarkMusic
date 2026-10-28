@@ -9,6 +9,7 @@ import com.darkmusic.client.audio.PcmRateConverter;
 import com.darkmusic.client.audio.PlaybackController;
 import com.darkmusic.client.audio.ResumeTracker;
 import com.darkmusic.client.audio.SleepTimer;
+import com.darkmusic.client.audio.TrackWaveform;
 import com.darkmusic.client.audio.WaveformCache;
 import com.darkmusic.client.backup.BackupArchive;
 import com.darkmusic.client.cleanup.DuplicateResult;
@@ -31,6 +32,7 @@ import com.darkmusic.client.gui.MusicScreen;
 import com.darkmusic.client.gui.PipScreen;
 import com.darkmusic.client.hud.DownloadHud;
 import com.darkmusic.client.hud.HudPreview;
+import com.darkmusic.client.hud.HudSources;
 import com.darkmusic.client.hud.LyricsHud;
 import com.darkmusic.client.hud.NowPlayingHud;
 import com.darkmusic.client.hud.SongCard;
@@ -98,6 +100,36 @@ public class DarkMusicClient implements ClientModInitializer {
     public final ConfigStore config = new ConfigStore(FabricLoader.getInstance().getConfigDir().resolve("darkmusic"), io, this::warn);
     public final SpeedFeedback speedFeedback = new SpeedFeedback();
     public final VolumeFeedback volumeFeedback = new VolumeFeedback();
+    // Reads the fields on every call: reset and restore replace the services behind them.
+    public final HudSources hud = new HudSources() {
+        public Settings settings() {
+            return settings;
+        }
+
+        public PlaybackController playback() {
+            return playback;
+        }
+
+        public LyricsService lyrics() {
+            return lyrics;
+        }
+
+        public DownloadService downloads() {
+            return downloads;
+        }
+
+        public List<Track> tracks() {
+            return library.snapshot().tracks();
+        }
+
+        public ArtworkCache.Cover artwork(Track track) {
+            return artwork.get(track);
+        }
+
+        public TrackWaveform waveform(Track track) {
+            return waveforms == null ? null : waveforms.get(track);
+        }
+    };
     public volatile Settings settings;
     public volatile String warning = "";
     public final Shortcuts shortcuts = new Shortcuts(this);
@@ -576,12 +608,12 @@ public class DarkMusicClient implements ClientModInitializer {
         INSTANCE = this;
         updates = new UpdateService(this);
         LocalCommands.register(this);
-        NowPlayingHud.register(this);
-        LyricsHud.register(this);
-        SongCard.register(this);
-        VolumeFeedback.register(this);
-        SpeedFeedback.register(this);
-        DownloadHud.register(this);
+        NowPlayingHud.register(hud);
+        LyricsHud.register(hud);
+        SongCard.register(hud);
+        volumeFeedback.register(hud);
+        speedFeedback.register(hud);
+        DownloadHud.register(hud);
         PipController.register(this);
         shortcuts.register();
         CompletableFuture.supplyAsync(config::load, io).thenAccept(loaded -> Minecraft.getInstance().execute(() -> {

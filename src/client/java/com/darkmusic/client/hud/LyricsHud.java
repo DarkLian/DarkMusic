@@ -1,6 +1,5 @@
 package com.darkmusic.client.hud;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.lyrics.Lrc;
 import com.darkmusic.client.lyrics.LyricsLookup;
@@ -23,11 +22,11 @@ public final class LyricsHud {
         return settings.lyricsEnabled && settings.lyricsHud;
     }
 
-    public static void register(DarkMusicClient app) {
-        HudLayer.add(app, "lyrics", g -> {
-            if (app.settings != null && enabled(app.settings) && app.playback != null && app.playback.state().track() != null)
+    public static void register(HudSources sources) {
+        HudLayer.add(sources, "lyrics", g -> {
+            if (sources.settings() != null && enabled(sources.settings()) && sources.playback() != null && sources.playback().state().track() != null)
                 // Hides with the player HUD when idle; fading suits a centered line better than sliding.
-                HudFade.run(1 - NowPlayingHud.idleAmount(app.settings), () -> render(app, g, false));
+                HudFade.run(1 - NowPlayingHud.idleAmount(sources.settings()), () -> render(sources, g, false));
         });
     }
 
@@ -50,31 +49,31 @@ public final class LyricsHud {
             current + 1 < data.lines().size() ? data.lines().get(current + 1).text() : "");
     }
 
-    public static void render(DarkMusicClient app, GuiGraphicsExtractor g, boolean preview) {
-        if (!enabled(app.settings)) return;
-        renderAt(app, g, preview, bounds(app.settings, g.guiWidth(), g.guiHeight()));
+    public static void render(HudSources sources, GuiGraphicsExtractor g, boolean preview) {
+        if (!enabled(sources.settings())) return;
+        renderAt(sources, g, preview, bounds(sources.settings(), g.guiWidth(), g.guiHeight()));
     }
 
-    public static void renderPreview(DarkMusicClient app, GuiGraphicsExtractor g, int x, int y, int width, int height, double previewScale) {
-        if (!enabled(app.settings)) return;
-        int w = app.settings.lyricsHudWidth, h = HudLyricsLayout.height(app.settings.lyricsNextLine);
+    public static void renderPreview(HudSources sources, GuiGraphicsExtractor g, int x, int y, int width, int height, double previewScale) {
+        if (!enabled(sources.settings())) return;
+        int w = sources.settings().lyricsHudWidth, h = HudLyricsLayout.height(sources.settings().lyricsNextLine);
         double scale = Math.min(previewScale, Math.min(width / (double) w, height / (double) h));
-        renderAt(app, g, true, new HudLayout.Bounds(x + (int) ((width - w * scale) / 2),
+        renderAt(sources, g, true, new HudLayout.Bounds(x + (int) ((width - w * scale) / 2),
             y + (int) ((height - h * scale) / 2), (int) Math.ceil(w * scale), (int) Math.ceil(h * scale), w, scale));
     }
 
-    private static void renderAt(DarkMusicClient app, GuiGraphicsExtractor g, boolean preview, HudLayout.Bounds b) {
-        var audio = app.playback.state();
+    private static void renderAt(HudSources sources, GuiGraphicsExtractor g, boolean preview, HudLayout.Bounds b) {
+        var audio = sources.playback().state();
         var track = audio.track();
-        app.lyrics.request(track);
-        var data = app.lyrics.get(track);
+        sources.lyrics().request(track);
+        var data = sources.lyrics().get(track);
         var cue = cue(data, audio.position());
         String current = cue.current(), next = cue.next();
         if (data.lines().isEmpty()) {
             if (!preview) return;
-            var document = app.lyrics.document(track);
+            var document = sources.lyrics().document(track);
             // Local reads and provider requests are asynchronous; neither implies missing lyrics.
-            String key = !app.lyrics.inspected(track) || app.lyrics.lookup.snapshot(track).status()
+            String key = !sources.lyrics().inspected(track) || sources.lyrics().lookup.snapshot(track).status()
                 == LyricsLookup.Status.SEARCHING ? "lyrics.status.searching"
                 : document.instrumental() ? "lyrics.instrumental"
                 : document.available() ? "lyrics.plain" : "lyrics.darkmusic.missing";
@@ -84,7 +83,7 @@ public final class LyricsHud {
             next = "";
         }
         if (!preview && current.isEmpty() && next.isEmpty()) return;
-        var s = app.settings;
+        var s = sources.settings();
         g.pose().pushMatrix();
         try {
             g.pose().translate(b.x(), b.y());

@@ -692,7 +692,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
     }
 
     private void fitPreview() {
-        var layout = NowPlayingHud.content(app);
+        var layout = NowPlayingHud.content(app.hud);
         int w = lyricsPreview() ? app.settings.lyricsHudWidth : layout.width();
         int h = lyricsPreview() ? HudLyricsLayout.height(app.settings.lyricsNextLine) : layout.height();
         double fit = Math.min((previewWidth - 16.0) / w, (previewHeight - 30.0 - (progressPreview() ? 54 : 0)) / h);
@@ -724,14 +724,14 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
             g.enableScissor(previewX + 2, previewY + 20, previewX + previewWidth - 2, previewY + previewHeight - 2);
             if (app.settings.hudEnabled || lyricsPreview()) fitPreview();
             if (lyricsPreview())
-                LyricsHud.renderPreview(app, g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30, previewScale);
+                LyricsHud.renderPreview(app.hud, g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30, previewScale);
             else if (!app.settings.hudEnabled) {
                 int available = previewHeight - 30 - (progressPreview() ? 54 : 0);
                 int spectrumHeight = Math.max(1, Math.min(60, available));
-                playerSpectrumPreview.bars(app, g, SpectrumRenderer.Bars.at(previewX + 12, previewY + 22 + (available - spectrumHeight) / 2,
+                playerSpectrumPreview.bars(app.settings, app.playback, g, SpectrumRenderer.Bars.at(previewX + 12, previewY + 22 + (available - spectrumHeight) / 2,
                     previewWidth - 24, spectrumHeight, false, true));
             } else
-                NowPlayingHud.renderPreview(app, g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30 - (progressPreview() ? 54 : 0), previewScale, longText);
+                NowPlayingHud.renderPreview(app.hud, g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30 - (progressPreview() ? 54 : 0), previewScale, longText);
             if (progressPreview()) {
                 int divider = previewY + previewHeight - 54;
                 g.fill(previewX + 6, divider, previewX + previewWidth - 6, divider + 1, UiTheme.BORDER);

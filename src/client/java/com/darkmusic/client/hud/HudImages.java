@@ -1,6 +1,5 @@
 package com.darkmusic.client.hud;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.library.ArtworkCache;
 import com.darkmusic.client.library.Track;
@@ -17,8 +16,8 @@ public final class HudImages {
     private HudImages() {
     }
 
-    public static ArtworkCache.Cover cover(DarkMusicClient app, Track track) {
-        return track != null && app.settings.hudImage() == Settings.HudImage.ARTWORK ? app.artwork.get(track) : null;
+    public static ArtworkCache.Cover cover(HudSources sources, Track track) {
+        return track != null && sources.settings().hudImage() == Settings.HudImage.ARTWORK ? sources.artwork(track) : null;
     }
 
     public static void draw(GuiGraphicsExtractor g, ArtworkCache.Cover cover, int x, int y, int width, int height) {

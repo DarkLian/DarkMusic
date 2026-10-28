@@ -3,6 +3,7 @@ package com.darkmusic.client;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -12,6 +13,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Package layering. Core packages form a strict order and never reach the interface; drawing helpers in render
@@ -27,6 +29,11 @@ class ArchitectureTest {
         Map.entry("lyrics", 5), Map.entry("playlist", 5), Map.entry("cleanup", 6), Map.entry("download", 7),
         Map.entry("backup", 8));
     private static final Set<String> SCREENS = Set.of("gui", "hud", "pip");
+    // These get their services handed in and may not reach back into DarkMusicClient or its root-package helpers.
+    private static final Set<String> DECOUPLED = Set.of("hud", "render");
+    private static final Pattern ROOT_TYPE = Pattern.compile("\\bcom\\.darkmusic\\.client\\.[A-Z]\\w*");
+    // Lower this as packages stop depending on DarkMusicClient; never raise it.
+    private static final int MAX_CLIENT_DEPENDENTS = 58;
 
     @Test
     void packagesDependOnlyDownward() throws IOException {
@@ -43,9 +50,28 @@ class ArchitectureTest {
                 }
                 if (CORE.containsKey(from) && code.contains("DarkMusicClient"))
                     violations.add(SOURCES.relativize(file) + " -> DarkMusicClient");
+                var root = ROOT_TYPE.matcher(code);
+                if (DECOUPLED.contains(from) && root.find())
+                    violations.add(SOURCES.relativize(file) + " -> " + root.group());
             }
         }
         assertEquals(List.of(), violations.stream().distinct().sorted().toList());
+    }
+
+    @Test
+    void darkMusicClientDependentsOnlyShrink() throws IOException {
+        long dependents;
+        try (var files = Files.walk(SOURCES)) {
+            dependents = files.filter(p -> p.toString().endsWith(".java") && !p.endsWith("DarkMusicClient.java"))
+                .filter(p -> {
+                    try {
+                        return COMMENTS_AND_STRINGS.matcher(Files.readString(p)).replaceAll(" ").contains("DarkMusicClient");
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                }).count();
+        }
+        assertTrue(dependents <= MAX_CLIENT_DEPENDENTS, dependents + " files depend on DarkMusicClient; the limit is " + MAX_CLIENT_DEPENDENTS);
     }
 
     /**

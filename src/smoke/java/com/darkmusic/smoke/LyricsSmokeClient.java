@@ -517,7 +517,7 @@ final class LyricsSmokeClient {
                         for (int w : new int[]{320, 426, 960}) bounds(editor, w, w == 960 ? 540 : 240);
                         editor.init(960, 540);
                         captureWaveform(mc, "image-" + sample);
-                        check((HudImages.cover(app, a) == null) == (sample < 6 && sample % 2 == 1 || sample == 7 || sample >= 10), "Artwork selection and icon fallback agree");
+                        check((HudImages.cover(app.hud, a) == null) == (sample < 6 && sample % 2 == 1 || sample == 7 || sample >= 10), "Artwork selection and icon fallback agree");
                     }
                     return;
                 }

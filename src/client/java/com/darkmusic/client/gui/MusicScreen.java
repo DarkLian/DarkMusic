@@ -789,7 +789,7 @@ public final class MusicScreen extends LocalScreen {
             if (layout.inspector().width() > 0) {
                 details(g, layout.inspector(), false);
                 if (app.settings.hudVisualizer && selectionIsPlaying()) {
-                    spectrum.render(app, g, layout.inspector().x() + 8, layout.spectrumY(), layout.inspector().width() - 16, layout.spectrumHeight());
+                    spectrum.render(app.settings, app.playback, g, layout.inspector().x() + 8, layout.spectrumY(), layout.inspector().width() - 16, layout.spectrumHeight());
                 }
             }
         } else if (pane == Pane.DETAILS)

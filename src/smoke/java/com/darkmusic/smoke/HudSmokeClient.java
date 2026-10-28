@@ -156,7 +156,7 @@ final class HudSmokeClient {
                     s.visualizerSensitivity = 4;
                     s.visualizerSmoothing = .95;
                     app.configureVisualizer();
-                    var b = NowPlayingHud.bounds(app, screen.width, screen.height);
+                    var b = NowPlayingHud.bounds(app.hud, screen.width, screen.height);
                     require(b.x() + b.width() <= screen.width - 8 && b.y() + b.height() <= screen.height - 8, "Combined bounds escaped viewport");
                     for (var child : screen.children())
                         // Header controls such as Back sit above the content region by design.
@@ -221,11 +221,11 @@ final class HudSmokeClient {
                 }
                 case 16 -> {
                     var editor = mc.gui.screen();
-                    var b = NowPlayingHud.bounds(app, editor.width, editor.height);
+                    var b = NowPlayingHud.bounds(app.hud, editor.width, editor.height);
                     double x = b.x() + b.width() / 2.0, y = b.y() + b.height() / 2.0;
                     require(editor.mouseScrolled(x, y, 0, 1), "Combined HUD wheel failed");
                     require(s.hudScale == 1.1, "Combined HUD scale step incorrect");
-                    b = NowPlayingHud.bounds(app, editor.width, editor.height);
+                    b = NowPlayingHud.bounds(app.hud, editor.width, editor.height);
                     x = b.x() + b.width() / 2.0;
                     y = b.y() + b.height() / 2.0;
                     require(editor.mouseClicked(mouse(x, y), false), "Combined HUD click failed");
@@ -488,7 +488,7 @@ final class HudSmokeClient {
                     s.hudVisualizer = (choice & 2) != 0;
                     s.hudArtwork = (choice & 4) != 0;
                     mc.gui.setScreen(new SettingsScreen(app, null));
-                    var bounds = NowPlayingHud.bounds(app, mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+                    var bounds = NowPlayingHud.bounds(app.hud, mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
                     require(bounds.y() + bounds.height() <= mc.getWindow().getGuiScaledHeight() - 8, "Circular HUD escaped viewport");
                     if (++styleCombination == 24) state++;
                 }
@@ -526,10 +526,10 @@ final class HudSmokeClient {
                 }
                 case 48 -> {
                     var editor = mc.gui.screen();
-                    var bounds = NowPlayingHud.bounds(app, editor.width, editor.height);
+                    var bounds = NowPlayingHud.bounds(app.hud, editor.width, editor.height);
                     double x = bounds.x() + bounds.width() / 2.0, y = bounds.y() + bounds.height() / 2.0;
                     require(editor.mouseScrolled(x, y, 0, 1), "Circular HUD wheel scaling failed");
-                    bounds = NowPlayingHud.bounds(app, editor.width, editor.height);
+                    bounds = NowPlayingHud.bounds(app.hud, editor.width, editor.height);
                     x = bounds.x() + bounds.width() / 2.0;
                     y = bounds.y() + bounds.height() / 2.0;
                     require(editor.mouseClicked(mouse(x, y), false), "Circular combined HUD drag did not start");

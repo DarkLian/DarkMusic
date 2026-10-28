@@ -1,6 +1,5 @@
 package com.darkmusic.client.hud;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.render.SpectrumAppearance;
@@ -61,10 +60,10 @@ public final class CircularHudRenderer {
         return turn == 0 ? pose : new Matrix3x2f(pose).rotateAbout((float) (turn * Math.PI * 2), layout.centerX(), layout.centerY());
     }
 
-    public void render(DarkMusicClient app, GuiGraphicsExtractor g, Track track, AudioBackend.State audio, boolean preview, boolean settingsPreview) {
-        var settings = app.settings;
+    public void render(HudSources sources, GuiGraphicsExtractor g, Track track, AudioBackend.State audio, boolean preview, boolean settingsPreview) {
+        var settings = sources.settings();
         boolean waveformEnabled = settings.waveformProgress && settings.hudProgress;
-        var waveform = waveformEnabled && app.waveforms != null ? app.waveforms.get(track) : null;
+        var waveform = waveformEnabled ? sources.waveform(track) : null;
         float baseRadius = CircularHudLayout.spectrumBase(settings);
         float progressInner = CircularHudLayout.progressInner(settings);
         var layout = CircularHudLayout.of(settings);
@@ -79,16 +78,16 @@ public final class CircularHudRenderer {
         double spin = settings.circularRotation.sign() * turn, progressSpin = settings.circularProgressRotation.sign() * turn;
         var spinning = rotated(pose, layout, spin);
         var progressPose = rotated(pose, layout, progressSpin);
-        boolean analyzed = (settings.hudVisualizer || settings.circularIconPulse) && spectrum.copyLevels(app, levels, settingsPreview);
+        boolean analyzed = (settings.hudVisualizer || settings.circularIconPulse) && spectrum.copyLevels(sources.settings(), sources.playback(), levels, settingsPreview);
         float zoom = analyzed && settings.circularIconPulse ? CircularHudLayout.iconZoom(levels, settings.visualizerBars) : 1;
         if (analyzed && settings.circularIconPulse && settings.visualQuality.beatReactive)
-            zoom = 1 + app.playback.spectrum().beat() * .045f;
-        var cover = HudImages.cover(app, track);
+            zoom = 1 + sources.playback().spectrum().beat() * .045f;
+        var cover = HudImages.cover(sources, track);
         var texture = Minecraft.getInstance().getTextureManager().getTexture(cover == null ? HudImages.ICON : cover.id());
         g.guiRenderState.addGuiElement(new CircularHudMesh.Icon(spinning, clip, bounds,
             TextureSetup.singleTexture(texture.getTextureView(), texture.getSampler()), layout.centerX(), layout.centerY(), zoom, HudImages.circularSpan(cover)));
         if (analyzed && settings.hudVisualizer && (settings.visualQuality.trails || settings.visualQuality.peakHold)) {
-            app.playback.spectrum().copyPeaks(peaks);
+            sources.playback().spectrum().copyPeaks(peaks);
             if (settings.visualQuality.trails)
                 g.guiRenderState.addGuiElement(new CircularHudMesh.Rings(spinning, clip, bounds, layout.centerX(), layout.centerY(), -1, peaks.clone(), settings.visualizerBars, settings.circularSpectrumStyle, 0, 0, SpectrumAppearance.opacity(settings.spectrumColors.first() | 0xff000000, settings.spectrumOpacity), SpectrumAppearance.opacity(settings.spectrumColors.last() | 0xff000000, settings.spectrumOpacity), Settings.SurfaceFinish.FLAT, Settings.SurfaceFinish.FLAT, settings.visualQuality.detail, false, settings.circularSpectrumHeight, baseRadius));
             if (settings.visualQuality.peakHold)

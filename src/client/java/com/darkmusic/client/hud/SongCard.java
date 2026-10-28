@@ -1,6 +1,5 @@
 package com.darkmusic.client.hud;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.render.HorizontalText;
@@ -29,8 +28,8 @@ public final class SongCard {
     private SongCard() {
     }
 
-    public static void register(DarkMusicClient app) {
-        HudLayer.add(app, "song_card", g -> draw(app, g, System.nanoTime()));
+    public static void register(HudSources sources) {
+        HudLayer.add(sources, "song_card", g -> draw(sources, g, System.nanoTime()));
     }
 
     /**
@@ -63,8 +62,8 @@ public final class SongCard {
     /**
      * Where the card is drawn: its own place once moved, otherwise in or beside the HUD's corner.
      */
-    public static HudLayout.Bounds bounds(DarkMusicClient app, int screenWidth, int screenHeight) {
-        var settings = app.settings;
+    public static HudLayout.Bounds bounds(HudSources sources, int screenWidth, int screenHeight) {
+        var settings = sources.settings();
         int width = Math.min(WIDTH, screenWidth - 16);
         if (settings.songCardX != null && settings.songCardY != null) {
             double scale = Math.min(settings.songCardScale, Math.min(Math.max(.01, (screenWidth - 16.0) / width),
@@ -73,7 +72,7 @@ public final class SongCard {
             return new HudLayout.Bounds(8 + (int) Math.round(Math.max(0, screenWidth - 16 - w) * settings.songCardX),
                 8 + (int) Math.round(Math.max(0, screenHeight - 16 - h) * settings.songCardY), w, h, width, scale);
         }
-        var hud = NowPlayingHud.bounds(app, screenWidth, screenHeight);
+        var hud = NowPlayingHud.bounds(sources, screenWidth, screenHeight);
         boolean beside = settings.hudEnabled && !NowPlayingHud.idleHidden();
         boolean right = hud.x() + hud.width() / 2.0 >= screenWidth / 2.0;
         int x = right ? Math.max(8, hud.x() + hud.width() - width) : hud.x();
@@ -85,10 +84,10 @@ public final class SongCard {
         return new HudLayout.Bounds(x, y, width, HEIGHT, width, 1);
     }
 
-    private static void draw(DarkMusicClient app, GuiGraphicsExtractor g, long now) {
-        var settings = app.settings;
-        if (settings == null || app.playback == null) return;
-        var current = app.playback.state().track();
+    private static void draw(HudSources sources, GuiGraphicsExtractor g, long now) {
+        var settings = sources.settings();
+        if (settings == null || sources.playback() == null) return;
+        var current = sources.playback().state().track();
         String id = current == null ? "" : current.id();
         if (!id.equals(seen)) {
             seen = id;
@@ -103,22 +102,23 @@ public final class SongCard {
             if (age > duration(settings.songCardAnimation)) track = null;
             return;
         }
-        var b = bounds(app, g.guiWidth(), g.guiHeight());
+        var b = bounds(sources, g.guiWidth(), g.guiHeight());
         var card = track;
         if (settings.songCardAnimation == Settings.Motion.FADE)
-            HudFade.run(shown, () -> card(app, g, card, b.x(), b.y(), b.scale()));
-        else card(app, g, card, b.x() + HudMotion.exit(b.x(), b.width(), g.guiWidth(), 1 - shown), b.y(), b.scale());
+            HudFade.run(shown, () -> card(sources, g, card, b.x(), b.y(), b.scale()));
+        else
+            card(sources, g, card, b.x() + HudMotion.exit(b.x(), b.width(), g.guiWidth(), 1 - shown), b.y(), b.scale());
     }
 
     /**
      * The layout editor's stand-in, using the playing song when there is one.
      */
-    public static void renderPreview(DarkMusicClient app, GuiGraphicsExtractor g) {
-        var b = bounds(app, g.guiWidth(), g.guiHeight());
-        card(app, g, app.playback == null ? null : app.playback.state().track(), b.x(), b.y(), b.scale());
+    public static void renderPreview(HudSources sources, GuiGraphicsExtractor g) {
+        var b = bounds(sources, g.guiWidth(), g.guiHeight());
+        card(sources, g, sources.playback() == null ? null : sources.playback().state().track(), b.x(), b.y(), b.scale());
     }
 
-    private static void card(DarkMusicClient app, GuiGraphicsExtractor g, Track track, double x, double y, double scale) {
+    private static void card(HudSources sources, GuiGraphicsExtractor g, Track track, double x, double y, double scale) {
         var font = Minecraft.getInstance().font;
         int width = Math.min(WIDTH, (int) Math.round((g.guiWidth() - 16) / scale));
         g.pose().pushMatrix();
@@ -127,7 +127,7 @@ public final class SongCard {
             g.pose().scale((float) scale);
             g.fill(0, 0, width, HEIGHT, 0xE6111420);
             g.fill(0, 0, 2, HEIGHT, UiTheme.ACCENT | 0xFF000000);
-            HudImages.draw(g, track == null ? null : HudImages.cover(app, track), 6, 4, 32, 32);
+            HudImages.draw(g, track == null ? null : HudImages.cover(sources, track), 6, 4, 32, 32);
             int textWidth = Math.max(1, width - 50);
             String title = track == null ? Text.get("text.darkmusic.song_title") : track.title();
             String artist = track == null ? Text.get("text.darkmusic.artist") : track.artist();

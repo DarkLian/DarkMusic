@@ -1,7 +1,7 @@
 package com.darkmusic.client.render;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
+import com.darkmusic.client.audio.PlaybackController;
 import com.darkmusic.client.audio.SpectrumAnalyzer;
 import com.darkmusic.client.config.Settings;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -53,14 +53,14 @@ public final class SpectrumRenderer {
             downward ? y + high : y + height - low, downward ? near : far, downward ? far : near);
     }
 
-    private boolean update(DarkMusicClient app, boolean settingsPreview) {
-        return update(app, settingsPreview, null, app.settings);
+    private boolean update(Settings current, PlaybackController playback, boolean settingsPreview) {
+        return update(current, playback, settingsPreview, null, current);
     }
 
-    private boolean update(DarkMusicClient app, boolean settingsPreview, SpectrumAnalyzer external, Settings settings) {
-        var analyzer = external == null ? app.playback.spectrum() : external;
-        var status = app.playback.state().status();
-        boolean actual = external != null || settings == app.settings && (status == AudioBackend.Status.PLAYING || status == AudioBackend.Status.PAUSED);
+    private boolean update(Settings current, PlaybackController playback, boolean settingsPreview, SpectrumAnalyzer external, Settings settings) {
+        var analyzer = external == null ? playback.spectrum() : external;
+        var status = playback.state().status();
+        boolean actual = external != null || settings == current && (status == AudioBackend.Status.PLAYING || status == AudioBackend.Status.PAUSED);
         if (actual && analyzer == null) return false;
         if (actual) analyzer.copyTo(levels);
         else if (!settingsPreview) return false;
@@ -83,19 +83,19 @@ public final class SpectrumRenderer {
     /**
      * Shared audio snapshot for alternative HUD layouts, with preview synthesis confined here.
      */
-    public boolean copyLevels(DarkMusicClient app, float[] target, boolean settingsPreview) {
-        if (!update(app, settingsPreview)) return false;
+    public boolean copyLevels(Settings current, PlaybackController playback, float[] target, boolean settingsPreview) {
+        if (!update(current, playback, settingsPreview)) return false;
         System.arraycopy(levels, 0, target, 0, Math.min(target.length, levels.length));
         return true;
     }
 
-    public void render(DarkMusicClient app, GuiGraphicsExtractor g, int x, int y, int width, int height) {
-        bars(app, g, Bars.at(x + 2, y + 2, width - 4, height - 4, false, false));
+    public void render(Settings current, PlaybackController playback, GuiGraphicsExtractor g, int x, int y, int width, int height) {
+        bars(current, playback, g, Bars.at(x + 2, y + 2, width - 4, height - 4, false, false));
     }
 
     /**
      * Where to draw and what to read. hudHeight is 0 outside the HUD; a null analyzer reads playback and null
-     * settings use the app's.
+     * settings use the current ones.
      */
     public record Bars(int x, int y, int width, int height, boolean downward, boolean settingsPreview, int hudHeight,
                        SpectrumAnalyzer analyzer, Settings settings) {
@@ -115,13 +115,13 @@ public final class SpectrumRenderer {
     /**
      * No background and no audio mutations. Synthetic data is limited to the settings preview.
      */
-    public void bars(DarkMusicClient app, GuiGraphicsExtractor g, Bars request) {
+    public void bars(Settings current, PlaybackController playback, GuiGraphicsExtractor g, Bars request) {
         int x = request.x(), y = request.y(), width = request.width(), height = request.height(), hudHeight = request.hudHeight();
         boolean downward = request.downward(), settingsPreview = request.settingsPreview();
         SpectrumAnalyzer external = request.analyzer();
-        Settings settings = request.settings() == null ? app.settings : request.settings();
+        Settings settings = request.settings() == null ? current : request.settings();
         if (width < 8 || height < 1) return;
-        if (!update(app, settingsPreview, external, settings)) return;
+        if (!update(current, playback, settingsPreview, external, settings)) return;
         int bands = settings.visualizerBars;
         mesh.begin(width, hudHeight, settings.hudShape, settings.spectrumOpacity);
         if (settings.visualQuality.glow)

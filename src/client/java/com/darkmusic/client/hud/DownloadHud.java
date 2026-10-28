@@ -1,6 +1,5 @@
 package com.darkmusic.client.hud;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.download.DownloadModels;
 import com.darkmusic.client.download.DownloadService;
 import com.darkmusic.client.render.HorizontalText;
@@ -29,10 +28,10 @@ public final class DownloadHud {
     private boolean failure;
     private List<DownloadModels.Item> activeItems = List.of();
 
-    public static void register(DarkMusicClient app) {
+    public static void register(HudSources sources) {
         var hud = new DownloadHud();
-        ClientTickEvents.END_CLIENT_TICK.register(client -> hud.update(app.downloads, System.nanoTime()));
-        HudLayer.add(app, "downloads", g -> hud.render(app, g));
+        ClientTickEvents.END_CLIENT_TICK.register(client -> hud.update(sources.downloads(), System.nanoTime()));
+        HudLayer.add(sources, "downloads", g -> hud.render(sources, g));
     }
 
     public void update(DownloadService current, long now) {
@@ -60,7 +59,7 @@ public final class DownloadHud {
         finishedStates.keySet().retainAll(present);
     }
 
-    private void render(DarkMusicClient app, GuiGraphicsExtractor g) {
+    private void render(HudSources sources, GuiGraphicsExtractor g) {
         double age = (System.nanoTime() - noticed) / 1_000_000_000.0;
         boolean active = progress.active() > 0;
         double opacity = active ? 1 : notice.isEmpty() ? 0 : Math.clamp(5 - age, 0, 1);
@@ -70,8 +69,8 @@ public final class DownloadHud {
         var rows = activeItems;
         boolean showNotice = !notice.isEmpty() && age < 5;
         int height = 25 + rows.size() * 12 + (showNotice ? 12 : 0);
-        if (app.settings != null && app.settings.hudEnabled && app.playback != null && app.playback.state().track() != null) {
-            var b = NowPlayingHud.bounds(app, g.guiWidth(), g.guiHeight());
+        if (sources.settings() != null && sources.settings().hudEnabled && sources.playback() != null && sources.playback().state().track() != null) {
+            var b = NowPlayingHud.bounds(sources, g.guiWidth(), g.guiHeight());
             if (x < b.x() + b.width() && x + width > b.x() && y < b.y() + b.height() && y + height > b.y())
                 y = (int) Math.ceil(b.y() + b.height()) + 4;
         }
