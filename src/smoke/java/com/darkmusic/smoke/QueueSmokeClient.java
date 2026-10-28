@@ -161,7 +161,8 @@ final class QueueSmokeClient {
                     pressView(queue, "upnext.view.collection");
                     check((boolean) field(queue, "allSongs"), "View did not switch to All Songs");
                     String term = b.title().strip();
-                    var searchBox = (EditBox) field(queue, "search");
+                    // The queue's search box is its only text input.
+                    var searchBox = queue.children().stream().filter(EditBox.class::isInstance).map(EditBox.class::cast).findFirst().orElseThrow();
                     searchBox.setValue(term.substring(0, Math.min(6, term.length())));
                     queue.tick();
                     @SuppressWarnings("unchecked") var matches = (List<Track>) field(queue, "source");
