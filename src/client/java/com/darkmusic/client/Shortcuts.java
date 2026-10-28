@@ -2,6 +2,7 @@ package com.darkmusic.client;
 
 import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.gui.MusicScreen;
+import com.darkmusic.client.gui.ShortcutKeys;
 import com.darkmusic.client.text.Text;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
@@ -20,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * DarkMusic's native Controls bindings: registration, saved keys, conflicts and the playback actions they run.
  */
-public final class Shortcuts {
+public final class Shortcuts implements ShortcutKeys {
     private final DarkMusicClient app;
     public KeyMapping open, toggle, next, previous, faster, slower, normalSpeed, volumeUp, volumeDown, mute, seekBack, seekForward, stop, jump;
     // Unbound by default, so they never take a key another mod or Minecraft already uses.
@@ -61,6 +62,77 @@ public final class Shortcuts {
         return KeyMappingHelper.registerKeyMapping(new KeyMapping("key.darkmusic." + name, InputConstants.Type.KEYSYM, key, category));
     }
 
+    @Override
+    public KeyMapping open() {
+        return open;
+    }
+
+    @Override
+    public KeyMapping toggle() {
+        return toggle;
+    }
+
+    @Override
+    public KeyMapping next() {
+        return next;
+    }
+
+    @Override
+    public KeyMapping previous() {
+        return previous;
+    }
+
+    @Override
+    public KeyMapping faster() {
+        return faster;
+    }
+
+    @Override
+    public KeyMapping slower() {
+        return slower;
+    }
+
+    @Override
+    public KeyMapping normalSpeed() {
+        return normalSpeed;
+    }
+
+    @Override
+    public KeyMapping volumeUp() {
+        return volumeUp;
+    }
+
+    @Override
+    public KeyMapping volumeDown() {
+        return volumeDown;
+    }
+
+    @Override
+    public KeyMapping mute() {
+        return mute;
+    }
+
+    @Override
+    public KeyMapping seekBack() {
+        return seekBack;
+    }
+
+    @Override
+    public KeyMapping seekForward() {
+        return seekForward;
+    }
+
+    @Override
+    public KeyMapping stop() {
+        return stop;
+    }
+
+    @Override
+    public KeyMapping jump() {
+        return jump;
+    }
+
+    @Override
     public KeyMapping[] bindings() {
         return new KeyMapping[]{open, toggle, next, previous, faster, slower, normalSpeed, volumeUp, volumeDown, mute, seekBack, seekForward, stop, jump,
             hud, lyrics, favorite, shuffle, repeat};
@@ -107,6 +179,7 @@ public final class Shortcuts {
         });
     }
 
+    @Override
     public boolean conflicts(KeyMapping key) {
         if (key.isUnbound()) return false;
         for (KeyMapping other : Minecraft.getInstance().options.keyMappings)
@@ -131,6 +204,7 @@ public final class Shortcuts {
             if (key != open) while (key.consumeClick()) if (allowed) perform(key);
     }
 
+    @Override
     public void perform(KeyMapping key) {
         if (!app.idle() || app.settings == null || app.playback == null || conflicts(key))
             return;

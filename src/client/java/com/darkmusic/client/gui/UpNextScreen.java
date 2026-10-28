@@ -1,9 +1,11 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.PlaybackController;
 import com.darkmusic.client.config.Repeat;
+import com.darkmusic.client.library.ArtworkCache;
+import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.playlist.PlaylistStore;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
@@ -20,7 +22,28 @@ import java.util.Locale;
  * Three bounded, lazy lists backed by the controller's immutable session snapshot.
  */
 public final class UpNextScreen extends LocalScreen {
-    private final DarkMusicClient app;
+    /**
+     * The queue, the songs it shows, and the playlists songs can be added to.
+     */
+    public interface Sources extends TrackThumbnails {
+        /**
+         * Null until startup creates the player.
+         */
+        PlaybackController playback();
+
+        boolean canEditQueue();
+
+        /**
+         * Null until startup creates the library.
+         */
+        MusicLibrary library();
+
+        ArtworkCache artwork();
+
+        PlaylistStore playlists();
+    }
+
+    private final Sources app;
     private PlaybackController.UpNextSnapshot snapshot;
     private RowList now, manual, automatic;
     private Button remove, clear;
@@ -36,7 +59,7 @@ public final class UpNextScreen extends LocalScreen {
     private Object sourceBasis;
     private int manualTitleY, automaticTitleY, automaticX, listWidth;
 
-    public UpNextScreen(DarkMusicClient app, Screen parent) {
+    public UpNextScreen(Sources app, Screen parent) {
         super(Text.component("upnext.title"), parent);
         this.app = app;
     }
@@ -66,7 +89,7 @@ public final class UpNextScreen extends LocalScreen {
         manual.reorder(move -> {
             selectedId = snapshot.manual().get(move.start()).id();
             if (app.canEditQueue())
-                app.playback.reorderQueued(snapshot.manual().stream().map(PlaybackController.Queued::id).toList(), move.order(snapshot.manual().size()));
+                app.playback().reorderQueued(snapshot.manual().stream().map(PlaybackController.Queued::id).toList(), move.order(snapshot.manual().size()));
             refresh();
         });
         var search = addRenderableWidget(new UiInput(font, automaticX, automaticTitleY + 18, listWidth - 112, 20, Text.component("text.darkmusic.search_songs")));
@@ -86,16 +109,16 @@ public final class UpNextScreen extends LocalScreen {
             wide ? listHeight - 24 : Math.max(18, height - 32 - automaticTitleY - 42), 28, Text.get("upnext.automatic"), (i, activated) -> {
             // Double-click or Enter adds the song after the other queued songs.
             if (activated && i < source.size() && app.canEditQueue()) {
-                var resolved = app.playlists.index(app.library.snapshot().tracks()).get(source.get(i).id());
-                if (app.playback.insertQueued(resolved, snapshot.manual().size())) {
+                var resolved = app.playlists().index(app.library().snapshot().tracks()).get(source.get(i).id());
+                if (app.playback().insertQueued(resolved, snapshot.manual().size())) {
                     refresh();
                     manual.reveal(snapshot.manual().size() - 1);
                 }
             }
         }));
-        now.artwork(app.artwork, i -> snapshot.current());
-        manual.artwork(app.artwork, i -> snapshot.manual().get(i).track());
-        automatic.artwork(app.artwork, i -> i < source.size() ? source.get(i) : null);
+        now.artwork(app.artwork(), i -> snapshot.current());
+        manual.artwork(app.artwork(), i -> snapshot.manual().get(i).track());
+        automatic.artwork(app.artwork(), i -> i < source.size() ? source.get(i) : null);
         now.rowTooltips(false);
         manual.rowTooltips(false);
         automatic.rowTooltips(false);
@@ -108,14 +131,14 @@ public final class UpNextScreen extends LocalScreen {
         remove = button("upnext.remove", 12, y, w, () -> {
             // Checked rows win over the single highlighted row, matching the playlist manager.
             if (app.canEditQueue()) {
-                if (selection.isEmpty()) app.playback.removeQueued(selectedId);
-                else for (var key : selection.selected()) app.playback.removeQueued(Long.parseLong(key));
+                if (selection.isEmpty()) app.playback().removeQueued(selectedId);
+                else for (var key : selection.selected()) app.playback().removeQueued(Long.parseLong(key));
                 selection.clear();
             }
             refresh();
         });
         clear = button("upnext.clear", 16 + w, y, w, () -> {
-            if (app.canEditQueue()) app.playback.clearQueued();
+            if (app.canEditQueue()) app.playback().clearQueued();
             refresh();
         });
         Help.tip(remove, Text.get("upnext.remove.help"));
@@ -137,7 +160,7 @@ public final class UpNextScreen extends LocalScreen {
     }
 
     private void refresh() {
-        var next = app.playback.upNextSnapshot();
+        var next = app.playback().upNextSnapshot();
         if (snapshot == null || next.revision() != snapshot.revision()) {
             int scroll = manual.scrollOffset();
             snapshot = next;
@@ -151,7 +174,7 @@ public final class UpNextScreen extends LocalScreen {
             manual.scrollOffset(scroll);
         }
         // Rebuild the right-hand list only when its view, query or underlying tracks change.
-        var tracks = allSongs ? app.library.snapshot().tracks() : snapshot.automatic();
+        var tracks = allSongs ? app.library().snapshot().tracks() : snapshot.automatic();
         var basis = List.of(allSongs, query, tracks);
         if (!basis.equals(sourceBasis)) {
             sourceBasis = basis;
@@ -208,9 +231,9 @@ public final class UpNextScreen extends LocalScreen {
         if (collectionDrag != null) {
             if (draggingCollection && manual.isMouseOver(event.x(), event.y()) && app.canEditQueue()) {
                 int insertion = Math.clamp((int) (event.y() - manual.getY() + manual.scrollOffset() + 14) / 28, 0, snapshot.manual().size());
-                var resolved = app.playlists.index(app.library.snapshot().tracks()).get(collectionDrag.id());
-                if (app.playback.insertQueued(resolved, insertion)) {
-                    var entries = app.playback.upNextSnapshot().manual();
+                var resolved = app.playlists().index(app.library().snapshot().tracks()).get(collectionDrag.id());
+                if (app.playback().insertQueued(resolved, insertion)) {
+                    var entries = app.playback().upNextSnapshot().manual();
                     selectedId = entries.get(Math.min(insertion, entries.size() - 1)).id();
                     refresh();
                     manual.reveal(selectedIndex());

@@ -24,35 +24,16 @@ import com.darkmusic.client.config.RestoreJournal;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.download.AuditionPlayer;
 import com.darkmusic.client.download.DownloadService;
-import com.darkmusic.client.gui.AudioDeletionScreen;
-import com.darkmusic.client.gui.AudioSettingsScreen;
-import com.darkmusic.client.gui.BackupScreen;
 import com.darkmusic.client.gui.DesktopFolderPicker;
-import com.darkmusic.client.gui.DownloadDuplicateScreen;
-import com.darkmusic.client.gui.DownloadPathsScreen;
-import com.darkmusic.client.gui.DownloadScreen;
-import com.darkmusic.client.gui.DownloadToolsScreen;
-import com.darkmusic.client.gui.DuplicateComparisonScreen;
-import com.darkmusic.client.gui.ExistingDownloadsScreen;
 import com.darkmusic.client.gui.FolderTree;
 import com.darkmusic.client.gui.Help;
 import com.darkmusic.client.gui.HudEditorScreen;
-import com.darkmusic.client.gui.IgnoredMatchesScreen;
-import com.darkmusic.client.gui.ImportHistoryScreen;
-import com.darkmusic.client.gui.ImportOverlay;
-import com.darkmusic.client.gui.LibraryManagerScreen;
 import com.darkmusic.client.gui.LocalScreen;
 import com.darkmusic.client.gui.LyricsScreen;
-import com.darkmusic.client.gui.MetadataScreen;
-import com.darkmusic.client.gui.MusicFoldersScreen;
 import com.darkmusic.client.gui.MusicScreen;
 import com.darkmusic.client.gui.PipScreen;
-import com.darkmusic.client.gui.PlayerProgress;
 import com.darkmusic.client.gui.RowList;
-import com.darkmusic.client.gui.SmartCleanupScreen;
-import com.darkmusic.client.gui.TrackPickerScreen;
-import com.darkmusic.client.gui.TrackThumbnails;
-import com.darkmusic.client.gui.UpdateScreen;
+import com.darkmusic.client.gui.ShortcutKeys;
 import com.darkmusic.client.hud.DownloadHud;
 import com.darkmusic.client.hud.HudPreview;
 import com.darkmusic.client.hud.HudSources;
@@ -120,12 +101,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources, LyricsScreen.Sources,
-    AudioSettingsScreen.Sources, ImportOverlay.Sources, PlayerProgress.Sources, TrackThumbnails, AudioDeletionScreen.Sources,
-    DownloadDuplicateScreen.Sources, IgnoredMatchesScreen.Sources, ImportHistoryScreen.Sources, TrackPickerScreen.Sources,
-    UpdateScreen.Sources, BackupScreen.Sources, HudEditorScreen.Sources, DuplicateComparisonScreen.Sources,
-    SmartCleanupScreen.Sources, LibraryManagerScreen.Sources, MetadataScreen.Sources, MusicFoldersScreen.Sources,
-    DownloadPathsScreen.Sources, DownloadToolsScreen.Sources, ExistingDownloadsScreen.Sources, DownloadScreen.Sources {
+// MusicScreen.Sources extends every screen's Sources, directly or through the screens it opens.
+public class DarkMusicClient implements ClientModInitializer, MusicScreen.Sources {
     public static DarkMusicClient INSTANCE;
     public final ExecutorService io = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-storage").factory());
     public final ExecutorService browsing = new ThreadPoolExecutor(2, 2, 0, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(16), Thread.ofPlatform().daemon().name("darkmusic-browse").factory(), new ThreadPoolExecutor.AbortPolicy());
@@ -375,6 +352,7 @@ public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources,
     private long cleanedScan = -1, cleanedPlaylists = -1;
     private long queuedLibraryRevision = -1;
 
+    @Override
     public boolean canEditQueue() {
         return accepting() && playback != null;
     }
@@ -426,16 +404,19 @@ public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources,
         });
     }
 
+    @Override
     public void seekRelative(double seconds) {
         if (idle() && playback != null) playback.seekRelative(seconds);
     }
 
+    @Override
     public void speed(double value) {
         settings.speed = PcmRateConverter.clamp(value);
         playback.speed(settings.speed);
         save();
     }
 
+    @Override
     public void volume(double value) {
         settings.volume = Settings.clampVolume(value);
         if (settings.volume > 0) settings.lastAudibleVolume = settings.volume;
@@ -476,18 +457,21 @@ public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources,
         }
     }
 
+    @Override
     public void shuffle(boolean on) {
         settings.shuffle = on;
         playback.shuffle(on);
         save();
     }
 
+    @Override
     public void repeat(Repeat mode) {
         settings.repeat = mode;
         playback.repeat(mode);
         save();
     }
 
+    @Override
     public void toggleMute() {
         volume(settings.volume > 0 ? 0 : settings.lastAudibleVolume);
         volumeFeedback.show(settings.volume);
@@ -644,6 +628,41 @@ public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources,
     }
 
     @Override
+    public ShortcutKeys shortcuts() {
+        return shortcuts;
+    }
+
+    @Override
+    public SourceLinks sourceLinks() {
+        return sourceLinks;
+    }
+
+    @Override
+    public MediaControls mediaControls() {
+        return mediaControls;
+    }
+
+    @Override
+    public MediaControlsPackage mediaPackage() {
+        return mediaPackage;
+    }
+
+    @Override
+    public DiscordPresence discord() {
+        return discord;
+    }
+
+    @Override
+    public void importAudio(List<Path> paths, String folder, String playlistId) {
+        media.importAudio(paths, folder, playlistId);
+    }
+
+    @Override
+    public void openMusicFolder() {
+        folders.open();
+    }
+
+    @Override
     public CompletableFuture<AudioDeletion.Plan> prepareAudioDeletion(List<Track> tracks) {
         return media.prepareAudioDeletion(tracks);
     }
@@ -693,6 +712,7 @@ public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources,
      */
     public static final int RECENTLY_ADDED = 100;
 
+    @Override
     public List<Track> collection(String mode, String group) {
         var tracks = library.snapshot().tracks();
         if (mode.equals("History")) return switch (group) {
@@ -714,6 +734,7 @@ public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources,
      * Resume Where You Left Off: plays the remembered song from its position, in the collection it came from, or in
      * the whole library when that collection no longer has it. Returns false when there is nothing to resume.
      */
+    @Override
     public boolean resumeLast(boolean paused) {
         var point = settings == null || !settings.resumeLast ? null : settings.resume;
         if (point == null || library == null || playback == null || !idle()) return false;
@@ -746,6 +767,7 @@ public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources,
     /**
      * Whether Play on this song should continue it from the remembered position.
      */
+    @Override
     public boolean resumes(Track track) {
         var point = settings == null || !settings.resumeLast ? null : settings.resume;
         return point != null && track != null && point.track.equals(track.id());
@@ -1075,6 +1097,7 @@ public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources,
     /**
      * Called on the client thread only, after explicit confirmation.
      */
+    @Override
     public CompletableFuture<Void> resetDefaults() {
         if (!idle())
             return CompletableFuture.failedFuture(new IllegalStateException(Text.get("reset.darkmusic.busy")));

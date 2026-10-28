@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.PlaybackController;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.render.UiIcon;
@@ -12,13 +11,19 @@ import net.minecraft.client.gui.screens.Screen;
 /**
  * Temporary playback actions, deliberately separate from playlist editing.
  */
-public final class SongActionsScreen extends AudioPage<DarkMusicClient> {
+public final class SongActionsScreen extends AudioPage<SongActionsScreen.Sources> {
+    /**
+     * Actions on one song, and the queue they open.
+     */
+    public interface Sources extends AudioPage.Sources, UpNextScreen.Sources {
+    }
+
     private final Track track;
     private String feedback = "";
     private UiStatus.Tone feedbackTone = UiStatus.Tone.INFO;
     private SettingRow next, add;
 
-    public SongActionsScreen(DarkMusicClient app, Screen parent, Track track) {
+    public SongActionsScreen(Sources app, Screen parent, Track track) {
         super(app, parent, "upnext.actions");
         this.track = track;
     }
@@ -42,13 +47,13 @@ public final class SongActionsScreen extends AudioPage<DarkMusicClient> {
 
     private void queue(boolean first) {
         if (!app.canEditQueue()) return;
-        var resolved = app.playlists.index(app.library.snapshot().tracks()).get(track.id());
+        var resolved = app.playlists().index(app.library().snapshot().tracks()).get(track.id());
         if (resolved == null) {
             feedback = Text.get("player.darkmusic.outside_library");
             feedbackTone = UiStatus.Tone.WARNING;
             return;
         }
-        boolean accepted = first ? app.playback.playNext(resolved) : app.playback.addToQueue(resolved);
+        boolean accepted = first ? app.playback().playNext(resolved) : app.playback().addToQueue(resolved);
         feedbackTone = accepted ? UiStatus.Tone.SUCCESS : UiStatus.Tone.WARNING;
         if (accepted)
             feedback = Text.get(first ? "upnext.added_next" : "upnext.added", track.title());

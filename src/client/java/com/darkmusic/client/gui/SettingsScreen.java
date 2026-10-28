@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.config.WaveformSettings;
@@ -9,10 +8,12 @@ import com.darkmusic.client.hud.HudPreview;
 import com.darkmusic.client.hud.HudScale;
 import com.darkmusic.client.hud.LyricsHud;
 import com.darkmusic.client.hud.NowPlayingHud;
+import com.darkmusic.client.presence.DiscordPresence;
 import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.SpectrumRenderer;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiTheme;
+import com.darkmusic.client.systemmedia.MediaControls;
 import com.darkmusic.client.systemmedia.MediaControlsPackage;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
@@ -41,7 +42,22 @@ import java.util.stream.IntStream;
  * One scrollable settings form with a fixed, independently contained live preview.
  */
 public final class SettingsScreen extends LocalScreen implements HudPreview {
-    private final DarkMusicClient app;
+    /**
+     * Settings, the services they control, and every settings page they open.
+     */
+    public interface Sources extends AudioSettingsScreen.Sources, BackupScreen.Sources,
+        HudEditorScreen.Sources, LyricsScreen.Sources, MusicFoldersScreen.Sources, UpdateScreen.Sources, PlayerProgress.Sources,
+        ColorsScreen.Sources {
+        MediaControls mediaControls();
+
+        MediaControlsPackage mediaPackage();
+
+        DiscordPresence discord();
+
+        CompletableFuture<Void> resetDefaults();
+    }
+
+    private final Sources app;
     private ScrollBar scrollbar;
     private ValueSlider playerProgressPreview;
     private final SpectrumRenderer playerSpectrumPreview = new SpectrumRenderer();
@@ -66,7 +82,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
     private final List<Section> searchHeadings = new ArrayList<>();
     private final Map<AbstractWidget, Integer> searchRows = new HashMap<>();
 
-    public SettingsScreen(DarkMusicClient app, Screen parent) {
+    public SettingsScreen(Sources app, Screen parent) {
         super(Text.component("text.darkmusic.darkmusic_settings"), parent);
         this.app = app;
     }
@@ -164,7 +180,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
     @Override
     protected void init() {
         backButton();
-        if (shownSettings != null && shownSettings != app.settings) {
+        if (shownSettings != null && shownSettings != app.settings()) {
             previewScale = 1;
             scaleChanged = 0;
             scroll = 0;
@@ -172,7 +188,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
             Arrays.fill(sectionScroll, 0);
             selectedSection = 0;
         }
-        shownSettings = app.settings;
+        shownSettings = app.settings();
         controls.clear();
         sections.clear();
         subsections.clear();
@@ -192,9 +208,9 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         }, () -> {
         });
         PlayerProgress.configure(playerProgressPreview, app, () -> {
-            var track = app.playback.state().track();
+            var track = app.playback().state().track();
             if (track != null) return track;
-            var tracks = app.library.snapshot().tracks();
+            var tracks = app.library().snapshot().tracks();
             return tracks.isEmpty() ? null : tracks.getFirst();
         });
         int searchY = wide ? 44 : 68;
@@ -230,13 +246,13 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                 previewOnly = !previewOnly;
                 rebuildWidgets();
             }).bounds(width - 120, 38, 108, 24).build());
-        if (previewVisible && (app.settings.hudEnabled || LyricsHud.enabled(app.settings))) {
+        if (previewVisible && (app.settings().hudEnabled || LyricsHud.enabled(app.settings()))) {
             int layoutButtonWidth = Math.min(previewWidth, font.width(Text.get("text.darkmusic.edit_hud_layout")) + 32);
             UiButton.icon(addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.edit_hud_layout"),
                     button -> show(new HudEditorScreen(app, this)))
                 .bounds(previewX + (previewWidth - layoutButtonWidth) / 2, previewY + previewHeight + 4, layoutButtonWidth, 24).build()), UiIcon.EDIT, false);
         }
-        var s = app.settings;
+        var s = app.settings();
         generalSettings(s);
         audioSettings();
         lyricsSettings(s);
@@ -258,7 +274,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         section("text.darkmusic.general_settings");
         action("folders.title", () -> show(new MusicFoldersScreen(app, this)), "folders.scope");
         folderY = cursor;
-        folderPath = app.library.root().toString();
+        folderPath = app.library().root().toString();
         folderLines = font.split(Component.literal(folderPath), formWidth - 14);
         cursor += folderLines.size() * 10 + 4;
         toggle("text.darkmusic.autoplay_on_launch", () -> s.autoplay, v -> s.autoplay = v, "text.darkmusic.automatically_start_the_library_after_minecraft_launches_disabled_by_default");
@@ -270,7 +286,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
             s.discordStatus = !s.discordStatus;
             app.save();
             rebuildWidgets();
-        }), Text.get("discord.darkmusic.status_help") + (s.discordStatus ? " " + Text.get(app.discord.state()) : ""));
+        }), Text.get("discord.darkmusic.status_help") + (s.discordStatus ? " " + Text.get(app.discord().state()) : ""));
         if (s.discordStatus) {
             toggle("discord.darkmusic.show_title", () -> s.discordShowTitle, v -> {
                 s.discordShowTitle = v;
@@ -282,8 +298,8 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         mediaControlsRows(s);
         action("backup.title", () -> show(new BackupScreen(app, this)), "backup.scope");
         action("history.clear", () -> show(new ConfirmationScreen(this, Text.component("history.clear"), Text.component("history.clear_help"), Text.component("history.clear"), () -> {
-            app.listeningHistory.replace(Map.of());
-            app.listeningHistory.flush(true);
+            app.listeningHistory().replace(Map.of());
+            app.listeningHistory().flush(true);
             return CompletableFuture.completedFuture(null);
         })), "history.clear_help").destructive();
     }
@@ -615,7 +631,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
     @Override
     public boolean mouseScrolled(double x, double y, double dx, double dy) {
         if (HorizontalText.horizontalIntent(dx, dy)) return super.mouseScrolled(x, y, dx, dy);
-        if (previewVisible && (lyricsPreview() ? LyricsHud.enabled(app.settings) : app.settings.hudEnabled) && x >= previewX && x < previewX + previewWidth && y >= previewY + 20 && y < previewY + previewHeight - (progressPreview() ? 54 : 0) && dy != 0) {
+        if (previewVisible && (lyricsPreview() ? LyricsHud.enabled(app.settings()) : app.settings().hudEnabled) && x >= previewX && x < previewX + previewWidth && y >= previewY + 20 && y < previewY + previewHeight - (progressPreview() ? 54 : 0) && dy != 0) {
             previewScale = previewWheel.scroll(previewScale, dy);
             fitPreview();
             scaleChanged = System.nanoTime();
@@ -631,7 +647,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
 
     @Override
     public void tick() {
-        if (!folderPath.equals(app.library.root().toString())) rebuildWidgets();
+        if (!folderPath.equals(app.library().root().toString())) rebuildWidgets();
         // The Media Controls row shows installation progress and the connection as they change.
         String media = mediaSignature();
         if (!media.equals(shownMedia)) rebuildWidgets();
@@ -640,15 +656,15 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
     private String shownMedia = "";
 
     private String mediaSignature() {
-        var media = app.mediaPackage;
-        return media.state() + ":" + (media.size() > 0 ? media.downloaded() * 20 / media.size() : 0) + ":" + app.mediaControls.connected();
+        var media = app.mediaPackage();
+        return media.state() + ":" + (media.size() > 0 ? media.downloaded() * 20 / media.size() : 0) + ":" + app.mediaControls().connected();
     }
 
     /**
      * Windows x64 only: Install while missing, progress while installing, then an on/off switch with its status.
      */
     private void mediaControlsRows(Settings s) {
-        var media = app.mediaPackage;
+        var media = app.mediaPackage();
         shownMedia = mediaSignature();
         if (!media.available()) return;
         long megabytes = Math.max(1, Math.round(media.size() / 1_048_576.0));
@@ -659,13 +675,13 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                     app.save();
                     rebuildWidgets();
                 }), Text.get("media.darkmusic.enabled_help") + (s.mediaControls
-                    ? " " + Text.get(app.mediaControls.connected() ? "media.darkmusic.state.connected" : "media.darkmusic.state.starting") : ""));
+                    ? " " + Text.get(app.mediaControls().connected() ? "media.darkmusic.state.connected" : "media.darkmusic.state.starting") : ""));
                 action("media.darkmusic.remove", () -> show(new ConfirmationScreen(this, Text.component("media.darkmusic.remove"),
                     Text.component("media.darkmusic.remove_body"), Text.component("media.darkmusic.remove"), () -> {
                     // Stop the helper first so its files can be deleted.
                     s.mediaControls = false;
                     app.save();
-                    app.mediaControls.update(null, null, System.nanoTime());
+                    app.mediaControls().update(null, null, System.nanoTime());
                     return media.remove();
                 })), "media.darkmusic.remove_help").destructive();
             }
@@ -692,9 +708,9 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
     }
 
     private void fitPreview() {
-        var layout = NowPlayingHud.content(app.hud);
-        int w = lyricsPreview() ? app.settings.lyricsHudWidth : layout.width();
-        int h = lyricsPreview() ? HudLyricsLayout.height(app.settings.lyricsNextLine) : layout.height();
+        var layout = NowPlayingHud.content(app.hud());
+        int w = lyricsPreview() ? app.settings().lyricsHudWidth : layout.width();
+        int h = lyricsPreview() ? HudLyricsLayout.height(app.settings().lyricsNextLine) : layout.height();
         double fit = Math.min((previewWidth - 16.0) / w, (previewHeight - 30.0 - (progressPreview() ? 54 : 0)) / h);
         previewScale = Math.min(previewScale, Math.max(.1, Math.floor(fit * 10) / 10));
     }
@@ -705,7 +721,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
 
     @Override
     public boolean previewsProgress() {
-        return previewVisible && (progressPreview() || app.settings.hudEnabled && !lyricsPreview());
+        return previewVisible && (progressPreview() || app.settings().hudEnabled && !lyricsPreview());
     }
 
     private boolean progressPreview() {
@@ -720,23 +736,23 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         if (!previewOnly) UiTheme.panel(g, formX - 2, top - 2, formWidth + 4, bottom - top + 4);
         if (previewVisible) {
             UiTheme.panel(g, previewX, previewY, previewWidth, previewHeight);
-            g.text(font, Text.get(app.settings.hudEnabled || lyricsPreview() ? "hud.darkmusic.live_preview" : "settings.player_preview"), previewX + 6, previewY + 6, UiTheme.ACCENT);
+            g.text(font, Text.get(app.settings().hudEnabled || lyricsPreview() ? "hud.darkmusic.live_preview" : "settings.player_preview"), previewX + 6, previewY + 6, UiTheme.ACCENT);
             g.enableScissor(previewX + 2, previewY + 20, previewX + previewWidth - 2, previewY + previewHeight - 2);
-            if (app.settings.hudEnabled || lyricsPreview()) fitPreview();
+            if (app.settings().hudEnabled || lyricsPreview()) fitPreview();
             if (lyricsPreview())
-                LyricsHud.renderPreview(app.hud, g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30, previewScale);
-            else if (!app.settings.hudEnabled) {
+                LyricsHud.renderPreview(app.hud(), g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30, previewScale);
+            else if (!app.settings().hudEnabled) {
                 int available = previewHeight - 30 - (progressPreview() ? 54 : 0);
                 int spectrumHeight = Math.max(1, Math.min(60, available));
-                playerSpectrumPreview.bars(app.settings, app.playback, g, SpectrumRenderer.Bars.at(previewX + 12, previewY + 22 + (available - spectrumHeight) / 2,
+                playerSpectrumPreview.bars(app.settings(), app.playback(), g, SpectrumRenderer.Bars.at(previewX + 12, previewY + 22 + (available - spectrumHeight) / 2,
                     previewWidth - 24, spectrumHeight, false, true));
             } else
-                NowPlayingHud.renderPreview(app.hud, g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30 - (progressPreview() ? 54 : 0), previewScale, longText);
+                NowPlayingHud.renderPreview(app.hud(), g, previewX + 8, previewY + 22, previewWidth - 16, previewHeight - 30 - (progressPreview() ? 54 : 0), previewScale, longText);
             if (progressPreview()) {
                 int divider = previewY + previewHeight - 54;
                 g.fill(previewX + 6, divider, previewX + previewWidth - 6, divider + 1, UiTheme.BORDER);
                 longText.draw(g, font, "player_progress_preview", Text.get("progress.darkmusic.player_preview"), previewX + 10, divider + 7, previewWidth - 20, UiTheme.ACCENT);
-                var state = app.playback.state();
+                var state = app.playback().state();
                 boolean actual = state.status() == AudioBackend.Status.PLAYING || state.status() == AudioBackend.Status.PAUSED;
                 playerProgressPreview.syncNow(actual && state.duration() > 0 ? state.position() / state.duration() : .4);
                 playerProgressPreview.extractWidgetRenderState(g, Integer.MIN_VALUE, Integer.MIN_VALUE, delta);
