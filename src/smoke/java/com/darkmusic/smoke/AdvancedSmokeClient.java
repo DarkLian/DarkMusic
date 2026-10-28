@@ -136,11 +136,15 @@ final class AdvancedSmokeClient {
                     mc.gui.setScreen(new AudioSettingsScreen(app, null));
                     require(mc.gui.screen().children().stream().noneMatch(w -> w instanceof EqualizerGraph), "Inactive EQ bands were not collapsed");
                     app.settings().audio.equalizer = true;
-                    app.settings().audio.neutral = true;
+                    // Original bypasses the sound; Custom then starts blank, with the controls adjustable again.
+                    app.settings().audio.selectProfile("DEFAULT");
+                    require(app.settings().audio.neutral, "Original did not bypass the sound");
                     mc.gui.setScreen(new AudioSettingsScreen(app, null));
-                    require(mc.gui.screen().children().stream().filter(w -> w instanceof AbstractWidget).map(w -> (AbstractWidget) w).filter(w -> w.getMessage().getString().equals("10-Band Equalizer")).noneMatch(w -> w.active), "Neutral did not disable bypassed EQ controls");
-                    require(mc.gui.screen().children().stream().filter(w -> w instanceof EqualizerGraph).map(w -> (EqualizerGraph) w).noneMatch(w -> w.active), "Neutral did not disable the EQ graph");
-                    app.settings().audio.neutral = false;
+                    require(mc.gui.screen().children().stream().filter(w -> w instanceof AbstractWidget).map(w -> (AbstractWidget) w).filter(w -> w.getMessage().getString().equals("10-Band Equalizer")).noneMatch(w -> w.active), "Original did not disable bypassed EQ controls");
+                    require(mc.gui.screen().children().stream().filter(w -> w instanceof EqualizerGraph).map(w -> (EqualizerGraph) w).noneMatch(w -> w.active), "Original did not disable the EQ graph");
+                    app.settings().audio.selectProfile(AudioSettings.CUSTOM);
+                    require(app.settings().audio.profile.equals(AudioSettings.CUSTOM) && !app.settings().audio.neutral, "Custom did not start blank and adjustable");
+                    app.settings().audio.equalizer = true;
                     mc.gui.setScreen(new AudioSettingsScreen(app, null));
                     require(mc.gui.screen().children().stream().filter(w -> w instanceof EqualizerGraph).count() == 1, "Active EQ bands did not return");
                     app.save();

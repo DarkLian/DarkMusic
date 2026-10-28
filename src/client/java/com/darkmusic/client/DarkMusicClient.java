@@ -685,6 +685,8 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             lyrics.enabled(settings().lyricsEnabled);
             lyrics.lookup.configure(settings().lyricsEnabled, settings().lyricsOnline);
             lyrics.lookup.captionPreferences(settings().lyricsLanguages, settings().lyricsAutoCaptions);
+            // Keep the profile name in step with the values: an edit while a profile is selected becomes Custom.
+            settings().audio.matchProfile();
             if (playback != null) playback.configure(settings().audio, settings().environment);
         }
         if (playback != null && playback.spectrum() != null) {

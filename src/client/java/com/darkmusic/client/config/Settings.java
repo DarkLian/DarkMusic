@@ -182,6 +182,7 @@ public final class Settings {
         if (outputDevice == null || !outputDevice.matches("[0-9a-f]{64}|")) outputDevice = "";
         if (audio == null) audio = new AudioSettings();
         audio.validate();
+        audio.matchProfile();
         if (environment == null) environment = new SoundEnvironmentSettings();
         environment.validate();
         if (repeat == null) repeat = Repeat.OFF;
