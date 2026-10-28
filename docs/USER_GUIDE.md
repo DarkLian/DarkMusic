@@ -59,7 +59,7 @@ Windows default of 16 ms), so capture follows the limit. Earlier versions were h
 on a 144 Hz display. On the tested system, a 144 FPS limit delivered about 143 FPS and a
 60 FPS limit delivered 60 FPS in both borderless and exclusive fullscreen. Other systems, sources
 and Windows builds are untested, and a higher limit uses more CPU and memory bandwidth. See the
-[verification record](PIP-VERIFICATION.md) and [capture investigation](PIP-WGC-INVESTIGATION.md).
+[verification record](history/PIP-VERIFICATION.md) and [capture investigation](history/PIP-WGC-INVESTIGATION.md).
 
 **Screen tearing in exclusive fullscreen.** On one tested system (144 Hz), visible tearing across the whole screen appeared while PiP was capturing when Minecraft used **Exclusive** fullscreen, or the fullscreen modes of the **Cubes Without Borders** mod. Minecraft's own non-exclusive fullscreen and windowed mode did not tear, with or without Sodium. VSync, FreeSync and frame-rate limits did not fix it. Turn off Exclusive Fullscreen in Video Settings and restart Minecraft; the setting only applies at startup. Cubes Without Borders keeps that setting on while it manages fullscreen, so disable the mod while using PiP. DarkMusic lists it as a conflicting mod, and PiP settings warn while Exclusive Fullscreen is on. The underlying cause is not established, and other graphics hardware has not been tested.
 

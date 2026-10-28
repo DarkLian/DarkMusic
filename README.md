@@ -114,7 +114,7 @@ Turn on **PiP Audio Spectrum** to visualize that application's sound with its ow
 
 ![Picture-in-Picture window inside Minecraft](docs/images/pip.png)
 
-PiP follows the frame limit you choose; on one tested system a 144 FPS limit delivered about 143 FPS. Smoothness still depends on Windows, the source application, and your graphics hardware, so no particular frame rate is promised. It needs Windows build 19041 or later (20348 or later for the audio spectrum). Details are in the [setup guide](docs/PIP-OPTIONAL-INSTALLATION.md), [verification notes](docs/PIP-VERIFICATION.md), and [performance measurements](docs/PIP-PERFORMANCE.md). The native helper and runtime are installed together only when you approve PiP installation; the main JAR contains their installation manifest. Do not put the optional dependency ZIP from the release page in `mods`; use the in-game installer.
+PiP follows the frame limit you choose; on one tested system a 144 FPS limit delivered about 143 FPS. Smoothness still depends on Windows, the source application, and your graphics hardware, so no particular frame rate is promised. It needs Windows build 19041 or later (20348 or later for the audio spectrum). Details are in the [setup guide](docs/PIP-OPTIONAL-INSTALLATION.md), [verification notes](docs/history/PIP-VERIFICATION.md), and [performance measurements](docs/history/PIP-PERFORMANCE.md). The native helper and runtime are installed together only when you approve PiP installation; the main JAR contains their installation manifest. Do not put the optional dependency ZIP from the release page in `mods`; use the in-game installer.
 
 ## Media keys and Windows media controls (optional)
 
