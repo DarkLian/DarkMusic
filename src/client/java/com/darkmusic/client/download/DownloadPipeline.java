@@ -212,13 +212,11 @@ public final class DownloadPipeline {
                 }
                 var conversion = format == DownloadFormat.MP3 ? convert(tools, source, converted, cover, metadata, entry) : DownloadEncoding.remux(tools, source, converted, cover, metadata, entry, plan);
                 if (pictureTags != null) conversion = DownloadEncoding.withPictureComment(conversion, pictureTags);
-                result = runner.run(conversion, work, token, Duration.ofMinutes(20), 64_000, s -> {
-                });
+                result = runner.run(conversion, work, token, Duration.ofMinutes(20), 64_000);
                 if (result.exit() != 0 && (cover != null || pictureTags != null)) {
                     token.check();
                     warning = Text.get("download.thumbnail_failed");
-                    result = runner.run(format == DownloadFormat.MP3 ? convert(tools, source, converted, null, metadata, entry) : DownloadEncoding.remux(tools, source, converted, null, metadata, entry, plan), work, token, Duration.ofMinutes(20), 64_000, s -> {
-                    });
+                    result = runner.run(format == DownloadFormat.MP3 ? convert(tools, source, converted, null, metadata, entry) : DownloadEncoding.remux(tools, source, converted, null, metadata, entry, plan), work, token, Duration.ofMinutes(20), 64_000);
                 }
                 if (result.exit() != 0)
                     throw new DownloadDiagnostics.Failure(stage, tool, result.exit(), result.output());
@@ -228,8 +226,7 @@ public final class DownloadPipeline {
                 if (!DownloadEncoding.codec(runner, tools, converted, work, token).equals(expectedCodec))
                     throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.OUTPUT_VALIDATION_FAILURE, stage, tool, null, "", null);
                 tool = DownloadDiagnostics.Tool.FFMPEG;
-                var validation = runner.run(List.of(tools.ffmpeg().toString(), "-nostdin", "-v", "error", "-xerror", "-protocol_whitelist", "file,pipe", "-i", converted.toString(), "-map", "0:a:0", "-vn", "-f", "null", "-"), work, token, Duration.ofMinutes(20), 16_000, s -> {
-                });
+                var validation = runner.run(List.of(tools.ffmpeg().toString(), "-nostdin", "-v", "error", "-xerror", "-protocol_whitelist", "file,pipe", "-i", converted.toString(), "-map", "0:a:0", "-vn", "-f", "null", "-"), work, token, Duration.ofMinutes(20), 16_000);
                 if (validation.exit() != 0)
                     throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.OUTPUT_VALIDATION_FAILURE, stage, tool, validation.exit(), validation.output(), null);
                 if (!plan.warning().isBlank()) warning = plan.warning() + " " + warning;

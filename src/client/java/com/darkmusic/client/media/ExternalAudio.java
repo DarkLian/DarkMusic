@@ -79,8 +79,7 @@ public final class ExternalAudio {
         else
             args.addAll(List.of("-show_entries", "stream=codec_name,sample_rate,channels,bits_per_raw_sample:format=duration"));
         args.addAll(List.of("-of", "json", absolute.toString()));
-        var result = new ProcessRunner().run(args, absolute.getParent(), token, Duration.ofSeconds(15), 128_000, s -> {
-        });
+        var result = new ProcessRunner().run(args, absolute.getParent(), token, Duration.ofSeconds(15), 128_000);
         if (result.exit() != 0)
             throw new IOException(Text.get("audio.error.inspection"), new IOException(result.output()));
         return JsonParser.parseString(result.output()).getAsJsonObject();

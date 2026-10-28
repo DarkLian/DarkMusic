@@ -126,24 +126,9 @@ public final class Shortcuts {
      * Drains this tick's presses; presses while not allowed are discarded rather than replayed later.
      */
     void consume(boolean allowed) {
-        while (toggle.consumeClick()) if (allowed) perform(toggle);
-        while (next.consumeClick()) if (allowed) perform(next);
-        while (previous.consumeClick()) if (allowed) perform(previous);
-        while (faster.consumeClick()) if (allowed) perform(faster);
-        while (slower.consumeClick()) if (allowed) perform(slower);
-        while (normalSpeed.consumeClick()) if (allowed) perform(normalSpeed);
-        while (volumeUp.consumeClick()) if (allowed) perform(volumeUp);
-        while (volumeDown.consumeClick()) if (allowed) perform(volumeDown);
-        while (mute.consumeClick()) if (allowed) perform(mute);
-        while (seekBack.consumeClick()) if (allowed) perform(seekBack);
-        while (seekForward.consumeClick()) if (allowed) perform(seekForward);
-        while (stop.consumeClick()) if (allowed) perform(stop);
-        while (jump.consumeClick()) if (allowed) perform(jump);
-        while (hud.consumeClick()) if (allowed) perform(hud);
-        while (lyrics.consumeClick()) if (allowed) perform(lyrics);
-        while (favorite.consumeClick()) if (allowed) perform(favorite);
-        while (shuffle.consumeClick()) if (allowed) perform(shuffle);
-        while (repeat.consumeClick()) if (allowed) perform(repeat);
+        // The client tick reads the open key itself, before this.
+        for (KeyMapping key : bindings())
+            if (key != open) while (key.consumeClick()) if (allowed) perform(key);
     }
 
     public void perform(KeyMapping key) {

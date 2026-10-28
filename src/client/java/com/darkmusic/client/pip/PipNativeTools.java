@@ -151,8 +151,7 @@ public final class PipNativeTools {
         return prepare().thenApplyAsync(exe -> {
             try {
                 if (!allowed.getAsBoolean()) throw new IOException("pip.setup.disabled");
-                var result = new ProcessRunner().run(List.of(exe.toString(), "--list"), exe.getParent(), token, Duration.ofSeconds(10), 262144, line -> {
-                });
+                var result = new ProcessRunner().run(List.of(exe.toString(), "--list"), exe.getParent(), token, Duration.ofSeconds(10), 262144);
                 if (!allowed.getAsBoolean()) throw new IOException("pip.setup.disabled");
                 if (result.exit() != 0) throw new IOException("pip.capture_error");
                 var sources = new Gson().fromJson(result.output().strip(), PipSource[].class);

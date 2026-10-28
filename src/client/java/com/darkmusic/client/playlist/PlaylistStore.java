@@ -1,6 +1,7 @@
 package com.darkmusic.client.playlist;
 
 import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.config.LatestWriter;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
 import com.google.gson.JsonParser;
@@ -21,10 +22,8 @@ public final class PlaylistStore {
     private final ExecutorService io;
     private final Consumer<String> warning;
     private List<Playlist> playlists = List.of();
-    private boolean preserveInvalid;
     private long revision;
-    private String pending;
-    private boolean writing;
+    private final LatestWriter writer;
     private Set<Entry> favoriteEntries = Set.of();
     private Set<Entry> retainedImports = Set.of();
     private boolean retainedHealthy = true;
@@ -86,6 +85,7 @@ public final class PlaylistStore {
         file = directory.resolve("playlists.json");
         this.io = io;
         this.warning = warning;
+        writer = new LatestWriter(io, file, "playlists.invalid-", e -> warning.accept(Text.failure(e, "playlist.status.save_failed")));
     }
 
     public List<Playlist> read() {
@@ -130,13 +130,13 @@ public final class PlaylistStore {
                     }
                 }
                 if (skipped > 0) {
-                    preserveInvalid = true;
+                    writer.preserveInvalid();
                     warning.accept(Text.get("playlist.status.recovered", skipped));
                 }
                 return List.copyOf(result);
             }
         } catch (Exception e) {
-            preserveInvalid = true;
+            writer.preserveInvalid();
             warning.accept(Text.failure(e, "playlist.status.load_failed"));
         }
         return List.of();
@@ -322,41 +322,7 @@ public final class PlaylistStore {
         });
         refreshFavorites();
         revision++;
-        String json = ConfigStore.JSON.toJson(playlists);
-        synchronized (this) {
-            pending = json;
-            if (writing) return;
-            writing = true;
-            try {
-                io.execute(this::drainWrites);
-            } catch (RuntimeException failure) {
-                writing = false;
-                throw failure;
-            }
-        }
-    }
-
-    private void drainWrites() {
-        while (true) {
-            String json;
-            synchronized (this) {
-                json = pending;
-                pending = null;
-                if (json == null) {
-                    writing = false;
-                    return;
-                }
-            }
-            try {
-                if (preserveInvalid && Files.exists(file)) {
-                    Files.copy(file, file.resolveSibling("playlists.invalid-" + System.currentTimeMillis() + ".json"));
-                    preserveInvalid = false;
-                }
-                ConfigStore.atomicWrite(file, json);
-            } catch (Exception e) {
-                warning.accept(Text.failure(e, "playlist.status.save_failed"));
-            }
-        }
+        writer.write(ConfigStore.JSON.toJson(playlists));
     }
 
     public record Entry(String rootId, String path) {

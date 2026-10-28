@@ -317,8 +317,7 @@ public final class MediaFiles {
         for (String scope : List.of("-metadata", "-metadata:s:a:0"))
             args.addAll(List.of(scope, "title=" + fields.title(), scope, "artist=" + fields.artist(), scope, "album=" + fields.album()));
         args.addAll(List.of("-f", container == AudioFormats.Container.OPUS ? "opus" : "webm", staged.toString()));
-        var result = new ProcessRunner().run(args, work, token, Duration.ofMinutes(10), 64000, line -> {
-        });
+        var result = new ProcessRunner().run(args, work, token, Duration.ofMinutes(10), 64000);
         if (result.exit() != 0)
             throw new IOException(Text.get("library.darkmusic.edit_failed"), new IOException(result.output()));
         if (artwork != null && !Arrays.equals(artwork, metadata.artwork(staged)))

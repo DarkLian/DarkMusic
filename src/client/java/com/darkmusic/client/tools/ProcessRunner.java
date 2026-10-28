@@ -19,6 +19,14 @@ import java.util.function.Consumer;
  * No shell, bounded output, and one cancellation owner per subprocess tree.
  */
 public class ProcessRunner {
+    /**
+     * Runs a command whose output is only read once it finishes.
+     */
+    public Result run(List<String> command, Path directory, Token token, Duration timeout, int maxOutput) throws IOException, InterruptedException {
+        return run(command, directory, token, timeout, maxOutput, line -> {
+        });
+    }
+
     public Result run(List<String> command, Path directory, Token token, Duration timeout, int maxOutput, Consumer<String> line) throws IOException, InterruptedException {
         token.check();
         if (maxOutput < 1)

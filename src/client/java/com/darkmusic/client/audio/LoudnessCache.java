@@ -441,8 +441,7 @@ public final class LoudnessCache implements AutoCloseable {
             for (var e : tags.entrySet()) values.put(e.getKey().toLowerCase(Locale.ROOT), e.getValue().getAsString());
             Reading result = tags(values, mode);
             if (result == null && analyze) {
-                var r = new ProcessRunner().run(List.of(ExternalAudio.tool(false).toString(), "-nostdin", "-hide_banner", "-threads", "1", "-filter_threads", "1", "-protocol_whitelist", "file,pipe", "-i", track.file().toAbsolutePath().toString(), "-vn", "-af", "loudnorm=I=-18:TP=-1:LRA=11:print_format=json", "-f", "null", "-"), track.file().toAbsolutePath().getParent(), token, Duration.ofMinutes(30), 16_000, s -> {
-                });
+                var r = new ProcessRunner().run(List.of(ExternalAudio.tool(false).toString(), "-nostdin", "-hide_banner", "-threads", "1", "-filter_threads", "1", "-protocol_whitelist", "file,pipe", "-i", track.file().toAbsolutePath().toString(), "-vn", "-af", "loudnorm=I=-18:TP=-1:LRA=11:print_format=json", "-f", "null", "-"), track.file().toAbsolutePath().getParent(), token, Duration.ofMinutes(30), 16_000);
                 if (r.exit() != 0) throw new IOException("Loudness analysis failed: " + r.output());
                 int at = r.output().lastIndexOf('{'), end = r.output().lastIndexOf('}');
                 if (at >= 0 && end > at) {

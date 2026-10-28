@@ -51,8 +51,7 @@ public final class DownloadEncoding {
     }
 
     public static String codec(ProcessRunner runner, Toolchain tools, Path source, Path work, ProcessRunner.Token token) throws Exception {
-        var r = runner.run(List.of(tools.ffprobe().toString(), "-v", "error", "-protocol_whitelist", "file,pipe", "-select_streams", "a:0", "-show_entries", "stream=codec_name", "-of", "json", source.toString()), work, token, Duration.ofSeconds(30), 32_000, s -> {
-        });
+        var r = runner.run(List.of(tools.ffprobe().toString(), "-v", "error", "-protocol_whitelist", "file,pipe", "-select_streams", "a:0", "-show_entries", "stream=codec_name", "-of", "json", source.toString()), work, token, Duration.ofSeconds(30), 32_000);
         if (r.exit() != 0)
             throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.OUTPUT_VALIDATION_FAILURE,
                 DownloadDiagnostics.Stage.VALIDATION, DownloadDiagnostics.Tool.FFPROBE, r.exit(), r.output(), null);
@@ -100,8 +99,7 @@ public final class DownloadEncoding {
 
     static Path pictureComment(ProcessRunner runner, Toolchain tools, Path cover, Path work, ProcessRunner.Token token) throws Exception {
         Path jpeg = work.resolve("embedded-cover.jpg");
-        var converted = runner.run(List.of(tools.ffmpeg().toString(), "-nostdin", "-v", "error", "-y", "-protocol_whitelist", "file,pipe", "-i", cover.toString(), "-frames:v", "1", "-vf", "scale=1024:1024:force_original_aspect_ratio=decrease", jpeg.toString()), work, token, Duration.ofSeconds(30), 16_000, s -> {
-        });
+        var converted = runner.run(List.of(tools.ffmpeg().toString(), "-nostdin", "-v", "error", "-y", "-protocol_whitelist", "file,pipe", "-i", cover.toString(), "-frames:v", "1", "-vf", "scale=1024:1024:force_original_aspect_ratio=decrease", jpeg.toString()), work, token, Duration.ofSeconds(30), 16_000);
         if (converted.exit() != 0 || !Files.isRegularFile(jpeg) || Files.size(jpeg) > 8 * 1024 * 1024)
             throw new IOException(Text.get("download.thumbnail_failed"));
         byte[] bytes = Files.readAllBytes(jpeg);

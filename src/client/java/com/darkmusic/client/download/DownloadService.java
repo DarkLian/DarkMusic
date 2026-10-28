@@ -161,8 +161,7 @@ public final class DownloadService implements AutoCloseable {
         try {
             var args = chain.base();
             args.addAll(List.of("--dump-single-json", "--skip-download", "--no-playlist", "--playlist-items", "1", "--", url(link)));
-            var result = runner.run(args, work, token, Duration.ofSeconds(90), 2_000_000, ignored -> {
-            });
+            var result = runner.run(args, work, token, Duration.ofSeconds(90), 2_000_000);
             if (result.exit() != 0)
                 throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Stage.ANALYSIS, DownloadDiagnostics.Tool.YT_DLP, result.exit(), result.output());
             var metadata = DownloadJson.object(result.output());
@@ -389,8 +388,7 @@ public final class DownloadService implements AutoCloseable {
             var args = verified.base();
             args.addAll(List.of("--dump-single-json", "--skip-download", "--no-playlist", "--playlist-items", "1", "--", link));
             var result = DownloadDiagnostics.at(DownloadDiagnostics.Stage.ANALYSIS, DownloadDiagnostics.Tool.YT_DLP,
-                () -> runner.run(args, data, token, Duration.ofMinutes(3), 16_000_000, s -> {
-                }));
+                () -> runner.run(args, data, token, Duration.ofMinutes(3), 16_000_000));
             if (result.exit() != 0)
                 throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Stage.ANALYSIS, DownloadDiagnostics.Tool.YT_DLP, result.exit(), result.output()).versions(verified.versions());
             Preview one = DownloadJson.preview(link, 1, DownloadJson.object(result.output()));

@@ -205,8 +205,7 @@ public final class PipRuntime implements AutoCloseable {
     }
 
     static boolean graphics(Path exe, ProcessRunner.Token request) throws Exception {
-        var probe = new ProcessRunner().run(List.of(exe.toString(), "--requirements"), exe.getParent(), request, Duration.ofSeconds(15), 4096, line -> {
-        });
+        var probe = new ProcessRunner().run(List.of(exe.toString(), "--requirements"), exe.getParent(), request, Duration.ofSeconds(15), 4096);
         return probe.exit() == 0 && probe.output().strip().equals("supported");
     }
 

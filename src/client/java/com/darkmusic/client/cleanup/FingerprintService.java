@@ -51,8 +51,7 @@ public final class FingerprintService {
             var command = List.of((executable == null ? ExternalAudio.tool(false) : executable).toString(), "-nostdin", "-v", "error", "-threads", "1", "-protocol_whitelist", "file,pipe",
                 "-i", file.toAbsolutePath().toString(), "-t", Integer.toString(SECONDS), "-map", "0:a:0", "-vn", "-sn", "-dn",
                 "-ac", "1", "-ar", Integer.toString(RATE), "-c:a", "pcm_f32le", "-f", "f32le", "-fs", "8000000", "-y", pcm.toString());
-            var result = runner.run(command, scratch, token, Duration.ofSeconds(90), 8192, s -> {
-            });
+            var result = runner.run(command, scratch, token, Duration.ofSeconds(90), 8192);
             if (result.exit() != 0 || Files.size(pcm) > 8_000_000)
                 throw new IOException("Fingerprint decoding failed");
             token.check();

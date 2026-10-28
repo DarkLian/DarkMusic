@@ -23,8 +23,7 @@ public record Toolchain(Path ytDlp, Path ffmpeg, Path ffprobe, String runtime, S
         String yv = role(DownloadDiagnostics.Tool.YT_DLP, () -> version(yt, List.of("--ignore-config", "--version"), runner, token, config));
         String fv = role(DownloadDiagnostics.Tool.FFMPEG, () -> version(ff, List.of("-version"), runner, token, config));
         String pv = role(DownloadDiagnostics.Tool.FFPROBE, () -> version(probe, List.of("-version"), runner, token, config));
-        var helpResult = runner.run(List.of(yt.toString(), "--ignore-config", "--help"), config, token, Duration.ofSeconds(15), 250_000, s -> {
-        });
+        var helpResult = runner.run(List.of(yt.toString(), "--ignore-config", "--help"), config, token, Duration.ofSeconds(15), 250_000);
         if (helpResult.exit() != 0)
             throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.TOOL_INCOMPATIBLE, DownloadDiagnostics.Stage.TOOLS,
                 DownloadDiagnostics.Tool.YT_DLP, helpResult.exit(), helpResult.output(), null);
@@ -33,8 +32,7 @@ public record Toolchain(Path ytDlp, Path ffmpeg, Path ffprobe, String runtime, S
             if (!help.contains(flag))
                 throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.TOOL_INCOMPATIBLE, DownloadDiagnostics.Stage.TOOLS,
                     DownloadDiagnostics.Tool.YT_DLP, null, "Unsupported option", null);
-        var encoders = runner.run(List.of(ff.toString(), "-hide_banner", "-encoders"), config, token, Duration.ofSeconds(15), 250_000, s -> {
-        });
+        var encoders = runner.run(List.of(ff.toString(), "-hide_banner", "-encoders"), config, token, Duration.ofSeconds(15), 250_000);
         if (encoders.exit() != 0 || !encoders.output().contains("libmp3lame"))
             throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.TOOL_INCOMPATIBLE, DownloadDiagnostics.Stage.TOOLS,
                 DownloadDiagnostics.Tool.FFMPEG, encoders.exit(), "Missing MP3 encoder", null);
@@ -92,8 +90,7 @@ public record Toolchain(Path ytDlp, Path ffmpeg, Path ffprobe, String runtime, S
         var command = new ArrayList<String>();
         command.add(path.toString());
         command.addAll(arguments);
-        var result = runner.run(command, config, token, Duration.ofSeconds(15), 32_000, s -> {
-        });
+        var result = runner.run(command, config, token, Duration.ofSeconds(15), 32_000);
         if (result.exit() != 0)
             throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.TOOL_INCOMPATIBLE, DownloadDiagnostics.Stage.TOOLS,
                 tool(path.getFileName().toString()), result.exit(), result.output(), null);

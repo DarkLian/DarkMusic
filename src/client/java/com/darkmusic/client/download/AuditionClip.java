@@ -27,8 +27,7 @@ public record AuditionClip(Path directory, Track track) implements AutoCloseable
             args.addAll(List.of("--no-playlist", "--playlist-items", "1", "--format", "bestaudio/best",
                 "--download-sections", "*0-30", "--max-filesize", "50M",
                 "--no-write-thumbnail", "--no-write-info-json", "--output", "source.%(ext)s", "--", DownloadModels.url(entry.url())));
-            var result = runner.run(args, directory, token, Duration.ofMinutes(2), 100_000, line -> {
-            });
+            var result = runner.run(args, directory, token, Duration.ofMinutes(2), 100_000);
             token.check();
             if (result.exit() != 0) throw new IOException(DownloadJson.friendly(result.output()));
             Path source;
@@ -40,8 +39,7 @@ public record AuditionClip(Path directory, Track track) implements AutoCloseable
                 throw new IOException("The site did not provide a usable short audio preview");
             // Enforce the playback limit locally as well; some extractors approximate section boundaries.
             var converted = runner.run(List.of(tools.ffmpeg().toString(), "-nostdin", "-v", "error", "-protocol_whitelist", "file,pipe", "-i", source.toString(),
-                "-t", "30", "-fs", "8388608", "-vn", "-map_metadata", "-1", "-c:a", "libmp3lame", "-q:a", "5", clip.toString()), directory, token, Duration.ofSeconds(45), 32000, line -> {
-            });
+                "-t", "30", "-fs", "8388608", "-vn", "-map_metadata", "-1", "-c:a", "libmp3lame", "-q:a", "5", clip.toString()), directory, token, Duration.ofSeconds(45), 32000);
             token.check();
             if (converted.exit() != 0 || !Files.isRegularFile(clip) || Files.size(clip) < 256)
                 throw new IOException("Could not convert this audio preview");

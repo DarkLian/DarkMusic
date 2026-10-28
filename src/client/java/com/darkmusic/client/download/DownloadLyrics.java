@@ -59,8 +59,7 @@ public final class DownloadLyrics {
         try {
             var args = tools.base();
             args.addAll(List.of("--skip-download", "--no-playlist", "--playlist-items", "1", generated ? "--no-write-subs" : "--write-subs", generated ? "--write-auto-subs" : "--no-write-auto-subs", "--extractor-args", "youtube:skip=translated_subs", "--sub-langs", "^" + language + "$", "--sub-format", "lrc/vtt/srt/best", "--convert-subs", "lrc", "--paths", work.toString(), "--output", "lyrics.%(ext)s", "--", link));
-            var result = runner.run(args, work, token, Duration.ofSeconds(90), 32_000, s -> {
-            });
+            var result = runner.run(args, work, token, Duration.ofSeconds(90), 32_000);
             if (result.exit() != 0)
                 throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Stage.OPTIONAL, DownloadDiagnostics.Tool.YT_DLP, result.exit(), result.output());
             try (var files = Files.list(work)) {

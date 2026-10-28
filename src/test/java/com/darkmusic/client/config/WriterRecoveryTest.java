@@ -12,17 +12,18 @@ class WriterRecoveryTest {
     void unexpectedFilesystemRuntimeFailuresDoNotLatchTheWriter() throws Exception {
         try (var io = Executors.newSingleThreadExecutor()) {
             var warnings = new AtomicInteger();
-            var store = new ConfigStore(null, io, message -> warnings.incrementAndGet());
-            store.save(new Settings());
+            // A null target makes every write fail with a runtime exception rather than an IOException.
+            var writer = new LatestWriter(io, null, "config.invalid-", failure -> warnings.incrementAndGet());
+            writer.write("{}");
             io.submit(() -> {
             }).get(5, TimeUnit.SECONDS);
-            store.save(new Settings());
+            writer.write("{}");
             io.submit(() -> {
             }).get(5, TimeUnit.SECONDS);
             assertEquals(2, warnings.get());
-            var field = ConfigStore.class.getDeclaredField("writing");
+            var field = LatestWriter.class.getDeclaredField("writing");
             field.setAccessible(true);
-            assertFalse(field.getBoolean(store));
+            assertFalse(field.getBoolean(writer));
         }
     }
 }

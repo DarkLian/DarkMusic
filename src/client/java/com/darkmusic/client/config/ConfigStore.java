@@ -48,11 +48,8 @@ public final class ConfigStore {
             }
         }).create();
     private final Path directory;
-    private final ExecutorService io;
     private final Consumer<String> warning;
-    private boolean preserveInvalid;
-    private String pending;
-    private boolean writing;
+    private final LatestWriter writer;
     private volatile String snapshotJson;
 
     /**
@@ -68,8 +65,9 @@ public final class ConfigStore {
 
     public ConfigStore(Path directory, ExecutorService io, Consumer<String> warning) {
         this.directory = directory;
-        this.io = io;
         this.warning = warning;
+        writer = new LatestWriter(io, directory.resolve("config.json"), "config.invalid-",
+            e -> warning.accept(Text.failure(e, "error.save_settings")));
     }
 
     public static void atomicWrite(Path destination, String contents) throws IOException {
@@ -119,7 +117,7 @@ public final class ConfigStore {
                     if (settings == null || settings.schemaVersion != 1)
                         throw new IOException("Unsupported configuration version");
                 } catch (Exception e) {
-                    preserveInvalid = true;
+                    writer.preserveInvalid();
                     settings = new Settings();
                     warning.accept(Text.failure(e, "error.config_load"));
                 }
@@ -180,39 +178,6 @@ public final class ConfigStore {
     public void save(Settings settings) {
         String json = JSON.toJson(settings);
         snapshotJson = json;
-        synchronized (this) {
-            pending = json;
-            if (writing) return;
-            writing = true;
-            try {
-                io.execute(this::drainWrites);
-            } catch (RuntimeException failure) {
-                writing = false;
-                throw failure;
-            }
-        }
-    }
-
-    private void drainWrites() {
-        while (true) {
-            String json;
-            synchronized (this) {
-                json = pending;
-                pending = null;
-                if (json == null) {
-                    writing = false;
-                    return;
-                }
-            }
-            try {
-                if (preserveInvalid && Files.exists(directory.resolve("config.json"))) {
-                    Files.copy(directory.resolve("config.json"), directory.resolve("config.invalid-" + System.currentTimeMillis() + ".json"));
-                    preserveInvalid = false;
-                }
-                atomicWrite(directory.resolve("config.json"), json);
-            } catch (Exception e) {
-                warning.accept(Text.failure(e, "error.save_settings"));
-            }
-        }
+        writer.write(json);
     }
 }
