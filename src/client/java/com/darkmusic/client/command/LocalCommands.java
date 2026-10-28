@@ -1,6 +1,5 @@
 package com.darkmusic.client.command;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.library.Track;
@@ -211,8 +210,7 @@ public final class LocalCommands {
             line("command.darkmusic.keys_update", new Entry("/da keys", "", "command.darkmusic.keys_details"),
                 new Entry("/da update", "", "command.darkmusic.update_details")))));
 
-    public static void register(DarkMusicClient app) {
-        var actions = new ClientActions(app);
+    public static void register(Actions actions) {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, context) -> register(dispatcher, actions));
     }
 

@@ -622,7 +622,7 @@ public class DarkMusicClient implements ClientModInitializer {
     public void onInitializeClient() {
         INSTANCE = this;
         updates = new UpdateService(config.directory(), () -> settings, this::warn);
-        LocalCommands.register(this);
+        LocalCommands.register(new ClientActions(this));
         NowPlayingHud.register(hud);
         LyricsHud.register(hud);
         SongCard.register(hud);

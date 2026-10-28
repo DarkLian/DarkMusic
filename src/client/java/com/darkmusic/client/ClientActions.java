@@ -1,7 +1,8 @@
-package com.darkmusic.client.command;
+package com.darkmusic.client;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
+import com.darkmusic.client.command.ChatPalette;
+import com.darkmusic.client.command.LocalCommands;
 import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
