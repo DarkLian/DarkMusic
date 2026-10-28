@@ -1,7 +1,7 @@
 package com.darkmusic.client.update;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.command.ChatPalette;
+import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.text.Text;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.ChatFormatting;
@@ -28,13 +28,15 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * Client-only notices and consent-driven staging. No Minecraft connection is used for updates.
  */
 public final class UpdateService implements AutoCloseable {
     private static final Logger LOG = LoggerFactory.getLogger("darkmusic-update");
-    private final DarkMusicClient app;
+    private final Supplier<Settings> currentSettings;
+    private final Consumer<String> warn;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-update").factory());
     // Install buttons carry this code, so only DarkMusic's own buttons install without the command being typed.
     private final String installCode = HexFormat.of().formatHex(randomBytes());
@@ -51,13 +53,14 @@ public final class UpdateService implements AutoCloseable {
     private Path installFailureLog;
     private boolean recoveryReady, failureNotified;
 
-    public UpdateService(DarkMusicClient app) {
-        this.app = app;
+    public UpdateService(Path configDirectory, Supplier<Settings> settings, Consumer<String> warn) {
+        currentSettings = settings;
+        this.warn = warn;
         var mod = FabricLoader.getInstance().getModContainer("darkmusic").orElseThrow();
         current = mod.getMetadata().getVersion().getFriendlyString();
         var paths = mod.getOrigin().getPaths();
         installed = paths.size() == 1 && Files.isRegularFile(paths.getFirst()) ? paths.getFirst().toAbsolutePath().normalize() : null;
-        directory = app.config.directory().resolve("updates");
+        directory = configDirectory.resolve("updates");
         CompletableFuture.supplyAsync(() -> {
             try {
                 return UpdateRecovery.read(directory, installed);
@@ -75,8 +78,8 @@ public final class UpdateService implements AutoCloseable {
     }
 
     public void tick(Minecraft mc) {
-        if (closed || app.settings == null || !recoveryReady) return;
-        if (!app.settings.updateNotifications) return;
+        if (closed || currentSettings.get() == null || !recoveryReady) return;
+        if (!currentSettings.get().updateNotifications) return;
         if (mc.level == null || mc.player == null || mc.getConnection() == null) return;
         if (installed == null) return; // Development source sets are never replaced.
         if (installFailureLog != null && !failureNotified) {
@@ -129,7 +132,7 @@ public final class UpdateService implements AutoCloseable {
                 Util.getPlatform().openPath(Files.isRegularFile(log) ? log : log.getParent());
             } catch (Exception failure) {
                 LOG.warn("Cannot open update installation log", failure);
-                Minecraft.getInstance().execute(() -> app.warn(Text.get("update.log_failed")));
+                Minecraft.getInstance().execute(() -> warn.accept(Text.get("update.log_failed")));
             }
         }, worker);
     }
@@ -203,7 +206,7 @@ public final class UpdateService implements AutoCloseable {
     }
 
     private ChatPalette palette() {
-        var settings = app.settings;
+        var settings = currentSettings.get();
         return ChatPalette.of(settings == null ? ChatPalette.DEFAULT_ACCENT : settings.menuAccentColor);
     }
 
@@ -225,7 +228,7 @@ public final class UpdateService implements AutoCloseable {
     }
 
     public void download() {
-        if (closed || app.settings == null || release == null || installed == null)
+        if (closed || currentSettings.get() == null || release == null || installed == null)
             return;
         if (pending != null) {
             message("update.ready");

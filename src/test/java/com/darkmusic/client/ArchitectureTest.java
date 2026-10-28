@@ -30,10 +30,10 @@ class ArchitectureTest {
         Map.entry("backup", 8));
     private static final Set<String> SCREENS = Set.of("gui", "hud", "pip");
     // These get their services handed in and may not reach back into DarkMusicClient or its root-package helpers.
-    private static final Set<String> DECOUPLED = Set.of("hud", "pip", "render");
+    private static final Set<String> DECOUPLED = Set.of("hud", "pip", "render", "update");
     private static final Pattern ROOT_TYPE = Pattern.compile("\\bcom\\.darkmusic\\.client\\.[A-Z]\\w*");
     // Lower this as packages stop depending on DarkMusicClient; never raise it.
-    private static final int MAX_CLIENT_DEPENDENTS = 57;
+    private static final int MAX_CLIENT_DEPENDENTS = 56;
 
     @Test
     void packagesDependOnlyDownward() throws IOException {
