@@ -27,11 +27,16 @@ import com.darkmusic.client.download.DownloadService;
 import com.darkmusic.client.gui.AudioSettingsScreen;
 import com.darkmusic.client.gui.DesktopFolderPicker;
 import com.darkmusic.client.gui.FolderTree;
+import com.darkmusic.client.gui.Help;
 import com.darkmusic.client.gui.HudEditorScreen;
+import com.darkmusic.client.gui.ImportOverlay;
 import com.darkmusic.client.gui.LocalScreen;
 import com.darkmusic.client.gui.LyricsScreen;
 import com.darkmusic.client.gui.MusicScreen;
 import com.darkmusic.client.gui.PipScreen;
+import com.darkmusic.client.gui.PlayerProgress;
+import com.darkmusic.client.gui.RowList;
+import com.darkmusic.client.gui.TrackThumbnails;
 import com.darkmusic.client.hud.DownloadHud;
 import com.darkmusic.client.hud.HudPreview;
 import com.darkmusic.client.hud.HudSources;
@@ -97,7 +102,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources, LyricsScreen.Sources,
-    AudioSettingsScreen.Sources {
+    AudioSettingsScreen.Sources, ImportOverlay.Sources, PlayerProgress.Sources, TrackThumbnails {
     public static DarkMusicClient INSTANCE;
     public final ExecutorService io = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-storage").factory());
     public final ExecutorService browsing = new ThreadPoolExecutor(2, 2, 0, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(16), Thread.ofPlatform().daemon().name("darkmusic-browse").factory(), new ThreadPoolExecutor.AbortPolicy());
@@ -502,6 +507,21 @@ public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources,
     }
 
     @Override
+    public boolean importing() {
+        return importing;
+    }
+
+    @Override
+    public String importDestination() {
+        return importDestination;
+    }
+
+    @Override
+    public ArtworkCache.Cover thumbnail(Track track) {
+        return artwork.thumbnail(track);
+    }
+
+    @Override
     public void save() {
         if (alive() && !restoring && settings != null) {
             configureVisualizer();
@@ -674,6 +694,8 @@ public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources,
     public void onInitializeClient() {
         INSTANCE = this;
         LocalScreen.saveOnClose(this::save);
+        Help.settings(this::settings);
+        RowList.warnings(this::warn);
         updates = new UpdateService(config.directory(), () -> settings, this::warn);
         LocalCommands.register(new ClientActions(this));
         NowPlayingHud.register(hud);

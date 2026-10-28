@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 import org.slf4j.LoggerFactory;
@@ -14,7 +13,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BooleanSupplier;
 
 /**
  * The desktop modal loop lives in an isolated JDK helper, never Minecraft's render thread.
@@ -85,17 +83,4 @@ public final class DesktopFolderPicker {
         CANCELLED.set(true);
     }
 
-    public static void open(DarkMusicClient app, BooleanSupplier current) {
-        if (OPEN.get()) return;
-        var mc = Minecraft.getInstance();
-        boolean fullscreen = mc.getWindow().isFullscreen();
-        if (fullscreen) mc.getWindow().toggleFullScreen();
-        choose(app.library.root(), Text.get("text.darkmusic.choose_music_folder")).whenComplete((path, error) -> mc.execute(() -> {
-            if (fullscreen && !mc.getWindow().isFullscreen()) mc.getWindow().toggleFullScreen();
-            if (!current.getAsBoolean()) return;
-            if (error != null) app.warn(Text.get("folder.darkmusic.failed", Text.failure(error, "error.folder")));
-            else if (path != null) app.folders.choose(path, () -> {
-            });
-        }));
-    }
 }

@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiTheme;
@@ -11,15 +10,24 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 /**
  * Constant-size geometry; reuses the menu blur pass only while an import cue is visible.
  */
-final class ImportOverlay {
+public final class ImportOverlay {
     private long entered;
 
-    boolean visible(DarkMusicClient app) {
-        return app.importing;
+    /**
+     * Whether an import owns the music files, and where it writes.
+     */
+    public interface Sources {
+        boolean importing();
+
+        String importDestination();
     }
 
-    void render(DarkMusicClient app, GuiGraphicsExtractor g, int width, int height) {
-        if (!app.importing) {
+    boolean visible(Sources app) {
+        return app.importing();
+    }
+
+    void render(Sources app, GuiGraphicsExtractor g, int width, int height) {
+        if (!app.importing()) {
             entered = 0;
             return;
         }
@@ -36,7 +44,7 @@ final class ImportOverlay {
         var font = Minecraft.getInstance().font;
         String title = Text.get("import.darkmusic.importing");
         g.text(font, HorizontalText.ellipsize(font, title, w - 20), x + (w - Math.min(font.width(title), w - 20)) / 2, y + 47, UiTheme.TEXT);
-        String label = Text.get("import.darkmusic.destination", app.importDestination);
+        String label = Text.get("import.darkmusic.destination", app.importDestination());
         label = HorizontalText.ellipsize(font, label, w - 24);
         g.text(font, label, x + (w - font.width(label)) / 2, y + 65, UiTheme.SECONDARY);
         String hint = Text.get("import.darkmusic.copying");

@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.library.ArtworkCache;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.lyrics.LyricsInfo;
@@ -43,6 +42,14 @@ import java.util.stream.Stream;
  * Only visible rows are extracted, even for large libraries.
  */
 public final class RowList extends AbstractWidget {
+    // Set once at client start; a failed reorder is reported where other client warnings appear.
+    private static volatile Consumer<String> warnings = text -> {
+    };
+
+    public static void warnings(Consumer<String> warn) {
+        warnings = warn;
+    }
+
     @Override
     public void setTooltip(Tooltip tooltip) {
         super.setTooltip(tooltip);
@@ -524,8 +531,7 @@ public final class RowList extends AbstractWidget {
             reorder.accept(drag);
         } catch (RuntimeException failure) {
             LoggerFactory.getLogger("darkmusic").warn("Playlist reorder failed", failure);
-            var app = DarkMusicClient.INSTANCE;
-            if (app != null) app.warn(Text.failure(failure, "playlist.status.save_failed"));
+            warnings.accept(Text.failure(failure, "playlist.status.save_failed"));
         } finally {
             if (dropping != null) cancelDrag();
         }

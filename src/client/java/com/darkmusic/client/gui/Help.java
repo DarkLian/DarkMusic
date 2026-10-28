@@ -1,6 +1,6 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.config.Settings;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -17,10 +17,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public final class Help {
     private static final Map<AbstractWidget, Hover> HOVERS = new WeakHashMap<>();
+    // Set once at client start; hover help follows the live "show hover info" setting.
+    private static volatile Supplier<Settings> settings = () -> null;
 
     private Help() {
     }
@@ -47,14 +50,18 @@ public final class Help {
         }
     }
 
+    public static void settings(Supplier<Settings> source) {
+        settings = source;
+    }
+
     static boolean hasInfo(AbstractWidget widget) {
         return HOVERS.containsKey(widget);
     }
 
     public static void extract(AbstractWidget widget, GuiGraphicsExtractor g, int mouseX, int mouseY) {
-        var app = DarkMusicClient.INSTANCE;
         var hover = HOVERS.get(widget);
-        if (hover == null || app == null || !app.settings.showHoverInfo) return;
+        var current = settings.get();
+        if (hover == null || current == null || !current.showHoverInfo) return;
         var mc = Minecraft.getInstance();
         boolean mouse = widget.isHovered();
         if (!mouse && !(widget.isFocused() && mc.getLastInputType().isKeyboard())) return;
