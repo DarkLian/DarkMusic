@@ -170,7 +170,6 @@ public final class PlaybackController implements AutoCloseable {
     public void play(List<Track> queue, Track selected, Source origin, double position, boolean paused) {
         if (!queue.contains(selected)) return;
         invalidatePlan();
-        manual.clear();
         source = Objects.requireNonNull(origin);
         tracks = List.copyOf(queue);
         indexSource();

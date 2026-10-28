@@ -223,6 +223,23 @@ class UpNextTest {
         assertEquals(source.getFirst(), audio.state.track());
         player.addToQueue(x);
         player.play(source, source.get(1), origin);
+        assertEquals(List.of(x), player.upNextSnapshot().manual().stream().map(PlaybackController.Queued::track).toList(),
+            "Picking a song keeps Up Next");
+    }
+
+    @Test
+    void pickingASongPlaysItThenTheQueuedSongs() {
+        start();
+        player.addToQueue(x);
+        player.addToQueue(y);
+        player.play(source, source.get(1), origin);
+        assertEquals(source.get(1), audio.state.track());
+        audio.ended.run();
+        assertEquals(x, audio.state.track());
+        audio.ended.run();
+        assertEquals(y, audio.state.track());
+        audio.ended.run();
+        assertEquals(source.get(2), audio.state.track(), "The picked list resumes after the queue");
         assertTrue(player.upNextSnapshot().manual().isEmpty());
     }
 
