@@ -1,8 +1,9 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.library.AudioDeletion;
+import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.playlist.PlaylistStore;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.render.UiTheme;
@@ -17,13 +18,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
  * Reviews exact paths before any file operation; failures never switch to permanent deletion.
  */
 public final class AudioDeletionScreen extends LocalScreen {
-    private final DarkMusicClient app;
+    /**
+     * Library, playlists and the audio deletion the screen runs.
+     */
+    public interface Sources {
+        MusicLibrary library();
+
+        PlaylistStore playlists();
+
+        boolean mediaBusy();
+
+        CompletableFuture<AudioDeletion.Plan> prepareAudioDeletion(List<Track> tracks);
+
+        CompletableFuture<AudioDeletion.Result> deleteAudio(AudioDeletion.Plan plan, AudioDeletion.Mode mode, ProcessRunner.Token token,
+                                                            Consumer<AudioDeletion.Progress> progress);
+    }
+
+    private final Sources app;
     private final Screen parent, completedScreen;
     private final List<Track> requested;
     private AudioDeletion.Plan plan;
@@ -37,7 +55,7 @@ public final class AudioDeletionScreen extends LocalScreen {
     private Button companions;
     private boolean trashCompanions;
 
-    public AudioDeletionScreen(DarkMusicClient app, Screen parent, List<Track> tracks, Screen completedScreen) {
+    public AudioDeletionScreen(Sources app, Screen parent, List<Track> tracks, Screen completedScreen) {
         super(Text.component("delete_audio.title"), parent);
         this.app = app;
         this.parent = parent;
@@ -66,7 +84,7 @@ public final class AudioDeletionScreen extends LocalScreen {
         });
         trash = button("delete_audio.trash", 16 + w, height - 28, w, () -> {
             if (result != null) {
-                var current = app.playlists.index(app.library.snapshot().tracks());
+                var current = app.playlists().index(app.library().snapshot().tracks());
                 show(new AudioDeletionScreen(app, this, result.failed().stream()
                     .map(f -> current.getOrDefault(f.track().id(), f.track())).toList(), completedScreen));
             } else start(AudioDeletion.Mode.TRASH);
@@ -82,7 +100,7 @@ public final class AudioDeletionScreen extends LocalScreen {
         setInitialFocus(back);
         if (!preparing && plan == null && error.isEmpty()) {
             preparing = true;
-            app.media.prepareAudioDeletion(requested).whenComplete((prepared, failure) -> minecraft.execute(() -> {
+            app.prepareAudioDeletion(requested).whenComplete((prepared, failure) -> minecraft.execute(() -> {
                 preparing = false;
                 if (failure != null) error = Text.failure(failure, "delete_audio.failed");
                 else plan = prepared;
@@ -125,7 +143,7 @@ public final class AudioDeletionScreen extends LocalScreen {
         cancellation = new ProcessRunner.Token();
         error = "";
         updateButtons();
-        app.media.deleteAudio(plan.trashCompanions(trashCompanions), mode, cancellation, value -> progress = value).whenComplete((deleted, failure) -> minecraft.execute(() -> {
+        app.deleteAudio(plan.trashCompanions(trashCompanions), mode, cancellation, value -> progress = value).whenComplete((deleted, failure) -> minecraft.execute(() -> {
             busy = false;
             if (failure != null) error = Text.failure(failure, "delete_audio.failed");
             else result = deleted;

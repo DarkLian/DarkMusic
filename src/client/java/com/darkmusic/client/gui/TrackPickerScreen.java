@@ -1,7 +1,11 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.config.SettingsSource;
+import com.darkmusic.client.library.ArtworkCache;
+import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.lyrics.LyricsService;
+import com.darkmusic.client.playlist.PlaylistStore;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.render.UiTheme;
@@ -17,7 +21,20 @@ import java.util.Locale;
 import java.util.function.Consumer;
 
 public final class TrackPickerScreen extends LocalScreen {
-    private final DarkMusicClient app;
+    /**
+     * Songs to pick from, the playlists they go into, and their lyrics and artwork badges.
+     */
+    public interface Sources extends SettingsSource {
+        MusicLibrary library();
+
+        PlaylistStore playlists();
+
+        LyricsService lyrics();
+
+        ArtworkCache artwork();
+    }
+
+    private final Sources app;
     private final Screen parent;
     private final Consumer<List<Track>> accept;
     private final String playlistId;
@@ -29,7 +46,7 @@ public final class TrackPickerScreen extends LocalScreen {
     private long revision = -1;
     private long playlistRevision = -1;
 
-    public TrackPickerScreen(DarkMusicClient app, Screen parent, String playlistId, Consumer<List<Track>> accept) {
+    public TrackPickerScreen(Sources app, Screen parent, String playlistId, Consumer<List<Track>> accept) {
         super(Text.component("text.darkmusic.add_songs"), parent);
         this.app = app;
         this.parent = parent;
@@ -38,7 +55,7 @@ public final class TrackPickerScreen extends LocalScreen {
     }
 
     private List<Track> eligible() {
-        return app.playlists.availableToAdd(playlistId, app.library.snapshot().tracks());
+        return app.playlists().availableToAdd(playlistId, app.library().snapshot().tracks());
     }
 
     private Button button(String text, int x, int y, int width, Runnable action, String help) {
@@ -55,8 +72,8 @@ public final class TrackPickerScreen extends LocalScreen {
         });
         rows = addRenderableWidget(new RowList(12, 60, width - 24, Math.max(28, height - 126), 32, Text.get("text.darkmusic.songs"), (i, activated) -> {
         }));
-        rows.artwork(app.artwork, i -> i < tracks.size() ? tracks.get(i) : null);
-        rows.lyrics(app.lyrics, () -> app.settings.lyricsEnabled);
+        rows.artwork(app.artwork(), i -> i < tracks.size() ? tracks.get(i) : null);
+        rows.lyrics(app.lyrics(), () -> app.settings().lyricsEnabled);
         {
             rows.multiple(selection);
             int w = (width - 32) / 3;
@@ -74,13 +91,13 @@ public final class TrackPickerScreen extends LocalScreen {
         if (rows == null) return;
         var library = eligible();
         // Keep pending selections during partial scans; prune removed files only after a completed scan.
-        if (!app.library.snapshot().scanning()) selection.retain(library.stream().map(Track::id).toList());
+        if (!app.library().snapshot().scanning()) selection.retain(library.stream().map(Track::id).toList());
         tracks = library.stream().filter(t -> t.matches(query.toLowerCase(Locale.ROOT).strip())).toList();
-        rows.emptyMessage(library.isEmpty() && !app.library.snapshot().tracks().isEmpty() ? Text.get("text.darkmusic.all_library_songs_are_already_added") : Text.get("text.darkmusic.no_matching_songs"));
+        rows.emptyMessage(library.isEmpty() && !app.library().snapshot().tracks().isEmpty() ? Text.get("text.darkmusic.all_library_songs_are_already_added") : Text.get("text.darkmusic.no_matching_songs"));
         selection.visible(tracks.stream().map(Track::id).toList());
         rows.rows(tracks.stream().map(t -> new RowList.Row(t.title(), t.artist() + " | " + MusicScreen.time(t.duration()), t.relativePath())).toList());
         if (choose != null)
-            choose.active = app.playlists.get(playlistId) != null && !app.library.snapshot().scanning() && !selection.isEmpty();
+            choose.active = app.playlists().get(playlistId) != null && !app.library().snapshot().scanning() && !selection.isEmpty();
     }
 
     private void choose() {
@@ -95,12 +112,12 @@ public final class TrackPickerScreen extends LocalScreen {
     @Override
     public void tick() {
         rows.inspectVisibleLyrics();
-        if (revision != app.library.snapshot().revision() || playlistRevision != app.playlists.revision()) {
-            revision = app.library.snapshot().revision();
-            playlistRevision = app.playlists.revision();
+        if (revision != app.library().snapshot().revision() || playlistRevision != app.playlists().revision()) {
+            revision = app.library().snapshot().revision();
+            playlistRevision = app.playlists().revision();
             refresh();
         }
-        choose.active = app.playlists.get(playlistId) != null && !app.library.snapshot().scanning() && !selection.isEmpty();
+        choose.active = app.playlists().get(playlistId) != null && !app.library().snapshot().scanning() && !selection.isEmpty();
     }
 
     @Override

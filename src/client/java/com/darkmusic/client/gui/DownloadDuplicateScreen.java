@@ -1,26 +1,38 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.cleanup.LibrarySourceIndex;
 import com.darkmusic.client.download.DownloadService;
+import com.darkmusic.client.library.ArtworkCache;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 
+import java.nio.file.Path;
 import java.util.*;
 
 /**
  * An explicit choice for confirmed source copies, separate from fuzzy cleanup suggestions.
  */
 public final class DownloadDuplicateScreen extends LocalScreen {
-    private final DarkMusicClient app;
+    /**
+     * The downloader waiting on this choice, artwork, and the file browser.
+     */
+    public interface Sources {
+        DownloadService downloads();
+
+        ArtworkCache artwork();
+
+        void openFolder(Path directory);
+    }
+
+    private final Sources app;
     private final DownloadService.DuplicateChoice choice;
     private List<LibrarySourceIndex.Existing> files = List.of();
     private int selected = -1;
 
-    public DownloadDuplicateScreen(DarkMusicClient app, Screen parent, DownloadService.DuplicateChoice choice) {
+    public DownloadDuplicateScreen(Sources app, Screen parent, DownloadService.DuplicateChoice choice) {
         super(Text.component("download.library.review"), parent);
         this.app = app;
         this.choice = choice;
@@ -38,15 +50,15 @@ public final class DownloadDuplicateScreen extends LocalScreen {
             var f = files.get(i);
             return new RowList.Row(f.track().title() + " | " + f.format(), f.track().file().toString());
         });
-        rows.artwork(app.artwork, i -> files.get(i).track());
+        rows.artwork(app.artwork(), i -> files.get(i).track());
         rows.rowTooltips(false);
         int w = (width - 32) / 3;
         addRenderableWidget(UiButton.builder(Text.component("download.library.skip"), b -> {
-            app.downloads.resolveDuplicateChoice(choice.id(), true);
+            app.downloads().resolveDuplicateChoice(choice.id(), true);
             onClose();
         }).bounds(12, height - 28, w, 20).build());
         addRenderableWidget(UiButton.builder(Text.component("download.library.anyway"), b -> {
-            app.downloads.resolveDuplicateChoice(choice.id(), false);
+            app.downloads().resolveDuplicateChoice(choice.id(), false);
             onClose();
         }).bounds(16 + w, height - 28, w, 20).build());
         addRenderableWidget(UiButton.builder(Text.component("cleanup.location"), b -> open()).bounds(20 + w * 2, height - 28, w, 20).build());
@@ -55,12 +67,12 @@ public final class DownloadDuplicateScreen extends LocalScreen {
     }
 
     private void open() {
-        if (selected >= 0 && selected < files.size()) app.folders.open(files.get(selected).track().file().getParent());
+        if (selected >= 0 && selected < files.size()) app.openFolder(files.get(selected).track().file().getParent());
     }
 
     @Override
     protected Screen returnScreen() {
-        app.downloads.cancelDuplicateChoice(choice.id());
+        app.downloads().cancelDuplicateChoice(choice.id());
         return super.returnScreen();
     }
 

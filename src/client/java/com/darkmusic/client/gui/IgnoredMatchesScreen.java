@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.cleanup.DuplicateReviewStore;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
@@ -15,6 +14,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 
 public final class IgnoredMatchesScreen extends LocalScreen {
+    /**
+     * Duplicate reviews the user chose to ignore.
+     */
+    public interface Sources {
+        DuplicateReviewStore cleanupReviews();
+    }
+
     private final DuplicateReviewStore store;
     private RowList rows;
     private List<DuplicateReviewStore.Ignored> shown = List.of();
@@ -22,7 +28,7 @@ public final class IgnoredMatchesScreen extends LocalScreen {
     private long revision = -1;
     private Button restore, clear;
 
-    public IgnoredMatchesScreen(DarkMusicClient app, Screen parent) {
+    public IgnoredMatchesScreen(Sources app, Screen parent) {
         super(Text.component("cleanup.ignored"), parent);
         store = app.cleanupReviews();
     }

@@ -1,11 +1,14 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.backup.BackupArchive;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.library.ListeningHistory;
+import com.darkmusic.client.library.MusicLibrary;
+import com.darkmusic.client.playlist.PlaylistStore;
 import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.screens.Screen;
 import org.slf4j.LoggerFactory;
 
@@ -13,11 +16,37 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
 
 /**
  * Backup preview and category selection; no audio files are ever imported or exported.
  */
-public final class BackupScreen extends AudioPage<DarkMusicClient> {
+public final class BackupScreen extends AudioPage<BackupScreen.Sources> {
+    /**
+     * What a backup exports and what a restore replaces.
+     */
+    public interface Sources extends AudioPage.Sources {
+        boolean mediaBusy();
+
+        boolean playlistsReady();
+
+        ListeningHistory listeningHistory();
+
+        MusicLibrary library();
+
+        PlaylistStore playlists();
+
+        ConfigStore config();
+
+        ExecutorService io();
+
+        KeyMapping[] shortcutBindings();
+
+        void announce(String text);
+
+        CompletableFuture<Void> restoreBackup(BackupArchive.Restore restored, boolean bindings);
+    }
+
     private BackupArchive.Data data;
     private boolean settings = true, playlists = true, shortcuts = true, history = true, replace, remap = true, busy;
     private String status = "";
@@ -37,7 +66,7 @@ public final class BackupScreen extends AudioPage<DarkMusicClient> {
     }
 
     private boolean available() {
-        return !app.mediaBusy() && app.playlistsReady && app.listeningHistory.ready() && !app.library.snapshot().scanning();
+        return !app.mediaBusy() && app.playlistsReady() && app.listeningHistory().ready() && !app.library().snapshot().scanning();
     }
 
     @Override
@@ -49,7 +78,7 @@ public final class BackupScreen extends AudioPage<DarkMusicClient> {
         }
     }
 
-    public BackupScreen(DarkMusicClient app, Screen parent) {
+    public BackupScreen(Sources app, Screen parent) {
         super(app, parent, "backup.title");
     }
 
@@ -95,14 +124,14 @@ public final class BackupScreen extends AudioPage<DarkMusicClient> {
     private CompletableFuture<BackupArchive.Restore> prepare() {
         var input = data;
         var selected = new BackupArchive.Selection(settings, playlists, shortcuts, history, replace, remap);
-        var current = ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(app.settings), Settings.class);
-        current.nativeShortcutNames = app.settings.nativeShortcutNames;
-        var root = app.library.rootId();
-        var tracks = app.library.snapshot().tracks();
-        var existing = app.playlists.all();
-        var retained = app.playlists.retainedImports();
+        var current = ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(app.settings()), Settings.class);
+        current.nativeShortcutNames = app.settings().nativeShortcutNames;
+        var root = app.library().rootId();
+        var tracks = app.library().snapshot().tracks();
+        var existing = app.playlists().all();
+        var retained = app.playlists().retainedImports();
         return CompletableFuture.supplyAsync(() -> BackupArchive.prepare(input, selected, current, root, tracks, existing,
-            app.listeningHistory.snapshot(), retained), app.io);
+            app.listeningHistory().snapshot(), retained), app.io());
     }
 
     private void confirmRestore() {
@@ -127,7 +156,7 @@ public final class BackupScreen extends AudioPage<DarkMusicClient> {
         rebuildWidgets();
         boolean fullscreen = minecraft.getWindow().isFullscreen();
         if (fullscreen) minecraft.getWindow().toggleFullScreen();
-        DesktopFolderPicker.choose(app.config.directory(), Text.get(export ? "backup.export" : "backup.open"), export ? "save" : "open")
+        DesktopFolderPicker.choose(app.config().directory(), Text.get(export ? "backup.export" : "backup.open"), export ? "save" : "open")
             .whenComplete((path, failure) -> minecraft.execute(() -> {
                 if (fullscreen && !minecraft.getWindow().isFullscreen()) minecraft.getWindow().toggleFullScreen();
                 if (!isCurrent()) {
@@ -144,9 +173,9 @@ public final class BackupScreen extends AudioPage<DarkMusicClient> {
 
     private void transfer(Path path, boolean export) {
         var bindings = new LinkedHashMap<String, String>();
-        if (export) for (var key : app.shortcuts.bindings()) bindings.put(key.getName(), key.saveString());
-        var job = export ? new BackupArchive.Export(app.config.snapshotJson(), app.library.rootId(), app.playlists.all(),
-            bindings, app.listeningHistory.snapshotSource()) : null;
+        if (export) for (var key : app.shortcutBindings()) bindings.put(key.getName(), key.saveString());
+        var job = export ? new BackupArchive.Export(app.config().snapshotJson(), app.library().rootId(), app.playlists().all(),
+            bindings, app.listeningHistory().snapshotSource()) : null;
         CompletableFuture.supplyAsync(() -> {
             try {
                 if (export) {
@@ -157,7 +186,7 @@ public final class BackupScreen extends AudioPage<DarkMusicClient> {
             } catch (Exception failure) {
                 throw new CompletionException(failure);
             }
-        }, app.io).whenComplete((loaded, error) -> minecraft.execute(() -> {
+        }, app.io()).whenComplete((loaded, error) -> minecraft.execute(() -> {
             if (error == null) {
                 if (!export) {
                     data = loaded;

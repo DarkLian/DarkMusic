@@ -1,6 +1,6 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.library.ImportHistory;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.render.UiTheme;
@@ -14,12 +14,19 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 
 public final class ImportHistoryScreen extends LocalScreen {
+    /**
+     * Past imports.
+     */
+    public interface Sources {
+        ImportHistory importHistory();
+    }
+
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault());
-    private final DarkMusicClient app;
+    private final Sources app;
     private RowList rows;
     private long revision = -1;
 
-    public ImportHistoryScreen(DarkMusicClient app, Screen parent) {
+    public ImportHistoryScreen(Sources app, Screen parent) {
         super(Text.component("import.darkmusic.history"), parent);
         this.app = app;
     }
@@ -36,10 +43,10 @@ public final class ImportHistoryScreen extends LocalScreen {
 
     @Override
     public void tick() {
-        if (app.importHistory == null || revision == app.importHistory.revision()) return;
-        revision = app.importHistory.revision();
+        if (app.importHistory() == null || revision == app.importHistory().revision()) return;
+        revision = app.importHistory().revision();
         var list = new ArrayList<RowList.Row>();
-        for (var batch : app.importHistory.batches()) {
+        for (var batch : app.importHistory().batches()) {
             String when = DATE.format(Instant.ofEpochMilli(batch.timestamp()));
             if (!batch.error().isBlank())
                 list.add(new RowList.Row(Text.get("import.darkmusic.failed"), when + " | " + batch.destination(), batch.error()).status(batch.error(), UiStatus.Tone.ERROR));
