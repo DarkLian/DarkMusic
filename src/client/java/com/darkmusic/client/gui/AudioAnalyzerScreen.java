@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.*;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.render.HorizontalText;
@@ -18,20 +17,20 @@ import java.util.regex.Pattern;
 /**
  * Device-clock measurements only; never consumes the synthetic HUD settings preview.
  */
-public final class AudioAnalyzerScreen extends AudioPage<DarkMusicClient> {
+public final class AudioAnalyzerScreen extends AudioPage<AudioSettingsScreen.Sources> {
     private AudioComparison.Mode mode;
     private boolean enabled = true, spectrum = true, waveform = true, response = true, before = true, after = true, bypass, matched;
     private final List<Graph> graphs = new ArrayList<>();
     private final SpectrumMesh mesh = new SpectrumMesh();
 
-    public AudioAnalyzerScreen(DarkMusicClient app, Screen parent, AudioComparison.Mode mode) {
+    public AudioAnalyzerScreen(AudioSettingsScreen.Sources app, Screen parent, AudioComparison.Mode mode) {
         super(app, parent, "analyzer.title");
         this.mode = mode;
     }
 
     private void configure() {
         updatePanels();
-        app.playback.comparison(new AudioComparison(mode, bypass, matched));
+        app.playback().comparison(new AudioComparison(mode, bypass, matched));
     }
 
     private void updatePanels() {
@@ -46,7 +45,7 @@ public final class AudioAnalyzerScreen extends AudioPage<DarkMusicClient> {
                 default -> 0;
             };
         }
-        var diagnostics = app.playback.diagnostics();
+        var diagnostics = app.playback().diagnostics();
         if (diagnostics != null) diagnostics.panels(mask);
     }
 
@@ -74,7 +73,7 @@ public final class AudioAnalyzerScreen extends AudioPage<DarkMusicClient> {
             return s == null ? Text.get("analyzer.no_data") : Text.get("dsp.ir_status." + s.convolutionState)
                 + " · " + Text.get("analyzer.protection_latency", s.latencyFrames);
         });
-        info(() -> Text.get(app.settings.audio.neutral ? "analyzer.ao_bypassed" : "analyzer.ao_active") + " | " + Text.get(app.settings.environment.active() ? "analyzer.env_active" : "analyzer.env_bypassed"));
+        info(() -> Text.get(app.settings().audio.neutral ? "analyzer.ao_bypassed" : "analyzer.ao_active") + " | " + Text.get(app.settings().environment.active() ? "analyzer.env_active" : "analyzer.env_bypassed"));
         section("analyzer.normalization");
         status(this::normalization);
         info("analyzer.album_scope");
@@ -88,7 +87,7 @@ public final class AudioAnalyzerScreen extends AudioPage<DarkMusicClient> {
             return s == null ? Text.get("analyzer.no_data") : units(Text.get("analyzer.dynamics", db(s.detectorDb), db(-s.reductionDb), db(-s.limiterReduction), db(amplitudeDb(s.truePeak))));
         });
         action("analyzer.reset", () -> {
-            var d = app.playback.diagnostics();
+            var d = app.playback().diagnostics();
             if (d != null) d.resetHolds();
         }).runs();
         section("analyzer.stereo");
@@ -185,21 +184,21 @@ public final class AudioAnalyzerScreen extends AudioPage<DarkMusicClient> {
     }
 
     private AudioDiagnostics.Snapshot snapshot() {
-        var state = app.playback.state();
-        if (!enabled || app.settings.volume == 0 || state.status() != AudioBackend.Status.PLAYING && state.status() != AudioBackend.Status.PAUSED)
+        var state = app.playback().state();
+        if (!enabled || app.settings().volume == 0 || state.status() != AudioBackend.Status.PLAYING && state.status() != AudioBackend.Status.PAUSED)
             return null;
-        var d = app.playback.diagnostics();
+        var d = app.playback().diagnostics();
         return d == null ? null : d.snapshot();
     }
 
     private String status() {
         if (!enabled) return Text.get("analyzer.disabled");
-        if (app.settings.volume == 0) return Text.get("analyzer.muted");
-        return Text.get("analyzer.status." + app.playback.state().status().name().toLowerCase(Locale.ROOT));
+        if (app.settings().volume == 0) return Text.get("analyzer.muted");
+        return Text.get("analyzer.status." + app.playback().state().status().name().toLowerCase(Locale.ROOT));
     }
 
     private String normalization() {
-        return LoudnessStatusText.describe(app.playback.normalization());
+        return LoudnessStatusText.describe(app.playback().normalization());
     }
 
     private String meter(int stage) {
@@ -297,9 +296,9 @@ public final class AudioAnalyzerScreen extends AudioPage<DarkMusicClient> {
 
     @Override
     public void removed() {
-        var d = app.playback.diagnostics();
+        var d = app.playback().diagnostics();
         if (d != null) d.panels(0);
-        app.playback.comparison(AudioComparison.OFF);
+        app.playback().comparison(AudioComparison.OFF);
         super.removed();
     }
 

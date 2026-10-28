@@ -1,29 +1,28 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.*;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
-final class AudioAdvancedScreen extends AudioPage<DarkMusicClient> {
-    AudioAdvancedScreen(DarkMusicClient app, Screen parent) {
+final class AudioAdvancedScreen extends AudioPage<AudioSettingsScreen.Sources> {
+    AudioAdvancedScreen(AudioSettingsScreen.Sources app, Screen parent) {
         super(app, parent, "dsp.advanced");
     }
 
     @Override
     protected void changed() {
-        app.settings.audio.profile = "CUSTOM";
+        app.settings().audio.profile = "CUSTOM";
         super.changed();
     }
 
     @Override
     protected void adjusted() {
-        app.settings.audio.profile = "CUSTOM";
+        app.settings().audio.profile = "CUSTOM";
     }
 
     @Override
     protected void populate() {
-        var a = app.settings.audio;
+        var a = app.settings().audio;
         var e = a.enhancements;
         section("dsp.advanced");
         info("dsp.neutral_scope");
@@ -79,7 +78,7 @@ final class AudioAdvancedScreen extends AudioPage<DarkMusicClient> {
         }
         slider("dsp.reverb_amount", e.reverbAmount, 0, 1, 100, v -> e.reverbAmount = v, "");
         if (a.reverb == AudioSettings.Reverb.DRY) info("audio.reverb_disabled");
-        info(() -> Text.get(app.settings.environment.ownsReverb() ? "environment.owns_reverb" : "environment.allows_reverb"));
+        info(() -> Text.get(app.settings().environment.ownsReverb() ? "environment.owns_reverb" : "environment.allows_reverb"));
         section("dsp.tempo");
         toggle("dsp.preserve_pitch", () -> e.preservePitch, v -> e.preservePitch = v);
     }

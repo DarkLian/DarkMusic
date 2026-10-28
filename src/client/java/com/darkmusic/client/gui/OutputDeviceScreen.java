@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.OutputDevices;
 import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
@@ -10,13 +9,13 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public final class OutputDeviceScreen extends AudioPage<DarkMusicClient> {
+public final class OutputDeviceScreen extends AudioPage<AudioSettingsScreen.Sources> {
     private List<OutputDevices.Device> devices = List.of();
     private boolean loading, changing, started;
     private String status = "";
     private UiStatus.Tone statusTone = UiStatus.Tone.INFO;
 
-    public OutputDeviceScreen(DarkMusicClient app, Screen parent) {
+    public OutputDeviceScreen(AudioSettingsScreen.Sources app, Screen parent) {
         super(app, parent, "device.title");
     }
 
@@ -54,7 +53,7 @@ public final class OutputDeviceScreen extends AudioPage<DarkMusicClient> {
         status = Text.get("device.loading");
         statusTone = UiStatus.Tone.INFO;
         rebuildWidgets();
-        CompletableFuture.supplyAsync(OutputDevices::available, app.io).whenComplete((list, error) -> minecraft.execute(() -> {
+        CompletableFuture.supplyAsync(OutputDevices::available, app.io()).whenComplete((list, error) -> minecraft.execute(() -> {
             loading = false;
             if (error == null) {
                 devices = list;

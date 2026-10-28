@@ -24,6 +24,7 @@ import com.darkmusic.client.config.RestoreJournal;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.download.AuditionPlayer;
 import com.darkmusic.client.download.DownloadService;
+import com.darkmusic.client.gui.AudioSettingsScreen;
 import com.darkmusic.client.gui.DesktopFolderPicker;
 import com.darkmusic.client.gui.FolderTree;
 import com.darkmusic.client.gui.HudEditorScreen;
@@ -95,7 +96,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources, LyricsScreen.Sources {
+public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources, LyricsScreen.Sources,
+    AudioSettingsScreen.Sources {
     public static DarkMusicClient INSTANCE;
     public final ExecutorService io = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-storage").factory());
     public final ExecutorService browsing = new ThreadPoolExecutor(2, 2, 0, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(16), Thread.ofPlatform().daemon().name("darkmusic-browse").factory(), new ThreadPoolExecutor.AbortPolicy());
@@ -200,20 +202,24 @@ public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources,
         return controller;
     }
 
+    @Override
     public String outputDeviceId() {
         return backend == null ? "" : backend.outputDeviceId();
     }
 
+    @Override
     public LoudnessCache.AnalysisProgress loudnessAnalysis() {
         return backend == null ? LoudnessCache.AnalysisProgress.IDLE : backend.analysisProgress();
     }
 
+    @Override
     public void analyzeLibraryLoudness() {
         if (backend == null || library == null || !alive()) return;
         if (backend.analysisProgress().running()) backend.cancelAnalysis();
         else if (!library.snapshot().scanning()) backend.analyzeLibrary(library.snapshot().tracks(), settings.audio);
     }
 
+    @Override
     public CompletableFuture<Boolean> selectOutputDevice(String id) {
         var result = new CompletableFuture<Boolean>();
         if (backend == null || !accepting()) {
@@ -371,6 +377,7 @@ public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources,
     private Object requestedWorld;
     private long requestUntil;
 
+    @Override
     public void warn(String text) {
         if (!text.equals(warning)) announce(text);
         warning = text;
@@ -378,6 +385,7 @@ public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources,
         LoggerFactory.getLogger("darkmusic").warn(text);
     }
 
+    @Override
     public void announce(String text) {
         var client = Minecraft.getInstance();
         if (client != null) client.execute(() -> {
@@ -481,6 +489,16 @@ public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources,
     @Override
     public MusicLibrary library() {
         return library;
+    }
+
+    @Override
+    public String warning() {
+        return warning;
+    }
+
+    @Override
+    public ExecutorService io() {
+        return io;
     }
 
     @Override

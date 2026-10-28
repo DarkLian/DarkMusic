@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.*;
 import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
@@ -10,29 +9,29 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
-public final class SoundEnvironmentScreen extends AudioPage<DarkMusicClient> {
+public final class SoundEnvironmentScreen extends AudioPage<AudioSettingsScreen.Sources> {
     private boolean advanced;
     private String notice = "";
 
-    public SoundEnvironmentScreen(DarkMusicClient app, Screen parent) {
+    public SoundEnvironmentScreen(AudioSettingsScreen.Sources app, Screen parent) {
         super(app, parent, "environment.title");
     }
 
     @Override
     protected void changed() {
-        var e = app.settings.environment;
+        var e = app.settings().environment;
         e.custom = !e.parameters.same(SoundEnvironmentSettings.recipe(e.preset)) || e.intensity != 1 || e.texture || e.ambience;
         super.changed();
     }
 
     @Override
     protected void adjusted() {
-        app.settings.environment.custom = true;
+        app.settings().environment.custom = true;
     }
 
     @Override
     protected void populate() {
-        var e = app.settings.environment;
+        var e = app.settings().environment;
         var p = e.parameters;
         section("environment.title");
         info("environment.scope");
@@ -119,8 +118,8 @@ public final class SoundEnvironmentScreen extends AudioPage<DarkMusicClient> {
         info(() -> Text.get("environment.saved_count", e.userPresets.size(), PresetNames.ENVIRONMENT_LIMIT));
         if (e.userPresets.isEmpty()) info("environment.saved_empty");
         // Reserve a status line only when there is something to report.
-        if (!notice.isEmpty() || app.warning.equals(Text.get("error.save_settings")))
-            status(() -> app.warning.equals(Text.get("error.save_settings")) ? app.warning : notice, () -> app.warning.equals(Text.get("error.save_settings")) ? UiStatus.Tone.ERROR : UiStatus.Tone.SUCCESS);
+        if (!notice.isEmpty() || app.warning().equals(Text.get("error.save_settings")))
+            status(() -> app.warning().equals(Text.get("error.save_settings")) ? app.warning() : notice, () -> app.warning().equals(Text.get("error.save_settings")) ? UiStatus.Tone.ERROR : UiStatus.Tone.SUCCESS);
         action("environment.save", () -> show(PresetDialogs.save(this, "environment.save", e.userPresets, PresetNames.ENVIRONMENT_LIMIT, (name, replace) -> {
             e.savePreset(name, replace);
             notice = Text.get("preset.saved");

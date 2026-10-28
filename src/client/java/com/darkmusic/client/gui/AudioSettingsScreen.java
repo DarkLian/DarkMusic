@@ -1,13 +1,14 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioComparison;
 import com.darkmusic.client.audio.AudioProcessor;
 import com.darkmusic.client.audio.LoudnessCache;
+import com.darkmusic.client.audio.PlaybackController;
 import com.darkmusic.client.config.AudioEnhancements;
 import com.darkmusic.client.config.AudioSettings;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.PresetNames;
+import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
@@ -24,6 +25,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.DoubleConsumer;
@@ -34,7 +36,7 @@ import java.util.function.Supplier;
  * Audio controls use the existing setting rows, sliders, scrolling and automatic save behavior.
  */
 public final class AudioSettingsScreen extends LocalScreen {
-    private final DarkMusicClient app;
+    private final Sources app;
     private ScrollBar scrollbar;
     private final List<AbstractWidget> rows = new ArrayList<>();
     private final List<Integer> positions = new ArrayList<>();
@@ -62,7 +64,47 @@ public final class AudioSettingsScreen extends LocalScreen {
         cursor += 22;
     }
 
-    public AudioSettingsScreen(DarkMusicClient app, Screen parent) {
+    /**
+     * Everything the audio and sound environment screens read.
+     */
+    public interface Sources extends AudioPage.Sources {
+        /**
+         * Null until startup creates the player.
+         */
+        PlaybackController playback();
+
+        /**
+         * Null until startup creates the library.
+         */
+        MusicLibrary library();
+
+        /**
+         * The warning on screen, or "" when there is none.
+         */
+        String warning();
+
+        void warn(String text);
+
+        void announce(String text);
+
+        LoudnessCache.AnalysisProgress loudnessAnalysis();
+
+        /**
+         * Starts loudness analysis of the library, or cancels the one running.
+         */
+        void analyzeLibraryLoudness();
+
+        String outputDeviceId();
+
+        CompletableFuture<Boolean> selectOutputDevice(String id);
+
+        /**
+         * The storage worker, for device and file checks off the client thread.
+         */
+        ExecutorService io();
+    }
+
+    public AudioSettingsScreen(Sources app, Screen parent) {
         super(Text.component("audio.darkmusic.title"), parent);
         this.app = app;
     }
@@ -81,14 +123,14 @@ public final class AudioSettingsScreen extends LocalScreen {
     private void toggle(String key, BooleanSupplier get, Consumer<Boolean> set, String help) {
         row(key, get, () -> {
             set.accept(!get.getAsBoolean());
-            app.settings.audio.profile = "CUSTOM";
+            app.settings().audio.profile = "CUSTOM";
         }, help);
     }
 
     private <E extends Enum<E>> void choice(String key, E current, E[] values, Consumer<E> change, String help) {
         row(key, null, () -> {
             change.accept(values[(current.ordinal() + 1) % values.length]);
-            app.settings.audio.profile = "CUSTOM";
+            app.settings().audio.profile = "CUSTOM";
         }, help);
         rows.getLast().setMessage(Component.literal(Text.get(key) + ": " + Text.get("audio.darkmusic.value." + current.name().toLowerCase(Locale.ROOT))));
     }
@@ -98,7 +140,7 @@ public final class AudioSettingsScreen extends LocalScreen {
         var slider = new ValueSlider(formX, 0, formWidth, value, v -> Text.get(key) + ": " + label.apply(v), v -> {
             current[0] = v;
             change.accept(v);
-            app.settings.audio.profile = "CUSTOM";
+            app.settings().audio.profile = "CUSTOM";
             app.configureVisualizer();
         }, app::save, steps);
         var parameter = switch (key) {
@@ -114,7 +156,7 @@ public final class AudioSettingsScreen extends LocalScreen {
         slider.exactEditor(() -> show(TextPromptScreen.validated(this, Text.get("audio.parameter.title", Text.get(key), parameter.low(), parameter.high(), parameter.unit().strip()),
             Double.toString(parameter.value(current[0])), 64, input -> {
                 change.accept(parameter.position(parameter.parse(input)));
-                app.settings.audio.profile = "CUSTOM";
+                app.settings().audio.profile = "CUSTOM";
                 app.save();
                 return true;
             })));
@@ -133,7 +175,7 @@ public final class AudioSettingsScreen extends LocalScreen {
         cursor = 0;
         normalizationY = -1;
         analysisButton = null;
-        var a = app.settings.audio;
+        var a = app.settings().audio;
         section("audio.darkmusic.section_playback");
         row("device.title", null, () -> show(new OutputDeviceScreen(app, this)), "device.help");
         row("analyzer.title", null, () -> show(new AudioAnalyzerScreen(app, this, AudioComparison.Mode.AUDIO_OPTIONS)), "analyzer.help");
@@ -214,8 +256,8 @@ public final class AudioSettingsScreen extends LocalScreen {
         }
         section("audio.saved_profiles");
         // Reserve a status line only when there is something to report.
-        if (!notice.isEmpty() || app.warning.equals(Text.get("error.save_settings"))) {
-            details.add(new Detail(() -> app.warning.equals(Text.get("error.save_settings")) ? app.warning : notice, cursor, () -> app.warning.equals(Text.get("error.save_settings")) ? UiStatus.Tone.ERROR : UiStatus.Tone.SUCCESS));
+        if (!notice.isEmpty() || app.warning().equals(Text.get("error.save_settings"))) {
+            details.add(new Detail(() -> app.warning().equals(Text.get("error.save_settings")) ? app.warning() : notice, cursor, () -> app.warning().equals(Text.get("error.save_settings")) ? UiStatus.Tone.ERROR : UiStatus.Tone.SUCCESS));
             cursor += 22;
         }
         row("audio.darkmusic.save_profile", null, () -> show(PresetDialogs.save(this, "audio.darkmusic.save_profile", a.savedProfiles, Integer.MAX_VALUE, 100, (name, replace) -> {
@@ -232,7 +274,7 @@ public final class AudioSettingsScreen extends LocalScreen {
                     loaded.validate();
                     loaded.enhancements.preservePitch = a.enhancements.preservePitch;
                     loaded.savedProfiles = a.savedProfiles;
-                    app.settings.audio = loaded;
+                    app.settings().audio = loaded;
                 } catch (RuntimeException e) {
                     app.warn(Text.get("audio.darkmusic.invalid_profile"));
                 }
@@ -248,7 +290,7 @@ public final class AudioSettingsScreen extends LocalScreen {
             var delete = UiButton.icon(UiButton.builder(Text.component("audio.darkmusic.delete_profile", name), b ->
                 show(new ConfirmationScreen(this, Text.component("audio.darkmusic.delete_profile_title"),
                     Text.component("audio.darkmusic.delete_profile_body", name), Text.component("text.darkmusic.delete"), () -> {
-                    app.settings.audio.savedProfiles.remove(name);
+                    app.settings().audio.savedProfiles.remove(name);
                     notice = Text.get("preset.deleted");
                     app.save();
                     return CompletableFuture.completedFuture(null);
@@ -280,7 +322,7 @@ public final class AudioSettingsScreen extends LocalScreen {
     public void tick() {
         if (analysisButton != null) {
             analysisButton.setMessage(Text.component(app.loudnessAnalysis().running() ? "audio.darkmusic.cancel_analysis" : "audio.darkmusic.analyze_library"));
-            analysisButton.active = !app.settings.audio.neutral && (app.loudnessAnalysis().running() || !app.library.snapshot().scanning() && !app.library.snapshot().tracks().isEmpty());
+            analysisButton.active = !app.settings().audio.neutral && (app.loudnessAnalysis().running() || !app.library().snapshot().scanning() && !app.library().snapshot().tracks().isEmpty());
         }
     }
 
@@ -342,8 +384,8 @@ public final class AudioSettingsScreen extends LocalScreen {
                     detail.tone == null ? UiTheme.SECONDARY : UiStatus.color(detail.tone.get()));
         }
         if (normalizationY >= 0) {
-            String label = LoudnessStatusText.describe(app.playback.normalization());
-            longText.draw(g, font, "normalization", label, formX + 4, 40 + normalizationY - scroll, formWidth - 8, UiStatus.color(app.playback.normalization().state() == LoudnessCache.State.FAILED ? UiStatus.Tone.ERROR : app.playback.normalization().peakLimited() ? UiStatus.Tone.WARNING : UiStatus.Tone.INFO));
+            String label = LoudnessStatusText.describe(app.playback().normalization());
+            longText.draw(g, font, "normalization", label, formX + 4, 40 + normalizationY - scroll, formWidth - 8, UiStatus.color(app.playback().normalization().state() == LoudnessCache.State.FAILED ? UiStatus.Tone.ERROR : app.playback().normalization().peakLimited() ? UiStatus.Tone.WARNING : UiStatus.Tone.INFO));
         }
         // Panels clipped by the viewport fade out instead of ending at a hard cut.
         UiTheme.edgeFades(g, formX - 2, 36, formWidth + 4, height - 48, scroll > 0, scroll < cursor - (height - 48), UiTheme.BACKGROUND);

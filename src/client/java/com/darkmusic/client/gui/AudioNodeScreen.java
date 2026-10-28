@@ -1,15 +1,14 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.AudioEnhancements;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
-final class AudioNodeScreen extends AudioPage<DarkMusicClient> {
+final class AudioNodeScreen extends AudioPage<AudioSettingsScreen.Sources> {
     private final int index;
     private final boolean dynamic;
 
-    AudioNodeScreen(DarkMusicClient app, Screen parent, int index, boolean dynamic) {
+    AudioNodeScreen(AudioSettingsScreen.Sources app, Screen parent, int index, boolean dynamic) {
         super(app, parent, dynamic ? "dsp.dynamic_node" : "dsp.node");
         this.index = index;
         this.dynamic = dynamic;
@@ -17,23 +16,23 @@ final class AudioNodeScreen extends AudioPage<DarkMusicClient> {
 
     @Override
     protected void changed() {
-        app.settings.audio.profile = "CUSTOM";
+        app.settings().audio.profile = "CUSTOM";
         super.changed();
     }
 
     @Override
     protected void adjusted() {
-        app.settings.audio.profile = "CUSTOM";
+        app.settings().audio.profile = "CUSTOM";
     }
 
     @Override
     protected void populate() {
-        var e = app.settings.audio.enhancements;
+        var e = app.settings().audio.enhancements;
         var n = (dynamic ? e.dynamic : e.nodes)[index];
         section(dynamic ? "dsp.dynamic_node" : "dsp.node");
         info(() -> Text.get("dsp.node_number", index + 1));
-        if (app.settings.audio.neutral) info("dsp.neutral_scope");
-        else if (!dynamic && !app.settings.audio.equalizer) info("dsp.eq_enable_hint");
+        if (app.settings().audio.neutral) info("dsp.neutral_scope");
+        else if (!dynamic && !app.settings().audio.equalizer) info("dsp.eq_enable_hint");
         toggle("dsp.node_enabled", () -> n.enabled, v -> n.enabled = v);
         int parameterStart = rowCount();
         if (!dynamic)
