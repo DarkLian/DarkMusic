@@ -45,7 +45,7 @@ class DownloadRetryTest {
             service.enqueueSelected(List.of(entry), temp.resolve("music"));
             DownloadTest.await(() -> service.snapshot().items().size() == 1 && service.snapshot().items().getFirst().status() == Status.FAILED);
             assertEquals(1, attempts.get());
-            service.retryEntry(entry, temp.resolve("music"));
+            service.retry(service.snapshot().items().getFirst().id());
             DownloadTest.await(() -> attempts.get() == 2 && service.snapshot().items().getFirst().status() == Status.FAILED);
             assertEquals(2, attempts.get());
         }
@@ -87,14 +87,13 @@ class DownloadRetryTest {
             service.clearFinished();
             assertEquals(1, service.snapshot().items().size());
             assertEquals(Status.FAILED, service.snapshot().items().getFirst().status());
-            assertTrue(service.failedEntry(bad, temp.resolve("music")));
             var hud = new DownloadHud();
             hud.update(service, System.nanoTime());
             var notice = hud.getClass().getDeclaredField("notice");
             notice.setAccessible(true);
             String failedNotice = (String) notice.get(hud);
             repaired.set(true);
-            service.retryEntry(bad, temp.resolve("music"));
+            service.retry(service.snapshot().items().getFirst().id());
             DownloadTest.await(() -> service.snapshot().items().getFirst().status() == Status.SAVED);
             assertEquals(5, attempts.get(bad.url()).get());
             // A fast retry may finish between HUD ticks; the new outcome must still notify.

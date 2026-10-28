@@ -195,7 +195,6 @@ class UpdateTest {
                     assertEquals(s.classicSpectrumHeight, c.height());
                     assertEquals(0, c.mainHeight());
                     assertEquals(0, c.spectrumY());
-                    assertEquals(0, HudLayout.lyricsHeight(s));
                     for (int w : new int[]{320, 854}) {
                         var b = HudLayout.bounds(s, w, 240);
                         assertTrue(b.x() + b.width() <= w);

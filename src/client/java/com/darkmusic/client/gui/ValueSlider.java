@@ -20,7 +20,7 @@ import java.util.function.DoubleConsumer;
 import java.util.function.DoubleFunction;
 import java.util.function.Supplier;
 
-public final class ValueSlider extends AbstractSliderButton {
+public class ValueSlider extends AbstractSliderButton {
     @Override
     public void setTooltip(Tooltip tooltip) {
         super.setTooltip(tooltip);
@@ -39,9 +39,6 @@ public final class ValueSlider extends AbstractSliderButton {
     private long adjusted;
     private boolean dragging;
     private boolean trackOnly, simpleProgress;
-    private boolean media, mediaLabelLeft;
-    private DoubleFunction<String> mediaLabel;
-    private String mediaText = "";
     private Runnable exactEditor;
 
     public void exactEditor(Runnable editor) {
@@ -55,30 +52,6 @@ public final class ValueSlider extends AbstractSliderButton {
             return true;
         }
         return super.mouseClicked(event, twice);
-    }
-
-    public void media(DoubleFunction<String> valueLabel) {
-        media = true;
-        mediaLabel = valueLabel;
-        mediaText = valueLabel.apply(value);
-    }
-
-    public void mediaLabelLeft(boolean value) {
-        mediaLabelLeft = value;
-    }
-
-    private int mediaTrackStart() {
-        return getX() + (mediaLabelLeft && getWidth() >= 72 ? Minecraft.getInstance().font.width("3.0×") + 10 : 4);
-    }
-
-    private int mediaTrackWidth() {
-        int labelWidth = Minecraft.getInstance().font.width(mediaLabelLeft ? "3.0×" : "100%");
-        return Math.max(1, getWidth() - (getWidth() < 72 ? 8 : labelWidth + 14));
-    }
-
-    private void applyMediaPosition(double mouseX) {
-        value = Math.clamp((mouseX - mediaTrackStart()) / mediaTrackWidth(), 0, 1);
-        applyValue();
     }
 
     public void simpleProgress(boolean value) {
@@ -125,22 +98,6 @@ public final class ValueSlider extends AbstractSliderButton {
 
     @Override
     public void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
-        if (media) {
-            var font = Minecraft.getInstance().font;
-            boolean compact = getWidth() < 72;
-            int start = mediaTrackStart(), length = mediaTrackWidth();
-            int centerY = getY() + (compact ? 16 : 10);
-            int marker = start + (int) Math.round(value * length);
-            int color = active ? UiTheme.ACCENT : UiTheme.MUTED;
-            g.fill(start, centerY - 1, start + length, centerY + 1, UiTheme.BORDER);
-            g.fill(start, centerY - 1, marker, centerY + 1, color);
-            int halfHeight = compact ? 4 : 6;
-            g.fill(marker - 2, centerY - halfHeight, marker + 2, centerY + halfHeight, active && isHoveredOrFocused() ? UiTheme.TEXT : color);
-            String text = mediaText;
-            int textX = compact ? getX() + (getWidth() - font.width(text)) / 2 : mediaLabelLeft ? getX() : getRight() - font.width(text);
-            g.text(font, text, textX, getY() + (compact ? 1 : 6), active ? UiTheme.SECONDARY : UiTheme.MUTED);
-            return;
-        }
         if (!trackOnly)
             g.fill(getX(), getY(), getRight(), getBottom(), active ? isHoveredOrFocused() ? UiTheme.HOVER : UiTheme.RAISED : UiTheme.SURFACE);
         if (!trackOnly || isFocused())
@@ -213,7 +170,6 @@ public final class ValueSlider extends AbstractSliderButton {
     @Override
     protected void updateMessage() {
         if (label != null) setMessage(Component.literal(label.apply(value)));
-        if (mediaLabel != null) mediaText = mediaLabel.apply(value);
     }
 
     @Override
@@ -234,18 +190,12 @@ public final class ValueSlider extends AbstractSliderButton {
 
     @Override
     public void onClick(MouseButtonEvent event, boolean twice) {
-        if (media && getWidth() >= 72 && (event.x() < mediaTrackStart() - 3 || event.x() > mediaTrackStart() + mediaTrackWidth() + 3))
-            return;
-        dragging = true;
-        if (media) applyMediaPosition(event.x());
-        else super.onClick(event, twice);
+        startDrag();
+        super.onClick(event, twice);
     }
 
-    @Override
-    protected void onDrag(MouseButtonEvent event, double dx, double dy) {
-        if (media) {
-            if (dragging) applyMediaPosition(event.x());
-        } else super.onDrag(event, dx, dy);
+    protected void startDrag() {
+        dragging = true;
     }
 
     @Override

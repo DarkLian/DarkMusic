@@ -314,48 +314,12 @@ public final class PlaybackController implements AutoCloseable {
         return true;
     }
 
-    public boolean moveQueued(long id, int destination) {
-        settlePromotion();
-        int index = -1;
-        for (int i = 0; i < manual.size(); i++)
-            if (manual.get(i).id == id) {
-                index = i;
-                break;
-            }
-        if (index < 0 || destination < 0 || destination >= manual.size() || destination == index) {
-            return false;
-        }
-        if (index == 0 || destination == 0) {
-            invalidatePlan();
-            index = -1;
-            for (int i = 0; i < manual.size(); i++)
-                if (manual.get(i).id == id) {
-                    index = i;
-                    break;
-                }
-            if (index < 0 || destination >= manual.size()) {
-                refreshNext();
-                return false;
-            }
-        }
-        var entry = manual.remove(index);
-        manual.add(destination, entry);
-        changedQueue();
-        refreshNext();
-        return true;
-    }
-
     public void clearQueued() {
         if (manual.isEmpty()) return;
         invalidatePlan();
         manual.clear();
         changedQueue();
         refreshNext();
-    }
-
-    public long queueRevision() {
-        settlePromotion();
-        return queueRevision;
     }
 
     /**

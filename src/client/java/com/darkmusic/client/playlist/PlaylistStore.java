@@ -286,39 +286,6 @@ public final class PlaylistStore {
         if (!next.equals(playlists)) update(next);
     }
 
-    public void moveAll(String id, Set<String> keys, int direction) {
-        var p = get(id);
-        if (p == null || Math.abs(direction) != 1) return;
-        var entries = new ArrayList<>(p.entries);
-        if (direction < 0) {
-            for (int i = 1; i < entries.size(); i++)
-                if (keys.contains(entries.get(i).key()) && !keys.contains(entries.get(i - 1).key()))
-                    Collections.swap(entries, i, i - 1);
-        } else {
-            for (int i = entries.size() - 2; i >= 0; i--)
-                if (keys.contains(entries.get(i).key()) && !keys.contains(entries.get(i + 1).key()))
-                    Collections.swap(entries, i, i + 1);
-        }
-        if (!entries.equals(p.entries)) replace(new Playlist(id, p.name, entries));
-    }
-
-    public void remove(String id, int index) {
-        var p = get(id);
-        if (p == null || index < 0 || index >= p.entries.size()) return;
-        var entries = new ArrayList<>(p.entries);
-        entries.remove(index);
-        replace(new Playlist(id, p.name, entries));
-    }
-
-    public void move(String id, int index, int delta) {
-        var p = get(id);
-        if (p == null || index < 0 || index >= p.entries.size() || index + delta < 0 || index + delta >= p.entries.size())
-            return;
-        var entries = new ArrayList<>(p.entries);
-        Collections.swap(entries, index, index + delta);
-        replace(new Playlist(id, p.name, entries));
-    }
-
     public void moveBlock(String id, int start, int count, int insertion) {
         var p = get(id);
         if (p == null) return;

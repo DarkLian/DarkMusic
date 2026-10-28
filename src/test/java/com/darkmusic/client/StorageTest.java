@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -121,7 +122,7 @@ class StorageTest {
             store.add(id, b);
             store.add(id, a);
             assertEquals(2, store.get(id).entries().size());
-            store.move(id, 1, -1);
+            store.moveBlock(id, 1, 1, 0);
             store.rename(id, "Evening");
             io.submit(() -> {
             }).get();
@@ -132,9 +133,9 @@ class StorageTest {
             assertEquals(List.of(b), other.resolve(id, List.of(b)));
             assertEquals(2, other.get(id).entries().size());
             assertTrue(other.resolve(id, List.of(track("different-root", "b.flac", b.file()))).isEmpty());
-            other.remove(id, 1);
+            other.removeAll(id, Set.of(other.get(id).entries().get(1).key()));
             other.add(id, track("root-a", "renamed.mp3", a.file()));
-            other.remove(id, 0);
+            other.removeAll(id, Set.of(other.get(id).entries().getFirst().key()));
             assertEquals("renamed.mp3", other.get(id).entries().getFirst().path());
             other.delete(id);
             assertEquals(List.of(PlaylistStore.FAVORITES), other.all().stream().map(PlaylistStore.Playlist::id).toList());

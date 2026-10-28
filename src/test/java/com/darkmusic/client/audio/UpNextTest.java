@@ -94,6 +94,17 @@ class UpNextTest {
         player.play(source, source.getFirst(), origin);
     }
 
+    /**
+     * Moves one queued entry the way Up Next's drag does.
+     */
+    boolean moveQueued(long id, int destination) {
+        var ids = player.upNextSnapshot().manual().stream().map(PlaybackController.Queued::id).toList();
+        var order = new ArrayList<>(IntStream.range(0, ids.size()).boxed().toList());
+        order.remove(Integer.valueOf(ids.indexOf(id)));
+        order.add(destination, ids.indexOf(id));
+        return player.reorderQueued(ids, order);
+    }
+
     @Test
     void tailAndRejectedQueueEditsPreserveThePreparedTransition() {
         start();
@@ -103,10 +114,10 @@ class UpNextTest {
         var ids = player.upNextSnapshot().manual().stream().map(PlaybackController.Queued::id).toList();
         var prepared = audio.prepared;
         assertFalse(player.removeQueued(-1));
-        assertFalse(player.moveQueued(ids.get(1), 1));
-        assertFalse(player.moveQueued(ids.get(1), 99));
+        assertFalse(player.reorderQueued(ids, List.of(0, 1, 2)));
+        assertFalse(player.reorderQueued(ids, List.of(0, 1, 3)));
         assertSame(prepared, audio.prepared);
-        assertTrue(player.moveQueued(ids.get(1), 2));
+        assertTrue(player.reorderQueued(ids, List.of(0, 2, 1)));
         assertSame(prepared, audio.prepared);
         assertTrue(player.removeQueued(ids.get(1)));
         assertSame(prepared, audio.prepared);
@@ -193,7 +204,7 @@ class UpNextTest {
         assertNotEquals(queued.get(0).id(), queued.get(1).id());
         assertTrue(player.removeQueued(queued.get(0).id()));
         assertEquals(queued.get(1).id(), player.upNextSnapshot().manual().getFirst().id());
-        assertTrue(player.moveQueued(queued.get(2).id(), 0));
+        assertTrue(moveQueued(queued.get(2).id(), 0));
         player.next();
         assertEquals(y, audio.state.track());
         player.next();
@@ -318,7 +329,7 @@ class UpNextTest {
         player.addToQueue(x);
         var duplicate = audio.prepared;
         var id = player.upNextSnapshot().manual().get(1).id();
-        player.moveQueued(id, 0);
+        moveQueued(id, 0);
         assertFalse(audio.promote(duplicate, false));
         assertTrue(audio.promote(audio.prepared, false));
         assertEquals(1, player.upNextSnapshot().manual().size());

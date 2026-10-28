@@ -96,9 +96,9 @@ class BulkEditingTest {
             store.addAll(id, List.of(a, b, a, c, d));
             assertEquals(revision + 1, store.revision());
             assertEquals(List.of(a, b, c, d), store.resolve(id, List.of(a, b, c, d)));
-            store.moveAll(id, Set.of(b.id(), c.id()), -1);
+            store.moveBlock(id, 1, 2, 0);
             assertEquals(List.of(b, c, a, d), store.resolve(id, List.of(a, b, c, d)));
-            store.moveAll(id, Set.of(b.id(), c.id()), 1);
+            store.moveBlock(id, 0, 2, 1);
             assertEquals(List.of(a, b, c, d), store.resolve(id, List.of(a, b, c, d)));
             store.removeAll(id, Set.of(a.id(), c.id()));
             assertEquals(List.of(b, d), store.resolve(id, List.of(a, b, c, d)));

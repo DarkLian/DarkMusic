@@ -92,18 +92,6 @@ public final class ArtworkCache implements AutoCloseable {
     }
 
     /**
-     * Only the transparent fit gutters generated here are omitted; every source-image pixel is retained.
-     */
-    public static void drawTopAligned(GuiGraphicsExtractor g, Cover cover, int x, int y, int size) {
-        double ratio = Math.min((double) size / cover.contentWidth(), (double) size / cover.contentHeight());
-        int width = Math.max(1, (int) Math.round(cover.contentWidth() * ratio));
-        int height = Math.max(1, (int) Math.round(cover.contentHeight() * ratio));
-        g.blit(RenderPipelines.GUI_TEXTURED, cover.id(), x + (size - width) / 2, y,
-            (cover.size() - cover.contentWidth()) / 2, (cover.size() - cover.contentHeight()) / 2,
-            width, height, cover.contentWidth(), cover.contentHeight(), cover.size(), cover.size());
-    }
-
-    /**
      * Only equal, uniform pillarboxes around a square cover are omitted in menus.
      */
     public static int menuInset(BufferedImage image) {

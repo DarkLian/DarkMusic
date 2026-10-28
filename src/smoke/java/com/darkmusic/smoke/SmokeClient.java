@@ -277,10 +277,11 @@ public final class SmokeClient implements ClientModInitializer {
         var requested = app.playback.upNextSnapshot().current();
         require(requested != null && requested.id().equals(second.id()), "Playlist playback failed: requested " + (requested == null ? null : requested.title()) + ", expected " + second.title());
         search.setValue("");
-        app.playlists.add(playlistId, new Track(first.rootId(), "missing.mp3", first.file(), "Missing", "", "", 0, 0, 0, ""));
+        var missing = new Track(first.rootId(), "missing.mp3", first.file(), "Missing", "", "", 0, 0, 0, "");
+        app.playlists.add(playlistId, missing);
         player.tick();
         require(field("playlistNotice").toString().equals(Text.get("format.darkmusic.missing_entries", 1)), "Missing entry notice absent");
-        app.playlists.remove(playlistId, 2);
+        app.playlists.removeAll(playlistId, Set.of(missing.id()));
         String empty = app.playlists.create("Empty");
         player.tick();
         selectGroup(mc, empty);

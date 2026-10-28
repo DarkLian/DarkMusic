@@ -562,18 +562,6 @@ public final class DownloadService implements AutoCloseable {
             }
     }
 
-    public synchronized boolean failedEntry(Entry entry, Path destination) {
-        return work.stream().anyMatch(w -> w.status == Status.FAILED && w.entry.key().equals(entry.key()) && w.destination.equals(destination.toAbsolutePath().normalize()));
-    }
-
-    public synchronized void retryEntry(Entry entry, Path destination) {
-        for (Work item : work)
-            if (item.status == Status.FAILED && item.entry.key().equals(entry.key()) && item.destination.equals(destination.toAbsolutePath().normalize())) {
-                retry(item.id);
-                return;
-            }
-    }
-
     public synchronized void retryFailed() {
         for (Work item : work) if (item.status == Status.FAILED) retry(item.id);
     }

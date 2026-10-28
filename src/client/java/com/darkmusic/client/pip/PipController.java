@@ -133,10 +133,6 @@ public final class PipController implements AutoCloseable {
         state = "pip.idle";
     }
 
-    public void focus() {
-        if (session != null) session.command("FOCUS");
-    }
-
     public PipFrame frame() {
         return texture.current();
     }

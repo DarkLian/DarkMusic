@@ -88,10 +88,6 @@ public final class SoundEnvironmentProcessor {
         return e.convolution == null ? 1 : e.convolution.unsupportedRate() ? 4 : e.convolution.failed() ? 3 : e.convolutionReady ? 2 : 1;
     }
 
-    public double latencyMs() {
-        return requested.active() ? requested.parameters.modulationMs * 2 + 2 * 1000 / rate : 0;
-    }
-
     public double toneResponse(double frequency) {
         return ready && applied != null ? engines[current].response(frequency) : 0;
     }

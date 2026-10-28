@@ -123,7 +123,6 @@ class CustomizationTest {
                     }
                     assertTrue(art.artworkY() + art.artworkHeight() <= art.height());
                     assertTrue(art.artworkX() + art.artworkWidth() <= art.width());
-                    assertEquals(0, HudLayout.lyricsHeight(settings));
                 }
         }
     }

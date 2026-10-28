@@ -51,13 +51,6 @@ public final class HudLayout {
         return settings.hudStyle == Settings.HudStyle.CLASSIC && settings.hudNextSong ? 11 : 0;
     }
 
-    /**
-     * Lyrics occupy their own independently positioned HUD element.
-     */
-    public static int lyricsHeight(Settings settings) {
-        return 0;
-    }
-
     public static Bounds bounds(Settings settings, int width, int height) {
         var content = content(settings, Integer.MAX_VALUE);
         return bounds(settings, width, height, content);

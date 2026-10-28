@@ -319,12 +319,10 @@ public final class MusicScreen extends LocalScreen {
         int sliderWidth = layout.controlWidth();
         int buttonWidth = layout.transportButtonWidth();
         int gap = PlayerLayout.CONTROL_GAP;
-        speed = addRenderableWidget(Help.tip(new ValueSlider(x, transportY, sliderWidth, (app.settings.speed - .5) / 2.5,
+        speed = addRenderableWidget(Help.tip(new MediaSlider(x, transportY, sliderWidth, (app.settings.speed - .5) / 2.5,
                 v -> Text.get("format.darkmusic.speed", String.format(Locale.ROOT, "%.1f", app.settings.speed)),
-                v -> app.speed(.5 + v * 2.5), app::save, 25),
+                v -> app.speed(.5 + v * 2.5), app::save, 25, v -> String.format(Locale.ROOT, "%.1f×", .5 + v * 2.5), true),
             Help.withKeys(Text.get("text.darkmusic.playback_speed_0_5x_to_3_0x_in_0_1x_steps_faster_raises_pitch_slower_lowers_it"), app.shortcuts.slower, app.shortcuts.faster)));
-        speed.media(v -> String.format(Locale.ROOT, "%.1f×", .5 + v * 2.5));
-        speed.mediaLabelLeft(true);
         x += sliderWidth + gap;
         UiButton.shortcuts(transportIcon("key.darkmusic.normal_speed", UiIcon.REFRESH, x, transportY, buttonWidth, () -> app.speed(1)), app.shortcuts.normalSpeed);
         x += buttonWidth + gap;
@@ -355,10 +353,9 @@ public final class MusicScreen extends LocalScreen {
         mute = UiButton.shortcuts(transportIcon("key.darkmusic.mute", app.settings.volume == 0 ? UiIcon.MUTED : UiIcon.VOLUME, x, transportY, buttonWidth, app::toggleMute), app.shortcuts.mute);
         UiButton.selected(mute, () -> app.settings.volume == 0);
         x += buttonWidth + gap;
-        volume = addRenderableWidget(Help.tip(new ValueSlider(x, transportY, sliderWidth, app.settings.volume,
-                v -> Text.get("format.darkmusic.volume", Math.round(v * 100)), app::volume, app::save),
+        volume = addRenderableWidget(Help.tip(new MediaSlider(x, transportY, sliderWidth, app.settings.volume,
+                v -> Text.get("format.darkmusic.volume", Math.round(v * 100)), app::volume, app::save, 0, v -> Math.round(v * 100) + "%", false),
             Help.withKeys(Text.get("text.darkmusic.darkmusic_volume_independent_of_minecraft_sound_sliders"), app.shortcuts.volumeDown, app.shortcuts.volumeUp)));
-        volume.media(v -> Math.round(v * 100) + "%");
         progress = addRenderableWidget(new ValueSlider(layout.dock().x() + 4, layout.seekY(), layout.dock().width() - 8, 0,
             v -> time(progress != null && progress.editing() ? v * app.playback.state().duration() : app.playback.state().position()) + " / " + time(app.playback.state().duration()),
             v -> {

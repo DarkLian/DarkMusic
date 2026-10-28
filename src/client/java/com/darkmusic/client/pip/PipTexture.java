@@ -13,7 +13,7 @@ public final class PipTexture implements AutoCloseable {
     private final Identifier id;
     private DynamicTexture texture;
     private PipFrame current;
-    private long uploaded, arrivalToUploadNanos;
+    private long uploaded;
 
     public PipTexture(Identifier id) {
         this.id = id;
@@ -35,7 +35,6 @@ public final class PipTexture implements AutoCloseable {
             PipTrace.event("upload_submit", frame, uploadEnd, uploadEnd - uploadStart);
             current = frame;
             uploaded++;
-            arrivalToUploadNanos = System.nanoTime() - frame.receivedNanos();
         }
     }
 
@@ -56,10 +55,6 @@ public final class PipTexture implements AutoCloseable {
 
     public long uploaded() {
         return uploaded;
-    }
-
-    public long arrivalToUploadNanos() {
-        return arrivalToUploadNanos;
     }
 
     @Override
