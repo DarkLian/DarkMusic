@@ -218,8 +218,4 @@ public final class BackupArchive {
         protectedEntries.retainAll(referenced);
         return new Restore(values, List.copyOf(result.values()), Set.copyOf(protectedEntries), Map.copyOf(stats), unresolved, selected);
     }
-
-    /**
-     * Serial storage executor only. Keep a durable rollback copy before replacing any configuration.
-     */
 }

@@ -24,7 +24,7 @@ public final class DuplicateComparisonScreen extends LocalScreen {
     private final Screen parent;
     private final DuplicateMediaInfo[] details = {DuplicateMediaInfo.EMPTY, DuplicateMediaInfo.EMPTY};
     private ComparisonAudition audition;
-    private RowList[] fields = new RowList[2];
+    private final RowList[] fields = new RowList[2];
     private final List<Button> actions = new ArrayList<>();
     private final Button[] playback = new Button[2];
     private int side, columnWidth, cardY = 58;

@@ -27,7 +27,6 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
-import java.util.concurrent.Flow;
 import java.util.function.Consumer;
 
 /**
@@ -240,7 +239,7 @@ public final class UpdateService implements AutoCloseable {
         message("update.downloading");
         GitHubRelease selected = release;
         CompletableFuture.runAsync(() -> {
-            Path staged = null, job = null;
+            Path staged, job = null;
             try {
                 byte[] bytes = fetch(selected.url(), selected.size());
                 if (bytes.length != selected.size()) throw new IOException("Unexpected asset size");

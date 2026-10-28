@@ -1,5 +1,15 @@
 root = true
 
+[*]
+end_of_line = lf
+
+[*.bat]
+end_of_line = crlf
+
+# Third-party license texts and NuGet lock files are kept as published, with CRLF
+[src/{mediaHelper,pipHelper}/{licenses/*,packages.lock.json}]
+end_of_line = crlf
+
 [*.java]
 charset = utf-8
 indent_style = space
@@ -7,6 +17,5 @@ indent_size = 4
 
 [*.json]
 charset = utf-8
-end_of_line = lf
 indent_style = space
 indent_size = 2

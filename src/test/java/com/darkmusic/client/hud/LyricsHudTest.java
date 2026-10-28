@@ -78,6 +78,6 @@ class LyricsHudTest {
         var unicode = HudLyricsLayout.wrap("日本語😀歌詞😀".repeat(100), 18, String::length);
         assertEquals(2, unicode.size());
         assertTrue(unicode.stream().noneMatch(line -> line.chars().anyMatch(c -> c == 0xfffd)));
-        assertTrue(unicode.stream().allMatch(line -> !Character.isHighSurrogate(line.charAt(line.length() - 1))));
+        assertTrue(unicode.stream().noneMatch(line -> Character.isHighSurrogate(line.charAt(line.length() - 1))));
     }
 }

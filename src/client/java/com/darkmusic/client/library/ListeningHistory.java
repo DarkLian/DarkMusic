@@ -52,9 +52,6 @@ public final class ListeningHistory {
     }
 
     /**
-     * Freeze both history views before playback starts, independently of screen lifetime.
-     */
-    /**
      * The newest songs by file date, newest first. Imports and downloads write new files, so they count from when
      * they were added; files copied in by hand keep their own dates.
      */

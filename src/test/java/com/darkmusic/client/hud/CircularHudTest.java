@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.function.ToDoubleFunction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CircularHudTest {
@@ -56,7 +57,7 @@ class CircularHudTest {
                 new CircularHudMesh.Rings(new Matrix3x2f(), null, null, 0, 0, mode,
                     levels, 36, style, 0, 0, 0x80123456, 0x80123456,
                     Settings.SurfaceFinish.FLAT, Settings.SurfaceFinish.FLAT, 96, true, 50, 59).buildVertices(consumer);
-                assertTrue(!radii.isEmpty());
+                assertFalse(radii.isEmpty());
                 if (mode == -2 && style == Settings.SpectrumStyle.ROUNDED_BARS)
                     assertTrue(radii.stream().mapToDouble(Double::doubleValue).min().orElseThrow() >= 107 - CircularHudLayout.FEATHER - .01,
                         "Peak thickness must not grow with bar width or curve around the whole cap");
@@ -81,7 +82,7 @@ class CircularHudTest {
             assertTrue(points.isEmpty(), "No progress rail or inactive spectrum geometry");
             Arrays.fill(levels, 1);
             mesh.buildVertices(consumer);
-            assertTrue(!points.isEmpty());
+            assertFalse(points.isEmpty());
             double minimum = points.stream().mapToDouble(p -> Math.hypot(p.x() - 100, p.y() - 100)).min().orElseThrow();
             assertTrue(minimum >= CircularHudLayout.ICON_RADIUS - CircularHudLayout.FEATHER - .001);
             assertTrue(minimum <= CircularHudLayout.ICON_RADIUS + .001, "Spectrum must connect directly to the icon");
@@ -326,8 +327,8 @@ class CircularHudTest {
         });
         new CircularHudMesh.ProgressWaveform(new Matrix3x2f(), null, null, layout.centerX(), layout.centerY(),
             0, waveform, 0xff12ab34, 0xff12ab34, Settings.SurfaceFinish.FLAT, new WaveformSettings().look()).buildVertices(consumer);
-        assertTrue(!points.isEmpty());
-        assertTrue(!colors.contains(0xff12ab34), "Nothing is highlighted at the start");
+        assertFalse(points.isEmpty());
+        assertFalse(colors.contains(0xff12ab34), "Nothing is highlighted at the start");
         points.clear();
         colors.clear();
         new CircularHudMesh.ProgressWaveform(new Matrix3x2f(), null, null, layout.centerX(), layout.centerY(),

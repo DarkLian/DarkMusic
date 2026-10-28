@@ -34,7 +34,6 @@ public final class ColorsScreen extends LocalScreen implements HudPreview {
     private boolean previewOnly;
     private int presetPage, pageY, pageCount;
     private VisualColors.Preset shownPreset;
-    private String draftStart, draftEnd;
 
     public ColorsScreen(DarkMusicClient app, Screen parent, boolean spectrum) {
         super(Text.component(spectrum ? "colors.darkmusic.spectrum" : "colors.darkmusic.progress"), parent);
@@ -60,6 +59,7 @@ public final class ColorsScreen extends LocalScreen implements HudPreview {
 
     @Override
     protected void init() {
+        String draftStart, draftEnd;
         if (start != null && shownPreset == colors().preset) {
             draftStart = start.getValue();
             draftEnd = end.getValue();

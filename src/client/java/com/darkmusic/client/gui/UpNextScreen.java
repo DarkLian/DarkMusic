@@ -34,7 +34,6 @@ public final class UpNextScreen extends LocalScreen {
     private String query = "";
     private List<Track> source = List.of();
     private Object sourceBasis;
-    private EditBox search;
     private int manualTitleY, automaticTitleY, automaticX, listWidth;
 
     public UpNextScreen(DarkMusicClient app, Screen parent) {
@@ -70,7 +69,7 @@ public final class UpNextScreen extends LocalScreen {
                 app.playback.reorderQueued(snapshot.manual().stream().map(PlaybackController.Queued::id).toList(), move.order(snapshot.manual().size()));
             refresh();
         });
-        search = addRenderableWidget(new UiInput(font, automaticX, automaticTitleY + 18, listWidth - 112, 20, Text.component("text.darkmusic.search_songs")));
+        var search = addRenderableWidget(new UiInput(font, automaticX, automaticTitleY + 18, listWidth - 112, 20, Text.component("text.darkmusic.search_songs")));
         search.setValue(query);
         search.setResponder(text -> {
             query = text;

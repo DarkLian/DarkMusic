@@ -25,7 +25,6 @@ public final class ConfirmationScreen extends LocalScreen {
     private final Supplier<CompletableFuture<Void>> action;
     private List<FormattedCharSequence> lines;
     private Button confirm, cancel;
-    private ScrollBar scrollbar;
     private int left, top, panelWidth, panelHeight, scroll, bodyHeight;
     private boolean busy;
     private boolean destructive = true;
@@ -63,7 +62,7 @@ public final class ConfirmationScreen extends LocalScreen {
         if (destructive) UiButton.style(confirm, UiButton.Style.DESTRUCTIVE);
         setInitialFocus(cancel);
         confirm.active = cancel.active = !busy;
-        scrollbar = addRenderableWidget(new ScrollBar(() -> scroll, value -> scroll = value));
+        var scrollbar = addRenderableWidget(new ScrollBar(() -> scroll, value -> scroll = value));
         scrollbar.configure(left + panelWidth - 10, top + 30, bodyHeight, lines.size() * 11, bodyHeight);
     }
 

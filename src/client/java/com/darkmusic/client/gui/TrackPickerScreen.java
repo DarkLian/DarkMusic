@@ -24,7 +24,6 @@ public final class TrackPickerScreen extends LocalScreen {
     private final SongSelection selection = new SongSelection();
     private List<Track> tracks = List.of();
     private RowList rows;
-    private EditBox search;
     private Button choose;
     private String query = "";
     private long revision = -1;
@@ -48,7 +47,7 @@ public final class TrackPickerScreen extends LocalScreen {
 
     @Override
     protected void init() {
-        search = addRenderableWidget(new UiInput(font, 12, 32, width - 24, 20, Text.component("text.darkmusic.search_songs")));
+        var search = addRenderableWidget(new UiInput(font, 12, 32, width - 24, 20, Text.component("text.darkmusic.search_songs")));
         search.setValue(query);
         search.setResponder(s -> {
             query = s;

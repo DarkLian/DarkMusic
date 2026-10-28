@@ -63,7 +63,6 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
     // Search filters rows from every section; it survives rebuilds such as a toggled option.
     private String query = "";
     private String subsectionTitle = "";
-    private UiInput search;
     private final List<Section> searchHeadings = new ArrayList<>();
     private final Map<AbstractWidget, Integer> searchRows = new HashMap<>();
 
@@ -201,7 +200,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         int searchY = wide ? 44 : 68;
         top = searchY + 26;
         bottom = height - 12;
-        search = addRenderableWidget(new UiInput(font, formX, searchY, formWidth, 20, Text.component("settings.search")));
+        var search = addRenderableWidget(new UiInput(font, formX, searchY, formWidth, 20, Text.component("settings.search")));
         search.setMaxLength(100);
         search.setHint(Text.component("settings.search_hint"));
         search.setValue(query);
@@ -779,9 +778,6 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         app.configureVisualizer();
     }
 
-    /**
-     * A row and, for search, its help text with its section and group names.
-     */
     /**
      * Which rows the chosen HUD style offers. Every style but the circular one draws its spectrum in a line, and so
      * does a hidden HUD.

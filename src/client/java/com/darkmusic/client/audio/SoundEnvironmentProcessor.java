@@ -133,7 +133,7 @@ public final class SoundEnvironmentProcessor {
         private SoundEnvironmentSettings.Preset preset;
         private boolean texture, ambience;
         private double rate, trim, noiseGain, oscSin, oscCos = 1, incSin, incCos, wind, crackle;
-        private double[] damping = new double[2];
+        private final double[] damping = new double[2];
         private final double[] reflectionGains = new double[8];
         private double targetTrim, targetNoise, parameterSmoothing, drive, pan, echoGain, reverbWet, dampingAmount;
         private int cursor, modAt, echoFrames;

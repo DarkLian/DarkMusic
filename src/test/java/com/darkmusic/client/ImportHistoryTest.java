@@ -13,6 +13,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ImportHistoryTest {
@@ -42,7 +43,7 @@ class ImportHistoryTest {
             io.submit(() -> {
             }).get();
             assertEquals(List.of(2L), history.batches().stream().map(ImportHistory.Batch::timestamp).toList());
-            assertTrue(!Files.readString(root.resolve("import-history.json")).contains("Old"));
+            assertFalse(Files.readString(root.resolve("import-history.json")).contains("Old"));
         } finally {
             io.shutdown();
             assertTrue(io.awaitTermination(10, TimeUnit.SECONDS));

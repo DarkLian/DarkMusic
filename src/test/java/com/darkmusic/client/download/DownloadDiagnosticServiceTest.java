@@ -96,7 +96,7 @@ class DownloadDiagnosticServiceTest {
                 new Entry(3, "Storage", "https://example.com/storage", "Other", "c", true)), directory.resolve("music"));
             Await.until(Duration.ofSeconds(10), () -> service.snapshot().items().size() == 3 && service.snapshot().items().stream().allMatch(i -> i.status() == Status.FAILED), "Three failures");
             var items = service.snapshot().items();
-            assertEquals(Category.EXTRACTOR_FAILURE, service.diagnostic(items.get(0).id()).category());
+            assertEquals(Category.EXTRACTOR_FAILURE, service.diagnostic(items.getFirst().id()).category());
             assertEquals(Category.AUTH_REQUIRED, service.diagnostic(items.get(1).id()).category());
             assertEquals(Category.STORAGE_FAILURE, service.diagnostic(items.get(2).id()).category());
             for (var item : items) {
@@ -106,9 +106,9 @@ class DownloadDiagnosticServiceTest {
             }
             service.clearFinished();
             assertEquals(3, service.snapshot().items().size());
-            service.retry(items.get(0).id());
-            Await.until(Duration.ofSeconds(10), () -> service.diagnostic(items.get(0).id()) != null, "Manual retry result");
-            assertEquals(1, service.diagnostic(items.get(0).id()).attempt(), "Manual retry starts a new attempt budget");
+            service.retry(items.getFirst().id());
+            Await.until(Duration.ofSeconds(10), () -> service.diagnostic(items.getFirst().id()) != null, "Manual retry result");
+            assertEquals(1, service.diagnostic(items.getFirst().id()).attempt(), "Manual retry starts a new attempt budget");
             service.clearFailed();
             assertTrue(service.snapshot().items().isEmpty());
             for (var item : items) assertNull(service.diagnostic(item.id()));

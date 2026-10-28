@@ -18,7 +18,6 @@ public final class DownloadDuplicateScreen extends LocalScreen {
     private final DarkMusicClient app;
     private final DownloadService.DuplicateChoice choice;
     private List<LibrarySourceIndex.Existing> files = List.of();
-    private RowList rows;
     private int selected = -1;
 
     public DownloadDuplicateScreen(DarkMusicClient app, Screen parent, DownloadService.DuplicateChoice choice) {
@@ -31,7 +30,7 @@ public final class DownloadDuplicateScreen extends LocalScreen {
     protected void init() {
         backButton();
         files = choice.matches().values().stream().flatMap(List::stream).distinct().toList();
-        rows = addRenderableWidget(new RowList(12, 72, width - 24, Math.max(28, height - 140), 36, Text.get("download.library.existing"), (i, activated) -> {
+        var rows = addRenderableWidget(new RowList(12, 72, width - 24, Math.max(28, height - 140), 36, Text.get("download.library.existing"), (i, activated) -> {
             selected = i;
             if (activated) open();
         }));

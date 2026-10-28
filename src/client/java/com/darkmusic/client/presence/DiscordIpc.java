@@ -138,7 +138,7 @@ final class DiscordIpc implements AutoCloseable {
     }
 
     private static List<Object> candidates() {
-        var result = new ArrayList<Object>();
+        var result = new ArrayList<>();
         if (System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows")) {
             for (int i = 0; i < 10; i++) result.add("\\\\.\\pipe\\discord-ipc-" + i);
             return result;

@@ -17,7 +17,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -145,9 +144,7 @@ public final class LrclibProvider implements LyricsProvider, AutoCloseable {
         try {
             requestCount.incrementAndGet();
             reply = transport.get(URI.create("https://lrclib.net" + path), token);
-        } catch (CancellationException | InterruptedException e) {
-            throw e;
-        } catch (Failure e) {
+        } catch (CancellationException | InterruptedException | Failure e) {
             throw e;
         } catch (Exception e) {
             throw new Failure(Problem.NETWORK);
