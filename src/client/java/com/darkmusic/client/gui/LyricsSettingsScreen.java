@@ -6,7 +6,7 @@ import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
-public final class LyricsSettingsScreen extends AudioPage {
+public final class LyricsSettingsScreen extends AudioPage<DarkMusicClient> {
 
     public LyricsSettingsScreen(DarkMusicClient app, Screen parent) {
         super(app, parent, "lyrics.settings");

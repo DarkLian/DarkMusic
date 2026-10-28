@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
-public final class SoundEnvironmentScreen extends AudioPage {
+public final class SoundEnvironmentScreen extends AudioPage<DarkMusicClient> {
     private boolean advanced;
     private String notice = "";
 

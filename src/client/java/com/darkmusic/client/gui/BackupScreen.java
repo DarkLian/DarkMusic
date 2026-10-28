@@ -17,7 +17,7 @@ import java.util.concurrent.CompletionException;
 /**
  * Backup preview and category selection; no audio files are ever imported or exported.
  */
-public final class BackupScreen extends AudioPage {
+public final class BackupScreen extends AudioPage<DarkMusicClient> {
     private BackupArchive.Data data;
     private boolean settings = true, playlists = true, shortcuts = true, history = true, replace, remap = true, busy;
     private String status = "";

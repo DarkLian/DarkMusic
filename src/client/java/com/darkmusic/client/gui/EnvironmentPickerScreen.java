@@ -8,7 +8,7 @@ import net.minecraft.client.gui.screens.Screen;
 import java.util.List;
 import java.util.Locale;
 
-final class EnvironmentPickerScreen extends AudioPage {
+final class EnvironmentPickerScreen extends AudioPage<DarkMusicClient> {
     static final List<List<Preset>> GROUPS = List.of(
         List.of(Preset.OFF),
         List.of(Preset.OLD_RADIO, Preset.TELEPHONE, Preset.WALKIE_TALKIE, Preset.VINYL, Preset.CASSETTE),

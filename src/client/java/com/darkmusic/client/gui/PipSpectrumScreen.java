@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.PipSettings;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.pip.PipPreview;
@@ -19,10 +18,10 @@ import java.util.function.DoubleFunction;
 /**
  * Artwork-style spectrum controls, scoped exclusively to PiP.
  */
-public final class PipSpectrumScreen extends AudioPage implements PipPreview {
+public final class PipSpectrumScreen extends AudioPage<PipScreen.Sources> implements PipPreview {
     private int previewY;
 
-    public PipSpectrumScreen(DarkMusicClient app, Screen parent) {
+    public PipSpectrumScreen(PipScreen.Sources app, Screen parent) {
         super(app, parent, "pip.spectrum.title");
     }
 
@@ -33,7 +32,7 @@ public final class PipSpectrumScreen extends AudioPage implements PipPreview {
 
     @Override
     protected void populate() {
-        var s = app.settings.pip.spectrum;
+        var s = app.settings().pip.spectrum;
         info("pip.spectrum.independent");
         previewY = cursor;
         cursor += 88;
@@ -81,9 +80,9 @@ public final class PipSpectrumScreen extends AudioPage implements PipPreview {
     }
 
     private void preview(GuiGraphicsExtractor g, int x, int y, int width, int height) {
-        int size = Math.min(app.settings.pip.spectrum.height, Math.max(1, height - 8));
-        boolean sideways = app.settings.pip.spectrum.sideways();
-        app.pip.drawSpectrum(g, new PipSettings.Bounds(sideways ? x + (width - size) / 2 : x + 4, sideways ? y + 4 : y + (height - size) / 2,
+        int size = Math.min(app.settings().pip.spectrum.height, Math.max(1, height - 8));
+        boolean sideways = app.settings().pip.spectrum.sideways();
+        app.pip().drawSpectrum(g, new PipSettings.Bounds(sideways ? x + (width - size) / 2 : x + 4, sideways ? y + 4 : y + (height - size) / 2,
             sideways ? size : Math.max(8, width - 8), sideways ? Math.max(8, height - 8) : size), true);
     }
 

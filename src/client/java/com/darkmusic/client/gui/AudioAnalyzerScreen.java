@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 /**
  * Device-clock measurements only; never consumes the synthetic HUD settings preview.
  */
-public final class AudioAnalyzerScreen extends AudioPage {
+public final class AudioAnalyzerScreen extends AudioPage<DarkMusicClient> {
     private AudioComparison.Mode mode;
     private boolean enabled = true, spectrum = true, waveform = true, response = true, before = true, after = true, bypass, matched;
     private final List<Graph> graphs = new ArrayList<>();

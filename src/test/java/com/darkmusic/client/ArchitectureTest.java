@@ -31,9 +31,13 @@ class ArchitectureTest {
     private static final Set<String> SCREENS = Set.of("gui", "hud", "pip");
     // These get their services handed in and may not reach back into DarkMusicClient or its root-package helpers.
     private static final Set<String> DECOUPLED = Set.of("command", "hud", "pip", "render", "update");
+    // Files already moved off DarkMusicClient in packages that are not done yet; the package replaces them when it is.
+    private static final Set<String> DECOUPLED_FILES = Set.of("gui/AudioPage.java", "gui/ColorsScreen.java",
+        "gui/LocalScreen.java", "gui/PipEditorScreen.java", "gui/PipScreen.java", "gui/PipSourcesScreen.java",
+        "gui/PipSpectrumScreen.java");
     private static final Pattern ROOT_TYPE = Pattern.compile("\\bcom\\.darkmusic\\.client\\.[A-Z]\\w*");
     // Lower this as packages stop depending on DarkMusicClient; never raise it.
-    private static final int MAX_CLIENT_DEPENDENTS = 55;
+    private static final int MAX_CLIENT_DEPENDENTS = 48;
 
     @Test
     void packagesDependOnlyDownward() throws IOException {
@@ -51,7 +55,9 @@ class ArchitectureTest {
                 if (CORE.containsKey(from) && code.contains("DarkMusicClient"))
                     violations.add(SOURCES.relativize(file) + " -> DarkMusicClient");
                 var root = ROOT_TYPE.matcher(code);
-                if (DECOUPLED.contains(from) && root.find())
+                boolean decoupled = DECOUPLED.contains(from)
+                    || DECOUPLED_FILES.contains(SOURCES.relativize(file).toString().replace('\\', '/'));
+                if (decoupled && root.find())
                     violations.add(SOURCES.relativize(file) + " -> " + root.group());
             }
         }

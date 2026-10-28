@@ -1,8 +1,9 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.config.SettingsSource;
 import com.darkmusic.client.config.VisualColors;
 import com.darkmusic.client.hud.HudPreview;
+import com.darkmusic.client.hud.HudSources;
 import com.darkmusic.client.hud.NowPlayingHud;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiTheme;
@@ -19,7 +20,7 @@ import java.util.Locale;
  * Color preferences save immediately, like the rest of Settings.
  */
 public final class ColorsScreen extends LocalScreen implements HudPreview {
-    private final DarkMusicClient app;
+    private final Sources app;
     private final VisualColors target;
     private Preview customPreview;
     private String previewTitle = "ui.darkmusic.live_preview";
@@ -29,25 +30,32 @@ public final class ColorsScreen extends LocalScreen implements HudPreview {
         void render(GuiGraphicsExtractor g, int x, int y, int width, int height);
     }
 
+    /**
+     * Settings to edit and the HUD to preview them on.
+     */
+    public interface Sources extends SettingsSource {
+        HudSources hud();
+    }
+
     private EditBox start, end;
     private int fieldsY, swatchY, editorWidth, previewX, previewY, previewWidth;
     private boolean previewOnly;
     private int presetPage, pageY, pageCount;
     private VisualColors.Preset shownPreset;
 
-    public ColorsScreen(DarkMusicClient app, Screen parent, boolean spectrum) {
+    public ColorsScreen(Sources app, Screen parent, boolean spectrum) {
         super(Text.component(spectrum ? "colors.darkmusic.spectrum" : "colors.darkmusic.progress"), parent);
         this.app = app;
-        this.target = spectrum ? app.settings.spectrumColors : app.settings.progressColors;
+        this.target = spectrum ? app.settings().spectrumColors : app.settings().progressColors;
     }
 
-    public ColorsScreen(DarkMusicClient app, Screen parent, VisualColors target, String titleKey) {
+    public ColorsScreen(Sources app, Screen parent, VisualColors target, String titleKey) {
         super(Text.component(titleKey), parent);
         this.app = app;
         this.target = target;
     }
 
-    public ColorsScreen(DarkMusicClient app, Screen parent, VisualColors target, String titleKey, Preview preview, String previewTitle) {
+    public ColorsScreen(Sources app, Screen parent, VisualColors target, String titleKey, Preview preview, String previewTitle) {
         this(app, parent, target, titleKey);
         customPreview = preview;
         this.previewTitle = previewTitle;
@@ -108,7 +116,7 @@ public final class ColorsScreen extends LocalScreen implements HudPreview {
         UiButton.icon(next, UiIcon.NEXT, true);
         next.active = presetPage < pageCount - 1;
         addRenderableWidget(UiButton.builder(Text.component("colors.darkmusic.default"), b -> {
-            if (target == app.settings.hudBackgroundColors) {
+            if (target == app.settings().hudBackgroundColors) {
                 target.preset = VisualColors.Preset.CUSTOM;
                 target.start = target.end = 0x111420;
             } else target.preset = VisualColors.Preset.OCEAN_DRIVE;
@@ -149,7 +157,7 @@ public final class ColorsScreen extends LocalScreen implements HudPreview {
     }
 
     private void pick(boolean first) {
-        int defaultColor = target == app.settings.hudBackgroundColors ? 0x111420
+        int defaultColor = target == app.settings().hudBackgroundColors ? 0x111420
             : first ? VisualColors.Preset.OCEAN_DRIVE.start : VisualColors.Preset.OCEAN_DRIVE.end;
         show(new ColorPickerScreen(this, first ? colors().first() : colors().last(), defaultColor, color -> {
             var value = colors();
@@ -197,7 +205,7 @@ public final class ColorsScreen extends LocalScreen implements HudPreview {
             int inset = height - previewY > 50 ? 22 : 4;
             g.enableScissor(previewX + 2, previewY + inset, previewX + previewWidth - 2, height - 10);
             if (customPreview == null)
-                NowPlayingHud.renderPreview(app.hud, g, previewX + 8, previewY + inset, previewWidth - 16, height - previewY - inset - 12, 1, longText);
+                NowPlayingHud.renderPreview(app.hud(), g, previewX + 8, previewY + inset, previewWidth - 16, height - previewY - inset - 12, 1, longText);
             else
                 customPreview.render(g, previewX + 8, previewY + inset, previewWidth - 16, height - previewY - inset - 12);
             g.disableScissor();

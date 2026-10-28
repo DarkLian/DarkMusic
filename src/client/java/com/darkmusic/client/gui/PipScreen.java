@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.PipSettings;
 import com.darkmusic.client.pip.PipAudio;
 import com.darkmusic.client.pip.PipController;
@@ -16,14 +15,24 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Uses the existing scrollable settings rows at both wide and compact scales.
  */
-public final class PipScreen extends AudioPage implements PipPreview {
+public final class PipScreen extends AudioPage<PipScreen.Sources> implements PipPreview {
     private boolean shownActive;
     private PipAudio shownAudio;
     private String shownSetup = "";
     private boolean shownBusy, shownReady, shownEnabled;
 
-    public PipScreen(DarkMusicClient app, Screen parent) {
+    public PipScreen(Sources app, Screen parent) {
         super(app, parent, "pip.title");
+    }
+
+    /**
+     * Everything the PiP screens read, including the Colors screen they open.
+     */
+    public interface Sources extends AudioPage.Sources, ColorsScreen.Sources {
+        /**
+         * Null until startup creates it.
+         */
+        PipController pip();
     }
 
     @Override
@@ -33,10 +42,10 @@ public final class PipScreen extends AudioPage implements PipPreview {
 
     @Override
     protected void populate() {
-        var pip = app.pip;
+        var pip = app.pip();
         shownActive = pip.active();
         shownAudio = pip.audio();
-        var s = app.settings.pip;
+        var s = app.settings().pip;
         var setup = pip.tools.runtime;
         shownSetup = setup.status();
         shownBusy = setup.busy();
@@ -120,8 +129,8 @@ public final class PipScreen extends AudioPage implements PipPreview {
 
     @Override
     public void tick() {
-        var setup = app.pip.tools.runtime;
-        if (shownActive != app.pip.active() || shownAudio != app.pip.audio() || !shownSetup.equals(setup.status()) || shownBusy != setup.busy() || shownReady != setup.ready() || shownEnabled != app.settings.pip.enabled)
+        var setup = app.pip().tools.runtime;
+        if (shownActive != app.pip().active() || shownAudio != app.pip().audio() || !shownSetup.equals(setup.status()) || shownBusy != setup.busy() || shownReady != setup.ready() || shownEnabled != app.settings().pip.enabled)
             rebuildWidgets();
     }
 
@@ -133,7 +142,7 @@ public final class PipScreen extends AudioPage implements PipPreview {
     }
 
     private void cycleKey(boolean focus) {
-        var s = app.settings.pip;
+        var s = app.settings().pip;
         int key = focus ? s.focusKey : s.returnKey;
         do {
             key = key >= 135 ? 112 : key + 1;

@@ -5,7 +5,7 @@ import com.darkmusic.client.config.*;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
-final class AudioAdvancedScreen extends AudioPage {
+final class AudioAdvancedScreen extends AudioPage<DarkMusicClient> {
     AudioAdvancedScreen(DarkMusicClient app, Screen parent) {
         super(app, parent, "dsp.advanced");
     }

@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.text.Text;
@@ -14,6 +13,9 @@ import net.minecraft.network.chat.Component;
  * Prevents delayed local UI work from restoring a screen after death or a world transition.
  */
 public abstract class LocalScreen extends Screen {
+    // Set once at client start; every DarkMusic screen saves settings as it closes.
+    private static volatile Runnable saveOnClose = () -> {
+    };
     protected final HorizontalText longText = new HorizontalText();
     private final Screen returnTo;
     private final Object openedIn;
@@ -88,8 +90,11 @@ public abstract class LocalScreen extends Screen {
             else if (child instanceof ScrollBar bar) bar.cancel();
             else if (child instanceof ToolCards cards) cards.setFocused(false);
         }
-        var app = DarkMusicClient.INSTANCE;
-        if (app != null) app.save();
+        saveOnClose.run();
+    }
+
+    public static void saveOnClose(Runnable save) {
+        saveOnClose = save;
     }
 
     @Override

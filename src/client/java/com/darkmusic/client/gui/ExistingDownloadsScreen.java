@@ -6,7 +6,7 @@ import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
-public final class ExistingDownloadsScreen extends AudioPage {
+public final class ExistingDownloadsScreen extends AudioPage<DarkMusicClient> {
     private final DownloadModels.Entry entry;
 
     public ExistingDownloadsScreen(DarkMusicClient app, Screen parent, DownloadModels.Entry entry) {

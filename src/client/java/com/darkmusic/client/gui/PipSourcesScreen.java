@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.pip.PipNativeTools;
 import com.darkmusic.client.pip.PipPreview;
 import com.darkmusic.client.pip.PipSource;
@@ -17,7 +16,7 @@ import net.minecraft.client.gui.screens.Screen;
 import java.util.*;
 
 public final class PipSourcesScreen extends LocalScreen implements PipPreview {
-    private final DarkMusicClient app;
+    private final PipScreen.Sources app;
     private List<PipSource> sources = List.of();
     private ProcessRunner.Token token;
     private RowList list;
@@ -25,7 +24,7 @@ public final class PipSourcesScreen extends LocalScreen implements PipPreview {
     private int selected = -1;
     private String status = "pip.windows_loading";
 
-    public PipSourcesScreen(DarkMusicClient app, Screen parent) {
+    public PipSourcesScreen(PipScreen.Sources app, Screen parent) {
         super(Text.component("pip.choose"), parent);
         this.app = app;
     }
@@ -54,7 +53,7 @@ public final class PipSourcesScreen extends LocalScreen implements PipPreview {
 
     private void select() {
         if (selected < 0 || selected >= sources.size()) return;
-        app.pip.select(sources.get(selected));
+        app.pip().select(sources.get(selected));
         onClose();
     }
 
@@ -64,7 +63,7 @@ public final class PipSourcesScreen extends LocalScreen implements PipPreview {
         token = request;
         status = "pip.windows_loading";
         choose.active = false;
-        app.pip.tools.windows(request).whenComplete((windows, error) -> Minecraft.getInstance().execute(() -> {
+        app.pip().tools.windows(request).whenComplete((windows, error) -> Minecraft.getInstance().execute(() -> {
             if (!isCurrent() || request != token || request.cancelled()) return;
             if (error != null) {
                 status = PipNativeTools.failure(error);

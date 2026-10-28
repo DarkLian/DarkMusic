@@ -1,6 +1,5 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.PipSettings;
 import com.darkmusic.client.pip.PipPreview;
 import com.darkmusic.client.render.HorizontalText;
@@ -18,13 +17,13 @@ import java.util.Locale;
  * Placement preserves source aspect ratio. Cropping changes UV coordinates, never the source window.
  */
 public final class PipEditorScreen extends LocalScreen implements PipPreview {
-    private final DarkMusicClient app;
+    private final PipScreen.Sources app;
     private final boolean crop;
     private boolean dragging, resizing;
     private Button back, reset;
     private double anchorX, anchorY, offsetX, offsetY, endX, endY;
 
-    public PipEditorScreen(DarkMusicClient app, Screen parent, boolean crop) {
+    public PipEditorScreen(PipScreen.Sources app, Screen parent, boolean crop) {
         super(Text.component(crop ? "pip.crop" : "pip.placement"), parent);
         this.app = app;
         this.crop = crop;
@@ -35,16 +34,16 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
         dragging = false;
         back = backButton();
         reset = addRenderableWidget(UiButton.builder(Text.component("pip.reset"), b -> {
-            if (crop) app.settings.pip.resetCrop();
+            if (crop) app.settings().pip.resetCrop();
             else {
-                app.settings.pip.x = .68;
-                app.settings.pip.y = .08;
-                app.settings.pip.width = .3;
+                app.settings().pip.x = .68;
+                app.settings().pip.y = .08;
+                app.settings().pip.width = .3;
             }
             app.save();
         }).bounds(12, 4, 80, 20).build());
         if (crop) addRenderableWidget(UiButton.builder(Text.component("pip.crop_exact"), b -> {
-            var s = app.settings.pip;
+            var s = app.settings().pip;
             show(TextPromptScreen.validated(this, Text.get("pip.crop_exact.help"), String.format(Locale.ROOT, "%.1f %.1f %.1f %.1f", s.left * 100, s.top * 100, s.right * 100, s.bottom * 100), 128, input -> {
                 if (!s.cropPercent(input)) throw new IllegalArgumentException(Text.get("pip.crop_invalid"));
                 app.save();
@@ -54,8 +53,8 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
     }
 
     private PipSettings.Bounds image() {
-        if (!crop) return app.pip.bounds(width, height);
-        var f = app.pip.frame();
+        if (!crop) return app.pip().bounds(width, height);
+        var f = app.pip().frame();
         double ratio = f == null ? 16 / 9.0 : f.width() / (double) f.height();
         int w = width - 24, h = (int) (w / ratio);
         if (h > height - 90) {
@@ -84,14 +83,14 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
     @Override
     public boolean mouseDragged(MouseButtonEvent e, double dx, double dy) {
         if (!dragging) return super.mouseDragged(e, dx, dy);
-        var s = app.settings.pip;
+        var s = app.settings().pip;
         var b = image();
         endX = Math.clamp(e.x(), b.x(), b.x() + b.width());
         endY = Math.clamp(e.y(), b.y(), b.y() + b.height());
         if (!crop) {
             if (resizing) s.width = Math.clamp((e.x() - b.x()) / width, .1, 1);
             else {
-                var f = app.pip.frame();
+                var f = app.pip().frame();
                 s.move(e.x() - offsetX, e.y() - offsetY, width, height, f == null ? 16 : f.width(), f == null ? 9 : f.height(), !HorizontalText.shiftDown());
             }
         }
@@ -106,7 +105,7 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
             var b = image();
             double l = (Math.min(anchorX, endX) - b.x()) / b.width(), t = (Math.min(anchorY, endY) - b.y()) / b.height(), r = (Math.max(anchorX, endX) - b.x()) / b.width(), d = (Math.max(anchorY, endY) - b.y()) / b.height();
             if (r - l >= .05 && d - t >= .05) {
-                var s = app.settings.pip;
+                var s = app.settings().pip;
                 s.left = l;
                 s.top = t;
                 s.right = r;
@@ -120,7 +119,7 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
     @Override
     public boolean mouseScrolled(double x, double y, double dx, double dy) {
         if (crop || !image().contains(x, y)) return super.mouseScrolled(x, y, dx, dy);
-        app.settings.pip.width = Math.clamp(app.settings.pip.width * Math.pow(1.08, dy), .1, 1);
+        app.settings().pip.width = Math.clamp(app.settings().pip.width * Math.pow(1.08, dy), .1, 1);
         app.save();
         return true;
     }
@@ -128,7 +127,7 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
     @Override
     public boolean keyPressed(KeyEvent event) {
         if (!crop && getFocused() == null) {
-            var s = app.settings.pip;
+            var s = app.settings().pip;
             var b = image();
             s.x = b.x() / (double) width;
             s.y = b.y() / (double) height;
@@ -154,10 +153,10 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
         g.fill(0, 0, width, height, 0xcc111420);
-        app.pip.update();
+        app.pip().update();
         var b = image();
         positionControls(b);
-        app.pip.draw(g, b, crop, !crop);
+        app.pip().draw(g, b, crop, !crop);
         if (!crop) {
             int guide = (UiTheme.ACCENT & 0xffffff) | 0x50000000;
             boolean centeredX = Math.abs(b.x() + b.width() / 2.0 - width / 2.0) <= .5;
@@ -167,7 +166,7 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
         }
         g.outline(b.x(), b.y(), b.width(), b.height(), UiTheme.ACCENT);
         if (crop) {
-            var s = app.settings.pip;
+            var s = app.settings().pip;
             int l = dragging ? (int) Math.min(anchorX, endX) : b.x() + (int) (s.left * b.width()), t = dragging ? (int) Math.min(anchorY, endY) : b.y() + (int) (s.top * b.height());
             int r = dragging ? (int) Math.max(anchorX, endX) : b.x() + (int) (s.right * b.width()), d = dragging ? (int) Math.max(anchorY, endY) : b.y() + (int) (s.bottom * b.height());
             g.outline(l, t, Math.max(1, r - l), Math.max(1, d - t), UiStatus.color(UiStatus.Tone.SUCCESS));
@@ -179,7 +178,7 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
 
     private void positionControls(PipSettings.Bounds image) {
         if (crop || back == null || reset == null) return;
-        var s = app.settings.pip;
+        var s = app.settings().pip;
         var spectrum = s.audioSpectrum ? s.spectrum.bounds(image, width, height) : null;
         positionControl(reset, image, spectrum);
         positionControl(back, image, spectrum);

@@ -8,7 +8,7 @@ import net.minecraft.client.gui.screens.Screen;
 import java.nio.file.Path;
 import java.util.Objects;
 
-final class UpdateScreen extends AudioPage {
+final class UpdateScreen extends AudioPage<DarkMusicClient> {
     private String status = "update.checking";
     private boolean started;
     private Path shownFailure;

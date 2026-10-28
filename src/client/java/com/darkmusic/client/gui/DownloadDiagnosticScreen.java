@@ -13,7 +13,7 @@ import java.util.Locale;
 /**
  * A local, bounded report; no network, tool installation or log collection on open.
  */
-public final class DownloadDiagnosticScreen extends AudioPage {
+public final class DownloadDiagnosticScreen extends AudioPage<DarkMusicClient> {
     private final DownloadDiagnostics.Diagnostic diagnostic;
     private final Runnable retry;
     private String copyStatus = "";

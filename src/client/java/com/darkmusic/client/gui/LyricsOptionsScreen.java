@@ -11,7 +11,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public final class LyricsOptionsScreen extends AudioPage {
+public final class LyricsOptionsScreen extends AudioPage<DarkMusicClient> {
     private final Track track;
     private String feedback = "";
     private UiStatus.Tone feedbackTone = UiStatus.Tone.INFO;

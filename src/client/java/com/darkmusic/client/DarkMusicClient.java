@@ -27,6 +27,7 @@ import com.darkmusic.client.download.DownloadService;
 import com.darkmusic.client.gui.DesktopFolderPicker;
 import com.darkmusic.client.gui.FolderTree;
 import com.darkmusic.client.gui.HudEditorScreen;
+import com.darkmusic.client.gui.LocalScreen;
 import com.darkmusic.client.gui.LyricsScreen;
 import com.darkmusic.client.gui.MusicScreen;
 import com.darkmusic.client.gui.PipScreen;
@@ -94,7 +95,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-public class DarkMusicClient implements ClientModInitializer {
+public class DarkMusicClient implements ClientModInitializer, PipScreen.Sources {
     public static DarkMusicClient INSTANCE;
     public final ExecutorService io = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-storage").factory());
     public final ExecutorService browsing = new ThreadPoolExecutor(2, 2, 0, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(16), Thread.ofPlatform().daemon().name("darkmusic-browse").factory(), new ThreadPoolExecutor.AbortPolicy());
@@ -451,6 +452,22 @@ public class DarkMusicClient implements ClientModInitializer {
         volumeFeedback.show(settings.volume);
     }
 
+    @Override
+    public Settings settings() {
+        return settings;
+    }
+
+    @Override
+    public HudSources hud() {
+        return hud;
+    }
+
+    @Override
+    public PipController pip() {
+        return pip;
+    }
+
+    @Override
     public void save() {
         if (alive() && !restoring && settings != null) {
             configureVisualizer();
@@ -458,6 +475,7 @@ public class DarkMusicClient implements ClientModInitializer {
         }
     }
 
+    @Override
     public void configureVisualizer() {
         if (settings != null) {
             UiTheme.apply(settings);
@@ -621,6 +639,7 @@ public class DarkMusicClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         INSTANCE = this;
+        LocalScreen.saveOnClose(this::save);
         updates = new UpdateService(config.directory(), () -> settings, this::warn);
         LocalCommands.register(new ClientActions(this));
         NowPlayingHud.register(hud);

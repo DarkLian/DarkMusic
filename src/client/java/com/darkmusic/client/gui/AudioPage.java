@@ -1,6 +1,6 @@
 package com.darkmusic.client.gui;
 
-import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.config.SettingsSource;
 import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
@@ -18,8 +18,8 @@ import java.util.function.*;
 /**
  * Shared scrollable rows for the additive audio pages.
  */
-abstract class AudioPage extends LocalScreen {
-    protected final DarkMusicClient app;
+public abstract class AudioPage<S extends AudioPage.Sources> extends LocalScreen {
+    protected final S app;
     protected int formX, formWidth, cursor, scroll;
     private final List<AbstractWidget> rows = new ArrayList<>();
     private final List<Integer> positions = new ArrayList<>();
@@ -28,9 +28,16 @@ abstract class AudioPage extends LocalScreen {
     private ScrollBar scrollbar;
     private Button back;
 
-    AudioPage(DarkMusicClient app, Screen parent, String title) {
+    AudioPage(S app, Screen parent, String title) {
         super(Text.component(title), parent);
         this.app = app;
+    }
+
+    /**
+     * What every audio page needs; each page's own type adds the rest.
+     */
+    public interface Sources extends SettingsSource {
+        void configureVisualizer();
     }
 
     protected abstract void populate();

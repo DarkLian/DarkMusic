@@ -13,7 +13,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Native folder picking with explicit, non-destructive scan registration and write routing.
  */
-public final class MusicFoldersScreen extends AudioPage {
+public final class MusicFoldersScreen extends AudioPage<DarkMusicClient> {
     private Map<Path, String> shown;
     private Path destination;
 

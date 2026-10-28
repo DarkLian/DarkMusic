@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public final class OutputDeviceScreen extends AudioPage {
+public final class OutputDeviceScreen extends AudioPage<DarkMusicClient> {
     private List<OutputDevices.Device> devices = List.of();
     private boolean loading, changing, started;
     private String status = "";

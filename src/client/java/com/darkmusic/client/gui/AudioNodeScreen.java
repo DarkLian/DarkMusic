@@ -5,7 +5,7 @@ import com.darkmusic.client.config.AudioEnhancements;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
-final class AudioNodeScreen extends AudioPage {
+final class AudioNodeScreen extends AudioPage<DarkMusicClient> {
     private final int index;
     private final boolean dynamic;
 

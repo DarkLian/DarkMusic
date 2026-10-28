@@ -8,7 +8,7 @@ import net.minecraft.client.gui.screens.Screen;
 /**
  * An explicitly started, session-scoped library lookup; leaving the screen does not cancel it.
  */
-public final class LyricsLibraryScreen extends AudioPage {
+public final class LyricsLibraryScreen extends AudioPage<DarkMusicClient> {
     private boolean running;
 
     public LyricsLibraryScreen(DarkMusicClient app, Screen parent) {

@@ -12,7 +12,7 @@ import net.minecraft.client.gui.screens.Screen;
 /**
  * Temporary playback actions, deliberately separate from playlist editing.
  */
-public final class SongActionsScreen extends AudioPage {
+public final class SongActionsScreen extends AudioPage<DarkMusicClient> {
     private final Track track;
     private String feedback = "";
     private UiStatus.Tone feedbackTone = UiStatus.Tone.INFO;
