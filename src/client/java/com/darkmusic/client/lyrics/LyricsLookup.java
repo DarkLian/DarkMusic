@@ -393,7 +393,7 @@ public final class LyricsLookup implements AutoCloseable {
             load(track);
             if (choice(track).selected != null) return;
             automatic.put(track.id(), new Attempt(track, 1, Long.MAX_VALUE, null));
-            start(track, token -> automaticDiscovery(track, preferences, generated, token), true, true);
+            start(track, token -> automaticDiscovery(track, preferences, generated, token), true);
         }).exceptionally(failure -> {
             LOG.debug("Optional post-download lookup could not be queued", failure);
             return null;
@@ -420,7 +420,7 @@ public final class LyricsLookup implements AutoCloseable {
         if (automatic.size() > 512)
             automatic.entrySet().stream().filter(e -> !e.getKey().equals(track.id()) && e.getValue().retryAt == Long.MAX_VALUE && !pending.containsKey(e.getKey()))
                 .map(Map.Entry::getKey).findFirst().ifPresent(automatic::remove);
-        start(track, token -> automaticDiscovery(track, captionPreferences, generatedCaptions, token), true, true, worker, owner, null);
+        start(track, token -> automaticDiscovery(track, captionPreferences, generatedCaptions, token), true, worker, owner, null);
     }
 
     /**
@@ -439,7 +439,7 @@ public final class LyricsLookup implements AutoCloseable {
                 if (attempt.query == null) automatic(attempt.track, false, attempt.owner);
                 else {
                     automatic.put(attempt.track.id(), new Attempt(attempt.track, attempt.count + 1, Long.MAX_VALUE, attempt.query));
-                    start(attempt.track, token -> discover(attempt.track, attempt.query, true, false, token), true, false);
+                    start(attempt.track, token -> discover(attempt.track, attempt.query, true, false, token), false);
                 }
                 return;
             }
@@ -514,28 +514,27 @@ public final class LyricsLookup implements AutoCloseable {
                 if (!alternatives.isEmpty()) return alternatives;
                 throw failure;
             }
-        }, true, true, captionWorker, operationOwners.get(track.id()), token);
+        }, true, captionWorker, operationOwners.get(track.id()), token);
         return found;
     }
 
+    /**
+     * A search the player asked for; the result is offered for review rather than applied.
+     */
     public void search(Track track, LyricsProvider.Query query, boolean refresh) {
-        search(track, query, refresh, false);
-    }
-
-    private void search(Track track, LyricsProvider.Query query, boolean refresh, boolean applyReliable) {
         if (track == null) return;
-        String queryKey = hash(signature(track, query) + (applyReliable ? "a" : "m"));
+        String queryKey = hash(signature(query) + "m");
         if (pending.containsKey(track.id()) && queryKey.equals(activeQueries.get(track.id()))) return;
         activeQueries.put(track.id(), queryKey);
         automatic.put(track.id(), new Attempt(track, 1, Long.MAX_VALUE, query));
-        start(track, token -> discover(track, query, refresh, applyReliable, token), true, applyReliable);
+        start(track, token -> discover(track, query, refresh, false, token), false);
     }
 
     private List<LyricsProvider.Candidate> discover(Track track, LyricsProvider.Query query, boolean refresh, boolean automatic, ProcessRunner.Token token) throws Exception {
-        String key = hash(signature(track, query) + (automatic ? "a" : "m"));
+        String key = hash(signature(query) + (automatic ? "a" : "m"));
         List<LyricsProvider.Candidate> cached = refresh ? null : results.get(key);
         // An explicit version search is a superset of an automatic lookup of the same metadata.
-        if (cached == null && !refresh && automatic) cached = results.get(hash(signature(track, query) + "m"));
+        if (cached == null && !refresh && automatic) cached = results.get(hash(signature(query) + "m"));
         List<LyricsProvider.Candidate> found = cached == null ? (automatic ? provider.search(query, token) : provider.alternatives(query, token)) : cached;
         token.check();
         if (cached == null) results.put(key, found);
@@ -544,7 +543,7 @@ public final class LyricsLookup implements AutoCloseable {
 
     public void source(Track track, String preferences, boolean generated) {
         start(track, token -> captionCandidates(track, preferences, generated, token, true).stream()
-            .map(c -> new LyricsProvider.Candidate(c.document(), false, c.evidence())).toList(), true, false, captionWorker);
+            .map(c -> new LyricsProvider.Candidate(c.document(), false, c.evidence())).toList(), false, captionWorker);
     }
 
     private List<LyricsProvider.Candidate> captionCandidates(Track track, String preferences, boolean generated, ProcessRunner.Token token, boolean refresh) throws Exception {
@@ -568,20 +567,20 @@ public final class LyricsLookup implements AutoCloseable {
         List<LyricsProvider.Candidate> run(ProcessRunner.Token token) throws Exception;
     }
 
-    private void start(Track track, Search search, boolean requiresOnline, boolean applyReliable) {
-        start(track, search, requiresOnline, applyReliable, worker);
+    private void start(Track track, Search search, boolean applyReliable) {
+        start(track, search, applyReliable, worker);
     }
 
-    private void start(Track track, Search search, boolean requiresOnline, boolean applyReliable, ThreadPoolExecutor executor) {
-        start(track, search, requiresOnline, applyReliable, executor, null, null);
+    private void start(Track track, Search search, boolean applyReliable, ThreadPoolExecutor executor) {
+        start(track, search, applyReliable, executor, null, null);
     }
 
-    private synchronized void start(Track track, Search search, boolean requiresOnline, boolean applyReliable, ThreadPoolExecutor executor,
+    private synchronized void start(Track track, Search search, boolean applyReliable, ThreadPoolExecutor executor,
                                     ProcessRunner.Token owner, ProcessRunner.Token parent) {
         if (track == null || closed) return;
         if (owner != null && owner.cancelled() || parent != null && (parent.cancelled() || pending.get(track.id()) != parent))
             return;
-        if (!enabled || requiresOnline && !online) {
+        if (!enabled || !online) {
             publish(track, new Snapshot(Status.DISABLED, List.of()));
             return;
         }
@@ -850,7 +849,7 @@ public final class LyricsLookup implements AutoCloseable {
             track.size(), track.modified(), choice.pinned, review != null, track.rootId(), track.id(), encoding(track));
     }
 
-    private String signature(Track track, LyricsProvider.Query query) {
+    private String signature(LyricsProvider.Query query) {
         return hash(provider.id() + ":1:" + ConfigStore.JSON.toJson(query));
     }
 
@@ -869,26 +868,17 @@ public final class LyricsLookup implements AutoCloseable {
     }
 
     private CompletableFuture<Void> submit(Operation action) {
-        var done = new CompletableFuture<Void>();
-        try {
-            storage.execute(() -> {
-                try {
-                    action.run();
-                    done.complete(null);
-                } catch (Exception e) {
-                    done.completeExceptionally(e);
-                }
-            });
-        } catch (RejectedExecutionException e) {
-            done.completeExceptionally(e);
-        }
-        return done;
+        return submit(storage, action);
     }
 
     private CompletableFuture<Void> submitNetwork(Operation action) {
+        return submit(worker, action);
+    }
+
+    private static CompletableFuture<Void> submit(Executor executor, Operation action) {
         var done = new CompletableFuture<Void>();
         try {
-            worker.execute(() -> {
+            executor.execute(() -> {
                 try {
                     action.run();
                     done.complete(null);

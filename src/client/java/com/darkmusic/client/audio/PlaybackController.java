@@ -380,11 +380,7 @@ public final class PlaybackController implements AutoCloseable {
     }
 
     private void start(int index, double position, boolean paused) {
-        start(index, position, paused, false);
-    }
-
-    private void start(int index, double position, boolean paused, boolean continuing) {
-        start(new Playing(tracks.get(index), false), position, paused, continuing);
+        start(new Playing(tracks.get(index), false), position, paused, false);
     }
 
     private void start(Playing point, double position, boolean paused, boolean continuing) {

@@ -51,7 +51,6 @@ public final class MusicLibrary implements AutoCloseable {
     private final Object watchLock = new Object();
     private final CompletableFuture<Void> watchClosed = new CompletableFuture<>();
     private volatile WatchService watcher;
-    private volatile Set<Path> watchedDirectories = Set.of();
     private volatile Set<Path> desiredWatchDirectories = Set.of();
     private final Map<Path, WatchKey> watchKeys = new HashMap<>();
     private final Map<Path, Long> failedWatches = new HashMap<>();
@@ -482,7 +481,6 @@ public final class MusicLibrary implements AutoCloseable {
                     watchFailed(failure);
                 }
             }
-            watchedDirectories = Set.copyOf(watchKeys.keySet());
         }
     }
 
@@ -524,7 +522,6 @@ public final class MusicLibrary implements AutoCloseable {
                 }
                 if (!key.reset()) {
                     watchKeys.remove((Path) key.watchable(), key);
-                    watchedDirectories = Set.copyOf(watchKeys.keySet());
                     changed = true;
                 }
             }
@@ -566,7 +563,7 @@ public final class MusicLibrary implements AutoCloseable {
         synchronized (watchLock) {
             WatchService old = watcher;
             watcher = null;
-            watchedDirectories = desiredWatchDirectories = Set.of();
+            desiredWatchDirectories = Set.of();
             watchKeys.clear();
             failedWatches.clear();
             if (old != null) try {

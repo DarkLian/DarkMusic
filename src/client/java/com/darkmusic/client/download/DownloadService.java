@@ -112,8 +112,6 @@ public final class DownloadService implements AutoCloseable {
         });
     }
 
-    private volatile boolean lyricsEnabled = true;
-    private volatile boolean autoCaptions;
     private static final Consumer<Path> NO_OBSERVER = file -> {
     };
     private volatile Consumer<Path> savedObserver = NO_OBSERVER;
@@ -124,21 +122,6 @@ public final class DownloadService implements AutoCloseable {
 
     public boolean hasSavedObserver() {
         return savedObserver != NO_OBSERVER;
-    }
-
-    public void autoCaptions(boolean value) {
-        autoCaptions = value;
-    }
-
-    private volatile List<String> lyricsLanguages = LyricsLanguages.resolve("auto");
-
-    public void lyrics(boolean enabled) {
-        lyricsEnabled = enabled;
-    }
-
-    public void lyrics(boolean enabled, String preferences) {
-        lyricsLanguages = LyricsLanguages.resolve(preferences);
-        lyricsEnabled = enabled;
     }
 
     /**
@@ -678,7 +661,7 @@ public final class DownloadService implements AutoCloseable {
                     } catch (NumberFormatException ignored) {
                     }
                     update(item, status, percent, detail);
-                }, item.format, () -> false, () -> lyricsLanguages, () -> autoCaptions);
+                }, item.format);
                 update(item, result.skipped() ? Status.SKIPPED : Status.SAVED, 1, result.file().getFileName() + (result.warning().isBlank() ? "" : " — " + result.warning()));
                 if (awareness != null) awareness.saved(item.entry, result.file(), item.format);
                 String commitIdentity = item.entry.key() + (item.format == DownloadFormat.ORIGINAL ? ":original" : "");

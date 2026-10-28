@@ -51,7 +51,6 @@ class DownloadTest {
         try (var service = new DownloadService(temp.resolve("preview-data"), () -> {
         }, fake)) {
             service.configure(tools());
-            service.lyrics(true, "ja, en");
             service.analyze("https://www.youtube.com/playlist?list=PL1", 1);
             await(() -> !service.snapshot().analyzing() && service.snapshot().preview() != null);
             var requests = fake.commands.stream().filter(command -> command.contains("--dump-single-json")).toList();
@@ -80,7 +79,6 @@ class DownloadTest {
         try (var service = new DownloadService(temp.resolve("async-lyrics"), () -> {
         }, fake)) {
             service.configure(tools());
-            service.lyrics(true);
             service.savedObserver(file -> notified.countDown());
             service.enqueueSelected(List.of(entry("background-lyrics")), temp.resolve("saved"));
             await(() -> service.snapshot().items().size() == 1 && service.snapshot().items().getFirst().status() == Status.SAVED);

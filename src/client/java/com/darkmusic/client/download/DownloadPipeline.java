@@ -2,7 +2,6 @@ package com.darkmusic.client.download;
 
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.DownloadFormat;
-import com.darkmusic.client.config.LyricsLanguages;
 import com.darkmusic.client.library.DownloadArchive;
 import com.darkmusic.client.library.LibraryFiles;
 import com.darkmusic.client.library.LyricsFiles;
@@ -30,8 +29,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.function.BiConsumer;
-import java.util.function.BooleanSupplier;
-import java.util.function.Supplier;
 
 import static com.darkmusic.client.download.DownloadJson.text;
 import static com.darkmusic.client.download.DownloadModels.*;
@@ -121,32 +118,23 @@ public final class DownloadPipeline {
         return execute(entry, destination, tools, token, progress, DownloadFormat.MP3);
     }
 
+    /**
+     * Saves the audio only. Lyrics are looked up afterwards, once the saved file is reported to lyric lookup.
+     */
     public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format) throws Exception {
-        return execute(entry, destination, tools, token, progress, format, () -> false);
-    }
-
-    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format, BooleanSupplier lyricsEnabled) throws Exception {
-        return execute(entry, destination, tools, token, progress, format, lyricsEnabled, () -> LyricsLanguages.resolve("auto"));
-    }
-
-    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format, BooleanSupplier lyricsEnabled, Supplier<List<String>> lyricsLanguages) throws Exception {
-        return execute(entry, destination, tools, token, progress, format, lyricsEnabled, lyricsLanguages, () -> false);
-    }
-
-    public Saved execute(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format, BooleanSupplier lyricsEnabled, Supplier<List<String>> lyricsLanguages, BooleanSupplier autoCaptions) throws Exception {
         token.check();
         DownloadDiagnostics.at(DownloadDiagnostics.Stage.COMMIT, DownloadDiagnostics.Tool.NONE, () -> {
             prepare();
             return null;
         });
         try {
-            return download(entry, destination, tools, token, progress, format, lyricsEnabled, lyricsLanguages, autoCaptions);
+            return download(entry, destination, tools, token, progress, format);
         } finally {
             close();
         }
     }
 
-    private Saved download(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format, BooleanSupplier lyricsEnabled, Supplier<List<String>> lyricsLanguages, BooleanSupplier autoCaptions) throws Exception {
+    private Saved download(Entry entry, Path destination, Toolchain tools, ProcessRunner.Token token, BiConsumer<Status, String> progress, DownloadFormat format) throws Exception {
         DownloadDiagnostics.Stage stage = DownloadDiagnostics.Stage.COMMIT;
         DownloadDiagnostics.Tool tool = DownloadDiagnostics.Tool.NONE;
         try {
@@ -245,15 +233,6 @@ public final class DownloadPipeline {
                 if (validation.exit() != 0)
                     throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.OUTPUT_VALIDATION_FAILURE, stage, tool, validation.exit(), validation.output(), null);
                 if (!plan.warning().isBlank()) warning = plan.warning() + " " + warning;
-                DownloadLyrics.Result lyrics = new DownloadLyrics.Result("", "");
-                if (lyricsEnabled.getAsBoolean()) {
-                    stage = DownloadDiagnostics.Stage.OPTIONAL;
-                    tool = DownloadDiagnostics.Tool.YT_DLP;
-                    progress.accept(Status.CONVERTING, Text.get("lyrics.darkmusic.downloading"));
-                    lyrics = DownloadLyrics.fetch(runner, tools, entry, metadata, work, token, lyricsLanguages.get(), autoCaptions.getAsBoolean());
-                    if (!lyrics.warning().isBlank())
-                        warning = (warning + "; " + lyrics.warning()).replaceFirst("^; ", "");
-                }
                 token.check();
                 stage = DownloadDiagnostics.Stage.COMMIT;
                 tool = DownloadDiagnostics.Tool.NONE;
@@ -284,14 +263,6 @@ public final class DownloadPipeline {
                     incoming = null;
                     if (!SourceLinks.record(target, entry.url(), identity))
                         warning = (warning + "; " + Text.get("download.provenance_write")).replaceFirst("^; ", "");
-                    if (lyricsEnabled.getAsBoolean() && !lyrics.text().isBlank()) {
-                        try {
-                            DownloadLyrics.document(lyrics).save(target, false);
-                        } catch (Exception failure) {
-                            warning = (warning + "; " + Text.get("lyrics.darkmusic.save_failed")).replaceFirst("^; ", "");
-                            LoggerFactory.getLogger("darkmusic-download").warn("Could not save lyric companions; audio remains saved", failure);
-                        }
-                    }
                     archive.addProperty(identity, target.getFileName().toString());
                     try {
                         ConfigStore.atomicWrite(history, ConfigStore.JSON.toJson(archive));

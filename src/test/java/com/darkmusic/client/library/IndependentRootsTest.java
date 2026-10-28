@@ -85,9 +85,9 @@ class IndependentRootsTest {
             var replace = MusicLibrary.class.getDeclaredMethod("replaceWatcher", List.class);
             replace.setAccessible(true);
             replace.invoke(library, List.of(first, directory.resolve("missing"), second));
-            var field = MusicLibrary.class.getDeclaredField("watchedDirectories");
+            var field = MusicLibrary.class.getDeclaredField("watchKeys");
             field.setAccessible(true);
-            assertEquals(Set.of(first, second), field.get(library));
+            assertEquals(Set.of(first, second), ((Map<?, ?>) field.get(library)).keySet());
             var watcher = MusicLibrary.class.getDeclaredField("watcher");
             watcher.setAccessible(true);
             assertNotNull(watcher.get(library));

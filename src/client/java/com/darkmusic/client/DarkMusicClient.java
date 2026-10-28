@@ -416,12 +416,9 @@ public class DarkMusicClient implements ClientModInitializer {
             UiTheme.apply(settings);
             ExternalAudio.configure(() -> new ExternalAudio.Paths(config.directory(), settings.ffmpegPath, settings.ffprobePath));
             if (downloads != null) downloads.format(settings.downloadFormat);
-            if (downloads != null)
-                downloads.lyrics(settings.lyricsEnabled, settings.lyricsLanguages);
             lyrics.enabled(settings.lyricsEnabled);
             lyrics.lookup.configure(settings.lyricsEnabled, settings.lyricsOnline);
             lyrics.lookup.captionPreferences(settings.lyricsLanguages, settings.lyricsAutoCaptions);
-            if (downloads != null) downloads.autoCaptions(settings.lyricsAutoCaptions);
             if (playback != null) playback.configure(settings.audio, settings.environment);
         }
         if (playback != null && playback.spectrum() != null) {
@@ -694,8 +691,6 @@ public class DarkMusicClient implements ClientModInitializer {
             if (!closed && settings.lyricsEnabled && settings.lyricsOnline && settings.lyricsDownloadLookup)
                 lyrics.lookup.downloaded(file, library.roots(), settings.lyricsLanguages, settings.lyricsAutoCaptions);
         }));
-        service.autoCaptions(settings.lyricsAutoCaptions);
-        service.lyrics(settings.lyricsEnabled, settings.lyricsLanguages);
         if (sourceIndex != null) service.awareness(sourceIndex);
         return service;
     }

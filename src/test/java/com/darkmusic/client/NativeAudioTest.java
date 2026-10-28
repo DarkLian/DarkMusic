@@ -136,15 +136,11 @@ class NativeAudioTest {
             };
             var entry = new DownloadModels.Entry(1, "Cover test", "https://example.com/audio", "test", codec[1], true);
             var saved = new DownloadPipeline(runner, temp.resolve("data")).execute(entry, temp.resolve("music"), tools, token, (s, d) -> {
-            }, DownloadFormat.ORIGINAL, () -> true);
+            }, DownloadFormat.ORIGINAL);
             assertFalse(saved.warning().contains("without artwork"), saved.warning());
-            assertEquals("[00:01.00]Caption timing check", Files.readString(LyricsFiles.sidecar(saved.file())));
-            assertEquals(1, captionCalls.get());
-            var disabledEntry = new DownloadModels.Entry(1, "Cover test", "https://example.com/audio", "test", codec[1] + "-disabled", true);
-            var disabled = new DownloadPipeline(runner, temp.resolve("data")).execute(disabledEntry, temp.resolve("music"), tools, token, (s, d) -> {
-            }, DownloadFormat.ORIGINAL, () -> false);
-            assertEquals(1, captionCalls.get(), "Disabled lyrics must not request captions");
-            assertFalse(Files.exists(LyricsFiles.sidecar(disabled.file())));
+            // Lyrics are looked up after the audio is saved, never during the download itself.
+            assertEquals(0, captionCalls.get());
+            assertFalse(Files.exists(LyricsFiles.sidecar(saved.file())));
             byte[] embedded = new MetadataReader().artwork(saved.file());
             assertNotNull(embedded, codec[1]);
             assertNotNull(ImageIO.read(new ByteArrayInputStream(embedded)));

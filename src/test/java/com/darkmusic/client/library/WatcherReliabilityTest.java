@@ -43,7 +43,7 @@ class WatcherReliabilityTest {
             ((Map<Path, Long>) field(library, "failedWatches")).put(missing, 0L);
             replace(library, List.of(healthy, missing));
             assertSame(service, field(library, "watcher"));
-            assertEquals(Set.of(healthy, missing), field(library, "watchedDirectories"));
+            assertEquals(Set.of(healthy, missing), keys.keySet());
             assertTrue(original.isValid());
             WatchKey removed = keys.get(missing);
             replace(library, List.of(healthy));

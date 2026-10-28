@@ -267,7 +267,7 @@ public final class DownloadScreen extends LocalScreen {
             layoutWide();
             return;
         }
-        boolean source = wide || sourceExpanded;
+        boolean source = sourceExpanded;
         sourceY = 38;
         tabsY = source ? 68 : 38;
         modeY = tabsY + 28;
@@ -275,7 +275,7 @@ public final class DownloadScreen extends LocalScreen {
         searchY = modes ? modeY + 26 : tabsY + 28;
         pageY = searchY + 26;
         resultTop = queueView ? searchY + 42 : pageY + 42;
-        sourceToggle.visible = !wide;
+        sourceToggle.visible = true;
         place(url, 12, sourceY, width - 116, source);
         place(analyze, width - 100, sourceY, 88, source);
         place(entriesTab, 12, tabsY, 84, true);
