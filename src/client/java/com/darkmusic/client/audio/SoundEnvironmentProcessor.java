@@ -127,6 +127,8 @@ public final class SoundEnvironmentProcessor {
         private final EnvironmentRoom room = new EnvironmentRoom();
         private ConvolutionReverb convolution;
         private boolean convolutionReady, acousticWasAudible;
+        // At their slider ends (20 Hz, 20 kHz) the filters are off rather than ringing on transients.
+        private boolean highOn, lowOn;
         private double convolutionMix, convolutionSmoothing;
         private float[][] history, modulation;
         private Parameters p;
@@ -177,8 +179,10 @@ public final class SoundEnvironmentProcessor {
             texture = s.texture;
             ambience = s.ambience;
             high.configure(Type.HIGH_PASS, rate, p.highPass, 0, .707);
+            highOn = p.highPass > 20 + 1e-6;
             if (snap) high.snap();
             low.configure(Type.LOW_PASS, rate, p.lowPass * (1 - p.distance * .65), 0, .707);
+            lowOn = p.lowPass * (1 - p.distance * .65) < 20000 - 1e-6;
             if (snap) low.snap();
             presence.configure(Type.PEAK, rate, p.presenceFrequency, p.presenceGain, 1.1);
             if (snap) presence.snap();
@@ -245,8 +249,8 @@ public final class SoundEnvironmentProcessor {
                 reflectionGains[i] += (p.reflectionGains[i] - reflectionGains[i]) * parameterSmoothing;
             convolutionMix += ((convolutionReady ? 1 : 0) - convolutionMix) * convolutionSmoothing;
             if (p.mono) l = r = (l + r) * .5;
-            l = presence.sample(high.sample(l, 0), 0);
-            r = presence.sample(high.sample(r, 1), 1);
+            l = presence.sample(highOn ? high.sample(l, 0) : l, 0);
+            r = presence.sample(highOn ? high.sample(r, 1) : r, 1);
             if (drive > 1e-8) {
                 double divisor = Math.tanh(1 + drive);
                 l = Math.tanh(l * (1 + drive)) / divisor;
@@ -269,8 +273,8 @@ public final class SoundEnvironmentProcessor {
                 if (preset == SoundEnvironmentSettings.Preset.UNDERWATER)
                     generated += Math.sin(oscSin * 13) * wind * noiseGain;
             }
-            l = low.sample(l + generated, 0);
-            r = low.sample(r + generated, 1);
+            l = lowOn ? low.sample(l + generated, 0) : l + generated;
+            r = lowOn ? low.sample(r + generated, 1) : r + generated;
             if (p.modulationMs > 0) {
                 double depth = p.modulationMs * rate / 1000, delay = 2 + depth * (1 + oscSin);
                 for (int c = 0; c < 2; c++) {

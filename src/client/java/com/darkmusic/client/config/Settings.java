@@ -185,6 +185,7 @@ public final class Settings {
         audio.matchProfile();
         if (environment == null) environment = new SoundEnvironmentSettings();
         environment.validate();
+        environment.matchPreset();
         if (repeat == null) repeat = Repeat.OFF;
         speed = clampStep(speed);
     }

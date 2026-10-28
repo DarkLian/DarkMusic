@@ -41,6 +41,8 @@ public final class SettingRow extends AbstractWidget {
     static final int ICON_INSET = 19;
     private String cachedMessage = "", optionLabel = "", optionValue = "";
     private String description = "";
+    // Lays the row out as if it had a description, so a row without one lines up with rows that have one.
+    private boolean besideLabel;
     private boolean accentedLabel;
 
     /**
@@ -80,6 +82,14 @@ public final class SettingRow extends AbstractWidget {
 
     public SettingRow description(String text) {
         description = text;
+        return this;
+    }
+
+    /**
+     * Keeps the label and value where a described row puts them, without a description.
+     */
+    public SettingRow besideLabel() {
+        besideLabel = true;
         return this;
     }
 
@@ -130,7 +140,7 @@ public final class SettingRow extends AbstractWidget {
         }
         int left = getX() + (icon == null ? 7 : 24);
         int labelColor = accentedLabel ? UiTheme.ACCENT : active ? UiTheme.TEXT : UiTheme.MUTED;
-        if (!description.isEmpty()) {
+        if (!description.isEmpty() || besideLabel) {
             int measured = optionValue.isEmpty() ? font.width(message) : font.width(optionLabel) + 4 + font.width(optionValue);
             int labelWidth = Math.min(measured, Math.max(1, width / 2 - 18));
             if (optionValue.isEmpty())

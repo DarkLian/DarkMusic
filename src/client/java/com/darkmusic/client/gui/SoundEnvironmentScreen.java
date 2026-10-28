@@ -5,9 +5,7 @@ import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
-import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.CompletableFuture;
 
 public final class SoundEnvironmentScreen extends AudioPage<AudioSettingsScreen.Sources> {
     private boolean advanced;
@@ -18,31 +16,19 @@ public final class SoundEnvironmentScreen extends AudioPage<AudioSettingsScreen.
     }
 
     @Override
-    protected void changed() {
-        var e = app.settings().environment;
-        e.custom = !e.parameters.same(SoundEnvironmentSettings.recipe(e.preset)) || e.intensity != 1 || e.texture || e.ambience;
-        super.changed();
-    }
-
-    @Override
-    protected void adjusted() {
-        app.settings().environment.custom = true;
-    }
-
-    @Override
     protected void populate() {
         var e = app.settings().environment;
         var p = e.parameters;
         section("environment.title");
         info("environment.scope");
-        toggle("environment.enabled", () -> e.enabled, v -> {
-            if (v && e.preset == SoundEnvironmentSettings.Preset.OFF) e.select(SoundEnvironmentSettings.Preset.BEDROOM);
-            e.enabled = v;
-        });
-        labeledAction(Text.get("environment.preset") + ": " + Text.get("dsp.value." + e.preset.name().toLowerCase(Locale.ROOT)),
-            Text.get("environment.preset.help"), () -> show(new EnvironmentPickerScreen(app, this)))
-            .description(Text.get("environment.description." + e.preset.name().toLowerCase(Locale.ROOT))).navigates();
-        if (e.custom) info("environment.custom_recipe");
+        // A saved environment shows its own name; Custom is an unsaved edit.
+        String saved = e.savedName();
+        String id = e.preset.name().toLowerCase(Locale.ROOT);
+        String shown = saved != null ? saved : e.custom ? Text.get("environment.custom") : Text.get("dsp.value." + id);
+        var row = labeledAction(Text.get("environment.preset") + ": " + shown, Text.get("environment.preset.help"), () -> show(new EnvironmentPickerScreen(app, this))).navigates();
+        // Only built-in environments have a description.
+        if (saved == null && !e.custom) row.description(Text.get("environment.description." + id));
+        else row.besideLabel();
         slider("environment.intensity", e.intensity * 100, 0, 100, 100, v -> e.intensity = v / 100, "%");
         info(() -> Text.get(e.ownsReverb() ? "environment.owns_reverb" : "environment.allows_reverb"));
         section("environment.parameters");
@@ -64,9 +50,11 @@ public final class SoundEnvironmentScreen extends AudioPage<AudioSettingsScreen.
         if (recipe.modulationMs > 0)
             slider("environment.modulation", p.modulationMs, 0, 3, 60, v -> p.modulationMs = v, " ms");
         enableSince(parametersStart, e.enabled && e.preset != SoundEnvironmentSettings.Preset.OFF);
-        toggle("environment.advanced", () -> advanced, v -> advanced = v);
+        // A blank Custom recipe has nothing in the short list, so it shows every control.
+        boolean blank = e.preset == SoundEnvironmentSettings.Preset.CUSTOM;
+        if (!blank) toggle("environment.advanced", () -> advanced, v -> advanced = v);
         int advancedStart = rowCount();
-        if (advanced && e.preset != SoundEnvironmentSettings.Preset.OFF) {
+        if ((advanced || blank) && e.preset != SoundEnvironmentSettings.Preset.OFF) {
             if (!device) toggle("environment.texture", () -> e.texture, v -> e.texture = v);
             if (!outdoors) toggle("environment.ambience", () -> e.ambience, v -> e.ambience = v);
             if (p.acoustic && recipe.wet <= 0) {
@@ -120,34 +108,20 @@ public final class SoundEnvironmentScreen extends AudioPage<AudioSettingsScreen.
         // Reserve a status line only when there is something to report.
         if (!notice.isEmpty() || app.warning().equals(Text.get("error.save_settings")))
             status(() -> app.warning().equals(Text.get("error.save_settings")) ? app.warning() : notice, () -> app.warning().equals(Text.get("error.save_settings")) ? UiStatus.Tone.ERROR : UiStatus.Tone.SUCCESS);
-        action("environment.save", () -> show(PresetDialogs.save(this, "environment.save", e.userPresets, PresetNames.ENVIRONMENT_LIMIT, (name, replace) -> {
-            e.savePreset(name, replace);
-            notice = Text.get("preset.saved");
-            app.save();
-        }))).runs();
-        for (String name : List.copyOf(e.userPresets.keySet())) {
-            info(() -> name);
-            action("environment.load", () -> {
-                e.loadPreset(name);
-                app.save();
-                rebuildWidgets();
+        // A saved environment being used saves back to itself; anything else saves as a new one.
+        String target = e.savedName();
+        if (target != null)
+            labeledAction(Text.get("environment.save") + ": " + target, Text.get("environment.save"), () -> {
+                e.saveSelected();
+                notice = Text.get("preset.saved");
+                changed();
             }).runs();
-            action("environment.rename", () -> show(TextPromptScreen.validated(this, Text.get("environment.rename"), name, 256, renamed -> {
-                PresetNames.rename(e.userPresets, name, renamed);
-                notice = Text.get("preset.renamed");
+        else
+            action("environment.save", () -> show(PresetDialogs.save(this, "environment.save", e.userPresets, PresetNames.ENVIRONMENT_LIMIT, (name, replace) -> {
+                e.savePreset(name, replace);
+                notice = Text.get("preset.saved");
                 app.save();
-                return true;
             }))).runs();
-            action("environment.delete", () -> show(new ConfirmationScreen(this, Text.component("environment.delete"), Text.component("environment.delete_confirm", name), Text.component("text.darkmusic.delete"), () -> {
-                e.userPresets.remove(name);
-                notice = Text.get("preset.deleted");
-                app.save();
-                return CompletableFuture.completedFuture(null);
-            }))).destructive();
-        }
-        action("environment.reset", () -> {
-            e.select(e.preset);
-            changed();
-        }).destructive();
+        info("environment.saved_in_picker");
     }
 }

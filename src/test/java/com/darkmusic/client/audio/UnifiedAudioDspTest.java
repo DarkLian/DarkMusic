@@ -160,7 +160,7 @@ class UnifiedAudioDspTest {
     @Test
     void allEnvironmentChoicesAreDistinctAndIntensityZeroIsIdentity() {
         List<double[]> fingerprints = new ArrayList<>();
-        for (var preset : SoundEnvironmentSettings.Preset.values()) {
+        for (var preset : SoundEnvironmentSettings.BUILT_IN) {
             var s = new SoundEnvironmentSettings();
             s.select(preset);
             var dsp = new SoundEnvironmentProcessor();
@@ -178,7 +178,7 @@ class UnifiedAudioDspTest {
             for (int p = 0; p < fingerprints.size(); p++) {
                 double difference = 0;
                 for (int i = 0; i < 256; i++) difference += Math.abs(print[i] - fingerprints.get(p)[i]);
-                assertTrue(difference > 1e-4, preset + " duplicates " + SoundEnvironmentSettings.Preset.values()[p]);
+                assertTrue(difference > 1e-4, preset + " duplicates " + SoundEnvironmentSettings.BUILT_IN.get(p));
             }
             fingerprints.add(print);
             s.intensity = 0;
@@ -191,7 +191,7 @@ class UnifiedAudioDspTest {
                 assertEquals(-.3, dsp.right);
             }
         }
-        assertEquals(SoundEnvironmentSettings.Preset.values().length, fingerprints.size());
+        assertEquals(SoundEnvironmentSettings.BUILT_IN.size(), fingerprints.size());
     }
 
     @Test

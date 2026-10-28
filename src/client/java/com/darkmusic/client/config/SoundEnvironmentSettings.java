@@ -2,6 +2,7 @@ package com.darkmusic.client.config;
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -13,13 +14,19 @@ public final class SoundEnvironmentSettings {
     public double intensity = 1;
     public Parameters parameters = recipe(Preset.OFF);
     public Map<String, Saved> userPresets = new LinkedHashMap<>();
+    // The saved environment being used; edits stay with it and Save writes them back. Null for built-ins and Custom.
+    public String selectedSaved;
 
     public enum Preset {
         OFF, OLD_RADIO, TELEPHONE, WALKIE_TALKIE, VINYL, CASSETTE, BEDROOM, BATHROOM,
         CONCERT_HALL, CATHEDRAL, DEEP_CAVE, TUNNEL, WAREHOUSE, STADIUM, OPEN_MEADOW,
         FOREST_CLEARING, NEXT_ROOM, DISTANT_SPEAKERS, UNDERWATER, DREAMSCAPE,
-        CAR_CABIN, STAIRWELL, ORBITAL_ECHO
+        CAR_CABIN, STAIRWELL, ORBITAL_ECHO,
+        // A blank recipe for building a new environment; it has no description and is not listed with the built-ins.
+        CUSTOM
     }
+
+    public static final List<Preset> BUILT_IN = Arrays.stream(Preset.values()).filter(p -> p != Preset.CUSTOM).toList();
 
     public static final class Parameters implements Cloneable {
         public AudioEnhancements.ReverbEngine reverbEngine = AudioEnhancements.ReverbEngine.ALGORITHMIC;
@@ -40,6 +47,29 @@ public final class SoundEnvironmentSettings {
             } catch (CloneNotSupportedException e) {
                 throw new AssertionError(e);
             }
+        }
+
+        /**
+         * Like same, allowing for slider rounding.
+         */
+        public boolean close(Parameters p) {
+            return p != null && reverbEngine == p.reverbEngine && impulse == p.impulse && near(highPass, p.highPass) && near(lowPass, p.lowPass)
+                && near(presenceFrequency, p.presenceFrequency) && near(presenceGain, p.presenceGain)
+                && near(drive, p.drive) && near(distance, p.distance) && near(pan, p.pan) && near(roomSize, p.roomSize)
+                && near(decay, p.decay) && near(damping, p.damping) && near(wet, p.wet) && near(predelay, p.predelay)
+                && near(echoTime, p.echoTime) && near(echoGain, p.echoGain) && near(modulationMs, p.modulationMs)
+                && near(modulationHz, p.modulationHz) && near(noiseDb, p.noiseDb) && mono == p.mono && acoustic == p.acoustic
+                && near(reflectionTimes, p.reflectionTimes) && near(reflectionGains, p.reflectionGains);
+        }
+
+        private static boolean near(double a, double b) {
+            return Math.abs(a - b) < 1e-6;
+        }
+
+        private static boolean near(double[] a, double[] b) {
+            if (a == null || b == null || a.length != b.length) return a == b;
+            for (int i = 0; i < a.length; i++) if (!near(a[i], b[i])) return false;
+            return true;
         }
 
         public boolean same(Parameters p) {
@@ -94,11 +124,68 @@ public final class SoundEnvironmentSettings {
         public Parameters parameters = recipe(Preset.OFF);
     }
 
+    /**
+     * Applies a built-in environment's recipe, also when it is already selected.
+     */
     public void select(Preset value) {
+        apply(value);
+        selectedSaved = null;
+    }
+
+    /**
+     * Starts a blank Custom recipe for building a new environment.
+     */
+    public void selectCustom() {
+        apply(Preset.CUSTOM);
+        selectedSaved = null;
+    }
+
+    private void apply(Preset value) {
         preset = value;
         enabled = value != Preset.OFF;
         parameters = recipe(value);
-        custom = texture = ambience = false;
+        intensity = 1;
+        custom = value == Preset.CUSTOM;
+        texture = ambience = false;
+    }
+
+    private void load(Saved s) {
+        preset = s.preset;
+        intensity = s.intensity;
+        parameters = s.parameters.copy();
+        texture = s.texture;
+        ambience = s.ambience;
+        enabled = preset != Preset.OFF;
+    }
+
+    private Saved snapshot() {
+        var s = new Saved();
+        s.preset = preset;
+        s.intensity = intensity;
+        s.parameters = parameters.copy();
+        s.texture = texture;
+        s.ambience = ambience;
+        return s;
+    }
+
+    /**
+     * Marks the recipe Custom when it is the blank Custom or a built-in whose values were changed; a saved environment
+     * stays itself while it is edited. Called on load and whenever settings are applied.
+     */
+    public void matchPreset() {
+        // Saved with the removed Enable switch off: nothing was playing, so nothing plays.
+        if (!enabled && preset != Preset.OFF) apply(Preset.OFF);
+        enabled = preset != Preset.OFF;
+        if (selectedSaved != null && !userPresets.containsKey(selectedSaved)) selectedSaved = null;
+        custom = selectedSaved == null && preset != Preset.OFF && (preset == Preset.CUSTOM || texture || ambience
+            || Math.abs(intensity - 1) >= 1e-6 || !parameters.close(recipe(preset)));
+    }
+
+    /**
+     * The saved environment being used, or null.
+     */
+    public String savedName() {
+        return selectedSaved;
     }
 
     public void validate() {
@@ -120,6 +207,7 @@ public final class SoundEnvironmentSettings {
             clean.put(e.getKey(), s);
         }
         userPresets = clean;
+        if (selectedSaved != null && !userPresets.containsKey(selectedSaved)) selectedSaved = null;
     }
 
     public SoundEnvironmentSettings playbackCopy() {
@@ -151,26 +239,28 @@ public final class SoundEnvironmentSettings {
         savePreset(name, false);
     }
 
+    /**
+     * Saves the current recipe as a new saved environment, which becomes the one being used.
+     */
     public void savePreset(String name, boolean replace) {
-        var s = new Saved();
-        s.preset = preset;
-        s.intensity = intensity;
-        s.parameters = parameters.copy();
-        s.texture = texture;
-        s.ambience = ambience;
-        PresetNames.save(userPresets, name, s, PresetNames.ENVIRONMENT_LIMIT, replace);
+        PresetNames.save(userPresets, name, snapshot(), PresetNames.ENVIRONMENT_LIMIT, replace);
+        if (userPresets.containsKey(name)) selectedSaved = name;
+        matchPreset();
+    }
+
+    /**
+     * Writes the current recipe back to the saved environment being used.
+     */
+    public void saveSelected() {
+        if (selectedSaved != null && userPresets.containsKey(selectedSaved)) userPresets.put(selectedSaved, snapshot());
     }
 
     public void loadPreset(String name) {
         var s = userPresets.get(name);
         if (s == null) return;
-        preset = s.preset;
-        intensity = s.intensity;
-        parameters = s.parameters.copy();
-        texture = s.texture;
-        ambience = s.ambience;
-        enabled = preset != Preset.OFF;
-        custom = true;
+        load(s);
+        selectedSaved = name;
+        matchPreset();
     }
 
     /**
