@@ -1,4 +1,10 @@
 # Release checks
+## v3.5.1: Profiles, environments and Discord reconnect
+
+Clean Windows validation with `scripts/verify.ps1 -Clean -DesktopIntegration` on Java 25 passed 719 tests: 713 passed, six skipped, zero failures/errors. The run used the private real collection and existing managed tools. The Discord regression checks automatic connection when Discord becomes available after playback starts, with a five-second retry interval and no settings toggle. IntelliJ formatting and `git diff --check` passed. All five release artifacts were built.
+
+The user confirmed manual testing after the Discord retry change on 2026-10-29. No new documentation screenshots were taken. The six skips cover optional live managed-tool installation, live LRCLIB, live PiP release installation, POSIX permissions on Windows, and two unavailable symlink fixtures.
+
 
 What was checked for each release, newest first, moved from the testing guide. Commands and options still in use are in [the testing guide](../TESTING.md).
 

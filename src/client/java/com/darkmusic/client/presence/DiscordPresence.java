@@ -29,7 +29,7 @@ public final class DiscordPresence implements AutoCloseable {
     static final String RELEASES = "https://github.com/DarkLian/DarkMusic/releases/latest";
     // Discord accepts five activity updates per 20 seconds.
     static final long MIN_INTERVAL = TimeUnit.SECONDS.toNanos(4);
-    static final long RETRY = TimeUnit.SECONDS.toNanos(30);
+    static final long RETRY = TimeUnit.SECONDS.toNanos(5);
     // Re-sending the same activity notices a restarted Discord, which drops the old pipe.
     static final long REFRESH = TimeUnit.SECONDS.toNanos(60);
     private static final double SEEK_TOLERANCE = 2;
@@ -201,7 +201,7 @@ public final class DiscordPresence implements AutoCloseable {
                 } catch (IOException unavailable) {
                     // Usually Discord is simply not running; say so once, then retry quietly.
                     if (!unreachableReported)
-                        LOG.info("Discord status: cannot reach the Discord desktop app ({}); retrying every 30 seconds", unavailable.getMessage());
+                        LOG.info("Discord status: cannot reach the Discord desktop app ({}); retrying every 5 seconds", unavailable.getMessage());
                     unreachableReported = true;
                     state = "discord.darkmusic.state.unreachable";
                     nextConnect = now + RETRY;
@@ -221,7 +221,7 @@ public final class DiscordPresence implements AutoCloseable {
             sent = want;
             sentAt = now;
         } catch (IOException | RuntimeException lost) {
-            LOG.info("Discord status connection lost ({}); reconnecting in 30 seconds", lost.toString());
+            LOG.info("Discord status connection lost ({}); reconnecting in 5 seconds", lost.toString());
             disconnect();
             state = "discord.darkmusic.state.unreachable";
             nextConnect = now + RETRY;

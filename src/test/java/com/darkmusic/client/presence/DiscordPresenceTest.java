@@ -106,11 +106,12 @@ class DiscordPresenceTest {
 
     private static final class Recorder implements DiscordPresence.Connector {
         final List<JsonObject> sent = new ArrayList<>();
-        int opens, closes;
+        int attempts, opens, closes;
         boolean available = true, broken;
 
         @Override
         public DiscordPresence.Session open() throws IOException {
+            attempts++;
             if (!available) throw new IOException("Discord is not running");
             opens++;
             return new DiscordPresence.Session() {
@@ -166,18 +167,19 @@ class DiscordPresenceTest {
     }
 
     @Test
-    void missingOrRestartedDiscordIsRetriedEveryThirtySecondsWithoutSpinning() {
+    void missingOrRestartedDiscordIsRetriedEveryFiveSecondsWithoutSpinning() {
         var discord = new Recorder();
         discord.available = false;
         var presence = new DiscordPresence(discord, false);
         presence.update(true, true, state("Departure", AudioBackend.Status.PLAYING, 10), 1, 1_000_000);
         presence.step(seconds(100));
-        presence.step(seconds(110));
+        presence.step(seconds(101));
+        assertEquals(1, discord.attempts);
         assertEquals(0, discord.opens);
         discord.available = true;
-        presence.step(seconds(129));
+        presence.step(seconds(104));
         assertEquals(0, discord.opens);
-        presence.step(seconds(130.1));
+        presence.step(seconds(105.1));
         assertEquals(1, discord.opens);
         assertEquals(1, discord.sent.size());
         // Discord restarts: the periodic refresh finds the broken pipe and reconnects after the retry delay.
@@ -185,11 +187,30 @@ class DiscordPresenceTest {
         presence.step(seconds(191));
         assertEquals(1, discord.closes);
         discord.broken = false;
-        presence.step(seconds(222));
+        presence.step(seconds(196.1));
         assertEquals(2, discord.opens);
         assertEquals(2, discord.sent.size());
     }
 
+    @Test
+    void discordOpenedAfterPlaybackStartsReceivesTheCurrentSongWithoutToggling() {
+        var discord = new Recorder();
+        discord.available = false;
+        var presence = new DiscordPresence(discord, false);
+        presence.update(true, true, null, 1, 1_000_000);
+        presence.step(seconds(100));
+        presence.update(true, true, state("Departure", AudioBackend.Status.PLAYING, 10), 1, 1_001_000);
+        presence.step(seconds(101));
+        discord.available = true;
+        for (int i = 102; i < 105; i++) presence.step(seconds(i));
+        assertEquals(1, discord.attempts, "Do not spin while Discord is unavailable");
+        assertTrue(discord.sent.isEmpty());
+        presence.step(seconds(105));
+        assertEquals(2, discord.attempts);
+        assertEquals(1, discord.sent.size());
+        assertEquals("Departure", discord.sent.getFirst().get("details").getAsString());
+        assertEquals("discord.darkmusic.state.connected", presence.state());
+    }
     @Test
     void activityShowsTheSongOrOnlyThatMusicIsPlayingWithAProgressBarAtTheCurrentSpeed() {
         var song = new DiscordPresence.Song("Departure", "Kavinsky", 30, 200, 2, 1_000_000);

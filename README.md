@@ -6,9 +6,9 @@ Your own music library, inside Minecraft. Browse and play your collection, build
 
 ## Install
 
-DarkMusic **v3.5.0** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
+DarkMusic **v3.5.1** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for Minecraft 26.2**.
 
-1. Download `darkmusic-3.5.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-3.5.1.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Add your songs under **Settings → General → Music Folders**, drag audio files into the player, or copy them to `config/darkmusic/music` in your instance.
@@ -126,7 +126,7 @@ Automatic update checks are on by default: they run after joining a world/server
 
 ## What's new
 
-**v3.5.0** resumes where you left off, adds an opt-in Discord status, optional media keys and Windows media controls, a sleep timer, new shortcuts, Settings search, Recently Added and Never Played lists, and HUD options to hide when idle, show a song change card, the next song and the time ([release notes](docs/releases/RELEASE-3.5.0.md)).
+**v3.5.1** clarifies audio profiles and sound environments, preserves Up Next when selecting a song, and improves settings ownership and concurrency ([release notes](docs/releases/RELEASE-3.5.1.md)).
 
 **v3.4.0** adds chat commands for playback (`/da play <song>`, `/da now`, `/da volume`, `/da seek` and more), redesigns `/da help` in your accent color, makes `/da update` ask before downloading, and removes the confirmation dialog from DarkMusic's chat buttons ([release notes](docs/releases/RELEASE-3.4.0.md)).
 
