@@ -19,6 +19,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.*;
@@ -33,12 +34,10 @@ public final class LoudnessCache implements AutoCloseable {
     private static final Logger LOG = LoggerFactory.getLogger("darkmusic-audio");
     private final Map<String, Reading> results = new ConcurrentHashMap<>();
     private final Map<String, Set<String>> storedKeys = new HashMap<>();
-    // Paths this instance measured, whose other file versions it retired.
-    private final Set<String> measured = new HashSet<>();
     // Preview players keep their own caches on the same file; one read-merge-write at a time.
     private static final Object SAVING = new Object();
     private final Set<String> pending = ConcurrentHashMap.newKeySet();
-    private static final int READINGS = 65536;
+    private static final int READINGS = 65536, RETRY_WAITS = 4096;
     // Inspections that finished without a stored reading; the oldest is forgotten first.
     private final Set<String> attempted = Collections.synchronizedSet(Collections.newSetFromMap(new LinkedHashMap<>() {
         @Override
@@ -277,10 +276,14 @@ public final class LoudnessCache implements AutoCloseable {
 
     private double request(Track track, AudioSettings settings, boolean priority, Batch owner) {
         if (owner != null && owner.cancelled) return 1;
-        if (retryAfter.size() > 4096) {
+        if (retryAfter.size() > RETRY_WAITS) {
             long now = clock.getAsLong();
             retryAfter.values().removeIf(at -> at <= now);
-            if (retryAfter.size() > 4096) retryAfter.clear();
+            // Still full: the waits that end soonest go, so the rest keep their backoff.
+            int excess = retryAfter.size() - RETRY_WAITS;
+            if (excess > 0)
+                retryAfter.entrySet().stream().sorted(Map.Entry.comparingByValue()).limit(excess).map(Map.Entry::getKey)
+                    .toList().forEach(retryAfter::remove);
         }
         Lookup lookup = lookup(track, settings);
         String key = lookup.key;
@@ -367,21 +370,41 @@ public final class LoudnessCache implements AutoCloseable {
     }
 
     /**
-     * This instance's readings plus those another instance saved since. For a path this instance measured, only the
-     * file versions it holds are kept, so versions it retired stay retired.
+     * This instance's readings plus those another instance saved since, without versions either has replaced.
      */
-    private Map<String, Reading> withSaved(Map<String, Reading> own, Set<String> paths) throws IOException {
-        if (!Files.isRegularFile(cache)) return own;
-        if (Files.size(cache) > MAX_CACHE_BYTES)
-            throw new JsonParseException("Loudness cache exceeds the 64 MB read limit");
-        var versions = new HashSet<String>();
-        for (String key : own.keySet()) if (paths.contains(pathOfKey(key))) versions.add(versionOfKey(key));
+    private Map<String, Reading> withSaved(Map<String, Reading> own) throws IOException {
         var merged = new HashMap<>(own);
-        read(cache, (key, r) -> {
-            if (merged.size() < READINGS && (!paths.contains(pathOfKey(key)) || versions.contains(versionOfKey(key))))
-                merged.putIfAbsent(key, r);
-        });
+        if (Files.isRegularFile(cache)) {
+            if (Files.size(cache) > MAX_CACHE_BYTES)
+                throw new JsonParseException("Loudness cache exceeds the 64 MB read limit");
+            read(cache, (key, r) -> {
+                if (merged.size() < READINGS) merged.putIfAbsent(key, r);
+            });
+        }
+        latestVersions(merged);
         return merged;
+    }
+
+    /**
+     * Where readings cover more than one version of a file, keeps the version the file has now. Either cache's view
+     * may be stale, so neither decides; a file that cannot be checked keeps its newest modification time.
+     */
+    static void latestVersions(Map<String, Reading> readings) {
+        var byPath = new HashMap<String, List<String>>();
+        for (String key : readings.keySet())
+            byPath.computeIfAbsent(pathOfKey(key), ignored -> new ArrayList<>()).add(key);
+        for (var entry : byPath.entrySet()) {
+            var keys = entry.getValue();
+            if (keys.stream().map(LoudnessCache::versionOfKey).distinct().count() < 2) continue;
+            String keep;
+            try {
+                Path file = Path.of(entry.getKey());
+                keep = entry.getKey() + ":" + Files.size(file) + ":" + Files.getLastModifiedTime(file).toMillis() + ":";
+            } catch (IOException | InvalidPathException e) {
+                keep = versionOfKey(Collections.max(keys, Comparator.comparingLong(LoudnessCache::modifiedOfKey)));
+            }
+            for (String key : keys) if (!versionOfKey(key).equals(keep)) readings.remove(key);
+        }
     }
 
     /**
@@ -404,6 +427,15 @@ public final class LoudnessCache implements AutoCloseable {
 
     private static String versionOfKey(String key) {
         return key.substring(0, key.lastIndexOf(':') + 1);
+    }
+
+    private static long modifiedOfKey(String key) {
+        int mode = key.lastIndexOf(':'), modified = key.lastIndexOf(':', mode - 1);
+        try {
+            return Long.parseLong(key.substring(modified + 1, mode));
+        } catch (NumberFormatException e) {
+            return Long.MIN_VALUE;
+        }
     }
 
     private static String pathOfKey(String key) {
@@ -432,7 +464,6 @@ public final class LoudnessCache implements AutoCloseable {
                 return true;
             });
             keys.add(key);
-            measured.add(path);
             results.put(key, reading);
             dirty = true;
             revision++;
@@ -442,19 +473,17 @@ public final class LoudnessCache implements AutoCloseable {
     private void flush() {
         synchronized (flushLock) {
             Map<String, Reading> snapshot;
-            Set<String> paths;
             long captured;
             synchronized (persistence) {
                 if (!dirty || cache == null || preserveOriginal) return;
                 snapshot = Map.copyOf(results);
-                paths = Set.copyOf(measured);
                 captured = revision;
             }
             try {
                 synchronized (SAVING) {
                     Map<String, Reading> merged;
                     try {
-                        merged = withSaved(snapshot, paths);
+                        merged = withSaved(snapshot);
                     } catch (JsonParseException | IllegalStateException | MalformedJsonException |
                              EOFException e) {
                         synchronized (persistence) {

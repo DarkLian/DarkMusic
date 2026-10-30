@@ -10,7 +10,10 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
@@ -83,6 +86,101 @@ class LoudnessPersistenceTest {
             }
             var json = JsonParser.parseString(Files.readString(temp.resolve("loudness-cache.json"))).getAsJsonObject();
             assertEquals(Set.of(key(track("a.opus", 2)), key(track("b.opus", 1))), json.keySet(), "A measured file keeps only its current version");
+        } finally {
+            ExternalAudio.configure(null);
+        }
+    }
+
+    // A placeholder with the size and modification time a track records; the cache never reads its contents.
+    private Track existing(String name, long modified) throws Exception {
+        Path file = Files.write(temp.resolve(name), new byte[1234]);
+        Files.setLastModifiedTime(file, FileTime.fromMillis(modified));
+        return track(name, modified);
+    }
+
+    private JsonObject saved() throws Exception {
+        return JsonParser.parseString(Files.readString(temp.resolve("loudness-cache.json"))).getAsJsonObject();
+    }
+
+    @Test
+    void aLateWriteOfAnOlderVersionDoesNotReplaceTheNewerOne() throws Exception {
+        ExternalAudio.configure(() -> new ExternalAudio.Paths(temp, "", ""));
+        try {
+            var old = new LoudnessCache();
+            loaded(old);
+            var before = track("a.dat", 1000);
+            old.remember(before, key(before), new LoudnessCache.Reading(-20, -3));
+            var after = existing("a.dat", 2000);
+            try (var replacement = new LoudnessCache()) {
+                loaded(replacement);
+                replacement.remember(after, key(after), new LoudnessCache.Reading(-21, -4));
+                flush(replacement);
+                old.close();
+                assertEquals(Set.of(key(after)), saved().keySet());
+            }
+        } finally {
+            ExternalAudio.configure(null);
+        }
+    }
+
+    @Test
+    void savingAnotherSongDoesNotBringBackAReplacedVersion() throws Exception {
+        ExternalAudio.configure(() -> new ExternalAudio.Paths(temp, "", ""));
+        try {
+            var before = track("a.dat", 1000);
+            try (var first = new LoudnessCache()) {
+                loaded(first);
+                first.remember(before, key(before), new LoudnessCache.Reading(-20, -3));
+            }
+            var loadedBefore = new LoudnessCache();
+            loaded(loadedBefore);
+            var after = existing("a.dat", 2000);
+            try (var replacement = new LoudnessCache()) {
+                loaded(replacement);
+                replacement.remember(after, key(after), new LoudnessCache.Reading(-21, -4));
+                flush(replacement);
+            }
+            var other = track("b.opus", 1);
+            loadedBefore.remember(other, key(other), new LoudnessCache.Reading(-19, -2));
+            loadedBefore.close();
+            assertEquals(Set.of(key(after), key(other)), saved().keySet());
+        } finally {
+            ExternalAudio.configure(null);
+        }
+    }
+
+    @Test
+    void theFileOnDiskDecidesBetweenVersionsAndTheNewestWinsWhenItCannot() throws Exception {
+        var restored = existing("restored.dat", 1000);
+        var newer = track("restored.dat", 2000);
+        var offlineOld = track("offline.opus", 1000);
+        var offlineNew = track("offline.opus", 2000);
+        var readings = new HashMap<String, LoudnessCache.Reading>();
+        for (var t : List.of(restored, newer, offlineOld, offlineNew))
+            readings.put(key(t), new LoudnessCache.Reading(-20, -3));
+        LoudnessCache.latestVersions(readings);
+        assertEquals(Set.of(key(restored), key(offlineNew)), readings.keySet());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void retryWaitsBeyondTheLimitDropTheSoonestFirst() throws Exception {
+        ExternalAudio.configure(() -> new ExternalAudio.Paths(temp, "", ""));
+        try {
+            var cache = new LoudnessCache(() -> 0L);
+            loaded(cache);
+            cache.close();
+            var field = LoudnessCache.class.getDeclaredField("retryAfter");
+            field.setAccessible(true);
+            var waits = (Map<String, Long>) field.get(cache);
+            waits.put("expired", -1L);
+            for (int i = 1; i <= 4097; i++) waits.put("attempt-" + i, (long) i);
+            cache.gain(track("song.opus", 1), new AudioSettings());
+            assertEquals(4096, waits.size());
+            assertFalse(waits.containsKey("expired"));
+            assertFalse(waits.containsKey("attempt-1"));
+            assertTrue(waits.containsKey("attempt-2"));
+            assertTrue(waits.containsKey("attempt-4097"));
         } finally {
             ExternalAudio.configure(null);
         }
