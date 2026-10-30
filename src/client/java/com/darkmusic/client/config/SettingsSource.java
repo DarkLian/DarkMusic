@@ -11,7 +11,8 @@ public interface SettingsSource {
     Settings settings();
 
     /**
-     * Writes the settings and reapplies them; skipped while a restore owns the config.
+     * Commits a change: applies the settings to the running services, then queues the write. Skipped before the config
+     * loads and while shutdown, reset or a restore owns the config. A queued write is not yet on disk.
      */
     void save();
 }

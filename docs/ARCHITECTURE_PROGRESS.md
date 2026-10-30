@@ -183,3 +183,45 @@ executors. It covers:
 
 **Runtime-unverified:** startup autoplay timing and playlist cleanup with a real library in game. Covered by the
 default and cleanup smoke checks in the testing window.
+
+## Batch 4: settings application and replacement (2026-10-30)
+
+**Invariant improved:** the whole-settings operation is named for what it does. Its order is documented: derived
+values are normalized first, then the settings are applied to services, then written on save. The semantics of a
+settings replacement are written down and tested.
+
+**Changes:**
+- `configureVisualizer` is renamed `applySettings` in the client, the screens (`AudioPage.Sources`) and the smoke
+  sources. It sets the theme, codec paths, download format, lyrics preferences, profile and environment names,
+  playback DSP and spectrum, so the old name hid most of what it did. The profile and environment name matching now
+  runs first. That is behaviour-neutral: it reads and writes only `audio` and `environment`, which nothing earlier
+  in the method uses.
+- `SettingsSource.save` and `AudioPage.Sources.applySettings` say exactly what they promise. Applying happens while
+  a control moves. Saving applies the settings and then queues the write. A queued write is not yet on disk.
+- `SettingsStoreTest.anEditToAReplacedObjectIsNeverWritten` is new.
+
+**Replacement semantics (audit result, no framework added).** `SettingsStore.replace` happens in three places, and
+each is triggered from its own flow:
+- **Load** happens before any screen can open, because `open` requires settings.
+- **Reset** starts from Settings → confirmation.
+- **Restore** starts from Settings → Backup → confirmation.
+
+While a replacement happens, only the confirmation screen that started it is active. The screens beneath it
+(Music, Settings, Backup) rebuild their widgets in `init` when shown again, and `SettingsScreen` additionally resets
+its preview state when the object changed (`shownSettings`). No gui class keeps a `Settings` field except that one.
+The only nested target kept is `ColorsScreen`'s colours, and it cannot be on screen during a replacement. Every save
+goes through the store, which writes the current object. Closing a screen after a reset saves the reset settings,
+never an obsolete copy.
+
+**Coupled settings operations, already adequate:**
+- Profiles and environments already have explicit model operations in `AudioSettings` and
+  `SoundEnvironmentSettings`: `select`, `selectCustom`, `savePreset`, `loadPreset` and `saveSelected`, with
+  `matchProfile` and `matchPreset` as normalization.
+- `AudioProfileTest`, `EnvironmentPresetTest`, `PlaybackConfigurationTest` and `CustomizationTest` cover
+  Original/Custom/saved semantics, legacy and missing values, and the playback copy at the worker boundary. All
+  passed.
+- Moving to an `update(s -> ...)` store would change when saves happen, because many screens save on close. That
+  was deferred earlier on purpose and stays deferred: it is a behaviour change, not a structural one.
+
+**Checks:** `SettingsStoreTest` (6), `ArchitectureTest`, `AudioProfileTest`, `EnvironmentPresetTest`,
+`PlaybackConfigurationTest` and `CustomizationTest` passed. `compileSmokeJava -Psmoke` passed.

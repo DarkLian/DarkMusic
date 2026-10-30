@@ -162,7 +162,7 @@ final class LyricsSmokeClient {
                 Path tools = Path.of(System.getProperty("darkmusic.downloadTools"));
                 app.settings().ffmpegPath = tools.resolve("ffmpeg.exe").toString();
                 app.settings().ffprobePath = tools.resolve("ffprobe.exe").toString();
-                app.configureVisualizer();
+                app.applySettings();
                 app.settings().lyricsEnabled = true;
                 app.settings().lyricsOnline = false;
                 app.settings().lyricsConsentVersion = 1;
@@ -531,7 +531,7 @@ final class LyricsSmokeClient {
                 System.out.println("DARKMUSIC_HUD_IMAGE_PASS: artwork/icon in three layouts, unavailable-artwork fallback, circular crop, zero/custom gap, progress-only/spectrum-only/both and compact/wide bounds");
                 app.settings().spectrumStyle = app.settings().circularSpectrumStyle = Settings.SpectrumStyle.ROUNDED_BARS;
                 app.settings().spectrumOpacity = .55;
-                app.configureVisualizer();
+                app.applySettings();
                 app.playback.toggle();
                 since = ticks;
                 stage = 21;

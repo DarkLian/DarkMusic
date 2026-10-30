@@ -136,7 +136,7 @@ public final class AudioSettingsScreen extends LocalScreen {
         var slider = new ValueSlider(formX, 0, formWidth, value, v -> Text.get(key) + ": " + label.apply(v), v -> {
             current[0] = v;
             change.accept(v);
-            app.configureVisualizer();
+            app.applySettings();
         }, () -> {
             app.save();
             rebuildWidgets();
@@ -220,7 +220,7 @@ public final class AudioSettingsScreen extends LocalScreen {
                     band -> a.bands[band], (band, db) -> {
                     a.bands[band] = db;
                     a.eqPreset = "CUSTOM";
-                    app.configureVisualizer();
+                    app.applySettings();
                 }, () -> {
                     app.save();
                     rebuildWidgets();

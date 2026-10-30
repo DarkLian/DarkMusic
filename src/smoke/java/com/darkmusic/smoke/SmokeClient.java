@@ -401,7 +401,7 @@ public final class SmokeClient implements ClientModInitializer {
                     String ext = System.getProperty("os.name").startsWith("Windows") ? ".exe" : "";
                     app.settings().ffmpegPath = tools.resolve("ffmpeg" + ext).toString();
                     app.settings().ffprobePath = tools.resolve("ffprobe" + ext).toString();
-                    app.configureVisualizer();
+                    app.applySettings();
                 }
                 app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> {
                 });
@@ -433,7 +433,7 @@ public final class SmokeClient implements ClientModInitializer {
                 app.settings().lyricsConsentVersion = 1;
                 app.settings().lyricsOnline = app.settings().lyricsLibraryLookup = false;
 
-                app.configureVisualizer();
+                app.applySettings();
                 app.playback.shuffle(false);
                 app.playback.repeat(Repeat.OFF);
                 app.speed(1);

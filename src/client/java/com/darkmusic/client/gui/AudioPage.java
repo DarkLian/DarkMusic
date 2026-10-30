@@ -37,7 +37,10 @@ public abstract class AudioPage<S extends AudioPage.Sources> extends LocalScreen
      * What every audio page needs; each page's own type adds the rest.
      */
     public interface Sources extends SettingsSource {
-        void configureVisualizer();
+        /**
+         * Applies the settings to the running services without writing, while a control moves; save commits.
+         */
+        void applySettings();
     }
 
     protected abstract void populate();
@@ -175,7 +178,7 @@ public abstract class AudioPage<S extends AudioPage.Sources> extends LocalScreen
                 current[0] = parameter.value(v);
                 write.accept(current[0]);
                 adjusted();
-                app.configureVisualizer();
+                app.applySettings();
             }, () -> {
             app.save();
             rebuildWidgets();

@@ -61,4 +61,21 @@ class SettingsStoreTest {
         assertSame(second, store.settings());
         assertSame(second, written.getFirst());
     }
+
+    /**
+     * Reset or restore replaces the object while its own confirmation screen is open; the screens below rebuild when
+     * shown again. A callback that still holds the old object can change it, but a save writes only the current one.
+     */
+    @Test
+    void anEditToAReplacedObjectIsNeverWritten() {
+        var obsolete = new Settings();
+        var restored = new Settings();
+        restored.volume = .25;
+        store.replace(obsolete);
+        store.replace(restored);
+        obsolete.volume = 1;
+        store.save();
+        assertSame(restored, written.getFirst());
+        assertEquals(.25, written.getFirst().volume);
+    }
 }

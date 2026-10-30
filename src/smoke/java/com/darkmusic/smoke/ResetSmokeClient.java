@@ -110,7 +110,7 @@ final class ResetSmokeClient {
                     String ext = System.getProperty("os.name").startsWith("Windows") ? ".exe" : "";
                     app.settings().ffmpegPath = managed.resolve("ffmpeg" + ext).toString();
                     app.settings().ffprobePath = managed.resolve("ffprobe" + ext).toString();
-                    app.configureVisualizer();
+                    app.applySettings();
                     String audioExtension = source.getFileName().toString().substring(source.getFileName().toString().lastIndexOf('.'));
                     custom = data.resolve("test-custom-music");
                     prepared = CompletableFuture.runAsync(() -> {

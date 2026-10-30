@@ -119,7 +119,7 @@ final class MusicCaptureClient {
                     app.settings().ytDlpPath = directory.resolve("yt-dlp" + ext).toString();
                     app.settings().ffmpegPath = directory.resolve("ffmpeg" + ext).toString();
                     app.settings().ffprobePath = directory.resolve("ffprobe" + ext).toString();
-                    app.configureVisualizer();
+                    app.applySettings();
                     app.settings().javascriptPath = js;
                     app.downloads.checkTools();
                     mc.gui.setScreen(new DownloadToolsScreen(app, player));

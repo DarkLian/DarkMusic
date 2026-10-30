@@ -155,7 +155,7 @@ final class PipSmoothClient {
                     String ext = System.getProperty("os.name").startsWith("Windows") ? ".exe" : "";
                     app.settings().ffmpegPath = tools.resolve("ffmpeg" + ext).toString();
                     app.settings().ffprobePath = tools.resolve("ffprobe" + ext).toString();
-                    app.configureVisualizer();
+                    app.applySettings();
                 }
                 app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> {
                 });

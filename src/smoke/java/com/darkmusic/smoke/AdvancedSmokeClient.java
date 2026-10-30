@@ -71,7 +71,7 @@ final class AdvancedSmokeClient {
                     Path tools = Path.of(System.getProperty("darkmusic.downloadTools"));
                     app.settings().ffmpegPath = tools.resolve("ffmpeg.exe").toString();
                     app.settings().ffprobePath = tools.resolve("ffprobe.exe").toString();
-                    app.configureVisualizer();
+                    app.applySettings();
                     app.settings().audio = new AudioSettings();
                     app.settings().visualQuality = new VisualQuality();
                     app.save();

@@ -217,7 +217,7 @@ final class DownloadPreviewClient {
                 app.settings().ytDlpPath = tools.resolve("yt-dlp.exe").toString();
                 app.settings().ffmpegPath = tools.resolve("ffmpeg.exe").toString();
                 app.settings().ffprobePath = tools.resolve("ffprobe.exe").toString();
-                app.configureVisualizer();
+                app.applySettings();
                 var track = app.library.snapshot().tracks().getFirst();
                 app.playback.play(List.of(track), track);
                 app.open();

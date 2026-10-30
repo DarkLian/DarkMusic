@@ -167,7 +167,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
     private void slider(double initial, DoubleFunction<String> label, DoubleConsumer change, int steps, String help) {
         var slider = new ValueSlider(12, 0, formWidth, initial, label, v -> {
             change.accept(v);
-            app.configureVisualizer();
+            app.applySettings();
         }, app::save, steps);
         put(slider, Text.get(help));
     }
@@ -267,7 +267,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
             position();
         }));
         position();
-        app.configureVisualizer();
+        app.applySettings();
     }
 
     private void generalSettings(Settings s) {
@@ -791,7 +791,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
     @Override
     public void removed() {
         super.removed();
-        app.configureVisualizer();
+        app.applySettings();
     }
 
     /**

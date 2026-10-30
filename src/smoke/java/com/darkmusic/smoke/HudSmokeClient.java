@@ -155,7 +155,7 @@ final class HudSmokeClient {
                     s.visualizerBars = combination % 2 == 0 ? 8 : 64;
                     s.visualizerSensitivity = 4;
                     s.visualizerSmoothing = .95;
-                    app.configureVisualizer();
+                    app.applySettings();
                     var b = NowPlayingHud.bounds(app.hud, screen.width, screen.height);
                     require(b.x() + b.width() <= screen.width - 8 && b.y() + b.height() <= screen.height - 8, "Combined bounds escaped viewport");
                     for (var child : screen.children())
@@ -499,7 +499,7 @@ final class HudSmokeClient {
                     s.visualizerBars = 36;
                     s.visualizerSensitivity = 1;
                     s.visualizerSmoothing = .6;
-                    app.configureVisualizer();
+                    app.applySettings();
                     app.save();
                     saved = CompletableFuture.supplyAsync(() -> new ConfigStore(app.config.directory(), app.io, msg -> {
                         throw new IllegalStateException(msg);
@@ -617,7 +617,7 @@ final class HudSmokeClient {
                 case 59 -> {
                     capture(mc, "circular-text-hidden");
                     s.hudVisualizer = false;
-                    app.configureVisualizer();
+                    app.applySettings();
                     mc.gui.setScreen(new SettingsScreen(app, null));
                     state++;
                 }
@@ -638,7 +638,7 @@ final class HudSmokeClient {
                     app.playback.spectrum().copyTo(after);
                     require(CircularHudLayout.iconZoom(pausedStyleLevels, s.visualizerBars) == CircularHudLayout.iconZoom(after, s.visualizerBars), "Icon pulse changed while paused");
                     s.circularIconPulse = false;
-                    app.configureVisualizer();
+                    app.applySettings();
                     state++;
                 }
                 case 63 -> {
@@ -797,7 +797,7 @@ final class HudSmokeClient {
                         s.visualizerBars = 36;
                         s.hudStyle = Settings.HudStyle.CLASSIC;
                         s.spectrumStyle = s.circularSpectrumStyle = Settings.SpectrumStyle.BARS;
-                        app.configureVisualizer();
+                        app.applySettings();
                         app.save();
                         state++;
                         return;
@@ -810,7 +810,7 @@ final class HudSmokeClient {
                     var style = next.endsWith("rounded") ? Settings.SpectrumStyle.ROUNDED_BARS : Settings.SpectrumStyle.BARS;
                     s.spectrumStyle = s.circularSpectrumStyle = style;
                     s.artworkSpectrumPosition = next.equals("artwork-side") ? Settings.ArtworkSpectrumPosition.LEFT : Settings.ArtworkSpectrumPosition.BELOW;
-                    app.configureVisualizer();
+                    app.applySettings();
                     mc.gui.setScreen(new SettingsScreen(app, null));
                     state++;
                 }

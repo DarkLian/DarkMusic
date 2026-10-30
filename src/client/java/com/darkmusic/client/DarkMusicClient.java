@@ -110,7 +110,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
     public final SpeedFeedback speedFeedback = new SpeedFeedback();
     public final VolumeFeedback volumeFeedback = new VolumeFeedback();
     // Owns the live settings and the rule for writing them; load, reset and restore replace them through it.
-    private final SettingsStore settingsStore = new SettingsStore(config::save, () -> alive() && !this.state.restoring, this::configureVisualizer);
+    private final SettingsStore settingsStore = new SettingsStore(config::save, () -> alive() && !this.state.restoring, this::applySettings);
     // Reads the fields on every call: reset and restore replace the services behind them.
     public final HudSources hud = new HudSources() {
         public Settings settings() {
@@ -359,7 +359,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                 playback.shuffle(settings().shuffle);
                 playback.repeat(settings().repeat);
                 // The journal already wrote the files; the next save writes anything applying normalized.
-                configureVisualizer();
+                applySettings();
             }
 
             @Override
@@ -727,25 +727,33 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         settingsStore.replace(settings);
     }
 
+    /**
+     * Pushes the current settings into the running services, in this order: normalize the values that are derived
+     * from others (profile and environment names), then theme, external codec paths, download format, lyrics,
+     * playback DSP and spectrum. Does not write: screens call it while a control moves and {@link #save()} (apply,
+     * then write) when the change is committed. Playback compares and copies what it needs, so repeating it is cheap.
+     */
     @Override
-    public void configureVisualizer() {
-        if (settings() != null) {
-            UiTheme.apply(settings());
-            // Workers read a fixed copy; changed paths take effect the next time settings are applied, like the rest.
-            var tools = new ExternalAudio.Paths(config.directory(), settings().ffmpegPath, settings().ffprobePath);
-            ExternalAudio.configure(() -> tools);
-            if (downloads != null) downloads.format(settings().downloadFormat);
-            lyrics.enabled(settings().lyricsEnabled);
-            lyrics.lookup.configure(settings().lyricsEnabled, settings().lyricsOnline);
-            lyrics.lookup.captionPreferences(settings().lyricsLanguages, settings().lyricsAutoCaptions);
-            // Keep the profile and environment names in step with the values: an edit while one is selected becomes Custom.
-            settings().audio.matchProfile();
-            settings().environment.matchPreset();
-            if (playback != null) playback.configure(settings().audio, settings().environment);
-        }
-        if (playback != null && playback.spectrum() != null) {
-            playback.spectrum().configure(settings().hudVisualizer || settings().hudStyle == Settings.HudStyle.CIRCULAR && settings().circularIconPulse, settings().visualizerBars, settings().visualizerSensitivity, settings().visualizerSmoothing);
-            playback.spectrum().refine(settings().visualQuality);
+    public void applySettings() {
+        var s = settings();
+        if (s == null) return;
+        // An edit while a profile or environment is selected turns it into Custom; saved entries stay themselves.
+        s.audio.matchProfile();
+        s.environment.matchPreset();
+        UiTheme.apply(s);
+        // Workers read a fixed copy; changed paths take effect the next time settings are applied, like the rest.
+        var tools = new ExternalAudio.Paths(config.directory(), s.ffmpegPath, s.ffprobePath);
+        ExternalAudio.configure(() -> tools);
+        if (downloads != null) downloads.format(s.downloadFormat);
+        lyrics.enabled(s.lyricsEnabled);
+        lyrics.lookup.configure(s.lyricsEnabled, s.lyricsOnline);
+        lyrics.lookup.captionPreferences(s.lyricsLanguages, s.lyricsAutoCaptions);
+        if (playback == null) return;
+        playback.configure(s.audio, s.environment);
+        if (playback.spectrum() != null) {
+            playback.spectrum().configure(s.hudVisualizer || s.hudStyle == Settings.HudStyle.CIRCULAR && s.circularIconPulse,
+                s.visualizerBars, s.visualizerSensitivity, s.visualizerSmoothing);
+            playback.spectrum().refine(s.visualQuality);
         }
     }
 
@@ -1006,7 +1014,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         var newPlayback = playback = createPlayback();
         acquired.first("playback", newPlayback::close);
         playback.volume(settings().volume);
-        configureVisualizer();
+        applySettings();
         playback.speed(settings().speed);
         playback.shuffle(settings().shuffle);
         playback.repeat(settings().repeat);
@@ -1190,7 +1198,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             playback.speed(settings().speed);
             playback.shuffle(settings().shuffle);
             playback.repeat(settings().repeat);
-            configureVisualizer();
+            applySettings();
             if (defaults) {
                 warning = "";
                 warningUntil = 0;
