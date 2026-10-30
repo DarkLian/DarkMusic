@@ -12,6 +12,18 @@
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
+  <!-- The runtime shipped inside this self-contained helper: the latest .NET 8 patch, newer than the SDK's own.
+       Keep both helpers on the same patch. -->
+  <PropertyGroup>
+    <HelperRuntimePatch>8.0.33</HelperRuntimePatch>
+  </PropertyGroup>
+  <Target Name="PinHelperRuntimePatch" BeforeTargets="ProcessFrameworkReferences">
+    <ItemGroup>
+      <KnownFrameworkReference Condition="'%(TargetFramework)' == 'net8.0' and ('%(Identity)' == 'Microsoft.NETCore.App' or '%(Identity)' == 'Microsoft.WindowsDesktop.App' or '%(Identity)' == 'Microsoft.WindowsDesktop.App.WindowsForms' or '%(Identity)' == 'Microsoft.WindowsDesktop.App.WPF')">
+        <LatestRuntimeFrameworkVersion>$(HelperRuntimePatch)</LatestRuntimeFrameworkVersion>
+      </KnownFrameworkReference>
+    </ItemGroup>
+  </Target>
   <ItemGroup>
     <Content Include="licenses/*" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>

@@ -76,6 +76,9 @@ reports a failure. No recovery step grants access or captures a different window
 
 - The helper builds with every normal build (the `bundlePipHelper` task; `-PjavaOnly` skips it). It needs .NET SDK
   **8.0.421**, pinned in `src/pipHelper/global.json` with roll-forward disabled and a locked restore.
+- The .NET runtime inside the helper is pinned separately, by `HelperRuntimePatch` in `PipHelper.csproj` and
+  `MediaHelper.csproj` (currently **8.0.33**, newer than the SDK's own 8.0.27). Raise it in both files when a .NET 8
+  security patch ships; the build downloads the matching runtime packs from NuGet.
 - `runClient` installs the ZIP from its own build, after the same confirmation. A local SDK can produce a package that
   differs from the release one, so a development run never pairs its manifest with the published ZIP. A self-built
   JAR works only with the ZIP built alongside it; do not turn off verification to mix builds.
