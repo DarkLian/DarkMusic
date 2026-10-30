@@ -152,8 +152,7 @@ Change paths, before and after:
   so each build's manifest hashes are its own.
 - **Batch 17 CI:** the build workflow with the composite action passed on Ubuntu, Windows and macOS at `5093019`,
   and Dependabot scanned the action. The release workflow runs only on a tag and has not run with these changes.
-- **Release:** not released. Per AGENTS.md, it still needs a normal play session, then a tag and publication with
-  approval.
+- **Release:** released in v3.6.0 (2026-10-31).
 
 ## Rerunning the runtime checks
 

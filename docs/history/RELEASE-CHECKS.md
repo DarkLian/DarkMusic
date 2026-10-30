@@ -1,4 +1,17 @@
 # Release checks
+## v3.6.0: Import History selection, environment Off page and lifecycle fixes
+
+Clean Windows validation with `scripts/verify.ps1 -Clean` on Java 25 passed 778 tests: 767 passed, 11 skipped, zero
+failures/errors, with the private real collection and existing managed tools. All five release artifacts were built.
+The skips are the desktop, live-network, managed-install, PiP-install, permission and symlink cases; the desktop cases
+last passed in the 2026-10-30/31 testing windows (`verify.ps1 -Clean -DesktopIntegration`: 776 tests, 6 skipped;
+the stuck-audio-line reset test on the real device), before the user-interface changes, which touch none of them.
+In-game smoke checks after the user-interface changes: default, default restart, reset, queue and lyrics passed, then
+default and queue again after the Import History and title changes; the collection was unchanged.
+
+The user confirmed manual testing and a normal play session on 2026-10-31. Documentation screenshots for the
+changed screens will follow.
+
 ## v3.5.1: Profiles, environments and Discord reconnect
 
 Clean Windows validation with `scripts/verify.ps1 -Clean -DesktopIntegration` on Java 25 passed 719 tests: 713 passed, six skipped, zero failures/errors. The run used the private real collection and existing managed tools. The Discord regression checks automatic connection when Discord becomes available after playback starts, with a five-second retry interval and no settings toggle. IntelliJ formatting and `git diff --check` passed. All five release artifacts were built.
