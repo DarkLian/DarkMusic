@@ -76,7 +76,7 @@ Smoke options (each mode runs in its own `build/<mode>-run` folder; the first on
 | `-PqueueSmoke` | Up Next, playlists and queue editing |
 | `-PcleanupSmoke` | Smart Cleanup and duplicate review |
 | `-PlyricsSmoke` | Lyrics screens and the lyrics HUD |
-| `-PpreviewSmoke` | HUD settings and preview, including Circular HUD rotation |
+| `-PpreviewSmoke` | Download preview: URL and preview kept across menu re-entry, search/range/check modes, real-device audition, and the visualizer settings entry |
 | `-PadvancedSmoke` | Advanced audio screens |
 | `-PresetSmoke` | Reset to Defaults keeps tools and music folders |
 | `-PcaptureMusic` | Takes the private player captures |

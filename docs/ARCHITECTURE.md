@@ -1,7 +1,7 @@
 # DarkMusic architecture
 
 How the client is put together: who owns what, which thread touches it, and how services start, get replaced
-and stop. Per-batch history is in [ARCHITECTURE_PROGRESS.md](ARCHITECTURE_PROGRESS.md).
+and stop. Findings, test evidence and open items are in [ARCHITECTURE_PROGRESS.md](ARCHITECTURE_PROGRESS.md).
 
 ## Dependency direction
 
@@ -9,8 +9,9 @@ and stop. Per-batch history is in [ARCHITECTURE_PROGRESS.md](ARCHITECTURE_PROGRE
 Minecraft/Fabric callbacks, mixins, screens (gui), HUD (hud, render), PiP (pip), chat commands (command)
         │  narrow Sources interfaces / adapters; never DarkMusicClient (ArchitectureTest: DECOUPLED)
         ▼
-com.darkmusic.client (root): DarkMusicClient = composition root + Fabric integration,
-        Folder/Media/Client actions, Shortcuts, lifecycle (ClientState, Startup, ResetOperation, RestoreOperation, Shutdown, Cleanup, ClientDispatch), LibraryReconciliation
+com.darkmusic.client (root): DarkMusicClient = composition root + Fabric integration;
+        Folder/Media/Client actions, Shortcuts, ScreenNavigation, LibraryReconciliation;
+        lifecycle: ClientState, Startup, ResetOperation, RestoreOperation, Shutdown, Cleanup, ClientDispatch
         ▼
 backup ▸ download ▸ cleanup ▸ audio | lyrics | playlist ▸ library ▸ media ▸ tools ▸ config ▸ text
         (core packages; strictly downward, enforced by ArchitectureTest.CORE)
@@ -72,8 +73,8 @@ All admission happens on the client thread. `ClientState` holds the flags; `aliv
 
 | Operation | Admission | Acquires | Invalidates | Commit point | Publication | Failure | Final state |
 |---|---|---|---|---|---|---|---|
-| Startup (`Startup`, `ready`) | config loaded, not closed | histories, playlists, caches, PiP, playback, library, downloads, each registered in a `Cleanup` | — | services built | settings were published just before; services as built; playlists ready after their own read | built services closed, fields and settings withdrawn, `error.startup` warned | not-yet-loaded state (as before config load); restart needed |
-| Reset (`ResetOperation`) | `idle` | `resetting` (blocks all other admission and per-tick work) | folder checks (generation), screen requests, autoplay, cleanup/source index, playback | old services closed **and** stopped, then storage cleared (storage executor) | replacements built and installed while still resetting; then `release` ends resetting and saves | old worker not stopped / storage error: storage untouched or partial, replacements built with prior settings, future fails. Building fails: built replacements closed, stays resetting, `reset.darkmusic.restart`. Closing first or storage refused: nothing published | defaults (or prior) published; saved config read back behind the save |
+| Startup (`Startup`, `ready`) | config loaded, not closed | histories, playlists, PiP, then the replaceable set via `buildReplaceable`; each registered in a `Cleanup` | — | services built | settings were published just before; services as built; playlists ready after their own read | built services closed, fields and settings withdrawn, `error.startup` warned | not-yet-loaded state (as before config load); restart needed |
+| Reset (`ResetOperation`) | `idle` | `resetting` (blocks all other admission and per-tick work) | folder checks (generation), screen requests, autoplay, cleanup/source index, playback | old services closed **and** stopped, then storage cleared (storage executor) | replacements built by `buildReplaceable` and installed while still resetting; then `release` ends resetting and saves | old worker not stopped / storage error: storage untouched or partial, replacements built with prior settings, future fails. Building fails: built replacements closed, stays resetting, `reset.darkmusic.restart`. Closing first or storage refused: nothing published | defaults (or prior) published; saved config read back behind the save |
 | Restore (`RestoreOperation`) | `accepting`, playlists and history ready, shortcut keys valid | `mediaBusy` + `restoring` | history writes paused | `RestoreJournal.install` returns; recovery state read right after (storage executor) | client thread replaces settings, playlists, history, key binds; applies to playback; flags released, then the future completes | install fails or the storage task dies: nothing applied, `backup.failed` (an unknown journal keeps the flags). Apply fails: on disk, `backup.restart`. A failing release is reported, never lost. Closing in between: completes. Client thread refuses the result: the future fails, flags untouched | flags released, kept while a journal recovery is pending or unknown |
 | Output switch | `accepting`, backend exists | `outputChanging` | — | backend reports the new line | applies only if the backend is still the one asked | synchronous refusal: flag never taken; completion always releases the flag and completes the future | flag released |
 | Media edits/import/delete (`MediaActions`) | `idle` / `accepting` | `mediaBusy`, media token | — | file change on the browse pool | client thread; captured player/store/library identity decides whether UI state updates | rejected submission releases immediately; deletion reconciles playlists even after replacement | flag released by the operation that took it (admission prevents overlap) |
@@ -127,11 +128,11 @@ of it (as the analyzer label says).
 
 ## Subsystem dispositions
 
-Reviewed against the plan's section 5 and 6 focus areas.
+Batch numbers refer to the index in the progress log.
 
 | Area | Disposition | Reason / evidence | Remaining risk |
 |---|---|---|---|
-| Application lifecycle (startup, reset, restore, shutdown) | **Improved** | `Startup`, `ResetOperation`, `RestoreOperation`, `Shutdown`, `Cleanup`, each driven by tests without Minecraft; every future completes; partial startup unwinds (batches 2, 9, 10) | Which services are built (`ready`, `ResetSteps.publish`) is wiring in `DarkMusicClient`, covered by compilation, review and smoke |
+| Application lifecycle (startup, reset, restore, shutdown) | **Improved** | `Startup`, `ResetOperation`, `RestoreOperation`, `Shutdown`, `Cleanup`, `ClientDispatch`, each driven by tests without Minecraft; every future completes, also when the client thread refuses work; partial startup unwinds (batches 2, 9, 10, 13, 14) | Which services are built (`ready`, `buildReplaceable`) is wiring in `DarkMusicClient`, covered by compilation, review and smoke |
 | Library reconciliation | **Improved** | `LibraryReconciliation` owns markers and generation; fixed markers surviving reset (batch 3) | — |
 | Settings application and replacement | **Improved** | `applySettings` with documented order; replacement audit and tests; `SettingsSource.update(edit)` for edit-then-commit changes with save timing unchanged (batches 4, 12) | Screens' in-place previews remain by design |
 | Screen navigation | **Improved** | `Navigation` + `ScreenNavigation` for every screen; reach of `MusicScreen.Sources` 62 → 31 methods, 31 → 4 interfaces (batches 5 and 8) | — |
@@ -139,7 +140,7 @@ Reviewed against the plan's section 5 and 6 focus areas.
 | Lyrics | **Already adequate** | Per-track operation identity, owner cancellation, bounded queues, immutable cache views (`LyricsSafetyTest`, lyrics tests) | — |
 | Library and file operations | **Already adequate** | Captured identities, cancellation tokens, full-content checks, deletion reconciles after commit (`MetadataCommitSafetyTest`, `AudioDeletionTest`, `AudioDeletionFilesystemTest`, `WatcherIsolationTest`) | `mediaBusy` release relies on exclusive admission rather than an operation lease; admission makes overlap unreachable (see Exclusive operations) |
 | Downloads | **Already adequate**; reset wait **fixed** | Pipeline/commit split, per-item tool paths, committed-before-optional-follow-up (`DownloadCommitTest`, `DownloadRetryTest`); `awaitStopped` now covers the bookkeeping repair (batch 6) | — |
-| Persistence and backup | **Already adequate**; reset late writes **fixed** | Serial `io`, coalescing `LatestWriter`, journaled restore (`StorageTest`, backup and consent tests, `ResetTest`); loudness and bookkeeping writers awaited before reset clears (batch 6) | A save queues the write; its acknowledgement (`lastWrite`) is checked at shutdown, and reset reads the config back. `atomicWrite` has a non-atomic fallback, so there is no universal crash-durability claim. |
+| Persistence and backup | **Improved** | Serial `io`, coalescing `LatestWriter` with write acknowledgement, journaled restore (`StorageTest`, `WriteAcknowledgementTest`, backup and consent tests, `ResetTest`); loudness and bookkeeping writers awaited before reset clears (batches 6, 9, 11) | A save queues the write; its acknowledgement (`lastWrite`) is checked at shutdown, and reset reads the config back. `atomicWrite` has a non-atomic fallback, so there is no universal crash-durability claim. |
 | HUD and rendering | **Already adequate** | HUD/PiP sources resolve current services each frame, by design across reset (HUD tests) | — |
 | Native integrations and updates | **Already adequate** | Consent, size/SHA-256 manifests, runtime leases, helper processes outside the JAR (`PipRuntimeTest`, `PipBundleTest`, `MediaControlsTest`, `DiscordPresenceTest`, update tests) | `ExternalAudio` codec configuration is process-wide, a documented single-client assumption |
 | Concurrency contracts | **Improved** where defects were found | Executor ownership above; stale-work rules per callback (Callbacks across replacement); deterministic tests with queued executors for reset, restore and reconciliation | Most services keep their own executors with their own semantics; no shared utility was introduced because none had identical semantics |
@@ -153,16 +154,15 @@ Reviewed against the plan's section 5 and 6 focus areas.
 | Files depending on `DarkMusicClient` (ratchet) | 5 | 5 |
 | `DarkMusicClient` lines | 1223 | 1352 |
 
-The coordination left `DarkMusicClient`: phase order, failure semantics, revision markers and stale-result rules
-now live in `ResetOperation`, `RestoreOperation`, `LibraryReconciliation` and `Cleanup`. Its line count still grew,
-because the composition root now spells out what was implicit: the reset steps and the reconciliation adapter,
-which read its fields, the explicit list of Sources it implements, and the startup registration of acquired
-services.
+The coordination left `DarkMusicClient`. Phase order, failure semantics, completion, revision markers and stale-result
+rules now live in `Startup`, `ResetOperation`, `RestoreOperation`, `Shutdown`, `ClientDispatch`,
+`LibraryReconciliation` and `Cleanup`. Its line count still grew, because the composition root now spells out what
+was implicit: the step adapters that read its fields, and the explicit list of Sources it implements.
 
 **Common changes now:**
 - *Adding a destination screen*: its Sources, one `Navigation` method, one `ScreenNavigation` method and bound;
   `DarkMusicClient` implements the new Sources. No other screen changes.
-- *Replacing a library service*: construct it in `ready` and in `ResetSteps.publish`, close it in `shutdown` (each a
-  registration line). Consumers read it through the getter or the reconciliation adapter, so screens and HUD do not
-  change. They are still typed on the concrete `MusicLibrary`, so a different implementation type would also change
-  those signatures.
+- *Replacing a library service*: construct it in `buildReplaceable`, used by both startup and reset, and add it to
+  `Shutdown.Services`. Consumers read it through the getter or the reconciliation adapter, so screens and the HUD do
+  not change. They are still typed on the concrete `MusicLibrary`, so a different implementation type would also
+  change those signatures.
