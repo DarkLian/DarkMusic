@@ -226,7 +226,7 @@ The optional PiP ZIP now contains both the Windows helper and its runtime. The b
 
 An isolated Minecraft PiP setup smoke passed at fullscreen 1920x1080, GUI scale 2, SmoothFont. It checked installation/access cancellation, verified local-package reuse, enable/disable and separate audio consent without enumerating windows or starting capture. Recursive inspection of the main JAR and nested libraries found no EXE/DLL/SO/dylib payloads. All four local archives passed CRC checks; the schema-2 manifest matched the combined package size and SHA-256. The local v3.1.1 main JAR is 3,954,986 bytes; the optional package is 76,206,540 bytes. IntelliJ formatting, workflow lint, whitespace and English/Traditional Chinese key parity passed.
 
-The previous v3.1.0 publication is unchanged. Hosted release CI and live published-package verification are recorded below. Platform moderation acceptance has not been tested. Capture pacing, protocols, DSP, device requirements and consent settings are unchanged. Evidence is under ignored `.local-tools/verification/pip-external-helper/`. Release preparation repeated the clean full check (609 tests, 603 passed/six skipped), package audit and isolated in-game setup smoke successfully for v3.1.1; release evidence is under `.local-tools/verification/release-3.1.1/`.
+The previous v3.1.0 publication is unchanged. Hosted release CI and live published-package verification are recorded below. Platform moderation acceptance has not been tested. Capture pacing, protocols, DSP, device requirements and consent settings are unchanged. Evidence is under ignored `.local-tools/archive/verification-2026-10-31/pip-external-helper/`. Release preparation repeated the clean full check (609 tests, 603 passed/six skipped), package audit and isolated in-game setup smoke successfully for v3.1.1; release evidence is under `.local-tools/archive/verification-2026-10-31/release-3.1.1/`.
 
 Publication verification: [v3.1.1 release workflow 40303229337](https://github.com/DarkLian/DarkMusic/actions/runs/40303229337) passed builds/tests on Windows, Linux and macOS. All four actual published assets matched GitHub SHA-256 digests and passed archive/package checks. Recursive inspection of the published main JAR and nested libraries found no native binaries; its schema-2 manifest matched the combined helper/runtime ZIP. The production-transport installation test passed separately (one test, zero skips/failures), retrieving and verifying the published package and probing the installed helper on Windows without granting capture access. Published sizes: main JAR 3,954,987 bytes; optional ZIP 76,206,462 bytes. Published package SHA-256: `b06fdc789d8341d0d831dd481b07e159efc71937c26f102072bb254e1310feed`. Build-platform output differs from the local archive; the actual published manifest/package were tested together.
 
@@ -234,11 +234,20 @@ Publication verification: [v3.1.1 release workflow 40303229337](https://github.c
 
 Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed **607 tests: 601 passed, six skipped**, zero failures/errors, using private-real-audio-derived fixtures and existing managed tools. The skipped cases are optional live tool installation, live LRCLIB, live published PiP installation, two unavailable Windows symlink fixtures and POSIX permissions on Windows. The published PiP installation check is run separately after publication.
 
-All four local archives passed CRC, version, embedded helper/dependency hashes, dependency separation, source/license notices, private-media/smoke exclusions and 1,624-key localization parity checks. The mod JAR is 4,055,409 bytes; the optional dependency ZIP is unchanged from v3.0.4 (SHA-256 `55eccdc65bc1242f7d2fae0547ab7a35ab3a435a50a831d239653f932a2f5273`). Detailed behavioral tests, measurements and limitations are recorded in [the review report](reviews/FINDINGS-128-148.md). Evidence: ignored `.local-tools/verification/release-3.1.0/`.
+All four local archives passed CRC, version, embedded helper/dependency hashes, dependency separation, source/license notices, private-media/smoke exclusions and 1,624-key localization parity checks. The mod JAR is 4,055,409 bytes; the optional dependency ZIP is unchanged from v3.0.4 (SHA-256 `55eccdc65bc1242f7d2fae0547ab7a35ab3a435a50a831d239653f932a2f5273`). Detailed behavioral tests, measurements and limitations are recorded in [the review report](reviews/FINDINGS-128-148.md). Evidence: ignored `.local-tools/archive/verification-2026-10-31/release-3.1.0/`.
 
 English and Traditional Chinese native player/lyrics/HUD smoke checks passed at fullscreen 1920x1080, configured/effective GUI scale 2, with SmoothFont and actual device playback. Online lyric access was disabled for deterministic checks. No new public screenshots were taken.
 
 Publication verification: [release workflow 40296945963](https://github.com/DarkLian/DarkMusic/actions/runs/40296945963) passed Windows, Linux and macOS builds/tests. All four actual GitHub release assets were downloaded, matched against their published SHA-256 digests and checked for package integrity. The published mod JAR is 4,055,313 bytes (platform build packaging differs from the local JAR). The production-transport PiP installation test passed separately: one test, zero skips/failures, using the published JAR and its matching dependency ZIP in a disposable installation. This verifies dependency retrieval, validation, installation and graphics probing; it does not grant capture consent or test additional live applications.
+
+## Review findings 128-148
+
+Windows `scripts/verify.ps1 -DesktopIntegration` passed **606 tests: 600 passed, six skipped**, zero failures/errors. EN/ZH native playback/lyrics/player/HUD smoke checks passed at fullscreen 1920x1080, GUI scale 2 with SmoothFont. Real private-derived Opus fixtures verify native metadata/lyrics and tiny FFmpeg seeks. Native WGC resized through ultrawide/portrait shapes without capture/pipe errors; this does not verify Minecraft upload at those sizes. A 100k-track metadata benchmark measured four-query medians of 34.7 ms before versus 6.7 ms cached (256.1 ms construction), not gameplay FPS. IntelliJ formatting, workflow lint, whitespace and 1,624-key localization parity passed. See [per-finding dispositions and verification limits](reviews/FINDINGS-128-148.md).
+
+An initial full attempt found an invalid new Gson/Path fixture and an existing gapless/output-route timeout. The corrected fixture and isolated routing case passed, followed by passing full runs; timing assertions were not relaxed. POSIX permissions are skipped on Windows and tested where supported. Actual slow links, NAS/large-FLAC pressure, hardware disconnection, extreme cache sizes and native non-Windows PiP remain unverified. Existing v3.0.4 post-FreeSync capture measurements remain current.
+
+
+The final review-147 refinement protects refreshed cache files against stale trim candidates while keeping directory enumeration outside the result-map/publication locks. Its deterministic replacement regression and lyrics-focused suite passed; see the per-finding report for counts. The main review commit passed Windows, macOS and Linux CI: https://github.com/DarkLian/DarkMusic/actions/runs/40294665587 .
 
 ## PiP Chrome retest after the FreeSync correction
 
@@ -255,7 +264,7 @@ The source was a disposable Chrome window (throwaway profile) drawing real artwo
 
 Rates trim the first 3 and last 1 seconds of 33-47 second phases; there was no frame-rate throttling in any measured window. The default 16 ms Windows capture interval limits delivery to about 48 FPS. The experimental 4 ms interval reached about 143-144 FPS received; uploads are bounded by Minecraft's roughly 139 FPS render rate, with 320-346 frames replaced by newer ones. The earlier drop to about 66 FPS behind exclusive fullscreen was **not reproduced**; the source application, the harness forcing exclusive fullscreen and the FreeSync problem all differ from the earlier runs, and which one explained the difference is not established.
 
-Not measured: visual tearing, CPU/RAM/GPU cost, other sources, other GPUs or long sessions. These runs used the v3.0.3 default interval and the experimental 4 ms override. Two earlier exclusive attempts were discarded when the window lost focus and minimized; the harness now restores it and clears the pause screen. Logs are under ignored `.local-tools/verification/pip-chrome-retest/`; derived media and the Chrome profile were deleted.
+Not measured: visual tearing, CPU/RAM/GPU cost, other sources, other GPUs or long sessions. These runs used the v3.0.3 default interval and the experimental 4 ms override. Two earlier exclusive attempts were discarded when the window lost focus and minimized; the harness now restores it and clears the pause screen. Logs are under ignored `.local-tools/archive/verification-2026-10-31/pip-chrome-retest/`; derived media and the Chrome profile were deleted.
 
 ## v3.0.4 release validation
 
@@ -293,6 +302,45 @@ Hosted [Windows, macOS and Linux release CI](https://github.com/DarkLian/DarkMus
 The post-publication production-transport installation check passed separately (one test, zero skipped), using the actual released JAR and its matching GitHub dependency archive in a disposable fixture. It verified checksums, installation, Windows/WGC and graphics-device setup without granting capture/audio access, enumerating windows or starting capture. Published assets and the v3.0.2 tag were not modified after verification.
 
 No post-FreeSync fullscreen 144 FPS/resource benchmark, real-device COM/write-stall audio recovery, live website bot-check or native non-Windows PiP validation was performed. PiP remains Windows-only. Optional dither remains deferred.
+
+## Review findings 122-127
+
+Windows `scripts/verify.ps1 -DesktopIntegration` passed **587 tests: 582 passed, five skipped**, zero failures/errors. Final focused checks passed **12 tests**, including two watcher-isolation cases added after the full run. Native helper checks cover bounded audio recovery, actual pipe-name collision and the WinForms exception route. Two live WGC runs each resized a disposable native window 98 times; neither produced capture/pipe errors. The second run deliberately occupied the audio pipe and verified that video continued through final audio failure. These are resilience checks, not frame-rate measurements or Minecraft playtests. See [the detailed findings and limits](reviews/FINDINGS-122-127.md). Private evidence: `.local-tools/archive/verification-2026-10-31/findings-122-127/`.
+
+## Review findings 113-121
+
+Windows `scripts/verify.ps1 -DesktopIntegration` passed **584 tests: 579 passed, five skipped**, with zero failures/errors. The private collection and existing managed tools exercised same-format DSP handoff continuity, first-block stereo width, environment-history preservation, misleading audio extensions and unknown-container fallback. Filesystem and download regressions cover persistent watch registrations, retry backoff, bookkeeping filters, extensionless deletion, unexpected poll errors and bot-check classification. Final watcher/download-focused tests passed after the cache-publication refinement. IntelliJ formatting, actionlint, whitespace and 1,617-key English/Traditional Chinese parity passed.
+
+The five skips remain optional live managed-tool installation, live LRCLIB, two Windows symlink fixtures unavailable to this account and explicit live-release PiP installation. No new Minecraft GUI smoke, subjective listening, gameplay performance, real bot-check website or native non-Windows audio test was performed. Dither remains an optional deferred output-policy change. See [the per-finding disposition](reviews/FINDINGS-113-121.md). Private evidence: `.local-tools/archive/verification-2026-10-31/findings-113-121/`.
+
+## PiP cleanup and recovery-status follow-up
+
+`scripts/verify.ps1 -DesktopIntegration` passed **576 tests: 571 passed, five skipped** with the private collection and existing managed tools. Final source checks passed 19 focused cases (17 passed, two skipped), including Windows/WGC/native graphics setup. New checks cover old ZIP reclamation despite a locked legacy runtime, current/young/leased runtime retention, stale zero-byte lease removal alongside an active lease, explicit setup-contention status and cancellation, Windows native sharing violations, and visible recovery-folder counts that clear on rescan after review. Original recovery-fixture contents remain unchanged. Native sharing is exercised with a disposable Windows file handle, not an actively running legacy helper executable.
+
+A Windows probe revealed that holding our own preflight handles prevents directory renaming. Cleanup now closes those handles before claiming the candidate. Locked/inaccessible legacy runtimes are deferred; reclaiming legacy files remains best effort. Unreferenced ZIPs must exceed the 24-hour grace independently of legacy directories. Both current and referenced active managed archives remain protected.
+
+IntelliJ formatting, actionlint, whitespace and English/Traditional Chinese parity (1,613 keys) passed. GUI status-row checks in an actual Minecraft window, hosted/UWP audio and post-FreeSync 144 FPS capture were not performed in this follow-up. Private evidence is under `.local-tools/archive/verification-2026-10-31/pip-cleanup-followup/`.
+
+## Open findings 86-108 follow-up
+
+Windows verification through `scripts/verify.ps1 -DesktopIntegration` passed **572 tests: 567 passed, five skipped** with the private collection and existing managed tools. The first full attempt found a new cleanup-fixture clock mismatch after adding a 24-hour grace period; correcting the test clock resolved it. The five skips are optional live managed-tool installation, live LRCLIB, the two Windows symlink fixtures unavailable to this account, and explicit live-release PiP installation. The final bounded-receipt I/O handling and terminal receiver shutdown refinements then passed **19 focused cases: 17 passed, two skipped**, including real Windows/WGC and native graphics-device setup checks. Logs are under ignored `.local-tools/archive/verification-2026-10-31/open-findings/`.
+
+New regressions cover portable-backup consent preservation, waveform retry backoff, metadata-edit space bounds, local control characters and symbolic links, compact lyric JSON, shared-companion journal discovery/conflict archival, codec/receiver Errors, equal-power crossfade, ratio-scaled resampler coefficients, old commit receipts, staging cleanup, publication races and active runtime leases. The 192 kHz to 44.1 kHz kernel's tested stopband response improved from about -29.7 dB to -77.1 dB; this is a coefficient measurement rather than a listening or hardware benchmark. Normal-rate paths retain 32 taps; high-ratio paths scale up to a bounded 512 taps.
+
+IntelliJ's formatter, workflow actionlint, whitespace checks, locked .NET restore/build and English/Traditional Chinese parity (1,611 keys) passed. No Minecraft GUI smoke, native non-Windows runtime, UWP audio routing, real heap-exhaustion test or post-FreeSync 144 FPS comparison was performed in this turn. See [the per-finding disposition](reviews/FINDINGS-86-108.md). Existing full content-hash deletion safeguards are deliberately retained.
+
+
+Hosted [Windows, macOS and Linux CI](https://github.com/DarkLian/DarkMusic/actions/runs/40254982912) passed for `1e46232`. A final local assembly and four-artifact package check passed archive CRCs, embedded helper/dependency checksums, notices/source archives, localization parity and private/smoke exclusions. Published v3.0.1 assets were not changed.
+
+## v3.0.1 after publication
+
+Clean Windows checks through `scripts/verify.ps1 -Clean -DesktopIntegration` passed **555 tests: 551 passed, four skipped, zero failures/errors**. The skipped checks were the optional managed-tool installation, live LRCLIB, unavailable Windows symlink fixture, and opt-in live PiP installation. Existing managed tools and the private real collection were used. Prior optional-setup UI checks passed at fullscreen 1920x1080, GUI scale 2 with SmoothFont; this packaging release adds no new capture-performance measurement.
+
+Windows, macOS and Linux [release CI](https://github.com/DarkLian/DarkMusic/actions/runs/40251089951) passed. All four published assets were downloaded and their SHA-256 digests matched GitHub metadata. Package CRCs, runtime/application separation, manifest binding, notices, source archives, private/smoke exclusions and 1,607 matching localization keys passed. The published base JAR is 4,009,649 bytes and optional Windows x64 dependencies are 76,242,875 bytes.
+
+After publication, `PipRuntimeTest.publishedDependenciesInstallWithTheProductionTransport` passed separately (one test, zero skipped). It read the actual published JAR with `-PpipRuntimeReleaseJar`, downloaded the matching release archive through production transport using `-PpipRuntimeIntegration -PdesktopIntegration`, verified and installed it in a disposable JUnit directory, and passed Windows/WGC and native graphics-device checks. It did not enumerate windows, grant capture/audio access or start capture. Local evidence is under ignored `.local-tools/archive/verification-2026-10-31/release-3.0.1/`.
+
+Native macOS/Linux PiP remains unsupported; CI builds do not establish native GUI/audio behavior on those systems. Post-FreeSync Chrome delivery at 144 FPS was still unverified then; it was measured later (PiP Chrome retest after the FreeSync correction, and v3.0.4).
 
 ## v3.0.1 release validation
 
@@ -343,18 +391,24 @@ and spectrum analysis of real audio. Native process-loopback capture, spectrum
 rendering and capture stop/restart were exercised in Minecraft.
 
 See [measured PiP performance](PIP-PERFORMANCE.md): fullscreen 1920×1080, GUI scale
-2 with SmoothFont. The 144 FPS PiP target remains unmet. These short checks do not
+2 with SmoothFont. The 144 FPS PiP target was unmet at this checkpoint; v3.0.4 reached it with Chrome. These short checks do not
 establish browser equivalence, tab isolation, device-change resilience or prolonged
-gameplay stability. Native macOS/Linux PiP remains unsupported. Manual approval is
-still required before committing or releasing this preview.
+gameplay stability. Native macOS/Linux PiP remains unsupported. Manual approval was
+required before committing or releasing this preview.
 
-## v2.8.1 safety and retry regressions
+## v2.10.0 release validation
 
-`LyricsLibraryRunTest` covers explicit library-run completion, first reliable-version application, persisted results, cooldown progress initialization, per-song network backoff without blocking later songs, exact short server waits, and 503 responses without Retry-After. `LyricsSafetyTest` covers online consent migration, automatic-caption URL restrictions, compact document compatibility, text validation, encoding, and lyric transactions. Network tests use controlled responses; they do not establish live provider availability.
+Clean Windows release checks used scripts/verify.ps1 -Clean -DesktopIntegration through the private-collection harness: **517 tests, 515 passed, two optional live-provider/tool-install checks skipped**. Both language smoke runs completed with their pass markers and successful Gradle builds at fullscreen 1920x1080, GUI scale 2, SmoothFont. Source hashes remained unchanged and this run's excerpts were cleaned. The task-created Gradle daemon was stopped after completion because it held the PowerShell output pipe open.
 
-`DeletionCompanionTest`, `DownloadCommitTest`, and source-index/metadata tests cover explicit companion handling, identity changes, rollback, and recoverable download commits. `ReviewPerformanceTest` and `PartialRootScopeTest` cover incremental matching, bounded cache writes, and retention limited to unreadable subtrees. Existing Up Next tests verify that no-op or non-head edits retain the preloaded next track.
+Packaged version 2.10.0, 1,518 matching localization keys, source-JAR license, third-party source archive (including six nested archives), and exclusion of private audio and smoke classes were verified. Waveform progress remains off by default; spectrum opacity defaults to 100%. New settings are additive. No new dependencies or playback DSP changes. Native Linux/macOS, heavy-workload gameplay FPS, and analysis-limit recordings remain unverified.
 
-Release verification uses `scripts/verify.ps1 -Clean -DesktopIntegration` with the private collection and existing managed tools, followed by both localized Minecraft lyrics smoke runs. Never infer native macOS/Linux, prolonged outage, or real inaccessible-filesystem behavior from mocks or hosted compilation.
+## v2.9.0 release validation
+
+Clean Windows verification through `scripts/verify.ps1 -Clean -DesktopIntegration` passed 498 tests: 496 passed and two optional live-network/tool-install checks skipped. Existing managed tools and temporary excerpts derived from the private collection were used; original audio hashes remained unchanged and temporary excerpts were removed. English and Traditional Chinese Minecraft smoke runs passed at fullscreen 1920×1080, GUI scale 2, with SmoothFont, including real output, lyrics/commands, and compact/wide screen bounds.
+
+The local-only missing result is unresolved until online lookup completes. Tests check this for both sidecars and embedded lyrics. A controlled caption fallback test verifies that an empty provider result stays searching until the fallback finishes, rather than publishing a premature final miss. Updated status wording scopes completed misses to the checked sources; failures, pauses, and candidate choices remain distinct. Advanced Lyrics puts Find Missing Lyrics first while preserving its online-lookup requirement, and Settings omits the redundant icon-marked song-lyrics shortcut.
+
+Binary and source packaging checks verify version 2.9.0, license notices, language-key parity (1,482 keys), third-party source archive integrity, and absence of private audio and smoke classes. Live provider coverage, native Linux/macOS desktop behavior, external-tool redirect isolation, and untested hardware scenarios are not established by these checks.
 
 ## v2.8.2 integrity and licensing checks
 
@@ -366,67 +420,13 @@ Duplicate tests require content-bound source/archive evidence and reject stale f
 
 Packaging checks verify the custom current license, preserved CC0 legacy text, LGPL notices, and current Fabric metadata. Release checks inspect the license in both binary and source JARs and keep the third-party source bundle available. Existing historical license grants must not be relabeled or erased.
 
-## v2.9.0 release validation
+## v2.8.1 safety and retry regressions
 
-Clean Windows verification through `scripts/verify.ps1 -Clean -DesktopIntegration` passed 498 tests: 496 passed and two optional live-network/tool-install checks skipped. Existing managed tools and temporary excerpts derived from the private collection were used; original audio hashes remained unchanged and temporary excerpts were removed. English and Traditional Chinese Minecraft smoke runs passed at fullscreen 1920×1080, GUI scale 2, with SmoothFont, including real output, lyrics/commands, and compact/wide screen bounds.
+`LyricsLibraryRunTest` covers explicit library-run completion, first reliable-version application, persisted results, cooldown progress initialization, per-song network backoff without blocking later songs, exact short server waits, and 503 responses without Retry-After. `LyricsSafetyTest` covers online consent migration, automatic-caption URL restrictions, compact document compatibility, text validation, encoding, and lyric transactions. Network tests use controlled responses; they do not establish live provider availability.
 
-The local-only missing result is unresolved until online lookup completes. Tests check this for both sidecars and embedded lyrics. A controlled caption fallback test verifies that an empty provider result stays searching until the fallback finishes, rather than publishing a premature final miss. Updated status wording scopes completed misses to the checked sources; failures, pauses, and candidate choices remain distinct. Advanced Lyrics puts Find Missing Lyrics first while preserving its online-lookup requirement, and Settings omits the redundant icon-marked song-lyrics shortcut.
+`DeletionCompanionTest`, `DownloadCommitTest`, and source-index/metadata tests cover explicit companion handling, identity changes, rollback, and recoverable download commits. `ReviewPerformanceTest` and `PartialRootScopeTest` cover incremental matching, bounded cache writes, and retention limited to unreadable subtrees. Existing Up Next tests verify that no-op or non-head edits retain the preloaded next track.
 
-Binary and source packaging checks verify version 2.9.0, license notices, language-key parity (1,482 keys), third-party source archive integrity, and absence of private audio and smoke classes. Live provider coverage, native Linux/macOS desktop behavior, external-tool redirect isolation, and untested hardware scenarios are not established by these checks.
-
-## v2.10.0 release validation
-
-Clean Windows release checks used scripts/verify.ps1 -Clean -DesktopIntegration through the private-collection harness: **517 tests, 515 passed, two optional live-provider/tool-install checks skipped**. Both language smoke runs completed with their pass markers and successful Gradle builds at fullscreen 1920x1080, GUI scale 2, SmoothFont. Source hashes remained unchanged and this run's excerpts were cleaned. The task-created Gradle daemon was stopped after completion because it held the PowerShell output pipe open.
-
-Packaged version 2.10.0, 1,518 matching localization keys, source-JAR license, third-party source archive (including six nested archives), and exclusion of private audio and smoke classes were verified. Waveform progress remains off by default; spectrum opacity defaults to 100%. New settings are additive. No new dependencies or playback DSP changes. Native Linux/macOS, heavy-workload gameplay FPS, and analysis-limit recordings remain unverified.
-
-## v3.0.1 release validation
-
-Clean Windows checks through `scripts/verify.ps1 -Clean -DesktopIntegration` passed **555 tests: 551 passed, four skipped, zero failures/errors**. The skipped checks were the optional managed-tool installation, live LRCLIB, unavailable Windows symlink fixture, and opt-in live PiP installation. Existing managed tools and the private real collection were used. Prior optional-setup UI checks passed at fullscreen 1920x1080, GUI scale 2 with SmoothFont; this packaging release adds no new capture-performance measurement.
-
-Windows, macOS and Linux [release CI](https://github.com/DarkLian/DarkMusic/actions/runs/40251089951) passed. All four published assets were downloaded and their SHA-256 digests matched GitHub metadata. Package CRCs, runtime/application separation, manifest binding, notices, source archives, private/smoke exclusions and 1,607 matching localization keys passed. The published base JAR is 4,009,649 bytes and optional Windows x64 dependencies are 76,242,875 bytes.
-
-After publication, `PipRuntimeTest.publishedDependenciesInstallWithTheProductionTransport` passed separately (one test, zero skipped). It read the actual published JAR with `-PpipRuntimeReleaseJar`, downloaded the matching release archive through production transport using `-PpipRuntimeIntegration -PdesktopIntegration`, verified and installed it in a disposable JUnit directory, and passed Windows/WGC and native graphics-device checks. It did not enumerate windows, grant capture/audio access or start capture. Local evidence is under ignored `.local-tools/verification/release-3.0.1/`.
-
-Native macOS/Linux PiP remains unsupported; CI builds do not establish native GUI/audio behavior on those systems. Post-FreeSync Chrome delivery at 144 FPS remains unverified and is recorded as the next handoff task.
-
-## Open findings 86-108 follow-up
-
-Windows verification through `scripts/verify.ps1 -DesktopIntegration` passed **572 tests: 567 passed, five skipped** with the private collection and existing managed tools. The first full attempt found a new cleanup-fixture clock mismatch after adding a 24-hour grace period; correcting the test clock resolved it. The five skips are optional live managed-tool installation, live LRCLIB, the two Windows symlink fixtures unavailable to this account, and explicit live-release PiP installation. The final bounded-receipt I/O handling and terminal receiver shutdown refinements then passed **19 focused cases: 17 passed, two skipped**, including real Windows/WGC and native graphics-device setup checks. Logs are under ignored `.local-tools/verification/open-findings/`.
-
-New regressions cover portable-backup consent preservation, waveform retry backoff, metadata-edit space bounds, local control characters and symbolic links, compact lyric JSON, shared-companion journal discovery/conflict archival, codec/receiver Errors, equal-power crossfade, ratio-scaled resampler coefficients, old commit receipts, staging cleanup, publication races and active runtime leases. The 192 kHz to 44.1 kHz kernel's tested stopband response improved from about -29.7 dB to -77.1 dB; this is a coefficient measurement rather than a listening or hardware benchmark. Normal-rate paths retain 32 taps; high-ratio paths scale up to a bounded 512 taps.
-
-IntelliJ's formatter, workflow actionlint, whitespace checks, locked .NET restore/build and English/Traditional Chinese parity (1,611 keys) passed. No Minecraft GUI smoke, native non-Windows runtime, UWP audio routing, real heap-exhaustion test or post-FreeSync 144 FPS comparison was performed in this turn. See [the per-finding disposition](reviews/FINDINGS-86-108.md). Existing full content-hash deletion safeguards are deliberately retained.
-
-
-Hosted [Windows, macOS and Linux CI](https://github.com/DarkLian/DarkMusic/actions/runs/40254982912) passed for `1e46232`. A final local assembly and four-artifact package check passed archive CRCs, embedded helper/dependency checksums, notices/source archives, localization parity and private/smoke exclusions. Published v3.0.1 assets were not changed.
-
-## PiP cleanup and recovery-status follow-up
-
-`scripts/verify.ps1 -DesktopIntegration` passed **576 tests: 571 passed, five skipped** with the private collection and existing managed tools. Final source checks passed 19 focused cases (17 passed, two skipped), including Windows/WGC/native graphics setup. New checks cover old ZIP reclamation despite a locked legacy runtime, current/young/leased runtime retention, stale zero-byte lease removal alongside an active lease, explicit setup-contention status and cancellation, Windows native sharing violations, and visible recovery-folder counts that clear on rescan after review. Original recovery-fixture contents remain unchanged. Native sharing is exercised with a disposable Windows file handle, not an actively running legacy helper executable.
-
-A Windows probe revealed that holding our own preflight handles prevents directory renaming. Cleanup now closes those handles before claiming the candidate. Locked/inaccessible legacy runtimes are deferred; reclaiming legacy files remains best effort. Unreferenced ZIPs must exceed the 24-hour grace independently of legacy directories. Both current and referenced active managed archives remain protected.
-
-IntelliJ formatting, actionlint, whitespace and English/Traditional Chinese parity (1,613 keys) passed. GUI status-row checks in an actual Minecraft window, hosted/UWP audio and post-FreeSync 144 FPS capture were not performed in this follow-up. Private evidence is under `.local-tools/verification/pip-cleanup-followup/`.
-
-## Review findings 113-121
-
-Windows `scripts/verify.ps1 -DesktopIntegration` passed **584 tests: 579 passed, five skipped**, with zero failures/errors. The private collection and existing managed tools exercised same-format DSP handoff continuity, first-block stereo width, environment-history preservation, misleading audio extensions and unknown-container fallback. Filesystem and download regressions cover persistent watch registrations, retry backoff, bookkeeping filters, extensionless deletion, unexpected poll errors and bot-check classification. Final watcher/download-focused tests passed after the cache-publication refinement. IntelliJ formatting, actionlint, whitespace and 1,617-key English/Traditional Chinese parity passed.
-
-The five skips remain optional live managed-tool installation, live LRCLIB, two Windows symlink fixtures unavailable to this account and explicit live-release PiP installation. No new Minecraft GUI smoke, subjective listening, gameplay performance, real bot-check website or native non-Windows audio test was performed. Dither remains an optional deferred output-policy change. See [the per-finding disposition](reviews/FINDINGS-113-121.md). Private evidence: `.local-tools/verification/findings-113-121/`.
-
-## Review findings 122-127
-
-Windows `scripts/verify.ps1 -DesktopIntegration` passed **587 tests: 582 passed, five skipped**, zero failures/errors. Final focused checks passed **12 tests**, including two watcher-isolation cases added after the full run. Native helper checks cover bounded audio recovery, actual pipe-name collision and the WinForms exception route. Two live WGC runs each resized a disposable native window 98 times; neither produced capture/pipe errors. The second run deliberately occupied the audio pipe and verified that video continued through final audio failure. These are resilience checks, not frame-rate measurements or Minecraft playtests. See [the detailed findings and limits](reviews/FINDINGS-122-127.md). Private evidence: `.local-tools/verification/findings-122-127/`.
-
-## Review findings 128-148
-
-Windows `scripts/verify.ps1 -DesktopIntegration` passed **606 tests: 600 passed, six skipped**, zero failures/errors. EN/ZH native playback/lyrics/player/HUD smoke checks passed at fullscreen 1920x1080, GUI scale 2 with SmoothFont. Real private-derived Opus fixtures verify native metadata/lyrics and tiny FFmpeg seeks. Native WGC resized through ultrawide/portrait shapes without capture/pipe errors; this does not verify Minecraft upload at those sizes. A 100k-track metadata benchmark measured four-query medians of 34.7 ms before versus 6.7 ms cached (256.1 ms construction), not gameplay FPS. IntelliJ formatting, workflow lint, whitespace and 1,624-key localization parity passed. See [per-finding dispositions and verification limits](reviews/FINDINGS-128-148.md).
-
-An initial full attempt found an invalid new Gson/Path fixture and an existing gapless/output-route timeout. The corrected fixture and isolated routing case passed, followed by passing full runs; timing assertions were not relaxed. POSIX permissions are skipped on Windows and tested where supported. Actual slow links, NAS/large-FLAC pressure, hardware disconnection, extreme cache sizes and native non-Windows PiP remain unverified. Existing v3.0.4 post-FreeSync capture measurements remain current.
-
-
-The final review-147 refinement protects refreshed cache files against stale trim candidates while keeping directory enumeration outside the result-map/publication locks. Its deterministic replacement regression and lyrics-focused suite passed; see the per-finding report for counts. The main review commit passed Windows, macOS and Linux CI: https://github.com/DarkLian/DarkMusic/actions/runs/40294665587 .
+Release verification uses `scripts/verify.ps1 -Clean -DesktopIntegration` with the private collection and existing managed tools, followed by both localized Minecraft lyrics smoke runs. Never infer native macOS/Linux, prolonged outage, or real inaccessible-filesystem behavior from mocks or hosted compilation.
 
 ## Feature checks moved from the testing guide
 

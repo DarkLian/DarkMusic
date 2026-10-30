@@ -1,6 +1,9 @@
 # Picture-in-Picture verification
 
 This records development and release checks for DarkMusic v3.0.0, based on v2.10.0.
+
+**This describes v3.0.0, not the current release.** Since then the runtime left the JAR (v3.0.1), the helper joined it in one optional package and the JAR keeps only its manifest (v3.1.1), old runtimes and packages are cleaned up (24-hour grace; only the current package since v3.5.0), and the capture interval follows the frame limit (v3.0.4: about 143 FPS received from Chrome at a 144 FPS limit, in exclusive fullscreen). Current setup: [PiP extension](../PIP-OPTIONAL-INSTALLATION.md). Later measurements: [v3.0.4 capture interval](RELEASE-CHECKS.md#pip-capture-interval-following-the-frame-limit-v304).
+
 The user authorized publication with the documented performance limitations. The longer-term goal is
 perceptually indistinguishable video playback, assessed through actual video
 comparison as well as frame pacing. A successful build does not establish that goal.
@@ -101,7 +104,7 @@ English and Traditional Chinese key sets match. This notice was not runtime-test
 It contains no smoke harness or test audio. The updated preview JAR is 79,407,295 bytes;
 its SHA-256 is `46fa6db2c56633fb8c7bc3b5f8d494422e61badb00c1526b40d44657d7d3e58a`.
 
-## Remaining verification
+## Remaining verification (as of v3.0.0)
 
 - Extended focus/return and rapid-restart stress, including abrupt parent termination.
 - Sustained 60 FPS source video and subjective comparison with watching directly;
@@ -111,7 +114,10 @@ its SHA-256 is `46fa6db2c56633fb8c7bc3b5f8d494422e61badb00c1526b40d44657d7d3e58a
 - Hardware/device-loss, HDR, multiple monitors/DPI, elevated/protected applications.
 - Linux/macOS compilation of the cross-published helper and normal non-PiP runtime.
 
-## Build and resources
+## Build and resources (v3.0.0)
+
+From v3.0.1 the JAR no longer bundles the runtime, and from v3.1.1 it carries only the package manifest;
+see [PiP extension](../PIP-OPTIONAL-INSTALLATION.md) for how the package is installed and cleaned up today.
 
 `gradlew build` (and `runClient`) require the .NET 8 SDK on the build machine.
 The resulting JAR bundles the Windows runtime; users do not install .NET.
@@ -151,7 +157,7 @@ skipped), followed by a successful preview assembly. Real process-loopback audio
 and an independently driven spectrum were checked, including stop/restart. A
 status-row null dereference found when stopping was fixed and retested.
 
-The fullscreen 144 FPS target is **not met by the v3.0.3 default** (v3.0.4 follows the frame limit; see the retest). A later Chrome retest after the AMD FreeSync correction measured about 48 FPS at the default interval and about 143 FPS received at 4 ms, in both borderless and exclusive fullscreen ([details](RELEASE-CHECKS.md#pip-chrome-retest-after-the-freesync-correction)). The earlier measurement below used a different source: measured source presentation was
+The fullscreen 144 FPS target is **not met by the v3.0.3 default** (v3.0.4 makes the interval follow the frame limit: [measurement](RELEASE-CHECKS.md#pip-capture-interval-following-the-frame-limit-v304)). A later Chrome retest after the AMD FreeSync correction measured about 48 FPS at the default interval and about 143 FPS received at 4 ms, in both borderless and exclusive fullscreen ([details](RELEASE-CHECKS.md#pip-chrome-retest-after-the-freesync-correction)). The earlier measurement below used a different source: measured source presentation was
 approximately 144 FPS, Minecraft approximately 139 FPS, and PiP approximately
 47 FPS. See [performance measurements](PIP-PERFORMANCE.md) for CPU, RAM, GPU,
 methodology and exclusions. Sustained/browser equivalence remains unverified.

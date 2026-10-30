@@ -17,7 +17,7 @@ class DecoderRoutingTest {
     void detectedWaveAndAiffIgnoreMisleadingExtensionsAndUnknownOggCanUseInstalledTools() throws Exception {
         String ff = System.getProperty("darkmusic.test.ffmpeg", ""), probe = System.getProperty("darkmusic.test.ffprobe", "");
         Assumptions.assumeFalse(ff.isBlank() || probe.isBlank(), "Explicit real codec tools required");
-        Path root = Path.of(".local-tools/verification/findings-113-121").toAbsolutePath();
+        Path root = Path.of(".local-tools/verification/runs").toAbsolutePath();
         Files.createDirectories(root);
         Path scratch = Files.createTempDirectory(root, "codec-routing-");
         ExternalAudio.configure(null);

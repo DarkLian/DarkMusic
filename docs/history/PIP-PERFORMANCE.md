@@ -1,8 +1,8 @@
 # PiP performance checkpoint
 
-**Superseded in part (October 26, 2026).** A Chrome retest after the system-wide AMD FreeSync/Adaptive Sync correction measured the v3.0.3 default at about **48 FPS** and an experimental 4 ms interval at about **143 FPS received** in both borderless and exclusive fullscreen. It did **not** reproduce the exclusive-fullscreen drop recorded below. The figures here came from a different source application, with exclusive fullscreen forced by the test harness and before the FreeSync correction; which of those caused the difference is not established. See [PiP Chrome retest](RELEASE-CHECKS.md#pip-chrome-retest-after-the-freesync-correction).
+**Superseded in part (October 26, 2026).** A Chrome retest after the system-wide AMD FreeSync/Adaptive Sync correction measured the v3.0.3 default at about **48 FPS** and an experimental 4 ms interval at about **143 FPS received** in both borderless and exclusive fullscreen. It did **not** reproduce the exclusive-fullscreen drop recorded below. The figures here came from a different source application, with exclusive fullscreen forced by the test harness and before the FreeSync correction; which of those caused the difference is not established. See [PiP Chrome retest](RELEASE-CHECKS.md#pip-chrome-retest-after-the-freesync-correction). **Since v3.0.4** the helper requests half the frame limit's period instead of the 16 ms default; at a 144 FPS limit Chrome was received at about 143 FPS in exclusive fullscreen ([measurement](RELEASE-CHECKS.md#pip-capture-interval-following-the-frame-limit-v304)).
 
-Development preview, October 26, 2026. **The v3.0.3 default did not reach 144 FPS; v3.0.4 makes the capture interval follow the frame limit.**
+Development preview, October 26, 2026. **The v3.0.3 default did not reach 144 FPS.**
 The later [WGC investigation](PIP-WGC-INVESTIGATION.md) isolates the default
 16 ms capture interval and a separate exclusive-fullscreen pacing limit. It
 demonstrates 144 FPS reception in windowed mode; the resource figures below
@@ -65,7 +65,7 @@ Minecraft's render rate stayed effectively unchanged in this scene. Video receip
 and upload rates both remained around 47 FPS while the source presented at 144;
 the shortfall is upstream of Minecraft's presentation rate. The exact split
 between Windows capture scheduling, surface readback and pipe transport has not
-been isolated. The current implementation copies GPU surfaces through CPU memory;
+been isolated. The implementation copies GPU surfaces through CPU memory (it still does);
 a faster path needs a separate measured investigation before making a 144 FPS
 claim. Audio packets arrived at about 100/s and did not materially reduce delivery.
 
