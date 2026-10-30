@@ -727,8 +727,13 @@ public final class DownloadService implements AutoCloseable {
         }
     }
 
+    /**
+     * Includes a bookkeeping repair already running when close cancelled the rest: it writes the download history,
+     * which reset clears next.
+     */
     public boolean awaitStopped(long seconds) throws InterruptedException {
-        return analysis.awaitTermination(seconds, TimeUnit.SECONDS) && downloads.awaitTermination(seconds, TimeUnit.SECONDS);
+        return analysis.awaitTermination(seconds, TimeUnit.SECONDS) && downloads.awaitTermination(seconds, TimeUnit.SECONDS)
+            && bookkeeping.awaitTermination(seconds, TimeUnit.SECONDS);
     }
 
     @FunctionalInterface

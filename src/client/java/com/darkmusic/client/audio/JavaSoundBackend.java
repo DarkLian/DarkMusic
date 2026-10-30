@@ -23,10 +23,12 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
@@ -903,10 +905,26 @@ public final class JavaSoundBackend implements AudioBackend {
         }
     }
 
+    /**
+     * The worker has ended and the loudness cache's final write, which the worker queues as it ends, is on disk:
+     * reset deletes that file next, and a late write would bring it back.
+     */
     @Override
     public boolean awaitStopped(long seconds) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(seconds);
         worker.join(TimeUnit.SECONDS.toMillis(seconds));
-        return !worker.isAlive();
+        if (worker.isAlive()) return false;
+        var cache = loudness;
+        if (cache == null) return true;
+        try {
+            cache.closeAsync().get(Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS);
+            return true;
+        } catch (TimeoutException slow) {
+            return false;
+        } catch (ExecutionException failed) {
+            // The cache logs a failed final write; nothing is left running.
+            return true;
+        }
     }
 
     @Override

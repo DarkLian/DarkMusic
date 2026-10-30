@@ -270,3 +270,41 @@ smoke compile.
 
 **Runtime-unverified:** clicking through player → Settings → Audio Options and back, and the other hub destinations,
 in game. Covered by the default, HUD and advanced smoke checks.
+
+## Batch 6: late writes versus reset storage (2026-10-30)
+
+**Invariant improved:** before reset clears the files, it waits for every writer of a file it is about to clear.
+This covers the plan's requirement that pending old writes must not overwrite reset state.
+
+**Audit.** What `ResetStorage.clear` deletes, and who writes it:
+
+| File | Writer | Waited for before clear? |
+|---|---|---|
+| `library-cache.json` | `MusicLibrary` scanner | yes, `awaitStopped` |
+| `import-history.json` | `ImportHistory` via `io` | yes, the reset task runs on `io` (FIFO) |
+| `loudness-cache.json` | `LoudnessCache` writer; the audio worker queues the final flush as it ends | **no**: `awaitStopped` joined only the worker |
+| `downloaded.txt`, `.darkmusic-downloads.json` per root | download pool; **bookkeeping repair** executor | pool yes; **repair no**: `awaitStopped` skipped it |
+
+Restore was checked as well. Config, playlist and history writes all go through `io`, so a write queued before
+the install runs first, and the install overwrites it. During restore, the `restoring` gate and the paused history
+block any later write.
+
+**Fixes:**
+- `JavaSoundBackend.awaitStopped` now also waits, within the same deadline, for the loudness cache's final write.
+- `DownloadService.awaitStopped` now also awaits the bookkeeping executor. `close` has already cancelled its
+  scheduled work, so only a repair already running can still finish.
+
+Without these, a reset could leave a loudness cache behind, or a download-history entry that blocks downloading
+that video again.
+
+**No new deterministic test:** both writers run inside services that offer no seam to hold the final write, and
+adding test-only plumbing to the audio worker was judged not worth it. Verified by review and by the affected
+suites: `AudioWorkerTest`, `OutputRoutingTest`, `NativeAudioTest`, the loudness tests, all download tests and
+`ResetTest` (8, real excerpts, 0 skipped). All passed.
+
+**Publish-phase gates checked:**
+- `Shortcuts.restoreDefaults` has no admission gate.
+- In `FolderActions.activate`, `library.setRoots` is ungated and its save is gated. Since the reset rework, that
+  save is skipped while resetting and happens in `release`.
+
+So nothing that used to run is silently skipped.
