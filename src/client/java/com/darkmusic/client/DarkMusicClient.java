@@ -1061,24 +1061,10 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                 playlistsReady = true;
             }
         }));
-        var newArtwork = artwork = new ArtworkCache();
-        acquired.first("artwork", newArtwork::close);
-        var newWaveforms = waveforms = new WaveformCache(config.directory());
-        acquired.first("waveforms", newWaveforms::close);
         var newPip = pip = new PipController(config.directory(), pipSources);
         acquired.first("PiP", newPip::close);
-        var newPlayback = playback = createPlayback();
-        acquired.first("playback", newPlayback::close);
-        playback.volume(settings().volume);
-        applySettings();
-        playback.speed(settings().speed);
-        playback.shuffle(settings().shuffle);
-        playback.repeat(settings().repeat);
+        buildReplaceable(acquired);
         autoplayPending = settings().autoplay;
-        var newLibrary = library = new MusicLibrary(config.directory());
-        acquired.first("library", newLibrary::close);
-        var newDownloads = downloads = createDownloads();
-        acquired.first("downloads", newDownloads::close);
         // Read the field on each call: Reset to Defaults replaces the download service.
         lyrics.lookup.captions((track, preferences, generated, token) -> downloads.fetchLyrics(track, preferences, generated, token),
             (track, preferences, generated, token) -> downloads.fetchSourceLyrics(track, preferences, generated, token));
@@ -1091,6 +1077,31 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             settings().musicDirectory = "";
             folders.activate(config.defaultMusic());
         }
+    }
+
+    /**
+     * Builds the services that Reset to Defaults replaces, for startup and reset alike, and configures them from the
+     * current settings. Each is installed in its field at once, so the HUD, PiP and callbacks that read the fields see
+     * the new one, and registered with acquired so a failure further on closes it. The settings are applied before the
+     * library exists and before folders are activated, so scans start with the configured codec paths. What differs
+     * between startup and reset stays with the caller.
+     */
+    private void buildReplaceable(Cleanup acquired) {
+        var newArtwork = artwork = new ArtworkCache();
+        acquired.first("artwork", newArtwork::close);
+        var newWaveforms = waveforms = new WaveformCache(config.directory());
+        acquired.first("waveforms", newWaveforms::close);
+        var newPlayback = playback = createPlayback();
+        acquired.first("playback", newPlayback::close);
+        playback.volume(settings().volume);
+        playback.speed(settings().speed);
+        playback.shuffle(settings().shuffle);
+        playback.repeat(settings().repeat);
+        applySettings();
+        var newLibrary = library = new MusicLibrary(config.directory());
+        acquired.first("library", newLibrary::close);
+        var newDownloads = downloads = createDownloads();
+        acquired.first("downloads", newDownloads::close);
     }
 
     /**
@@ -1240,21 +1251,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         @Override
         public void publish(boolean defaults) {
             settingsStore.replace(defaults ? Settings.defaults(prior) : prior);
-            var newPlayback = playback = createPlayback();
-            built.first("playback", newPlayback::close);
-            var newArtwork = artwork = new ArtworkCache();
-            built.first("artwork", newArtwork::close);
-            var newWaveforms = waveforms = new WaveformCache(config.directory());
-            built.first("waveforms", newWaveforms::close);
-            var newLibrary = library = new MusicLibrary(config.directory());
-            built.first("library", newLibrary::close);
-            var newDownloads = downloads = createDownloads();
-            built.first("downloads", newDownloads::close);
-            playback.volume(settings().volume);
-            playback.speed(settings().speed);
-            playback.shuffle(settings().shuffle);
-            playback.repeat(settings().repeat);
-            applySettings();
+            buildReplaceable(built);
             if (defaults) {
                 warning = "";
                 warningUntil = 0;

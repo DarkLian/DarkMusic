@@ -496,3 +496,67 @@ Smoke runs used fullscreen 1920×1080, GUI scale 2, SmoothFont, the private coll
 This covers the navigation chains migrated in batch 8 and the `update` call sites from batch 12, at runtime. Still
 manual: nothing new beyond the earlier checklist, which still applies to these changes. The main remaining manual
 check is clicking through download, cleanup, playlist and track-picker, and PiP colour screens and back.
+
+## Batch 13: operation completion fixes (2026-10-30, review follow-up)
+
+Three review findings, each verified in the code before the fix:
+
+1. **Completion order.** `RestoreOperation` completed its future inside `try` and released the flags in `finally`,
+   so a caller's `whenComplete` ran while `mediaBusy`/`restoring` were still set. A failing `end` after success was
+   silently lost, because the future was already complete. **Fix:** `conclude` decides the outcome, runs
+   `end(...)`, then completes the future. A failing `end` becomes the result after a success, or is attached as
+   suppressed to an earlier failure. Either way it is logged.
+2. **Refused client dispatch.** Both operations called `client.execute(...)` inside `whenComplete`/`thenAccept`. A
+   refusal only failed the unobserved dependent stage, so the returned future never ended. **Fix:** the new
+   `ClientDispatch.run` posts the final step and fails the future when the client thread refuses it or the step
+   throws. Client-owned state stays as it is in that case. That only happens while Minecraft is closing:
+   `resetting` stays set, the restore flags stay held, and a pending journal recovery runs on the next start.
+3. **Exceptional storage completion.** An `Error` from `install`, or anything else that is not an `Exception`,
+   completed the storage stage exceptionally, and `thenAccept` then skipped the continuation. **Fix:**
+   `whenComplete` turns that into an install failure with an unknown journal state. The restrictions stay, the
+   future fails with `backup.failed`, and `end` runs.
+
+**Tests.** All waits now have a 5-second timeout, so a regression fails rather than hangs. That was learned the hard
+way: the first run against the old code hung.
+- `RestoreOperationTest` (+4): completion only after the flags are released (success and apply failure); a failing
+  `end` is reported, or attached to the original failure; refused client dispatch; a storage task that dies.
+- `ResetOperationTest` (+2): refused client dispatch; a client step that throws.
+- Against the previous operations, 5 of the 6 new tests fail. "A client step that throws" already passed there and
+  stays as a guard.
+
+## Batch 14: one place builds the replaceable services (2026-10-30, review follow-up)
+
+**Assessment.** `ready(...)` and `ResetSteps.publish(...)` both built artwork, waveforms, playback, library and
+downloads. Each registered every service for cleanup and configured playback from the settings, in slightly
+different orders. A separate service-owner class was considered and rejected. It would need the config folder,
+settings, histories, library, lyrics and the closed flag, which makes it either a coordinator with the same
+unrestricted access or a wide new interface. Nothing is gained over a private method in the composition root.
+
+**Change.** The private method `buildReplaceable(Cleanup)` builds the generation that reset replaces, in one order.
+Each service is installed in its field at once, which keeps current-service access for the HUD, PiP and callbacks.
+Each is registered with the caller's cleanup, so partial construction still unwinds. Playback is configured and the
+settings are applied before the library exists. That keeps startup's order, so codec paths are set before any scan.
+For reset, `applySettings` now runs before the library and downloads exist. That is equivalent:
+`createDownloads` sets the format itself, and `applySettings` does not touch the library.
+
+**What stays with the callers, on purpose:**
+- startup builds the app-lifetime services (histories, playlists, PiP), wires the lyric hooks once, sets autoplay,
+  and warns about a bad saved folder;
+- reset replaces the settings first, and for defaults clears the warning and restores the shortcuts.
+
+PiP is now built before the replaceable set. Its constructor stores only the sources and a lazy settings check.
+
+**Checks:** the focused tests passed (`ResetOperationTest`, `RestoreOperationTest`, `StartupShutdownTest`,
+`CleanupTest`, `ArchitectureTest`, `LibraryReconciliationTest`, `SettingsStoreTest`), and smoke compiles. The full
+headless `verify.ps1` gave **762 tests: 752 passed, 10 skipped, 0 failed**.
+
+**Runtime-unverified (next coordinated window):**
+- the default smoke run (startup, autoplay) and the reset smoke runs (rebuild after reset), with their restarts;
+- `verify.ps1 -Clean -DesktopIntegration`.
+
+**Further `DarkMusicClient` extraction (item 9).** Moving the service fields into a holder object would give reset
+one atomic swap. It would also make the built set constructible in tests, but only with an injected client executor
+and audio backend factory. All publication already happens on the client thread, and the callbacks compare captured
+identities, so the atomic swap fixes no observed defect. The cost is about 500 field-access edits, mostly in the
+smoke sources. No concrete benefit justifies it now. It stays deferred, as an option if the service set grows or a
+generation-level test becomes necessary.
