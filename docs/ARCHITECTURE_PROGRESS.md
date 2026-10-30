@@ -331,7 +331,7 @@ are 25 new tests and the skips are the same desktop and live-only set. `compileS
 ## Deferred verification: coordinated testing window
 
 None of the following was run during this work: no Minecraft, no desktop dialogs, no audible or device checks.
-Run them together when the computer is free. Every Minecraft run is fullscreen 1920×1080, GUI scale 2, with
+Run them together when the computer is free. The smoke build already sets fullscreen 1920×1080, GUI scale 2 and
 `run/resourcepacks/SmoothFont_1.21.zip` and the private collection. Pass the managed tools on every run that plays
 music, because the collection is Opus.
 
@@ -339,9 +339,10 @@ music, because the collection is Opus.
 $env:JAVA_HOME = "$env:USERPROFILE\.jdks\ms-25.0.4.1"
 $tools = (Get-ChildItem run/config/darkmusic/tools/managed -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
 $common = @('-Psmoke', '-PmusicDirectory=run/config/darkmusic/music', "-PdownloadToolsDirectory=$tools", '-PvisualSmoke')
-./gradlew.bat runSmokeClient @common                     # player, playback, shortcuts, Settings navigation, autoplay
-./gradlew.bat runSmokeClient @common -PresetSmoke        # Reset to Defaults: ResetOperation path, tools and folders kept
-./gradlew.bat runSmokeClient @common -PverifyHudRestart  # second run after the reset check
+./gradlew.bat runSmokeClient @common                                # player, playback, shortcuts, Settings navigation, autoplay
+./gradlew.bat runSmokeClient @common -PverifyHudRestart             # restart of the default run: settings survived shutdown
+./gradlew.bat runSmokeClient @common -PresetSmoke                   # Reset to Defaults: ResetOperation path, tools and folders kept
+./gradlew.bat runSmokeClient @common -PresetSmoke -PverifyHudRestart # restart of the reset run (same run folder)
 ./gradlew.bat runSmokeClient @common -PadvancedSmoke     # audio pages reached through Navigation, environment
 ./gradlew.bat runSmokeClient @common -PcleanupSmoke      # reconciliation consumers, duplicate review
 ./gradlew.bat runSmokeClient @common -PqueueSmoke        # Up Next, playlists, reconcileQueued
