@@ -38,6 +38,14 @@ libraries are listed once in its `bundledLibraries` map, which also feeds the th
 `global.json`; CI installs the one `src/pipHelper/global.json` names, and a test keeps the two files equal, so upgrade
 them together. CI setup is shared by both workflows in `.github/actions/setup-toolchain`.
 
+`src/smoke` compiles only with `-Psmoke`, so compile it after changing client members or Sources interfaces. Give
+every wait in a test a timeout, so that a regression fails instead of hanging.
+
+Two build quirks are expected. Running `clean` and `build` as separate invocations, as `verify.ps1 -Clean` does,
+leaves `Fabric-Loom-Client-Only-Entries` out of the JAR manifest; one invocation writes it, and the mod is
+client-only either way. A clean `dotnet publish` gives helper binaries with different bytes, so each build's
+manifest hashes are its own.
+
 ## Private audio
 
 Audio-dependent checks use an existing real music collection. They explicitly skip when it is absent on hosted CI. Do not add personal music, fabricated audio fixtures, or private test images to the repository.
@@ -52,6 +60,7 @@ Choose formats supported by the test readers (MP3, FLAC, WAV, or Ogg Vorbis). Te
 
 For a focused run with the same excerpts, pass test classes or patterns:
 `./scripts/verify.ps1 -Tests 'com.darkmusic.client.PackagedJarTest'`.
+Audio tests skip without real excerpts, so check `skipped="0"` in the result XML for the tests that matter.
 
 `-PdownloadIntegration -PdownloadToolsDirectory=/path/to/tools` enables tests with existing yt-dlp, FFmpeg, and FFprobe executables. The platform's executable suffix is selected automatically. The default directory remains the ignored `Music/` folder; tools are never installed or downloaded by this flag. Desktop chooser and managed-tool installation integration checks are opt-in through `-PdesktopIntegration` and `-PmanagedToolsIntegration`.
 

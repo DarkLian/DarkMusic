@@ -1,7 +1,8 @@
 # DarkMusic architecture
 
 How the client is put together: who owns what, which thread touches it, and how services start, get replaced
-and stop. Findings, test evidence and open items are in [ARCHITECTURE_PROGRESS.md](ARCHITECTURE_PROGRESS.md).
+and stop. Known limits and common changes are at the end. The October 2026 architecture work that produced this
+layout is recorded in [its progress log](history/ARCHITECTURE_PROGRESS.md).
 
 ## Dependency direction
 
@@ -154,40 +155,27 @@ The analyzer's environment curve (`toneResponse`) adds only the filters that are
 like playback. It shows tone only: the constant headroom trim, intensity mix, drive, delays and reverb are not part
 of it (as the analyzer label says).
 
-## Subsystem dispositions
+## Known limits
 
-Batch numbers refer to the index in the progress log.
+- Which services are built (`ready`, the reset steps, `buildReplaceable`) is wiring in `DarkMusicClient`. It is
+  covered by compilation, review and the smoke checks rather than by unit tests.
+- A player stuck in its audio line's write keeps that line open until Minecraft exits. This was tested on the Windows
+  default device only.
+- Retained screens re-read settings when shown again, and the confirmation screen cannot be left while a reset or
+  restore runs, so no edit reaches a replaced settings object. This was checked by reading the code, not by a test.
+- `mediaBusy` is released by its holder, relying on exclusive admission rather than an operation lease; admission
+  makes overlap unreachable (see Exclusive operations).
+- A rescan reuses a file's tags while its size and modification time are unchanged, so a replacement that keeps both
+  shows the old tags until one changes.
+- `atomicWrite` falls back to a plain replace where the file system cannot move atomically, so there is no universal
+  crash-durability claim. A save queues its write; the acknowledgement is checked at shutdown, and reset reads the
+  config back.
+- `ExternalAudio`'s codec configuration is process-wide: one client per Minecraft process.
+- The services are separate fields rather than one holder object. Reset publishes them on the client thread and
+  callbacks compare captured identities, so a single swap has not been needed.
 
-| Area | Disposition | Reason / evidence | Remaining risk |
-|---|---|---|---|
-| Application lifecycle (startup, reset, restore, shutdown) | **Improved** | `Startup`, `ResetOperation`, `RestoreOperation`, `Shutdown`, `Cleanup`, `ClientDispatch`, each driven by tests without Minecraft; restore against the real stores and journal, reset stopping real services; partial startup unwinds (batches 2, 9, 10, 13, 14, 15) | Which services are built (`ready`, `buildReplaceable`) is wiring in `DarkMusicClient`, covered by compilation, review and smoke. A future whose last step is queued while Minecraft closes never completes |
-| Library reconciliation | **Improved** | `LibraryReconciliation` owns markers and generation; fixed markers surviving reset (batch 3) | — |
-| Settings application and replacement | **Improved** | `applySettings` with documented order; replacement audit and tests; `SettingsSource.update(edit)` for edit-then-commit changes with save timing unchanged (batches 4, 12) | Screens' in-place previews remain by design |
-| Screen navigation | **Improved** | `Navigation` + `ScreenNavigation` for every screen; reach of `MusicScreen.Sources` 62 → 31 methods, 31 → 4 interfaces (batches 5 and 8) | — |
-| Playback and audio | **Already adequate**; DSP bypass **fixed** | `AudioBackend` seam, sequence/order versions and transition claims, `NextAudio` transfer protocol (`TransitionOrderTest`, `UpNextTest`, `SeekDiscardTest`, `UpNextPreloadTest`); environment filter bypass fixed (batch 1) | Queue-policy extraction from `PlaybackController` not attempted: its tests pin the timing guarantees and nothing showed a defect |
-| Lyrics | **Already adequate** | Per-track operation identity, owner cancellation, bounded queues, immutable cache views (`LyricsSafetyTest`, lyrics tests) | — |
-| Library and file operations | **Already adequate** | Captured identities, cancellation tokens, full-content checks, deletion reconciles after commit (`MetadataCommitSafetyTest`, `AudioDeletionTest`, `AudioDeletionFilesystemTest`, `WatcherIsolationTest`) | `mediaBusy` release relies on exclusive admission rather than an operation lease; admission makes overlap unreachable (see Exclusive operations). A rescan reuses a file's tags while its size and modification time are unchanged, so a replacement that keeps both shows the old tags until one changes |
-| Downloads | **Already adequate**; reset wait **fixed** | Pipeline/commit split, per-item tool paths, committed-before-optional-follow-up (`DownloadCommitTest`, `DownloadRetryTest`); `awaitStopped` now covers the bookkeeping repair (batch 6) | — |
-| Persistence and backup | **Improved** | Serial `io`, coalescing `LatestWriter` with write acknowledgement, journaled restore that owns its files through shutdown and failed applies (`StorageTest`, `WriteAcknowledgementTest`, `BackupRestoreTest`, backup and consent tests, `ResetTest`); loudness and bookkeeping writers awaited before reset clears (batches 6, 9, 11, 15, 16) | A save queues the write; its acknowledgement (`lastWrite`) is checked at shutdown, and reset reads the config back. `atomicWrite` has a non-atomic fallback, so there is no universal crash-durability claim. |
-| HUD and rendering | **Already adequate** | HUD/PiP sources resolve current services each frame, by design across reset (HUD tests) | — |
-| Native integrations and updates | **Already adequate** | Consent, size/SHA-256 manifests, runtime leases, helper processes outside the JAR (`PipRuntimeTest`, `PipBundleTest`, `MediaControlsTest`, `DiscordPresenceTest`, update tests) | `ExternalAudio` codec configuration is process-wide, a documented single-client assumption |
-| Concurrency contracts | **Improved** where defects were found | Executor ownership above; stale-work rules per callback (Callbacks across replacement); deterministic tests with queued executors for reset, restore and reconciliation | Most services keep their own executors with their own semantics; no shared utility was introduced because none had identical semantics |
+## Common changes
 
-## Before and after
-
-| Measure | v3.5.1 (`0792986`) | Now |
-|---|---|---|
-| Methods reachable from `MusicScreen.Sources` | 62 across 31 interfaces | 31 across 4 |
-| Methods reachable from `SettingsScreen.Sources` | 39 across 17 interfaces | 12 across 4 |
-| Files depending on `DarkMusicClient` (ratchet) | 5 | 5 |
-| `DarkMusicClient` lines | 1223 | 1353 |
-
-The coordination left `DarkMusicClient`. Phase order, failure semantics, completion, revision markers and stale-result
-rules now live in `Startup`, `ResetOperation`, `RestoreOperation`, `BackupRestore`, `Shutdown`, `ClientDispatch`,
-`LibraryReconciliation` and `Cleanup`. Its line count still grew, because the composition root now spells out what
-was implicit: the step adapters that read its fields, and the explicit list of Sources it implements.
-
-**Common changes now:**
 - *Adding a destination screen*: its Sources, one `Navigation` method, one `ScreenNavigation` method and bound;
   `DarkMusicClient` implements the new Sources. No other screen changes.
 - *Replacing a library service*: construct it in `buildReplaceable`, used by both startup and reset, and add it to

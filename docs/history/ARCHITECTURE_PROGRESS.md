@@ -2,18 +2,8 @@
 
 A record of the 2026-10-30 architecture work, started from v3.5.1 (`0792986`), and of its follow-up review the
 same day (batches 15 and 16), and of the maintenance batch 17. The current design is described in
-[ARCHITECTURE.md](ARCHITECTURE.md); this file keeps the evidence: what was found, what changed, how it was checked,
-and what is still open. On resuming, compare `git log` with the batch index below.
-
-## Environment notes
-
-- The shell's default `JAVA_HOME` is Java 8. Set `JAVA_HOME=%USERPROFILE%\.jdks\ms-25.0.4.1` for every Gradle call.
-- The private collection is Opus only, so `TestMusic` tests skip unless MP3 excerpts exist. `scripts/verify.ps1`
-  prepares them; for focused runs use `scripts/verify.ps1 -Tests <class>`, which makes three 45-second excerpts
-  under `.local-tools/verification/runs/<guid>`, deletes them afterwards, and checks the source hashes. Confirm
-  `skipped="0"` in the result XML for the tests that matter.
-- `src/smoke` compiles only with `-Psmoke`. Compile it whenever client members or Sources interfaces change.
-- Give deterministic future waits in tests a timeout, so that a regression fails instead of hanging.
+[ARCHITECTURE.md](../ARCHITECTURE.md), with the limits still open at its end; this file keeps the evidence: what
+was found, what changed and how it was checked. The work is finished.
 
 ## Findings
 
@@ -129,38 +119,5 @@ Change paths, before and after:
 
 ## Open items
 
-- **Service holder** (moving the service fields into one object): deferred. Reset would get a single atomic swap,
-  but publication already happens on the client thread and the callbacks compare captured identities, so no observed
-  defect needs it. It would cost about 500 field-access edits, mostly in the smoke sources. Worth revisiting if the
-  service set grows or a generation-level test becomes necessary.
-- `ready`, `ResetSteps` and `buildReplaceable` stay as wiring inside `DarkMusicClient`. They are covered by
-  compilation, review and the smoke checks, not by unit tests; batch 4 of the maintenance plan is therefore not
-  complete. `BackupRestoreTest` runs shutdown through
-  `Shutdown.run` with its own steps, so the client's own step bodies are not exercised there.
-- **Unfinished futures at exit:** `Minecraft.execute` queues and never refuses, and the queue is dropped when the
-  game loop stops. A reset or restore whose last step is queued then never completes its future; nothing waits for
-  it.
-- **Reset after a timeout:** `ResetStopTest` holds an old player stuck in its line's write while the replacement
-  plays on the real default device (passed on the Windows default device, 2026-10-31). One device and driver only; a line that never returns
-  stays open until Minecraft exits. The late loudness write (T2) now merges with the file.
-- Settings ownership: no change. Retained screens re-read settings when shown again and the confirmation screen
-  cannot be left while a reset or restore runs, so no edit reaches a replaced settings object (checked by reading the
-  code, not by a test).
-- **Loom client-only manifest list:** a clean build run as separate `clean` and `build` invocations (as
-  `verify.ps1 -Clean`) writes the JAR manifest without `Fabric-Loom-Client-Only-Entries`; one invocation writes it.
-  The build before batch 17 behaves the same. DarkMusic is client-only, so players are unaffected; a CI-built JAR
-  has not been inspected.
-- **Helper reproducibility:** a clean `dotnet publish` gives helper binaries of the same size with different bytes,
-  so each build's manifest hashes are its own.
-- **Batch 17 CI:** the build workflow with the composite action passed on Ubuntu, Windows and macOS at `5093019`,
-  and Dependabot scanned the action. The release workflow runs only on a tag and has not run with these changes.
-- **Release:** released in v3.6.0 (2026-10-31).
-
-## Rerunning the runtime checks
-
-`./scripts/smoke.ps1 -Scenario suite -DesktopVerify` runs the smoke modes in sequence (default, reset, each with
-restart, then advanced, cleanup, queue, lyrics and preview), each with a 20-minute limit, then
-`verify.ps1 -Clean -DesktopIntegration`, and hashes the private collection before and after. See
-[the testing guide](TESTING.md#in-game-smoke-checks). The smoke build sets fullscreen 1920×1080, GUI scale 2 and
-SmoothFont. Before attributing a smoke failure to new
-code, rerun that mode on a worktree of the previous release.
+The items still open when this work ended are the Known limits in [ARCHITECTURE.md](../ARCHITECTURE.md#known-limits).
+The Loom manifest and helper-reproducibility build notes are in [the testing guide](../TESTING.md#build).

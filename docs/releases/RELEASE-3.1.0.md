@@ -31,4 +31,4 @@ Requires **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5+** and **Fabric
 
 Clean Windows validation passed **607 tests: 601 passed, six optional/environment skips**, with zero failures/errors. All four release archives passed package integrity checks. The changes have deterministic regression coverage and private-real-audio integration coverage. Windows English/Traditional Chinese player and lyrics smoke checks passed at fullscreen 1920×1080, GUI scale 2, with SmoothFont. Native resize/capture testing accepted ultrawide and portrait frames; this does not establish Minecraft/OpenGL display at every supported dimension.
 
-Physical slow links, NAS pressure, real device-disconnection recovery and other GPUs/Windows builds remain unverified. See [the review report](../history/reviews/FINDINGS-128-148.md) and [testing documentation](../TESTING.md) for measurements and limits.
+Physical slow links, NAS pressure, real device-disconnection recovery and other GPUs/Windows builds remain unverified. See the [testing documentation](../TESTING.md).
