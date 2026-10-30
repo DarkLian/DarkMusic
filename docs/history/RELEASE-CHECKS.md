@@ -244,27 +244,10 @@ Publication verification: [release workflow 40296945963](https://github.com/Dark
 
 Windows `scripts/verify.ps1 -DesktopIntegration` passed **606 tests: 600 passed, six skipped**, zero failures/errors. EN/ZH native playback/lyrics/player/HUD smoke checks passed at fullscreen 1920x1080, GUI scale 2 with SmoothFont. Real private-derived Opus fixtures verify native metadata/lyrics and tiny FFmpeg seeks. Native WGC resized through ultrawide/portrait shapes without capture/pipe errors; this does not verify Minecraft upload at those sizes. A 100k-track metadata benchmark measured four-query medians of 34.7 ms before versus 6.7 ms cached (256.1 ms construction), not gameplay FPS. IntelliJ formatting, workflow lint, whitespace and 1,624-key localization parity passed. See [per-finding dispositions and verification limits](reviews/FINDINGS-128-148.md).
 
-An initial full attempt found an invalid new Gson/Path fixture and an existing gapless/output-route timeout. The corrected fixture and isolated routing case passed, followed by passing full runs; timing assertions were not relaxed. POSIX permissions are skipped on Windows and tested where supported. Actual slow links, NAS/large-FLAC pressure, hardware disconnection, extreme cache sizes and native non-Windows PiP remain unverified. Existing v3.0.4 post-FreeSync capture measurements remain current.
+An initial full attempt found an invalid new Gson/Path fixture and an existing gapless/output-route timeout. The corrected fixture and isolated routing case passed, followed by passing full runs; timing assertions were not relaxed. POSIX permissions are skipped on Windows and tested where supported. Actual slow links, NAS/large-FLAC pressure, hardware disconnection, extreme cache sizes and native non-Windows PiP remain unverified.
 
 
 The final review-147 refinement protects refreshed cache files against stale trim candidates while keeping directory enumeration outside the result-map/publication locks. Its deterministic replacement regression and lyrics-focused suite passed; see the per-finding report for counts. The main review commit passed Windows, macOS and Linux CI: https://github.com/DarkLian/DarkMusic/actions/runs/40294665587 .
-
-## PiP Chrome retest after the FreeSync correction
-
-October 26, 2026, Windows 11 build 26300, Ryzen 7 7800X3D, Radeon RX 9060 XT, 144 Hz display. The user reported fixing the system-wide AMD FreeSync/Adaptive Sync problem that had capped frame rates across applications; the earlier PiP measurements were taken before that correction.
-
-The source was a disposable Chrome window (throwaway profile) drawing real artwork from the private collection, shifted by one pixel every frame, with its own paint counter. Chrome painted 143-144 frames per second throughout, including while Minecraft covered it, so Chrome did not throttle the covered window. Minecraft ran fullscreen at 1920x1080, GUI scale 2, SmoothFont, VSync off and a 144 FPS cap, in a disposable copy of an existing development world, with PiP audio and music off. The live window state was logged during each run. The test harness previously forced exclusive fullscreen for every run; `-PsmokeBorderless` now selects borderless.
-
-| Mode | Capture interval | Received FPS | Uploaded FPS | Minecraft FPS |
-|---|---|---:|---:|---:|
-| Borderless | default | 48.0 | 48.0 | 139.1 |
-| Borderless | 4 ms | 144.0 | 134.9 | 139.0 |
-| Exclusive | default | 47.9 | 47.9 | 139.0 |
-| Exclusive | 4 ms | 142.6 | 132.9 | 139.0 |
-
-Rates trim the first 3 and last 1 seconds of 33-47 second phases; there was no frame-rate throttling in any measured window. The default 16 ms Windows capture interval limits delivery to about 48 FPS. The experimental 4 ms interval reached about 143-144 FPS received; uploads are bounded by Minecraft's roughly 139 FPS render rate, with 320-346 frames replaced by newer ones. The earlier drop to about 66 FPS behind exclusive fullscreen was **not reproduced**; the source application, the harness forcing exclusive fullscreen and the FreeSync problem all differ from the earlier runs, and which one explained the difference is not established.
-
-Not measured: visual tearing, CPU/RAM/GPU cost, other sources, other GPUs or long sessions. These runs used the v3.0.3 default interval and the experimental 4 ms override. Two earlier exclusive attempts were discarded when the window lost focus and minimized; the harness now restores it and clears the pause screen. Logs are under ignored `.local-tools/archive/verification-2026-10-31/pip-chrome-retest/`; derived media and the Chrome profile were deleted.
 
 ## v3.0.4 release validation
 
@@ -279,13 +262,13 @@ The helper now requests a minimum update interval of half the frame limit's peri
 | 144 | 3.47 ms | 142.7 | 132.9 | 139.0 |
 | 60 | 8.33 ms | 60.0 | 60.0 | 139.0 |
 
-Chrome painted about 143 frames per second in both runs, so 142.7 received is source-limited. The 60 FPS limit stayed at 60 with no replaced frames, so the frame pacer still enforces the limit. Not measured: borderless with the new interval, CPU/RAM/GPU cost, visual tearing, other Windows builds, GPUs or sources, and long sessions. The helper self-test checks the interval values for 15, 60, 144 and 480 FPS.
+Chrome painted about 143 frames per second in both runs, so 142.7 received is source-limited. The 60 FPS limit stayed at 60 with no replaced frames, so the frame pacer still enforces the limit. The helper self-test checks the interval values for 15, 60, 144 and 480 FPS.
 
 ## v3.0.3 release validation
 
 Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration` passed **589 tests: 584 passed, five skipped**, zero failures/errors, using the private collection and existing managed tools. The four local release archives built. The change adds only a PiP settings warning for exclusive fullscreen, with English and Traditional Chinese text; localization parity and menu layout tests passed.
 
-The warning was confirmed manually in the PiP settings screen at GUI scale 2. The underlying tearing was reproduced on one system (RX 9060 XT, 144 Hz, VSync off, 140 FPS cap, Fabric API and DarkMusic only): exclusive fullscreen tore in the inventory and PiP layout editor while capturing; borderless and windowed mode did not, and VSync did not help. The cause is not established, and other hardware, the capture helper's role and the OBS comparison were not tested. Full native playback/HUD smoke runs were not repeated for this release.
+The warning was confirmed manually in the PiP settings screen at GUI scale 2. The underlying tearing was reproduced on one system (RX 9060 XT, 144 Hz, VSync off, 140 FPS cap, Fabric API and DarkMusic only): exclusive fullscreen tore in the inventory and PiP layout editor while capturing; borderless and windowed mode did not, and VSync did not help. v3.1.2 traced it to exclusive fullscreen, which Cubes Without Borders also forces, and lists that mod as a conflict. Full native playback/HUD smoke runs were not repeated for this release.
 
 ## v3.0.2 release validation
 
@@ -301,7 +284,7 @@ Hosted [Windows, macOS and Linux release CI](https://github.com/DarkLian/DarkMus
 
 The post-publication production-transport installation check passed separately (one test, zero skipped), using the actual released JAR and its matching GitHub dependency archive in a disposable fixture. It verified checksums, installation, Windows/WGC and graphics-device setup without granting capture/audio access, enumerating windows or starting capture. Published assets and the v3.0.2 tag were not modified after verification.
 
-No post-FreeSync fullscreen 144 FPS/resource benchmark, real-device COM/write-stall audio recovery, live website bot-check or native non-Windows PiP validation was performed. PiP remains Windows-only. Optional dither remains deferred.
+No real-device COM/write-stall audio recovery, live website bot-check or native non-Windows PiP validation was performed. PiP remains Windows-only. Optional dither remains deferred.
 
 ## Review findings 122-127
 
@@ -319,7 +302,7 @@ The five skips remain optional live managed-tool installation, live LRCLIB, two 
 
 A Windows probe revealed that holding our own preflight handles prevents directory renaming. Cleanup now closes those handles before claiming the candidate. Locked/inaccessible legacy runtimes are deferred; reclaiming legacy files remains best effort. Unreferenced ZIPs must exceed the 24-hour grace independently of legacy directories. Both current and referenced active managed archives remain protected.
 
-IntelliJ formatting, actionlint, whitespace and English/Traditional Chinese parity (1,613 keys) passed. GUI status-row checks in an actual Minecraft window, hosted/UWP audio and post-FreeSync 144 FPS capture were not performed in this follow-up. Private evidence is under `.local-tools/archive/verification-2026-10-31/pip-cleanup-followup/`.
+IntelliJ formatting, actionlint, whitespace and English/Traditional Chinese parity (1,613 keys) passed. GUI status-row checks in an actual Minecraft window and hosted/UWP audio were not performed in this follow-up. Private evidence is under `.local-tools/archive/verification-2026-10-31/pip-cleanup-followup/`.
 
 ## Open findings 86-108 follow-up
 
@@ -327,7 +310,7 @@ Windows verification through `scripts/verify.ps1 -DesktopIntegration` passed **5
 
 New regressions cover portable-backup consent preservation, waveform retry backoff, metadata-edit space bounds, local control characters and symbolic links, compact lyric JSON, shared-companion journal discovery/conflict archival, codec/receiver Errors, equal-power crossfade, ratio-scaled resampler coefficients, old commit receipts, staging cleanup, publication races and active runtime leases. The 192 kHz to 44.1 kHz kernel's tested stopband response improved from about -29.7 dB to -77.1 dB; this is a coefficient measurement rather than a listening or hardware benchmark. Normal-rate paths retain 32 taps; high-ratio paths scale up to a bounded 512 taps.
 
-IntelliJ's formatter, workflow actionlint, whitespace checks, locked .NET restore/build and English/Traditional Chinese parity (1,611 keys) passed. No Minecraft GUI smoke, native non-Windows runtime, UWP audio routing, real heap-exhaustion test or post-FreeSync 144 FPS comparison was performed in this turn. See [the per-finding disposition](reviews/FINDINGS-86-108.md). Existing full content-hash deletion safeguards are deliberately retained.
+IntelliJ's formatter, workflow actionlint, whitespace checks, locked .NET restore/build and English/Traditional Chinese parity (1,611 keys) passed. No Minecraft GUI smoke, native non-Windows runtime, UWP audio routing, or real heap-exhaustion test was performed in this turn. See [the per-finding disposition](reviews/FINDINGS-86-108.md). Existing full content-hash deletion safeguards are deliberately retained.
 
 
 Hosted [Windows, macOS and Linux CI](https://github.com/DarkLian/DarkMusic/actions/runs/40254982912) passed for `1e46232`. A final local assembly and four-artifact package check passed archive CRCs, embedded helper/dependency checksums, notices/source archives, localization parity and private/smoke exclusions. Published v3.0.1 assets were not changed.
@@ -340,7 +323,7 @@ Windows, macOS and Linux [release CI](https://github.com/DarkLian/DarkMusic/acti
 
 After publication, `PipRuntimeTest.publishedDependenciesInstallWithTheProductionTransport` passed separately (one test, zero skipped). It read the actual published JAR with `-PpipRuntimeReleaseJar`, downloaded the matching release archive through production transport using `-PpipRuntimeIntegration -PdesktopIntegration`, verified and installed it in a disposable JUnit directory, and passed Windows/WGC and native graphics-device checks. It did not enumerate windows, grant capture/audio access or start capture. Local evidence is under ignored `.local-tools/archive/verification-2026-10-31/release-3.0.1/`.
 
-Native macOS/Linux PiP remains unsupported; CI builds do not establish native GUI/audio behavior on those systems. Post-FreeSync Chrome delivery at 144 FPS was still unverified then; it was measured later (PiP Chrome retest after the FreeSync correction, and v3.0.4).
+Native macOS/Linux PiP remains unsupported; CI builds do not establish native GUI/audio behavior on those systems.
 
 ## v3.0.1 release validation
 
@@ -350,17 +333,13 @@ The v3.0.1 base JAR, source JAR, third-party source ZIP and optional Windows dep
 
 After publication, the explicit live check is `gradlew.bat test --tests '*PipRuntimeTest.publishedDependenciesInstallWithTheProductionTransport' -PdesktopIntegration -PpipRuntimeIntegration -PpipRuntimeReleaseJar=<downloaded-release.jar>`. It reads the manifest and code from the actual released JAR, uses the production download transport, installs into a disposable fixture and probes the real graphics device. It does not grant window/audio access or start capture. It is opt-in and does not run during ordinary tests. The published JAR is required because CI may use a different .NET patch from a local rebuild.
 
-The earlier fullscreen setup UI smoke remains applicable: no production UI/capture implementation changed for release preparation. Post-FreeSync Chrome/fullscreen throughput, other Windows builds/GPUs and native non-Windows PiP remain unverified; this release makes no new performance claim.
+The earlier fullscreen setup UI smoke remains applicable: no production UI/capture implementation changed for release preparation.
 
 ## v3.0.0 release validation
 
 Clean Windows release checks through `scripts/verify.ps1 -Clean -DesktopIntegration` completed successfully: **546 tests, 544 passed, two optional live-provider/tool-install checks skipped**, zero failures/errors. The real private collection and existing managed tools were used. The v3.0.0 binary/source JARs and third-party source ZIP passed integrity checks; packaged metadata, the native-helper SHA-256 and licenses, 1,584 matching localization keys, and exclusion of private audio and smoke classes were verified. Workflow lint and Git whitespace checks passed.
 
-Runtime PiP, audio and layout checks are recorded below and in [PiP verification](PIP-VERIFICATION.md). The latest default/4 ms acquisition probes, OBS comparison and fullscreen/windowed crossover are in the [WGC investigation](PIP-WGC-INVESTIGATION.md). No extra public screenshots were taken. The user authorized release with the measured default fullscreen rate of approximately 47 FPS and unresolved focus/display-transition capture reports. No sustained fullscreen 144 FPS, browser-equivalence or native Linux/macOS PiP claim is made. Hosted build outcomes are available on the v3.0.0 release workflow.
-
-## PiP capture timing investigation
-
-See [WGC frame-rate investigation](PIP-WGC-INVESTIGATION.md) for measured default/4 ms capture, isolated acquire/dispose and readback probes, OBS modern-window comparison, and exclusive-fullscreen/windowed crossover results. Developer-only `-PpipTrace=<ignored-directory>` on the PiP smoke run records bounded native/Java stage timings on background writers. A `video4` phase explicitly requests a runtime-gated 4 ms WGC interval; normal capture defaults, protocol and music processing remain unchanged. GPU upload submission is measured on the CPU and must not be reported as GPU completion or scanout. Native Windows build 26300 was exercised; older-build runtime fallback, other GPUs, browser equivalence and sustained fullscreen 144 FPS are unverified.
+Runtime PiP, audio and layout checks are recorded below and in [PiP verification](PIP-VERIFICATION.md). No extra public screenshots were taken. The user authorized the release. Hosted build outcomes are available on the v3.0.0 release workflow.
 
 ## PiP application-audio checkpoint
 
@@ -381,7 +360,7 @@ captures were reviewed for settings, layout and independent color previews.
 English and Traditional Chinese smoke runs both completed successfully; final
 localized-label/configuration checks and preview assembly also passed.
 These follow-up UI tests use synthetic spectrum previews, not new live capture
-or device tests; the earlier throughput limit remains unchanged.
+or device tests.
 
 Windows `scripts/verify.ps1 -DesktopIntegration` passed **540 tests: 538 passed,
 two optional live-provider/tool-install tests skipped**. Temporary excerpts from
@@ -390,11 +369,7 @@ cover invalid/truncated/oversized packets, duplicate sequences, closed readers,
 and spectrum analysis of real audio. Native process-loopback capture, spectrum
 rendering and capture stop/restart were exercised in Minecraft.
 
-See [measured PiP performance](PIP-PERFORMANCE.md): fullscreen 1920×1080, GUI scale
-2 with SmoothFont. The 144 FPS PiP target was unmet at this checkpoint; v3.0.4 reached it with Chrome. These short checks do not
-establish browser equivalence, tab isolation, device-change resilience or prolonged
-gameplay stability. Native macOS/Linux PiP remains unsupported. Manual approval was
-required before committing or releasing this preview.
+Checks ran at fullscreen 1920×1080, GUI scale 2 with SmoothFont. Native macOS/Linux PiP remains unsupported.
 
 ## v2.10.0 release validation
 

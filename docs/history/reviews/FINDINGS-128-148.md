@@ -1,6 +1,6 @@
 # Review findings 128–148
 
-Implemented against `9698c6c` (v3.0.4 development branch). The newer capture-interval policy, exclusive-fullscreen warning and post-FreeSync measurements remain intact. No version bump or release is included.
+Implemented against `9698c6c` (v3.0.4 development branch). The newer capture-interval policy and exclusive-fullscreen warning remain intact. No version bump or release is included.
 
 | Finding | Assessment and disposition |
 | --- | --- |

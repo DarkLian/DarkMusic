@@ -80,6 +80,5 @@ reports a failure. No recovery step grants access or captures a different window
   differs from the release one, so a development run never pairs its manifest with the published ZIP. A self-built
   JAR works only with the ZIP built alongside it; do not turn off verification to mix builds.
 - Tests, the opt-in `-PpipRuntimeIntegration -PdesktopIntegration` check against the published package and the PiP
-  smoke run are described in [Development and verification](TESTING.md). Capture measurements, including the
-  frame-rate retest after the FreeSync correction, are in [release checks](history/RELEASE-CHECKS.md) and
+  smoke run are described in [Development and verification](TESTING.md) and
   [PiP verification](history/PIP-VERIFICATION.md).
