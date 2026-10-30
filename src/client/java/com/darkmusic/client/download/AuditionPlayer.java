@@ -26,6 +26,7 @@ public final class AuditionPlayer implements AutoCloseable {
     private long generation;
     private boolean closed;
     private volatile Snapshot state = new Snapshot(Status.STOPPED, "", "");
+    // The worker's release() clears this without the lock, so callers read it once.
     private volatile AudioBackend audio;
     private AuditionClip clip;
 
@@ -47,7 +48,8 @@ public final class AuditionPlayer implements AutoCloseable {
         token = request;
         long ticket = ++generation;
         state = new Snapshot(Status.LOADING, entry.title(), "");
-        if (audio != null) audio.stop();
+        var playing = audio;
+        if (playing != null) playing.stop();
         worker.execute(() -> {
             release();
             try {
@@ -96,20 +98,23 @@ public final class AuditionPlayer implements AutoCloseable {
         long completed = ++generation;
         token.cancel();
         state = new Snapshot(Status.STOPPED, "", "");
-        if (audio != null) audio.stop();
+        var playing = audio;
+        if (playing != null) playing.stop();
         worker.execute(this::release);
         notifyFinished(completed);
     }
 
     public synchronized void pause() {
-        if (closed || state.status() != Status.PLAYING || audio == null) return;
-        audio.pause();
+        var playing = audio;
+        if (closed || state.status() != Status.PLAYING || playing == null) return;
+        playing.pause();
         state = new Snapshot(Status.PAUSED, state.title(), "");
     }
 
     public synchronized void resume() {
-        if (closed || state.status() != Status.PAUSED || audio == null) return;
-        audio.resume();
+        var playing = audio;
+        if (closed || state.status() != Status.PAUSED || playing == null) return;
+        playing.resume();
         state = new Snapshot(Status.PLAYING, state.title(), "");
     }
 

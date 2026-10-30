@@ -3,6 +3,7 @@ package com.darkmusic.client.config;
 import com.darkmusic.client.backup.BackupArchive;
 import com.darkmusic.client.library.*;
 import com.darkmusic.client.playlist.PlaylistStore;
+import com.darkmusic.client.text.Text;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
@@ -255,6 +256,7 @@ class BackupArchiveTest {
             assertTrue(loaded.nativeShortcutNames.isEmpty(), "Recovered bindings must replace Minecraft's pre-recovery in-memory values");
             var store = new PlaylistStore(root, io, warnings::add);
             assertEquals("kept", store.read().getFirst().id());
+            assertEquals(List.of(Text.get("backup.recovered")), warnings, "The undone restore is reported once, with no other warnings");
         }
         assertEquals("key_key.darkmusic.open:key.keyboard.k\n", Files.readString(options));
         assertFalse(Files.exists(root.resolve("listening-history.json")));

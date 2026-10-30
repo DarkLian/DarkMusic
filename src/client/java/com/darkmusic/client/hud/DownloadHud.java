@@ -72,7 +72,7 @@ public final class DownloadHud {
         if (sources.settings() != null && sources.settings().hudEnabled && sources.playback() != null && sources.playback().state().track() != null) {
             var b = NowPlayingHud.bounds(sources, g.guiWidth(), g.guiHeight());
             if (x < b.x() + b.width() && x + width > b.x() && y < b.y() + b.height() && y + height > b.y())
-                y = (int) Math.ceil(b.y() + b.height()) + 4;
+                y = b.y() + b.height() + 4;
         }
         y = Math.max(4, Math.min(y, g.guiHeight() - height - 4));
         int alpha = (int) (opacity * 255), color = HudText.themed(UiTheme.TEXT, alpha);

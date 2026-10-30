@@ -441,7 +441,7 @@ public final class LyricsLookup implements AutoCloseable {
                 if (attempt.query == null) automatic(attempt.track, false, attempt.owner);
                 else {
                     automatic.put(attempt.track.id(), new Attempt(attempt.track, attempt.count + 1, Long.MAX_VALUE, attempt.query));
-                    start(attempt.track, token -> discover(attempt.track, attempt.query, true, false, token), false);
+                    start(attempt.track, token -> discover(attempt.query, true, false, token), false);
                 }
                 return;
             }
@@ -491,7 +491,7 @@ public final class LyricsLookup implements AutoCloseable {
         List<LyricsProvider.Candidate> found;
         LrclibProvider.Failure providerFailure = null;
         try {
-            found = discover(track, LyricsProvider.Query.of(track), false, true, token);
+            found = discover(LyricsProvider.Query.of(track), false, true, token);
         } catch (LrclibProvider.Failure failure) {
             if (captions == null) throw failure;
             providerFailure = failure;
@@ -529,10 +529,10 @@ public final class LyricsLookup implements AutoCloseable {
         if (pending.containsKey(track.id()) && queryKey.equals(activeQueries.get(track.id()))) return;
         activeQueries.put(track.id(), queryKey);
         automatic.put(track.id(), new Attempt(track, 1, Long.MAX_VALUE, query));
-        start(track, token -> discover(track, query, refresh, false, token), false);
+        start(track, token -> discover(query, refresh, false, token), false);
     }
 
-    private List<LyricsProvider.Candidate> discover(Track track, LyricsProvider.Query query, boolean refresh, boolean automatic, ProcessRunner.Token token) throws Exception {
+    private List<LyricsProvider.Candidate> discover(LyricsProvider.Query query, boolean refresh, boolean automatic, ProcessRunner.Token token) throws Exception {
         String key = hash(signature(query) + (automatic ? "a" : "m"));
         List<LyricsProvider.Candidate> cached = refresh ? null : results.get(key);
         // An explicit version search is a superset of an automatic lookup of the same metadata.
