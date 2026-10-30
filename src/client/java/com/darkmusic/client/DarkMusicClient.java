@@ -1219,6 +1219,8 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                     requestedScreen = null;
                     requestedWorld = null;
                     folders.invalidate();
+                    // The timer belongs to the player being replaced; null leaves that player's volume alone.
+                    sleep.start(0, null, 0);
                     autoplayPending = false;
                 })
                 .then("folder picker", DesktopFolderPicker::cancel)

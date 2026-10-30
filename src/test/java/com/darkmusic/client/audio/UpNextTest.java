@@ -23,6 +23,7 @@ class UpNextTest {
         Prepared prepared;
         int opens;
         int promoteOnRead;
+        double volume = -1;
 
         record Prepared(Track track, Runnable started, Runnable ended, Consumer<String> failed, Transition gate) {
         }
@@ -56,6 +57,7 @@ class UpNextTest {
         }
 
         public void volume(double v) {
+            volume = v;
         }
 
         public void speed(double v) {
