@@ -259,7 +259,7 @@ public final class UpNextScreen extends LocalScreen {
             g.outline(manual.getX(), manual.getY(), manual.getWidth(), manual.getHeight(), UiTheme.ACCENT);
             if (manual.isMouseOver(x, y)) {
                 int insertion = Math.clamp((y - manual.getY() + manual.scrollOffset() + 14) / 28, 0, snapshot.manual().size());
-                int lineY = Math.clamp(manual.getY() + insertion * 28 - manual.scrollOffset(), manual.getY(), manual.getBottom() - 2);
+                int lineY = Math.clamp(manual.getY() + insertion * 28L - manual.scrollOffset(), manual.getY(), manual.getBottom() - 2);
                 g.fill(manual.getX() + 2, lineY, manual.getRight() - 2, lineY + 2, UiTheme.ACCENT);
             }
             int ghostWidth = Math.min(width - 8, Math.clamp(listWidth, 240, 480));

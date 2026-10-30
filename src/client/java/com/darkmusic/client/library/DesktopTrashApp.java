@@ -33,7 +33,7 @@ public final class DesktopTrashApp {
             && Objects.equals(before.fileKey(), after.fileKey());
     }
 
-    public static void main(String[] args) {
+    static void main(String[] args) {
         long parent = Long.parseLong(args[0]);
         Thread.ofPlatform().daemon().start(() -> {
             while (ProcessHandle.of(parent).map(ProcessHandle::isAlive).orElse(false)) {

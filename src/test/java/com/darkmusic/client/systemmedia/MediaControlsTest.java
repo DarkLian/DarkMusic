@@ -59,8 +59,8 @@ class MediaControlsTest {
             byte[] media = Files.readAllBytes(Path.of("src/mediaHelper/licenses", name));
             assertArrayEquals(Files.readAllBytes(Path.of("src/pipHelper/licenses", name)), media, name);
         }
-        assertTrue(new String(Files.readAllBytes(Path.of("src/mediaHelper/licenses/WINDOWS-SDK-LICENSE.rtf")), 0, 5,
-            StandardCharsets.US_ASCII).equals("{\\rtf"), "The license is an RTF document");
+        assertEquals("{\\rtf", new String(Files.readAllBytes(Path.of("src/mediaHelper/licenses/WINDOWS-SDK-LICENSE.rtf")), 0, 5,
+            StandardCharsets.US_ASCII), "The license is an RTF document");
     }
 
     /**

@@ -51,7 +51,7 @@ final class PitchPreservingTempo {
             if (n == 0) return false; // Yield to the worker so stop/seek and stall detection can run.
             for (int i = 0; i < n / channels; i++) {
                 var frame = ring[(int) (loaded++ & (ring.length - 1))];
-                for (int c = 0; c < channels; c++) frame[c] = decoded[i * channels + c];
+                if (channels >= 0) System.arraycopy(decoded, i * channels + 0, frame, 0, channels);
             }
         }
         return true;

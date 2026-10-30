@@ -126,8 +126,8 @@ class NavigationAndCommandsTest {
         var clicks = new LinkedHashSet<String>();
         for (var message : messages.subList(0, 20))
             for (var part : message.toFlatList())
-                if (part.getStyle().getClickEvent() instanceof ClickEvent.SuggestCommand suggest) {
-                    clicks.add(suggest.command());
+                if (part.getStyle().getClickEvent() instanceof ClickEvent.SuggestCommand(String command)) {
+                    clicks.add(command);
                     assertNotNull(part.getStyle().getHoverEvent());
                 }
         assertEquals(List.of("/da play ", "/da pause", "/da stop", "/da previous", "/da next", "/da now", "/da queue ",

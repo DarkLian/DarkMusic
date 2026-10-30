@@ -7,10 +7,7 @@ import com.google.gson.JsonObject;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.IllformedLocaleException;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 import java.util.stream.StreamSupport;
 
 /**
@@ -35,7 +32,7 @@ public final class LyricsLanguages {
     public static List<String> resolve(String preferences) {
         // Auto is a policy, never the interface or OS language.
         var languages = new LinkedHashSet<String>();
-        for (String part : normalize(preferences).split(", ")) languages.add(part);
+        Collections.addAll(languages, normalize(preferences).split(", "));
         return List.copyOf(languages);
     }
 

@@ -25,11 +25,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * A backup restore against the real stores and journal in a disposable directory, with the client thread and the
@@ -252,7 +248,7 @@ class BackupRestoreTest {
         io.drain();
         client.drain();
         var failure = assertThrows(ExecutionException.class, () -> result.get(0, TimeUnit.SECONDS));
-        assertTrue(failure.getCause() instanceof IllegalStateException, String.valueOf(failure.getCause()));
+        assertInstanceOf(IllegalStateException.class, failure.getCause(), String.valueOf(failure.getCause()));
         assertEquals(backup, nextStart(), "installed");
         // A client tick, then Minecraft closing.
         history.heard(song, 2, 31);

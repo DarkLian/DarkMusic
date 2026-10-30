@@ -269,7 +269,7 @@ public final class AudioAnalyzerScreen extends AudioPage<AudioSettingsScreen.Sou
                 String max = String.format(Locale.ROOT, "%.1f kHz", Math.min(20000, s.rate * .45) / 1000);
                 g.text(font, max, x + w - font.width(max), y + h + 2, UiTheme.MUTED);
                 if (mx >= x && mx < x + w && my >= y && my < y + h) {
-                    int point = Math.clamp((mx - x) * (AudioDiagnostics.POINTS - 1) / Math.max(1, w - 1), 0, AudioDiagnostics.POINTS - 1);
+                    int point = Math.clamp((long) (mx - x) * (AudioDiagnostics.POINTS - 1) / Math.max(1, w - 1), 0, AudioDiagnostics.POINTS - 1);
                     int output = mode == AudioComparison.Mode.AUDIO_OPTIONS ? 1 : mode == AudioComparison.Mode.ENVIRONMENT ? 2 : 4;
                     double value = graph.kind == 1 ? s.spectrum(output, point) : graph.kind == 4 ? s.environment(point) : s.dynamic(point);
                     g.text(font, units(String.format(Locale.ROOT, "%.0f Hz  %s %s", AudioDiagnostics.frequency(point, s.rate), db(value), graph.kind == 1 ? "dBFS" : "dB")), x + 72, y + 3, UiTheme.TEXT);

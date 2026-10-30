@@ -59,7 +59,9 @@ public final class DuplicateComparisonScreen extends LocalScreen {
     private final RowList[] fields = new RowList[2];
     private final List<Button> actions = new ArrayList<>();
     private final Button[] playback = new Button[2];
-    private int side, columnWidth, cardY = 58;
+    private int side;
+    private int columnWidth;
+    private final int cardY = 58;
     private boolean loading, loaded;
     private String notice = "";
 

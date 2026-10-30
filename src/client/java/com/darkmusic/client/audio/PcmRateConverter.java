@@ -83,7 +83,7 @@ public final class PcmRateConverter {
     private void prepare(double speed) {
         if (prepared == speed) return;
         prepared = speed;
-        int required = Math.clamp((int) Math.ceil(32 * Math.max(1, speed) / 2) * 2, 32, 512);
+        int required = Math.clamp((int) Math.ceil(32 * Math.max(1, speed) / 2) * 2L, 32, 512);
         if (required != taps) {
             taps = required;
             weights = new double[PHASES][taps];

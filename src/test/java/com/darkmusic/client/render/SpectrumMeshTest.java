@@ -74,7 +74,10 @@ class SpectrumMeshTest {
         int count = (int) countField.get(corner);
         boolean softened = false;
         for (int i = 0; i < count; i += 5) {
-            if (data[i + 1] == 0 && data[i] > 10) softened = true;
+            if (data[i + 1] == 0 && data[i] > 10) {
+                softened = true;
+                break;
+            }
         }
         assertTrue(softened, "The cap must not remain a square rectangle");
     }
