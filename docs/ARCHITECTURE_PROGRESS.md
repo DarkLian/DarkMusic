@@ -560,3 +560,18 @@ and audio backend factory. All publication already happens on the client thread,
 identities, so the atomic swap fixes no observed defect. The cost is about 500 field-access edits, mostly in the
 smoke sources. No concrete benefit justifies it now. It stays deferred, as an option if the service set grows or a
 generation-level test becomes necessary.
+
+## Testing window for batches 13 and 14 (2026-10-30, user away)
+
+Smoke runs used fullscreen 1920×1080, GUI scale 2, SmoothFont, the private collection and the managed tools.
+
+| Run | Result |
+|---|---|
+| default, default + restart (startup through `buildReplaceable`, autoplay) | pass, pass |
+| reset, reset + restart (rebuild through `buildReplaceable`) | pass, pass |
+| advanced, cleanup, queue, lyrics, preview | all pass |
+| `verify.ps1 -Clean -DesktopIntegration` | **762 tests: 756 passed, 6 skipped, 0 failed** (the same 6 live, install and permission skips) |
+| Private collection | all 55 files have the same SHA-256 before and after |
+
+A refused client dispatch can only happen while Minecraft shuts down. It is covered by the deterministic tests, not
+by a runtime check.
