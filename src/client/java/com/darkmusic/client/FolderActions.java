@@ -16,7 +16,7 @@ import java.util.List;
  */
 public final class FolderActions {
     private final DarkMusicClient app;
-    // Reset bumps this so a folder check that finishes afterwards cannot apply a stale choice.
+    // Reset and restore bump this so a folder check that finishes afterwards cannot apply a stale choice.
     private long generation;
 
     FolderActions(DarkMusicClient app) {
@@ -69,11 +69,12 @@ public final class FolderActions {
     }
 
     public void reset() {
+        long ticket = generation;
         app.browse(() -> {
             try {
                 Files.createDirectories(app.config.defaultMusic());
                 Minecraft.getInstance().execute(() -> {
-                    if (!app.alive()) return;
+                    if (!app.alive() || ticket != generation) return;
                     choose(app.config.defaultMusic(), () -> {
                         app.update(s -> s.musicDirectory = "");
                     });

@@ -31,6 +31,11 @@ final class ResetSmokeClient {
     private String playlist, retainedPlaylist, jumpKey;
     private Screen settingsScreen;
     private CompletableFuture<Settings> saved;
+    private Object oldPlayback, oldLibrary, oldDownloads;
+    private CountDownLatch browseHeld;
+    private Future<?> marker;
+    private int wait;
+    private String customFolder;
 
     private static List<String> differences(Settings expected, Settings actual) {
         var a = ConfigStore.JSON.toJsonTree(expected).getAsJsonObject();
@@ -207,6 +212,21 @@ final class ResetSmokeClient {
                     Files.createDirectories(images.resolve("screenshots"));
                     Screenshot.grab(images.toFile(), "reset-confirmation.png", mc.gameRenderer.mainRenderTarget(), 1, text -> {
                     });
+                    oldPlayback = app.playback;
+                    oldLibrary = app.library;
+                    oldDownloads = app.downloads;
+                    app.sleepTimer(30);
+                    // Both browse threads wait, so a folder reset started now finishes only after Reset to Defaults.
+                    browseHeld = new CountDownLatch(1);
+                    for (int i = 0; i < 2; i++)
+                        app.browse(() -> {
+                            try {
+                                browseHeld.await(90, TimeUnit.SECONDS);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                            }
+                        });
+                    app.folders.reset();
                     click(mc, "reset.darkmusic.confirm");
                     escape(mc);
                     require(mc.gui.screen() instanceof ConfirmationScreen, "Busy confirmation closed before reset completed");
@@ -234,6 +254,8 @@ final class ResetSmokeClient {
                     require(app.playback.state().track() == null, "Old track/queue survived reset");
                     require(app.downloads.snapshot().items().isEmpty() && app.downloads.snapshot().preview() == null && app.downloads.lastAnalyzedUrl().isEmpty(), "Download state survived reset");
                     require(app.downloadsConnected(), "The replacement download service lost its saved-file lyric hook");
+                    require(app.playback != oldPlayback && app.library != oldLibrary && app.downloads != oldDownloads, "Reset did not replace playback, library and downloads");
+                    require(app.sleep.remaining() == -1, "The sleep timer survived reset");
                     require(app.playlists.get(retainedPlaylist) != null, "Reset removed user playlist");
                     // Since v2.2.0 reset keeps installed download tools (USER_GUIDE: Reset to Defaults).
                     require(Files.exists(data.resolve("tools/managed/current.json")) && Files.exists(data.resolve("tools/managed/bundle-1234-abcd/yt-dlp.exe")), "Reset removed installed download tools");
@@ -248,10 +270,37 @@ final class ResetSmokeClient {
                     require((double) SmokeUi.field(settingsScreen, "previewScale") <= 1, "Preview scale did not reset");
                     for (var entry : hashes.entrySet())
                         require(entry.getValue().equals(hash(entry.getKey())), "Reset changed media bytes: " + entry.getKey());
+                    stage = 8;
+                }
+                case 8 -> {
+                    // Choose a different folder after the reset, then let the folder reset started before it finish.
+                    customFolder = custom.toRealPath().toString();
+                    app.settings().musicFolders = List.of(app.settings().musicFolders.getFirst(), customFolder);
+                    app.settings().musicDirectory = customFolder;
+                    browseHeld.countDown();
+                    marker = app.browse(() -> {
+                    });
+                    wait = 0;
+                    stage++;
+                }
+                case 9 -> {
+                    // Its callback, and the folder check that callback would start, each need a browse task and a tick.
+                    if (!marker.isDone() || ++wait < 4) return;
+                    marker = app.browse(() -> {
+                    });
+                    wait = 0;
+                    stage++;
+                }
+                case 10 -> {
+                    if (!marker.isDone() || ++wait < 4) return;
+                    require(customFolder.equals(app.settings().musicDirectory), "A folder reset from before Reset to Defaults changed the folder: " + app.settings().musicDirectory);
+                    // Back to the defaults that were saved, so shutdown and the restart check see them.
+                    app.settings().musicFolders = List.of(app.settings().musicFolders.getFirst());
+                    app.settings().musicDirectory = "";
                     stage = 20;
                 }
                 case 20 -> {
-                    LoggerFactory.getLogger("darkmusic-reset-smoke").info("DARKMUSIC_SMOKE_PASS:{} reset confirmation/cancel/Escape, playlist confirmation, real-media integrity, installed tools kept, history clearing, defaults/native keys, default folder rescan, and persistence; restart={}",
+                    LoggerFactory.getLogger("darkmusic-reset-smoke").info("DARKMUSIC_SMOKE_PASS:{} reset confirmation/cancel/Escape, playlist confirmation, real-media integrity, installed tools kept, history clearing, defaults/native keys, default folder rescan, replaced services, sleep timer, stale folder reset, and persistence; restart={}",
                         Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip(), Boolean.getBoolean("darkmusic.verifyHudRestart"));
                     stage = 999;
                     mc.stop();

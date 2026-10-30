@@ -397,6 +397,8 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         }
         return RestoreOperation.run(new BackupRestore(state, config, settingsStore, playlists, listeningHistory,
             library.rootId(), library.snapshot().tracks(), data, selection, bindings ? keys : null, () -> {
+            // The settings object was just replaced: a folder check still running must not apply to it.
+            if (selection.settings() || bindings) folders.invalidate();
             if (bindings) {
                 for (var key : shortcuts.bindings())
                     key.setKey(InputConstants.getKey(keys.get("key_" + key.getName())));
