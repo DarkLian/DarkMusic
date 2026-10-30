@@ -23,7 +23,7 @@ param(
     [string]$JavaHome = $env:JAVA_HOME,
     [string]$Font = '',
     [string]$Output = '',
-    [int]$TimeoutMinutes = 20,
+    [double]$TimeoutMinutes = 20,
     # Runs scripts/verify.ps1 -Clean -DesktopIntegration after the scenarios.
     [switch]$DesktopVerify,
     # Checks the prerequisites and prints the commands without running them.
@@ -76,6 +76,37 @@ function Test-Pass([string]$log, [string]$runIdFile, [string]$previousId) {
     [bool](Select-String -LiteralPath $log -SimpleMatch "DARKMUSIC_SMOKE_PASS:$id" -Quiet)
 }
 
+# Gradle runs with --no-daemon, so everything one run starts descends from its wrapper: Gradle itself, a client it is
+# still preparing, and a running client. Stopping that tree stops all of them, whenever the timeout falls.
+function Get-Tree([int]$root) {
+    $all = @(Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId, CreationDate)
+    $tree = [System.Collections.Generic.List[object]]::new()
+    $tree.AddRange(@($all | Where-Object ProcessId -EQ $root))
+    for ($i = 0; $i -lt $tree.Count; $i++) {
+        $tree.AddRange(@($all | Where-Object { $_.ParentProcessId -eq $tree[$i].ProcessId -and $_.CreationDate -ge $tree[$i].CreationDate }))
+    }
+    $tree
+}
+
+# True once every process of the tree has ended and nothing carrying the marker appeared during the grace period.
+function Stop-Tree([int]$root, [string]$marker, [int]$graceSeconds = 10) {
+    $tree = Get-Tree $root
+    & taskkill.exe /PID $root /T /F 2>&1 | Out-Null
+    $tree | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    $quiet = (Get-Date).AddSeconds($graceSeconds)
+    $limit = $quiet.AddSeconds(30)
+    while ((Get-Date) -lt $limit) {
+        $current = @(Get-CimInstance Win32_Process)
+        # Same id and start time: a reused process id is not the old process.
+        $alive = @($tree | Where-Object { $old = $_; $current | Where-Object { $_.ProcessId -eq $old.ProcessId -and $_.CreationDate -eq $old.CreationDate } })
+        $late = @($current | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($marker) })
+        $late + $alive | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+        if (-not $alive -and -not $late -and (Get-Date) -ge $quiet) { return $true }
+        Start-Sleep -Milliseconds 500
+    }
+    $false
+}
+
 if ($SelfTest) {
     $failures = @()
     function Expect([string]$name, [scriptblock]$check) {
@@ -103,6 +134,22 @@ if ($SelfTest) {
         Expect 'this run''s marker passes' { Test-Pass $log $runId 'old-run' }
         Expect 'a missing run id does not pass' { -not (Test-Pass $log (Join-Path $temp 'missing') 'old-run') }
     } finally { Remove-Item -LiteralPath $temp -Recurse -Force }
+    # A wrapper whose child is still starting up, like Gradle before it launches the client.
+    $marker = "darkmusic.selfTest=$([guid]::NewGuid())"
+    $parent = Start-Process powershell -PassThru -WindowStyle Hidden -ArgumentList '-NoProfile', '-Command',
+        "Start-Process powershell -WindowStyle Hidden -ArgumentList '-NoProfile','-Command','Start-Sleep 300 # $marker'; Start-Sleep 300"
+    $deadline = (Get-Date).AddSeconds(20)
+    $child = { Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq $parent.Id -and $_.Name -eq 'powershell.exe' } }
+    while (-not (& $child) -and (Get-Date) -lt $deadline) {
+        Start-Sleep -Milliseconds 200
+    }
+    $tree = Get-Tree $parent.Id
+    Expect 'the child started' { [bool](& $child) }
+    Expect 'the tree includes the child' { $tree.ProcessId -contains (& $child).ProcessId }
+    Expect 'stopping the tree ends every process in it' { Stop-Tree $parent.Id $marker 2 }
+    Expect 'nothing of the tree is left' {
+        -not (Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($marker) })
+    }
     if ($failures) { throw "Self-test failed: $($failures -join '; ')" }
     'Self-test passed.'
     return
@@ -135,7 +182,7 @@ if (-not $Font) { $Font = Join-Path $projectDirectory 'run/resourcepacks/SmoothF
 if (-not (Test-Path -LiteralPath $Font -PathType Leaf)) { throw "Smoke checks and captures need SmoothFont: $Font" }
 $Font = (Resolve-Path -LiteralPath $Font).Path
 
-$common = @('runSmokeClient', '-Psmoke', "-PmusicDirectory=$MusicDirectory", "-PdownloadToolsDirectory=$ToolsDirectory",
+$common = @('runSmokeClient', '--no-daemon', '-Psmoke', "-PmusicDirectory=$MusicDirectory", "-PdownloadToolsDirectory=$ToolsDirectory",
     "-PsmokeFont=$Font", '-PvisualSmoke')
 if ($DryRun) {
     foreach ($name in $names) { "${name}: gradlew $(($common + $scenarios[$name] + '-PsmokeOwner=<run guid>') -join ' ')" }
@@ -181,23 +228,22 @@ try {
         $process = Start-Process -FilePath $gradle -ArgumentList $arguments `
             -WorkingDirectory $projectDirectory -NoNewWindow -PassThru -RedirectStandardOutput $log -RedirectStandardError "$log.err"
         $null = $process.Handle  # keeps ExitCode readable after the process ends
-        $timedOut = -not $process.WaitForExit($TimeoutMinutes * 60 * 1000)
+        $timedOut = -not $process.WaitForExit([int]($TimeoutMinutes * 60 * 1000))
+        $stopped = $true
         if (-not $timedOut) {
             $exit = $process.ExitCode
         } else {
-            # The client runs under the Gradle daemon, not the wrapper; stop only the client this run started.
-            Get-CimInstance Win32_Process -Filter "Name='java.exe' OR Name='javaw.exe'" |
-                Where-Object { $_.CommandLine -match [regex]::Escape("darkmusic.smokeOwner=$owner") } |
-                ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
-            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            $stopped = Stop-Tree $process.Id "darkmusic.smokeOwner=$owner"
             $exit = 'timeout'
         }
         Get-Content -LiteralPath "$log.err" -ErrorAction SilentlyContinue | Add-Content -LiteralPath $log
         Remove-Item -LiteralPath "$log.err" -ErrorAction SilentlyContinue
         $minutes = [math]::Round(((Get-Date) - $started).TotalMinutes, 1)
-        $status = if ($timedOut) { 'timeout' } elseif ($exit -eq 0 -and (Test-Pass $log $runIdFile $previousId)) { 'passed' } else { 'failed' }
+        $status = if (-not $stopped) { 'stuck' } elseif ($timedOut) { 'timeout' } elseif ($exit -eq 0 -and (Test-Pass $log $runIdFile $previousId)) { 'passed' } else { 'failed' }
         $results.Add([pscustomobject]@{ Name = $name; Status = $status; Detail = "exit=$exit, $minutes min, $log" })
         Save-Results
+        # Starting another client beside one that may still be running would interfere with both.
+        if (-not $stopped) { throw "Could not confirm that '$name' stopped; the remaining scenarios were not run." }
     }
     if ($DesktopVerify) {
         $log = Join-Path $Output 'verify-clean-desktop.log'
