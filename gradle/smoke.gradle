@@ -1,0 +1,103 @@
+// A separate development-only mod exercises actual screens and audio devices. It is never included in the release JAR
+// or normal runClient classpath. Applied by build.gradle only with -Psmoke; reads realMusicDirectory and
+// downloadToolsDirectory from the root project.
+def realMusicDirectory = project.ext.realMusicDirectory
+def downloadToolsDirectory = project.ext.downloadToolsDirectory
+def pipSmoke = providers.gradleProperty('pipSmoke').isPresent()
+def vanillaFontSmoke = providers.gradleProperty('vanillaFontSmoke').isPresent()
+def smokeExclusive = providers.gradleProperty('smokeBorderless').isPresent() ? 'false' : 'true'
+def visualSmoke = ['visualSmoke', 'captureMusic', 'previewSmoke', 'advancedSmoke', 'queueSmoke', 'cleanupSmoke', 'lyricsSmoke', 'pipSmoke'].any { providers.gradleProperty(it).isPresent() } && !vanillaFontSmoke
+def smokeFont = file(providers.gradleProperty('smokeFont').getOrElse('run/resourcepacks/SmoothFont_1.21.zip'))
+// Each check mode runs in its own folder under build/, so their worlds and logs never mix. Without one, the default
+// check runs in smoke-run.
+def smokeFolders = [pipSmoke: 'pip-smooth-run', lyricsSmoke: 'lyrics-run', cleanupSmoke: 'cleanup-run', queueSmoke: 'queue-run',
+                    advancedSmoke: 'advanced-run', resetSmoke: 'reset-run', previewSmoke: 'preview-run', captureMusic: 'capture-run']
+def smokeModes = smokeFolders.keySet().findAll { providers.gradleProperty(it).isPresent() }
+if (smokeModes.size() > 1) throw new GradleException("Choose one smoke mode, not ${smokeModes.join(', ')}")
+// The restart check repeats the default or reset check; native bindings are part of the default check.
+if (providers.gradleProperty('verifyHudRestart').isPresent() && smokeModes.any { it != 'resetSmoke' })
+    throw new GradleException("-PverifyHudRestart repeats the default or reset check, not ${smokeModes.join(', ')}")
+if (providers.gradleProperty('nativeBindingsSmoke').isPresent() && smokeModes)
+    throw new GradleException("-PnativeBindingsSmoke belongs to the default check, not ${smokeModes.join(', ')}")
+def smokeFolder = smokeModes ? smokeFolders[smokeModes.first()] : 'smoke-run'
+// The PiP smoke client reads its control files (check-setup, stop-minecraft, ...) from this folder.
+def pipFolder = file(providers.gradleProperty('pipFolder').getOrElse('.local-tools/verification/pip-integrated'))
+// The private collection is Opus, so every playback check needs the managed ffmpeg.
+def smokeNeedsTools = ['downloadToolsDirectory', 'lyricsSmoke', 'cleanupSmoke', 'queueSmoke', 'captureMusic', 'previewSmoke', 'advancedSmoke']
+    .any { providers.gradleProperty(it).isPresent() }
+sourceSets {
+    smoke {
+        compileClasspath += sourceSets.client.output + sourceSets.client.compileClasspath
+        runtimeClasspath += sourceSets.client.output + sourceSets.client.runtimeClasspath
+    }
+}
+loom {
+    mods { darkmusic_smoke { sourceSet sourceSets.smoke } }
+    runs {
+        smokeClient {
+            client()
+            vmArg "-Ddarkmusic.pipSmoke=${providers.gradleProperty('pipSmoke').isPresent()}"
+            vmArg "-Ddarkmusic.pipBenchmark=${providers.gradleProperty('pipBenchmark').isPresent()}"
+            if (providers.gradleProperty('pipFrameRate').isPresent()) vmArg "-Ddarkmusic.pipFrameRate=${providers.gradleProperty('pipFrameRate').get()}"
+            if (providers.gradleProperty('pipSourceTitle').isPresent()) vmArg "-Ddarkmusic.pipSourceTitle=${providers.gradleProperty('pipSourceTitle').get()}"
+            if (providers.gradleProperty('pipWorldSource').isPresent()) vmArg "-Ddarkmusic.pipWorldSource=${file(providers.gradleProperty('pipWorldSource').get()).absolutePath}"
+            vmArg "-Ddarkmusic.pipDependencies=${file("build/libs/darkmusic-pip-dependencies-${project.version}-windows-x64.zip").absolutePath}"
+            if (providers.gradleProperty('pipTrace').isPresent()) vmArg "-Ddarkmusic.pip.trace=${file(providers.gradleProperty('pipTrace').get()).absolutePath}"
+            vmArg "-Ddarkmusic.pipFolder=${pipFolder.absolutePath}"
+            source sourceSets.smoke
+            runDir "build/${smokeFolder}".toString()
+            vmArg "-Ddarkmusic.music=${realMusicDirectory}"
+            vmArg "-Ddarkmusic.visualSmoke=${visualSmoke}"
+            vmArg "-Ddarkmusic.smoothFontAvailable=${smokeFont.isFile() && !vanillaFontSmoke}"
+            vmArg "-Ddarkmusic.smokeRunFile=${file('build/smoke-run-id.txt').absolutePath}"
+            vmArg "-Ddarkmusic.verifyHudRestart=${providers.gradleProperty('verifyHudRestart').isPresent()}"
+            vmArg "-Ddarkmusic.resetSmoke=${providers.gradleProperty('resetSmoke').isPresent()}"
+            vmArg "-Ddarkmusic.previewSmoke=${providers.gradleProperty('previewSmoke').isPresent()}"
+            vmArg "-Ddarkmusic.capture=${providers.gradleProperty('captureMusic').isPresent()}"
+            vmArg "-Ddarkmusic.advanced=${providers.gradleProperty('advancedSmoke').isPresent()}"
+            vmArg "-Ddarkmusic.cleanupSmoke=${providers.gradleProperty('cleanupSmoke').isPresent()}"
+            vmArg "-Ddarkmusic.lyricsSmoke=${providers.gradleProperty('lyricsSmoke').isPresent()}"
+            vmArg "-Ddarkmusic.queueSmoke=${providers.gradleProperty('queueSmoke').isPresent()}"
+            vmArg "-Ddarkmusic.testNativeBindings=${providers.gradleProperty('nativeBindingsSmoke').isPresent()}"
+            vmArg "-Ddarkmusic.privateImages=${file('docs/images_private').absolutePath}"
+            // Lets scripts/smoke.ps1 stop only the client it started.
+            if (providers.gradleProperty('smokeOwner').isPresent()) vmArg "-Ddarkmusic.smokeOwner=${providers.gradleProperty('smokeOwner').get()}"
+            if (smokeNeedsTools) vmArg "-Ddarkmusic.downloadTools=${downloadToolsDirectory.absolutePath}"
+        }
+    }
+}
+def smokeLog = layout.buildDirectory.file("${smokeFolder}/logs/latest.log".toString())
+def smokeRunId = layout.buildDirectory.file('smoke-run-id.txt')
+def smokeRunFolder = file(loom.runs.smokeClient.runDir)
+def smokeLanguage = providers.gradleProperty('smokeLanguage').getOrNull()
+tasks.register('prepareSmokeClient') {
+    doLast {
+        def runId = smokeRunId.get().asFile
+        runId.parentFile.mkdirs()
+        runId.text = UUID.randomUUID().toString()
+        def runFolder = smokeRunFolder
+        // The setup check expects a device without the PiP runtime and ends by installing it, so it starts clean.
+        if (pipSmoke && new File(pipFolder, 'check-setup').isFile()) new File(runFolder, 'config/darkmusic/pip-native').deleteDir()
+        def font = smokeFont
+        if (!font.isFile() && visualSmoke) throw new GradleException('Visual checks require run/resourcepacks/SmoothFont_1.21.zip (or -PsmokeFont=/path/to/the/pack)')
+        def packs = new File(runFolder, 'resourcepacks')
+        packs.mkdirs()
+        if (font.isFile() && !vanillaFontSmoke) java.nio.file.Files.copy(font.toPath(), new File(packs, 'SmoothFont_1.21.zip').toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        else logger.lifecycle('SmoothFont unavailable: running functional smoke checks with the vanilla font; visual captures remain disabled.')
+        def options = new File(runFolder, 'options.txt')
+        def values = options.isFile() ? options.readLines('UTF-8') : []
+        def display = [pauseOnLostFocus: 'false', guiScale: '2', overrideWidth: '1280', overrideHeight: '720', fullscreen: 'true', exclusiveFullscreen: smokeExclusive, fullscreenResolution: pipSmoke ? '1920x1080@144:24' : '1920x1080@60:24', resourcePacks: font.isFile() && !vanillaFontSmoke ? '["vanilla","file/SmoothFont_1.21.zip"]' : '["vanilla"]', incompatibleResourcePacks: font.isFile() && !vanillaFontSmoke ? '["file/SmoothFont_1.21.zip"]' : '[]']
+        if (smokeLanguage != null) display.lang = smokeLanguage
+        values = values.findAll { !display.containsKey(it.takeWhile { c -> c != ':' }) }
+        display.each { key, value -> values.add("$key:$value") }
+        options.setText(values.join('\n') + '\n', 'UTF-8')
+    }
+}
+tasks.named('runSmokeClient') {
+    dependsOn tasks.named('prepareSmokeClient')
+    doLast {
+        if (!smokeLog.get().asFile.text.contains('DARKMUSIC_SMOKE_PASS:' + smokeRunId.get().asFile.text.strip())) {
+            throw new GradleException('Client smoke checks failed; inspect the selected smoke/capture run logs')
+        }
+    }
+}

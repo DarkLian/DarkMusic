@@ -1,0 +1,88 @@
+// The optional Windows helpers (PiP, Media Controls). Each is published self-contained and zipped as a separate
+// release asset; only its manifest (size and SHA-256) enters the JAR, and the game installs it on request.
+// Applied by build.gradle unless -PjavaOnly.
+def helperVersion = project.version.toString()
+
+// What both helpers build the same way: a locked, self-contained win-x64 publish, zipped reproducibly into build/libs.
+def helper = { String source, String csproj, String output, String publishTask, String packageTask, String archive ->
+    def folder = layout.buildDirectory.dir(output)
+    tasks.register(publishTask, Exec) {
+        inputs.files(fileTree(source) { include '*.cs', '*.csproj', 'global.json', 'packages.lock.json' })
+        inputs.dir("$source/licenses")
+        outputs.dir(folder)
+        workingDir file(source)
+        environment 'DOTNET_CLI_TELEMETRY_OPTOUT', '1'
+        commandLine 'dotnet', 'publish', csproj, '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '-p:RestoreLockedMode=true', '-o', folder.get().asFile.absolutePath,
+                "-p:BaseIntermediateOutputPath=${layout.buildDirectory.dir("$output-obj").get().asFile.absolutePath}/", "-p:BaseOutputPath=${layout.buildDirectory.dir("$output-bin").get().asFile.absolutePath}/", '--nologo'
+    }
+    def packaged = tasks.register(packageTask, Zip) {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+        dependsOn tasks.named(publishTask)
+        from(folder)
+        archiveFileName = archive
+        destinationDirectory = layout.buildDirectory.dir('libs')
+    }
+    [folder: folder, file: layout.buildDirectory.file("libs/$archive"), task: packaged]
+}
+
+def pip = helper('src/pipHelper', 'PipHelper.csproj', 'pip-helper', 'publishPipHelper', 'pipDependencies',
+        "darkmusic-pip-dependencies-${helperVersion}-windows-x64.zip")
+def dependencyFile = pip.file
+def resourceFolder = layout.buildDirectory.dir('generated/pip-manifest-resources/assets/darkmusic/pip/windows-x64')
+// Keep the task name for existing development/CI commands; only the manifest enters the JAR.
+tasks.register('bundlePipHelper') {
+    dependsOn pip.task
+    inputs.file(dependencyFile)
+    inputs.property 'version', helperVersion
+    outputs.file(resourceFolder.map { it.file('dependencies.json') })
+    doLast {
+        def deps = dependencyFile.get().asFile
+        def output = resourceFolder.get().asFile
+        output.mkdirs()
+        new File(output, 'dependencies.json').setText(groovy.json.JsonOutput.toJson([
+                schema: 2, version: helperVersion, name: deps.name, size: deps.length(),
+                sha256: java.security.MessageDigest.getInstance('SHA-256').digest(deps.bytes).encodeHex().toString()
+        ]), 'UTF-8')
+    }
+}
+sourceSets.client.resources.srcDir(layout.buildDirectory.dir('generated/pip-manifest-resources'))
+loom.runs.named('client') {
+    vmArg "-Ddarkmusic.pipDependencies=${dependencyFile.get().asFile.absolutePath}"
+}
+tasks.named('processClientResources') { dependsOn tasks.named('bundlePipHelper') }
+// Exclude obsolete outputs too when upgrading an existing, non-clean build directory.
+tasks.named('jar') {
+    exclude 'assets/darkmusic/pip/windows-x64/helper.zip', 'assets/darkmusic/pip/windows-x64/helper.sha256'
+}
+tasks.named('test') { systemProperty 'darkmusic.test.pipDependencies', dependencyFile.get().asFile.absolutePath }
+
+// Media Controls: a single-file helper. Its manifest also pins the executable's hash.
+def media = helper('src/mediaHelper', 'MediaHelper.csproj', 'media-helper', 'publishMediaHelper', 'mediaControlsPackage',
+        "darkmusic-media-controls-${helperVersion}-windows-x64.zip")
+def mediaFolder = media.folder
+def mediaFile = media.file
+def mediaResources = layout.buildDirectory.dir('generated/media-manifest-resources/assets/darkmusic/media/windows-x64')
+tasks.register('bundleMediaHelper') {
+    dependsOn media.task
+    inputs.file(mediaFile)
+    inputs.property 'version', helperVersion
+    outputs.file(mediaResources.map { it.file('media-controls.json') })
+    doLast {
+        def zip = mediaFile.get().asFile
+        def exe = new File(mediaFolder.get().asFile, 'DarkMusic.Media.exe')
+        def digest = { File file -> java.security.MessageDigest.getInstance('SHA-256').digest(file.bytes).encodeHex().toString() }
+        def output = mediaResources.get().asFile
+        output.mkdirs()
+        new File(output, 'media-controls.json').setText(groovy.json.JsonOutput.toJson([
+                schema: 1, version: helperVersion, name: zip.name, size: zip.length(), sha256: digest(zip),
+                executableSha256: digest(exe)
+        ]), 'UTF-8')
+    }
+}
+sourceSets.client.resources.srcDir(layout.buildDirectory.dir('generated/media-manifest-resources'))
+loom.runs.named('client') {
+    vmArg "-Ddarkmusic.mediaControls=${mediaFile.get().asFile.absolutePath}"
+}
+tasks.named('processClientResources') { dependsOn tasks.named('bundleMediaHelper') }
+tasks.named('test') { systemProperty 'darkmusic.test.mediaControls', mediaFile.get().asFile.absolutePath }

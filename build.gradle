@@ -23,6 +23,17 @@ loom {
     }
 }
 
+// Libraries nested in the mod JAR. Their sources go into the third-party source archive, so upgrade them here only.
+// The soundlibs entries are declared without their transitive dependencies; the list names the ones needed.
+def bundledLibraries = [
+        'net.jthink:jaudiotagger:3.0.1'                 : true,
+        'com.googlecode.soundlibs:mp3spi:1.9.5.4'       : false,
+        'com.googlecode.soundlibs:vorbisspi:1.0.3.3'    : false,
+        'com.googlecode.soundlibs:jlayer:1.0.1.4'       : false,
+        'com.googlecode.soundlibs:tritonus-share:0.3.7.4': false,
+        'org.jflac:jflac-codec:1.5.2'                   : true,
+]
+
 dependencies {
     // To change the versions see the gradle.properties file
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
@@ -33,12 +44,13 @@ dependencies {
      'fabric-screen-api-v1', 'fabric-rendering-v1', 'fabric-resource-loader-v1', 'fabric-command-api-v2'].each {
         implementation fabricApi.module(it, project.fabric_api_version)
     }
-    implementation include('net.jthink:jaudiotagger:3.0.1')
-    ['mp3spi:1.9.5.4', 'vorbisspi:1.0.3.3', 'jlayer:1.0.1.4', 'tritonus-share:0.3.7.4'].each {
-        implementation("com.googlecode.soundlibs:$it") { transitive = false }
-        include("com.googlecode.soundlibs:$it") { transitive = false }
+    bundledLibraries.each { coordinates, transitive ->
+        if (transitive) implementation include(coordinates)
+        else {
+            implementation(coordinates) { it.transitive = false }
+            include(coordinates) { it.transitive = false }
+        }
     }
-    implementation include('org.jflac:jflac-codec:1.5.2')
     testImplementation platform('org.junit:junit-bom:6.1.3')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation 'org.ow2.asm:asm:9.11.1'
@@ -47,9 +59,7 @@ dependencies {
 
 configurations { thirdPartySources }
 dependencies {
-    ['net.jthink:jaudiotagger:3.0.1', 'org.jflac:jflac-codec:1.5.2',
-     'com.googlecode.soundlibs:mp3spi:1.9.5.4', 'com.googlecode.soundlibs:vorbisspi:1.0.3.3',
-     'com.googlecode.soundlibs:jlayer:1.0.1.4', 'com.googlecode.soundlibs:tritonus-share:0.3.7.4'].each {
+    bundledLibraries.keySet().each {
         thirdPartySources("$it:sources") { transitive = false }
     }
 }
@@ -64,101 +74,11 @@ tasks.register('thirdPartySourceBundle', Zip) {
 }
 assemble.dependsOn tasks.named('thirdPartySourceBundle')
 
-def realMusicDirectory = file(providers.gradleProperty('musicDirectory').orElse(providers.environmentVariable('DARKMUSIC_TEST_MUSIC')).getOrElse('run/config/darkmusic/music')).absolutePath
-def downloadToolsDirectory = file(providers.gradleProperty('downloadToolsDirectory').getOrElse('Music'))
+// Shared with gradle/smoke.gradle.
+def realMusicDirectory = ext.realMusicDirectory = file(providers.gradleProperty('musicDirectory').orElse(providers.environmentVariable('DARKMUSIC_TEST_MUSIC')).getOrElse('run/config/darkmusic/music')).absolutePath
+def downloadToolsDirectory = ext.downloadToolsDirectory = file(providers.gradleProperty('downloadToolsDirectory').getOrElse('Music'))
 
-// A separate development-only mod exercises actual screens and audio devices.
-// It is never included in the release JAR or normal runClient classpath.
-if (providers.gradleProperty('smoke').isPresent()) {
-    def pipSmoke = providers.gradleProperty('pipSmoke').isPresent()
-    def vanillaFontSmoke = providers.gradleProperty('vanillaFontSmoke').isPresent()
-    def smokeExclusive = providers.gradleProperty('smokeBorderless').isPresent() ? 'false' : 'true'
-    def visualSmoke = ['visualSmoke', 'captureMusic', 'previewSmoke', 'advancedSmoke', 'queueSmoke', 'cleanupSmoke', 'lyricsSmoke', 'pipSmoke'].any { providers.gradleProperty(it).isPresent() } && !vanillaFontSmoke
-    def smokeFont = file(providers.gradleProperty('smokeFont').getOrElse('run/resourcepacks/SmoothFont_1.21.zip'))
-    // Each check mode runs in its own folder under build/, so their worlds and logs never mix; the first one set wins.
-    def smokeFolders = [pipSmoke: 'pip-smooth-run', lyricsSmoke: 'lyrics-run', cleanupSmoke: 'cleanup-run', queueSmoke: 'queue-run',
-                        advancedSmoke: 'advanced-run', resetSmoke: 'reset-run', previewSmoke: 'preview-run', captureMusic: 'capture-run']
-    def smokeFolder = smokeFolders.find { providers.gradleProperty(it.key).isPresent() }?.value ?: 'smoke-run'
-    // The PiP smoke client reads its control files (check-setup, stop-minecraft, ...) from this folder.
-    def pipFolder = file(providers.gradleProperty('pipFolder').getOrElse('.local-tools/verification/pip-integrated'))
-    // The private collection is Opus, so every playback check needs the managed ffmpeg.
-    def smokeNeedsTools = ['downloadToolsDirectory', 'lyricsSmoke', 'cleanupSmoke', 'queueSmoke', 'captureMusic', 'previewSmoke', 'advancedSmoke']
-        .any { providers.gradleProperty(it).isPresent() }
-    sourceSets {
-        smoke {
-            compileClasspath += sourceSets.client.output + sourceSets.client.compileClasspath
-            runtimeClasspath += sourceSets.client.output + sourceSets.client.runtimeClasspath
-        }
-    }
-    loom {
-        mods { darkmusic_smoke { sourceSet sourceSets.smoke } }
-        runs {
-            smokeClient {
-                client()
-                vmArg "-Ddarkmusic.pipSmoke=${providers.gradleProperty('pipSmoke').isPresent()}"
-                vmArg "-Ddarkmusic.pipBenchmark=${providers.gradleProperty('pipBenchmark').isPresent()}"
-                if (providers.gradleProperty('pipFrameRate').isPresent()) vmArg "-Ddarkmusic.pipFrameRate=${providers.gradleProperty('pipFrameRate').get()}"
-                if (providers.gradleProperty('pipSourceTitle').isPresent()) vmArg "-Ddarkmusic.pipSourceTitle=${providers.gradleProperty('pipSourceTitle').get()}"
-                if (providers.gradleProperty('pipWorldSource').isPresent()) vmArg "-Ddarkmusic.pipWorldSource=${file(providers.gradleProperty('pipWorldSource').get()).absolutePath}"
-                vmArg "-Ddarkmusic.pipDependencies=${file("build/libs/darkmusic-pip-dependencies-${project.version}-windows-x64.zip").absolutePath}"
-                if (providers.gradleProperty('pipTrace').isPresent()) vmArg "-Ddarkmusic.pip.trace=${file(providers.gradleProperty('pipTrace').get()).absolutePath}"
-                vmArg "-Ddarkmusic.pipFolder=${pipFolder.absolutePath}"
-                source sourceSets.smoke
-                runDir "build/${smokeFolder}".toString()
-                vmArg "-Ddarkmusic.music=${realMusicDirectory}"
-                vmArg "-Ddarkmusic.visualSmoke=${visualSmoke}"
-                vmArg "-Ddarkmusic.smoothFontAvailable=${smokeFont.isFile() && !vanillaFontSmoke}"
-                vmArg "-Ddarkmusic.smokeRunFile=${file('build/smoke-run-id.txt').absolutePath}"
-                vmArg "-Ddarkmusic.verifyHudRestart=${providers.gradleProperty('verifyHudRestart').isPresent()}"
-                vmArg "-Ddarkmusic.resetSmoke=${providers.gradleProperty('resetSmoke').isPresent()}"
-                vmArg "-Ddarkmusic.previewSmoke=${providers.gradleProperty('previewSmoke').isPresent()}"
-                vmArg "-Ddarkmusic.capture=${providers.gradleProperty('captureMusic').isPresent()}"
-                vmArg "-Ddarkmusic.advanced=${providers.gradleProperty('advancedSmoke').isPresent()}"
-                vmArg "-Ddarkmusic.cleanupSmoke=${providers.gradleProperty('cleanupSmoke').isPresent()}"
-                vmArg "-Ddarkmusic.lyricsSmoke=${providers.gradleProperty('lyricsSmoke').isPresent()}"
-                vmArg "-Ddarkmusic.queueSmoke=${providers.gradleProperty('queueSmoke').isPresent()}"
-                vmArg "-Ddarkmusic.testNativeBindings=${providers.gradleProperty('nativeBindingsSmoke').isPresent()}"
-                vmArg "-Ddarkmusic.privateImages=${file('docs/images_private').absolutePath}"
-                if (smokeNeedsTools) vmArg "-Ddarkmusic.downloadTools=${downloadToolsDirectory.absolutePath}"
-            }
-        }
-    }
-    def smokeLog = layout.buildDirectory.file("${smokeFolder}/logs/latest.log".toString())
-    def smokeRunId = layout.buildDirectory.file('smoke-run-id.txt')
-    def smokeRunFolder = file(loom.runs.smokeClient.runDir)
-    def smokeLanguage = providers.gradleProperty('smokeLanguage').getOrNull()
-    tasks.register('prepareSmokeClient') {
-        doLast {
-            def runId = smokeRunId.get().asFile
-            runId.parentFile.mkdirs()
-            runId.text = UUID.randomUUID().toString()
-            def runFolder = smokeRunFolder
-            // The setup check expects a device without the PiP runtime and ends by installing it, so it starts clean.
-            if (pipSmoke && new File(pipFolder, 'check-setup').isFile()) new File(runFolder, 'config/darkmusic/pip-native').deleteDir()
-            def font = smokeFont
-            if (!font.isFile() && visualSmoke) throw new GradleException('Visual checks require run/resourcepacks/SmoothFont_1.21.zip (or -PsmokeFont=/path/to/the/pack)')
-            def packs = new File(runFolder, 'resourcepacks')
-            packs.mkdirs()
-            if (font.isFile() && !vanillaFontSmoke) java.nio.file.Files.copy(font.toPath(), new File(packs, 'SmoothFont_1.21.zip').toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
-            else logger.lifecycle('SmoothFont unavailable: running functional smoke checks with the vanilla font; visual captures remain disabled.')
-            def options = new File(runFolder, 'options.txt')
-            def values = options.isFile() ? options.readLines('UTF-8') : []
-            def display = [pauseOnLostFocus: 'false', guiScale: '2', overrideWidth: '1280', overrideHeight: '720', fullscreen: 'true', exclusiveFullscreen: smokeExclusive, fullscreenResolution: pipSmoke ? '1920x1080@144:24' : '1920x1080@60:24', resourcePacks: font.isFile() && !vanillaFontSmoke ? '["vanilla","file/SmoothFont_1.21.zip"]' : '["vanilla"]', incompatibleResourcePacks: font.isFile() && !vanillaFontSmoke ? '["file/SmoothFont_1.21.zip"]' : '[]']
-            if (smokeLanguage != null) display.lang = smokeLanguage
-            values = values.findAll { !display.containsKey(it.takeWhile { c -> c != ':' }) }
-            display.each { key, value -> values.add("$key:$value") }
-            options.setText(values.join('\n') + '\n', 'UTF-8')
-        }
-    }
-    tasks.named('runSmokeClient') {
-        dependsOn tasks.named('prepareSmokeClient')
-        doLast {
-            if (!smokeLog.get().asFile.text.contains('DARKMUSIC_SMOKE_PASS:' + smokeRunId.get().asFile.text.strip())) {
-                throw new GradleException('Client smoke checks failed; inspect the selected smoke/capture run logs')
-            }
-        }
-    }
-}
+if (providers.gradleProperty('smoke').isPresent()) apply from: 'gradle/smoke.gradle'
 
 sourceSets.test.compileClasspath += sourceSets.client.output + sourceSets.client.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.client.output + sourceSets.client.runtimeClasspath
@@ -196,101 +116,7 @@ processResources {
 
 // Java feature integration stays in the mod; all native code/runtime files are opt-in.
 // Opt out explicitly for Java-only work on machines without the .NET SDK.
-if (!providers.gradleProperty('javaOnly').isPresent()) {
-    def publishFolder = layout.buildDirectory.dir('pip-helper')
-    def resourceFolder = layout.buildDirectory.dir('generated/pip-manifest-resources/assets/darkmusic/pip/windows-x64')
-    tasks.register('publishPipHelper', Exec) {
-        inputs.files(fileTree('src/pipHelper') { include '*.cs', '*.csproj', 'global.json', 'packages.lock.json' })
-        inputs.dir('src/pipHelper/licenses')
-        outputs.dir(publishFolder)
-        workingDir file('src/pipHelper')
-        environment 'DOTNET_CLI_TELEMETRY_OPTOUT', '1'
-        commandLine 'dotnet', 'publish', 'PipHelper.csproj', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '-p:RestoreLockedMode=true', '-o', publishFolder.get().asFile.absolutePath,
-                "-p:BaseIntermediateOutputPath=${layout.buildDirectory.dir('pip-helper-obj').get().asFile.absolutePath}/", "-p:BaseOutputPath=${layout.buildDirectory.dir('pip-helper-bin').get().asFile.absolutePath}/", '--nologo'
-    }
-
-    def pipVersion = project.version.toString()
-    def dependencyFile = layout.buildDirectory.file("libs/darkmusic-pip-dependencies-${pipVersion}-windows-x64.zip")
-    def dependencyBundle = tasks.register('pipDependencies', Zip) {
-        preserveFileTimestamps = false
-        reproducibleFileOrder = true
-        dependsOn tasks.named('publishPipHelper')
-        from(publishFolder)
-        archiveFileName = "darkmusic-pip-dependencies-${project.version}-windows-x64.zip"
-        destinationDirectory = layout.buildDirectory.dir('libs')
-    }
-    // Keep the task name for existing development/CI commands; only the manifest enters the JAR.
-    tasks.register('bundlePipHelper') {
-        dependsOn dependencyBundle
-        inputs.file(dependencyFile)
-        inputs.property 'version', pipVersion
-        outputs.file(resourceFolder.map { it.file('dependencies.json') })
-        doLast {
-            def deps = dependencyFile.get().asFile
-            def output = resourceFolder.get().asFile
-            output.mkdirs()
-            new File(output, 'dependencies.json').setText(groovy.json.JsonOutput.toJson([
-                    schema: 2, version: pipVersion, name: deps.name, size: deps.length(),
-                    sha256: java.security.MessageDigest.getInstance('SHA-256').digest(deps.bytes).encodeHex().toString()
-            ]), 'UTF-8')
-        }
-    }
-    sourceSets.client.resources.srcDir(layout.buildDirectory.dir('generated/pip-manifest-resources'))
-    loom.runs.named('client') {
-        vmArg "-Ddarkmusic.pipDependencies=${dependencyFile.get().asFile.absolutePath}"
-    }
-    tasks.named('processClientResources') { dependsOn tasks.named('bundlePipHelper') }
-    // Exclude obsolete outputs too when upgrading an existing, non-clean build directory.
-    tasks.named('jar') {
-        exclude 'assets/darkmusic/pip/windows-x64/helper.zip', 'assets/darkmusic/pip/windows-x64/helper.sha256'
-    }
-    tasks.named('test') { systemProperty 'darkmusic.test.pipDependencies', dependencyFile.get().asFile.absolutePath }
-
-    // Media Controls: an optional single-file helper, installed in game on request like PiP. Only its manifest enters the JAR.
-    def mediaFolder = layout.buildDirectory.dir('media-helper')
-    def mediaResources = layout.buildDirectory.dir('generated/media-manifest-resources/assets/darkmusic/media/windows-x64')
-    tasks.register('publishMediaHelper', Exec) {
-        inputs.files(fileTree('src/mediaHelper') { include '*.cs', '*.csproj', 'global.json', 'packages.lock.json' })
-        inputs.dir('src/mediaHelper/licenses')
-        outputs.dir(mediaFolder)
-        workingDir file('src/mediaHelper')
-        environment 'DOTNET_CLI_TELEMETRY_OPTOUT', '1'
-        commandLine 'dotnet', 'publish', 'MediaHelper.csproj', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '-p:RestoreLockedMode=true', '-o', mediaFolder.get().asFile.absolutePath,
-                "-p:BaseIntermediateOutputPath=${layout.buildDirectory.dir('media-helper-obj').get().asFile.absolutePath}/", "-p:BaseOutputPath=${layout.buildDirectory.dir('media-helper-bin').get().asFile.absolutePath}/", '--nologo'
-    }
-    def mediaFile = layout.buildDirectory.file("libs/darkmusic-media-controls-${pipVersion}-windows-x64.zip")
-    def mediaPackage = tasks.register('mediaControlsPackage', Zip) {
-        preserveFileTimestamps = false
-        reproducibleFileOrder = true
-        dependsOn tasks.named('publishMediaHelper')
-        from(mediaFolder)
-        archiveFileName = "darkmusic-media-controls-${project.version}-windows-x64.zip"
-        destinationDirectory = layout.buildDirectory.dir('libs')
-    }
-    tasks.register('bundleMediaHelper') {
-        dependsOn mediaPackage
-        inputs.file(mediaFile)
-        inputs.property 'version', pipVersion
-        outputs.file(mediaResources.map { it.file('media-controls.json') })
-        doLast {
-            def zip = mediaFile.get().asFile
-            def exe = new File(mediaFolder.get().asFile, 'DarkMusic.Media.exe')
-            def digest = { File file -> java.security.MessageDigest.getInstance('SHA-256').digest(file.bytes).encodeHex().toString() }
-            def output = mediaResources.get().asFile
-            output.mkdirs()
-            new File(output, 'media-controls.json').setText(groovy.json.JsonOutput.toJson([
-                    schema: 1, version: pipVersion, name: zip.name, size: zip.length(), sha256: digest(zip),
-                    executableSha256: digest(exe)
-            ]), 'UTF-8')
-        }
-    }
-    sourceSets.client.resources.srcDir(layout.buildDirectory.dir('generated/media-manifest-resources'))
-    loom.runs.named('client') {
-        vmArg "-Ddarkmusic.mediaControls=${mediaFile.get().asFile.absolutePath}"
-    }
-    tasks.named('processClientResources') { dependsOn tasks.named('bundleMediaHelper') }
-    tasks.named('test') { systemProperty 'darkmusic.test.mediaControls', mediaFile.get().asFile.absolutePath }
-}
+if (!providers.gradleProperty('javaOnly').isPresent()) apply from: 'gradle/native-helpers.gradle'
 
 tasks.withType(JavaCompile).configureEach {
     it.options.release = 25
