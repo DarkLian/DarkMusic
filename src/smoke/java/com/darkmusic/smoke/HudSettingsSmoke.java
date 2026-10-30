@@ -38,9 +38,7 @@ final class HudSettingsSmoke {
             }
             var screen = new SettingsScreen(app, null);
             mc.gui.setScreen(screen);
-            var selected = SettingsScreen.class.getDeclaredField("selectedSection");
-            selected.setAccessible(true);
-            selected.setInt(screen, 4);
+            SmokeUi.set(screen, "selectedSection", 4);
             screen.init(960, 540);
             var master = SmokeUi.find(mc, Text.get("text.darkmusic.now_playing_hud"));
             SmokeUi.press(mc, master);

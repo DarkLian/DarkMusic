@@ -82,9 +82,7 @@ final class PipSpectrumSmoke {
             app.settings().hudEnabled = false;
             var screen = new SettingsScreen(app, null);
             mc.gui.setScreen(screen);
-            var selected = SettingsScreen.class.getDeclaredField("selectedSection");
-            selected.setAccessible(true);
-            selected.setInt(screen, 4);
+            SmokeUi.set(screen, "selectedSection", 4);
             screen.init(960, 540);
         }
         if (tick == 46) capture(mc, "hud-disabled");

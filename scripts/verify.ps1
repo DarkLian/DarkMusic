@@ -4,7 +4,9 @@ param(
     [string]$ToolsDirectory = '',
     [switch]$Clean,
     [switch]$DesktopIntegration,
-    [switch]$JavaOnly
+    [switch]$JavaOnly,
+    # Runs only these test classes or patterns (Gradle --tests), with the same excerpts, instead of the full build.
+    [string[]]$Tests = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -67,7 +69,9 @@ try {
             if ($LASTEXITCODE -ne 0) { throw "Could not prepare a real-audio excerpt ($LASTEXITCODE)." }
         }
     }
-    $arguments = @('build', '-PrequireMusic', "-PmusicDirectory=$verificationDirectory")
+    # @() keeps a one-element result an array, so += appends flags instead of joining strings.
+    $arguments = @(if ($Tests) { 'test'; $Tests | ForEach-Object { '--tests', $_ } } else { 'build' })
+    $arguments += @('-PrequireMusic', "-PmusicDirectory=$verificationDirectory")
     if ($JavaOnly) { $arguments += '-PjavaOnly' }
     if ($ToolsDirectory) { $arguments += @('-PdownloadIntegration', "-PdownloadToolsDirectory=$ToolsDirectory") }
     if ($DesktopIntegration) { $arguments += '-PdesktopIntegration' }

@@ -241,10 +241,8 @@ final class LyricsSmokeClient {
                 var keys = (String[]) SmokeUi.field(settingsScreen, "SECTION_KEYS");
                 check(keys[1].equals("settings.audio_section") && keys[2].equals("lyrics.section")
                     && keys[3].equals("settings.appearance_section"), "Audio, Lyrics and Appearance order");
-                var selected = SettingsScreen.class.getDeclaredField("selectedSection");
-                selected.setAccessible(true);
                 for (int section = 0; section < keys.length; section++) {
-                    selected.setInt(settingsScreen, section);
+                    SmokeUi.set(settingsScreen, "selectedSection", section);
                     for (int w : new int[]{320, 426, 960}) bounds(settingsScreen, w, w == 960 ? 540 : 240);
                 }
                 var category = SmokeUi.find(mc, Text.get("lyrics.section"));
@@ -408,15 +406,11 @@ final class LyricsSmokeClient {
                 app.settings().hudStyle = Settings.HudStyle.ARTWORK;
                 var waveformSettings = new SettingsScreen(app, null);
                 mc.gui.setScreen(waveformSettings);
-                var section = SettingsScreen.class.getDeclaredField("selectedSection");
-                section.setAccessible(true);
-                section.setInt(waveformSettings, 4);
+                SmokeUi.set(waveformSettings, "selectedSection", 4);
                 for (var style : WaveformSettings.Style.values()) {
                     app.settings().waveform.style = style;
                     for (int w : new int[]{320, 426, 960}) {
-                        var previewOnly = SettingsScreen.class.getDeclaredField("previewOnly");
-                        previewOnly.setAccessible(true);
-                        previewOnly.setBoolean(waveformSettings, true);
+                        SmokeUi.set(waveformSettings, "previewOnly", true);
                         bounds(waveformSettings, w, w == 960 ? 540 : 240);
                         var playerPreview = (ValueSlider) SmokeUi.field(waveformSettings, "playerProgressPreview");
                         check(playerPreview.getX() >= 0 && playerPreview.getRight() <= w && playerPreview.getY() >= 0 && playerPreview.getBottom() <= waveformSettings.height,

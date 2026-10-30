@@ -20,6 +20,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import static com.darkmusic.smoke.SmokeUi.field;
+import static com.darkmusic.smoke.SmokeUi.set;
+
 /**
  * Isolated native UI and real-collection/device checks; never contacts an external website.
  */
@@ -33,17 +36,6 @@ final class QueueSmokeClient {
 
     private static void check(boolean condition, String label) {
         if (!condition) throw new AssertionError(label);
-    }
-
-    private static Object field(Object owner, String name) throws Exception {
-        for (Class<?> type = owner.getClass(); type != null; type = type.getSuperclass())
-            try {
-                var field = type.getDeclaredField(name);
-                field.setAccessible(true);
-                return field.get(owner);
-            } catch (NoSuchFieldException ignored) {
-            }
-        throw new NoSuchFieldException(name);
     }
 
     private static void pressView(Screen screen, String current) {
@@ -107,9 +99,7 @@ final class QueueSmokeClient {
                     x = tracks.get(2);
                     var diagnostic = DownloadDiagnostics.classify(new DownloadDiagnostics.Failure(DownloadDiagnostics.Stage.ANALYSIS, DownloadDiagnostics.Tool.YT_DLP, 1,
                         "Unable to extract initial state https://user:password@host/id?token=secret"), DownloadDiagnostics.Stage.ANALYSIS, "https://www.bilibili.com/video/private-id", 1, 1, "2026.08.19");
-                    var saved = DownloadService.class.getDeclaredField("analysisDiagnostic");
-                    saved.setAccessible(true);
-                    saved.set(app.downloads, diagnostic);
+                    set(app.downloads, "analysisDiagnostic", diagnostic);
                     var download = new DownloadScreen(app, null);
                     mc.gui.setScreen(download);
                     for (int width : new int[]{320, 426, 960}) bounds(download, width, width == 960 ? 540 : 240);
@@ -128,9 +118,7 @@ final class QueueSmokeClient {
                     check(report.contains("EXTRACTOR_FAILURE") && !report.contains("secret") && !report.contains("password") && !report.contains("private-id"), "Safe real clipboard");
                     mc.gui.screen().onClose();
                     check(mc.gui.screen() instanceof DownloadScreen, "Diagnostic Back");
-                    var saved = DownloadService.class.getDeclaredField("analysisDiagnostic");
-                    saved.setAccessible(true);
-                    saved.set(app.downloads, null);
+                    set(app.downloads, "analysisDiagnostic", null);
                     var actions = new SongActionsScreen(app, null, x);
                     mc.gui.setScreen(actions);
                     for (int width : new int[]{320, 426, 960}) bounds(actions, width, width == 960 ? 540 : 240);

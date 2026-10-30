@@ -18,6 +18,9 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
 
+import static com.darkmusic.smoke.SmokeUi.field;
+import static com.darkmusic.smoke.SmokeUi.set;
+
 /**
  * Real-device audition and download-screen safety checks; local private music never leaves loopback.
  */
@@ -31,18 +34,6 @@ final class DownloadPreviewClient {
 
     private void require(boolean value, String message) {
         if (!value) throw new IllegalStateException(message);
-    }
-
-    private Object field(Object value, String name) throws Exception {
-        var f = value.getClass().getDeclaredField(name);
-        f.setAccessible(true);
-        return f.get(value);
-    }
-
-    private void set(Object value, String name, Object data) throws Exception {
-        var f = value.getClass().getDeclaredField(name);
-        f.setAccessible(true);
-        f.set(value, data);
     }
 
     private AbstractWidget button(Minecraft mc, String label) {
@@ -233,9 +224,7 @@ final class DownloadPreviewClient {
                 case 0 -> {
                     if (app.downloads.snapshot().analyzing()) return;
                     require(app.downloads.snapshot().preview() != null, "Local analysis failed: " + app.downloads.snapshot().message());
-                    var urlScroll = EditBox.class.getDeclaredField("displayPos");
-                    urlScroll.setAccessible(true);
-                    require(urlScroll.getInt(field(mc.gui.screen(), "url")) == 0, "The short analyzed URL is stored but visually scrolled out of the input");
+                    require((int) field(field(mc.gui.screen(), "url"), "displayPos") == 0, "The short analyzed URL is stored but visually scrolled out of the input");
                     require(field(mc.gui.screen(), "mode").toString().equals("VIDEO"), "Single video did not default to This Video Only");
                     require(button(mc, "Tools").getWidth() == button(mc, "Analyze").getWidth(), "Tools and Analyze widths differ");
                     var search = (EditBox) field(mc.gui.screen(), "search");

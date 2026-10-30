@@ -26,6 +26,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.*;
 
+import static com.darkmusic.smoke.SmokeUi.field;
+import static com.darkmusic.smoke.SmokeUi.set;
+
 /**
  * Runtime checks use the current private library and the same renderer as gameplay.
  */
@@ -39,23 +42,6 @@ final class HudSmokeClient {
 
     private static void require(boolean ok, String message) {
         if (!ok) throw new IllegalStateException(message);
-    }
-
-    private Object field(Object value, String name) throws Exception {
-        for (Class<?> type = value.getClass(); type != null; type = type.getSuperclass())
-            try {
-                var f = type.getDeclaredField(name);
-                f.setAccessible(true);
-                return f.get(value);
-            } catch (NoSuchFieldException ignored) {
-            }
-        throw new NoSuchFieldException(name);
-    }
-
-    private void set(Object value, String name, Object data) throws Exception {
-        var f = value.getClass().getDeclaredField(name);
-        f.setAccessible(true);
-        f.set(value, data);
     }
 
     private void pan(RowList rows) throws Exception {

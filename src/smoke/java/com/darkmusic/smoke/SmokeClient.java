@@ -93,14 +93,12 @@ public final class SmokeClient implements ClientModInitializer {
         mc.gui.screen().keyPressed(new KeyEvent(256, 0, 0));
     }
 
-    private Object field(Object object, String name) throws Exception {
-        var field = object.getClass().getDeclaredField(name);
-        field.setAccessible(true);
-        return field.get(object);
+    private Object field(Object object, String name) {
+        return SmokeUi.field(object, name);
     }
 
-    private Object field(String name) throws Exception {
-        return field(player, name);
+    private Object field(String name) {
+        return SmokeUi.field(player, name);
     }
 
     private void checkVolumeBindings(Minecraft mc, DarkMusicClient app) throws Exception {
@@ -316,15 +314,13 @@ public final class SmokeClient implements ClientModInitializer {
         require(selected.id().equals(current.id()), "Jump did not select the currently playing track");
         require(((EditBox) field("search")).getValue().isEmpty(), "Jump did not clear incompatible search");
         require(app.playback.state().track().id().equals(current.id()), "Jump changed playback");
-        var sourceField = app.playback.getClass().getDeclaredField("source");
-        sourceField.setAccessible(true);
         var originalSource = app.playback.source();
         for (var origin : List.of(new PlaybackController.Source("All", "", "", app.library.rootId()),
             new PlaybackController.Source("All", current.relativePath().contains("/") ? current.relativePath().substring(0, current.relativePath().lastIndexOf('/')) : "", "", app.library.rootId()),
             new PlaybackController.Source("Playlists", playlistId, "", app.library.rootId()),
             new PlaybackController.Source("Artists", current.artist(), current.title(), app.library.rootId()),
             new PlaybackController.Source("Albums", current.album(), "", app.library.rootId()))) {
-            sourceField.set(app.playback, origin);
+            SmokeUi.set(app.playback, "source", origin);
             ((EditBox) field("search")).setValue("No matches before source jump");
             player.jumpToPlaying();
             require(field("mode").equals(origin.mode()) && field("group").equals(origin.group()), "Jump lost playback source: " + origin);
@@ -341,7 +337,7 @@ public final class SmokeClient implements ClientModInitializer {
             }).count();
             require(rows.get(groups.indexOf(origin.group())).title().endsWith(" (" + count + ")"), "Navigation count differs from total playable tracks: " + origin);
         }
-        sourceField.set(app.playback, originalSource);
+        SmokeUi.set(app.playback, "source", originalSource);
         player.jumpToPlaying();
         var list = (RowList) field("songs");
         require(Text.get("text.darkmusic.scroll_long_text").equals("text.darkmusic.scroll_long_text"), "Long-text hover hint remains translated");
@@ -465,12 +461,7 @@ public final class SmokeClient implements ClientModInitializer {
                         stage = 0;
                         return;
                     }
-                    var backendField = app.playback.getClass().getDeclaredField("audio");
-                    backendField.setAccessible(true);
-                    var backend = backendField.get(app.playback);
-                    var generationField = backend.getClass().getDeclaredField("generation");
-                    generationField.setAccessible(true);
-                    var generation = (AtomicLong) generationField.get(backend);
+                    var generation = (AtomicLong) field(field(app.playback, "audio"), "generation");
                     long before = generation.get();
                     double y = slider.getY() + 8;
                     mc.gui.screen().mouseClicked(mouse(slider.getX() + 12, y), false);
@@ -660,9 +651,7 @@ public final class SmokeClient implements ClientModInitializer {
                 }
                 case 16 -> {
                     app.warn("Smoke transient warning");
-                    var expiry = DarkMusicClient.class.getDeclaredField("warningUntil");
-                    expiry.setAccessible(true);
-                    expiry.setLong(app, 0);
+                    SmokeUi.set(app, "warningUntil", 0L);
                 }
                 case 17 -> {
                     escape(mc);

@@ -7,6 +7,7 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.input.*;
 import net.minecraft.resources.Identifier;
 
+import java.lang.reflect.Field;
 import java.util.Locale;
 
 /**
@@ -32,14 +33,37 @@ final class SmokeUi {
             throw new IllegalStateException("SmoothFont is not applied");
     }
 
+    /**
+     * Reads a private field, declared on the owner's class or a superclass.
+     */
     static Object field(Object owner, String name) {
         try {
-            var f = owner.getClass().getDeclaredField(name);
-            f.setAccessible(true);
-            return f.get(owner);
-        } catch (ReflectiveOperationException e) {
+            return declared(owner, name).get(owner);
+        } catch (IllegalAccessException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /**
+     * Writes a private field, declared on the owner's class or a superclass.
+     */
+    static void set(Object owner, String name, Object value) {
+        try {
+            declared(owner, name).set(owner, value);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private static Field declared(Object owner, String name) {
+        for (Class<?> type = owner.getClass(); type != null; type = type.getSuperclass())
+            try {
+                var field = type.getDeclaredField(name);
+                field.setAccessible(true);
+                return field;
+            } catch (NoSuchFieldException ignored) {
+            }
+        throw new IllegalStateException("No field " + name + " in " + owner.getClass().getName());
     }
 
     static AbstractWidget find(Minecraft mc, String label) {

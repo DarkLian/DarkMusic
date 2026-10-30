@@ -168,17 +168,11 @@ final class ResetSmokeClient {
                 }
                 case 3 -> {
                     // Built-in Favorite Music is listed and selected first and cannot be deleted.
-                    var listsField = PlaylistScreen.class.getDeclaredField("lists");
-                    listsField.setAccessible(true);
-                    var lists = (RowList) listsField.get(mc.gui.screen());
-                    var rowsField = RowList.class.getDeclaredField("rows");
-                    rowsField.setAccessible(true);
-                    var titles = ((List<RowList.Row>) rowsField.get(lists)).stream().map(RowList.Row::title).toList();
+                    var lists = (RowList) SmokeUi.field(mc.gui.screen(), "lists");
+                    var titles = ((List<RowList.Row>) SmokeUi.field(lists, "rows")).stream().map(RowList.Row::title).toList();
                     int index = titles.indexOf(titles.stream().filter(t -> t.startsWith(app.playlists.displayName(app.playlists.get(playlist)) + " (")).findFirst().orElse(""));
                     require(index >= 0, "Reset test playlist is not listed: " + titles);
-                    var rowHeight = RowList.class.getDeclaredField("rowHeight");
-                    rowHeight.setAccessible(true);
-                    lists.onClick(new MouseButtonEvent(lists.getX() + 4, lists.getY() + index * (int) rowHeight.get(lists) + 4, new MouseButtonInfo(0, 0)), false);
+                    lists.onClick(new MouseButtonEvent(lists.getX() + 4, lists.getY() + index * (int) SmokeUi.field(lists, "rowHeight") + 4, new MouseButtonInfo(0, 0)), false);
                     mc.gui.screen().tick();
                     click(mc, "text.darkmusic.delete");
                     require(mc.gui.screen() instanceof ConfirmationScreen, "Playlist delete did not open shared confirmation");
@@ -251,9 +245,7 @@ final class ResetSmokeClient {
                     if (!saved.isDone() || app.library.snapshot().scanning()) return;
                     require(ConfigStore.JSON.toJson(saved.join()).equals(ConfigStore.JSON.toJson(app.settings())), "Defaults were not saved");
                     require(app.library.snapshot().tracks().size() == 1, "Preserved default-folder music did not rescan immediately");
-                    var field = SettingsScreen.class.getDeclaredField("previewScale");
-                    field.setAccessible(true);
-                    require((double) field.get(settingsScreen) <= 1, "Preview scale did not reset");
+                    require((double) SmokeUi.field(settingsScreen, "previewScale") <= 1, "Preview scale did not reset");
                     for (var entry : hashes.entrySet())
                         require(entry.getValue().equals(hash(entry.getKey())), "Reset changed media bytes: " + entry.getKey());
                     stage = 20;
