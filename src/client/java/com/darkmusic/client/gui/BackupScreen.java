@@ -2,28 +2,22 @@ package com.darkmusic.client.gui;
 
 import com.darkmusic.client.backup.BackupArchive;
 import com.darkmusic.client.config.ConfigStore;
-import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.library.ListeningHistory;
 import com.darkmusic.client.library.MusicLibrary;
-import com.darkmusic.client.playlist.PlaylistStore;
 import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
-import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.screens.Screen;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutorService;
 
 /**
  * Backup preview and category selection; no audio files are ever imported or exported.
  */
 public final class BackupScreen extends AudioPage<BackupScreen.Sources> {
     /**
-     * What a backup exports and what a restore replaces.
+     * The backup operations; this screen only chooses the file and the categories, previews and confirms.
      */
     public interface Sources extends AudioPage.Sources {
         boolean mediaBusy();
@@ -34,17 +28,27 @@ public final class BackupScreen extends AudioPage<BackupScreen.Sources> {
 
         MusicLibrary library();
 
-        PlaylistStore playlists();
-
         ConfigStore config();
-
-        ExecutorService io();
-
-        KeyMapping[] shortcutBindings();
 
         void announce(String text);
 
-        CompletableFuture<Void> restoreBackup(BackupArchive.Restore restored, boolean bindings);
+        /**
+         * Settings, playlists, key binds and history as they are now, written to a backup file.
+         */
+        CompletableFuture<Void> exportBackup(Path destination);
+
+        CompletableFuture<BackupArchive.Data> readBackup(Path source);
+
+        /**
+         * What restoring would produce now, for the preview and the confirmation.
+         */
+        CompletableFuture<BackupArchive.Restore> previewRestore(BackupArchive.Data data,
+                                                                BackupArchive.Selection selection);
+
+        /**
+         * Restores the selection, merged with the state current when the restore starts.
+         */
+        CompletableFuture<Void> restoreBackup(BackupArchive.Data data, BackupArchive.Selection selection);
     }
 
     private BackupArchive.Data data;
@@ -121,17 +125,12 @@ public final class BackupScreen extends AudioPage<BackupScreen.Sources> {
         enableSince(0, !busy && available);
     }
 
+    private BackupArchive.Selection selection() {
+        return new BackupArchive.Selection(settings, playlists, shortcuts, history, replace, remap);
+    }
+
     private CompletableFuture<BackupArchive.Restore> prepare() {
-        var input = data;
-        var selected = new BackupArchive.Selection(settings, playlists, shortcuts, history, replace, remap);
-        var current = ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(app.settings()), Settings.class);
-        current.nativeShortcutNames = app.settings().nativeShortcutNames;
-        var root = app.library().rootId();
-        var tracks = app.library().snapshot().tracks();
-        var existing = app.playlists().all();
-        var retained = app.playlists().retainedImports();
-        return CompletableFuture.supplyAsync(() -> BackupArchive.prepare(input, selected, current, root, tracks, existing,
-            app.listeningHistory().snapshot(), retained), app.io());
+        return app.previewRestore(data, selection());
     }
 
     private void confirmRestore() {
@@ -145,8 +144,10 @@ public final class BackupScreen extends AudioPage<BackupScreen.Sources> {
                 finish(error);
                 return;
             }
+            var input = data;
+            var selected = latest.selection();
             show(new ConfirmationScreen(this, Text.component("backup.apply"), Text.component("backup.confirm", latest.unresolved()),
-                Text.component("backup.apply"), () -> app.restoreBackup(latest, latest.selection().shortcuts()), this));
+                Text.component("backup.apply"), () -> app.restoreBackup(input, selected), this));
         }));
     }
 
@@ -172,21 +173,13 @@ public final class BackupScreen extends AudioPage<BackupScreen.Sources> {
     }
 
     private void transfer(Path path, boolean export) {
-        var bindings = new LinkedHashMap<String, String>();
-        if (export) for (var key : app.shortcutBindings()) bindings.put(key.getName(), key.saveString());
-        var job = export ? new BackupArchive.Export(app.config().snapshotJson(), app.library().rootId(), app.playlists().all(),
-            bindings, app.listeningHistory().snapshotSource()) : null;
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                if (export) {
-                    job.write(path);
-                    return null;
-                }
-                return BackupArchive.read(path);
-            } catch (Exception failure) {
-                throw new CompletionException(failure);
-            }
-        }, app.io()).whenComplete((loaded, error) -> minecraft.execute(() -> {
+        CompletableFuture<BackupArchive.Data> transfer;
+        try {
+            transfer = export ? app.exportBackup(path).thenApply(unused -> null) : app.readBackup(path);
+        } catch (RuntimeException rejected) {
+            transfer = CompletableFuture.failedFuture(rejected);
+        }
+        transfer.whenComplete((loaded, error) -> minecraft.execute(() -> {
             if (error == null) {
                 if (!export) {
                     data = loaded;

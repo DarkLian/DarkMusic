@@ -117,6 +117,7 @@ import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -338,12 +339,55 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
     }
 
     @Override
-    public CompletableFuture<Void> restoreBackup(BackupArchive.Restore restored, boolean bindings) {
+    public CompletableFuture<BackupArchive.Restore> previewRestore(BackupArchive.Data data,
+                                                                   BackupArchive.Selection selection) {
+        var current = BackupRestore.Current.capture(settings(), library.rootId(), library.snapshot().tracks(),
+            playlists, listeningHistory);
+        return CompletableFuture.supplyAsync(() -> current.prepare(data, selection), io);
+    }
+
+    @Override
+    public CompletableFuture<BackupArchive.Data> readBackup(Path source) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return BackupArchive.read(source);
+            } catch (IOException failure) {
+                throw new CompletionException(failure);
+            }
+        }, io);
+    }
+
+    @Override
+    public CompletableFuture<Void> exportBackup(Path destination) {
+        var bindings = new LinkedHashMap<String, String>();
+        for (var key : shortcuts.bindings()) bindings.put(key.getName(), key.saveString());
+        var job = new BackupArchive.Export(config.snapshotJson(), library.rootId(), playlists.all(), bindings,
+            listeningHistory.snapshotSource());
+        return CompletableFuture.runAsync(() -> {
+            try {
+                job.write(destination);
+            } catch (IOException failure) {
+                throw new CompletionException(failure);
+            }
+        }, io);
+    }
+
+    @Override
+    public CompletableFuture<Void> restoreBackup(BackupArchive.Data data, BackupArchive.Selection selection) {
         if (!accepting() || !playlistsReady || !listeningHistory.ready())
             return CompletableFuture.failedFuture(new IllegalStateException(Text.get("library.darkmusic.busy")));
+        boolean bindings = selection.shortcuts();
+        Map<String, String> imported = Map.of();
+        if (bindings) try {
+            var values = ConfigStore.JSON.fromJson(data.settings(), Settings.class);
+            values.validate();
+            imported = values.shortcuts;
+        } catch (RuntimeException invalid) {
+            return CompletableFuture.failedFuture(new IOException(Text.get("backup.failed"), invalid));
+        }
         var keys = new LinkedHashMap<String, String>();
         if (bindings) for (var key : shortcuts.bindings()) {
-            String value = restored.settings().shortcuts.getOrDefault(key.getName(), key.saveString());
+            String value = imported.getOrDefault(key.getName(), key.saveString());
             try {
                 InputConstants.getKey(value);
             } catch (RuntimeException invalid) {
@@ -352,7 +396,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             keys.put("key_" + key.getName(), value);
         }
         return RestoreOperation.run(new BackupRestore(state, config, settingsStore, playlists, listeningHistory,
-            restored, bindings ? keys : null, () -> {
+            library.rootId(), library.snapshot().tracks(), data, selection, bindings ? keys : null, () -> {
             if (bindings) {
                 for (var key : shortcuts.bindings())
                     key.setKey(InputConstants.getKey(keys.get("key_" + key.getName())));
@@ -612,11 +656,6 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
     @Override
     public ConfigStore config() {
         return config;
-    }
-
-    @Override
-    public KeyMapping[] shortcutBindings() {
-        return shortcuts.bindings();
     }
 
     @Override

@@ -16,7 +16,6 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -114,21 +113,28 @@ class BackupRestoreTest {
         history.heard(song, 1, 31);
     }
 
-    private BackupArchive.Restore restore(boolean playlists, boolean history) {
+    /**
+     * A backup with no playlists, the backup history and a volume of 0.25.
+     */
+    private BackupArchive.Data data() {
         var settings = new Settings();
         settings.volume = 0.25;
-        return new BackupArchive.Restore(settings, List.of(), Set.of(), backup, 0,
-            new BackupArchive.Selection(false, playlists, false, history, true, false));
+        return new BackupArchive.Data(1, "root", ConfigStore.JSON.toJsonTree(settings).getAsJsonObject(), List.of(),
+            backup);
     }
 
-    private CompletableFuture<Void> start(BackupArchive.Restore restored, Runnable applyClient,
+    private static BackupArchive.Selection replacing(boolean settings, boolean playlists, boolean history) {
+        return new BackupArchive.Selection(settings, playlists, false, history, true, false);
+    }
+
+    private CompletableFuture<Void> start(BackupArchive.Selection selection, Runnable applyClient,
                                           BackupRestore.Installer installer) {
-        return RestoreOperation.run(new BackupRestore(state, config, settingsStore, playlists, history, restored,
-            null, applyClient, installer), client, io);
+        return RestoreOperation.run(new BackupRestore(state, config, settingsStore, playlists, history, "root",
+            List.of(song), data(), selection, null, applyClient, installer), client, io);
     }
 
-    private CompletableFuture<Void> start(BackupArchive.Restore restored) {
-        return start(restored, () -> {
+    private CompletableFuture<Void> start(BackupArchive.Selection selection) {
+        return start(selection, () -> {
         }, RestoreJournal::install);
     }
 
@@ -191,7 +197,7 @@ class BackupRestoreTest {
 
     @Test
     void shutdownBeforeTheInstallRunsKeepsTheRestoredHistory() {
-        var restored = start(restore(false, true));
+        var restored = start(replacing(false, false, true));
         shutdown();
         client.drain();
         assertTrue(restored.isDone() && !restored.isCompletedExceptionally());
@@ -200,7 +206,7 @@ class BackupRestoreTest {
 
     @Test
     void shutdownAfterTheInstallButBeforePublicationKeepsTheRestoredHistory() {
-        start(restore(false, true));
+        start(replacing(false, false, true));
         io.drain();
         assertEquals(backup, nextStart(), "installed");
         shutdown();
@@ -209,11 +215,27 @@ class BackupRestoreTest {
     }
 
     @Test
+    void listeningWhileTheConfirmationIsOpenSurvivesAMergeRestore() {
+        var merge = new BackupArchive.Selection(false, false, false, true, false, false);
+        // Apply previews the restore, then asks for confirmation; the music keeps playing meanwhile.
+        var preview = BackupRestore.Current.capture(settingsStore.settings(), "root", List.of(song), playlists, history)
+            .prepare(data(), merge);
+        assertEquals(old.get(song.id()).plays() + 1, preview.history().get(song.id()).plays());
+        history.heard(song, 2, 31);
+        start(merge);
+        io.drain();
+        client.drain();
+        shutdown();
+        var loaded = nextStart();
+        assertEquals(backup.get("root:backup.opus"), loaded.get("root:backup.opus"));
+        var entry = old.get(song.id());
+        assertSameExceptTime(Map.of(song.id(), new ListeningHistory.Entry(entry.plays() + 2, 0, entry.seconds() + 62)),
+            Map.of(song.id(), loaded.get(song.id())));
+    }
+
+    @Test
     void theFinalSettingsSaveDoesNotReplaceRestoredSettings() throws Exception {
-        var restored = restore(false, true);
-        var settings = new BackupArchive.Restore(restored.settings(), List.of(), Set.of(), backup, 0,
-            new BackupArchive.Selection(true, false, false, true, true, false));
-        start(settings);
+        start(replacing(true, false, true));
         io.drain();
         shutdown();
         var saved = ConfigStore.JSON.fromJson(Files.readString(directory.resolve("config.json")), Settings.class);
@@ -222,11 +244,10 @@ class BackupRestoreTest {
     }
 
     @Test
-    void anApplyFailureBeforeTheHistoryIsReplacedKeepsTheRestoredHistory() {
-        // A playlist store that cannot take the restored list fails before the history is replaced.
-        var restored = new BackupArchive.Restore(new Settings(), Arrays.asList((PlaylistStore.Playlist) null),
-            Set.of(), backup, 0, new BackupArchive.Selection(false, true, false, true, true, false));
-        var result = start(restored, () -> {
+    void anApplyFailureKeepsTheRestoredFilesUntilTheRestart() throws Exception {
+        // Applying to the running services fails after the stores were replaced.
+        var result = start(replacing(true, false, true), () -> {
+            throw new IllegalStateException("playback closed");
         }, RestoreJournal::install);
         io.drain();
         client.drain();
@@ -240,12 +261,14 @@ class BackupRestoreTest {
         boolean held = state.restoring;
         shutdown();
         assertEquals(backup, nextStart());
-        assertTrue(held, "the stale in-memory data must not be saved before the restart");
+        var saved = ConfigStore.JSON.fromJson(Files.readString(directory.resolve("config.json")), Settings.class);
+        assertEquals(0.25, saved.volume);
+        assertTrue(held, "services applied part way must not save over the restored files before the restart");
     }
 
     @Test
     void aPendingJournalSurvivesShutdownSoTheNextStartCanRollBack() throws Exception {
-        var result = start(restore(false, true), () -> {
+        var result = start(replacing(false, false, true), () -> {
         }, JournalFixture::dieAfterFirstWrite);
         io.drain();
         client.drain();
@@ -260,7 +283,7 @@ class BackupRestoreTest {
     @Test
     void aFailedInstallThatRolledBackResumesWritingTheProgress() throws Exception {
         Files.createDirectories(directory.resolve("playlists.json"));
-        var result = start(restore(true, true));
+        var result = start(replacing(false, true, true));
         io.drain();
         client.drain();
         assertTrue(result.isCompletedExceptionally());
@@ -271,7 +294,7 @@ class BackupRestoreTest {
 
     @Test
     void restoringOnlyPlaylistsKeepsTheListeningProgress() {
-        start(restore(true, false));
+        start(replacing(false, true, false));
         io.drain();
         client.drain();
         shutdown();
@@ -280,7 +303,7 @@ class BackupRestoreTest {
 
     @Test
     void aPendingJournalForPlaylistsKeepsTheListeningProgress() {
-        var result = start(restore(true, false), () -> {
+        var result = start(replacing(false, true, false), () -> {
         }, JournalFixture::dieAfterFirstWrite);
         io.drain();
         client.drain();
