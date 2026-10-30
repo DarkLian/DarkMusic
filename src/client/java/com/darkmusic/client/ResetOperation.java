@@ -25,7 +25,8 @@ import java.util.concurrent.Executor;
  * </ol>
  * The returned future completes on every path. If the client closes before publishing, or the storage executor
  * refuses the task, nothing is published. If publishing throws, what it built is abandoned and the client stays
- * disabled until restart.
+ * disabled until restart. If the client thread refuses the result (Minecraft stopped running tasks while closing),
+ * the future fails with that refusal and nothing is published; resetting stays set, as the client is going away.
  */
 final class ResetOperation {
     interface Steps {
@@ -79,13 +80,8 @@ final class ResetOperation {
             finished.completeExceptionally(rejected);
             return finished;
         }
-        stopped.whenComplete((retained, failure) -> client.execute(() -> {
-            try {
-                finish(steps, storage, retained, unwrap(failure), finished);
-            } catch (RuntimeException | LinkageError unexpected) {
-                finished.completeExceptionally(unexpected);
-            }
-        }));
+        stopped.whenComplete((retained, failure) ->
+            ClientDispatch.run(client, finished, () -> finish(steps, storage, retained, unwrap(failure), finished)));
         return finished;
     }
 

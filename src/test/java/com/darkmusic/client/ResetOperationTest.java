@@ -12,6 +12,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -42,7 +43,7 @@ class ResetOperationTest {
 
     private static class Fake implements ResetOperation.Steps {
         final List<String> events = new ArrayList<>();
-        boolean resetting, closed, oldStopped = true, publishFails, verifyFails;
+        boolean resetting, closed, oldStopped = true, publishFails, verifyFails, releaseFails;
         Boolean published;
         List<String> retained = List.of();
         String warning = "";
@@ -76,6 +77,7 @@ class ResetOperationTest {
         public void release() {
             resetting = false;
             events.add("release and save");
+            if (releaseFails) throw new IllegalStateException("settings writer stopped");
         }
 
         @Override
@@ -96,7 +98,7 @@ class ResetOperationTest {
     }
 
     private static Throwable failure(CompletableFuture<Void> future) {
-        var thrown = assertThrows(ExecutionException.class, future::get);
+        var thrown = assertThrows(ExecutionException.class, () -> future.get(5, TimeUnit.SECONDS));
         return thrown.getCause();
     }
 
@@ -108,7 +110,7 @@ class ResetOperationTest {
         assertTrue(steps.resetting);
         assertFalse(future.isDone(), "publication waits for the client thread");
         client.drain();
-        future.get();
+        future.get(5, TimeUnit.SECONDS);
         assertEquals(List.of("begin", "stop old", "clear storage", "build", "publish defaults", "release and save", "verify"), steps.events);
         assertFalse(steps.resetting);
     }
@@ -185,5 +187,26 @@ class ResetOperationTest {
         assertInstanceOf(RejectedExecutionException.class, failure(future));
         assertFalse(steps.events.contains("stop old"));
         assertFalse(steps.events.contains("build"), "the old services never stopped, so none may be replaced");
+    }
+
+    @Test
+    void aRefusedClientDispatchFailsTheFutureAndPublishesNothing() {
+        var steps = new Fake();
+        var future = ResetOperation.run(steps, task -> {
+            throw new RejectedExecutionException("client stopped");
+        }, Runnable::run);
+        assertInstanceOf(RejectedExecutionException.class, failure(future));
+        assertFalse(steps.events.contains("build"));
+        assertTrue(steps.resetting, "client-owned state is not touched from another thread");
+    }
+
+    @Test
+    void aClientStepThatThrowsStillEndsTheFuture() {
+        var client = new ClientThread();
+        var steps = new Fake();
+        steps.releaseFails = true;
+        var future = ResetOperation.run(steps, client, Runnable::run);
+        client.drain();
+        assertEquals("settings writer stopped", failure(future).getMessage());
     }
 }

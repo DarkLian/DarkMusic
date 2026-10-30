@@ -7,9 +7,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,7 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RestoreOperationTest {
     private static class Fake implements RestoreOperation.Steps {
         final List<String> events = new ArrayList<>();
-        boolean busy, closed, installFails, applyFails, pending, checkedOnStorage, onStorage;
+        boolean busy, closed, installFails, applyFails, endFails, pending, checkedOnStorage, onStorage;
+        Error installDies;
 
         @Override
         public void begin() {
@@ -31,6 +35,7 @@ class RestoreOperationTest {
         @Override
         public void install() throws IOException {
             events.add("install");
+            if (installDies != null) throw installDies;
             if (installFails) throw new IOException("disk full");
         }
 
@@ -48,8 +53,9 @@ class RestoreOperationTest {
 
         @Override
         public void end(boolean recoveryPending) {
-            busy = recoveryPending;
             events.add("end");
+            if (endFails) throw new IllegalStateException("history store closed");
+            busy = recoveryPending;
         }
 
         @Override
@@ -61,7 +67,7 @@ class RestoreOperationTest {
     @Test
     void installsThenAppliesThenReleases() throws Exception {
         var steps = new Fake();
-        RestoreOperation.run(steps, Runnable::run, Runnable::run).get();
+        RestoreOperation.run(steps, Runnable::run, Runnable::run).get(5, TimeUnit.SECONDS);
         assertEquals(List.of("begin", "install", "apply", "end"), steps.events);
         assertFalse(steps.busy);
     }
@@ -71,7 +77,7 @@ class RestoreOperationTest {
         var steps = new Fake();
         steps.installFails = true;
         var future = RestoreOperation.run(steps, Runnable::run, Runnable::run);
-        var error = assertThrows(ExecutionException.class, future::get).getCause();
+        var error = assertThrows(ExecutionException.class, () -> future.get(5, TimeUnit.SECONDS)).getCause();
         assertEquals(Text.get("backup.failed"), error.getMessage());
         assertEquals(List.of("begin", "install", "end"), steps.events);
         assertFalse(steps.busy);
@@ -82,7 +88,7 @@ class RestoreOperationTest {
         var steps = new Fake();
         steps.applyFails = true;
         var future = RestoreOperation.run(steps, Runnable::run, Runnable::run);
-        var error = assertThrows(ExecutionException.class, future::get).getCause();
+        var error = assertThrows(ExecutionException.class, () -> future.get(5, TimeUnit.SECONDS)).getCause();
         assertEquals(Text.get("backup.restart"), error.getMessage());
         assertEquals("playlist store closed", error.getCause().getMessage());
         assertFalse(steps.busy, "the flags are released although applying failed");
@@ -95,7 +101,7 @@ class RestoreOperationTest {
         var future = RestoreOperation.run(steps, later::add, Runnable::run);
         steps.closed = true;
         later.forEach(Runnable::run);
-        future.get();
+        future.get(5, TimeUnit.SECONDS);
         assertTrue(steps.events.contains("install"));
         assertFalse(steps.events.contains("apply"));
         assertEquals("end", steps.events.getLast());
@@ -114,8 +120,63 @@ class RestoreOperationTest {
                 steps.onStorage = false;
             }
         });
-        assertThrows(ExecutionException.class, future::get);
+        assertThrows(ExecutionException.class, () -> future.get(5, TimeUnit.SECONDS));
         assertTrue(steps.checkedOnStorage, "the journal is read on the storage executor, not the client thread");
         assertTrue(steps.busy, "media actions stay blocked until the journal recovers");
+    }
+
+    @Test
+    void theFutureCompletesOnlyAfterTheFlagsAreReleased() {
+        for (boolean applyFails : new boolean[]{false, true}) {
+            var steps = new Fake();
+            steps.applyFails = applyFails;
+            var client = new ArrayList<Runnable>();
+            var future = RestoreOperation.run(steps, client::add, Runnable::run);
+            var busyWhenDone = new boolean[]{true};
+            future.whenComplete((unused, failure) -> busyWhenDone[0] = steps.busy);
+            client.forEach(Runnable::run);
+            assertTrue(future.isDone());
+            assertFalse(busyWhenDone[0], "a caller reacting to the result must see the flags released");
+        }
+    }
+
+    @Test
+    void aFailingEndIsReportedNotLost() {
+        var steps = new Fake();
+        steps.endFails = true;
+        var error = assertThrows(ExecutionException.class, () -> RestoreOperation.run(steps, Runnable::run, Runnable::run).get(5, TimeUnit.SECONDS)).getCause();
+        assertEquals("history store closed", error.getMessage(), "after a successful apply the end failure is the result");
+
+        var both = new Fake();
+        both.endFails = true;
+        both.installFails = true;
+        error = assertThrows(ExecutionException.class, () -> RestoreOperation.run(both, Runnable::run, Runnable::run).get(5, TimeUnit.SECONDS)).getCause();
+        assertEquals(Text.get("backup.failed"), error.getMessage(), "the original failure stays the result");
+        assertEquals("history store closed", error.getSuppressed()[0].getMessage());
+    }
+
+    @Test
+    void aRefusedClientDispatchFailsTheFutureAndLeavesClientStateAlone() {
+        var steps = new Fake();
+        var future = RestoreOperation.run(steps, task -> {
+            throw new RejectedExecutionException("client stopped");
+        }, Runnable::run);
+        var error = assertThrows(ExecutionException.class, () -> future.get(5, TimeUnit.SECONDS)).getCause();
+        assertInstanceOf(RejectedExecutionException.class, error);
+        assertFalse(steps.events.contains("apply"));
+        assertFalse(steps.events.contains("end"), "flags belong to the client thread, which is gone");
+    }
+
+    @Test
+    void aStorageTaskThatDiesStillEndsAndKeepsTheRestrictions() {
+        var steps = new Fake();
+        steps.installDies = new AssertionError("journal writer crashed");
+        var future = RestoreOperation.run(steps, Runnable::run, Runnable::run);
+        var error = assertThrows(ExecutionException.class, () -> future.get(5, TimeUnit.SECONDS)).getCause();
+        assertEquals(Text.get("backup.failed"), error.getMessage());
+        assertEquals("journal writer crashed", error.getCause().getMessage());
+        assertFalse(steps.events.contains("apply"));
+        assertEquals("end", steps.events.getLast());
+        assertTrue(steps.busy, "the journal state is unknown, so the restrictions stay");
     }
 }
