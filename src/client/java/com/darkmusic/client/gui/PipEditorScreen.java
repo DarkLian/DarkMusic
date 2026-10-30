@@ -119,8 +119,7 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
     @Override
     public boolean mouseScrolled(double x, double y, double dx, double dy) {
         if (crop || !image().contains(x, y)) return super.mouseScrolled(x, y, dx, dy);
-        app.settings().pip.width = Math.clamp(app.settings().pip.width * Math.pow(1.08, dy), .1, 1);
-        app.save();
+        app.update(s -> s.pip.width = Math.clamp(s.pip.width * Math.pow(1.08, dy), .1, 1));
         return true;
     }
 

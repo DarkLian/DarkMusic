@@ -75,8 +75,7 @@ public final class FolderActions {
                 Minecraft.getInstance().execute(() -> {
                     if (!app.alive()) return;
                     choose(app.config.defaultMusic(), () -> {
-                        app.settings().musicDirectory = "";
-                        app.save();
+                        app.update(s -> s.musicDirectory = "");
                     });
                 });
             } catch (Exception e) {

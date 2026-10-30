@@ -187,8 +187,7 @@ public final class DownloadScreen extends LocalScreen {
         Help.tip(last, Text.get("download.darkmusic.range_help"));
         format = action("audio.darkmusic.download", () -> {
             var formats = DownloadFormat.values();
-            app.settings().downloadFormat = formats[(app.settings().downloadFormat.ordinal() + 1) % formats.length];
-            app.save();
+            app.update(s -> s.downloadFormat = formats[(s.downloadFormat.ordinal() + 1) % formats.length]);
             updateButtons();
         }, "audio.darkmusic.download_help");
         download = action("text.darkmusic.download", this::download, "text.darkmusic.queue_only_the_explicitly_chosen_selection_into_the_current_music_folder_up_to_1_0");

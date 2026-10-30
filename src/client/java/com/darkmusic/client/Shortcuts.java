@@ -228,14 +228,12 @@ public final class Shortcuts implements ShortcutKeys {
             if (Minecraft.getInstance().gui.screen() instanceof MusicScreen screen)
                 screen.jumpToPlaying();
         } else if (key == hud) {
-            app.settings().hudEnabled = !app.settings().hudEnabled;
-            app.save();
+            app.update(s -> s.hudEnabled = !s.hudEnabled);
             notice(app.settings().hudEnabled ? "shortcut.darkmusic.hud_on" : "shortcut.darkmusic.hud_off");
         } else if (key == lyrics) {
             if (!app.settings().lyricsEnabled) notice("shortcut.darkmusic.lyrics_disabled");
             else {
-                app.settings().lyricsHud = !app.settings().lyricsHud;
-                app.save();
+                app.update(s -> s.lyricsHud = !s.lyricsHud);
                 notice(app.settings().lyricsHud ? "shortcut.darkmusic.lyrics_on" : "shortcut.darkmusic.lyrics_off");
             }
         } else if (key == favorite) {

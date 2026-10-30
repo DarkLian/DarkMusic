@@ -80,4 +80,25 @@ class SettingsStoreTest {
         assertSame(restored, written.getFirst());
         assertEquals(.25, written.getFirst().volume);
     }
+
+    @Test
+    void anUpdateEditsTheCurrentObjectThenAppliesAndWrites() {
+        var obsolete = new Settings();
+        var current = new Settings();
+        store.replace(obsolete);
+        store.replace(current);
+        store.update(s -> {
+            events.add("edit");
+            s.volume = .5;
+        });
+        assertEquals(List.of("edit", "apply", "write"), events);
+        assertEquals(.5, current.volume);
+        assertEquals(1, obsolete.volume, "the replaced object is never edited");
+    }
+
+    @Test
+    void anUpdateBeforeTheConfigLoadsDoesNothing() {
+        store.update(s -> events.add("edit"));
+        assertEquals(List.of(), events);
+    }
 }

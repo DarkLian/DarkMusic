@@ -324,9 +324,10 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             boolean applied = !state.closed && backend == selected && failure == null && ok;
             try {
                 if (applied) {
-                    settings().outputDevice = id;
-                    playback.outputChanged();
-                    save();
+                    update(s -> {
+                        s.outputDevice = id;
+                        playback.outputChanged();
+                    });
                 }
             } finally {
                 result.complete(applied);
@@ -487,17 +488,19 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
 
     @Override
     public void speed(double value) {
-        settings().speed = PcmRateConverter.clamp(value);
-        playback.speed(settings().speed);
-        save();
+        update(s -> {
+            s.speed = PcmRateConverter.clamp(value);
+            playback.speed(s.speed);
+        });
     }
 
     @Override
     public void volume(double value) {
-        settings().volume = Settings.clampVolume(value);
-        if (settings().volume > 0) settings().lastAudibleVolume = settings().volume;
-        playback.volume(settings().volume);
-        save();
+        update(s -> {
+            s.volume = Settings.clampVolume(value);
+            if (s.volume > 0) s.lastAudibleVolume = s.volume;
+            playback.volume(s.volume);
+        });
     }
 
     public final SleepTimer sleep = new SleepTimer();
@@ -535,16 +538,18 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
 
     @Override
     public void shuffle(boolean on) {
-        settings().shuffle = on;
-        playback.shuffle(on);
-        save();
+        update(s -> {
+            s.shuffle = on;
+            playback.shuffle(on);
+        });
     }
 
     @Override
     public void repeat(Repeat mode) {
-        settings().repeat = mode;
-        playback.repeat(mode);
-        save();
+        update(s -> {
+            s.repeat = mode;
+            playback.repeat(mode);
+        });
     }
 
     @Override

@@ -453,3 +453,20 @@ anonymous step classes are explicit.
   one; a failed write fails its acknowledgement; a refused write leaves the writer usable). `SettingsStoreTest`,
   `StartupShutdownTest`, `WriterRecoveryTest`, `StorageTest`, `BackupExportTest` and `PlaylistIndexTest` passed.
   Smoke compiles.
+
+## Batch 12: settings update operation (2026-10-30, approved; "same timing" chosen)
+
+- `SettingsSource.update(edit)` is a default method. It edits the current settings object, applies it, and queues
+  the write, all in one call. It does nothing before the config loads. The edit always lands on the live object,
+  never on one that reset or restore has replaced.
+- Migrated every place that edited a setting and then saved straight away:
+  - the root actions: speed, volume, shuffle, repeat, output device, music folder reset, and the HUD and lyrics HUD
+    shortcuts;
+  - lyrics consent, the download format toggle and the PiP size scroll.
+- **Unchanged on purpose, as chosen:**
+  - disk writes happen when they did before;
+  - previews while a control moves still edit in place and save on release;
+  - screens still save when they close.
+- **Checks:** `SettingsStoreTest` (8, with 2 new: the update edits the current object and runs apply then write, and
+  does nothing before load), `ArchitectureTest`, the `gui` tests, `LocalCommandsTest`, `CustomizationTest` and
+  `SpeedAndHudTest` passed. Smoke compiles.
