@@ -13,12 +13,19 @@ public final class ResumeTracker {
     private String track = "";
     private AudioBackend.Status status;
     private long savedAt;
+    // Reset and backup restore replace the settings object, which has not seen what is playing yet.
+    private Settings owner;
 
     /**
      * Updates {@code settings.resume} from the player. With {@code persist}, a song that keeps playing is updated only
      * every 30 seconds. Returns whether the point changed and should be saved.
      */
     public boolean record(Settings settings, PlaybackController playback, boolean persist) {
+        if (settings != owner) {
+            owner = settings;
+            track = "";
+            status = null;
+        }
         var state = playback.state();
         var current = state.status();
         var song = state.track();

@@ -66,6 +66,32 @@ class ResumePlaybackTest {
     }
 
     @Test
+    void replacedSettingsGetTheResumePointAtOnceAndAFreshPlayerWritesNothing() {
+        var playback = new PlaybackController(new UpNextTest.Fake(), message -> fail(message));
+        var a = UpNextTest.track("r", "a.mp3");
+        playback.play(List.of(a), a, new PlaybackController.Source("Playlists", "Road Trip", "", ""), 10, false);
+        var tracker = new ResumeTracker();
+        var first = new Settings();
+        assertTrue(tracker.record(first, playback, true));
+        assertFalse(tracker.record(first, playback, true), "A song that keeps playing waits 30 seconds");
+        // A backup restore replaces the settings object while the same song keeps playing.
+        var restored = new Settings();
+        assertTrue(tracker.record(restored, playback, true));
+        assertEquals(a.id(), restored.resume.track);
+        assertEquals("Road Trip", restored.resume.group);
+        playback.pause();
+        assertTrue(tracker.record(restored, playback, true));
+        var again = new Settings();
+        assertTrue(tracker.record(again, playback, true), "A paused song is recorded in replaced settings too");
+        assertEquals(a.id(), again.resume.track);
+        // Reset to Defaults: the new player is stopped with no song, so nothing is written.
+        var fresh = new PlaybackController(new UpNextTest.Fake(), message -> fail(message));
+        var defaults = new Settings();
+        assertFalse(tracker.record(defaults, fresh, true));
+        assertNull(defaults.resume);
+    }
+
+    @Test
     void savedResumePointsSurviveReloadAndDamagedOnesAreDropped() {
         var settings = new Settings();
         settings.resumeLast = true;
