@@ -1335,6 +1335,15 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                     io.shutdownNow();
                 }
             }
+
+            @Override
+            public void confirmSaved() {
+                var write = settingsStore.lastWrite();
+                if (!write.isDone())
+                    LoggerFactory.getLogger("darkmusic").error("The final settings were still queued when Minecraft closed; the previous config.json remains");
+                else if (write.isCompletedExceptionally())
+                    LoggerFactory.getLogger("darkmusic").error("The final settings could not be written", write.exceptionNow());
+            }
         }, new Shutdown.Services(updates, discord, mediaControls, mediaPackage, pip, sourceLinks, cleanupScanner,
             sourceIndex, audition, lyrics, downloads, library, playback, artwork, waveforms));
     }

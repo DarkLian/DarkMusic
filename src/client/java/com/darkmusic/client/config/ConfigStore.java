@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
@@ -175,9 +176,13 @@ public final class ConfigStore {
         return String.join("\n", updated) + "\n";
     }
 
-    public void save(Settings settings) {
+    /**
+     * Queues the settings for writing; the snapshot used by backup export changes at once. The returned future
+     * completes when these settings, or newer ones, are on disk.
+     */
+    public CompletableFuture<Void> save(Settings settings) {
         String json = JSON.toJson(settings);
         snapshotJson = json;
-        writer.write(json);
+        return writer.write(json);
     }
 }

@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -16,6 +17,7 @@ class SettingsStoreTest {
     private final SettingsStore store = new SettingsStore(settings -> {
         events.add("write");
         written.add(settings);
+        return CompletableFuture.completedFuture(null);
     }, () -> writable, () -> events.add("apply"));
 
     @Test

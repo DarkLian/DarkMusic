@@ -102,12 +102,17 @@ class StartupShutdownTest {
             public void drainStorage() {
                 events.add("storage");
             }
+
+            @Override
+            public void confirmSaved() {
+                events.add("confirm");
+            }
         }, new Shutdown.Services(service("updates"), service("discord"), service("media controls"), null,
             service("pip"), service("source links"), null, null, null, service("lyrics"), () -> {
             throw new IllegalStateException("download worker stuck");
         }, service("library"), service("playback"), service("artwork"), service("waveforms")));
         assertEquals(List.of("save", "closed", "cancel", "updates", "discord", "media controls", "pip", "source links",
-            "lyrics", "library", "playback", "artwork", "waveforms", "history", "storage"), events);
+            "lyrics", "library", "playback", "artwork", "waveforms", "history", "storage", "confirm"), events);
         assertEquals(1, failures.size(), "a failed close is reported and the rest still run");
         assertTrue(events.indexOf("pip") < events.indexOf("playback") && events.indexOf("lyrics") < events.indexOf("library"));
     }

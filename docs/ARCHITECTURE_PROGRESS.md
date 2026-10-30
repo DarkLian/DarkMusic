@@ -434,3 +434,22 @@ and PiP colour paths. These are covered by the cleanup and queue smoke modes, an
 **Remaining limit:** which services are built is still wiring inside `DarkMusicClient`: `ready` and `ResetSteps`.
 Item 9 (a service holder) would make that list testable too. `DarkMusicClient` is now 1341 lines, because the
 anonymous step classes are explicit.
+
+## Batch 11: write acknowledgement (2026-10-30, approved follow-up)
+
+- **Acknowledged writes.** `LatestWriter.write` returns an acknowledgement. It completes once that JSON, or a newer
+  one that replaced it before it was written, is on disk. It fails with the write, or with the executor's refusal
+  (the call still throws, as before). Coalescing is unchanged: replaced writes share the acknowledgement of the one
+  write that happens.
+- **`snapshotJson` is unchanged.** It is still the latest requested settings, used by backup export, and is not
+  relabelled as committed. `ConfigStore.save` passes the acknowledgement up, and `SettingsStore.lastWrite()` holds
+  the latest one. A skipped save does not change it.
+- **Where it is used.** `Shutdown` gains a last step, after the storage drain, that logs when the final settings
+  were still queued or failed to write. Previously that loss was silent. Reset keeps its own read-back of the
+  config, which runs behind the save on the same executor.
+- **Not changed.** Screens and actions still do not wait on writes, so save timing for the player is unchanged.
+  Failed writes are still announced by the existing writer callback.
+- **Checks.** `WriteAcknowledgementTest` (4 cases: queued is not written; a replaced write is covered by the newer
+  one; a failed write fails its acknowledgement; a refused write leaves the writer usable). `SettingsStoreTest`,
+  `StartupShutdownTest`, `WriterRecoveryTest`, `StorageTest`, `BackupExportTest` and `PlaylistIndexTest` passed.
+  Smoke compiles.

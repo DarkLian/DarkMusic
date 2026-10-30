@@ -6,7 +6,8 @@ import java.util.List;
  * The order Minecraft's closing runs in. The final settings are written while writes are still admitted; then closed
  * turns away new operations and late callbacks; work in flight is cancelled; services close before the services they
  * read (integrations and PiP before playback, lyrics before downloads, downloads before the library); history is
- * flushed; the storage executor drains last, so queued writes finish. Every step runs even if one before it fails.
+ * flushed; the storage executor drains last, so queued writes finish, and then whether the final settings reached disk
+ * is logged. Every step runs even if one before it fails.
  */
 final class Shutdown {
     /**
@@ -41,6 +42,11 @@ final class Shutdown {
          * Lets the storage executor finish queued writes, within a bound, then stops it.
          */
         void drainStorage();
+
+        /**
+         * After draining: records whether the final settings reached disk, since nothing can retry them now.
+         */
+        void confirmSaved();
     }
 
     private Shutdown() {
@@ -68,6 +74,7 @@ final class Shutdown {
             .close("waveforms", services.waveforms())
             .then("listening history", steps::flushHistory)
             .then("storage", steps::drainStorage)
+            .then("saved settings", steps::confirmSaved)
             .run();
     }
 }
