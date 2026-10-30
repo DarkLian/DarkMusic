@@ -49,6 +49,13 @@ final class TruePeakLimiter {
         frame++;
     }
 
+    /**
+     * Whether the output is real audio rather than the initial delay's silence.
+     */
+    boolean primed() {
+        return frame >= LATENCY;
+    }
+
     static double[][] interpolation() {
         double[][] result = new double[PHASES][TAPS];
         for (int phase = 0; phase < PHASES; phase++) {

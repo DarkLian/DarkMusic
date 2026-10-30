@@ -116,6 +116,58 @@ class UnifiedAudioDspTest {
         assertTrue(peak <= TruePeakLimiter.CEILING + 1e-3, "Broadband reconstructed peak: " + peak);
     }
 
+    @Test
+    void truePeakToggleNeverMixesTheSignalWithItsDelayedCopy() {
+        double rate = 44100;
+        int window = 2 * TruePeakLimiter.LATENCY;
+        // The delay is half a period of the first tone and a whole period of the second, so a crossfade between the
+        // direct and the delayed signal would cancel one and reinforce the other. The transition must not care.
+        double[] tones = {rate / window, rate / TruePeakLimiter.LATENCY};
+        for (boolean enable : new boolean[]{true, false}) {
+            double[][] envelopes = new double[tones.length][];
+            double[] energy = new double[tones.length];
+            for (int t = 0; t < tones.length; t++) {
+                var p = new AudioProcessor();
+                p.configure(truePeak(!enable));
+                p.begin(rate, 2);
+                p.initialVolume(1);
+                var rms = new ArrayList<Double>();
+                for (int block = 0; block < 120; block++) {
+                    if (block == 80) {
+                        assertEquals(enable ? 0 : TruePeakLimiter.LATENCY, p.latencyFrames());
+                        p.configure(truePeak(enable));
+                    }
+                    float[] pcm = new float[1024];
+                    for (int i = 0; i < 512; i++)
+                        pcm[2 * i] = pcm[2 * i + 1] = (float) (.1 * Math.sin(2 * Math.PI * tones[t] * (block * 512 + i) / rate));
+                    p.process(pcm, pcm.length, 1, 1);
+                    if (block >= 80 && block < 90) for (int w = 0; w < 512; w += window) {
+                        double sum = 0;
+                        for (int i = w; i < w + window; i++) sum += pcm[2 * i] * pcm[2 * i];
+                        energy[t] += sum;
+                        rms.add(Math.sqrt(sum / window));
+                    }
+                }
+                assertEquals(enable ? TruePeakLimiter.LATENCY : 0, p.latencyFrames());
+                envelopes[t] = rms.stream().mapToDouble(Double::doubleValue).toArray();
+            }
+            double steady = .1 / Math.sqrt(2);
+            assertEquals(steady, envelopes[0][envelopes[0].length - 1], steady * .01, "Settled after the toggle");
+            for (int w = 0; w < envelopes[0].length; w++)
+                assertEquals(envelopes[0][w], envelopes[1][w], steady * .2, "Envelope at window " + w + " (enable " + enable + ")");
+            assertEquals(energy[0], energy[1], energy[1] * .01, "Transition loss must not depend on frequency (enable " + enable + ")");
+        }
+    }
+
+    private static AudioSettings truePeak(boolean enabled) {
+        var s = new AudioSettings();
+        s.neutral = false;
+        s.limiter = enabled;
+        s.enhancements.protection = AudioEnhancements.Protection.TRUE_PEAK;
+        s.validate();
+        return s;
+    }
+
     private static double reconstructedPeak(double[] signal, int start) {
         double peak = 0;
         // Independent 8x/64-tap Blackman reconstruction, different from the limiter detector.

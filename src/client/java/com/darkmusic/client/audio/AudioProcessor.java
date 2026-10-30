@@ -22,7 +22,10 @@ public final class AudioProcessor {
     private AudioComparison comparison = AudioComparison.OFF;
     private final MusicReverb reverb = new MusicReverb();
     private int channels;
-    private double rate, gain = 1, duck = 1, headroom = 1, width = 1, aoWet, protectedWet, smoothing, slowSmoothing;
+    private double rate, gain = 1, duck = 1, headroom = 1, width = 1, aoWet, smoothing, slowSmoothing;
+    // True Peak output is LATENCY frames late, so turning it on or off fades out, switches paths and fades back in.
+    private boolean limited, feeding;
+    private double protectionFade = 1, protectionStep;
     private double dryEnergy, wetEnergy, levelGain = 1, limiterReduction, estimatedPeak;
     private double feed, compressionWet;
 
@@ -61,7 +64,9 @@ public final class AudioProcessor {
         crossfeed.begin(rate);
         environment.begin(rate);
         protection.begin(rate);
-        protectedWet = 0;
+        limited = feeding = false;
+        protectionFade = 1;
+        protectionStep = 1 / Math.max(TruePeakLimiter.LATENCY, rate * .004);
         diagnostics.begin(rate, channels);
         smoothing = 1 - Math.exp(-1 / (rate * .012));
         slowSmoothing = 1 - Math.exp(-1 / (rate * .1));
@@ -91,7 +96,7 @@ public final class AudioProcessor {
                 headroom = filters.headroom();
                 width = settings.width;
                 aoWet = settings.neutral ? 0 : 1;
-                protectedWet = !settings.neutral && settings.limiter && e.protection == AudioEnhancements.Protection.TRUE_PEAK ? 1 : 0;
+                limited = !settings.neutral && settings.limiter && e.protection == AudioEnhancements.Protection.TRUE_PEAK;
                 compressionWet = settings.compressor ? 1 : 0;
                 feed = e.crossfeed ? e.crossfeedAmount : 0;
             }
@@ -119,7 +124,7 @@ public final class AudioProcessor {
         double duckTarget = s.ducking && ListeningMix.ducking() ? s.duckGain : 1;
         double duckSmoothing = 1 - Math.exp(-1 / (rate * (duckTarget < duck ? s.duckAttack : s.duckRelease)));
         double gainSmoothing = 1 - Math.exp(-1 / (rate * .02));
-        if (s.neutral && aoWet == 0 && protectedWet == 0 && environment.isDry()
+        if (s.neutral && aoWet == 0 && !limited && protectionFade == 1 && environment.isDry()
             && diagnostics.panels() == 0 && !audition.levelMatched()) {
             for (int i = 0; i < count; i += channels) {
                 gain += (target - gain) * gainSmoothing;
@@ -195,17 +200,29 @@ public final class AudioProcessor {
             diagnostics.capture(2, i, l, r);
             l *= gain * duck;
             r *= gain * duck;
-            if (truePeak || protectedWet > 1e-8) {
+            if (truePeak || limited) {
+                // A restart must not replay audio the limiter held from when it last ran.
+                if (!feeding) protection.begin(rate);
+                feeding = true;
                 protection.frame(l, r);
-                protectedWet += ((truePeak ? 1 : 0) - protectedWet) * smoothing;
-                if (protectedWet < 1e-8) protectedWet = 0;
-                l += (protection.left - l) * protectedWet;
-                r += (protection.right - r) * protectedWet;
+            } else feeding = false;
+            if (truePeak != limited) {
+                // Mixing the direct signal with the delayed one would cancel some frequencies; switch on silence.
+                protectionFade = Math.max(0, protectionFade - protectionStep);
+                if (protectionFade == 0 && (!truePeak || protection.primed())) limited = truePeak;
+            } else if (protectionFade < 1) protectionFade = Math.min(1, protectionFade + protectionStep);
+            if (limited) {
+                l = protection.left;
+                r = protection.right;
                 limiterReduction = protection.reductionDb;
                 estimatedPeak = protection.estimatedPeak;
             } else {
                 limiterReduction = 0;
                 estimatedPeak = Math.max(Math.abs(l), Math.abs(r));
+            }
+            if (protectionFade < 1) {
+                l *= protectionFade;
+                r *= protectionFade;
             }
             if (effects && s.limiter && !truePeak) {
                 double before = Math.max(Math.abs(l), Math.abs(r));
@@ -275,7 +292,7 @@ public final class AudioProcessor {
     }
 
     public int latencyFrames() {
-        return protectedWet > .999 ? TruePeakLimiter.LATENCY : 0;
+        return limited ? TruePeakLimiter.LATENCY : 0;
     }
 
     public boolean convolutionReady() {
