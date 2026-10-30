@@ -98,7 +98,9 @@ final class ResetSmokeClient {
                         require(app.library.root().equals(app.config.defaultMusic().toAbsolutePath().normalize()), "Default folder was not persisted");
                         for (var key : app.shortcuts.bindings())
                             require(key.isDefault(), "Default key did not survive restart: " + key.getName());
-                        require(app.playlists.all().size() == 1, "Preserved playlist was not persisted");
+                        // Favorite Music always exists; the playlist kept through the reset is the only other one.
+                        require(app.playlists.all().size() == 2 && app.playlists.all().stream()
+                            .anyMatch(p -> p.name().equals("Keep this playlist")), "Preserved playlist was not persisted");
                         stage = 20;
                         return;
                     }

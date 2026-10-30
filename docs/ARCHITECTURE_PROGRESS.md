@@ -352,3 +352,28 @@ powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify.ps1 -Clean 
 
 **Rule:** before blaming this work for a smoke failure, rerun that mode on a worktree at `0792986`. The smoke checks
 have drifted before.
+
+## Testing window results (2026-10-30, user away)
+
+The smoke runs used fullscreen 1920×1080, GUI scale 2, SmoothFont, the private collection and the managed tools.
+
+| Run | Result |
+|---|---|
+| default | pass |
+| default + `-PverifyHudRestart` | pass |
+| reset (`-PresetSmoke`) | pass |
+| reset + `-PverifyHudRestart` | **failed**, then pass after a smoke-check fix (below) |
+| advanced (`-PadvancedSmoke`) | pass |
+| cleanup (`-PcleanupSmoke`) | pass |
+| queue (`-PqueueSmoke`) | pass |
+| lyrics (`-PlyricsSmoke`) | pass |
+| `verify.ps1 -Clean -DesktopIntegration` | **744 tests: 738 passed, 6 skipped, 0 failed**. The skips are live network, managed-tool install, linked install and filesystem-permission cases, the same pattern as the v3.5.1 release (719/713/6) |
+| Private collection | all 55 files have the same SHA-256 before and after |
+
+**The reset-restart failure was pre-existing smoke drift.** "Preserved playlist was not persisted" failed in the same
+way on a `0792986` worktree. The check was written for v1.0.2 and expected exactly one playlist after the restart.
+Since v2.1.0, the permanent Favorite Music playlist makes it two. The check now requires Favorite Music plus the
+playlist kept by name ("Keep this playlist"). Both reset modes then pass on the current code.
+
+**Still manual:** listening to filter endpoint moves; quitting with playback, a download and PiP active; reset and
+restore by hand; the three new zh_tw messages.
