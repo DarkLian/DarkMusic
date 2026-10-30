@@ -127,8 +127,11 @@ public final class SoundEnvironmentProcessor {
         private final EnvironmentRoom room = new EnvironmentRoom();
         private ConvolutionReverb convolution;
         private boolean convolutionReady, acousticWasAudible;
-        // At their slider ends (20 Hz, 20 kHz) the filters are off rather than ringing on transients.
+        // At their slider ends (20 Hz, 20 kHz) the filters are off rather than ringing on transients. A bypassed
+        // filter keeps running unheard, so its history and coefficient ramp follow the signal; the mix fades between
+        // dry and filtered output, and switching back on never replays sound from before the bypass.
         private boolean highOn, lowOn;
+        private double highMix, lowMix;
         private double convolutionMix, convolutionSmoothing;
         private float[][] history, modulation;
         private Parameters p;
@@ -183,7 +186,11 @@ public final class SoundEnvironmentProcessor {
             if (snap) high.snap();
             low.configure(Type.LOW_PASS, rate, p.lowPass * (1 - p.distance * .65), 0, .707);
             lowOn = p.lowPass * (1 - p.distance * .65) < 20000 - 1e-6;
-            if (snap) low.snap();
+            if (snap) {
+                low.snap();
+                highMix = highOn ? 1 : 0;
+                lowMix = lowOn ? 1 : 0;
+            }
             presence.configure(Type.PEAK, rate, p.presenceFrequency, p.presenceGain, 1.1);
             if (snap) presence.snap();
             room.configure(p, snap);
@@ -248,9 +255,12 @@ public final class SoundEnvironmentProcessor {
             for (int i = 0; i < p.reflectionGains.length; i++)
                 reflectionGains[i] += (p.reflectionGains[i] - reflectionGains[i]) * parameterSmoothing;
             convolutionMix += ((convolutionReady ? 1 : 0) - convolutionMix) * convolutionSmoothing;
+            highMix = toward(highMix, highOn ? 1 : 0);
+            lowMix = toward(lowMix, lowOn ? 1 : 0);
             if (p.mono) l = r = (l + r) * .5;
-            l = presence.sample(highOn ? high.sample(l, 0) : l, 0);
-            r = presence.sample(highOn ? high.sample(r, 1) : r, 1);
+            double highLeft = high.sample(l, 0), highRight = high.sample(r, 1);
+            l = presence.sample(l + (highLeft - l) * highMix, 0);
+            r = presence.sample(r + (highRight - r) * highMix, 1);
             if (drive > 1e-8) {
                 double divisor = Math.tanh(1 + drive);
                 l = Math.tanh(l * (1 + drive)) / divisor;
@@ -273,8 +283,11 @@ public final class SoundEnvironmentProcessor {
                 if (preset == SoundEnvironmentSettings.Preset.UNDERWATER)
                     generated += Math.sin(oscSin * 13) * wind * noiseGain;
             }
-            l = lowOn ? low.sample(l + generated, 0) : l + generated;
-            r = lowOn ? low.sample(r + generated, 1) : r + generated;
+            l += generated;
+            r += generated;
+            double lowLeft = low.sample(l, 0), lowRight = low.sample(r, 1);
+            l += (lowLeft - l) * lowMix;
+            r += (lowRight - r) * lowMix;
             if (p.modulationMs > 0) {
                 double depth = p.modulationMs * rate / 1000, delay = 2 + depth * (1 + oscSin);
                 for (int c = 0; c < 2; c++) {
@@ -313,8 +326,18 @@ public final class SoundEnvironmentProcessor {
             oscSin = next;
         }
 
+        private double toward(double mix, double target) {
+            mix += (target - mix) * parameterSmoothing;
+            return Math.abs(target - mix) < 1e-6 ? target : mix;
+        }
+
+        /**
+         * The filters' tone, in dB: a bypassed filter adds nothing, as in playback. Trim, mix, drive and room are not
+         * part of it.
+         */
         double response(double hz) {
-            return high.response(hz, rate, false) + presence.response(hz, rate, false) + low.response(hz, rate, false);
+            return (highOn ? high.response(hz, rate, false) : 0) + presence.response(hz, rate, false)
+                + (lowOn ? low.response(hz, rate, false) : 0);
         }
     }
 }
