@@ -4,6 +4,7 @@ import com.darkmusic.client.text.Text;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -60,7 +61,43 @@ final class ResetOperation {
         void warn(String message);
     }
 
+    /**
+     * A service the reset replaces, as the storage task stops it.
+     */
+    record Stopping(String name, AutoCloseable service, Await stopped) {
+    }
+
+    @FunctionalInterface
+    interface Await {
+        boolean stopped(long seconds) throws InterruptedException;
+    }
+
     private ResetOperation() {
+    }
+
+    /**
+     * Storage executor: closes every replaced service, even when one close throws, then waits for each in turn.
+     * Storage may be cleared only when every close succeeded and every service stopped; otherwise this throws
+     * {@code reset.darkmusic.waiting} and the storage task leaves the files alone.
+     * <p>
+     * Publishing replacements after that is allowed because what the old services can still finish does not
+     * replace user data: a closed library discards its scan results unsaved, download records are read and written
+     * under one lock, and the download workspace refuses a second holder. A late loudness-cache write can drop
+     * readings the replacement saved since; that cache is rebuilt from the files, and the download preview and
+     * duplicate comparison already share it the same way. Whether an audio line held by a stuck player conflicts
+     * with the new one is not tested.
+     */
+    static void stop(List<Stopping> services, long seconds) throws IOException, InterruptedException {
+        var closing = new Cleanup();
+        for (var service : services) closing.close(service.name(), service.service());
+        var failures = closing.run();
+        var running = new ArrayList<String>();
+        for (var service : services) if (!service.stopped().stopped(seconds)) running.add(service.name());
+        if (failures.isEmpty() && running.isEmpty()) return;
+        LoggerFactory.getLogger("darkmusic").warn("Reset kept the saved files; still running: {}", running);
+        var waiting = new IOException(Text.get("reset.darkmusic.waiting"));
+        failures.forEach(waiting::addSuppressed);
+        throw waiting;
     }
 
     static CompletableFuture<Void> run(Steps steps, Executor client, Executor storage) {

@@ -19,7 +19,9 @@ import java.util.concurrent.Executor;
  * <li>the client closes in between: completes normally, since the next start loads the installed files.
  * </ul>
  * The media and restore flags are held from begin until end; end runs before the future completes, so a caller that
- * reacts to the result sees them released. Whether a journal recovery is still pending is read on the storage executor
+ * reacts to the result sees them released. They stay until the restart when what is in memory must not be written
+ * over the files: while a journal recovery is pending, and after an apply failure, when the running services hold
+ * the old data or part of the new. Whether a journal recovery is still pending is read on the storage executor
  * right after the install, never on the client thread; if the storage task fails outside its own handling, the
  * journal state is unknown and the flags stay. If the client thread refuses the result (Minecraft stopped running
  * tasks while closing), the future fails with that refusal and the flags are left as they are: they belong to the
@@ -48,9 +50,9 @@ final class RestoreOperation {
         void apply();
 
         /**
-         * Client thread: releases the flags, or keeps them while a journal recovery is still pending.
+         * Client thread: releases the flags, or keeps them until the restart when hold is set.
          */
-        void end(boolean recoveryPending);
+        void end(boolean hold);
 
         boolean closed();
     }
@@ -101,15 +103,17 @@ final class RestoreOperation {
      */
     private static void conclude(Steps steps, Installed result, CompletableFuture<Void> finished) {
         Throwable failure = null;
+        boolean hold = result.recoveryPending();
         if (result.failure() != null) failure = new IOException(Text.get("backup.failed"), result.failure());
         else if (!steps.closed()) try {
             steps.apply();
         } catch (RuntimeException | LinkageError broken) {
             LoggerFactory.getLogger("darkmusic").error("The restored backup could not be applied", broken);
             failure = new IllegalStateException(Text.get("backup.restart"), broken);
+            hold = true;
         }
         try {
-            steps.end(result.recoveryPending());
+            steps.end(hold);
         } catch (RuntimeException | LinkageError broken) {
             LoggerFactory.getLogger("darkmusic").error("Could not release the restore flags", broken);
             if (failure == null) failure = broken;

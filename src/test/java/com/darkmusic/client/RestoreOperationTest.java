@@ -91,7 +91,7 @@ class RestoreOperationTest {
         var error = assertThrows(ExecutionException.class, () -> future.get(5, TimeUnit.SECONDS)).getCause();
         assertEquals(Text.get("backup.restart"), error.getMessage());
         assertEquals("playlist store closed", error.getCause().getMessage());
-        assertFalse(steps.busy, "the flags are released although applying failed");
+        assertTrue(steps.busy, "the services hold stale data, so nothing may save it over the restored files");
     }
 
     @Test
@@ -126,17 +126,23 @@ class RestoreOperationTest {
     }
 
     @Test
-    void theFutureCompletesOnlyAfterTheFlagsAreReleased() {
+    void theFutureCompletesOnlyAfterTheFlagsAreSettled() {
         for (boolean applyFails : new boolean[]{false, true}) {
             var steps = new Fake();
             steps.applyFails = applyFails;
             var client = new ArrayList<Runnable>();
             var future = RestoreOperation.run(steps, client::add, Runnable::run);
-            var busyWhenDone = new boolean[]{true};
-            future.whenComplete((unused, failure) -> busyWhenDone[0] = steps.busy);
+            var endedWhenDone = new boolean[1];
+            var busyWhenDone = new boolean[]{!applyFails};
+            future.whenComplete((unused, failure) -> {
+                endedWhenDone[0] = steps.events.contains("end");
+                busyWhenDone[0] = steps.busy;
+            });
             client.forEach(Runnable::run);
             assertTrue(future.isDone());
-            assertFalse(busyWhenDone[0], "a caller reacting to the result must see the flags released");
+            assertTrue(endedWhenDone[0], "a caller reacting to the result must see the flags already settled");
+            // Released after success; kept for the restart after a failed apply.
+            assertEquals(applyFails, busyWhenDone[0]);
         }
     }
 

@@ -96,6 +96,10 @@ public final class ListeningHistory {
         }
     }
 
+    /**
+     * While a backup restore owns the history file: nothing is counted and nothing is written, and unsaved progress
+     * stays unsaved, so a write queued behind the restore cannot replace the restored file.
+     */
     public synchronized void suspended(boolean value) {
         suspended = value;
     }
@@ -220,7 +224,7 @@ public final class ListeningHistory {
 
     public synchronized void flush(boolean force) {
         long now = System.nanoTime();
-        if (!dirty || !force && now - lastFlush < 15_000_000_000L) return;
+        if (suspended || !dirty || !force && now - lastFlush < 15_000_000_000L) return;
         var snapshot = entries;
         dirty = false;
         lastFlush = now;

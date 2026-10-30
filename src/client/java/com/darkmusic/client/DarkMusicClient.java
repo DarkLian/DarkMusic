@@ -108,6 +108,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -350,65 +351,20 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             }
             keys.put("key_" + key.getName(), value);
         }
-        return RestoreOperation.run(new RestoreOperation.Steps() {
-            @Override
-            public void begin() {
-                state.mediaBusy = state.restoring = true;
-                if (restored.selection().history()) listeningHistory.suspended(true);
+        return RestoreOperation.run(new BackupRestore(state, config, settingsStore, playlists, listeningHistory,
+            restored, bindings ? keys : null, () -> {
+            if (bindings) {
+                for (var key : shortcuts.bindings())
+                    key.setKey(InputConstants.getKey(keys.get("key_" + key.getName())));
+                KeyMapping.resetMapping();
             }
-
-            @Override
-            public void install() throws IOException {
-                var contents = new LinkedHashMap<String, String>();
-                if (restored.selection().settings() || bindings)
-                    contents.put("config.json", ConfigStore.JSON.toJson(restored.settings()));
-                if (restored.selection().playlists()) {
-                    contents.put("playlists.json", ConfigStore.JSON.toJson(restored.playlists()));
-                    contents.put("playlist-retained.json", ConfigStore.JSON.toJson(restored.retained()));
-                }
-                if (restored.selection().history())
-                    contents.put("listening-history.json", ListeningHistory.json(restored.history()));
-
-                if (bindings) contents.put("options.txt", config.shortcutsContents(keys));
-                RestoreJournal.install(config.directory(), contents);
-                if (contents.containsKey("config.json")) config.committedSnapshot(contents.get("config.json"));
-            }
-
-            @Override
-            public void apply() {
-                if (restored.selection().settings() || bindings) settingsStore.replace(restored.settings());
-                if (restored.selection().playlists())
-                    playlists.restoredFromDisk(restored.playlists(), restored.retained());
-                if (restored.selection().history()) listeningHistory.replace(restored.history());
-                if (bindings) {
-                    for (var key : shortcuts.bindings())
-                        key.setKey(InputConstants.getKey(keys.get("key_" + key.getName())));
-                    KeyMapping.resetMapping();
-                }
-                playback.volume(settings().volume);
-                playback.speed(settings().speed);
-                playback.shuffle(settings().shuffle);
-                playback.repeat(settings().repeat);
-                // The journal already wrote the files; the next save writes anything applying normalized.
-                applySettings();
-            }
-
-            @Override
-            public boolean recoveryPending() {
-                return RestoreJournal.recoveryPending(config.directory());
-            }
-
-            @Override
-            public void end(boolean recoveryPending) {
-                state.mediaBusy = state.restoring = recoveryPending;
-                listeningHistory.suspended(recoveryPending);
-            }
-
-            @Override
-            public boolean closed() {
-                return state.closed;
-            }
-        }, Minecraft.getInstance()::execute, io);
+            playback.volume(settings().volume);
+            playback.speed(settings().speed);
+            playback.shuffle(settings().shuffle);
+            playback.repeat(settings().repeat);
+            // The journal already wrote the files; the next save writes anything applying normalized.
+            applySettings();
+        }), Minecraft.getInstance()::execute, io);
     }
 
     public ArtworkCache artwork;
@@ -1239,14 +1195,14 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                 .then("PiP", () -> {
                     if (pip != null) pip.stop();
                 }).run();
+            var stopping = new ArrayList<ResetOperation.Stopping>();
+            if (oldAudition != null)
+                stopping.add(new ResetOperation.Stopping("audition", oldAudition, oldAudition::awaitStopped));
+            stopping.add(new ResetOperation.Stopping("playback", oldPlayback, oldPlayback::awaitStopped));
+            stopping.add(new ResetOperation.Stopping("downloads", oldDownloads, oldDownloads::awaitStopped));
+            stopping.add(new ResetOperation.Stopping("library", oldLibrary, oldLibrary::awaitStopped));
             return () -> {
-                if (oldAudition != null) oldAudition.close();
-                oldPlayback.close();
-                oldDownloads.close();
-                oldLibrary.close();
-                if (!oldPlayback.awaitStopped(15) || !oldDownloads.awaitStopped(15) || !oldLibrary.awaitStopped(15)
-                    || oldAudition != null && !oldAudition.awaitStopped(15))
-                    throw new IOException(Text.get("reset.darkmusic.waiting"));
+                ResetOperation.stop(stopping, 15);
                 var retained = ResetStorage.clear(config.directory(), roots);
                 importHistory.reset();
                 config.resetShortcuts(defaultBindings);
