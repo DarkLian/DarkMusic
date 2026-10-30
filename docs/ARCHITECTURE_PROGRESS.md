@@ -470,3 +470,12 @@ anonymous step classes are explicit.
 - **Checks:** `SettingsStoreTest` (8, with 2 new: the update edits the current object and runs apply then write, and
   does nothing before load), `ArchitectureTest`, the `gui` tests, `LocalCommandsTest`, `CustomizationTest` and
   `SpeedAndHudTest` passed. Smoke compiles.
+
+**Follow-up check (items 3–8):** `scripts/verify.ps1` (headless, private collection through excerpts) gave
+**756 tests: 746 passed, 10 skipped, 0 failed**. The skips are the same desktop and live-only set.
+`DarkMusicClient` is 1355 lines.
+
+**Runtime-unverified, needed before release:** the smoke window again, for the newly migrated navigation chains
+(downloads, cleanup, playlists and track picker, song actions, PiP colours) and the `update` call sites (speed,
+volume, shuffle, repeat, output device, HUD shortcuts, lyrics consent). Then `verify.ps1 -Clean
+-DesktopIntegration`. Same commands as the testing window above.
