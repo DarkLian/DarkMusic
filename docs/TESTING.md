@@ -6,10 +6,6 @@ Release-by-release check logs and PiP investigations are kept in [release checks
 
 The next-update packaging and consent flow is described in [optional PiP installation](PIP-OPTIONAL-INSTALLATION.md). `PipRuntimeTest` uses disposable runtime archives and injected transport for no-work construction, no-download checks, explicit install/cache reuse, checksum rejection, cancellation and unsupported systems. The desktop-only case runs the real Windows/WGC preflight and native graphics-device probe with a local copy of this build's dependency ZIP. `PipBundleTest` verifies that only DarkMusic helper code remains in the embedded archive and verifies the split extraction and notices. Upgraded PiP preferences retain appearance while new access fields default off.
 
-An isolated fullscreen Minecraft smoke check at 1920x1080, GUI scale 2 with SmoothFont passed the actual setup screens, canceled install/access/audio prompts, offline cached-runtime verification, explicit capture consent and revocation. Installation or access consent did not start capture. The smoke run used the existing private collection for library loading, stopped music, performed no network fetch or window enumeration, emitted its smoke-pass marker and completed Gradle successfully. The matching release dependency asset is not live yet; a future publication must supply it before real in-game downloading can be tested end-to-end. The already published v3.0.0 assets were not replaced.
-
-The full Windows private-collection verification (`scripts/verify.ps1 -DesktopIntegration`) passed with two optional live-provider/tool-install checks skipped. Final focused runtime/bundle/settings checks and assembly passed after the setup progress-label adjustment. Split-archive SHA-256, runtime license placement, 1,607 matching language keys, private-media/smoke exclusions, workflow lint and whitespace checks passed. The base JAR measured 4,014,198 bytes and optional dependencies 76,106,620 bytes. Historical PiP capture/spectrum benchmark harnesses now require the normal setup/access flow first; they must not silently grant access.
-
 ## PiP development checks
 
 See [PIP-VERIFICATION.md](history/PIP-VERIFICATION.md) for implemented paths and the actual
@@ -35,6 +31,13 @@ Use JDK 25 and the included Gradle wrapper. The client sources are in `src/clien
 
 On Windows use `gradlew.bat`. `assemble` builds the mod JAR, project sources, and corresponding third-party source archive without executing tests. Artifacts are written to `build/libs`.
 
+Build configuration: `build.gradle` keeps the Minecraft/Fabric setup, dependencies, tests and packaging. Bundled
+libraries are listed once in its `bundledLibraries` map, which also feeds the third-party source archive.
+`gradle/native-helpers.gradle` builds the optional Windows helpers and their manifests (skipped with `-PjavaOnly`);
+`gradle/smoke.gradle` defines the smoke client (only with `-Psmoke`). Both helpers build with the SDK in their
+`global.json`; CI installs the one `src/pipHelper/global.json` names, and a test keeps the two files equal, so upgrade
+them together. CI setup is shared by both workflows in `.github/actions/setup-toolchain`.
+
 ## Private audio
 
 Audio-dependent checks use an existing real music collection. They explicitly skip when it is absent on hosted CI. Do not add personal music, fabricated audio fixtures, or private test images to the repository.
@@ -46,6 +49,9 @@ For local audio validation:
 ```
 
 Choose formats supported by the test readers (MP3, FLAC, WAV, or Ogg Vorbis). Temporary format conversions must derive from the real collection, retain metadata/artwork when a check requires them, and be deleted afterward. Original files must remain untouched.
+
+For a focused run with the same excerpts, pass test classes or patterns:
+`./scripts/verify.ps1 -Tests 'com.darkmusic.client.PackagedJarTest'`.
 
 `-PdownloadIntegration -PdownloadToolsDirectory=/path/to/tools` enables tests with existing yt-dlp, FFmpeg, and FFprobe executables. The platform's executable suffix is selected automatically. The default directory remains the ignored `Music/` folder; tools are never installed or downloaded by this flag. Desktop chooser and managed-tool installation integration checks are opt-in through `-PdesktopIntegration` and `-PmanagedToolsIntegration`.
 
@@ -59,6 +65,29 @@ If Windows blocks unsigned local scripts, run `powershell -NoProfile -ExecutionP
 
 It uses `run/config/darkmusic/music` and detects an existing managed tool bundle. Override with `-MusicDirectory` and `-ToolsDirectory`. Use JDK 25 in `JAVA_HOME` or on PATH. If the collection has no bundled-reader formats, the script prepares temporary MP3 excerpts from up to three real songs, keeping available metadata/artwork. Excerpts live outside `build/`, are removed on success or failure, and their source hashes are checked afterward. It requires the private collection, never generates dummy audio, and does not publish anything.
 
+## In-game smoke checks
+
+`scripts/smoke.ps1` runs the smoke checks in sequence, each in its own fullscreen client with SmoothFont and the
+private collection. It launches Minecraft and plays audio, so run it only when the computer is free.
+
+```powershell
+./scripts/smoke.ps1 -Scenario suite -DesktopVerify
+./scripts/smoke.ps1 -Scenario default, default-restart
+./scripts/smoke.ps1 -Scenario reset -DryRun
+```
+
+Scenarios: `default`, `default-restart`, `reset`, `reset-restart`, `advanced`, `cleanup`, `queue`, `lyrics`, `preview`,
+`native-bindings`; `suite` runs the first nine in that order. A `-restart` scenario must directly follow the run it
+checks. `-DesktopVerify` then runs `verify.ps1 -Clean -DesktopIntegration`. Requirements: JDK 25 in `JAVA_HOME` (or
+`-JavaHome`), the collection (`-MusicDirectory`), a managed tool bundle (`-ToolsDirectory`) and SmoothFont (`-Font`);
+a missing one stops the run before anything starts. `-DryRun` checks them and prints the Gradle commands;
+`-SelfTest` checks the script's own rules without Gradle.
+
+A scenario passes only when Gradle succeeds and its log carries the pass marker for the run id that invocation
+wrote. A run that exceeds `-TimeoutMinutes` (20) is stopped; only the client it started is stopped. Results, logs and
+the collection hash lists (which name private files) go to ignored `.local-tools/verification/smoke/<time>`; the
+collection must be unchanged afterwards. PiP and captures stay manual: use the Gradle options below.
+
 ## Development client
 
 ```sh
@@ -68,7 +97,7 @@ It uses `run/config/darkmusic/music` and detects an existing managed tool bundle
 
 The private collection is Opus, so pass `-PdownloadToolsDirectory=<existing managed tool bundle>` to every runtime check that plays music; without it the default check stops on the first track. Inspect the smoke entrypoint and Gradle flags before choosing an optional capture, preview, HUD, reset, or advanced-audio scenario. Runtime checks require a graphical desktop and an audio device; they are separate from ordinary unit tests.
 
-Smoke options (each mode runs in its own `build/<mode>-run` folder; the first one given wins):
+Smoke options (each mode runs in its own `build/<mode>-run` folder; Gradle rejects two modes at once, `-PverifyHudRestart` with anything but the default or reset check, and `-PnativeBindingsSmoke` with any mode):
 
 | Option | What it checks |
 |---|---|
@@ -199,8 +228,6 @@ Backup recovery tests cover external changes after interruption, newly created r
 
 Download receipt tests cover failed source persistence, independent repair, and rejection of replaced content. Desktop Trash checks include passing the reviewed fallback hash to the isolated helper, native transfer of disposable documents, and same-size/timestamp companion replacement protection. Saved-lyrics tests use a controlled clock to verify five-second read retries without a restart.
 
-The full Windows `scripts/verify.ps1 -DesktopIntegration` run passed 491 tests (489 passed, two optional network/install tests skipped) before the command additions. Nine focused command/localization tests and a build passed afterward. Native lyrics smoke checks passed in English and Traditional Chinese with the private collection, fullscreen 1920x1080, GUI scale 2, and SmoothFont. The smoke flow checks deferred lyrics commands for active and paused Up Next tracks, offline local lyrics, disabled lyrics, and a stop occurring before the menu opens. No real server disconnect/death race or subprocess redirect exploit was exercised.
-
 `/da help` and `/darkmusic help` list the existing commands in groups with click-to-suggest actions. Both lyrics aliases are checked through the Fabric command dispatcher, including localized failure feedback without triggering unrelated actions. Menu opening is deferred until chat closes and revalidates the current playback state.
 
 External caption networking remains a documented trust boundary. Canonical supported URLs and initial public-address checks are retained. yt-dlp performs redirects and DNS resolution itself ([upstream networking implementation](https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/networking/_urllib.py)); these checks are not a complete process network sandbox. Cross-platform egress enforcement requires a separately reviewed solution. No new dependencies or system firewall changes were introduced.
@@ -209,17 +236,11 @@ External caption networking remains a documented trust boundary. Canonical suppo
 
 `UiStatusTest` checks distinct, readable information/success/warning/error colors against dark, light, custom, hovered, and selected surfaces. It verifies typed download/lyrics outcomes, separation of status from metadata in accessible row text, retained saved filenames, and partial-success warnings. The cached palette is recalculated when the menu theme changes, rather than doing contrast searches per rendered row. `HorizontalText` paints the status prefix separately while keeping the existing bounded, Unicode-aware scrolling behavior.
 
-The full Windows real-collection check passed 497 tests (495 passed, two optional network/tool-install checks skipped), with Gradle 9.8.2 and test-only ASM 9.11.1. Focused status/localization/update checks and builds passed after the final presentation adjustments. English and Traditional Chinese native smoke runs passed at fullscreen 1920x1080, GUI scale 2 with SmoothFont; private captures were visually inspected for colored status prefixes, neutral metadata, selected rows, and CJK text. No new public screenshots were added. These checks do not establish Linux/macOS native GUI or audio behavior.
-
-The translation update's failed build came from a regression test matching an English phrase in the restricted-content explanation. The test now asserts the intended localized classification instead of a particular wording; classification requirements remain intact. Both dependency PRs were inspected and tested together before merging, and their combined GitHub build passed.
-
 ## Waveform progress bars
 
 `WaveformProgressTest` uses only private-collection PCM and disposable copies for real envelope analysis, chunk-size independence, stereo-channel invariance, cancellation, cache reuse across service recreation, changed identity, and corrupted-cache rebuilding. Configuration/geometry checks preserve the default normal bar and reserve no waveform space when HUD progress is disabled. `CircularHudTest` checks finite waveform vertices, measured bounds, and played/unplayed colors. The playback fallback-rate assertion reads one immutable state snapshot to avoid comparing duration with a later position.
 
 The lyrics Minecraft smoke workflow also exercises waveform display in the main player and all three HUD layouts with progress. It checks the decoded track duration, seeking, pause preservation, and disabling, with private full-resolution captures for visual inspection. The waveform service uses a bounded single background decoder, a generation-tagged publication, 1,024 envelope bins, 16 memory entries, and 256 atomic disk entries. It performs no network requests.
-
-Verification completed with the private real-audio harness: **502 tests total, 500 passed, two optional network/tool-install tests skipped**. English and Traditional Chinese Minecraft smoke runs passed at fullscreen 1920×1080, GUI scale 2, with SmoothFont. Private captures of the player and Classic/Artwork/Circular waveform progress displays were visually inspected. No new public documentation screenshots were added. Actual native Linux/macOS behavior, long-recording limits, and gameplay FPS under heavy concurrent workloads remain unverified.
 
 ### Waveform appearance revision
 
@@ -227,20 +248,12 @@ Waveform analysis now blends per-window RMS energy with a small peak contributio
 
 The Progress Bar subgroup shares the category heading renderer and separator used by other Settings headings. HUD background transparency, gradient, and colors are above it in HUD appearance. Native smoke checks cover both styles, expanded appearance controls at 320/426/960 logical widths, maximum height/detail, spacing, contrast, smoothing, opacity, main-player seeking, pause, and Circular/Artwork/Classic HUDs. Captures remain private.
 
-Appearance revision validation passed with the private real collection: **505 tests, 503 passed and two optional network/tool-install tests skipped**. Final focused mesh/localization checks passed nine tests, including the additional narrow-spacing regression. English and Traditional Chinese native smoke checks passed again after the category-format correction; they explicitly assert the shared Progress Bar heading and that all three HUD background controls precede it. Fullscreen 1920×1080 GUI scale 2 SmoothFont captures were visually inspected for both waveform styles, main player, HUDs, and expanded settings. No public screenshots were changed.
-
 ### HUD image choice, circular gap, rounded spectra, and player preview
 
 `HudImageTest` verifies artwork defaults in all three image-bearing layouts, independent persisted choices, null/range recovery, center-crop UV proportions, rounded-spectrum persistence, and circular baseline/stack geometry for every progress/spectrum/waveform combination at zero and custom gaps. `CircularHudTest` checks shifted progress rail thickness and rounded spectrum connectivity. `SpectrumMeshTest` checks softened caps, alpha, bounds, and worst-width/bar-count batch budgets without adding a render pipeline.
 
 Native smoke checks render artwork and icon choices in all three layouts, simulate an unavailable artwork cache to exercise fallback, and check circular gap combinations and compact bounds. Real private audio drives Rounded Bars in the main player and all four HUD layouts. Settings checks include the shared main-menu progress preview in compact/wide layouts and with the HUD disabled. No audio assets are generated; existing private excerpts are reused.
 
-Final Windows validation passed **511 tests: 509 passed and two optional live-provider/tool-install checks skipped**. Both English and Traditional Chinese native Minecraft smoke runs passed at fullscreen 1920x1080, GUI scale 2, with SmoothFont. Private captures were reviewed for the settings player preview, image choices and fallback, circular spacing, and rounded spectra driven by real audio. Original collection hashes remained unchanged. Linux/macOS native behavior and gameplay FPS under heavy concurrent workloads remain unverified. These changes await user manual confirmation; no release was published.
-
 ### Spectrum opacity, curve detail, and rounded peak markers
 
 New regressions verify opacity composition for faces, trails, gradient tails and glow; persisted opacity defaults/range recovery; rounded peak separation; and fixed radial peak thickness independent of bar width. Circular separation is evaluated after the same mirrored frequency smoothing used by the live bar. Native rounded-spectrum captures use 55% opacity with real private audio in the main player and all four HUDs. Curve Detail is shown only for styles using the segment budget; frequency-band count remains independent.
-
-The full Windows real-collection build and regression suite passed **517 tests: 515 passed, two optional live-provider/tool-install checks skipped**. Original audio hashes were verified and temporary excerpts cleaned. Native Linux/macOS behavior and sustained gameplay FPS remain unverified.
-
-English and Traditional Chinese Minecraft runs each emitted their smoke-pass marker and Gradle BUILD SUCCESSFUL at fullscreen 1920x1080, GUI scale 2, with SmoothFont. Private Classic/Circular captures were visually reviewed. The surrounding PowerShell invocation returned status 1 despite those successful child tasks (native stderr is recorded as NativeCommandError); it is not reported as an end-to-end wrapper pass. No public screenshots or release were published.

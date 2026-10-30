@@ -1,7 +1,7 @@
 # Architecture work: progress log
 
 A record of the 2026-10-30 architecture work, started from v3.5.1 (`0792986`), and of its follow-up review the
-same day (batches 15 and 16). The current design is described in
+same day (batches 15 and 16), and of the maintenance batch 17. The current design is described in
 [ARCHITECTURE.md](ARCHITECTURE.md); this file keeps the evidence: what was found, what changed, how it was checked,
 and what is still open. On resuming, compare `git log` with the batch index below.
 
@@ -9,9 +9,9 @@ and what is still open. On resuming, compare `git log` with the batch index belo
 
 - The shell's default `JAVA_HOME` is Java 8. Set `JAVA_HOME=%USERPROFILE%\.jdks\ms-25.0.4.1` for every Gradle call.
 - The private collection is Opus only, so `TestMusic` tests skip unless MP3 excerpts exist. `scripts/verify.ps1`
-  prepares them. For focused runs, the ignored `.local-tools/verification/architecture/focused-test.ps1` makes three
-  45-second excerpts under `.local-tools/verification/runs/<guid>`, deletes them afterwards, and checks the source
-  hashes. Confirm `skipped="0"` in the result XML for the tests that matter.
+  prepares them; for focused runs use `scripts/verify.ps1 -Tests <class>`, which makes three 45-second excerpts
+  under `.local-tools/verification/runs/<guid>`, deletes them afterwards, and checks the source hashes. Confirm
+  `skipped="0"` in the result XML for the tests that matter.
 - `src/smoke` compiles only with `-Psmoke`. Compile it whenever client members or Sources interfaces change.
 - Give deterministic future waits in tests a timeout, so that a regression fails instead of hanging.
 
@@ -61,6 +61,7 @@ and what is still open. On resuming, compare `git log` with the batch index belo
 | 13 | `b83402f` | `ClientDispatch`; restore completion order (O1–O3) | 6 new operation tests, 5 fail on old code |
 | 14 | `93fb183` | `buildReplaceable` builds what reset replaces, for startup and reset | Focused tests, full runs, smoke |
 | 16 | `49a2a37` | Backup capture, read, export and restore preparation move from `BackupScreen` to the client (`previewRestore`, `readBackup`, `exportBackup`, `restoreBackup(data, selection)`); merge restores keep listening done during the confirmation (H5) | `BackupRestoreTest` (9; the new merge test fails on the old behaviour), backup suites, `ArchitectureTest`, smoke compile; earlier restore fixes removed in turn still fail their tests |
+| 17 | `2292520`, `12359fb`, `6aefa87` | Maintenance: build split into `gradle/smoke.gradle` and `gradle/native-helpers.gradle`, bundled libraries listed once, shared helper packaging; tracked `scripts/smoke.ps1` and `verify.ps1 -Tests`; shared smoke reflection; shared CI toolchain action, SDK taken from the helpers' pin | Archive listings before and after (identical entries), configuration cache with the smoke task, runner self-test and controlled timeout, SDK-pin test fails on a mismatch, full window below |
 | 15 | `c3bc34d` | Restore owns its files through shutdown and failed applies (H1–H4, `BackupRestore`); reset closes every old service (T1) | `BackupRestoreTest` (8, real stores and journal, files reopened; 5 fail on the old behaviour), `ResetStopTest` (real download, library and playback services), `ClosedLibraryWritesTest`; each fix part removed in turn fails its tests |
 
 ## Verification history
@@ -68,10 +69,11 @@ and what is still open. On resuming, compare `git log` with the batch index belo
 | Run | Result |
 |---|---|
 | Baseline `verify.ps1` at `0792986` (headless) | 719 tests, 709 passed, 10 skipped |
-| Latest `verify.ps1` (headless, after batch 16) | 775 tests, 765 passed, 10 skipped, 0 failed. The first run failed once in `LoudnessIntegrationTest` while JUnit deleted its temporary folder (Windows reported it in use); three focused reruns and the full rerun passed, and no audio code changed |
-| Latest `verify.ps1 -Clean -DesktopIntegration` (after batch 15) | 774 tests, 768 passed, 6 skipped, 0 failed; the skips are live network, managed install, PiP install and filesystem-permission cases, the same as the v3.5.1 release |
-| Smoke windows after batches 7, 12, 14 and 15 | default, reset (each with restart), advanced, cleanup, queue, lyrics, and preview (from batch 12): all pass in the latest window. Private collection: all 55 files have the same SHA-256 before and after every window |
+| Latest `verify.ps1` (headless, after batch 17) | 776 tests, 766 passed, 10 skipped, 0 failed |
+| Latest `verify.ps1 -Clean -DesktopIntegration` (after batch 17) | 776 tests, 770 passed, 6 skipped, 0 failed; the skips are live managed install, live LRCLIB, two PiP install, filesystem permissions and a symlink fixture |
+| Smoke windows after batches 7, 12, 14, 15 and 17 | default, reset (each with restart), advanced, cleanup, queue, lyrics, and preview (from batch 12): all pass in the latest window. Private collection: all 55 files have the same SHA-256 before and after every window |
 | Manual checklist (user, after batch 7) | Done, no problems reported. It covered filter endpoints by ear, quitting with playback, a download and PiP active, reset and restore by hand, hub navigation, and the new zh_tw messages |
+| Manual checklist (user, after batch 17) | Done, no problems reported: playback, seek and queue; setting preview, save and restart; restore with history, quick quit and restart; reset during playback then playback; download preview; PiP setup and Media Controls state |
 | Manual checklist (user, after batch 16) | Done, no problems reported: preview counts while toggling categories, merge restore with history during playback after a confirmation held open over 30 s, replace restore of settings, playlists and key binds then restart, export then reopen |
 | Manual checklist (user, after batch 15) | Done, no problems reported: restore with history then a quick quit, playlists-only restore during playback, settings and key binds restore, reset then playback, settings and profiles after both, download preview then playback |
 
@@ -117,17 +119,21 @@ optimisation was needed.
 - Settings ownership: no change. Retained screens re-read settings when shown again and the confirmation screen
   cannot be left while a reset or restore runs, so no edit reaches a replaced settings object (checked by reading the
   code, not by a test).
+- **Loom client-only manifest list:** a clean build run as separate `clean` and `build` invocations (as
+  `verify.ps1 -Clean`) writes the JAR manifest without `Fabric-Loom-Client-Only-Entries`; one invocation writes it.
+  The build before batch 17 behaves the same. DarkMusic is client-only, so players are unaffected; a CI-built JAR
+  has not been inspected.
+- **Helper reproducibility:** a clean `dotnet publish` gives helper binaries of the same size with different bytes,
+  so each build's manifest hashes are its own.
+- **Batch 17 CI:** the new workflows and the composite action have not run on hosted runners yet.
 - **Release:** not released. Per AGENTS.md, it still needs a normal play session, then a tag and publication with
   approval.
 
 ## Rerunning the runtime checks
 
-The ignored `.local-tools/verification/architecture/testing-window.ps1` does the following:
-- runs the smoke modes in sequence (default, reset, each with restart, then advanced, cleanup, queue, lyrics and
-  preview), each with a 20-minute limit;
-- then runs `verify.ps1 -Clean -DesktopIntegration`;
-- hashes the private collection before and after.
-
-It writes per-step logs and a summary to the folder named by `WINDOW_NAME`. The smoke build sets fullscreen
-1920×1080, GUI scale 2 and SmoothFont. Launch the script by absolute path. Before attributing a smoke failure to new
+`./scripts/smoke.ps1 -Scenario suite -DesktopVerify` runs the smoke modes in sequence (default, reset, each with
+restart, then advanced, cleanup, queue, lyrics and preview), each with a 20-minute limit, then
+`verify.ps1 -Clean -DesktopIntegration`, and hashes the private collection before and after. See
+[the testing guide](TESTING.md#in-game-smoke-checks). The smoke build sets fullscreen 1920×1080, GUI scale 2 and
+SmoothFont. Before attributing a smoke failure to new
 code, rerun that mode on a worktree of the previous release.

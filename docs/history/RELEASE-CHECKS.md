@@ -414,3 +414,41 @@ An initial full attempt found an invalid new Gson/Path fixture and an existing g
 
 
 The final review-147 refinement protects refreshed cache files against stale trim candidates while keeping directory enumeration outside the result-map/publication locks. Its deterministic replacement regression and lyrics-focused suite passed; see the per-finding report for counts. The main review commit passed Windows, macOS and Linux CI: https://github.com/DarkLian/DarkMusic/actions/runs/40294665587 .
+
+## Feature checks moved from the testing guide
+
+Results of earlier feature work, moved from the testing guide on 2026-10-30. The checks they describe are still listed there.
+
+### Optional PiP runtime development
+
+An isolated fullscreen Minecraft smoke check at 1920x1080, GUI scale 2 with SmoothFont passed the actual setup screens, canceled install/access/audio prompts, offline cached-runtime verification, explicit capture consent and revocation. Installation or access consent did not start capture. The smoke run used the existing private collection for library loading, stopped music, performed no network fetch or window enumeration, emitted its smoke-pass marker and completed Gradle successfully. The matching release dependency asset is not live yet; a future publication must supply it before real in-game downloading can be tested end-to-end. The already published v3.0.0 assets were not replaced.
+
+The full Windows private-collection verification (`scripts/verify.ps1 -DesktopIntegration`) passed with two optional live-provider/tool-install checks skipped. Final focused runtime/bundle/settings checks and assembly passed after the setup progress-label adjustment. Split-archive SHA-256, runtime license placement, 1,607 matching language keys, private-media/smoke exclusions, workflow lint and whitespace checks passed. The base JAR measured 4,014,198 bytes and optional dependencies 76,106,620 bytes. Historical PiP capture/spectrum benchmark harnesses now require the normal setup/access flow first; they must not silently grant access.
+
+### Recovery and command reliability
+
+The full Windows `scripts/verify.ps1 -DesktopIntegration` run passed 491 tests (489 passed, two optional network/install tests skipped) before the command additions. Nine focused command/localization tests and a build passed afterward. Native lyrics smoke checks passed in English and Traditional Chinese with the private collection, fullscreen 1920x1080, GUI scale 2, and SmoothFont. The smoke flow checks deferred lyrics commands for active and paused Up Next tracks, offline local lyrics, disabled lyrics, and a stop occurring before the menu opens. No real server disconnect/death race or subprocess redirect exploit was exercised.
+
+### Semantic menu status colors
+
+The full Windows real-collection check passed 497 tests (495 passed, two optional network/tool-install checks skipped), with Gradle 9.8.2 and test-only ASM 9.11.1. Focused status/localization/update checks and builds passed after the final presentation adjustments. English and Traditional Chinese native smoke runs passed at fullscreen 1920x1080, GUI scale 2 with SmoothFont; private captures were visually inspected for colored status prefixes, neutral metadata, selected rows, and CJK text. No new public screenshots were added. These checks do not establish Linux/macOS native GUI or audio behavior.
+
+The translation update's failed build came from a regression test matching an English phrase in the restricted-content explanation. The test now asserts the intended localized classification instead of a particular wording; classification requirements remain intact. Both dependency PRs were inspected and tested together before merging, and their combined GitHub build passed.
+
+### Waveform progress bars
+
+Verification completed with the private real-audio harness: **502 tests total, 500 passed, two optional network/tool-install tests skipped**. English and Traditional Chinese Minecraft smoke runs passed at fullscreen 1920×1080, GUI scale 2, with SmoothFont. Private captures of the player and Classic/Artwork/Circular waveform progress displays were visually inspected. No new public documentation screenshots were added. Actual native Linux/macOS behavior, long-recording limits, and gameplay FPS under heavy concurrent workloads remain unverified.
+
+### Waveform appearance revision
+
+Appearance revision validation passed with the private real collection: **505 tests, 503 passed and two optional network/tool-install tests skipped**. Final focused mesh/localization checks passed nine tests, including the additional narrow-spacing regression. English and Traditional Chinese native smoke checks passed again after the category-format correction; they explicitly assert the shared Progress Bar heading and that all three HUD background controls precede it. Fullscreen 1920×1080 GUI scale 2 SmoothFont captures were visually inspected for both waveform styles, main player, HUDs, and expanded settings. No public screenshots were changed.
+
+### HUD image choice, circular gap, rounded spectra, and player preview
+
+Final Windows validation passed **511 tests: 509 passed and two optional live-provider/tool-install checks skipped**. Both English and Traditional Chinese native Minecraft smoke runs passed at fullscreen 1920x1080, GUI scale 2, with SmoothFont. Private captures were reviewed for the settings player preview, image choices and fallback, circular spacing, and rounded spectra driven by real audio. Original collection hashes remained unchanged. Linux/macOS native behavior and gameplay FPS under heavy concurrent workloads remain unverified. These changes await user manual confirmation; no release was published.
+
+### Spectrum opacity, curve detail, and rounded peak markers
+
+The full Windows real-collection build and regression suite passed **517 tests: 515 passed, two optional live-provider/tool-install checks skipped**. Original audio hashes were verified and temporary excerpts cleaned. Native Linux/macOS behavior and sustained gameplay FPS remain unverified.
+
+English and Traditional Chinese Minecraft runs each emitted their smoke-pass marker and Gradle BUILD SUCCESSFUL at fullscreen 1920x1080, GUI scale 2, with SmoothFont. Private Classic/Circular captures were visually reviewed. The surrounding PowerShell invocation returned status 1 despite those successful child tasks (native stderr is recorded as NativeCommandError); it is not reported as an end-to-end wrapper pass. No public screenshots or release were published.
