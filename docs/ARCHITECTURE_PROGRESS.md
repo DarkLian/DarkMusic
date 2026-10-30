@@ -375,5 +375,11 @@ way on a `0792986` worktree. The check was written for v1.0.2 and expected exact
 Since v2.1.0, the permanent Favorite Music playlist makes it two. The check now requires Favorite Music plus the
 playlist kept by name ("Keep this playlist"). Both reset modes then pass on the current code.
 
-**Still manual:** listening to filter endpoint moves; quitting with playback, a download and PiP active; reset and
-restore by hand; the three new zh_tw messages.
+**Manual checklist (user, 2026-10-30): done, no problems reported.** It covered:
+- listening while moving the environment filters to and from their end positions;
+- quitting with playback, a download and PiP active;
+- Reset to Defaults and a backup restore by hand;
+- clicking through the player and Settings destinations and back;
+- reading the three new zh_tw messages.
+
+**Release status:** not released. Per AGENTS.md, a tag still needs pushing approval and a normal play session.
