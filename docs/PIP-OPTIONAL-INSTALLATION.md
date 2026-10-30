@@ -1,49 +1,85 @@
-# Optional PiP runtime
+# PiP extension (Windows x64)
 
-Available from v3.0.1. The earlier v3.0.0 package bundled the complete runtime.
+Picture-in-Picture shows another application's window inside Minecraft. Its capture helper and the .NET runtime it
+needs are not in the DarkMusic JAR. They come as a separate download,
+`darkmusic-pip-dependencies-VERSION-windows-x64.zip` (about 76 MB), which DarkMusic installs only when you ask. There
+is no extra mod, and the ZIP does not go in `mods`.
 
-DarkMusic's Java PiP integration remains in the main mod. The Windows native helper and its .NET/Windows Desktop/C#/WinRT dependencies are distributed together in one separate, optional ZIP. There is no companion mod and nothing additional to put in `mods`.
+PiP needs Windows 10 or 11 on x64, build 19041 or later, with Windows Graphics Capture support. PiP Audio Spectrum
+needs build 20348 or later. PiP is not available on macOS or Linux.
 
-## Setup
+## Setting up
 
-1. Open the existing PiP icon or `/da pip`. Opening the screen does not download dependencies, enumerate windows or start capture.
-2. Choose **Check PiP Requirements**. This checks Windows x64, Windows build 19041 or later and Windows Graphics Capture support. Unsupported systems cannot install or enable PiP.
-3. Choose **Install PiP Dependencies** and confirm the download. The exact release URL, SHA-256 and size come from the manifest packaged in DarkMusic. Downloading uses the existing trusted-host, bounded and cancellable managed-tool transport. No automatic network request happens during normal startup or the requirements check.
-4. Dependencies stay under this instance's `config/darkmusic/pip-native`. There is no system-wide runtime, service, driver or separate Fabric mod installation. No Minecraft restart is needed. A graphics-device probe runs after installation; failed probes cannot enable capture.
-5. Choose **Enable PiP Access** and explicitly confirm window enumeration/capture and focus shortcuts. Then choose a window and start capture. Installation and consent do not start it automatically.
-6. PiP Audio Spectrum has separate explicit consent and requires build 20348 or later. Turning it off revokes that audio access. Browser processes may include other tabs; no microphone is used.
+1. Open the Picture-in-Picture icon in the player, or `/da pip`. Opening the menu downloads nothing, lists no windows
+   and starts no capture.
+2. **Check PiP Requirements** checks Windows and any package already installed. It never downloads.
+3. **Install PiP Dependencies**, then confirm. DarkMusic downloads the package for its own version from the DarkMusic
+   GitHub release and checks its size and SHA-256 against the values built into the JAR before using it. It needs
+   about 80 MB to download and 300 MB once extracted. **Cancel PiP Setup** stops it.
+   - The files go in `config/darkmusic/pip-native` in this Minecraft instance. Nothing is installed system-wide and
+     no restart is needed.
+   - A graphics check runs afterwards. If it fails, PiP cannot be turned on.
+4. **Enable PiP Access**, then confirm that PiP may list your open windows, capture the one you choose and register
+   its focus shortcuts. This is DarkMusic's own consent; it does not change Windows permissions.
+5. **Choose Window**, then **Start Capture**.
 
-**Disable PiP Access** immediately stops capture and its shortcuts. The runtime stays installed for reuse. Existing display preferences survive; missing consent fields default to false when upgrading. A new launch never resumes capture or silently reinstalls dependencies. Use Check Requirements again to verify installed files before use.
+The controls (layout, crop, frame limit, shortcuts and the spectrum) are described under
+[Picture-in-Picture](USER_GUIDE.md#picture-in-picture-windows-x64) in the user guide.
 
-The permissions here are DarkMusic consent, not an OS permission grant. Windows restrictions still apply. The pre-install check does not establish that every graphics driver or capture source will work; the installed helper also initializes its actual D3D device before reporting readiness.
+**PiP Audio Spectrum** asks for its own consent. It analyses the selected application's audio to draw the spectrum.
+Nothing is recorded, uploaded or replayed, and no microphone is used. Browser tabs can share a process, so other tabs'
+sound may show too. Apps that play sound from a separate process, such as some Microsoft Store apps, show no
+spectrum. Change it while capture is stopped.
 
-## Packaging and updates
+## Turning PiP off or removing it
 
-The build produces the small base JAR and `darkmusic-pip-dependencies-VERSION-windows-x64.zip`. The base includes only a schema-2 installation manifest with the native package version, size and SHA-256. It contains no native helper executable, helper ZIP or framework/SDK DLLs. The release workflow publishes the optional ZIP alongside the normal assets. A new runtime checksum requires explicit installation; unchanged cached archives are reused across launches. Previous runtime files are preserved, and no audio/configuration assets are removed.
+**Disable PiP Access** stops capture and its shortcuts at once and also withdraws the audio spectrum consent. The
+installed files stay for next time. Capture never starts by itself, even after a restart, and DarkMusic never
+reinstalls the package without asking.
 
-The base JAR is approximately **4 MB**, versus approximately **79 MB** for v3.0.0; the optional dependency ZIP is approximately **76 MB**, expanding to less than the enforced 300 MB extraction limit. Exact sizes vary with the SDK/runtime build.
+To remove the files, close Minecraft and delete `config/darkmusic/pip-native`. Your PiP layout and settings are kept
+elsewhere and stay.
 
-The matching dependency ZIP accompanies each GitHub release. Use the in-game installer, which verifies the manifest checksum before use; do not put the ZIP in `mods`. Existing v3.0.0 assets and previously extracted runtimes are preserved. When upgrading from the previous split layout, install the new matching package explicitly. Legacy runtime-only ZIPs cannot activate this layout and are never combined with an unverified helper. Appearance preferences and existing capture/audio consent remain intact; capture never starts automatically.
+## After updating DarkMusic
 
-## Verification scope
+Each DarkMusic version uses its own matching package. After an update, **Check PiP Requirements** reports that the
+dependencies are not installed for this version: install them again. Your layout, settings and consent are kept.
 
-Tests cover default-off upgrade behavior, no work at construction, no downloads during checks, unsupported systems, explicit installation, cache reuse after restart, cancellation, incorrect checksums, ZIP path traversal, duplicate normalized paths, missing helpers, legacy package migration and native-payload exclusion from the base JAR. A desktop-only check exercises the real Windows preflight and native graphics probe using a local copy of the built dependencies. These fixtures are disposable runtime files, not synthetic music or artwork.
+DarkMusic keeps only the current version's ZIP. Older runtime folders are removed by a later check once they have
+been unused for 24 hours; files that are still locked are left for the next one.
 
-Existing capture buffering, video protocol, frame pacing and music DSP are unchanged. Earlier fullscreen throughput measurements predate the system-wide AMD FreeSync correction; a later Chrome retest is recorded in `TESTING.md` and measured about 48 FPS at the default interval. Intermittent capture limitations, other Windows builds/GPUs and native non-Windows PiP remain unverified. See `TESTING.md` for release validation; the opt-in `-PpipRuntimeIntegration -PdesktopIntegration` test exercises the real installer against the matching published archive.
+## Troubleshooting
 
+| Message or problem | What to do |
+|---|---|
+| Requires Windows x64, build 19041 or later | PiP cannot run on this computer |
+| Could not initialize graphics capture on this device | The package is installed, but PiP cannot run on this graphics setup |
+| Dependencies could not be installed | Check your connection and free space, then install again |
+| PiP helper files changed | Close Minecraft, move `config/darkmusic/pip-native` aside, then install again |
+| Another Minecraft client is setting up PiP | Wait for it to finish, then try again |
+| Application audio capture failed | Video keeps running. Stop and start capture to retry |
+| The whole screen tears while capturing | Turn off Exclusive Fullscreen in Video Settings and restart Minecraft; disable Cubes Without Borders |
 
-## Development runs
+Resizing the source window can drop a frame while capture adjusts. Audio capture retries twice on its own before it
+reports a failure. No recovery step grants access or captures a different window.
 
-Gradle `runClient` uses the dependency ZIP generated by its own .NET build, after the same explicit installation confirmation. Local SDK/runtime patches can differ from release CI, so a local manifest must not be paired with the published release archive. Size, SHA-256 and extraction checks remain enforced. Packaged production builds ignore this development override and download their matching release archive normally.
+## How the package is checked
 
+- The JAR carries only a manifest with the package's version, file name, size and SHA-256. It contains no helper
+  executable or runtime files.
+- The download comes only from the DarkMusic GitHub release, can be cancelled and stops at the size the manifest
+  states. Extraction is limited to 300 MB and rejects paths that leave the folder or repeat.
+- Setup takes a lock shared by every Minecraft client on the computer. A runtime in use holds a lease, so cleanup never
+  removes it.
 
-## Build identity and runtime cleanup
+## For developers
 
-The helper now requires .NET SDK **8.0.421**, with roll-forward disabled and locked NuGet restore. Self-built packaged JARs must have an optional archive matching their embedded checksum; the official release archive is usable only if it matches exactly. `runClient` uses its local build archive after confirmation. Do not disable verification to mix builds.
-
-Setup serializes across clients. New runtimes carry a lease while in use; obsolete managed runtimes and abandoned staging are eligible for cleanup after 24 hours. Old runtimes created before lease support are also considered for removal after the grace period. Cleanup checks files before claiming the directory; locked or inaccessible files defer removal. Only the current version's dependency ZIP is kept: every check and install removes other `dependencies-*.zip` files and interrupted `runtime-*.download` files while holding the setup lock, regardless of age. ZIPs are only read under that lock, and a running runtime does not need its ZIP. Unlocked zero-byte lease files from crashed sessions are removed during checks, including beside the current active lease. Setup lock contention reports that another Minecraft client is setting up PiP. Disabling PiP Access also revokes audio analysis access. Process-audio capture uses the selected window owner's PID; hosted/UWP application audio routing remains unverified.
-
-
-## Capture recovery
-
-Resizing can briefly drop a frame while the capture pool adjusts. Optional process-audio failures retry twice with short delays; video continues even if audio remains unavailable. Unsupported audio capture does not retry. Restart PiP for a fresh attempt after a persistent audio error. No recovery path grants access or captures a different source automatically.
+- The helper builds with every normal build (the `bundlePipHelper` task; `-PjavaOnly` skips it). It needs .NET SDK
+  **8.0.421**, pinned in `src/pipHelper/global.json` with roll-forward disabled and a locked restore.
+- `runClient` installs the ZIP from its own build, after the same confirmation. A local SDK can produce a package that
+  differs from the release one, so a development run never pairs its manifest with the published ZIP. A self-built
+  JAR works only with the ZIP built alongside it; do not turn off verification to mix builds.
+- Tests, the opt-in `-PpipRuntimeIntegration -PdesktopIntegration` check against the published package and the PiP
+  smoke run are described in [Development and verification](TESTING.md). Capture measurements, including the
+  frame-rate retest after the FreeSync correction, are in [release checks](history/RELEASE-CHECKS.md) and
+  [PiP verification](history/PIP-VERIFICATION.md).

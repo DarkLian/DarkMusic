@@ -4,16 +4,16 @@ Release-by-release check logs and PiP investigations are kept in [release checks
 
 ## Optional PiP runtime development
 
-The next-update packaging and consent flow is described in [optional PiP installation](PIP-OPTIONAL-INSTALLATION.md). `PipRuntimeTest` uses disposable runtime archives and injected transport for no-work construction, no-download checks, explicit install/cache reuse, checksum rejection, cancellation and unsupported systems. The desktop-only case runs the real Windows/WGC preflight and native graphics-device probe with a local copy of this build's dependency ZIP. `PipBundleTest` verifies that only DarkMusic helper code remains in the embedded archive and verifies the split extraction and notices. Upgraded PiP preferences retain appearance while new access fields default off.
+The packaging and consent flow is described in [optional PiP installation](PIP-OPTIONAL-INSTALLATION.md). `PipRuntimeTest` uses disposable runtime archives and injected transport for no-work construction, no-download checks, explicit install/cache reuse, checksum rejection, cancellation and unsupported systems. The desktop-only case runs the real Windows/WGC preflight and native graphics-device probe with a local copy of this build's dependency ZIP. `PipBundleTest` verifies that only DarkMusic helper code remains in the embedded archive and verifies the split extraction and notices. Upgraded PiP preferences retain appearance while new access fields default off.
 
 ## PiP development checks
 
 See [PIP-VERIFICATION.md](history/PIP-VERIFICATION.md) for implemented paths and the actual
-runtime verification record. Run `gradlew test --tests '*Pip*Test' -PbundlePipHelper`
-for transport, preferences and bundle integrity checks. Building the native bundle
-needs the .NET 8 SDK. Windows full verification includes it automatically.
+runtime verification record. Run `gradlew test --tests '*Pip*Test'`
+for transport, preferences and bundle integrity checks. The native bundle builds with every
+build unless `-PjavaOnly` is set, and needs the .NET 8 SDK.
 
-`runSmokeClient -Psmoke -PpipSmoke -PbundlePipHelper` opens the production PiP
+`runSmokeClient -Psmoke -PpipSmoke` opens the production PiP
 controls in an isolated fullscreen client with SmoothFont and the private audio
 collection. Choose the application through the picker; no source is selected
 automatically. Bounded metadata/timing samples, without captured pixels, go under
