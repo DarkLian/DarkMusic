@@ -102,6 +102,29 @@ optimisation was needed.
   settings write that never reached disk is logged.
 - **Messages:** three new strings in both catalogs (`reset.darkmusic.restart`, `backup.restart`, `error.startup`).
 
+## Maintenance plan (batch 17): completion index
+
+The 2026-10-30 maintenance-complexity plan, measured against the code at `d84a22e`. The plan files themselves stay
+outside the repository.
+
+| Batch | Disposition |
+|---|---|
+| 0 Baseline | Done: packaging listings of every archive before the change, recorded test counts, change paths below |
+| 1 Reproducible runtime checks | Done: `scripts/smoke.ps1`, `verify.ps1 -Tests`, shared smoke reflection. A timeout stops the whole Gradle run, including a client not yet launched (`--no-daemon`); checked on a synthetic process tree and in the testing window |
+| 2 Build responsibilities | Done: `gradle/smoke.gradle`, `gradle/native-helpers.gradle`, `bundledLibraries`, shared helper packaging; artifact entries unchanged |
+| 3 CI and docs | Done: `.github/actions/setup-toolchain`, SDK from the helpers' pin, testing guide rewritten around current commands. NuGet updates not added: neither helper references a NuGet package, only runtime packs |
+| 4 Lifecycle evidence | Partly done. Covered by tests: a failing close, a service that does not stop, shutdown before publication, a reset timeout (real services and stores), and an old audio line stuck in write while its replacement plays on the real device (passed on the Windows default device, 2026-10-31). Not covered: the client's own adapters (`buildReplaceable`, `ResetSteps`, the shutdown step bodies), which still run only in the smoke checks |
+| 5 Application coupling | Not started on purpose: no change path showed duplicated policy |
+
+Change paths, before and after:
+
+| Task | Before | After |
+|---|---|---|
+| Upgrade the helpers' .NET SDK | 4 edits (two `global.json`, two workflows) | 2 edits (both `global.json`); CI reads PiP's; a test fails on a mismatch |
+| Upgrade a bundled codec | 2 lists in `build.gradle` | 1 entry in `bundledLibraries` |
+| Change CI toolchain setup | 2 workflows | 1 composite action |
+| Change a lifecycle operation, add a setting | operation, adapter, screens, catalogs, tests | unchanged: each file owns a distinct concern |
+
 ## Open items
 
 - **Service holder** (moving the service fields into one object): deferred. Reset would get a single atomic swap,
@@ -109,13 +132,15 @@ optimisation was needed.
   defect needs it. It would cost about 500 field-access edits, mostly in the smoke sources. Worth revisiting if the
   service set grows or a generation-level test becomes necessary.
 - `ready`, `ResetSteps` and `buildReplaceable` stay as wiring inside `DarkMusicClient`. They are covered by
-  compilation, review and the smoke checks, not by unit tests. `BackupRestoreTest` runs shutdown through
+  compilation, review and the smoke checks, not by unit tests; batch 4 of the maintenance plan is therefore not
+  complete. `BackupRestoreTest` runs shutdown through
   `Shutdown.run` with its own steps, so the client's own step bodies are not exercised there.
 - **Unfinished futures at exit:** `Minecraft.execute` queues and never refuses, and the queue is dropped when the
   game loop stops. A reset or restore whose last step is queued then never completes its future; nothing waits for
   it.
-- **Reset after a timeout:** a stuck old audio line beside the new one is not tested; the late loudness write (T2)
-  is accepted.
+- **Reset after a timeout:** `ResetStopTest` holds an old player stuck in its line's write while the replacement
+  plays on the real default device (passed on the Windows default device, 2026-10-31). One device and driver only; a line that never returns
+  stays open until Minecraft exits. The late loudness write (T2) is accepted.
 - Settings ownership: no change. Retained screens re-read settings when shown again and the confirmation screen
   cannot be left while a reset or restore runs, so no edit reaches a replaced settings object (checked by reading the
   code, not by a test).
@@ -125,7 +150,8 @@ optimisation was needed.
   has not been inspected.
 - **Helper reproducibility:** a clean `dotnet publish` gives helper binaries of the same size with different bytes,
   so each build's manifest hashes are its own.
-- **Batch 17 CI:** the new workflows and the composite action have not run on hosted runners yet.
+- **Batch 17 CI:** the build workflow with the composite action passed on Ubuntu, Windows and macOS at `5093019`,
+  and Dependabot scanned the action. The release workflow runs only on a tag and has not run with these changes.
 - **Release:** not released. Per AGENTS.md, it still needs a normal play session, then a tag and publication with
   approval.
 

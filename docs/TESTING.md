@@ -84,7 +84,9 @@ a missing one stops the run before anything starts. `-DryRun` checks them and pr
 `-SelfTest` checks the script's own rules without Gradle.
 
 A scenario passes only when Gradle succeeds and its log carries the pass marker for the run id that invocation
-wrote. A run that exceeds `-TimeoutMinutes` (20) is stopped; only the client it started is stopped. Results, logs and
+wrote. Gradle runs with `--no-daemon`, so everything a scenario starts descends from it; a run that exceeds
+`-TimeoutMinutes` (20) is stopped as a whole, whether Gradle is still preparing or the client is running, and the
+remaining scenarios are not started unless every process has ended. Results, logs and
 the collection hash lists (which name private files) go to ignored `.local-tools/verification/smoke/<time>`; the
 collection must be unchanged afterwards. PiP and captures stay manual: use the Gradle options below.
 
