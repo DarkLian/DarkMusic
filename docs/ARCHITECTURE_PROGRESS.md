@@ -479,3 +479,20 @@ anonymous step classes are explicit.
 (downloads, cleanup, playlists and track picker, song actions, PiP colours) and the `update` call sites (speed,
 volume, shuffle, repeat, output device, HUD shortcuts, lyrics consent). Then `verify.ps1 -Clean
 -DesktopIntegration`. Same commands as the testing window above.
+
+## Follow-up testing window (2026-10-30, user away)
+
+Smoke runs used fullscreen 1920×1080, GUI scale 2, SmoothFont, the private collection and the managed tools.
+
+| Run | Result |
+|---|---|
+| default, default + restart | pass, pass |
+| reset, reset + restart | pass, pass |
+| advanced, cleanup, queue, lyrics | all pass |
+| preview (`-PpreviewSmoke`: download screens and HUD previews) | pass |
+| `verify.ps1 -Clean -DesktopIntegration` | **756 tests: 750 passed, 6 skipped, 0 failed** (the same 6 live, install and permission skips as before) |
+| Private collection | all 55 files have the same SHA-256 before and after |
+
+This covers the navigation chains migrated in batch 8 and the `update` call sites from batch 12, at runtime. Still
+manual: nothing new beyond the earlier checklist, which still applies to these changes. The main remaining manual
+check is clicking through download, cleanup, playlist and track-picker, and PiP colour screens and back.
