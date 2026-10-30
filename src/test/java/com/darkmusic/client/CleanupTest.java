@@ -2,6 +2,7 @@ package com.darkmusic.client;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,5 +37,18 @@ class CleanupTest {
         acquired.run();
         acquired.run();
         assertEquals(List.of("playback", "artwork"), ran);
+    }
+
+    @Test
+    void closingSkipsWhatWasNeverCreatedAndReportsCheckedFailures() {
+        var ran = new ArrayList<String>();
+        AutoCloseable failing = () -> {
+            throw new IOException("pipe broken");
+        };
+        var failures = new Cleanup().close("never created", null).close("helper", failing)
+            .close("history", () -> ran.add("history")).run();
+        assertEquals(List.of("history"), ran);
+        assertEquals(1, failures.size());
+        assertEquals("pipe broken", failures.getFirst().getCause().getCause().getMessage());
     }
 }

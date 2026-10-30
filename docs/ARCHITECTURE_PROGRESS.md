@@ -308,3 +308,46 @@ suites: `AudioWorkerTest`, `OutputRoutingTest`, `NativeAudioTest`, the loudness 
   save is skipped while resetting and happens in `release`.
 
 So nothing that used to run is silently skipped.
+
+## Batch 7: consolidation (2026-10-30)
+
+- `Cleanup.close(name, resource)` skips resources that were never created. The shutdown chain now uses it instead
+  of repeated null-check lambdas. `CleanupTest` covers it.
+- `ARCHITECTURE.md` now records executor ownership (owned or borrowed) and rejection behaviour, the subsystem
+  dispositions (improved, already adequate or deferred, each with its risk), and before/after measures.
+- The `darkmusicclient-decoupling-series` agent memory now describes the navigation pattern.
+
+**Final automated check:** `scripts/verify.ps1` (private collection through excerpts; no `-Clean`, no
+`-DesktopIntegration`) gave **744 tests: 734 passed, 10 skipped, 0 failed**. The baseline was 719/709/10, so there
+are 25 new tests and the skips are the same desktop and live-only set. `compileSmokeJava -Psmoke` passed.
+
+**Open items:**
+- 11 local navigation chains, listed in `ArchitectureTest`.
+- The `update(s -> ...)` settings store, deferred as a behaviour change.
+- No deterministic test holds the loudness and bookkeeping final writes.
+- `RestoreJournal.recoveryPending` reads the disk on the client thread.
+- The clean, desktop-integration and smoke runs listed below.
+
+## Deferred verification: coordinated testing window
+
+None of the following was run during this work: no Minecraft, no desktop dialogs, no audible or device checks.
+Run them together when the computer is free. Every Minecraft run is fullscreen 1920×1080, GUI scale 2, with
+`run/resourcepacks/SmoothFont_1.21.zip` and the private collection. Pass the managed tools on every run that plays
+music, because the collection is Opus.
+
+```powershell
+$env:JAVA_HOME = "$env:USERPROFILE\.jdks\ms-25.0.4.1"
+$tools = (Get-ChildItem run/config/darkmusic/tools/managed -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
+$common = @('-Psmoke', '-PmusicDirectory=run/config/darkmusic/music', "-PdownloadToolsDirectory=$tools", '-PvisualSmoke')
+./gradlew.bat runSmokeClient @common                     # player, playback, shortcuts, Settings navigation, autoplay
+./gradlew.bat runSmokeClient @common -PresetSmoke        # Reset to Defaults: ResetOperation path, tools and folders kept
+./gradlew.bat runSmokeClient @common -PverifyHudRestart  # second run after the reset check
+./gradlew.bat runSmokeClient @common -PadvancedSmoke     # audio pages reached through Navigation, environment
+./gradlew.bat runSmokeClient @common -PcleanupSmoke      # reconciliation consumers, duplicate review
+./gradlew.bat runSmokeClient @common -PqueueSmoke        # Up Next, playlists, reconcileQueued
+./gradlew.bat runSmokeClient @common -PlyricsSmoke       # lyrics screens; LyricsConsent now takes SettingsSource
+powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify.ps1 -Clean -DesktopIntegration
+```
+
+**Rule:** before blaming this work for a smoke failure, rerun that mode on a worktree at `0792986`. The smoke checks
+have drifted before.

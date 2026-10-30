@@ -1282,41 +1282,21 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                 if (mediaToken != null) mediaToken.cancel();
             })
             .then("browse pool", browsing::shutdownNow)
-            .then("updates", () -> {
-                if (updates != null) updates.close();
-            })
-            .then("Discord", discord::close)
-            .then("media controls", mediaControls::close)
-            .then("media controls package", mediaPackage::close)
-            .then("PiP", () -> {
-                if (pip != null) pip.close();
-            })
-            .then("source links", sourceLinks::close)
-            .then("cleanup scanner", () -> {
-                if (cleanupScanner != null) cleanupScanner.close();
-            })
-            .then("source index", () -> {
-                if (sourceIndex != null) sourceIndex.close();
-            })
-            .then("audition", () -> {
-                if (audition != null) audition.close();
-            })
-            .then("lyrics", lyrics::close)
-            .then("downloads", () -> {
-                if (downloads != null) downloads.close();
-            })
-            .then("library", () -> {
-                if (library != null) library.close();
-            })
-            .then("playback", () -> {
-                if (playback != null) playback.close();
-            })
-            .then("artwork", () -> {
-                if (artwork != null) artwork.close();
-            })
-            .then("waveforms", () -> {
-                if (waveforms != null) waveforms.close();
-            })
+            .close("updates", updates)
+            .close("Discord", discord)
+            .close("media controls", mediaControls)
+            .close("media controls package", mediaPackage)
+            .close("PiP", pip)
+            .close("source links", sourceLinks)
+            .close("cleanup scanner", cleanupScanner)
+            .close("source index", sourceIndex)
+            .close("audition", audition)
+            .close("lyrics", lyrics)
+            .close("downloads", downloads)
+            .close("library", library)
+            .close("playback", playback)
+            .close("artwork", artwork)
+            .close("waveforms", waveforms)
             .then("listening history", () -> {
                 if (listeningHistory != null) listeningHistory.flush(true);
             })

@@ -28,6 +28,22 @@ final class Cleanup {
     }
 
     /**
+     * Adds closing a resource after the steps already added. A resource that was never created (null) is skipped.
+     */
+    Cleanup close(String name, AutoCloseable resource) {
+        return then(name, () -> {
+            if (resource == null) return;
+            try {
+                resource.close();
+            } catch (RuntimeException failure) {
+                throw failure;
+            } catch (Exception failure) {
+                throw new IllegalStateException(failure);
+            }
+        });
+    }
+
+    /**
      * Adds a step before those already added, so resources acquired one after another are released in reverse.
      */
     Cleanup first(String name, Runnable action) {
