@@ -1,6 +1,7 @@
 # Architecture work: progress log
 
-A record of the 2026-10-30 architecture work, started from v3.5.1 (`0792986`). The current design is described in
+A record of the 2026-10-30 architecture work, started from v3.5.1 (`0792986`), and of its follow-up review the
+same day (batch 15). The current design is described in
 [ARCHITECTURE.md](ARCHITECTURE.md); this file keeps the evidence: what was found, what changed, how it was checked,
 and what is still open. On resuming, compare `git log` with the batch index below.
 
@@ -25,13 +26,19 @@ and what is still open. On resuming, compare `git log` with the batch index belo
 | L3 | A synchronous refusal from `backend.output(...)` left `outputChanging` set for good | Flag taken only after the call succeeds (batch 2) |
 | L4 | A failed startup left partial services published; `tick` could dereference a null library | `Startup` unwinds and withdraws (batches 2, 10) |
 | L5 | The stopping callback and `shutdown()` were two sequences; one throwing close skipped the rest | One ordered, failure-tolerant `Shutdown` (batches 2, 10) |
-| L6 | Reset publishes replacements even when an old worker did not stop within 15 s | Kept on purpose: storage is left untouched, and the old services are already closed |
+| L6 | Reset publishes replacements even when an old worker did not stop within 15 s | Kept, with evidence: storage is left untouched, and nothing the old services can still finish replaces user data (see ARCHITECTURE.md, Reset after a timeout). One late write found, kept as a known risk: T2 |
 | R1 | Reconciliation markers survived reset, so a new library whose revisions restart could count as already reconciled (cleanup skipped, autoplay early) | `LibraryReconciliation` with a reset generation (batch 3) |
 | P1 | Reset could clear `loudness-cache.json` or the download history while a final write was still queued, and the write brought it back | `awaitStopped` waits for those writers (batch 6; tests batch 9) |
 | P2 | The restore's recovery check read the disk on the client thread | Read on the storage executor (batch 9) |
 | O1 | Restore completed its future before releasing its flags, and lost a failing release | Release first, then complete; failures reported (batch 13) |
 | O2 | A refused client dispatch left reset and restore futures pending | `ClientDispatch` (batch 13) |
 | O3 | A restore storage task dying with a non-`Exception` skipped the continuation | Treated as install failure with unknown journal (batch 13) |
+| H1 | Quitting during a restore wrote the old listening history over the restored file: `flush` ignored suspension, and its write queued behind the install on the serial storage executor | `flush` writes nothing while suspended, keeping the progress unsaved (batch 15) |
+| H2 | The same shutdown flush during a pending restore journal made the next start's recovery fail with a conflict instead of rolling back | Same fix (batch 15) |
+| H3 | An apply failure before the history was replaced released the restrictions, and the next tick flushed stale history over the restore. Reached only by an injected failure; the fix is defensive | A failed apply keeps the restore restrictions until restart (batch 15) |
+| H4 | A pending journal for a restore without history suspended listening anyway | Only a restore that selected history suspends it (batch 15) |
+| T1 | Reset's storage task closed the old services without failure tolerance: one throwing close left the later ones running beside their replacements. No production close was shown to throw | `ResetOperation.stop` closes all, waits for each, logs those still running (batch 15) |
+| T2 | A replaced loudness cache's late final write can drop readings its replacement saved since (reproduced, then the probe removed) | Not changed: preview and comparison players already run their own caches on the file the same way, and an ownership rule would have stopped the main cache saving after a preview closed. Cache only, rebuilt from the files |
 | S1 | The reset-restart smoke check expected one playlist; Favorite Music (v2.1.0) makes it two. Fails the same on `0792986` | Smoke check now expects Favorite Music plus the kept playlist |
 
 ## Batch index
@@ -52,16 +59,18 @@ and what is still open. On resuming, compare `git log` with the batch index belo
 | 12 | `d94a4a8` | `SettingsSource.update(edit)` for edit-then-save changes; save timing unchanged (user's choice) | `SettingsStoreTest` |
 | 13 | `b83402f` | `ClientDispatch`; restore completion order (O1–O3) | 6 new operation tests, 5 fail on old code |
 | 14 | `93fb183` | `buildReplaceable` builds what reset replaces, for startup and reset | Focused tests, full runs, smoke |
+| 15 | `c3bc34d` | Restore owns its files through shutdown and failed applies (H1–H4, `BackupRestore`); reset closes every old service (T1) | `BackupRestoreTest` (8, real stores and journal, files reopened; 5 fail on the old behaviour), `ResetStopTest` (real download, library and playback services), `ClosedLibraryWritesTest`; each fix part removed in turn fails its tests |
 
 ## Verification history
 
 | Run | Result |
 |---|---|
 | Baseline `verify.ps1` at `0792986` (headless) | 719 tests, 709 passed, 10 skipped |
-| Latest `verify.ps1` (headless, after batch 14) | 762 tests, 752 passed, 10 skipped, 0 failed |
-| Latest `verify.ps1 -Clean -DesktopIntegration` (after batch 14) | 762 tests, 756 passed, 6 skipped, 0 failed; the skips are live network, managed install and filesystem-permission cases, the same as the v3.5.1 release |
-| Smoke windows after batches 7, 12 and 14 | default, reset (each with restart), advanced, cleanup, queue, lyrics, and preview (from batch 12): all pass in the latest window. Private collection: all 55 files have the same SHA-256 before and after every window |
+| Latest `verify.ps1` (headless, after batch 15) | 774 tests, 764 passed, 10 skipped, 0 failed |
+| Latest `verify.ps1 -Clean -DesktopIntegration` (after batch 15) | 774 tests, 768 passed, 6 skipped, 0 failed; the skips are live network, managed install, PiP install and filesystem-permission cases, the same as the v3.5.1 release |
+| Smoke windows after batches 7, 12, 14 and 15 | default, reset (each with restart), advanced, cleanup, queue, lyrics, and preview (from batch 12): all pass in the latest window. Private collection: all 55 files have the same SHA-256 before and after every window |
 | Manual checklist (user, after batch 7) | Done, no problems reported. It covered filter endpoints by ear, quitting with playback, a download and PiP active, reset and restore by hand, hub navigation, and the new zh_tw messages |
+| Manual checklist (user, after batch 15) | Done, no problems reported: restore with history then a quick quit, playlists-only restore during playback, settings and key binds restore, reset then playback, settings and profiles after both, download preview then playback |
 
 The slowest test classes are about 16 s each, and a full headless run takes about 2 minutes, so no test
 optimisation was needed.
@@ -75,8 +84,11 @@ optimisation was needed.
   - reset waits for late cache and history writes before clearing.
 - **Startup:** if it fails part way, it withdraws to the not-loaded state with `error.startup`.
 - **Restore:**
-  - an apply failure after the install reports `backup.restart`;
-  - the restore flags are released before the result is reported.
+  - an apply failure after the install reports `backup.restart` and keeps the restore restrictions until restart
+    (media actions blocked, settings changes not applied or saved, no resume point at quit);
+  - the restore flags are settled before the result is reported;
+  - while a restore that selected history owns the file, listening progress stays unsaved; if Minecraft closes
+    and the install then rolls back, up to about 15 s of earlier progress is lost.
 - **Shutdown:** settings are saved first, PiP closes before playback and lyrics before downloads, and a final
   settings write that never reached disk is logged.
 - **Messages:** three new strings in both catalogs (`reset.darkmusic.restart`, `backup.restart`, `error.startup`).
@@ -88,7 +100,16 @@ optimisation was needed.
   defect needs it. It would cost about 500 field-access edits, mostly in the smoke sources. Worth revisiting if the
   service set grows or a generation-level test becomes necessary.
 - `ready`, `ResetSteps` and `buildReplaceable` stay as wiring inside `DarkMusicClient`. They are covered by
-  compilation, review and the smoke checks, not by unit tests.
+  compilation, review and the smoke checks, not by unit tests. `BackupRestoreTest` runs shutdown through
+  `Shutdown.run` with its own steps, so the client's own step bodies are not exercised there.
+- **Unfinished futures at exit:** `Minecraft.execute` queues and never refuses, and the queue is dropped when the
+  game loop stops. A reset or restore whose last step is queued then never completes its future; nothing waits for
+  it.
+- **Reset after a timeout:** a stuck old audio line beside the new one is not tested; the late loudness write (T2)
+  is accepted.
+- Settings ownership: no change. Retained screens re-read settings when shown again and the confirmation screen
+  cannot be left while a reset or restore runs, so no edit reaches a replaced settings object (checked by reading the
+  code, not by a test).
 - **Release:** not released. Per AGENTS.md, it still needs a normal play session, then a tag and publication with
   approval.
 
