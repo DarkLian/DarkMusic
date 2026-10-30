@@ -1,0 +1,22 @@
+name: Set up the build toolchain
+description: >-
+  Validates the Gradle wrapper and installs JDK 25 and the .NET SDK pinned in src/pipHelper/global.json, which both
+  optional Windows helpers build with. Used by the build and release workflows so they cannot drift apart.
+runs:
+  using: composite
+  steps:
+    - name: validate gradle wrapper
+      uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
+    - name: setup jdk
+      uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+      with:
+        java-version: '25'
+        distribution: 'microsoft'
+    - name: setup .NET SDK for the optional Windows helpers
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        global-json-file: src/pipHelper/global.json
+    - name: make gradle wrapper executable
+      if: runner.os != 'Windows'
+      shell: bash
+      run: chmod +x ./gradlew

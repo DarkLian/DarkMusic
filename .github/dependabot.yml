@@ -1,7 +1,8 @@
 version: 2
 updates:
   - package-ecosystem: github-actions
-    directory: /
+    # The shared setup steps live in a local composite action.
+    directories: ['/', '/.github/actions/*']
     schedule:
       interval: weekly
   - package-ecosystem: gradle

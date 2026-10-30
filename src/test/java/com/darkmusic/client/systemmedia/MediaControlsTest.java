@@ -63,6 +63,18 @@ class MediaControlsTest {
             StandardCharsets.US_ASCII).equals("{\\rtf"), "The license is an RTF document");
     }
 
+    /**
+     * Both helpers build with one SDK. CI installs the one PiP's global.json names; each helper keeps its own copy
+     * because the source archive ships it.
+     */
+    @Test
+    void bothHelpersPinTheSdkCiInstalls() throws Exception {
+        assertEquals(Files.readString(Path.of("src/pipHelper/global.json")),
+            Files.readString(Path.of("src/mediaHelper/global.json")), "Upgrade both helpers' global.json together");
+        assertTrue(Files.readString(Path.of(".github/actions/setup-toolchain/action.yml"))
+            .contains("global-json-file: src/pipHelper/global.json"), "CI must read the SDK from the helpers' pin");
+    }
+
     @Test
     void manifestsMustNameThisVersionsPackageWithItsHashes() throws Exception {
         String good = "{\"schema\":1,\"version\":\"3.5.0\",\"name\":\"darkmusic-media-controls-3.5.0-windows-x64.zip\",\"size\":10,"

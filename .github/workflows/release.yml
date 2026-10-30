@@ -25,13 +25,7 @@ jobs:
       - name: Verify release commit is on main
         shell: bash
         run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
-      - uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
-      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
-        with:
-          java-version: '25'
-          distribution: 'microsoft'
       - name: Verify version tag
-        # SDK builds the helper; mod users receive its self-contained runtime.
         shell: bash
         env:
           RELEASE_TAG: ${{ github.ref_name }}
@@ -39,14 +33,11 @@ jobs:
           version=$(sed -n 's/^version=//p' gradle.properties | tr -d '\r')
           test -n "$version"
           test "$RELEASE_TAG" = "v$version"
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          dotnet-version: '8.0.421'
+      # The .NET SDK builds the helpers; mod users receive their self-contained runtimes.
+      - uses: ./.github/actions/setup-toolchain
       - name: Build and test
         if: runner.os != 'Windows'
-        run: |
-          chmod +x ./gradlew
-          ./gradlew build -PbundlePipHelper
+        run: ./gradlew build -PbundlePipHelper
       - name: Build and test on Windows
         if: runner.os == 'Windows'
         run: .\gradlew.bat build -PbundlePipHelper

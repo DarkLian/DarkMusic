@@ -26,20 +26,8 @@ jobs:
     steps:
       - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: validate gradle wrapper
-        uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
-      - name: setup jdk
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
-        with:
-          java-version: '25'
-          distribution: 'microsoft'
-      - name: setup .NET SDK for the bundled Windows helper
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          dotnet-version: '8.0.421'
-      - name: make gradle wrapper executable
-        if: runner.os != 'Windows'
-        run: chmod +x ./gradlew
+      - name: setup toolchain
+        uses: ./.github/actions/setup-toolchain
       - name: build
         # PiP is Windows-only at runtime; the helper cross-publishes on all builders.
         if: runner.os != 'Windows'
