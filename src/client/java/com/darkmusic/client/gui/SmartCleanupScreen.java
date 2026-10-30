@@ -1,6 +1,10 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.cleanup.*;
+import com.darkmusic.client.cleanup.DuplicateReviewStore;
+import com.darkmusic.client.cleanup.DuplicateScanner;
+import com.darkmusic.client.config.SettingsSource;
+import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.render.UiTheme;
@@ -21,7 +25,17 @@ public final class SmartCleanupScreen extends LocalScreen {
     /**
      * Duplicate scanning over the library, and the screens it opens.
      */
-    public interface Sources extends DuplicateComparisonScreen.Sources {
+    public interface Sources extends SettingsSource, TrackThumbnails {
+        Navigation navigation();
+
+        DuplicateScanner cleanup();
+
+        DuplicateReviewStore cleanupReviews();
+
+        MusicLibrary library();
+
+        boolean mediaBusy();
+
     }
 
     private final Sources app;
@@ -100,7 +114,7 @@ public final class SmartCleanupScreen extends LocalScreen {
         });
         cancel = button("cleanup.cancel", 16 + w, y, w, scanner::cancel);
         review = button("cleanup.review", 20 + w * 2, y, w, this::compare);
-        button("cleanup.ignored", 24 + w * 3, y, w, () -> show(new IgnoredMatchesScreen(app, this)));
+        button("cleanup.ignored", 24 + w * 3, y, w, () -> show(app.navigation().ignoredMatches(this)));
         Help.tip(review, Text.get("cleanup.review.help"));
         revision = -1;
         refresh(true);
@@ -109,7 +123,7 @@ public final class SmartCleanupScreen extends LocalScreen {
 
     private void compare() {
         visible.stream().filter(p -> p.id().equals(selected)).findFirst().ifPresent(p -> {
-            if (!app.mediaBusy()) show(new DuplicateComparisonScreen(app, this, p));
+            if (!app.mediaBusy()) show(app.navigation().duplicateComparison(this, p));
         });
     }
 

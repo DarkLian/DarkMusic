@@ -16,11 +16,13 @@ backup ▸ download ▸ cleanup ▸ audio | lyrics | playlist ▸ library ▸ me
         (core packages; strictly downward, enforced by ArchitectureTest.CORE)
 ```
 
-Screens get services through their own nested `Sources` interface, which declares what that screen uses. The player and
-Settings open other screens through `gui.Navigation`; the root's `ScreenNavigation` builds each destination with
-the destination's own Sources, so a screen's Sources does not inherit those of the screens it opens
-(`ArchitectureTest.screensDoNotInheritTheSourcesOfScreensTheyOpen`, with a shrinking list of local chains not yet
-migrated).
+Screens get services through their own nested `Sources` interface, which declares what that screen uses. Screens
+open other screens through `gui.Navigation`, which names the destination and its context (song, colour set,
+deletion list). The root's `ScreenNavigation` builds each destination with that destination's own Sources.
+No screen's Sources extends another screen's Sources; it may extend only shared pieces (`SettingsSource`,
+`AudioPage.Sources`, `ImportOverlay.Sources`, `PlayerProgress.Sources`, `TrackThumbnails`).
+`ArchitectureTest.screensDoNotInheritTheSourcesOfScreensTheyOpen` enforces this with no exceptions. Pages of one
+group (audio, PiP, download tools) share their group's Sources.
 
 Core packages never reference `DarkMusicClient`. At most `MAX_CLIENT_DEPENDENTS` files may name it (a ratchet:
 only lowered). The source guard proves reference direction only, not runtime isolation.
@@ -119,7 +121,7 @@ Reviewed against the plan's section 5 and 6 focus areas.
 | Application lifecycle (startup, reset, restore, shutdown) | **Improved** | `ResetOperation`, `RestoreOperation`, `Cleanup`; every future completes; partial startup unwinds; ordered, failure-tolerant shutdown (batch 2) | Glue in `DarkMusicClient` is covered by compilation, review and smoke, not unit tests (the client cannot be built without Minecraft) |
 | Library reconciliation | **Improved** | `LibraryReconciliation` owns markers and generation; fixed markers surviving reset (batch 3) | — |
 | Settings application and replacement | **Improved** (naming, order, semantics) | `applySettings`, documented order, replacement audit and test (batch 4) | An `update(s -> …)` store stays deferred because it changes save timing |
-| Screen navigation | **Improved** for the player and Settings | `Navigation` + `ScreenNavigation`; reach of `MusicScreen.Sources` 62 → 31 methods, 31 → 4 interfaces (batch 5) | 11 local chains listed in `ArchitectureTest`; deferred until the hub navigation passes its smoke checks |
+| Screen navigation | **Improved** | `Navigation` + `ScreenNavigation` for every screen; reach of `MusicScreen.Sources` 62 → 31 methods, 31 → 4 interfaces (batches 5 and 8) | — |
 | Playback and audio | **Already adequate**; DSP bypass **fixed** | `AudioBackend` seam, sequence/order versions and transition claims, `NextAudio` transfer protocol (`TransitionOrderTest`, `UpNextTest`, `SeekDiscardTest`, `UpNextPreloadTest`); environment filter bypass fixed (batch 1) | Queue-policy extraction from `PlaybackController` not attempted: its tests pin the timing guarantees and nothing showed a defect |
 | Lyrics | **Already adequate** | Per-track operation identity, owner cancellation, bounded queues, immutable cache views (`LyricsSafetyTest`, lyrics tests) | — |
 | Library and file operations | **Already adequate** | Captured identities, cancellation tokens, full-content checks, deletion reconciles after commit (`MetadataCommitSafetyTest`, `AudioDeletionTest`, `AudioDeletionFilesystemTest`, `WatcherIsolationTest`) | `mediaBusy` release relies on exclusive admission rather than an operation lease; admission makes overlap unreachable (see Exclusive operations) |

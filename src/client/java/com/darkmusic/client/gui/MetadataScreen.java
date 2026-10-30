@@ -1,5 +1,6 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.config.SettingsSource;
 import com.darkmusic.client.library.MediaFiles;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.render.HorizontalText;
@@ -19,7 +20,11 @@ public final class MetadataScreen extends LocalScreen {
     /**
      * Tag reading and editing, and deleting the song.
      */
-    public interface Sources extends AudioDeletionScreen.Sources {
+    public interface Sources extends SettingsSource {
+        Navigation navigation();
+
+        boolean mediaBusy();
+
         CompletableFuture<MediaFiles.Fields> readMetadata(Track track);
 
         CompletableFuture<Track> editMetadata(Track track, MediaFiles.Fields original, MediaFiles.Fields fields);
@@ -64,7 +69,7 @@ public final class MetadataScreen extends LocalScreen {
         int actionWidth = (panelWidth - 28) / 2;
         save = addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.save"), b -> save()).bounds(left + 12, top + 181, actionWidth, 20).build());
         delete = addRenderableWidget(UiButton.builder(Text.component("delete_audio.single"), b -> {
-            if (!saving && !app.mediaBusy()) show(new AudioDeletionScreen(app, this, List.of(track), parent));
+            if (!saving && !app.mediaBusy()) show(app.navigation().audioDeletion(this, List.of(track), parent));
         }).bounds(left + 16 + actionWidth, top + 181, actionWidth, 20).build());
         UiButton.style(delete, UiButton.Style.DESTRUCTIVE);
         UiButton.style(save, UiButton.Style.PRIMARY);

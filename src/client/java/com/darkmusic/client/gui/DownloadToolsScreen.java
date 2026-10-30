@@ -1,5 +1,6 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.download.DownloadService;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.render.UiTheme;
@@ -15,7 +16,11 @@ public final class DownloadToolsScreen extends LocalScreen {
     /**
      * The download tools and their diagnostics; the tools and diagnostic screens open each other, so they share this.
      */
-    public interface Sources extends AudioPage.Sources, DownloadPathsScreen.Sources {
+    public interface Sources extends AudioPage.Sources {
+        Navigation navigation();
+
+        DownloadService downloads();
+
     }
 
     private final Sources app;
@@ -43,7 +48,7 @@ public final class DownloadToolsScreen extends LocalScreen {
         }).bounds(16 + half, 34, half, 20).build());
         advanced = addRenderableWidget(UiButton.builder(Text.component("tools.darkmusic.advanced"), b -> {
             persist();
-            show(new DownloadPathsScreen(app, this));
+            show(app.navigation().downloadPaths(this));
         }).bounds(12, 60, half, 20).build());
         cancel = addRenderableWidget(Help.tip(UiButton.builder(Text.component("tools.darkmusic.cancel_operation"), b -> app.downloads().cancelTools()).bounds(16 + half, 60, half, 20).build(), Text.get("tools.darkmusic.cancel_help")));
         tools = addRenderableWidget(new ToolCards(12, 110, width - 24, height - 156));

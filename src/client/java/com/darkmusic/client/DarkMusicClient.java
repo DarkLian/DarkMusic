@@ -24,14 +24,21 @@ import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.config.SettingsStore;
 import com.darkmusic.client.download.AuditionPlayer;
 import com.darkmusic.client.download.DownloadService;
+import com.darkmusic.client.gui.AudioDeletionScreen;
 import com.darkmusic.client.gui.AudioSettingsScreen;
 import com.darkmusic.client.gui.BackupScreen;
 import com.darkmusic.client.gui.ColorsScreen;
 import com.darkmusic.client.gui.DesktopFolderPicker;
+import com.darkmusic.client.gui.DownloadDuplicateScreen;
+import com.darkmusic.client.gui.DownloadPathsScreen;
 import com.darkmusic.client.gui.DownloadScreen;
+import com.darkmusic.client.gui.DownloadToolsScreen;
+import com.darkmusic.client.gui.DuplicateComparisonScreen;
+import com.darkmusic.client.gui.ExistingDownloadsScreen;
 import com.darkmusic.client.gui.FolderTree;
 import com.darkmusic.client.gui.Help;
 import com.darkmusic.client.gui.HudEditorScreen;
+import com.darkmusic.client.gui.IgnoredMatchesScreen;
 import com.darkmusic.client.gui.ImportHistoryScreen;
 import com.darkmusic.client.gui.LibraryManagerScreen;
 import com.darkmusic.client.gui.LocalScreen;
@@ -45,7 +52,9 @@ import com.darkmusic.client.gui.PlaylistScreen;
 import com.darkmusic.client.gui.RowList;
 import com.darkmusic.client.gui.SettingsScreen;
 import com.darkmusic.client.gui.ShortcutKeys;
+import com.darkmusic.client.gui.SmartCleanupScreen;
 import com.darkmusic.client.gui.SongActionsScreen;
+import com.darkmusic.client.gui.TrackPickerScreen;
 import com.darkmusic.client.gui.UpNextScreen;
 import com.darkmusic.client.gui.UpdateScreen;
 import com.darkmusic.client.hud.DownloadHud;
@@ -120,7 +129,9 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
     UpNextScreen.Sources, DownloadScreen.Sources, ImportHistoryScreen.Sources, LibraryManagerScreen.Sources,
     PipScreen.Sources, PlaylistScreen.Sources, SongActionsScreen.Sources, MetadataScreen.Sources, LyricsScreen.Sources,
     AudioSettingsScreen.Sources, BackupScreen.Sources, HudEditorScreen.Sources, MusicFoldersScreen.Sources,
-    UpdateScreen.Sources, ColorsScreen.Sources {
+    UpdateScreen.Sources, ColorsScreen.Sources, DownloadToolsScreen.Sources, DownloadPathsScreen.Sources,
+    DownloadDuplicateScreen.Sources, ExistingDownloadsScreen.Sources, SmartCleanupScreen.Sources,
+    IgnoredMatchesScreen.Sources, DuplicateComparisonScreen.Sources, AudioDeletionScreen.Sources, TrackPickerScreen.Sources {
     public static DarkMusicClient INSTANCE;
     public final ExecutorService io = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-storage").factory());
     public final ExecutorService browsing = new ThreadPoolExecutor(2, 2, 0, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(16), Thread.ofPlatform().daemon().name("darkmusic-browse").factory(), new ThreadPoolExecutor.AbortPolicy());

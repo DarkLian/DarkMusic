@@ -1,6 +1,10 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.config.SettingsSource;
+import com.darkmusic.client.library.ArtworkCache;
+import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.lyrics.LyricsService;
 import com.darkmusic.client.playlist.PlaylistStore;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
@@ -23,7 +27,17 @@ public final class PlaylistScreen extends LocalScreen {
     /**
      * Playlists, importing into them, and the track picker they open.
      */
-    public interface Sources extends ImportOverlay.Sources, TrackPickerScreen.Sources {
+    public interface Sources extends ImportOverlay.Sources, SettingsSource {
+        Navigation navigation();
+
+        ArtworkCache artwork();
+
+        MusicLibrary library();
+
+        LyricsService lyrics();
+
+        PlaylistStore playlists();
+
         boolean mediaBusy();
 
         void importAudio(List<Path> paths, String folder, String playlistId);
@@ -138,7 +152,7 @@ public final class PlaylistScreen extends LocalScreen {
         add = button(Text.get("text.darkmusic.add_songs"), entryX, 38, actionWidth, () -> {
             if (selected() != null) {
                 String id = selectedId;
-                show(new TrackPickerScreen(app, this, id, tracks -> app.playlists().addAll(id, tracks)));
+                show(app.navigation().trackPicker(this, id, tracks -> app.playlists().addAll(id, tracks)));
             }
         }, Text.get("text.darkmusic.select_library_songs_not_already_added_to_this_playlist"));
         remove = button(Text.get("text.darkmusic.remove_selected"), entryX + entryWidth - actionWidth, 38, actionWidth, () -> {

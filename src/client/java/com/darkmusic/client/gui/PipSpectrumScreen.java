@@ -46,7 +46,7 @@ public final class PipSpectrumScreen extends AudioPage<PipScreen.Sources> implem
         effect("quality.darkmusic.peaks", () -> s.quality.peakHold, v -> s.quality.peakHold = v);
         effect("quality.darkmusic.trails", () -> s.quality.trails, v -> s.quality.trails = v);
         effect("quality.darkmusic.glow", () -> s.quality.glow, v -> s.quality.glow = v);
-        labeledAction(Text.get("colors.darkmusic.spectrum"), Text.get("colors.darkmusic.help"), () -> show(new ColorsScreen(app, this, s.colors, "colors.darkmusic.spectrum", this::preview, "pip.spectrum.preview")));
+        labeledAction(Text.get("colors.darkmusic.spectrum"), Text.get("colors.darkmusic.help"), () -> show(app.navigation().colors(this, s.colors, "colors.darkmusic.spectrum", this::preview, "pip.spectrum.preview")));
         control((s.opacity - .1) / .9, v -> Text.get("spectrum.darkmusic.opacity", Math.round(s.opacity * 100)), v -> s.opacity = .1 + v * .9, 18, "spectrum.darkmusic.opacity_help");
         if (!s.style.bars())
             control((s.quality.detail - 96) / 288.0, v -> Text.get("spectrum.darkmusic.detail", s.quality.detail), v -> s.quality.detail = 96 + (int) Math.round(v * 288), 12, "spectrum.darkmusic.detail_help");

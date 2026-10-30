@@ -6,11 +6,17 @@ import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
+import java.nio.file.Path;
+
 public final class ExistingDownloadsScreen extends AudioPage<ExistingDownloadsScreen.Sources> {
     /**
      * Where downloaded songs already are in the library, and the cleanup it opens.
      */
-    public interface Sources extends AudioPage.Sources, SmartCleanupScreen.Sources {
+    public interface Sources extends AudioPage.Sources {
+        Navigation navigation();
+
+        void openFolder(Path directory);
+
         LibrarySourceIndex sourceIndex();
     }
 
@@ -38,6 +44,6 @@ public final class ExistingDownloadsScreen extends AudioPage<ExistingDownloadsSc
                 labeledAction(t.file().toString(), Text.get("cleanup.location"), () -> app.openFolder(t.file().getParent())).runs();
         } else
             status(() -> Text.get(lookup.complete() ? "download.library.not_detected" : "download.library.incomplete"), () -> lookup.complete() ? UiStatus.Tone.INFO : UiStatus.Tone.WARNING);
-        action("cleanup.title", () -> show(new SmartCleanupScreen(app, this)));
+        action("cleanup.title", () -> show(app.navigation().smartCleanup(this)));
     }
 }

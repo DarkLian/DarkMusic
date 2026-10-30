@@ -3,11 +3,14 @@ package com.darkmusic.client.gui;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.audio.JavaSoundBackend;
 import com.darkmusic.client.audio.PlaybackController;
+import com.darkmusic.client.cleanup.LibrarySourceIndex;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.DownloadFormat;
+import com.darkmusic.client.config.SettingsSource;
 import com.darkmusic.client.download.AuditionClip;
 import com.darkmusic.client.download.AuditionPlayer;
 import com.darkmusic.client.download.DownloadModels;
+import com.darkmusic.client.download.DownloadService;
 import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.render.UiIcon;
@@ -24,8 +27,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 
-import static com.darkmusic.client.download.DownloadModels.*;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -34,12 +35,19 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.darkmusic.client.download.DownloadModels.*;
+
 public final class DownloadScreen extends LocalScreen {
     /**
      * The downloader, the player it pauses for auditions, and every screen it opens.
      */
-    public interface Sources extends DownloadToolsScreen.Sources, DownloadDuplicateScreen.Sources,
-        ExistingDownloadsScreen.Sources {
+    public interface Sources extends SettingsSource {
+        Navigation navigation();
+
+        DownloadService downloads();
+
+        LibrarySourceIndex sourceIndex();
+
         /**
          * Null until startup creates the player.
          */
@@ -147,7 +155,7 @@ public final class DownloadScreen extends LocalScreen {
         backButton();
         rowsSnapshot = null;
         UiButton.icon(button(Text.get("text.darkmusic.tools"), width - 172, 4, 88,
-            () -> show(new DownloadToolsScreen(app, this)), Text.get("text.darkmusic.set_executable_paths_and_check_yt_dlp_ffmpeg_ffprobe_and_optional_javascript_runti")), UiIcon.TOOLS, false);
+            () -> show(app.navigation().downloadTools(this)), Text.get("text.darkmusic.set_executable_paths_and_check_yt_dlp_ffmpeg_ffprobe_and_optional_javascript_runti")), UiIcon.TOOLS, false);
         sourceToggle = UiButton.icon(button(Text.get("phase2.source"), width - 264, 4, 88, () -> {
             sourceExpanded = !sourceExpanded;
             updateButtons();
@@ -227,14 +235,14 @@ public final class DownloadScreen extends LocalScreen {
         clearFinished = action("text.darkmusic.clear_finished", app.downloads()::clearFinished, "download.darkmusic.clear_finished_help");
         errorDetails = action("download.diag.title", () -> {
             var diagnostic = queueView ? app.downloads().diagnostic(selectedJob) : app.downloads().analysisDiagnostic();
-            if (diagnostic != null) show(new DownloadDiagnosticScreen(app, this, diagnostic, queueView
+            if (diagnostic != null) show(app.navigation().downloadDiagnostic(this, diagnostic, queueView
                 ? () -> app.downloads().retry(selectedJob) : () -> app.downloads().analyze(app.downloads().inputUrl(), 0)));
         }, "download.diag.help");
         UiButton.icon(errorDetails, UiIcon.WARNING, true);
         existingDetails = action("download.library.existing", () -> {
             var choice = app.downloads().duplicateChoice();
-            if (choice != null) show(new DownloadDuplicateScreen(app, this, choice));
-            else if (hasExistingMatches(listeningEntry)) show(new ExistingDownloadsScreen(app, this, listeningEntry));
+            if (choice != null) show(app.navigation().downloadDuplicate(this, choice));
+            else if (hasExistingMatches(listeningEntry)) show(app.navigation().existingDownloads(this, listeningEntry));
         }, "download.library.inspect_help");
         UiButton.icon(existingDetails, UiIcon.FOLDER, true);
         UiButton.style(analyze, UiButton.Style.PRIMARY);
@@ -626,7 +634,7 @@ public final class DownloadScreen extends LocalScreen {
         var choice = app.downloads().duplicateChoice();
         if (choice != null && choice.id() != shownChoice && !app.downloads().snapshot().analyzing()) {
             shownChoice = choice.id();
-            show(new DownloadDuplicateScreen(app, this, choice));
+            show(app.navigation().downloadDuplicate(this, choice));
             return;
         }
         var p = app.downloads().snapshot().preview();

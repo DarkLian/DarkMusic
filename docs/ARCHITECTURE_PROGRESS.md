@@ -383,3 +383,24 @@ playlist kept by name ("Keep this playlist"). Both reset modes then pass on the 
 - reading the three new zh_tw messages.
 
 **Release status:** not released. Per AGENTS.md, a tag still needs pushing approval and a normal play session.
+
+## Batch 8: remaining navigation chains (2026-10-30, approved follow-up)
+
+The 11 remaining screens now open their destinations through `Navigation`, which gains 11 destinations:
+- colours with a preview;
+- download tools, download paths and a download diagnostic;
+- a duplicate download and existing downloads;
+- smart cleanup, ignored matches and the duplicate comparison;
+- audio deletion and the track picker.
+
+Each screen's Sources now extends only shared pieces and declares what the screen and its group pages call. The
+declarations were copied from the interfaces they used to inherit. `SongActionsScreen` adds `TrackThumbnails`
+because it draws a song card. The guard now allows no exceptions.
+
+**Interaction preserved:** each destination keeps its parent and the arguments it had before, including the
+deletion completion screen, the track-picker callback and the PiP spectrum colour preview.
+
+**Checks:** client and smoke compile; `ArchitectureTest` (4), the `gui` tests and `LocalizationTest` passed.
+
+**Runtime-unverified until the next smoke run:** the downloads, cleanup, playlist and track picker, song actions
+and PiP colour paths. These are covered by the cleanup and queue smoke modes, and by the download preview client.

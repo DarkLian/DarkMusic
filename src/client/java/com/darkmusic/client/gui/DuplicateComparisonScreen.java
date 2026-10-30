@@ -3,6 +3,7 @@ package com.darkmusic.client.gui;
 import com.darkmusic.client.audio.*;
 import com.darkmusic.client.audio.PlaybackController;
 import com.darkmusic.client.cleanup.*;
+import com.darkmusic.client.cleanup.DuplicateReviewStore;
 import com.darkmusic.client.cleanup.DuplicateScanner;
 import com.darkmusic.client.config.SettingsSource;
 import com.darkmusic.client.library.Track;
@@ -26,7 +27,13 @@ public final class DuplicateComparisonScreen extends LocalScreen {
     /**
      * Duplicate scans and reviews, the files to compare, and audition through the player.
      */
-    public interface Sources extends SettingsSource, AudioDeletionScreen.Sources, IgnoredMatchesScreen.Sources, TrackThumbnails {
+    public interface Sources extends SettingsSource, TrackThumbnails {
+        Navigation navigation();
+
+        DuplicateReviewStore cleanupReviews();
+
+        boolean mediaBusy();
+
         DuplicateScanner cleanup();
 
         /**
@@ -102,7 +109,7 @@ public final class DuplicateComparisonScreen extends LocalScreen {
             var delete = button(i == 0 ? "cleanup.delete_a" : "cleanup.delete_b", x + (w + 4) * 2, height - 68, columnWidth - (w + 4) * 2, () -> {
                 if (app.mediaBusy()) return;
                 closePreview();
-                show(new AudioDeletionScreen(app, this, List.of(track(index)), parent));
+                show(app.navigation().audioDeletion(this, List.of(track(index)), parent));
             });
             UiButton.style(delete, UiButton.Style.DESTRUCTIVE);
             for (var b : List.of(play, location, delete)) {

@@ -1,6 +1,7 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.library.MusicFolders;
+import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
@@ -16,7 +17,13 @@ public final class MusicFoldersScreen extends AudioPage<MusicFoldersScreen.Sourc
     /**
      * The music folder list, and the library manager it opens.
      */
-    public interface Sources extends AudioPage.Sources, LibraryManagerScreen.Sources {
+    public interface Sources extends AudioPage.Sources {
+        Navigation navigation();
+
+        MusicLibrary library();
+
+        boolean mediaBusy();
+
         void warn(String text);
 
         void resetMusicFolder();
@@ -46,7 +53,7 @@ public final class MusicFoldersScreen extends AudioPage<MusicFoldersScreen.Sourc
         destination = app.library().root();
         action("folders.add", this::choose).runs();
         action("settings.darkmusic.default_folder", app::resetMusicFolder).runs();
-        action("delete_audio.manage", () -> show(new LibraryManagerScreen(app, this)));
+        action("delete_audio.manage", () -> show(app.navigation().libraryManager(this)));
         info("folders.scope");
         for (var entry : shown.entrySet()) {
             Path path = entry.getKey();

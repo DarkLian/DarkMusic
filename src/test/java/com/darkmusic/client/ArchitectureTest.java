@@ -34,11 +34,7 @@ class ArchitectureTest {
     private static final Pattern ROOT_TYPE = Pattern.compile("\\bcom\\.darkmusic\\.client\\.[A-Z]\\w*");
     // Lower this as packages stop depending on DarkMusicClient; never raise it.
     private static final int MAX_CLIENT_DEPENDENTS = 5;
-    // A screen reaches the screens it opens through gui.Navigation, so its Sources never inherits theirs. These still
-    // do; move each to Navigation and remove it here, never add one.
-    private static final Set<String> NAVIGATION_BY_INHERITANCE = Set.of("DownloadScreen", "DownloadToolsScreen",
-        "DuplicateComparisonScreen", "ExistingDownloadsScreen", "LibraryManagerScreen", "MetadataScreen",
-        "MusicFoldersScreen", "PipScreen", "PlaylistScreen", "SmartCleanupScreen", "SongActionsScreen");
+    // A screen reaches the screens it opens through gui.Navigation, so its Sources never inherits theirs.
     private static final Pattern SOURCES_DECLARATION = Pattern.compile("interface Sources extends ([^{]*)\\{");
     private static final Pattern SCREEN_SOURCES = Pattern.compile("\\b(\\w+Screen)\\.Sources\\b");
 
@@ -95,7 +91,7 @@ class ArchitectureTest {
                     inheriting.add(file.getFileName().toString().replace(".java", ""));
             }
         }
-        assertEquals(NAVIGATION_BY_INHERITANCE.stream().sorted().toList(), inheriting);
+        assertEquals(List.of(), inheriting);
     }
 
     /**

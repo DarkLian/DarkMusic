@@ -1,7 +1,9 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.audio.PlaybackController;
+import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.playlist.PlaylistStore;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
@@ -15,7 +17,17 @@ public final class SongActionsScreen extends AudioPage<SongActionsScreen.Sources
     /**
      * Actions on one song, and the queue they open.
      */
-    public interface Sources extends AudioPage.Sources, UpNextScreen.Sources {
+    public interface Sources extends AudioPage.Sources, TrackThumbnails {
+        Navigation navigation();
+
+        boolean canEditQueue();
+
+        MusicLibrary library();
+
+        PlaybackController playback();
+
+        PlaylistStore playlists();
+
     }
 
     private final Track track;
@@ -42,7 +54,7 @@ public final class SongActionsScreen extends AudioPage<SongActionsScreen.Sources
             tick();
         }
         status(() -> feedback, () -> feedbackTone);
-        action("upnext.title", () -> show(new UpNextScreen(app, this)));
+        action("upnext.title", () -> show(app.navigation().upNext(this)));
     }
 
     private void queue(boolean first) {

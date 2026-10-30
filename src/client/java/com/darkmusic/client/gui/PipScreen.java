@@ -28,7 +28,9 @@ public final class PipScreen extends AudioPage<PipScreen.Sources> implements Pip
     /**
      * Everything the PiP screens read, including the Colors screen they open.
      */
-    public interface Sources extends AudioPage.Sources, ColorsScreen.Sources {
+    public interface Sources extends AudioPage.Sources {
+        Navigation navigation();
+
         /**
          * Null until startup creates it.
          */

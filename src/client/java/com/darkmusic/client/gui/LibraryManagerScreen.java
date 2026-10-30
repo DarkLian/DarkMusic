@@ -1,6 +1,8 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.config.SettingsSource;
 import com.darkmusic.client.library.ArtworkCache;
+import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
@@ -21,7 +23,13 @@ public final class LibraryManagerScreen extends LocalScreen {
     /**
      * Library songs with artwork, and the deletion and cleanup screens they open.
      */
-    public interface Sources extends SmartCleanupScreen.Sources {
+    public interface Sources extends SettingsSource {
+        Navigation navigation();
+
+        MusicLibrary library();
+
+        boolean mediaBusy();
+
         ArtworkCache artwork();
     }
 
@@ -41,7 +49,7 @@ public final class LibraryManagerScreen extends LocalScreen {
     @Override
     protected void init() {
         backButton();
-        var cleanup = addRenderableWidget(UiButton.builder(Text.component("cleanup.title"), b -> show(new SmartCleanupScreen(app, this))).bounds(width - 216, 4, 132, 20).build());
+        var cleanup = addRenderableWidget(UiButton.builder(Text.component("cleanup.title"), b -> show(app.navigation().smartCleanup(this))).bounds(width - 216, 4, 132, 20).build());
         UiButton.icon(cleanup, UiIcon.SEARCH, false);
         var search = addRenderableWidget(new UiInput(font, 12, 34, width - 24, 20, Text.component("text.darkmusic.search_songs")));
         search.setMaxLength(512);
@@ -63,7 +71,7 @@ public final class LibraryManagerScreen extends LocalScreen {
         delete = button("delete_audio.review", 12, height - 28, width - 24, () -> {
             var ids = selection.selected();
             var selected = app.library().snapshot().tracks().stream().filter(t -> ids.contains(t.id())).toList();
-            if (!selected.isEmpty()) show(new AudioDeletionScreen(app, this, selected, this));
+            if (!selected.isEmpty()) show(app.navigation().audioDeletion(this, selected, this));
         });
         UiButton.style(delete, UiButton.Style.DESTRUCTIVE);
         refresh();
