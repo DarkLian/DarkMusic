@@ -8,11 +8,14 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 
 /**
  * Serial storage only; the client reads immutable snapshots. Never opens imported media.
@@ -82,11 +85,49 @@ public final class ImportHistory {
     }
 
     public void record(Batch batch) {
+        update(current -> {
+            var next = new ArrayList<Batch>();
+            next.add(batch);
+            next.addAll(current);
+            return next;
+        });
+    }
+
+    /**
+     * One record as listed: an imported file's entry, or with a null entry the batch's failure.
+     */
+    public record Item(Batch batch, MediaFiles.ImportEntry entry) {
+    }
+
+    /**
+     * Forgets the given records in one write; a batch with nothing left goes too. Records already gone are ignored.
+     * Only the history changes; imported files are never touched.
+     */
+    public void remove(Collection<Item> items) {
+        var removed = Set.copyOf(items);
+        update(current -> {
+            var next = new ArrayList<Batch>();
+            boolean changed = false;
+            for (var batch : current) {
+                var entries = batch.entries().stream().filter(e -> !removed.contains(new Item(batch, e))).toList();
+                String error = removed.contains(new Item(batch, null)) ? "" : batch.error();
+                if (entries.size() == batch.entries().size() && error.equals(batch.error())) {
+                    next.add(batch);
+                    continue;
+                }
+                changed = true;
+                if (!entries.isEmpty() || !error.isBlank())
+                    next.add(new Batch(batch.timestamp(), batch.destination(), batch.requested(), entries, error));
+            }
+            return changed ? next : current;
+        });
+    }
+
+    private void update(UnaryOperator<List<Batch>> change) {
         try {
             io.execute(() -> {
-                var next = new ArrayList<Batch>();
-                next.add(batch);
-                next.addAll(batches);
+                var next = change.apply(batches);
+                if (next == batches) return;
                 batches = bounded(next);
                 revision++;
                 try {

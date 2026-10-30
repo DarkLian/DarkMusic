@@ -497,12 +497,19 @@ public final class MusicScreen extends LocalScreen {
         }
         navigation.rows(IntStream.range(0, groups.size()).mapToObj(i -> {
             String key = groups.get(i);
-            String label = mode.equals("All") ? i == 0 ? Text.get("text.darkmusic.all_tracks") : folderRows.get(i - 1).name() : mode.equals("History") ? Text.get("history." + key) : mode.equals("Playlists") ? app.playlists().displayName(app.playlists().get(key)) : key.isBlank() ? Text.get(mode.equals("Artists") ? "library.artist.unknown" : "library.album.unknown") : key;
+            String label = mode.equals("All") ? i == 0 ? Text.get("text.darkmusic.all_tracks") : folderRows.get(i - 1).name() : mode.equals("History") ? Text.get("history." + key) : mode.equals("Playlists") ? app.playlists().displayName(app.playlists().get(key)) : named(key);
             int count = mode.equals("History") ? app.collection("History", key).size() : mode.equals("Playlists") ? app.playlists().resolve(key, tracks).size() : counts.getOrDefault(key, 0);
             return new RowList.Row(label + " (" + count + ")", "");
         }).toList());
         navigation.select(groups.indexOf(group));
         refreshSongs();
+    }
+
+    /**
+     * An artist or album as shown; songs without that tag are grouped under a blank key.
+     */
+    private String named(String key) {
+        return key.isBlank() ? Text.get(mode.equals("Artists") ? "library.artist.unknown" : "library.album.unknown") : key;
     }
 
     private List<Track> collectionTracks() {
@@ -844,7 +851,7 @@ public final class MusicScreen extends LocalScreen {
         queueActions.visible = favorite.visible = edit.visible = sourceLink.visible = copySource.visible = selected != null && (pane == Pane.DETAILS || library && layout.inspector().width() > 0);
         if (lyricsButton != null) lyricsButton.visible = copySource.visible;
         if (library) {
-            String collection = mode.equals("History") ? Text.get("history." + group) : mode.equals("All") ? group.isEmpty() ? Text.get("text.darkmusic.all_tracks") : folders.display(group) : mode.equals("Playlists") && app.playlists().get(group) != null ? app.playlists().displayName(app.playlists().get(group)) : group;
+            String collection = mode.equals("History") ? Text.get("history." + group) : mode.equals("All") ? group.isEmpty() ? Text.get("text.darkmusic.all_tracks") : folders.display(group) : mode.equals("Playlists") ? app.playlists().get(group) != null ? app.playlists().displayName(app.playlists().get(group)) : group : named(group);
 
             int titleX = layout.tracks().x() + (layout.singleColumn() ? 116 : 0);
             int titleRight = layout.singleColumn() ? width - 96 : layout.tracks().right() - (mode.equals("Playlists") ? 150 : 32);

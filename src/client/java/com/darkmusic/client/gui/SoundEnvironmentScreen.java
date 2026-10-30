@@ -29,6 +29,11 @@ public final class SoundEnvironmentScreen extends AudioPage<AudioSettingsScreen.
         // Only built-in environments have a description.
         if (saved == null && !e.custom) row.description(Text.get("environment.description." + id));
         else row.besideLabel();
+        // Off applies nothing, so there is nothing to adjust or save.
+        if (e.preset == SoundEnvironmentSettings.Preset.OFF) {
+            info("environment.off");
+            return;
+        }
         slider("environment.intensity", e.intensity * 100, 0, 100, 100, v -> e.intensity = v / 100, "%");
         info(() -> Text.get(e.ownsReverb() ? "environment.owns_reverb" : "environment.allows_reverb"));
         section("environment.parameters");
@@ -49,12 +54,12 @@ public final class SoundEnvironmentScreen extends AudioPage<AudioSettingsScreen.
             slider("environment.echo_gain", p.echoGain, 0, .55, 55, v -> p.echoGain = v, "");
         if (recipe.modulationMs > 0)
             slider("environment.modulation", p.modulationMs, 0, 3, 60, v -> p.modulationMs = v, " ms");
-        enableSince(parametersStart, e.enabled && e.preset != SoundEnvironmentSettings.Preset.OFF);
+        enableSince(parametersStart, e.enabled);
         // A blank Custom recipe has nothing in the short list, so it shows every control.
         boolean blank = e.preset == SoundEnvironmentSettings.Preset.CUSTOM;
         if (!blank) toggle("environment.advanced", () -> advanced, v -> advanced = v);
         int advancedStart = rowCount();
-        if ((advanced || blank) && e.preset != SoundEnvironmentSettings.Preset.OFF) {
+        if (advanced || blank) {
             if (!device) toggle("environment.texture", () -> e.texture, v -> e.texture = v);
             if (!outdoors) toggle("environment.ambience", () -> e.ambience, v -> e.ambience = v);
             if (p.acoustic && recipe.wet <= 0) {
@@ -100,7 +105,7 @@ public final class SoundEnvironmentScreen extends AudioPage<AudioSettingsScreen.
                 slider("environment.reflection_gain", p.reflectionGains[n], -.35, .35, 70, v -> p.reflectionGains[n] = v, "");
             }
         }
-        enableSince(advancedStart, e.enabled && e.preset != SoundEnvironmentSettings.Preset.OFF);
+        enableSince(advancedStart, e.enabled);
         info("environment.dependencies");
         section("environment.saved");
         info(() -> Text.get("environment.saved_count", e.userPresets.size(), PresetNames.ENVIRONMENT_LIMIT));

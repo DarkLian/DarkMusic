@@ -23,6 +23,7 @@ public final class PlayerProgress {
     static void configure(ValueSlider slider, Sources app, Supplier<Track> track) {
         slider.trackOnly(true);
         slider.simpleProgress(true);
+        slider.focusOutline(false);
         slider.colors(() -> app.settings().progressColors);
         slider.waveform(() -> app.settings().waveformProgress ? app.hud().waveform(track.get()) : null, () -> app.settings().waveform);
         slider.finish(() -> app.settings().progressFinish);

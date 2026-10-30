@@ -38,7 +38,7 @@ public class ValueSlider extends AbstractSliderButton {
     private final int steps;
     private long adjusted;
     private boolean dragging;
-    private boolean trackOnly, simpleProgress;
+    private boolean trackOnly, simpleProgress, focusOutline = true;
     private Runnable exactEditor;
 
     public void exactEditor(Runnable editor) {
@@ -60,6 +60,13 @@ public class ValueSlider extends AbstractSliderButton {
 
     public void trackOnly(boolean value) {
         trackOnly = value;
+    }
+
+    /**
+     * Whether keyboard focus draws an outline; focus and its keys work either way.
+     */
+    public void focusOutline(boolean value) {
+        focusOutline = value;
     }
 
     private Supplier<TrackWaveform> waveform;
@@ -100,8 +107,9 @@ public class ValueSlider extends AbstractSliderButton {
     public void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
         if (!trackOnly)
             g.fill(getX(), getY(), getRight(), getBottom(), active ? isHoveredOrFocused() ? UiTheme.HOVER : UiTheme.RAISED : UiTheme.SURFACE);
-        if (!trackOnly || isFocused())
-            g.outline(getX(), getY(), getWidth(), getHeight(), isFocused() ? UiTheme.ACCENT : UiTheme.BORDER);
+        boolean outlined = isFocused() && focusOutline;
+        if (!trackOnly || outlined)
+            g.outline(getX(), getY(), getWidth(), getHeight(), outlined ? UiTheme.ACCENT : UiTheme.BORDER);
         if (simpleProgress) {
             // Drawn like the HUD's progress bar: its rail, colors and finish, on the panel rather than a dark slot.
             if (waveform != null) {

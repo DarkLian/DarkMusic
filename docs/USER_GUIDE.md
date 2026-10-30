@@ -21,8 +21,9 @@ scanned completely.
 | MP3, FLAC, WAV, Ogg Vorbis, AIFF | Nothing extra |
 | Opus, AAC, MP4/M4A, WebM | FFmpeg, installed from **Downloads → Tools** |
 
-Titles, artists, albums, duration and artwork come from the files' tags. Missing tags show the filename or an
-unknown artist/album; use the pencil button to edit them.
+Titles, artists, albums, duration and artwork come from the files' tags. A missing title shows the filename; songs
+without an artist or album are grouped under **Unknown Artist** or **Unknown Album**. Use the pencil button to edit
+them.
 
 ### Drag and import
 
@@ -35,7 +36,9 @@ where they are, and an existing file is never overwritten (the copy gets a numbe
 | A folder in All | That folder |
 | A playlist (including Favorite Music) | The music folder, and added to that playlist |
 
-**Import History**, beside Open Folder, lists past imports with their results.
+**Import History**, beside Open Folder, lists past imports with their results. Ctrl/Cmd-click and Shift-click select
+several records, as do **Select All** and **Invert Selection**; **Remove Selected** forgets them after confirming.
+Only the list changes; imported files stay where they are.
 
 ### Language
 
@@ -61,9 +64,11 @@ Play/Pause · Forward 5 s · Next · Stop · Repeat · Mute · Volume**. Drag th
   collection. Previous and Next always wrap around.
 - Playing a song found by search still plays its whole collection. **Jump to Playing** clears the search and shows
   the playing song in its collection.
-- **Resume Where You Left Off** (Settings → General, on by default) reopens the last song and collection at the
+- **Resume Where You Left Off** (Settings → General, off by default) reopens the last song and collection at the
   position you left. If the song left its playlist or folder, it resumes from the whole library.
 - **Autoplay on Launch** starts playback when Minecraft starts.
+
+Icons at the right of a song show its lyrics status (see [Lyrics](#lyrics)) and ▶ marks the song playing.
 
 Space plays and pauses while the player is open. Tab moves between controls; arrow keys and Space then operate the
 focused one. While the search box has focus, keys type instead of controlling playback; click elsewhere to release it.
@@ -266,6 +271,7 @@ saved environments. It stays open so you can compare; press Escape to return.
 
 ![Direct environment selection](images/environment-picker.png)
 
+With **Off** chosen, the page shows only the picker: nothing is applied, so there is nothing to adjust or save.
 **Intensity** sets the strength; 0% leaves the music unchanged. **Advanced Parameters** shows the detailed controls
 for tone, filters, reflections, distance and room. Changing a built-in environment switches to Custom; a saved
 environment stays selected while you edit it. Save up to 32 environments. Sound Environment works independently of
@@ -309,8 +315,8 @@ and choices always win.
 
 Plain lyrics show unsynchronized; timestamps are never invented.
 
-Status marks: ✓ lyrics available, ? not yet checked, ✗ nothing found or the lookup failed. "Lookup paused" waits to
-retry; "choose a matching version" needs your review.
+Status marks: ✓ lyrics available, ♪ instrumental, — none found, ⚠ the lookup failed, ? not yet checked. "Lookup
+paused" waits to retry; "choose a matching version" needs your review.
 
 **Lyrics in HUD** shows synchronized lines as a separate HUD element with its own width, colours, next line and text
 backdrop. It stays empty when no timed lyrics exist.
@@ -368,7 +374,7 @@ your settings, music and playlists.
 | Mute | M |
 | Show/hide HUD, show/hide lyrics HUD, favorite current song, shuffle, repeat mode | Not bound |
 
-Change keys in Minecraft's **Key Binds** under DarkMusic.
+Change keys in Minecraft's **Key Binds** under DarkMusic, or with `/da keys edit`.
 
 Commands work as `/da` or `/darkmusic`:
 
@@ -385,6 +391,7 @@ Commands work as `/da` or `/darkmusic`:
 | `/da sleep [minutes\|off]` | Pause after 1–720 minutes, fading out at the end |
 | `/da stopafter` | Stop when the current song ends (run again to cancel) |
 | `/da gui`, `/da lyrics`, `/da pip`, `/da keys` | HUD layout, lyrics, PiP, key list |
+| `/da keys edit` | Open Minecraft's Key Binds |
 | `/da update`, `/da help` | Check for updates, list all commands |
 
 Press Tab while typing a song name to see matches.
@@ -405,7 +412,8 @@ on the next start. If DarkMusic says the backup was restored but needs a restart
 ### Reset to Defaults
 
 **Settings → Reset → Reset to Defaults** restores settings, key binds, HUD layout, volume, speed and the default
-music folder. It clears download history, import history and caches. It keeps your music, videos, playlists,
+music folder. It clears download history, import history and caches (Import History can also be cleared on its
+own). It keeps your music, videos, playlists,
 installed tools and tool paths.
 
 ### Where data is stored

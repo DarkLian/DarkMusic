@@ -403,13 +403,21 @@ public final class RowList extends AbstractWidget {
             g.fill(getX() + 1, y + 2, getX() + 3, y + rowHeight - 3, UiTheme.ACCENT);
         boolean current = playing.test(i);
         var lyric = lyricInfo(i);
-        int rightInset = (current ? 34 : 9) + (lyric != null ? 34 : 0);
-        if (lyric != null) {
-            int x = getRight() - rightInset + 2;
-            UiIcon.LYRICS.draw(g, x, y + (rowHeight - 14) / 2, 14, UiStatus.lyricsColor(lyric));
-            LyricsStatusIcon.draw(g, font, lyric, x + 17, y + (rowHeight - 12) / 2, 12);
+        // Status icons fill 14-pixel slots from the right at equal gaps, centred on the row: playing, lyrics status,
+        // then lyrics.
+        int slot = 14, gap = 6, slotY = y + (rowHeight - slot) / 2;
+        int left = getRight() - 12;
+        if (current) {
+            left -= slot;
+            playingIcon.get().draw(g, left, slotY, slot, UiTheme.ACCENT);
         }
-        if (current) playingIcon.get().draw(g, getRight() - 26, y + (rowHeight - 14) / 2, 14, UiTheme.ACCENT);
+        if (lyric != null) {
+            left -= (current ? gap : 0) + slot;
+            LyricsStatusIcon.draw(g, font, lyric, left + 1, slotY + 1, slot - 2);
+            left -= gap + slot;
+            UiIcon.LYRICS.draw(g, left, slotY, slot, UiStatus.lyricsColor(lyric));
+        }
+        int rightInset = current || lyric != null ? getRight() - left + 4 : 9;
         Row row = rows.get(i);
         boolean twoLines = rowHeight >= 28 && (!row.subtitle().isBlank() || !row.status().isBlank());
         int lineGap = 4;

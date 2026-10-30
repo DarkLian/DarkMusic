@@ -80,6 +80,60 @@ class ImportHistoryTest {
     }
 
     @Test
+    void removingSelectedRecordsChangesOnlyTheSavedHistory() throws Exception {
+        // Stands in for an imported file; the history must never touch it.
+        Path imported = Files.writeString(temp.resolve("imported.txt"), "kept");
+        var io = Executors.newSingleThreadExecutor();
+        try {
+            var history = new ImportHistory(temp, io, message -> {
+                throw new AssertionError(message);
+            });
+            var first = new MediaFiles.ImportEntry("a.mp3", imported.toString(), true, "");
+            var second = new MediaFiles.ImportEntry("b.mp3", "", false, "Unsupported file");
+            history.record(new ImportHistory.Batch(1, "Favorite Music", 2, List.of(first, second), ""));
+            history.record(new ImportHistory.Batch(2, "Subfolder", 1, List.of(), "Permission denied"));
+            io.submit(() -> {
+            }).get();
+            var files = history.batches().get(1);
+            var failure = new ImportHistory.Item(history.batches().getFirst(), null);
+
+            history.remove(List.of(new ImportHistory.Item(files, second), failure));
+            io.submit(() -> {
+            }).get();
+            var reloaded = new ImportHistory(temp, io, message -> {
+                throw new AssertionError(message);
+            });
+            io.submit(() -> {
+            }).get();
+            assertEquals(1, reloaded.batches().size());
+            assertEquals(List.of(first), reloaded.batches().getFirst().entries());
+
+            // Records already gone, as from a screen that has not refreshed yet, change nothing.
+            long revision = reloaded.revision();
+            reloaded.remove(List.of(failure, new ImportHistory.Item(files, second)));
+            io.submit(() -> {
+            }).get();
+            assertEquals(revision, reloaded.revision());
+
+            // Everything selected.
+            reloaded.remove(List.of(new ImportHistory.Item(reloaded.batches().getFirst(), first)));
+            io.submit(() -> {
+            }).get();
+            assertTrue(reloaded.batches().isEmpty());
+            var empty = new ImportHistory(temp, io, message -> {
+                throw new AssertionError(message);
+            });
+            io.submit(() -> {
+            }).get();
+            assertTrue(empty.batches().isEmpty());
+            assertEquals("kept", Files.readString(imported));
+        } finally {
+            io.shutdown();
+            assertTrue(io.awaitTermination(10, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
     void corruptedHistoryIsPreservedBeforeSavingAndHistoryRetentionIsBounded() throws Exception {
         Path file = Files.writeString(temp.resolve("import-history.json"), "broken history");
         var io = Executors.newSingleThreadExecutor();

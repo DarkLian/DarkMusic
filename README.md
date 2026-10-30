@@ -161,10 +161,11 @@ Earlier versions are in [docs/releases](docs/releases).
 | Jump to Playing | O |
 | Reset speed | Numpad 0 |
 | Mute | M |
+| Show/hide HUD, show/hide lyrics HUD, favorite current song, shuffle, repeat mode | Not bound |
 
-Change keys in **Options → Controls → Key Binds → DarkMusic**. `/da` (or `/darkmusic`) opens the player, and commands
-such as `/da play <song>`, `/da volume 40`, `/da seek 1:30` and `/da now` control playback from chat. `/da help` lists
-them all.
+Change keys in **Options → Controls → Key Binds → DarkMusic**, or with `/da keys edit`. `/da` (or `/darkmusic`) opens
+the player, and commands such as `/da play <song>`, `/da queue <song>`, `/da volume 40`, `/da seek 1:30`,
+`/da sleep 30` and `/da now` control playback from chat. `/da help` lists them all.
 
 ## Language
 

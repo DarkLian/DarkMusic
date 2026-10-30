@@ -68,6 +68,7 @@ class ResumePlaybackTest {
     @Test
     void savedResumePointsSurviveReloadAndDamagedOnesAreDropped() {
         var settings = new Settings();
+        settings.resumeLast = true;
         settings.resume = new Settings.Resume("All", "@root/Albums", "root:Albums/a.mp3", 83.25);
         var loaded = ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(settings), Settings.class);
         loaded.validate();
@@ -83,7 +84,7 @@ class ResumePlaybackTest {
         }
         var older = ConfigStore.JSON.fromJson("{}", Settings.class);
         older.validate();
-        assertTrue(older.resumeLast, "On by default, including for settings saved by older versions");
+        assertFalse(older.resumeLast, "Off by default; a saved choice is kept");
         assertNull(older.resume);
     }
 }

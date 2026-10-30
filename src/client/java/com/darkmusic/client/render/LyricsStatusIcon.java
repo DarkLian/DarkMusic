@@ -29,9 +29,9 @@ public final class LyricsStatusIcon {
             case INSTRUMENTAL -> UiIcon.MUSIC.draw(g, x, y, size, color);
             case FAILED -> UiIcon.WARNING.draw(g, x, y, size, color);
             case NONE -> {
-                int inset = Math.max(2, size / 4), thickness = Math.max(1, size / 8);
-                int middle = y + size / 2;
-                g.fill(x + inset, middle - thickness / 2, x + size - inset, middle - thickness / 2 + thickness + 1, color);
+                int inset = Math.max(2, size / 4), thickness = Math.max(1, size / 8) + 1;
+                int top = y + (size - thickness) / 2;
+                g.fill(x + inset, top, x + size - inset, top + thickness, color);
             }
             case PENDING ->
                 g.text(font, "?", x + (size - font.width("?")) / 2, y + (size - font.lineHeight) / 2, color);

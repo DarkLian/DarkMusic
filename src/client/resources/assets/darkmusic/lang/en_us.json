@@ -1172,6 +1172,7 @@
   "environment.saved_count": "Saved Environments (%s/%s)",
   "environment.saved_empty": "No saved environments yet. Save a recipe from the Sound Environment page.",
   "environment.inactive": "Choose an environment and raise Intensity to hear changes.",
+  "environment.off": "Off leaves the music unchanged. Choose an environment to adjust or save one.",
   "environment.dependencies": "Echo Level, Modulation and Reverb Blend must be above zero to hear their related controls.",
   "preset.rename_help": "Rename a stored profile without changing the current sound.",
   "audio.basic_hint": "Choose a profile for a quick adjustment, or customize the controls below.",
@@ -1752,8 +1753,10 @@
   "download.diag.action.bot_check": "Check Download Tools for current yt-dlp and JavaScript runtime support. You can retry later or from another network. DarkMusic does not bypass website verification.",
   "import.history.read_failed": "Cannot read import history: %s",
   "import.history.save_failed": "Cannot save import history: %s",
+  "import.history.remove": "Remove Selected",
+  "import.history.remove_confirm": "Forget %s import records? Imported music files are not deleted.",
   "library.metadata.unavailable": "Metadata unavailable: %s",
   "library.metadata.tools_required": "%s; FFmpeg/FFprobe may be required for this format",
-  "library.artist.unknown": "Unknown artist",
-  "library.album.unknown": "Unknown album"
+  "library.artist.unknown": "Unknown Artist",
+  "library.album.unknown": "Unknown Album"
 }

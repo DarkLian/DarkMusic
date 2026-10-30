@@ -23,7 +23,7 @@ public final class Settings {
     public boolean shuffle;
     public Repeat repeat = Repeat.OFF;
     public boolean autoplay;
-    public boolean resumeLast = true;
+    public boolean resumeLast = false;
     /**
      * The song to continue with Resume Where You Left Off, or null.
      */
