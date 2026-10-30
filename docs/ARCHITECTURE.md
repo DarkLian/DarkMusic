@@ -10,7 +10,7 @@ Minecraft/Fabric callbacks, mixins, screens (gui), HUD (hud, render), PiP (pip),
         │  narrow Sources interfaces / adapters; never DarkMusicClient (ArchitectureTest: DECOUPLED)
         ▼
 com.darkmusic.client (root): DarkMusicClient = composition root + Fabric integration,
-        Folder/Media/Client actions, Shortcuts, lifecycle (ClientState, ResetOperation, RestoreOperation, Cleanup), LibraryReconciliation
+        Folder/Media/Client actions, Shortcuts, lifecycle (ClientState, Startup, ResetOperation, RestoreOperation, Shutdown, Cleanup), LibraryReconciliation
         ▼
 backup ▸ download ▸ cleanup ▸ audio | lyrics | playlist ▸ library ▸ media ▸ tools ▸ config ▸ text
         (core packages; strictly downward, enforced by ArchitectureTest.CORE)
@@ -72,12 +72,12 @@ All admission happens on the client thread. `ClientState` holds the flags; `aliv
 
 | Operation | Admission | Acquires | Invalidates | Commit point | Publication | Failure | Final state |
 |---|---|---|---|---|---|---|---|
-| Startup (`start`/`ready`) | config loaded, not closed | histories, playlists, caches, PiP, playback, library, downloads, each registered in a `Cleanup` | — | services built | settings were published just before; services as built; playlists ready after their own read | built services closed, fields and settings withdrawn, `error.startup` warned | not-yet-loaded state (as before config load); restart needed |
+| Startup (`Startup`, `ready`) | config loaded, not closed | histories, playlists, caches, PiP, playback, library, downloads, each registered in a `Cleanup` | — | services built | settings were published just before; services as built; playlists ready after their own read | built services closed, fields and settings withdrawn, `error.startup` warned | not-yet-loaded state (as before config load); restart needed |
 | Reset (`ResetOperation`) | `idle` | `resetting` (blocks all other admission and per-tick work) | folder checks (generation), screen requests, autoplay, cleanup/source index, playback | old services closed **and** stopped, then storage cleared (storage executor) | replacements built and installed while still resetting; then `release` ends resetting and saves | old worker not stopped / storage error: storage untouched or partial, replacements built with prior settings, future fails. Building fails: built replacements closed, stays resetting, `reset.darkmusic.restart`. Closing first or storage refused: nothing published | defaults (or prior) published; saved config read back behind the save |
 | Restore (`RestoreOperation`) | `accepting`, playlists and history ready, shortcut keys valid | `mediaBusy` + `restoring` | history writes paused | `RestoreJournal.install` returns; recovery state read right after (storage executor) | client thread replaces settings, playlists, history, key binds; applies to playback | install fails: nothing applied, `backup.failed`. Apply fails: on disk, `backup.restart`. Closing in between: completes, next start loads it | flags released, kept while a journal recovery is pending |
 | Output switch | `accepting`, backend exists | `outputChanging` | — | backend reports the new line | applies only if the backend is still the one asked | synchronous refusal: flag never taken; completion always releases the flag and completes the future | flag released |
 | Media edits/import/delete (`MediaActions`) | `idle` / `accepting` | `mediaBusy`, media token | — | file change on the browse pool | client thread; captured player/store/library identity decides whether UI state updates | rejected submission releases immediately; deletion reconciles playlists even after replacement | flag released by the operation that took it (admission prevents overlap) |
-| Shutdown (`shutdown`) | once | — | `closed` set after the final save | — | — | each step guarded by `Cleanup`; later steps still run | resume point and settings saved, admission closed, pickers/media/browse cancelled, consumers closed before their dependencies (updates, Discord, media controls, PiP, source links, cleanup, audition, lyrics, downloads, library, playback, caches), history flushed, storage drained (2 s) |
+| Shutdown (`Shutdown`) | once | — | `closed` set after the final save | — | — | each step guarded by `Cleanup`; later steps still run | resume point and settings saved, admission closed, pickers/media/browse cancelled, consumers closed before their dependencies (updates, Discord, media controls, PiP, source links, cleanup, audition, lyrics, downloads, library, playback, caches), history flushed, storage drained (2 s) |
 
 ### Exclusive operations and overlap
 
@@ -118,7 +118,7 @@ Reviewed against the plan's section 5 and 6 focus areas.
 
 | Area | Disposition | Reason / evidence | Remaining risk |
 |---|---|---|---|
-| Application lifecycle (startup, reset, restore, shutdown) | **Improved** | `ResetOperation`, `RestoreOperation`, `Cleanup`; every future completes; partial startup unwinds; ordered, failure-tolerant shutdown (batch 2) | Glue in `DarkMusicClient` is covered by compilation, review and smoke, not unit tests (the client cannot be built without Minecraft) |
+| Application lifecycle (startup, reset, restore, shutdown) | **Improved** | `Startup`, `ResetOperation`, `RestoreOperation`, `Shutdown`, `Cleanup`, each driven by tests without Minecraft; every future completes; partial startup unwinds (batches 2, 9, 10) | Which services are built (`ready`, `ResetSteps.publish`) is wiring in `DarkMusicClient`, covered by compilation, review and smoke |
 | Library reconciliation | **Improved** | `LibraryReconciliation` owns markers and generation; fixed markers surviving reset (batch 3) | — |
 | Settings application and replacement | **Improved** (naming, order, semantics) | `applySettings`, documented order, replacement audit and test (batch 4) | An `update(s -> …)` store stays deferred because it changes save timing |
 | Screen navigation | **Improved** | `Navigation` + `ScreenNavigation` for every screen; reach of `MusicScreen.Sources` 62 → 31 methods, 31 → 4 interfaces (batches 5 and 8) | — |
@@ -138,7 +138,7 @@ Reviewed against the plan's section 5 and 6 focus areas.
 | Methods reachable from `MusicScreen.Sources` | 62 across 31 interfaces | 31 across 4 |
 | Methods reachable from `SettingsScreen.Sources` | 39 across 17 interfaces | 12 across 4 |
 | Files depending on `DarkMusicClient` (ratchet) | 5 | 5 |
-| `DarkMusicClient` lines | 1223 | 1313 |
+| `DarkMusicClient` lines | 1223 | 1341 |
 
 The coordination left `DarkMusicClient`: phase order, failure semantics, revision markers and stale-result rules
 now live in `ResetOperation`, `RestoreOperation`, `LibraryReconciliation` and `Cleanup`. Its line count still grew,

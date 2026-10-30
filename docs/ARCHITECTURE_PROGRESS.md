@@ -417,3 +417,20 @@ and PiP colour paths. These are covered by the cleanup and queue smoke modes, an
   the writer finishes. The held task ignores interrupts, as an in-progress file write would. Both tests fail against
   the pre-batch-6 `awaitStopped` (verified) and pass now. They reach the private executors by reflection, so no
   production code was added for them.
+
+## Batch 10: testable startup and shutdown sequences (2026-10-30, approved follow-up)
+
+- `Startup` owns the build-or-unwind sequence. A failed build closes what was acquired, in reverse, then withdraws
+  the partial state. It reports the original error with any close failures attached as suppressed, and saves only a
+  complete build.
+- `Shutdown` owns the closing order, taking the services as a record: final save → `closed` → cancel work in flight →
+  integrations, PiP, links, cleanup, audition, lyrics, downloads, library, playback, caches → history → storage.
+- `DarkMusicClient.start` and `shutdown` now only supply the pieces.
+- The resume-point record and the final save stay isolated (`try/finally`). Cancelling the picker, the media
+  operation and the browse pool runs as its own guarded `Cleanup`.
+- `StartupShutdownTest` (3 tests) drives both sequences without Minecraft: a complete startup; a failed startup with
+  a close that also fails; the closing order with one failing close.
+
+**Remaining limit:** which services are built is still wiring inside `DarkMusicClient`: `ready` and `ResetSteps`.
+Item 9 (a service holder) would make that list testable too. `DarkMusicClient` is now 1341 lines, because the
+anonymous step classes are explicit.

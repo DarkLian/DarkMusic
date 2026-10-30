@@ -1005,27 +1005,38 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
      */
     private void start(Settings loaded) {
         settingsStore.replace(loaded);
-        var acquired = new Cleanup();
-        try {
-            ready(acquired);
-        } catch (RuntimeException | LinkageError failure) {
-            LoggerFactory.getLogger("darkmusic").error("DarkMusic could not start", failure);
-            acquired.run();
-            listeningHistory = null;
-            importHistory = null;
-            playlists = null;
-            artwork = null;
-            waveforms = null;
-            pip = null;
-            playback = null;
-            backend = null;
-            library = null;
-            downloads = null;
-            settingsStore.replace(null);
-            warn(Text.get("error.startup"));
-            return;
-        }
-        save();
+        Startup.run(new Startup.Steps() {
+            @Override
+            public void build(Cleanup acquired) {
+                ready(acquired);
+            }
+
+            @Override
+            public void withdraw() {
+                listeningHistory = null;
+                importHistory = null;
+                playlists = null;
+                artwork = null;
+                waveforms = null;
+                pip = null;
+                playback = null;
+                backend = null;
+                library = null;
+                downloads = null;
+                settingsStore.replace(null);
+            }
+
+            @Override
+            public void failed(Throwable failure) {
+                LoggerFactory.getLogger("darkmusic").error("DarkMusic could not start", failure);
+                warn(Text.get("error.startup"));
+            }
+
+            @Override
+            public void save() {
+                DarkMusicClient.this.save();
+            }
+        });
     }
 
     /**
@@ -1281,42 +1292,41 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
     }
 
     /**
-     * Minecraft is closing. The final settings are written while writes are still admitted; then closed turns away new
-     * operations and late callbacks; consumers close before the services they read; history is flushed; the storage
-     * executor drains last, so queued writes finish. Every step runs even if one before it fails, and a second call
-     * does nothing.
+     * Minecraft is closing; {@link Shutdown} owns the order. A second call does nothing.
      */
     protected void shutdown() {
         if (state.closed) return;
-        var steps = new Cleanup();
-        if (settings() != null && playback != null && !state.resetting)
-            steps.then("resume point", () -> recordResume(false));
-        steps.then("settings", this::save)
-            .then("admission", () -> state.closed = true)
-            .then("folder picker", DesktopFolderPicker::cancel)
-            .then("media operation", () -> {
-                if (mediaToken != null) mediaToken.cancel();
-            })
-            .then("browse pool", browsing::shutdownNow)
-            .close("updates", updates)
-            .close("Discord", discord)
-            .close("media controls", mediaControls)
-            .close("media controls package", mediaPackage)
-            .close("PiP", pip)
-            .close("source links", sourceLinks)
-            .close("cleanup scanner", cleanupScanner)
-            .close("source index", sourceIndex)
-            .close("audition", audition)
-            .close("lyrics", lyrics)
-            .close("downloads", downloads)
-            .close("library", library)
-            .close("playback", playback)
-            .close("artwork", artwork)
-            .close("waveforms", waveforms)
-            .then("listening history", () -> {
+        Shutdown.run(new Shutdown.Steps() {
+            @Override
+            public void saveFinal() {
+                try {
+                    if (settings() != null && playback != null && !state.resetting) recordResume(false);
+                } finally {
+                    save();
+                }
+            }
+
+            @Override
+            public void close() {
+                state.closed = true;
+            }
+
+            @Override
+            public void cancelWork() {
+                new Cleanup().then("folder picker", DesktopFolderPicker::cancel)
+                    .then("media operation", () -> {
+                        if (mediaToken != null) mediaToken.cancel();
+                    })
+                    .then("browse pool", browsing::shutdownNow).run();
+            }
+
+            @Override
+            public void flushHistory() {
                 if (listeningHistory != null) listeningHistory.flush(true);
-            })
-            .then("storage", () -> {
+            }
+
+            @Override
+            public void drainStorage() {
                 io.shutdown();
                 try {
                     if (!io.awaitTermination(2, TimeUnit.SECONDS)) io.shutdownNow();
@@ -1324,6 +1334,8 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                     Thread.currentThread().interrupt();
                     io.shutdownNow();
                 }
-            }).run();
+            }
+        }, new Shutdown.Services(updates, discord, mediaControls, mediaPackage, pip, sourceLinks, cleanupScanner,
+            sourceIndex, audition, lyrics, downloads, library, playback, artwork, waveforms));
     }
 }
