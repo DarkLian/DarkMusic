@@ -10,7 +10,7 @@ Minecraft/Fabric callbacks, mixins, screens (gui), HUD (hud, render), PiP (pip),
         │  narrow Sources interfaces / adapters; never DarkMusicClient (ArchitectureTest: DECOUPLED)
         ▼
 com.darkmusic.client (root): DarkMusicClient = composition root + Fabric integration,
-        Folder/Media/Client actions, Shortcuts, lifecycle (ClientState, ResetOperation, RestoreOperation, Cleanup)
+        Folder/Media/Client actions, Shortcuts, lifecycle (ClientState, ResetOperation, RestoreOperation, Cleanup), LibraryReconciliation
         ▼
 backup ▸ download ▸ cleanup ▸ audio | lyrics | playlist ▸ library ▸ media ▸ tools ▸ config ▸ text
         (core packages; strictly downward, enforced by ArchitectureTest.CORE)
@@ -55,7 +55,7 @@ first use and dropped by reset; **screen** = owned by one screen.
 | Cleanup / source evidence | duplicate pairs, review store, source index | own workers | cleanup and download screens | lazy | `close`; reset drops them |
 | PiP (`PipController`) | capture session, runtime lease | helper threads | PiP screens, HUD layer | app | `close` stops then releases runtime asynchronously |
 | Updates, Discord, Media Controls | jobs, IPC, helper process | own threads | settings screens, tick | app | `close` |
-| Library reconciliation (in `DarkMusicClient.tick`) | revision markers, cleanup pending flag, autoplay pending | client; playlist scan on storage | — | gen markers reset on reset | — |
+| Library reconciliation (`LibraryReconciliation`) | revision markers, one pending playlist cleanup, generation | client (polled per tick); playlist absence check on storage | autoplay (in `DarkMusicClient`) | app; `reset()` starts a new generation | — |
 
 ## Lifecycle operations
 

@@ -140,3 +140,46 @@ unit tests. Its line count grew by the step classes; the coordination logic left
 
 **Runtime-unverified:** Reset to Defaults and backup restore in game (`-PresetSmoke` covers reset), exit with
 playback/downloads active.
+
+## Batch 3: library reconciliation (2026-10-30)
+
+**Invariant improved:** after each scan, the services that keep per-track state are reconciled by one owner, which
+holds the revision markers and the one outstanding playlist cleanup. Work left over from a replaced library cannot
+mark the new library as reconciled.
+
+**Changes:**
+- `LibraryReconciliation` (root package) now does the per-revision work that used to be split between
+  `DarkMusicClient.tick` and `cleanMissingPlaylistEntries`: lyric choices, duplicate reviews and scans, the source
+  index and its evidence, queued playback, and playlist cleanup. Each consumer keeps its own evidence rule, listed
+  in the class comment. Every consumer gets the whole snapshot, never a reduced "tracks changed" event.
+- `tick` now calls it and keeps only the history flush and the autoplay decision.
+- Reset calls `reconciliation.reset()`. It starts a new generation, clears the markers, and makes any cleanup still
+  running for the old library ignore its result.
+- Inputs come through an adapter that reads the fields on each call, as `hud` does, so reset and restore
+  replacements are seen.
+
+**Defect fixed:** the markers (`queuedLibraryRevision`, `cleanedScan`, `cleanedPlaylists`) previously survived
+reset. A replacement library counts revisions from the start again, so when its revision matched an old marker:
+- the per-revision reconcile was skipped;
+- playlist cleanup counted as done, which also allowed autoplay;
+- a cleanup still running from before the reset could set the markers for the new library.
+
+Shown by `aCheckFromBeforeAResetCannotMarkTheNewLibraryReconciled`, which fails when `reset()` is emptied
+(mutation check).
+
+**Checked, no change needed:** playlist cleanup does not prune entries in unreadable subtrees.
+`PlaylistStore.missing` removes an entry only when `Files.notExists` holds, and an inaccessible file reports
+neither existing nor not existing.
+
+**Checks:** `LibraryReconciliationTest` (5 tests) uses disposable text files and queued storage and client
+executors. It covers:
+- removal only from complete roots, and only for files absent on disk;
+- a playlist edit during the check;
+- changed roots or a busy client when the result arrives;
+- no start while media operations hold the files;
+- an old-generation result after a reset.
+
+`ArchitectureTest`, `PlaylistIndexTest` and `ResetOperationTest` passed. The smoke sources compile.
+
+**Runtime-unverified:** startup autoplay timing and playlist cleanup with a real library in game. Covered by the
+default and cleanup smoke checks in the testing window.

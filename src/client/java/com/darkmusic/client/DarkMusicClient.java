@@ -12,7 +12,6 @@ import com.darkmusic.client.audio.SleepTimer;
 import com.darkmusic.client.audio.TrackWaveform;
 import com.darkmusic.client.audio.WaveformCache;
 import com.darkmusic.client.backup.BackupArchive;
-import com.darkmusic.client.cleanup.DuplicateResult;
 import com.darkmusic.client.cleanup.DuplicateReviewStore;
 import com.darkmusic.client.cleanup.DuplicateScanner;
 import com.darkmusic.client.cleanup.LibrarySourceIndex;
@@ -51,6 +50,7 @@ import com.darkmusic.client.library.MediaFiles;
 import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.lyrics.LyricsLookup;
 import com.darkmusic.client.lyrics.LyricsService;
 import com.darkmusic.client.media.ExternalAudio;
 import com.darkmusic.client.pip.PipController;
@@ -85,10 +85,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -100,7 +100,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 // MusicScreen.Sources extends every screen's Sources, directly or through the screens it opens.
 public class DarkMusicClient implements ClientModInitializer, MusicScreen.Sources {
@@ -167,8 +166,52 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
     DuplicateScanner cleanupScanner;
     DuplicateReviewStore cleanupReviews;
     LibrarySourceIndex sourceIndex;
-    private long sourceEvidenceRevision = -1;
-    private List<DuplicateResult> sourceEvidence = List.of();
+    // Reads the fields on every call, like hud: reset replaces the library and playback behind them.
+    private final LibraryReconciliation reconciliation = new LibraryReconciliation(new LibraryReconciliation.Inputs() {
+        public MusicLibrary.Snapshot snapshot() {
+            return library.snapshot();
+        }
+
+        public Map<Path, String> roots() {
+            return library.roots();
+        }
+
+        public PlaylistStore playlists() {
+            return playlists;
+        }
+
+        public boolean playlistsReady() {
+            return playlistsReady;
+        }
+
+        public boolean idle() {
+            return DarkMusicClient.this.idle();
+        }
+
+        public boolean mediaBusy() {
+            return state.mediaBusy;
+        }
+
+        public PlaybackController playback() {
+            return playback;
+        }
+
+        public LyricsLookup lyrics() {
+            return lyrics.lookup;
+        }
+
+        public DuplicateScanner cleanupScanner() {
+            return cleanupScanner;
+        }
+
+        public DuplicateReviewStore cleanupReviews() {
+            return cleanupReviews;
+        }
+
+        public LibrarySourceIndex sourceIndex() {
+            return sourceIndex;
+        }
+    }, io, task -> Minecraft.getInstance().execute(task), this::warn);
 
     @Override
     public LibrarySourceIndex sourceIndex() {
@@ -361,9 +404,6 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
     private volatile long warningUntil;
     boolean autoplayPending;
     public final SourceLinks sourceLinks = new SourceLinks();
-    private boolean playlistCleanupPending;
-    private long cleanedScan = -1, cleanedPlaylists = -1;
-    private long queuedLibraryRevision = -1;
 
     @Override
     public boolean canEditQueue() {
@@ -1021,44 +1061,6 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         }
     }
 
-    private boolean cleanMissingPlaylistEntries() {
-        if (state.mediaBusy || !playlistsReady || library == null || playlistCleanupPending) return false;
-        var snapshot = library.snapshot();
-        if (snapshot.completeRoots().isEmpty()) return false;
-        if (cleanedScan == snapshot.revision() && cleanedPlaylists == playlists.revision()) return true;
-        var store = playlists;
-        var entries = store.all();
-        long revision = store.revision();
-        var roots = library.roots();
-        playlistCleanupPending = true;
-        io.execute(() -> {
-            Set<PlaylistStore.Entry> missing;
-            try {
-                var all = new HashSet<PlaylistStore.Entry>();
-                for (var entry : roots.entrySet())
-                    if (snapshot.completeRoots().contains(entry.getValue()))
-                        all.addAll(PlaylistStore.missing(entry.getKey(), entry.getValue(), entries, snapshot.tracks()));
-                missing = all;
-            } catch (Exception e) {
-                missing = Set.of();
-                warn(Text.failure(e, "error.playlist_scan"));
-            }
-            var result = missing;
-            Minecraft.getInstance().execute(() -> {
-                playlistCleanupPending = false;
-                if (!idle() || playlists != store || store.revision() != revision
-                    || !roots.equals(library.roots())) return;
-                var current = library.snapshot();
-                var present = store.index(current.tracks());
-                store.removeMissing(result.stream().filter(entry -> current.completeRoots().contains(entry.rootId()) && !present.containsKey(entry.key())).collect(Collectors.toSet()));
-                store.acknowledgeTracks(current.tracks());
-                cleanedScan = snapshot.revision();
-                cleanedPlaylists = store.revision();
-            });
-        });
-        return false;
-    }
-
     protected void tick(Minecraft client, boolean allowed) {
         if (waveforms != null && settings() != null && playback != null) {
             var waveformTrack = playback.state().track();
@@ -1082,42 +1084,9 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         if (!warning.isEmpty() && System.nanoTime() >= warningUntil) warning = "";
         shortcuts.consume(allowed);
         if (state.resetting || settings() == null || playback == null) return;
-        var queuedLibrary = library.snapshot();
-        if (!state.mediaBusy && queuedLibraryRevision != queuedLibrary.revision()) {
-            queuedLibraryRevision = queuedLibrary.revision();
-            if (!queuedLibrary.scanning()) lyrics.lookup.prune(queuedLibrary.tracks(),
-                new HashSet<>(library.roots().values()), queuedLibrary.completeRoots(), queuedLibrary.unreadableScopes());
-            if (!queuedLibrary.scanning()) {
-                var registered = new HashSet<>(library.roots().values());
-                var cleanupRoots = new HashSet<>(queuedLibrary.completeRoots());
-                cleanupRoots.removeAll(queuedLibrary.unreadableScopes().keySet());
-                if (cleanupReviews != null)
-                    cleanupReviews.prune(queuedLibrary.tracks(), registered, cleanupRoots);
-                if (cleanupScanner != null)
-                    cleanupScanner.prune(queuedLibrary.tracks(), registered, cleanupRoots);
-            }
-            if (sourceIndex != null && !state.mediaBusy) {
-                sourceIndex.roots(library.roots());
-                if (!queuedLibrary.scanning())
-                    sourceIndex.update(queuedLibrary.tracks(), library.roots(), queuedLibrary.complete());
-            }
-            if (!state.mediaBusy && !queuedLibrary.scanning())
-                playback.reconcileQueued(playlists.index(queuedLibrary.tracks()),
-                    new HashSet<>(library.roots().values()), queuedLibrary.completeRoots());
-        }
+        boolean playlistsClean = reconciliation.tick();
         if (listeningHistory != null && !state.mediaBusy) listeningHistory.flush(false);
-        if (sourceIndex != null && cleanupScanner != null && sourceEvidenceRevision != cleanupScanner.snapshot().revision()) {
-            sourceEvidenceRevision = cleanupScanner.snapshot().revision();
-            var pairs = cleanupScanner.snapshot().pairs();
-            if (pairs != sourceEvidence) {
-                sourceEvidence = pairs;
-                var index = sourceIndex;
-                io.execute(() -> index.evidence(pairs));
-            }
-        }
-        boolean playlistsClean = cleanMissingPlaylistEntries();
-        var startup = library.snapshot();
-        if (autoplayPending && !state.mediaBusy && playlistsClean && !startup.scanning()) {
+        if (autoplayPending && !state.mediaBusy && playlistsClean && !library.snapshot().scanning()) {
             autoplayPending = false;
             startPlayback();
         }
@@ -1170,8 +1139,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                 })
                 .then("pending requests", () -> {
                     cleanupReviews = null;
-                    sourceEvidenceRevision = -1;
-                    sourceEvidence = List.of();
+                    reconciliation.reset();
                     requestedScreen = null;
                     requestedWorld = null;
                     folders.invalidate();
