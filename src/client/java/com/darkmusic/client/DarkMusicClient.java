@@ -393,9 +393,14 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             }
 
             @Override
-            public void end() {
-                state.mediaBusy = state.restoring = RestoreJournal.recoveryPending(config.directory());
-                listeningHistory.suspended(state.restoring);
+            public boolean recoveryPending() {
+                return RestoreJournal.recoveryPending(config.directory());
+            }
+
+            @Override
+            public void end(boolean recoveryPending) {
+                state.mediaBusy = state.restoring = recoveryPending;
+                listeningHistory.suspended(recoveryPending);
             }
 
             @Override

@@ -5,7 +5,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 
 /**
@@ -18,7 +17,8 @@ import java.util.concurrent.Executor;
  * <li>apply fails: the restore is on disk and takes full effect on the next start; fails with {@code backup.restart}.
  * <li>the client closes in between: completes normally, since the next start loads the installed files.
  * </ul>
- * The media and restore flags are held from begin until end, which runs on every path.
+ * The media and restore flags are held from begin until end, which runs on every path. Whether a journal recovery is
+ * still pending is read on the storage executor right after the install, never on the client thread.
  */
 final class RestoreOperation {
     interface Steps {
@@ -33,16 +33,24 @@ final class RestoreOperation {
         void install() throws Exception;
 
         /**
+         * Storage executor, after install whether or not it succeeded: whether a journal recovery is still pending.
+         */
+        boolean recoveryPending();
+
+        /**
          * Client thread: replaces settings, playlists, history and key binds in memory, then saves.
          */
         void apply();
 
         /**
-         * Client thread: releases the flags, keeping them while a journal recovery is still pending.
+         * Client thread: releases the flags, or keeps them while a journal recovery is still pending.
          */
-        void end();
+        void end(boolean recoveryPending);
 
         boolean closed();
+    }
+
+    private record Installed(Exception failure, boolean recoveryPending) {
     }
 
     private RestoreOperation() {
@@ -51,22 +59,32 @@ final class RestoreOperation {
     static CompletableFuture<Void> run(Steps steps, Executor client, Executor storage) {
         var finished = new CompletableFuture<Void>();
         steps.begin();
-        CompletableFuture<Void> installed;
+        CompletableFuture<Installed> installed;
         try {
-            installed = CompletableFuture.runAsync(() -> {
+            installed = CompletableFuture.supplyAsync(() -> {
+                Exception failure = null;
                 try {
                     steps.install();
-                } catch (Exception failure) {
-                    throw new CompletionException(failure);
+                } catch (Exception e) {
+                    failure = e;
                 }
+                boolean pending;
+                try {
+                    pending = steps.recoveryPending();
+                } catch (RuntimeException unknown) {
+                    // Keep the restrictions when the journal cannot be read.
+                    pending = true;
+                }
+                return new Installed(failure, pending);
             }, storage);
         } catch (RuntimeException rejected) {
-            installed = CompletableFuture.failedFuture(rejected);
+            // The storage executor stops only at shutdown; nothing was installed.
+            installed = CompletableFuture.completedFuture(new Installed(rejected, false));
         }
-        installed.whenComplete((unused, failure) -> client.execute(() -> {
+        installed.thenAccept(result -> client.execute(() -> {
             try {
-                if (failure != null)
-                    finished.completeExceptionally(new IOException(Text.get("backup.failed"), failure));
+                if (result.failure() != null)
+                    finished.completeExceptionally(new IOException(Text.get("backup.failed"), result.failure()));
                 else if (steps.closed()) finished.complete(null);
                 else {
                     try {
@@ -79,7 +97,7 @@ final class RestoreOperation {
                 }
             } finally {
                 try {
-                    steps.end();
+                    steps.end(result.recoveryPending());
                 } catch (RuntimeException | LinkageError broken) {
                     finished.completeExceptionally(broken);
                 }

@@ -404,3 +404,16 @@ deletion completion screen, the track-picker callback and the PiP spectrum colou
 
 **Runtime-unverified until the next smoke run:** the downloads, cleanup, playlist and track picker, song actions
 and PiP colour paths. These are covered by the cleanup and queue smoke modes, and by the download preview client.
+
+## Batch 9: restore recovery check and late-write tests (2026-10-30, approved follow-up)
+
+- **The restore recovery check is off the client thread.** `RestoreOperation` now reads `recoveryPending` on the
+  storage executor right after the install, whether or not the install succeeded, and passes the result to
+  `end(boolean)`. A journal that cannot be read keeps the restrictions. A refused storage submission (shutdown only)
+  releases them, because nothing was installed and admission already guaranteed no recovery was pending.
+  New test: `RestoreOperationTest.aPendingRecoveryIsReadOnStorageAndKeepsTheFlags`.
+- **Deterministic late-write tests.** `StoppedMeansWritesDoneTest` holds the loudness cache's writer and the
+  download bookkeeping executor busy, closes the service, and asserts that `awaitStopped` reports not-stopped until
+  the writer finishes. The held task ignores interrupts, as an in-progress file write would. Both tests fail against
+  the pre-batch-6 `awaitStopped` (verified) and pass now. They reach the private executors by reflection, so no
+  production code was added for them.

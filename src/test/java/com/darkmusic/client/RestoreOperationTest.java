@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RestoreOperationTest {
     private static class Fake implements RestoreOperation.Steps {
         final List<String> events = new ArrayList<>();
-        boolean busy, closed, installFails, applyFails;
+        boolean busy, closed, installFails, applyFails, pending, checkedOnStorage, onStorage;
 
         @Override
         public void begin() {
@@ -35,14 +35,20 @@ class RestoreOperationTest {
         }
 
         @Override
+        public boolean recoveryPending() {
+            checkedOnStorage = onStorage;
+            return pending;
+        }
+
+        @Override
         public void apply() {
             events.add("apply");
             if (applyFails) throw new IllegalStateException("playlist store closed");
         }
 
         @Override
-        public void end() {
-            busy = false;
+        public void end(boolean recoveryPending) {
+            busy = recoveryPending;
             events.add("end");
         }
 
@@ -93,5 +99,23 @@ class RestoreOperationTest {
         assertTrue(steps.events.contains("install"));
         assertFalse(steps.events.contains("apply"));
         assertEquals("end", steps.events.getLast());
+    }
+
+    @Test
+    void aPendingRecoveryIsReadOnStorageAndKeepsTheFlags() throws Exception {
+        var steps = new Fake();
+        steps.pending = true;
+        steps.installFails = true;
+        var future = RestoreOperation.run(steps, Runnable::run, task -> {
+            steps.onStorage = true;
+            try {
+                task.run();
+            } finally {
+                steps.onStorage = false;
+            }
+        });
+        assertThrows(ExecutionException.class, future::get);
+        assertTrue(steps.checkedOnStorage, "the journal is read on the storage executor, not the client thread");
+        assertTrue(steps.busy, "media actions stay blocked until the journal recovers");
     }
 }
