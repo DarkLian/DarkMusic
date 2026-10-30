@@ -7,12 +7,15 @@ import com.darkmusic.client.media.ExternalAudio;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
+import com.google.gson.stream.MalformedJsonException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -20,6 +23,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.BiConsumer;
 import java.util.function.LongSupplier;
 
 /**
@@ -29,6 +33,10 @@ public final class LoudnessCache implements AutoCloseable {
     private static final Logger LOG = LoggerFactory.getLogger("darkmusic-audio");
     private final Map<String, Reading> results = new ConcurrentHashMap<>();
     private final Map<String, Set<String>> storedKeys = new HashMap<>();
+    // Paths this instance measured, whose other file versions it retired.
+    private final Set<String> measured = new HashSet<>();
+    // Preview players keep their own caches on the same file; one read-merge-write at a time.
+    private static final Object SAVING = new Object();
     private final Set<String> pending = ConcurrentHashMap.newKeySet();
     private static final int READINGS = 65536;
     // Inspections that finished without a stored reading; the oldest is forgotten first.
@@ -223,27 +231,13 @@ public final class LoudnessCache implements AutoCloseable {
         executor.execute(() -> {
             try {
                 if (cache != null && Files.isRegularFile(cache) && Files.size(cache) <= MAX_CACHE_BYTES) {
-                    try (var reader = new JsonReader(Files.newBufferedReader(cache))) {
-                        reader.beginObject();
-                        while (reader.hasNext()) {
-                            String key = reader.nextName();
-                            if (results.size() >= READINGS) {
-                                reader.skipValue();
-                                continue;
-                            }
-                            Reading r = ConfigStore.JSON.fromJson(reader, Reading.class);
-                            String path = pathOfKey(key);
-                            if (r != null && path != null && Double.isFinite(r.lufs) && Double.isFinite(r.peakDb)) {
-                                synchronized (persistence) {
-                                    results.put(key, r);
-                                    storedKeys.computeIfAbsent(path, ignored -> new HashSet<>()).add(key);
-                                }
-                            }
+                    read(cache, (key, r) -> {
+                        if (results.size() >= READINGS) return;
+                        synchronized (persistence) {
+                            results.put(key, r);
+                            storedKeys.computeIfAbsent(pathOfKey(key), ignored -> new HashSet<>()).add(key);
                         }
-                        reader.endObject();
-                        if (reader.peek() != JsonToken.END_DOCUMENT)
-                            throw new IOException("Trailing loudness cache contents");
-                    }
+                    });
                 } else if (cache != null && Files.isRegularFile(cache)) {
                     synchronized (persistence) {
                         preserveOriginal = true;
@@ -372,6 +366,46 @@ public final class LoudnessCache implements AutoCloseable {
         return found;
     }
 
+    /**
+     * This instance's readings plus those another instance saved since. For a path this instance measured, only the
+     * file versions it holds are kept, so versions it retired stay retired.
+     */
+    private Map<String, Reading> withSaved(Map<String, Reading> own, Set<String> paths) throws IOException {
+        if (!Files.isRegularFile(cache)) return own;
+        if (Files.size(cache) > MAX_CACHE_BYTES)
+            throw new JsonParseException("Loudness cache exceeds the 64 MB read limit");
+        var versions = new HashSet<String>();
+        for (String key : own.keySet()) if (paths.contains(pathOfKey(key))) versions.add(versionOfKey(key));
+        var merged = new HashMap<>(own);
+        read(cache, (key, r) -> {
+            if (merged.size() < READINGS && (!paths.contains(pathOfKey(key)) || versions.contains(versionOfKey(key))))
+                merged.putIfAbsent(key, r);
+        });
+        return merged;
+    }
+
+    /**
+     * Every valid reading in a cache file. Throws when the file is not a complete cache.
+     */
+    private static void read(Path file, BiConsumer<String, Reading> into) throws IOException {
+        try (var reader = new JsonReader(Files.newBufferedReader(file))) {
+            reader.beginObject();
+            while (reader.hasNext()) {
+                String key = reader.nextName();
+                Reading r = ConfigStore.JSON.fromJson(reader, Reading.class);
+                if (r != null && pathOfKey(key) != null && Double.isFinite(r.lufs) && Double.isFinite(r.peakDb))
+                    into.accept(key, r);
+            }
+            reader.endObject();
+            if (reader.peek() != JsonToken.END_DOCUMENT)
+                throw new JsonParseException("Trailing loudness cache contents");
+        }
+    }
+
+    private static String versionOfKey(String key) {
+        return key.substring(0, key.lastIndexOf(':') + 1);
+    }
+
     private static String pathOfKey(String key) {
         int mode = key.lastIndexOf(':'), modified = mode < 0 ? -1 : key.lastIndexOf(':', mode - 1);
         int size = modified < 0 ? -1 : key.lastIndexOf(':', modified - 1);
@@ -398,6 +432,7 @@ public final class LoudnessCache implements AutoCloseable {
                 return true;
             });
             keys.add(key);
+            measured.add(path);
             results.put(key, reading);
             dirty = true;
             revision++;
@@ -407,17 +442,32 @@ public final class LoudnessCache implements AutoCloseable {
     private void flush() {
         synchronized (flushLock) {
             Map<String, Reading> snapshot;
+            Set<String> paths;
             long captured;
             synchronized (persistence) {
                 if (!dirty || cache == null || preserveOriginal) return;
                 snapshot = Map.copyOf(results);
+                paths = Set.copyOf(measured);
                 captured = revision;
             }
             try {
-                String json = STORAGE_JSON.toJson(snapshot);
-                if (json.getBytes(StandardCharsets.UTF_8).length > MAX_CACHE_BYTES)
-                    throw new IOException("Loudness cache exceeds the 64 MB persistence limit; previous cache preserved");
-                ConfigStore.atomicWrite(cache, json);
+                synchronized (SAVING) {
+                    Map<String, Reading> merged;
+                    try {
+                        merged = withSaved(snapshot, paths);
+                    } catch (JsonParseException | IllegalStateException | MalformedJsonException |
+                             EOFException e) {
+                        synchronized (persistence) {
+                            preserveOriginal = true;
+                        }
+                        LOG.warn("Loudness cache {} became unreadable; file preserved", cache, e);
+                        return;
+                    }
+                    String json = STORAGE_JSON.toJson(merged);
+                    if (json.getBytes(StandardCharsets.UTF_8).length > MAX_CACHE_BYTES)
+                        throw new IOException("Loudness cache exceeds the 64 MB persistence limit; previous cache preserved");
+                    ConfigStore.atomicWrite(cache, json);
+                }
                 nextFlush = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
                 synchronized (persistence) {
                     if (revision == captured) dirty = false;

@@ -10,6 +10,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -43,6 +45,68 @@ class LoudnessPersistenceTest {
             ExternalAudio.configure(null);
         }
         assertEquals(original, Files.readString(file));
+    }
+
+    private static void loaded(LoudnessCache cache) throws Exception {
+        var executor = LoudnessCache.class.getDeclaredField("executor");
+        executor.setAccessible(true);
+        ((ExecutorService) executor.get(cache)).submit(() -> {
+        }).get();
+    }
+
+    private static void flush(LoudnessCache cache) throws Exception {
+        var flush = LoudnessCache.class.getDeclaredMethod("flush");
+        flush.setAccessible(true);
+        flush.invoke(cache);
+    }
+
+    @Test
+    void aReplacedCacheClosingLateKeepsWhatItsReplacementSaved() throws Exception {
+        ExternalAudio.configure(() -> new ExternalAudio.Paths(temp, "", ""));
+        try {
+            var old = new LoudnessCache();
+            loaded(old);
+            var a = track("a.opus", 1);
+            old.remember(a, key(a), new LoudnessCache.Reading(-20, -3));
+            try (var replacement = new LoudnessCache()) {
+                loaded(replacement);
+                var b = track("b.opus", 1);
+                replacement.remember(b, key(b), new LoudnessCache.Reading(-21, -4));
+                flush(replacement);
+                // The old instance's final write lands after its replacement saved.
+                old.close();
+                var json = JsonParser.parseString(Files.readString(temp.resolve("loudness-cache.json"))).getAsJsonObject();
+                assertTrue(json.has(key(a)));
+                assertTrue(json.has(key(b)), "A late write must not drop newer readings");
+                var changed = track("a.opus", 2);
+                replacement.remember(changed, key(changed), new LoudnessCache.Reading(-22, -5));
+            }
+            var json = JsonParser.parseString(Files.readString(temp.resolve("loudness-cache.json"))).getAsJsonObject();
+            assertEquals(Set.of(key(track("a.opus", 2)), key(track("b.opus", 1))), json.keySet(), "A measured file keeps only its current version");
+        } finally {
+            ExternalAudio.configure(null);
+        }
+    }
+
+    @Test
+    void aCacheFileThatBecomesUnreadableIsNotOverwritten() throws Exception {
+        ExternalAudio.configure(() -> new ExternalAudio.Paths(temp, "", ""));
+        Path file = temp.resolve("loudness-cache.json");
+        var t = track("song.opus", 1);
+        try {
+            for (String broken : List.of("{\"" + key(t).replace("\\", "\\\\") + "\":", "{broken", "[]", "{} trailing")) {
+                Files.deleteIfExists(file);
+                try (var cache = new LoudnessCache()) {
+                    loaded(cache);
+                    cache.remember(t, key(t), new LoudnessCache.Reading(-20, -3));
+                    Files.writeString(file, broken);
+                    flush(cache);
+                }
+                assertEquals(broken, Files.readString(file));
+            }
+        } finally {
+            ExternalAudio.configure(null);
+        }
     }
 
     @Test

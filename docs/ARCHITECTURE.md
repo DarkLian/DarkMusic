@@ -111,10 +111,11 @@ player keeps working. What the old services can still finish does not replace us
   `ClosedLibraryWritesTest`).
 - Download records are read and written under `DownloadArchive.LOCK`, re-read each time; the download workspace
   refuses a second holder and never recovers another holder's work (`WorkspaceTest`).
-- A late loudness-cache write can drop readings the replacement saved since. The cache is rebuilt from tags or
-  analysis, and the download preview and duplicate comparison already run their own caches on the same file the
-  same way.
-- Whether an audio line held by a stuck player interferes with the new one is not tested.
+- A late loudness-cache write merges with the file rather than replacing it, so readings the replacement saved
+  since are kept. The download preview and duplicate comparison run their own caches on the same file and save the
+  same way (`LoudnessPersistenceTest`).
+- A player stuck in its audio line's write does not stop the replacement playing (`ResetStopTest`, on the Windows
+  default device only).
 
 `DarkMusicClient.buildReplaceable` is the one place that builds what reset replaces: artwork, waveforms, playback,
 library and downloads. It installs each in its field and registers it with the caller's `Cleanup`, for both startup
@@ -165,7 +166,7 @@ Batch numbers refer to the index in the progress log.
 | Screen navigation | **Improved** | `Navigation` + `ScreenNavigation` for every screen; reach of `MusicScreen.Sources` 62 → 31 methods, 31 → 4 interfaces (batches 5 and 8) | — |
 | Playback and audio | **Already adequate**; DSP bypass **fixed** | `AudioBackend` seam, sequence/order versions and transition claims, `NextAudio` transfer protocol (`TransitionOrderTest`, `UpNextTest`, `SeekDiscardTest`, `UpNextPreloadTest`); environment filter bypass fixed (batch 1) | Queue-policy extraction from `PlaybackController` not attempted: its tests pin the timing guarantees and nothing showed a defect |
 | Lyrics | **Already adequate** | Per-track operation identity, owner cancellation, bounded queues, immutable cache views (`LyricsSafetyTest`, lyrics tests) | — |
-| Library and file operations | **Already adequate** | Captured identities, cancellation tokens, full-content checks, deletion reconciles after commit (`MetadataCommitSafetyTest`, `AudioDeletionTest`, `AudioDeletionFilesystemTest`, `WatcherIsolationTest`) | `mediaBusy` release relies on exclusive admission rather than an operation lease; admission makes overlap unreachable (see Exclusive operations) |
+| Library and file operations | **Already adequate** | Captured identities, cancellation tokens, full-content checks, deletion reconciles after commit (`MetadataCommitSafetyTest`, `AudioDeletionTest`, `AudioDeletionFilesystemTest`, `WatcherIsolationTest`) | `mediaBusy` release relies on exclusive admission rather than an operation lease; admission makes overlap unreachable (see Exclusive operations). A rescan reuses a file's tags while its size and modification time are unchanged, so a replacement that keeps both shows the old tags until one changes |
 | Downloads | **Already adequate**; reset wait **fixed** | Pipeline/commit split, per-item tool paths, committed-before-optional-follow-up (`DownloadCommitTest`, `DownloadRetryTest`); `awaitStopped` now covers the bookkeeping repair (batch 6) | — |
 | Persistence and backup | **Improved** | Serial `io`, coalescing `LatestWriter` with write acknowledgement, journaled restore that owns its files through shutdown and failed applies (`StorageTest`, `WriteAcknowledgementTest`, `BackupRestoreTest`, backup and consent tests, `ResetTest`); loudness and bookkeeping writers awaited before reset clears (batches 6, 9, 11, 15, 16) | A save queues the write; its acknowledgement (`lastWrite`) is checked at shutdown, and reset reads the config back. `atomicWrite` has a non-atomic fallback, so there is no universal crash-durability claim. |
 | HUD and rendering | **Already adequate** | HUD/PiP sources resolve current services each frame, by design across reset (HUD tests) | — |

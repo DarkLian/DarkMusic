@@ -26,7 +26,7 @@ and what is still open. On resuming, compare `git log` with the batch index belo
 | L3 | A synchronous refusal from `backend.output(...)` left `outputChanging` set for good | Flag taken only after the call succeeds (batch 2) |
 | L4 | A failed startup left partial services published; `tick` could dereference a null library | `Startup` unwinds and withdraws (batches 2, 10) |
 | L5 | The stopping callback and `shutdown()` were two sequences; one throwing close skipped the rest | One ordered, failure-tolerant `Shutdown` (batches 2, 10) |
-| L6 | Reset publishes replacements even when an old worker did not stop within 15 s | Kept, with evidence: storage is left untouched, and nothing the old services can still finish replaces user data (see ARCHITECTURE.md, Reset after a timeout). One late write found, kept as a known risk: T2 |
+| L6 | Reset publishes replacements even when an old worker did not stop within 15 s | Kept, with evidence: storage is left untouched, and nothing the old services can still finish replaces user data (see ARCHITECTURE.md, Reset after a timeout). One late write found: T2, fixed after v3.6.0 |
 | R1 | Reconciliation markers survived reset, so a new library whose revisions restart could count as already reconciled (cleanup skipped, autoplay early) | `LibraryReconciliation` with a reset generation (batch 3) |
 | P1 | Reset could clear `loudness-cache.json` or the download history while a final write was still queued, and the write brought it back | `awaitStopped` waits for those writers (batch 6; tests batch 9) |
 | P2 | The restore's recovery check read the disk on the client thread | Read on the storage executor (batch 9) |
@@ -39,7 +39,7 @@ and what is still open. On resuming, compare `git log` with the batch index belo
 | H4 | A pending journal for a restore without history suspended listening anyway | Only a restore that selected history suspends it (batch 15) |
 | H5 | A merge restore merged the history captured when Apply previewed it, so listening while the confirmation was open was lost (`BackupRestoreTest`: 5 plays on disk instead of 6) | The restore captures what it merges with when it starts, after suspending history, and prepares on the storage executor (batch 16) |
 | T1 | Reset's storage task closed the old services without failure tolerance: one throwing close left the later ones running beside their replacements. No production close was shown to throw | `ResetOperation.stop` closes all, waits for each, logs those still running (batch 15) |
-| T2 | A replaced loudness cache's late final write can drop readings its replacement saved since (reproduced, then the probe removed) | Not changed: preview and comparison players already run their own caches on the file the same way, and an ownership rule would have stopped the main cache saving after a preview closed. Cache only, rebuilt from the files |
+| T2 | A replaced loudness cache's late final write can drop readings its replacement saved since (reproduced, then the probe removed) | Fixed after v3.6.0, without an ownership rule (which would have stopped the main cache saving after a preview closed): every cache merges with the file under one lock, a path it measured keeps only its current versions, and a file that became unreadable is preserved (`LoudnessPersistenceTest`) |
 | S1 | The reset-restart smoke check expected one playlist; Favorite Music (v2.1.0) makes it two. Fails the same on `0792986` | Smoke check now expects Favorite Music plus the kept playlist |
 
 ## Batch index
@@ -63,6 +63,7 @@ and what is still open. On resuming, compare `git log` with the batch index belo
 | 16 | `49a2a37` | Backup capture, read, export and restore preparation move from `BackupScreen` to the client (`previewRestore`, `readBackup`, `exportBackup`, `restoreBackup(data, selection)`); merge restores keep listening done during the confirmation (H5) | `BackupRestoreTest` (9; the new merge test fails on the old behaviour), backup suites, `ArchitectureTest`, smoke compile; earlier restore fixes removed in turn still fail their tests |
 | 17 | `2292520`, `12359fb`, `6aefa87` | Maintenance: build split into `gradle/smoke.gradle` and `gradle/native-helpers.gradle`, bundled libraries listed once, shared helper packaging; tracked `scripts/smoke.ps1` and `verify.ps1 -Tests`; shared smoke reflection; shared CI toolchain action, SDK taken from the helpers' pin | Archive listings before and after (identical entries), configuration cache with the smoke task, runner self-test and controlled timeout, SDK-pin test fails on a mismatch, full window below |
 | 15 | `c3bc34d` | Restore owns its files through shutdown and failed applies (H1–H4, `BackupRestore`); reset closes every old service (T1) | `BackupRestoreTest` (8, real stores and journal, files reopened; 5 fail on the old behaviour), `ResetStopTest` (real download, library and playback services), `ClosedLibraryWritesTest`; each fix part removed in turn fails its tests |
+| 18 | `98e2dff`, `728e7c1`, then T2 with this row | v3.6.0 source audit: turning True Peak on or off fades out, switches between the direct and the 64-frame-delayed path on silence and fades back in, instead of mixing the two (which cancelled some frequencies); the limiter restarts clean. Inspections without a reading are forgotten oldest first instead of all at once, and expired retry waits go first. T2 fixed (merge on save). Shutdown dispatch, caption network boundary and crash durability were already documented; tag reuse by size and modification time added to ARCHITECTURE.md | `UnifiedAudioDspTest` toggle test (fails on old code at the cancelling tone), `LoudnessPersistenceTest` (2 new, both fail on old code); 8 audio and loudness classes pass. Negative-cache eviction and the limiter's clean restart have no direct test; listening check (user, 2026-10-31): a single toggle is inaudible; toggling rapidly strings the short dips into a wobble |
 
 ## Verification history
 
@@ -140,7 +141,7 @@ Change paths, before and after:
   it.
 - **Reset after a timeout:** `ResetStopTest` holds an old player stuck in its line's write while the replacement
   plays on the real default device (passed on the Windows default device, 2026-10-31). One device and driver only; a line that never returns
-  stays open until Minecraft exits. The late loudness write (T2) is accepted.
+  stays open until Minecraft exits. The late loudness write (T2) now merges with the file.
 - Settings ownership: no change. Retained screens re-read settings when shown again and the confirmation screen
   cannot be left while a reset or restore runs, so no edit reaches a replaced settings object (checked by reading the
   code, not by a test).
