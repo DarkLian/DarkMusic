@@ -30,7 +30,14 @@ public final class LoudnessCache implements AutoCloseable {
     private final Map<String, Reading> results = new ConcurrentHashMap<>();
     private final Map<String, Set<String>> storedKeys = new HashMap<>();
     private final Set<String> pending = ConcurrentHashMap.newKeySet();
-    private final Set<String> attempted = ConcurrentHashMap.newKeySet();
+    private static final int READINGS = 65536;
+    // Inspections that finished without a stored reading; the oldest is forgotten first.
+    private final Set<String> attempted = Collections.synchronizedSet(Collections.newSetFromMap(new LinkedHashMap<>() {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
+            return size() > READINGS;
+        }
+    }));
     private final Map<String, Long> retryAfter = new ConcurrentHashMap<>();
     private final LongSupplier clock;
     private final LinkedBlockingDeque<Runnable> queue = new LinkedBlockingDeque<>(2);
@@ -220,7 +227,7 @@ public final class LoudnessCache implements AutoCloseable {
                         reader.beginObject();
                         while (reader.hasNext()) {
                             String key = reader.nextName();
-                            if (results.size() >= 65536) {
+                            if (results.size() >= READINGS) {
                                 reader.skipValue();
                                 continue;
                             }
@@ -276,8 +283,11 @@ public final class LoudnessCache implements AutoCloseable {
 
     private double request(Track track, AudioSettings settings, boolean priority, Batch owner) {
         if (owner != null && owner.cancelled) return 1;
-        if (attempted.size() > 4096) attempted.clear();
-        if (retryAfter.size() > 4096) retryAfter.clear();
+        if (retryAfter.size() > 4096) {
+            long now = clock.getAsLong();
+            retryAfter.values().removeIf(at -> at <= now);
+            if (retryAfter.size() > 4096) retryAfter.clear();
+        }
         Lookup lookup = lookup(track, settings);
         String key = lookup.key;
         Reading r = results.get(key);
@@ -371,7 +381,7 @@ public final class LoudnessCache implements AutoCloseable {
     void remember(Track track, String key, Reading reading) {
         synchronized (persistence) {
             if (closed) return;
-            if (results.size() >= 65536 && !results.containsKey(key)) {
+            if (results.size() >= READINGS && !results.containsKey(key)) {
                 if (!capacityReported)
                     LOG.warn("Loudness cache reached its 65,536-reading limit; existing readings retained");
                 capacityReported = true;
@@ -457,7 +467,7 @@ public final class LoudnessCache implements AutoCloseable {
             LOG.debug("Loudness unavailable for {}", track.file(), e);
         } finally {
             if (completed) {
-                attempted.add(attempt);
+                if (!results.containsKey(key)) attempted.add(attempt);
                 retryAfter.remove(attempt);
             } else if (!closed && !token.cancelled())
                 retryAfter.put(attempt, clock.getAsLong() + TimeUnit.SECONDS.toNanos(30));
