@@ -61,13 +61,17 @@ public final class ListeningHistory {
     }
 
     /**
-     * Songs never played to a counted play, in library order.
+     * Songs with no counted plays, retaining the active song until playback leaves it.
      */
     public synchronized List<Track> neverPlayed(List<Track> library) {
+        return neverPlayed(library, null);
+    }
+
+    public synchronized List<Track> neverPlayed(List<Track> library, Track active) {
         var data = entries;
         return library.stream().filter(t -> {
             var entry = data.get(t.id());
-            return entry == null || entry.plays() == 0;
+            return active != null && active.id().equals(t.id()) || entry == null || entry.plays() == 0;
         }).toList();
     }
 

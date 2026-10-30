@@ -821,7 +821,13 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         if (mode.equals("History")) return switch (group) {
             case "most" -> listeningHistory.collection(tracks, true);
             case "added" -> ListeningHistory.recentlyAdded(tracks, RECENTLY_ADDED);
-            case "never" -> listeningHistory.neverPlayed(tracks);
+            case "never" -> {
+                var state = playback.state();
+                var source = playback.playingSource();
+                boolean active = state.status() != AudioBackend.Status.STOPPED && state.status() != AudioBackend.Status.ERROR
+                    && source.mode().equals("History") && source.group().equals("never");
+                yield listeningHistory.neverPlayed(tracks, active ? state.track() : null);
+            }
             default -> listeningHistory.collection(tracks, false);
         };
         var source = mode.equals("Playlists") ? playlists.resolve(group, tracks) : tracks;

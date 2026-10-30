@@ -103,6 +103,10 @@ unavailable folders are kept.
 Added** (the 100 newest songs) and **Never Played**. A play counts after 30 seconds, or half of a shorter song;
 pausing, seeking and muting add no listening time. Clear it in **Settings → General → Clear Listening History**.
 
+Never Played includes songs with zero counted plays. A song playing from that list stays there while playing or
+paused, even after its first counted play, so **Jump to Playing** still returns to it. Once playback stops or moves
+to another song, the counted song leaves the list; short listens that still have zero plays remain.
+
 ## Managing files
 
 ### Edit song details

@@ -53,7 +53,10 @@ class ListeningHistoryTest {
         assertEquals(List.of(fresh, middle), ListeningHistory.recentlyAdded(library, 2));
         var h = history();
         h.replace(Map.of(old.id(), new ListeningHistory.Entry(3, 100, 180), middle.id(), new ListeningHistory.Entry(0, 50, 5)));
-        assertEquals(List.of(fresh, middle), h.neverPlayed(library), "A song only started, without a counted play, is still never played");
+        assertEquals(List.of(fresh, middle), h.neverPlayed(library), "A short listen with zero counted plays remains in Never Played");
+        assertEquals(List.of(fresh, middle), h.neverPlayed(library, middle), "Retain a short listen while active");
+        assertEquals(List.of(old, fresh, middle), h.neverPlayed(library, old), "Retain the active song beyond the counted-play threshold");
+        assertEquals(List.of(fresh, middle), h.neverPlayed(library, null), "Stopping releases only the counted song");
     }
 
     @Test

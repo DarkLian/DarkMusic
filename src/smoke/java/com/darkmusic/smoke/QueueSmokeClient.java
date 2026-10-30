@@ -18,6 +18,7 @@ import net.minecraft.client.input.*;
 import java.nio.file.*;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Isolated native UI and real-collection/device checks; never contacts an external website.
@@ -309,6 +310,42 @@ final class QueueSmokeClient {
                     SmokeUi.click(mc, Text.get("text.darkmusic.play"));
                     check(app.playback.upNextSnapshot().manual().size() == 1, "Restarting the current song after Stop retains Up Next");
                     app.playback.stop();
+                    app.playback.clearQueued();
+                    app.listeningHistory.replace(Map.of());
+                    mc.gui.setScreen(new MusicScreen(app, null));
+                    SmokeUi.click(mc, Text.get("view.darkmusic.history"));
+                    var historyPlayer = (MusicScreen) mc.gui.screen();
+                    var categories = (RowList) field(historyPlayer, "navigation");
+                    categories.mouseClicked(new MouseButtonEvent(categories.getX() + 48, categories.getY() + 3 * 24 + 8, new MouseButtonInfo(0, 0)), false);
+                    check(field(historyPlayer, "group").equals("never"), "Never Played selected");
+                    var historySongs = (RowList) field(historyPlayer, "songs");
+                    var firstSong = new MouseButtonEvent(historySongs.getX() + 48, historySongs.getY() + 8, new MouseButtonInfo(0, 0));
+                    historySongs.mouseClicked(firstSong, false);
+                    historySongs.mouseClicked(firstSong, true);
+                    since = ticks;
+                    stage = 9;
+                }
+                case 9 -> {
+                    check(app.playback.state().status() != AudioBackend.Status.ERROR, app.playback.state().error());
+                    var current = app.playback.state().track();
+                    if (current == null || app.playback.state().position() < .15) return;
+                    check(app.playback.playingSource().mode().equals("History") && app.playback.playingSource().group().equals("never"), "Playing from Never Played");
+                    if (app.playback.state().position() < 31) return;
+                    check(app.collection("History", "never").contains(current), "Current song stays in Never Played after 30 seconds");
+                    app.playback.pause();
+                    app.playback.addToQueue(x);
+                    var source = app.playback.playingSource();
+                    var queued = app.playback.upNextSnapshot().manual();
+                    SmokeUi.click(mc, Text.get("view.darkmusic.all"));
+                    var player = (MusicScreen) mc.gui.screen();
+                    app.warning = "";
+                    SmokeUi.click(mc, Text.get("player.darkmusic.jump"));
+                    check(field(player, "mode").equals("History") && field(player, "group").equals("never"), "Jump returns to Never Played");
+                    check(((Track) field(player, "selected")).id().equals(current.id()), "Jump selects the playing song in Never Played");
+                    check(app.warning.isEmpty(), "Jump must not warn for a song still in the library: " + app.warning);
+                    check(app.playback.playingSource().equals(source) && app.playback.upNextSnapshot().manual().equals(queued), "Jump preserves playback source and Up Next");
+                    app.playback.stop();
+                    check(!app.collection("History", "never").contains(current), "Stopping removes the listened song from Never Played");
                     System.out.println("DARKMUSIC_QUEUE_UI_PASS: compact/wide layouts, keyboard queue actions, duplicate reorder/remove, diagnostic clipboard/Back, real-device pause/seek/resume, manual promotion, original-source continuation");
                     System.out.println("DARKMUSIC_SMOKE_PASS:" + Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip());
                     stage = 99;

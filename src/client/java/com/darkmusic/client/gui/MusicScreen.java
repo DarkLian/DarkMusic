@@ -140,6 +140,7 @@ public final class MusicScreen extends LocalScreen {
     private Track selected, seekTrack;
     private boolean awaitingEditedTrack;
     private boolean seekDragging;
+    private String historyPlaying = "";
     private long revision = -1, playlistRevision = -1, historyRevision = -1, refreshed;
     private String playlistNotice = "";
     private Button play, shuffle, repeat, jump, openFolder, queueActions;
@@ -597,12 +598,6 @@ public final class MusicScreen extends LocalScreen {
         }
         rebuildWidgets();
         int index = indexOfPlaying(id);
-        if (index < 0 && !query.isEmpty()) {
-            query = "";
-            search.setValue("");
-            refreshSongs();
-            index = indexOfPlaying(id);
-        }
         if (index >= 0) {
             selected = visible.get(index);
             songs.reveal(index);
@@ -656,6 +651,10 @@ public final class MusicScreen extends LocalScreen {
             }
         }
         var state = app.library().snapshot();
+        var playing = app.playback().state();
+        String historyNow = (playing.track() == null ? "" : playing.track().id()) + playing.status();
+        if (mode.equals("History") && group.equals("never") && !historyNow.equals(historyPlaying)) refresh();
+        historyPlaying = historyNow;
         if (mode.equals("History") && historyRevision != app.listeningHistory().revision() || playlistRevision != app.playlists().revision() || revision != state.revision() && (!state.scanning() || System.nanoTime() - refreshed > 250_000_000L)) {
             refreshed = System.nanoTime();
             revision = state.revision();
