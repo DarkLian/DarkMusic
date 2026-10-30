@@ -10,7 +10,7 @@ Minecraft/Fabric callbacks, mixins, screens (gui), HUD (hud, render), PiP (pip),
         │  narrow Sources interfaces / adapters; never DarkMusicClient (ArchitectureTest: DECOUPLED)
         ▼
 com.darkmusic.client (root): DarkMusicClient = composition root + Fabric integration,
-        Folder/Media/Client actions, Shortcuts, lifecycle flags (ClientState)
+        Folder/Media/Client actions, Shortcuts, lifecycle (ClientState, ResetOperation, RestoreOperation, Cleanup)
         ▼
 backup ▸ download ▸ cleanup ▸ audio | lyrics | playlist ▸ library ▸ media ▸ tools ▸ config ▸ text
         (core packages; strictly downward, enforced by ArchitectureTest.CORE)
@@ -56,6 +56,41 @@ first use and dropped by reset; **screen** = owned by one screen.
 | PiP (`PipController`) | capture session, runtime lease | helper threads | PiP screens, HUD layer | app | `close` stops then releases runtime asynchronously |
 | Updates, Discord, Media Controls | jobs, IPC, helper process | own threads | settings screens, tick | app | `close` |
 | Library reconciliation (in `DarkMusicClient.tick`) | revision markers, cleanup pending flag, autoplay pending | client; playlist scan on storage | — | gen markers reset on reset | — |
+
+## Lifecycle operations
+
+All admission happens on the client thread. `ClientState` holds the flags; `alive` = not closed and not resetting,
+`idle` = alive and no media operation, `accepting` = idle and not switching output.
+
+| Operation | Admission | Acquires | Invalidates | Commit point | Publication | Failure | Final state |
+|---|---|---|---|---|---|---|---|
+| Startup (`start`/`ready`) | config loaded, not closed | histories, playlists, caches, PiP, playback, library, downloads, each registered in a `Cleanup` | — | services built | settings were published just before; services as built; playlists ready after their own read | built services closed, fields and settings withdrawn, `error.startup` warned | not-yet-loaded state (as before config load); restart needed |
+| Reset (`ResetOperation`) | `idle` | `resetting` (blocks all other admission and per-tick work) | folder checks (generation), screen requests, autoplay, cleanup/source index, playback | old services closed **and** stopped, then storage cleared (storage executor) | replacements built and installed while still resetting; then `release` ends resetting and saves | old worker not stopped / storage error: storage untouched or partial, replacements built with prior settings, future fails. Building fails: built replacements closed, stays resetting, `reset.darkmusic.restart`. Closing first or storage refused: nothing published | defaults (or prior) published; saved config read back behind the save |
+| Restore (`RestoreOperation`) | `accepting`, playlists and history ready, shortcut keys valid | `mediaBusy` + `restoring` | history writes paused | `RestoreJournal.install` returns (storage executor) | client thread replaces settings, playlists, history, key binds; applies to playback | install fails: nothing applied, `backup.failed`. Apply fails: on disk, `backup.restart`. Closing in between: completes, next start loads it | flags released, kept while a journal recovery is pending |
+| Output switch | `accepting`, backend exists | `outputChanging` | — | backend reports the new line | applies only if the backend is still the one asked | synchronous refusal: flag never taken; completion always releases the flag and completes the future | flag released |
+| Media edits/import/delete (`MediaActions`) | `idle` / `accepting` | `mediaBusy`, media token | — | file change on the browse pool | client thread; captured player/store/library identity decides whether UI state updates | rejected submission releases immediately; deletion reconciles playlists even after replacement | flag released by the operation that took it (admission prevents overlap) |
+| Shutdown (`shutdown`) | once | — | `closed` set after the final save | — | — | each step guarded by `Cleanup`; later steps still run | resume point and settings saved, admission closed, pickers/media/browse cancelled, consumers closed before their dependencies (updates, Discord, media controls, PiP, source links, cleanup, audition, lyrics, downloads, library, playback, caches), history flushed, storage drained (2 s) |
+
+### Exclusive operations and overlap
+
+`mediaBusy` is taken only on the client thread after checking it is clear, so at most one media operation, restore
+or reset holds it; the holder releases it. Reset requires `idle` but not `accepting`: an output switch may still be
+in flight, and closing the old backend completes that switch as not applied. Edits require only `idle`, so an output
+switch can overlap an edit; the edit waits for playback to go idle on its captured player.
+
+### Callbacks across replacement
+
+Reset replaces playback, library, downloads, caches and audition. Callbacks follow one of two rules:
+
+- **Captured generation**: compare the captured object with the current one before touching UI state. Media actions
+  (player, playlist store, library), output switching (backend), playlist loading (store), folder checks (generation
+  counter), restore and reset (`closed`, plus exclusive admission).
+- **Current service on purpose**: the lyric-caption hooks and the download rescan callback read the current
+  download service or library, because their work belongs to whichever library is live. A completion from a closed
+  download service can at most trigger a rescan or lyric lookup for a file that exists.
+
+File changes that already happened are reconciled regardless: deletion removes playlist entries even after the
+player was replaced, because the disk change cannot be undone.
 
 ## Audio: Sound Environment filter bypass
 

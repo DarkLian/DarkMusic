@@ -92,7 +92,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -235,17 +235,29 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             result.complete(false);
             return result;
         }
-        state.outputChanging = true;
         var selected = backend;
-        selected.output(new OutputDevices(id, false, this::warn)).whenComplete((ok, failure) -> Minecraft.getInstance().execute(() -> {
+        CompletableFuture<Boolean> switching;
+        try {
+            switching = selected.output(new OutputDevices(id, false, this::warn));
+        } catch (RuntimeException failure) {
+            LoggerFactory.getLogger("darkmusic").warn("Could not start switching the output device", failure);
+            result.complete(false);
+            return result;
+        }
+        state.outputChanging = true;
+        // Applies only to the backend it was asked of: a reset in between replaces the backend and voids the switch.
+        switching.whenComplete((ok, failure) -> Minecraft.getInstance().execute(() -> {
             state.outputChanging = false;
             boolean applied = !state.closed && backend == selected && failure == null && ok;
-            if (applied) {
-                settings().outputDevice = id;
-                playback.outputChanged();
-                save();
+            try {
+                if (applied) {
+                    settings().outputDevice = id;
+                    playback.outputChanged();
+                    save();
+                }
+            } finally {
+                result.complete(applied);
             }
-            result.complete(applied);
         }));
         return result;
     }
@@ -264,11 +276,15 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             }
             keys.put("key_" + key.getName(), value);
         }
-        state.mediaBusy = state.restoring = true;
-        if (restored.selection().history()) listeningHistory.suspended(true);
-        var finished = new CompletableFuture<Void>();
-        CompletableFuture.runAsync(() -> {
-            try {
+        return RestoreOperation.run(new RestoreOperation.Steps() {
+            @Override
+            public void begin() {
+                state.mediaBusy = state.restoring = true;
+                if (restored.selection().history()) listeningHistory.suspended(true);
+            }
+
+            @Override
+            public void install() throws IOException {
                 var contents = new LinkedHashMap<String, String>();
                 if (restored.selection().settings() || bindings)
                     contents.put("config.json", ConfigStore.JSON.toJson(restored.settings()));
@@ -282,19 +298,10 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                 if (bindings) contents.put("options.txt", config.shortcutsContents(keys));
                 RestoreJournal.install(config.directory(), contents);
                 if (contents.containsKey("config.json")) config.committedSnapshot(contents.get("config.json"));
-            } catch (Exception failure) {
-                throw new CompletionException(failure);
             }
-        }, io).whenComplete((unused, failure) -> Minecraft.getInstance().execute(() -> {
-            try {
-                if (failure != null) {
-                    finished.completeExceptionally(new IOException(Text.get("backup.failed"), failure));
-                    return;
-                }
-                if (state.closed) {
-                    finished.complete(null);
-                    return;
-                }
+
+            @Override
+            public void apply() {
                 if (restored.selection().settings() || bindings) settingsStore.replace(restored.settings());
                 if (restored.selection().playlists())
                     playlists.restoredFromDisk(restored.playlists(), restored.retained());
@@ -308,15 +315,21 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                 playback.speed(settings().speed);
                 playback.shuffle(settings().shuffle);
                 playback.repeat(settings().repeat);
+                // The journal already wrote the files; the next save writes anything applying normalized.
                 configureVisualizer();
-                save();
-                finished.complete(null);
-            } finally {
+            }
+
+            @Override
+            public void end() {
                 state.mediaBusy = state.restoring = RestoreJournal.recoveryPending(config.directory());
                 listeningHistory.suspended(state.restoring);
             }
-        }));
-        return finished;
+
+            @Override
+            public boolean closed() {
+                return state.closed;
+            }
+        }, Minecraft.getInstance()::execute, io);
     }
 
     public ArtworkCache artwork;
@@ -860,11 +873,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         PipController.register(pipSources);
         shortcuts.register();
         CompletableFuture.supplyAsync(config::load, io).thenAccept(loaded -> Minecraft.getInstance().execute(() -> {
-            if (!state.closed) {
-                settingsStore.replace(loaded);
-                ready();
-                save();
-            }
+            if (!state.closed) start(loaded);
         })).exceptionally(failure -> {
             LoggerFactory.getLogger("darkmusic").error("Could not recover or load user data", failure);
             Throwable cause = failure;
@@ -898,49 +907,74 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             tick(client, allowed);
             openRequestedScreen(client);
         });
-        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
-            if (settings() != null && playback != null && !state.resetting) recordResume(false);
-            updates.close();
-            discord.close();
-            mediaControls.close();
-            mediaPackage.close();
-            save();
-            state.closed = true;
-            shutdown();
-            io.shutdown();
-            try {
-                if (!io.awaitTermination(2, TimeUnit.SECONDS)) io.shutdownNow();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                io.shutdownNow();
-            }
-        });
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> shutdown());
     }
 
-    protected void ready() {
+    /**
+     * Publishes the loaded settings and builds the services. If building fails part way, what was built is closed
+     * and the settings are withdrawn, so the client stays in its not-yet-loaded state, which every screen, HUD and
+     * shortcut already handles, instead of running against a partial set. The error is logged and announced.
+     */
+    private void start(Settings loaded) {
+        settingsStore.replace(loaded);
+        var acquired = new Cleanup();
+        try {
+            ready(acquired);
+        } catch (RuntimeException | LinkageError failure) {
+            LoggerFactory.getLogger("darkmusic").error("DarkMusic could not start", failure);
+            acquired.run();
+            listeningHistory = null;
+            importHistory = null;
+            playlists = null;
+            artwork = null;
+            waveforms = null;
+            pip = null;
+            playback = null;
+            backend = null;
+            library = null;
+            downloads = null;
+            settingsStore.replace(null);
+            warn(Text.get("error.startup"));
+            return;
+        }
+        save();
+    }
+
+    /**
+     * Builds the services in dependency order. Each one is registered with acquired as soon as it exists, so a
+     * failure further on can close it.
+     */
+    private void ready(Cleanup acquired) {
         listeningHistory = new ListeningHistory(config.directory(), io, this::warn);
         io.execute(listeningHistory::load);
         importHistory = new ImportHistory(config.directory(), io, this::warn);
         shortcuts.loadSaved();
-        playlists = new PlaylistStore(config.directory(), io, this::warn);
-        CompletableFuture.supplyAsync(playlists::read, io).thenAccept(list -> Minecraft.getInstance().execute(() -> {
-            if (!state.closed) {
-                playlists.loaded(list);
+        var store = playlists = new PlaylistStore(config.directory(), io, this::warn);
+        CompletableFuture.supplyAsync(store::read, io).thenAccept(list -> Minecraft.getInstance().execute(() -> {
+            // A startup that failed after this read began has withdrawn the store.
+            if (!state.closed && playlists == store) {
+                store.loaded(list);
                 playlistsReady = true;
             }
         }));
-        artwork = new ArtworkCache();
-        waveforms = new WaveformCache(config.directory());
-        pip = new PipController(config.directory(), pipSources);
-        playback = createPlayback();
+        var newArtwork = artwork = new ArtworkCache();
+        acquired.first("artwork", newArtwork::close);
+        var newWaveforms = waveforms = new WaveformCache(config.directory());
+        acquired.first("waveforms", newWaveforms::close);
+        var newPip = pip = new PipController(config.directory(), pipSources);
+        acquired.first("PiP", newPip::close);
+        var newPlayback = playback = createPlayback();
+        acquired.first("playback", newPlayback::close);
         playback.volume(settings().volume);
         configureVisualizer();
         playback.speed(settings().speed);
         playback.shuffle(settings().shuffle);
         playback.repeat(settings().repeat);
         autoplayPending = settings().autoplay;
-        library = new MusicLibrary(config.directory());
-        downloads = createDownloads();
+        var newLibrary = library = new MusicLibrary(config.directory());
+        acquired.first("library", newLibrary::close);
+        var newDownloads = downloads = createDownloads();
+        acquired.first("downloads", newDownloads::close);
         // Read the field on each call: Reset to Defaults replaces the download service.
         lyrics.lookup.captions((track, preferences, generated, token) -> downloads.fetchLyrics(track, preferences, generated, token),
             (track, preferences, generated, token) -> downloads.fetchSourceLyrics(track, preferences, generated, token));
@@ -1092,52 +1126,71 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
     }
 
     /**
-     * Called on the client thread only, after explicit confirmation.
+     * Called on the client thread only, after explicit confirmation. {@link ResetOperation} owns the phases and what
+     * each failure leaves behind; the steps here are the services to stop, clear and rebuild.
      */
     @Override
     public CompletableFuture<Void> resetDefaults() {
         if (!idle())
             return CompletableFuture.failedFuture(new IllegalStateException(Text.get("reset.darkmusic.busy")));
-        state.resetting = true;
-        if (cleanupScanner != null) {
-            cleanupScanner.close();
-            cleanupScanner = null;
-        }
-        if (sourceIndex != null) {
-            sourceIndex.close();
-            sourceIndex = null;
-        }
-        cleanupReviews = null;
-        sourceEvidenceRevision = -1;
-        sourceEvidence = List.of();
-        requestedScreen = null;
-        requestedWorld = null;
-        folders.invalidate();
-        autoplayPending = false;
-        DesktopFolderPicker.cancel();
-        var prior = settings();
-        var defaultBindings = shortcuts.defaults();
-        var roots = new LinkedHashSet<Path>();
-        roots.add(library.root());
-        for (String root : prior.roots.keySet())
-            try {
-                roots.add(Path.of(root));
-            } catch (InvalidPathException ignored) {
-            }
-        playback.reset();
-        speedFeedback.clear();
-        volumeFeedback.clear();
-        artwork.close();
-        if (waveforms != null) waveforms.close();
-        if (pip != null) pip.stop();
-        var oldPlayback = playback;
-        var oldLibrary = library;
-        var oldDownloads = downloads;
-        var oldAudition = audition;
-        audition = null;
-        var finished = new CompletableFuture<Void>();
-        CompletableFuture.supplyAsync(() -> {
-            try {
+        return ResetOperation.run(new ResetSteps(), Minecraft.getInstance()::execute, io);
+    }
+
+    private final class ResetSteps implements ResetOperation.Steps {
+        private Settings prior;
+        private String expected;
+        private final Cleanup built = new Cleanup();
+
+        @Override
+        public Callable<List<String>> begin() {
+            state.resetting = true;
+            prior = settings();
+            var defaultBindings = shortcuts.defaults();
+            var roots = new LinkedHashSet<Path>();
+            roots.add(library.root());
+            for (String root : prior.roots.keySet())
+                try {
+                    roots.add(Path.of(root));
+                } catch (InvalidPathException ignored) {
+                }
+            var oldPlayback = playback;
+            var oldLibrary = library;
+            var oldDownloads = downloads;
+            var oldAudition = audition;
+            audition = null;
+            // Each step runs even if one before it fails: the storage task must still stop the captured services.
+            new Cleanup()
+                .then("cleanup scanner", () -> {
+                    if (cleanupScanner != null) cleanupScanner.close();
+                    cleanupScanner = null;
+                })
+                .then("source index", () -> {
+                    if (sourceIndex != null) sourceIndex.close();
+                    sourceIndex = null;
+                })
+                .then("pending requests", () -> {
+                    cleanupReviews = null;
+                    sourceEvidenceRevision = -1;
+                    sourceEvidence = List.of();
+                    requestedScreen = null;
+                    requestedWorld = null;
+                    folders.invalidate();
+                    autoplayPending = false;
+                })
+                .then("folder picker", DesktopFolderPicker::cancel)
+                .then("playback", oldPlayback::reset)
+                .then("feedback", () -> {
+                    speedFeedback.clear();
+                    volumeFeedback.clear();
+                })
+                .then("artwork", artwork::close)
+                .then("waveforms", () -> {
+                    if (waveforms != null) waveforms.close();
+                })
+                .then("PiP", () -> {
+                    if (pip != null) pip.stop();
+                }).run();
+            return () -> {
                 if (oldAudition != null) oldAudition.close();
                 oldPlayback.close();
                 oldDownloads.close();
@@ -1149,27 +1202,28 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
                 importHistory.reset();
                 config.resetShortcuts(defaultBindings);
                 return retained;
-            } catch (Exception e) {
-                throw new CompletionException(e);
-            }
-        }, io).whenComplete((retained, failure) -> Minecraft.getInstance().execute(() -> {
-            if (state.closed) {
-                finished.completeExceptionally(new IllegalStateException(Text.get("reset.darkmusic.closing")));
-                return;
-            }
-            settingsStore.replace(failure == null ? Settings.defaults(prior) : prior);
-            playback = createPlayback();
-            artwork = new ArtworkCache();
-            waveforms = new WaveformCache(config.directory());
-            library = new MusicLibrary(config.directory());
-            downloads = createDownloads();
-            state.resetting = false;
+            };
+        }
+
+        @Override
+        public void publish(boolean defaults) {
+            settingsStore.replace(defaults ? Settings.defaults(prior) : prior);
+            var newPlayback = playback = createPlayback();
+            built.first("playback", newPlayback::close);
+            var newArtwork = artwork = new ArtworkCache();
+            built.first("artwork", newArtwork::close);
+            var newWaveforms = waveforms = new WaveformCache(config.directory());
+            built.first("waveforms", newWaveforms::close);
+            var newLibrary = library = new MusicLibrary(config.directory());
+            built.first("library", newLibrary::close);
+            var newDownloads = downloads = createDownloads();
+            built.first("downloads", newDownloads::close);
             playback.volume(settings().volume);
             playback.speed(settings().speed);
             playback.shuffle(settings().shuffle);
             playback.repeat(settings().repeat);
             configureVisualizer();
-            if (failure == null) {
+            if (defaults) {
                 warning = "";
                 warningUntil = 0;
                 shortcuts.restoreDefaults();
@@ -1179,45 +1233,101 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
             } catch (Exception e) {
                 folders.activate(config.defaultMusic());
             }
+        }
+
+        @Override
+        public void abandon() {
+            built.run();
+        }
+
+        @Override
+        public void release() {
+            state.resetting = false;
             save();
-            if (failure != null) finished.completeExceptionally(failure);
-            else if (!retained.isEmpty()) {
-                String message = Text.get("reset.darkmusic.retained");
-                warn(message);
-                finished.completeExceptionally(new IOException(message));
-            } else {
-                String expected = ConfigStore.JSON.toJson(settings());
-                CompletableFuture.runAsync(() -> {
-                    try {
-                        if (!Files.readString(config.directory().resolve("config.json")).equals(expected))
-                            throw new IOException(Text.get("reset.darkmusic.save_failed"));
-                    } catch (IOException e) {
-                        throw new CompletionException(e);
-                    }
-                }, io).whenComplete((unused, error) -> {
-                    if (error == null) finished.complete(null);
-                    else finished.completeExceptionally(error);
-                });
-            }
-        }));
-        return finished;
+            expected = ConfigStore.JSON.toJson(settings());
+        }
+
+        @Override
+        public void verify() throws IOException {
+            if (!Files.readString(config.directory().resolve("config.json")).equals(expected))
+                throw new IOException(Text.get("reset.darkmusic.save_failed"));
+        }
+
+        @Override
+        public boolean closed() {
+            return state.closed;
+        }
+
+        @Override
+        public void warn(String message) {
+            DarkMusicClient.this.warn(message);
+        }
     }
 
+    /**
+     * Minecraft is closing. The final settings are written while writes are still admitted; then closed turns away new
+     * operations and late callbacks; consumers close before the services they read; history is flushed; the storage
+     * executor drains last, so queued writes finish. Every step runs even if one before it fails, and a second call
+     * does nothing.
+     */
     protected void shutdown() {
-        DesktopFolderPicker.cancel();
-        if (mediaToken != null) mediaToken.cancel();
-        browsing.shutdownNow();
-        sourceLinks.close();
-        if (cleanupScanner != null) cleanupScanner.close();
-        if (sourceIndex != null) sourceIndex.close();
-        if (audition != null) audition.close();
-        if (downloads != null) downloads.close();
-        if (library != null) library.close();
-        if (playback != null) playback.close();
-        if (pip != null) pip.close();
-        if (listeningHistory != null) listeningHistory.flush(true);
-        if (artwork != null) artwork.close();
-        if (waveforms != null) waveforms.close();
-        lyrics.close();
+        if (state.closed) return;
+        var steps = new Cleanup();
+        if (settings() != null && playback != null && !state.resetting)
+            steps.then("resume point", () -> recordResume(false));
+        steps.then("settings", this::save)
+            .then("admission", () -> state.closed = true)
+            .then("folder picker", DesktopFolderPicker::cancel)
+            .then("media operation", () -> {
+                if (mediaToken != null) mediaToken.cancel();
+            })
+            .then("browse pool", browsing::shutdownNow)
+            .then("updates", () -> {
+                if (updates != null) updates.close();
+            })
+            .then("Discord", discord::close)
+            .then("media controls", mediaControls::close)
+            .then("media controls package", mediaPackage::close)
+            .then("PiP", () -> {
+                if (pip != null) pip.close();
+            })
+            .then("source links", sourceLinks::close)
+            .then("cleanup scanner", () -> {
+                if (cleanupScanner != null) cleanupScanner.close();
+            })
+            .then("source index", () -> {
+                if (sourceIndex != null) sourceIndex.close();
+            })
+            .then("audition", () -> {
+                if (audition != null) audition.close();
+            })
+            .then("lyrics", lyrics::close)
+            .then("downloads", () -> {
+                if (downloads != null) downloads.close();
+            })
+            .then("library", () -> {
+                if (library != null) library.close();
+            })
+            .then("playback", () -> {
+                if (playback != null) playback.close();
+            })
+            .then("artwork", () -> {
+                if (artwork != null) artwork.close();
+            })
+            .then("waveforms", () -> {
+                if (waveforms != null) waveforms.close();
+            })
+            .then("listening history", () -> {
+                if (listeningHistory != null) listeningHistory.flush(true);
+            })
+            .then("storage", () -> {
+                io.shutdown();
+                try {
+                    if (!io.awaitTermination(2, TimeUnit.SECONDS)) io.shutdownNow();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    io.shutdownNow();
+                }
+            }).run();
     }
 }
