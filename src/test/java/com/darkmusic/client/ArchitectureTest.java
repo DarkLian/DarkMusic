@@ -34,6 +34,13 @@ class ArchitectureTest {
     private static final Pattern ROOT_TYPE = Pattern.compile("\\bcom\\.darkmusic\\.client\\.[A-Z]\\w*");
     // Lower this as packages stop depending on DarkMusicClient; never raise it.
     private static final int MAX_CLIENT_DEPENDENTS = 5;
+    // A screen reaches the screens it opens through gui.Navigation, so its Sources never inherits theirs. These still
+    // do; move each to Navigation and remove it here, never add one.
+    private static final Set<String> NAVIGATION_BY_INHERITANCE = Set.of("DownloadScreen", "DownloadToolsScreen",
+        "DuplicateComparisonScreen", "ExistingDownloadsScreen", "LibraryManagerScreen", "MetadataScreen",
+        "MusicFoldersScreen", "PipScreen", "PlaylistScreen", "SmartCleanupScreen", "SongActionsScreen");
+    private static final Pattern SOURCES_DECLARATION = Pattern.compile("interface Sources extends ([^{]*)\\{");
+    private static final Pattern SCREEN_SOURCES = Pattern.compile("\\b(\\w+Screen)\\.Sources\\b");
 
     @Test
     void packagesDependOnlyDownward() throws IOException {
@@ -72,6 +79,23 @@ class ArchitectureTest {
                 }).count();
         }
         assertTrue(dependents <= MAX_CLIENT_DEPENDENTS, dependents + " files depend on DarkMusicClient; the limit is " + MAX_CLIENT_DEPENDENTS);
+    }
+
+    /**
+     * Shared pieces (SettingsSource, AudioPage.Sources, ImportOverlay.Sources, PlayerProgress.Sources) are fine; another
+     * screen's Sources is not, because it hands this screen everything that screen needs.
+     */
+    @Test
+    void screensDoNotInheritTheSourcesOfScreensTheyOpen() throws IOException {
+        var inheriting = new ArrayList<String>();
+        try (var files = Files.list(SOURCES.resolve("gui"))) {
+            for (Path file : files.filter(p -> p.toString().endsWith(".java")).sorted().toList()) {
+                var declaration = SOURCES_DECLARATION.matcher(COMMENTS_AND_STRINGS.matcher(Files.readString(file)).replaceAll(" "));
+                if (declaration.find() && SCREEN_SOURCES.matcher(declaration.group(1)).find())
+                    inheriting.add(file.getFileName().toString().replace(".java", ""));
+            }
+        }
+        assertEquals(NAVIGATION_BY_INHERITANCE.stream().sorted().toList(), inheriting);
     }
 
     /**

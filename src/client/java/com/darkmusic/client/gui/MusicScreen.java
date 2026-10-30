@@ -6,8 +6,10 @@ import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.library.ArtworkCache;
 import com.darkmusic.client.library.ListeningHistory;
 import com.darkmusic.client.library.MusicFolders;
+import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.lyrics.LyricsService;
 import com.darkmusic.client.playlist.PlaylistStore;
 import com.darkmusic.client.render.LyricsStatusIcon;
 import com.darkmusic.client.render.SpectrumRenderer;
@@ -43,10 +45,43 @@ import java.util.stream.Stream;
 
 public final class MusicScreen extends LocalScreen {
     /**
-     * The player: playback controls, the library browser, and every screen it opens.
+     * The player: playback controls and the library browser. The screens it opens come from navigation.
      */
-    public interface Sources extends SettingsScreen.Sources, PlaylistScreen.Sources,
-        SongActionsScreen.Sources, MetadataScreen.Sources, ImportHistoryScreen.Sources, DownloadScreen.Sources, PipScreen.Sources {
+    public interface Sources extends ImportOverlay.Sources, PlayerProgress.Sources {
+        Navigation navigation();
+
+        /**
+         * Null until startup creates the player, library and playlists.
+         */
+        PlaybackController playback();
+
+        MusicLibrary library();
+
+        PlaylistStore playlists();
+
+        boolean playlistsReady();
+
+        ListeningHistory listeningHistory();
+
+        LyricsService lyrics();
+
+        ArtworkCache artwork();
+
+        boolean mediaBusy();
+
+        boolean canEditQueue();
+
+        void importAudio(List<Path> paths, String folder, String playlistId);
+
+        void openFolder(Path directory);
+
+        void warn(String text);
+
+        /**
+         * The warning on screen, or "" when there is none.
+         */
+        String warning();
+
         ShortcutKeys shortcuts();
 
         SourceLinks sourceLinks();
@@ -216,11 +251,11 @@ public final class MusicScreen extends LocalScreen {
         int navigationWidth = compactNavigation ? 24 : 112;
         int navigationX = width - 12 - 3 * navigationWidth - 8;
         Help.tip(icon("upnext.title", UiIcon.PLAYLIST, navigationX, 4, navigationWidth, compactNavigation,
-            () -> show(new UpNextScreen(app, this))), Text.get("upnext.title.help"));
+            () -> show(app.navigation().upNext(this))), Text.get("upnext.title.help"));
         icon("text.darkmusic.downloads", UiIcon.DOWNLOAD, navigationX + navigationWidth + 4, 4, navigationWidth, compactNavigation,
-            () -> show(new DownloadScreen(app, this)));
+            () -> show(app.navigation().downloads(this)));
         icon("text.darkmusic.settings", UiIcon.SETTINGS, navigationX + 2 * (navigationWidth + 4), 4, navigationWidth, compactNavigation,
-            () -> show(new SettingsScreen(app, this)));
+            () -> show(app.navigation().settings(this)));
         String[] modes = {"All", "Playlists", "Artists", "Albums"};
         int searchX;
         if (width >= 800) {
@@ -253,15 +288,15 @@ public final class MusicScreen extends LocalScreen {
         else {
             int utilityWidth = layout.navigationUtilityWidth();
             openFolder = icon("text.darkmusic.open_folder", UiIcon.FOLDER, 12, contextY, utilityWidth, true, () -> app.openFolder(browseDirectory()));
-            icon("import.darkmusic.history", UiIcon.PLAYLIST, 16 + utilityWidth, contextY, utilityWidth, true, () -> show(new ImportHistoryScreen(app, this)));
+            icon("import.darkmusic.history", UiIcon.PLAYLIST, 16 + utilityWidth, contextY, utilityWidth, true, () -> show(app.navigation().importHistory(this)));
             icon("text.darkmusic.refresh_library", UiIcon.REFRESH, 20 + utilityWidth * 2, contextY, utilityWidth, true, () -> app.library().rescan());
-            icon("delete_audio.manage", UiIcon.TOOLS, 24 + utilityWidth * 3, contextY, utilityWidth, true, () -> show(new LibraryManagerScreen(app, this)));
-            Help.tip(icon("pip.title", UiIcon.PIP, 28 + utilityWidth * 4, contextY, utilityWidth, true, () -> show(new PipScreen(app, this))), Text.get("pip.settings.help"));
+            icon("delete_audio.manage", UiIcon.TOOLS, 24 + utilityWidth * 3, contextY, utilityWidth, true, () -> show(app.navigation().libraryManager(this)));
+            Help.tip(icon("pip.title", UiIcon.PIP, 28 + utilityWidth * 4, contextY, utilityWidth, true, () -> show(app.navigation().pip(this))), Text.get("pip.settings.help"));
         }
         if (drawer || layout.singleColumn() && library) {
             int filesX = drawer ? 84 : 128;
-            icon("delete_audio.manage", UiIcon.TOOLS, filesX, contextY, 24, true, () -> show(new LibraryManagerScreen(app, this)));
-            Help.tip(icon("pip.title", UiIcon.PIP, filesX + 28, contextY, 24, true, () -> show(new PipScreen(app, this))), Text.get("pip.settings.help"));
+            icon("delete_audio.manage", UiIcon.TOOLS, filesX, contextY, 24, true, () -> show(app.navigation().libraryManager(this)));
+            Help.tip(icon("pip.title", UiIcon.PIP, filesX + 28, contextY, 24, true, () -> show(app.navigation().pip(this))), Text.get("pip.settings.help"));
         }
         if (library || drawer) {
             int utilityWidth = drawer || layout.singleColumn() ? 24 : layout.navigationUtilityWidth();
@@ -269,7 +304,7 @@ public final class MusicScreen extends LocalScreen {
             UiButton.selected(icon("view.darkmusic.history", UiIcon.HISTORY, manageX - utilityWidth - 4, contextY, utilityWidth, true,
                 () -> mode("History")), () -> mode.equals("History"));
             var manage = icon("text.darkmusic.manage_playlists", UiIcon.MUSIC, manageX, contextY, utilityWidth, true, () -> {
-                if (app.playlistsReady()) show(new PlaylistScreen(app, this));
+                if (app.playlistsReady()) show(app.navigation().playlists(this));
                 else app.warn(Text.get("text.darkmusic.playlists_are_still_loading"));
             });
             manage.active = app.playlistsReady();
@@ -309,7 +344,7 @@ public final class MusicScreen extends LocalScreen {
         transportControls();
         if (drawer) {
             icon("text.darkmusic.open_folder", UiIcon.FOLDER, 84, contextY, 24, true, app::openMusicFolder);
-            icon("import.darkmusic.history", UiIcon.PLAYLIST, 112, contextY, 24, true, () -> show(new ImportHistoryScreen(app, this)));
+            icon("import.darkmusic.history", UiIcon.PLAYLIST, 112, contextY, 24, true, () -> show(app.navigation().importHistory(this)));
             icon("text.darkmusic.refresh_library", UiIcon.REFRESH, 140, contextY, 24, true, () -> app.library().rescan());
         }
         if (shuffle != null) UiButton.selected(shuffle, () -> app.playback().shuffle());
@@ -330,7 +365,7 @@ public final class MusicScreen extends LocalScreen {
     private void detailButtons(boolean library) {
         var inspector = pane == Pane.DETAILS ? new PlayerLayout.Rect(12, 96, width - 24, layout.dock().y() - 108) : layout.inspector();
         queueActions = icon("upnext.actions", UiIcon.MORE, inspector.right() - 28, inspector.y() + 4, 22, true,
-            () -> show(new SongActionsScreen(app, this, selected)));
+            () -> show(app.navigation().songActions(this, selected)));
         queueActions.visible = selected != null && (pane == Pane.DETAILS || library && inspector.width() > 0);
         queueActions.active = selected != null && app.canEditQueue();
         Help.tip(queueActions, Text.get("upnext.actions.help"));
@@ -341,7 +376,7 @@ public final class MusicScreen extends LocalScreen {
         edit = icon("library.darkmusic.edit_metadata", UiIcon.EDIT, inspector.x() + 30, inspector.y() + 4, 22, true, () -> {
             if (selected != null && !app.mediaBusy()) {
                 var before = selected;
-                show(new MetadataScreen(app, this, before, updated -> {
+                show(app.navigation().metadata(this, before, updated -> {
                     if (selected != null && selected.id().equals(before.id())) {
                         selected = updated;
                         awaitingEditedTrack = true;
@@ -350,7 +385,7 @@ public final class MusicScreen extends LocalScreen {
             }
         });
         lyricsButton = app.settings().lyricsEnabled
-            ? icon("lyrics.darkmusic.title", UiIcon.LYRICS, inspector.x() + 54, inspector.y() + 4, 22, true, () -> show(new LyricsScreen(app, this, selected))) : null;
+            ? icon("lyrics.darkmusic.title", UiIcon.LYRICS, inspector.x() + 54, inspector.y() + 4, 22, true, () -> show(app.navigation().lyrics(this, selected))) : null;
         int sourceX = inspector.x() + (lyricsButton == null ? 54 : 78);
         sourceLink = icon("library.darkmusic.open_source", UiIcon.LINK, sourceX, inspector.y() + 4, 22, true, () -> {
             String url = app.sourceLinks().get(selected);

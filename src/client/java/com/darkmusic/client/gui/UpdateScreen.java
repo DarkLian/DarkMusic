@@ -20,7 +20,7 @@ public final class UpdateScreen extends AudioPage<UpdateScreen.Sources> {
     private boolean started;
     private Path shownFailure;
 
-    UpdateScreen(Sources app, Screen parent) {
+    public UpdateScreen(Sources app, Screen parent) {
         super(app, parent, "update.check");
     }
 

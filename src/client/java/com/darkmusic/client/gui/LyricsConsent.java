@@ -1,5 +1,6 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.config.SettingsSource;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.gui.screens.Screen;
 
@@ -9,7 +10,7 @@ final class LyricsConsent {
     private LyricsConsent() {
     }
 
-    static Screen request(LyricsScreen.Sources app, Screen parent) {
+    static Screen request(SettingsSource app, Screen parent) {
         // Cancel/Escape keeps networking off, and does not repeatedly interrupt the player.
         app.settings().lyricsConsentVersion = 1;
         app.settings().lyricsOnline = false;

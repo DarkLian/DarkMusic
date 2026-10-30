@@ -1,6 +1,7 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.audio.AudioBackend;
+import com.darkmusic.client.audio.PlaybackController;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.config.WaveformSettings;
 import com.darkmusic.client.hud.HudLyricsLayout;
@@ -8,6 +9,8 @@ import com.darkmusic.client.hud.HudPreview;
 import com.darkmusic.client.hud.HudScale;
 import com.darkmusic.client.hud.LyricsHud;
 import com.darkmusic.client.hud.NowPlayingHud;
+import com.darkmusic.client.library.ListeningHistory;
+import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.presence.DiscordPresence;
 import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.SpectrumRenderer;
@@ -43,11 +46,20 @@ import java.util.stream.IntStream;
  */
 public final class SettingsScreen extends LocalScreen implements HudPreview {
     /**
-     * Settings, the services they control, and every settings page they open.
+     * Settings and the services they control. The pages it opens come from navigation.
      */
-    public interface Sources extends AudioSettingsScreen.Sources, BackupScreen.Sources,
-        HudEditorScreen.Sources, LyricsScreen.Sources, MusicFoldersScreen.Sources, UpdateScreen.Sources, PlayerProgress.Sources,
-        ColorsScreen.Sources {
+    public interface Sources extends AudioPage.Sources, PlayerProgress.Sources {
+        Navigation navigation();
+
+        /**
+         * Null until startup creates the player, library and history.
+         */
+        PlaybackController playback();
+
+        MusicLibrary library();
+
+        ListeningHistory listeningHistory();
+
         MediaControls mediaControls();
 
         MediaControlsPackage mediaPackage();
@@ -249,7 +261,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         if (previewVisible && (app.settings().hudEnabled || LyricsHud.enabled(app.settings()))) {
             int layoutButtonWidth = Math.min(previewWidth, font.width(Text.get("text.darkmusic.edit_hud_layout")) + 32);
             UiButton.icon(addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.edit_hud_layout"),
-                    button -> show(new HudEditorScreen(app, this)))
+                    button -> show(app.navigation().hudEditor(this)))
                 .bounds(previewX + (previewWidth - layoutButtonWidth) / 2, previewY + previewHeight + 4, layoutButtonWidth, 24).build()), UiIcon.EDIT, false);
         }
         var s = app.settings();
@@ -272,7 +284,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
 
     private void generalSettings(Settings s) {
         section("text.darkmusic.general_settings");
-        action("folders.title", () -> show(new MusicFoldersScreen(app, this)), "folders.scope");
+        action("folders.title", () -> show(app.navigation().musicFolders(this)), "folders.scope");
         folderY = cursor;
         folderPath = app.library().root().toString();
         folderLines = font.split(Component.literal(folderPath), formWidth - 14);
@@ -281,7 +293,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         toggle("resume.darkmusic.enabled", () -> s.resumeLast, v -> s.resumeLast = v, "resume.darkmusic.enabled_help");
         toggle("ui.darkmusic.show_hover_info", () -> s.showHoverInfo, v -> s.showHoverInfo = v, "ui.darkmusic.show_hover_info_help");
         toggle("update.enabled", () -> s.updateNotifications, v -> s.updateNotifications = v, "update.enabled_help");
-        action("update.check", () -> show(new UpdateScreen(app, this)), "update.check_help");
+        action("update.check", () -> show(app.navigation().updates(this)), "update.check_help");
         put(new SettingRow(12, 0, formWidth, Text.get("discord.darkmusic.status"), () -> s.discordStatus, () -> {
             s.discordStatus = !s.discordStatus;
             app.save();
@@ -296,7 +308,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                 toggle("discord.darkmusic.artwork", () -> s.discordArtwork, v -> s.discordArtwork = v, "discord.darkmusic.artwork_help");
         }
         mediaControlsRows(s);
-        action("backup.title", () -> show(new BackupScreen(app, this)), "backup.scope");
+        action("backup.title", () -> show(app.navigation().backup(this)), "backup.scope");
         action("history.clear", () -> show(new ConfirmationScreen(this, Text.component("history.clear"), Text.component("history.clear_help"), Text.component("history.clear"), () -> {
             app.listeningHistory().replace(Map.of());
             app.listeningHistory().flush(true);
@@ -306,8 +318,8 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
 
     private void audioSettings() {
         section("settings.audio_section");
-        action("audio.darkmusic.title", () -> show(new AudioSettingsScreen(app, this)), "audio.darkmusic.options_help");
-        action("environment.title", () -> show(new SoundEnvironmentScreen(app, this)), "environment.scope");
+        action("audio.darkmusic.title", () -> show(app.navigation().audioSettings(this)), "audio.darkmusic.options_help");
+        action("environment.title", () -> show(app.navigation().soundEnvironment(this)), "environment.scope");
     }
 
     private void lyricsSettings(Settings s) {
@@ -317,7 +329,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
             rebuildWidgets();
         }, "lyrics.darkmusic.enabled_help");
         if (s.lyricsEnabled) {
-            action("lyrics.settings", () -> show(new LyricsSettingsScreen(app, this)), "lyrics.settings.help");
+            action("lyrics.settings", () -> show(app.navigation().lyricsSettings(this)), "lyrics.settings.help");
         }
         if (s.lyricsEnabled) {
             toggle("lyrics.darkmusic.hud", () -> s.lyricsHud, v -> {
@@ -412,7 +424,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
             if (linear && !spectrumOnly) {
                 slider(s.hudBackgroundTransparency, v -> Text.get("hud.darkmusic.transparency", Math.round(s.hudBackgroundTransparency * 100)), v -> s.hudBackgroundTransparency = v, 100, "hud.darkmusic.transparency_help");
                 toggle("hud.darkmusic.background_gradient", () -> s.hudBackgroundGradient, v -> s.hudBackgroundGradient = v, "hud.darkmusic.background_gradient_help");
-                action("hud.darkmusic.background_colors", () -> show(new ColorsScreen(app, this, s.hudBackgroundColors, "hud.darkmusic.background_colors")), "colors.darkmusic.help");
+                action("hud.darkmusic.background_colors", () -> show(app.navigation().colors(this, s.hudBackgroundColors, "hud.darkmusic.background_colors")), "colors.darkmusic.help");
             }
         }
         subsection("hud.darkmusic.group.motion");
@@ -431,7 +443,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         if (s.songCard != Settings.SongCard.OFF) {
             choice("hud.darkmusic.card_animation", "hud.darkmusic.motion.", () -> s.songCardAnimation, v -> s.songCardAnimation = v,
                 "hud.darkmusic.card_animation_help");
-            action("hud.darkmusic.card_position", () -> show(new HudEditorScreen(app, this, HudEditorScreen.Element.CARD)), "hud.darkmusic.card_position_help");
+            action("hud.darkmusic.card_position", () -> show(app.navigation().hudEditor(this, HudEditorScreen.Element.CARD)), "hud.darkmusic.card_position_help");
         }
         subsection("progress.darkmusic.group");
         if (s.hudEnabled && !spectrumOnly)
@@ -453,7 +465,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
             rebuildWidgets();
         }, "progress.darkmusic.waveform_help");
         finish("finish.darkmusic.progress", () -> s.progressFinish, v -> s.progressFinish = v);
-        action("colors.darkmusic.progress", () -> show(new ColorsScreen(app, this, false)), "colors.darkmusic.help");
+        action("colors.darkmusic.progress", () -> show(app.navigation().colors(this, false)), "colors.darkmusic.help");
         if (s.waveformProgress) {
             choice("waveform.style", "waveform.style.", () -> s.waveform.style, v -> s.waveform.style = v, "waveform.style.help");
             action("waveform.unplayed", () -> show(new ColorPickerScreen(this, s.waveform.unplayedColor, 0x555D78, color -> {
@@ -521,7 +533,7 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         toggle("quality.darkmusic.peaks", () -> s.visualQuality.peakHold, v -> s.visualQuality.peakHold = v, "quality.darkmusic.peaks_help");
         toggle("quality.darkmusic.trails", () -> s.visualQuality.trails, v -> s.visualQuality.trails = v, "quality.darkmusic.trails_help");
         toggle("quality.darkmusic.glow", () -> s.visualQuality.glow, v -> s.visualQuality.glow = v, "quality.darkmusic.glow_help");
-        action("colors.darkmusic.spectrum", () -> show(new ColorsScreen(app, this, true)), "colors.darkmusic.help");
+        action("colors.darkmusic.spectrum", () -> show(app.navigation().colors(this, true)), "colors.darkmusic.help");
         waveformSlider((s.spectrumOpacity - .1) / .9, v -> Text.get("spectrum.darkmusic.opacity", Math.round(s.spectrumOpacity * 100)), v -> s.spectrumOpacity = .1 + v * .9, 18, "spectrum.darkmusic.opacity_help");
         if (!chosenStyle.bars() && (linear || chosenStyle != Settings.SpectrumStyle.FILLED_SPIKE))
             waveformSlider((s.visualQuality.detail - 96) / 288.0, v -> Text.get("spectrum.darkmusic.detail", s.visualQuality.detail), v -> s.visualQuality.detail = 96 + (int) Math.round(v * 288), 12, "spectrum.darkmusic.detail_help");

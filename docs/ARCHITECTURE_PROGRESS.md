@@ -225,3 +225,48 @@ never an obsolete copy.
 
 **Checks:** `SettingsStoreTest` (6), `ArchitectureTest`, `AudioProfileTest`, `EnvironmentPresetTest`,
 `PlaybackConfigurationTest` and `CustomizationTest` passed. `compileSmokeJava -Psmoke` passed.
+
+## Batch 5: screen navigation (2026-10-30)
+
+**Invariant improved:** the player and Settings reach the screens they open through `gui.Navigation`. Their Sources
+declare only what they use themselves, so they no longer inherit the dependencies of every reachable screen.
+Before this change, `MusicScreen.Sources` extended, directly or transitively, the Sources of almost every screen in
+the mod.
+
+**Changes:**
+- `gui.Navigation` lists 20 destinations, each with the context it needs (parent, song, colour target, HUD element)
+  and nothing about services.
+- `ScreenNavigation<S extends ...>` (root package) builds each destination with its own Sources. Its type bound lists
+  exactly those Sources, so it never names `DarkMusicClient` and the dependents cap stays at 5.
+- `MusicScreen.Sources` now extends only `ImportOverlay.Sources` and `PlayerProgress.Sources`, the components it
+  draws. It declares its own needs explicitly: playback, library, playlists and their readiness, history, lyrics,
+  artwork, media flag, queue editing, import, open folder, warnings.
+- `SettingsScreen.Sources` now extends `AudioPage.Sources` and `PlayerProgress.Sources`, and declares playback,
+  library and history.
+- `DarkMusicClient` implements each destination's Sources explicitly, the honest list for a composition root. It
+  exposes `navigation()`. Screen constructor signatures are unchanged, so the smoke sources compile as they were.
+- `LyricsConsent.request` now takes `SettingsSource`, which is all it uses, instead of `LyricsScreen.Sources`.
+  `UpdateScreen`'s constructor is now public like the others.
+- New guard `ArchitectureTest.screensDoNotInheritTheSourcesOfScreensTheyOpen`. A screen's Sources may extend shared
+  pieces (`SettingsSource`, `AudioPage.Sources`, `ImportOverlay.Sources`, `PlayerProgress.Sources`,
+  `TrackThumbnails`), never another screen's Sources. The 11 screens not migrated are listed and may only be
+  removed.
+
+**Not migrated (listed in the guard):** the local chains for downloads (tools, paths, duplicates, existing
+downloads), the cleanup chain (library manager → smart cleanup → comparison → deletion/ignored, music folders,
+existing downloads), metadata → deletion, PiP → colours, playlists → track picker, song actions → Up Next. These are
+one or two levels deep and grant only neighbouring services. Their migration is the same mechanical step and is
+recorded as follow-up work.
+
+**Adding a destination now:** give the screen its Sources, add a `Navigation` method, and build it in
+`ScreenNavigation` (whose bound gains that Sources), which `DarkMusicClient` then implements. No other screen's Sources changes.
+
+**Interaction preserved:** each destination gets the same parent (`this`) and the same arguments as before, so
+back navigation, the metadata `saved` callback, the colours target and the HUD element selection are unchanged.
+`show(...)` is unchanged.
+
+**Checks:** `ArchitectureTest` (4), all `gui` tests, `LocalizationTest` and `CustomizationTest` passed. Client and
+smoke compile.
+
+**Runtime-unverified:** clicking through player → Settings → Audio Options and back, and the other hub destinations,
+in game. Covered by the default, HUD and advanced smoke checks.

@@ -16,6 +16,12 @@ backup ▸ download ▸ cleanup ▸ audio | lyrics | playlist ▸ library ▸ me
         (core packages; strictly downward, enforced by ArchitectureTest.CORE)
 ```
 
+Screens get services through their own nested `Sources` interface, which declares what that screen uses. The player and
+Settings open other screens through `gui.Navigation`; the root's `ScreenNavigation` builds each destination with
+the destination's own Sources, so a screen's Sources does not inherit those of the screens it opens
+(`ArchitectureTest.screensDoNotInheritTheSourcesOfScreensTheyOpen`, with a shrinking list of local chains not yet
+migrated).
+
 Core packages never reference `DarkMusicClient`. At most `MAX_CLIENT_DEPENDENTS` files may name it (a ratchet:
 only lowered). The source guard proves reference direction only, not runtime isolation.
 

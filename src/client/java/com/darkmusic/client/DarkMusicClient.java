@@ -24,16 +24,30 @@ import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.config.SettingsStore;
 import com.darkmusic.client.download.AuditionPlayer;
 import com.darkmusic.client.download.DownloadService;
+import com.darkmusic.client.gui.AudioSettingsScreen;
+import com.darkmusic.client.gui.BackupScreen;
+import com.darkmusic.client.gui.ColorsScreen;
 import com.darkmusic.client.gui.DesktopFolderPicker;
+import com.darkmusic.client.gui.DownloadScreen;
 import com.darkmusic.client.gui.FolderTree;
 import com.darkmusic.client.gui.Help;
 import com.darkmusic.client.gui.HudEditorScreen;
+import com.darkmusic.client.gui.ImportHistoryScreen;
+import com.darkmusic.client.gui.LibraryManagerScreen;
 import com.darkmusic.client.gui.LocalScreen;
 import com.darkmusic.client.gui.LyricsScreen;
+import com.darkmusic.client.gui.MetadataScreen;
+import com.darkmusic.client.gui.MusicFoldersScreen;
 import com.darkmusic.client.gui.MusicScreen;
+import com.darkmusic.client.gui.Navigation;
 import com.darkmusic.client.gui.PipScreen;
+import com.darkmusic.client.gui.PlaylistScreen;
 import com.darkmusic.client.gui.RowList;
+import com.darkmusic.client.gui.SettingsScreen;
 import com.darkmusic.client.gui.ShortcutKeys;
+import com.darkmusic.client.gui.SongActionsScreen;
+import com.darkmusic.client.gui.UpNextScreen;
+import com.darkmusic.client.gui.UpdateScreen;
 import com.darkmusic.client.hud.DownloadHud;
 import com.darkmusic.client.hud.HudPreview;
 import com.darkmusic.client.hud.HudSources;
@@ -91,8 +105,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -101,8 +115,12 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-// MusicScreen.Sources extends every screen's Sources, directly or through the screens it opens.
-public class DarkMusicClient implements ClientModInitializer, MusicScreen.Sources {
+// The composition root supplies each screen's Sources; ScreenNavigation builds the screens the player and Settings open.
+public class DarkMusicClient implements ClientModInitializer, MusicScreen.Sources, SettingsScreen.Sources,
+    UpNextScreen.Sources, DownloadScreen.Sources, ImportHistoryScreen.Sources, LibraryManagerScreen.Sources,
+    PipScreen.Sources, PlaylistScreen.Sources, SongActionsScreen.Sources, MetadataScreen.Sources, LyricsScreen.Sources,
+    AudioSettingsScreen.Sources, BackupScreen.Sources, HudEditorScreen.Sources, MusicFoldersScreen.Sources,
+    UpdateScreen.Sources, ColorsScreen.Sources {
     public static DarkMusicClient INSTANCE;
     public final ExecutorService io = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-storage").factory());
     public final ExecutorService browsing = new ThreadPoolExecutor(2, 2, 0, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(16), Thread.ofPlatform().daemon().name("darkmusic-browse").factory(), new ThreadPoolExecutor.AbortPolicy());
@@ -156,6 +174,7 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
         }
     };
     public volatile String warning = "";
+    private final Navigation navigation = new ScreenNavigation<>(this);
     public final Shortcuts shortcuts = new Shortcuts(this);
     public final FolderActions folders = new FolderActions(this);
     public final MediaActions media = new MediaActions(this);
@@ -521,6 +540,11 @@ public class DarkMusicClient implements ClientModInitializer, MusicScreen.Source
     @Override
     public Settings settings() {
         return settingsStore.settings();
+    }
+
+    @Override
+    public Navigation navigation() {
+        return navigation;
     }
 
     @Override
