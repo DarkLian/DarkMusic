@@ -38,6 +38,32 @@ public final class LyricsOptionsScreen extends AudioPage<LyricsScreen.Sources> {
 
     @Override
     protected void populate() {
+        synchronizationRows();
+        versionRows();
+        hadSidecar = app.lyrics().sidecarExists(track);
+        hadBackup = app.lyrics().backupExists(track);
+        int saveStart = rowCount();
+        action("lyrics.save", () -> {
+            var document = app.lyrics().document(track);
+            show(new ConfirmationScreen(this, Text.component("lyrics.save"), Text.component("lyrics.save.help"), Text.component("lyrics.save"),
+                () -> app.lyricsOperations().save(track, document, false)));
+        }).runs();
+        enableSince(saveStart, app.lyrics().document(track).available() && !hadSidecar);
+        int replaceStart = rowCount();
+        action("lyrics.replace", () -> {
+            var document = app.lyrics().document(track);
+            show(new ConfirmationScreen(this, Text.component("lyrics.replace"), Text.component("lyrics.replace.help"), Text.component("lyrics.replace"),
+                () -> app.lyricsOperations().save(track, document, true)));
+        }).destructive();
+        enableSince(replaceStart, app.lyrics().document(track).available() && hadSidecar);
+        int restoreStart = rowCount();
+        action("lyrics.restore", () -> show(new ConfirmationScreen(this, Text.component("lyrics.restore"), Text.component("lyrics.restore.help"), Text.component("lyrics.restore"),
+            () -> app.lyricsOperations().restore(track).thenCompose(done -> app.lyricsOperations().select(track, null))))).destructive();
+        enableSince(restoreStart, hadBackup);
+        status(() -> feedback, () -> feedbackTone);
+    }
+
+    private void synchronizationRows() {
         section("lyrics.sync");
         info(() -> track.title());
         slider("lyrics.offset", offset, -30000, 30000, 600, v -> {
@@ -63,6 +89,9 @@ public final class LyricsOptionsScreen extends AudioPage<LyricsScreen.Sources> {
             offset = 0;
             result(app.lyricsOperations().offset(track, 0));
         }).runs();
+    }
+
+    private void versionRows() {
         section("lyrics.versions");
         labeledAction(Text.get("lyrics.recovery.keep"), Text.get("lyrics.recovery.help"), () ->
             show(new ConfirmationScreen(this, Text.component("lyrics.recovery.keep"), Text.component("lyrics.recovery.help"), Text.component("lyrics.recovery.keep"),
@@ -81,27 +110,6 @@ public final class LyricsOptionsScreen extends AudioPage<LyricsScreen.Sources> {
             minecraft.execute(() -> confirmImport(selected));
             return true;
         }))).runs();
-        hadSidecar = app.lyrics().sidecarExists(track);
-        hadBackup = app.lyrics().backupExists(track);
-        int saveStart = rowCount();
-        action("lyrics.save", () -> {
-            var document = app.lyrics().document(track);
-            show(new ConfirmationScreen(this, Text.component("lyrics.save"), Text.component("lyrics.save.help"), Text.component("lyrics.save"),
-                () -> app.lyricsOperations().save(track, document, false)));
-        }).runs();
-        enableSince(saveStart, app.lyrics().document(track).available() && !hadSidecar);
-        int replaceStart = rowCount();
-        action("lyrics.replace", () -> {
-            var document = app.lyrics().document(track);
-            show(new ConfirmationScreen(this, Text.component("lyrics.replace"), Text.component("lyrics.replace.help"), Text.component("lyrics.replace"),
-                () -> app.lyricsOperations().save(track, document, true)));
-        }).destructive();
-        enableSince(replaceStart, app.lyrics().document(track).available() && hadSidecar);
-        int restoreStart = rowCount();
-        action("lyrics.restore", () -> show(new ConfirmationScreen(this, Text.component("lyrics.restore"), Text.component("lyrics.restore.help"), Text.component("lyrics.restore"),
-            () -> app.lyricsOperations().restore(track).thenCompose(done -> app.lyricsOperations().select(track, null))))).destructive();
-        enableSince(restoreStart, hadBackup);
-        status(() -> feedback, () -> feedbackTone);
     }
 
     @Override

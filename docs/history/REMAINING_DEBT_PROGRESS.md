@@ -10,6 +10,7 @@ verification, with commits waiting for approval. Six untracked local plan files 
 | G | Measure synthetic lambdas with stable enclosing-method keys; read exact Code.code_length from class files. | MethodLengthTest and ArchitectureTest pass. Parser checks overloaded methods and WIDE operands. One existing lambda exceeds 60 lines: PipRuntime.begin$lambda, 83; MAX_DEBT rises once from 12 to 13 to record previously invisible debt. |
 | U1 | Named factories for command subtrees; alias loop, attended-install consent and suggestion ordering retained. | LocalCommandsTest, NavigationAndCommandsTest and guards pass using private real-audio excerpts. MAX_DEBT 12. |
 | U2 | Settings search and navigation sections are private methods; reflected fields stay on the screen. | GUI suites, architecture/method/smoke-reflection guards pass. MAX_DEBT 11. Final native smoke and visual comparison pending. |
+| U3 | Lyric synchronization and version rows are separate visual groups; write-admission actions retain their order. | GUI/lyrics suites and guards pass. MAX_DEBT 10. Native lyrics smoke and comparison pending. |
 
 G2 bytecode sizes: AudioProcessor 1731, environment Engine 1474, SpectrumAnalyzer 1099, TrackWaveform 804,
 CircularHudMesh.Rings 1570, SpectrumRenderer.bars 1428 bytes. No hot method exceeds 8000 bytes.
