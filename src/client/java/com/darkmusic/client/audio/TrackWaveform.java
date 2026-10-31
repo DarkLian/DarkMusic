@@ -124,6 +124,10 @@ public final class TrackWaveform {
             }
             if (frames > rate * 21600) throw new AnalysisLimit("Waveform exceeds six-hour limit");
         }
+        return envelope(peaks, energy, perBin, frames, rate);
+    }
+
+    private static TrackWaveform envelope(float[] peaks, double[] energy, long perBin, long frames, double rate) throws AnalysisLimit {
         if (frames == 0) throw new AnalysisLimit("Empty waveform");
         float[] output = new float[BINS];
         float highest = 0;
@@ -145,4 +149,6 @@ public final class TrackWaveform {
         if (highest > 0) for (int i = 0; i < BINS; i++) output[i] /= highest;
         return new TrackWaveform(output, frames / rate);
     }
+
+
 }
