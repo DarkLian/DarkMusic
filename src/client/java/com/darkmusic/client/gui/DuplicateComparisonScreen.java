@@ -97,6 +97,14 @@ public final class DuplicateComparisonScreen extends LocalScreen {
                 rebuildWidgets();
             });
         }
+        comparisonColumns(wide);
+        reviewActions();
+        fill();
+        updatePlayback();
+        loadDetails();
+    }
+
+    private void comparisonColumns(boolean wide) {
         for (int i = 0; i < 2; i++) {
             int index = i, x = wide ? 12 + i * (columnWidth + 12) : 12;
             fields[i] = addRenderableWidget(new RowList(x, cardY + 70, columnWidth, Math.max(28, height - cardY - 144), 28, Text.get(i == 0 ? "cleanup.file_a" : "cleanup.file_b"), (row, a) -> {
@@ -119,6 +127,9 @@ public final class DuplicateComparisonScreen extends LocalScreen {
                 actions.add(b);
             }
         }
+    }
+
+    private void reviewActions() {
         int half = (width - 28) / 2;
         button("cleanup.keep", 12, height - 42, half, () -> {
             app.cleanup().dismiss(pair.id());
@@ -131,8 +142,9 @@ public final class DuplicateComparisonScreen extends LocalScreen {
         });
         ignore.active = app.cleanupReviews().ready();
         Help.tip(ignore, Text.get("cleanup.ignore.help"));
-        fill();
-        updatePlayback();
+    }
+
+    private void loadDetails() {
         if (!loading && !loaded) {
             loading = true;
             try {
