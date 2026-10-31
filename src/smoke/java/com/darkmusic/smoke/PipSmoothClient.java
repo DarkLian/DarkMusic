@@ -68,7 +68,7 @@ final class PipSmoothClient {
         var app = DarkMusicClient.INSTANCE;
         long now = System.nanoTime();
         draws++;
-        var f = app.pip.frame();
+        var f = app.services().pip().frame();
         if (f != null && f.receivedNanos() != lastReceived) {
             long gap = lastUpload == 0 ? 0 : now - lastUpload;
             lastUpload = now;
@@ -108,20 +108,20 @@ final class PipSmoothClient {
         if (joinedTick == 0) joinedTick = ticks;
         if (selecting || ticks - joinedTick < 200 || !Files.exists(folder.resolve("select-fixture"))) return;
         selecting = true;
-        var setup = app.pip.tools.runtime;
-        app.settings().pip.enabled = true;
+        var setup = app.services().pip().tools.runtime;
+        app.services().settings().pip.enabled = true;
         note("select-start");
         setup.check().thenCompose(done -> {
                 note("checked ready=" + setup.ready() + " status=" + setup.status());
                 return setup.ready() ? CompletableFuture.<Void>completedFuture(null) : setup.install();
             })
-            .thenCompose(done -> app.pip.tools.windows(new ProcessRunner.Token()))
+            .thenCompose(done -> app.services().pip().tools.windows(new ProcessRunner.Token()))
             .thenAccept(sources -> mc.execute(() -> {
                 var matches = sources.stream().filter(s -> s.Title().contains(sourceTitle)).toList();
                 note("windows=" + sources.size() + " matches=" + matches.size());
                 if (matches.size() != 1)
                     throw new IllegalStateException("Expected one window titled " + sourceTitle + ", found " + matches.size());
-                app.pip.select(matches.getFirst());
+                app.services().pip().select(matches.getFirst());
                 mc.gui.setScreen(null);
             })).exceptionally(failure -> {
                 note("failed " + failure);
@@ -145,40 +145,40 @@ final class PipSmoothClient {
         try {
             ticks++;
             var app = DarkMusicClient.INSTANCE;
-            if (closed || app == null || !app.playlistsReady || !mc.isGameLoadFinished() || mc.gui.overlay() != null)
+            if (closed || app == null || !app.services().playlistsReady() || !mc.isGameLoadFinished() || mc.gui.overlay() != null)
                 return;
             if (stage == 0) {
-                app.settings().lyricsEnabled = app.settings().lyricsOnline = app.settings().waveformProgress = false;
+                app.services().settings().lyricsEnabled = app.services().settings().lyricsOnline = app.services().settings().waveformProgress = false;
                 // The private collection may need ffmpeg to decode (Opus); use the tools the run was given.
                 if (System.getProperty("darkmusic.downloadTools") != null) {
                     Path tools = Path.of(System.getProperty("darkmusic.downloadTools"));
                     String ext = System.getProperty("os.name").startsWith("Windows") ? ".exe" : "";
-                    app.settings().ffmpegPath = tools.resolve("ffmpeg" + ext).toString();
-                    app.settings().ffprobePath = tools.resolve("ffprobe" + ext).toString();
-                    app.applySettings();
+                    app.services().settings().ffmpegPath = tools.resolve("ffmpeg" + ext).toString();
+                    app.services().settings().ffprobePath = tools.resolve("ffprobe" + ext).toString();
+                    app.services().apply();
                 }
-                app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> {
+                app.sources().chooseMusicFolder(Path.of(System.getProperty("darkmusic.music")), () -> {
                 });
                 stage = 1;
-            } else if (stage == 1 && !app.library.snapshot().scanning() && !app.library.snapshot().tracks().isEmpty()) {
+            } else if (stage == 1 && !app.services().library().snapshot().scanning() && !app.services().library().snapshot().tracks().isEmpty()) {
                 SmokeUi.displayReady(mc);
                 mc.options.enableVsync().set(false);
                 mc.options.framerateLimit().set(144);
-                var track = app.library.snapshot().tracks().getFirst();
-                if (Boolean.getBoolean("darkmusic.pipBenchmark")) app.playback.stop();
+                var track = app.services().library().snapshot().tracks().getFirst();
+                if (Boolean.getBoolean("darkmusic.pipBenchmark")) app.services().playback().stop();
                 else {
-                    app.playback.repeat(Repeat.ONE);
-                    app.playback.play(List.of(track), track);
+                    app.services().playback().repeat(Repeat.ONE);
+                    app.services().playback().play(List.of(track), track);
                 }
                 if (!sourceTitle.isEmpty() || Files.exists(folder.resolve("check-hud-menus"))) joinBenchmarkWorld(mc);
-                else mc.gui.setScreen(new PipScreen(app, null));
+                else mc.gui.setScreen(new PipScreen(app.sources(), null));
                 if (sourceTitle.isEmpty() && Boolean.getBoolean("darkmusic.pipBenchmark") && Files.exists(folder.resolve("select-fixture")))
-                    app.pip.tools.windows(new ProcessRunner.Token()).thenAccept(sources -> mc.execute(() -> {
+                    app.services().pip().tools.windows(new ProcessRunner.Token()).thenAccept(sources -> mc.execute(() -> {
                         var fixtures = sources.stream().filter(s -> s.App().equals("DarkMusic.Pip.BenchmarkSource")).toList();
                         if (fixtures.size() != 1)
                             throw new IllegalStateException("Expected one explicitly requested private capture fixture");
-                        app.pip.select(fixtures.getFirst());
-                        mc.gui.setScreen(new PipEditorScreen(app, new PipScreen(app, null), false));
+                        app.services().pip().select(fixtures.getFirst());
+                        mc.gui.setScreen(new PipEditorScreen(app.sources(), new PipScreen(app.sources(), null), false));
                     }));
                 stage = 2;
             }
@@ -208,25 +208,25 @@ final class PipSmoothClient {
             if (stage == 2 && ticks % 20 == 0) {
                 if (Files.isRegularFile(folder.resolve("phase"))) {
                     String requested = Files.readString(folder.resolve("phase")).strip();
-                    if (!requested.equals(phase) && Set.of("off", "video", "video4", "audio").contains(requested) && app.pip.source() != null) {
-                        app.pip.stop();
+                    if (!requested.equals(phase) && Set.of("off", "video", "video4", "audio").contains(requested) && app.services().pip().source() != null) {
+                        app.services().pip().stop();
                         phase = requested;
                         if (requested.equals("video4")) System.setProperty("darkmusic.pip.minIntervalMs", "4");
                         else System.clearProperty("darkmusic.pip.minIntervalMs");
-                        app.settings().pip.frameRate = Integer.getInteger("darkmusic.pipFrameRate", 144);
-                        app.settings().pip.audioSpectrum = requested.equals("audio");
-                        if (!requested.equals("off")) app.pip.start();
+                        app.services().settings().pip.frameRate = Integer.getInteger("darkmusic.pipFrameRate", 144);
+                        app.services().settings().pip.audioSpectrum = requested.equals("audio");
+                        if (!requested.equals("off")) app.services().pip().start();
                         lastReceived = lastUpload = 0;
                     }
                 }
-                var audio = app.playback.state();
-                var capturedAudio = app.pip.audio();
-                offer("{\"kind\":\"capture\",\"epochMillis\":" + System.currentTimeMillis() + ",\"phase\":\"" + phase + "\",\"received\":" + app.pip.received() + ",\"uploaded\":" + app.pip.uploaded() + ",\"audioPackets\":" + (capturedAudio == null ? 0 : capturedAudio.packets()) + ",\"audioStatus\":\"" + (capturedAudio == null ? "off" : capturedAudio.status()) + "\",\"world\":" + (mc.level != null) + ",\"screen\":\"" + (mc.gui.screen() == null ? "HUD" : mc.gui.screen().getClass().getSimpleName()) + "\"}");
-                offer("{\"kind\":\"state\",\"nanos\":" + System.nanoTime() + ",\"status\":\"" + audio.status() + "\",\"position\":" + audio.position() + ",\"draws\":" + draws + ",\"uploads\":" + app.pip.uploaded() + ",\"dropped\":" + app.pip.dropped() + ",\"pip\":\"" + app.pip.status() + "\",\"focusSuccesses\":" + app.pip.focusSuccesses() + ",\"focusFailures\":" + app.pip.focusFailures() + ",\"fullscreen\":" + mc.getWindow().isFullscreen() + ",\"exclusive\":" + SmokeUi.field(mc.getWindow(), "exclusiveFullscreen") + ",\"refocuses\":" + refocuses + ",\"throttle\":\"" + mc.getFramerateLimitTracker().getThrottleReason() + "\",\"monitor\":" + GLFW.glfwGetWindowMonitor(mc.getWindow().handle()) + ",\"diagnosticDrops\":" + diagnosticDrops + "}");
+                var audio = app.services().playback().state();
+                var capturedAudio = app.services().pip().audio();
+                offer("{\"kind\":\"capture\",\"epochMillis\":" + System.currentTimeMillis() + ",\"phase\":\"" + phase + "\",\"received\":" + app.services().pip().received() + ",\"uploaded\":" + app.services().pip().uploaded() + ",\"audioPackets\":" + (capturedAudio == null ? 0 : capturedAudio.packets()) + ",\"audioStatus\":\"" + (capturedAudio == null ? "off" : capturedAudio.status()) + "\",\"world\":" + (mc.level != null) + ",\"screen\":\"" + (mc.gui.screen() == null ? "HUD" : mc.gui.screen().getClass().getSimpleName()) + "\"}");
+                offer("{\"kind\":\"state\",\"nanos\":" + System.nanoTime() + ",\"status\":\"" + audio.status() + "\",\"position\":" + audio.position() + ",\"draws\":" + draws + ",\"uploads\":" + app.services().pip().uploaded() + ",\"dropped\":" + app.services().pip().dropped() + ",\"pip\":\"" + app.services().pip().status() + "\",\"focusSuccesses\":" + app.services().pip().focusSuccesses() + ",\"focusFailures\":" + app.services().pip().focusFailures() + ",\"fullscreen\":" + mc.getWindow().isFullscreen() + ",\"exclusive\":" + SmokeUi.field(mc.getWindow(), "exclusiveFullscreen") + ",\"refocuses\":" + refocuses + ",\"throttle\":\"" + mc.getFramerateLimitTracker().getThrottleReason() + "\",\"monitor\":" + GLFW.glfwGetWindowMonitor(mc.getWindow().handle()) + ",\"diagnosticDrops\":" + diagnosticDrops + "}");
             }
             if (stage == 2 && (Files.exists(folder.resolve("stop-minecraft")) || ticks > 36000)) {
                 closed = true;
-                app.pip.close();
+                app.services().pip().close();
                 System.out.println("DARKMUSIC_SMOKE_PASS:" + Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip());
                 mc.stop();
             }

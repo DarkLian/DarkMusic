@@ -103,116 +103,116 @@ public final class SmokeClient implements ClientModInitializer {
 
     private void checkVolumeBindings(Minecraft mc, DarkMusicClient app) throws Exception {
         // Every KeyMapping field Shortcuts declares must be listed in bindings(), once.
-        long declared = Arrays.stream(app.shortcuts.getClass().getDeclaredFields()).filter(f -> f.getType() == KeyMapping.class).count();
-        var bindings = app.shortcuts.bindings();
+        long declared = Arrays.stream(app.shortcuts().getClass().getDeclaredFields()).filter(f -> f.getType() == KeyMapping.class).count();
+        var bindings = app.shortcuts().bindings();
         require(bindings.length == declared && Arrays.stream(bindings).allMatch(Objects::nonNull)
             && Arrays.stream(bindings).map(KeyMapping::getName).distinct().count() == declared, "bindings() does not list every native binding once");
-        require(app.shortcuts.open.getDefaultKey().getValue() == 66 && app.shortcuts.mute.getDefaultKey().getValue() == 77 && app.shortcuts.toggle.getDefaultKey().getValue() == 92, "Open/mute/play defaults are wrong");
-        require(app.shortcuts.slower.getDefaultKey().getValue() == 45 && app.shortcuts.faster.getDefaultKey().getValue() == 61 && app.shortcuts.normalSpeed.getDefaultKey().getValue() == 320, "Speed defaults are wrong");
-        require(app.shortcuts.seekBack.getDefaultKey().getValue() == 263 && app.shortcuts.seekForward.getDefaultKey().getValue() == 262, "Seek arrow defaults are wrong");
-        require(app.shortcuts.stop.getDefaultKey().getValue() == 80 && app.shortcuts.jump.getDefaultKey().getValue() == 79, "Stop/locate defaults are wrong");
-        require(app.shortcuts.next.getDefaultKey().getValue() == 93 && app.shortcuts.previous.getDefaultKey().getValue() == 91, "Track bracket defaults are wrong");
-        require(app.shortcuts.volumeUp.getDefaultKey().getValue() == 265 && app.shortcuts.volumeDown.getDefaultKey().getValue() == 264, "Volume arrow defaults are wrong");
+        require(app.shortcuts().open.getDefaultKey().getValue() == 66 && app.shortcuts().mute.getDefaultKey().getValue() == 77 && app.shortcuts().toggle.getDefaultKey().getValue() == 92, "Open/mute/play defaults are wrong");
+        require(app.shortcuts().slower.getDefaultKey().getValue() == 45 && app.shortcuts().faster.getDefaultKey().getValue() == 61 && app.shortcuts().normalSpeed.getDefaultKey().getValue() == 320, "Speed defaults are wrong");
+        require(app.shortcuts().seekBack.getDefaultKey().getValue() == 263 && app.shortcuts().seekForward.getDefaultKey().getValue() == 262, "Seek arrow defaults are wrong");
+        require(app.shortcuts().stop.getDefaultKey().getValue() == 80 && app.shortcuts().jump.getDefaultKey().getValue() == 79, "Stop/locate defaults are wrong");
+        require(app.shortcuts().next.getDefaultKey().getValue() == 93 && app.shortcuts().previous.getDefaultKey().getValue() == 91, "Track bracket defaults are wrong");
+        require(app.shortcuts().volumeUp.getDefaultKey().getValue() == 265 && app.shortcuts().volumeDown.getDefaultKey().getValue() == 264, "Volume arrow defaults are wrong");
         var up = InputConstants.getKey("key.keyboard.up");
         var down = InputConstants.getKey("key.keyboard.down");
-        var oldMute = app.shortcuts.mute.saveString();
-        var oldUp = app.shortcuts.volumeUp.saveString();
-        var oldDown = app.shortcuts.volumeDown.saveString();
-        var oldToggle = app.shortcuts.toggle.saveString();
-        double oldVolume = app.settings().volume;
+        var oldMute = app.shortcuts().mute.saveString();
+        var oldUp = app.shortcuts().volumeUp.saveString();
+        var oldDown = app.shortcuts().volumeDown.saveString();
+        var oldToggle = app.shortcuts().toggle.saveString();
+        double oldVolume = app.services().settings().volume;
         var tick = DarkMusicClient.class.getDeclaredMethod("tick", Minecraft.class, boolean.class);
         tick.setAccessible(true);
         try {
-            app.shortcuts.volumeUp.setKey(up);
-            app.shortcuts.volumeDown.setKey(down);
-            app.shortcuts.toggle.setKey(InputConstants.UNKNOWN);
+            app.shortcuts().volumeUp.setKey(up);
+            app.shortcuts().volumeDown.setKey(down);
+            app.shortcuts().toggle.setKey(InputConstants.UNKNOWN);
             KeyMapping.resetMapping();
-            app.shortcuts.mute.setKey(InputConstants.getKey("key.keyboard.f8"));
+            app.shortcuts().mute.setKey(InputConstants.getKey("key.keyboard.f8"));
             var muteKey = InputConstants.getKey("key.keyboard.f8");
             KeyMapping.resetMapping();
-            app.volume(.5);
+            app.sources().volume(.5);
             KeyMapping.click(muteKey);
             tick.invoke(app, mc, false);
-            require(app.settings().volume == .5, "Mute shortcut fired in a menu");
+            require(app.services().settings().volume == .5, "Mute shortcut fired in a menu");
             KeyMapping.click(muteKey);
             tick.invoke(app, mc, true);
-            require(app.settings().volume == 0 && app.settings().lastAudibleVolume == .5, "Mute did not remember audible volume");
-            require(app.volumeFeedback.opacity(System.nanoTime()) > 0, "Mute feedback was not shown");
+            require(app.services().settings().volume == 0 && app.services().settings().lastAudibleVolume == .5, "Mute did not remember audible volume");
+            require(app.services().volumeFeedback().opacity(System.nanoTime()) > 0, "Mute feedback was not shown");
             KeyMapping.click(muteKey);
             tick.invoke(app, mc, true);
-            require(app.settings().volume == .5, "Unmute did not restore volume");
+            require(app.services().settings().volume == .5, "Unmute did not restore volume");
             KeyMapping.click(up);
             tick.invoke(app, mc, false);
-            require(app.settings().volume == .5, "Volume shortcut fired while menus were blocked");
+            require(app.services().settings().volume == .5, "Volume shortcut fired while menus were blocked");
             KeyMapping.click(up);
             tick.invoke(app, mc, true);
-            require(app.settings().volume == .55, "Volume up step failed");
+            require(app.services().settings().volume == .55, "Volume up step failed");
             KeyMapping.click(down);
             tick.invoke(app, mc, true);
-            require(app.settings().volume == .5, "Volume down step failed");
-            app.volume(1);
+            require(app.services().settings().volume == .5, "Volume down step failed");
+            app.sources().volume(1);
             KeyMapping.click(up);
             tick.invoke(app, mc, true);
-            require(app.settings().volume == 1, "Volume exceeded 100%");
-            app.volume(0);
+            require(app.services().settings().volume == 1, "Volume exceeded 100%");
+            app.sources().volume(0);
             KeyMapping.click(down);
             tick.invoke(app, mc, true);
-            require(app.settings().volume == 0, "Volume dropped below zero");
-            app.volume(.5);
-            app.shortcuts.toggle.setKey(up);
+            require(app.services().settings().volume == 0, "Volume dropped below zero");
+            app.sources().volume(.5);
+            app.shortcuts().toggle.setKey(up);
             KeyMapping.resetMapping();
             KeyMapping.click(up);
             tick.invoke(app, mc, true);
-            require(app.settings().volume == .5, "Conflicting volume shortcut fired");
-            require(app.warning.contains("Shortcut conflict"), "Conflicting shortcut needs a visible warning");
-            app.warning = "";
-            app.shortcuts.toggle.setKey(InputConstants.UNKNOWN);
-            app.shortcuts.volumeUp.setKey(InputConstants.getKey("key.keyboard.f10"));
-            app.save();
-            require(app.shortcuts.volumeUp.saveString().equals("key.keyboard.f10"), "Native volume binding did not change");
+            require(app.services().settings().volume == .5, "Conflicting volume shortcut fired");
+            require(app.services().warnings().current().contains("Shortcut conflict"), "Conflicting shortcut needs a visible warning");
+            app.services().warnings().clear();
+            app.shortcuts().toggle.setKey(InputConstants.UNKNOWN);
+            app.shortcuts().volumeUp.setKey(InputConstants.getKey("key.keyboard.f10"));
+            app.services().save();
+            require(app.shortcuts().volumeUp.saveString().equals("key.keyboard.f10"), "Native volume binding did not change");
         } finally {
-            app.shortcuts.mute.setKey(InputConstants.getKey(oldMute));
-            app.shortcuts.volumeUp.setKey(InputConstants.getKey(oldUp));
-            app.shortcuts.volumeDown.setKey(InputConstants.getKey(oldDown));
-            app.shortcuts.toggle.setKey(InputConstants.getKey(oldToggle));
+            app.shortcuts().mute.setKey(InputConstants.getKey(oldMute));
+            app.shortcuts().volumeUp.setKey(InputConstants.getKey(oldUp));
+            app.shortcuts().volumeDown.setKey(InputConstants.getKey(oldDown));
+            app.shortcuts().toggle.setKey(InputConstants.getKey(oldToggle));
             KeyMapping.resetMapping();
-            app.volume(oldVolume);
+            app.sources().volume(oldVolume);
         }
     }
 
     private void checkSpeedBindings(Minecraft mc, DarkMusicClient app) throws Exception {
-        String oldUp = app.shortcuts.faster.saveString(), oldDown = app.shortcuts.slower.saveString(), oldNormal = app.shortcuts.normalSpeed.saveString();
-        double old = app.settings().speed;
+        String oldUp = app.shortcuts().faster.saveString(), oldDown = app.shortcuts().slower.saveString(), oldNormal = app.shortcuts().normalSpeed.saveString();
+        double old = app.services().settings().speed;
         var up = InputConstants.getKey("key.keyboard.f13");
         var down = InputConstants.getKey("key.keyboard.f14");
         var normal = InputConstants.getKey("key.keyboard.f15");
         var tick = DarkMusicClient.class.getDeclaredMethod("tick", Minecraft.class, boolean.class);
         tick.setAccessible(true);
         try {
-            app.shortcuts.faster.setKey(up);
-            app.shortcuts.slower.setKey(down);
-            app.shortcuts.normalSpeed.setKey(normal);
+            app.shortcuts().faster.setKey(up);
+            app.shortcuts().slower.setKey(down);
+            app.shortcuts().normalSpeed.setKey(normal);
             KeyMapping.resetMapping();
-            app.speed(1);
+            app.sources().speed(1);
             KeyMapping.click(up);
             tick.invoke(app, mc, false);
-            require(app.settings().speed == 1, "Speed shortcut fired in a menu");
+            require(app.services().settings().speed == 1, "Speed shortcut fired in a menu");
             KeyMapping.click(up);
             tick.invoke(app, mc, true);
-            require(app.settings().speed == 1.1 && app.speedFeedback.opacity(System.nanoTime()) > 0, "Speed shortcut feedback missing");
+            require(app.services().settings().speed == 1.1 && app.services().speedFeedback().opacity(System.nanoTime()) > 0, "Speed shortcut feedback missing");
             KeyMapping.click(down);
             tick.invoke(app, mc, true);
-            require(app.settings().speed == 1, "Speed down shortcut failed");
-            app.speed(1.5);
+            require(app.services().settings().speed == 1, "Speed down shortcut failed");
+            app.sources().speed(1.5);
             KeyMapping.click(normal);
             tick.invoke(app, mc, true);
-            require(app.settings().speed == 1 && app.speedFeedback.opacity(System.nanoTime()) > 0, "Reset-speed feedback missing");
+            require(app.services().settings().speed == 1 && app.services().speedFeedback().opacity(System.nanoTime()) > 0, "Reset-speed feedback missing");
         } finally {
-            app.shortcuts.faster.setKey(InputConstants.getKey(oldUp));
-            app.shortcuts.slower.setKey(InputConstants.getKey(oldDown));
-            app.shortcuts.normalSpeed.setKey(InputConstants.getKey(oldNormal));
+            app.shortcuts().faster.setKey(InputConstants.getKey(oldUp));
+            app.shortcuts().slower.setKey(InputConstants.getKey(oldDown));
+            app.shortcuts().normalSpeed.setKey(InputConstants.getKey(oldNormal));
             KeyMapping.resetMapping();
-            app.speed(old);
+            app.sources().speed(old);
         }
     }
 
@@ -250,24 +250,24 @@ public final class SmokeClient implements ClientModInitializer {
     }
 
     private void checkPlaylistBrowsing(Minecraft mc, DarkMusicClient app) throws Exception {
-        var tracks = app.library.snapshot().tracks();
+        var tracks = app.services().library().snapshot().tracks();
         var first = tracks.getFirst();
         var second = tracks.get(1);
         selectGroup(mc, playlistId);
         require(field("group").equals(playlistId), "Smoke playlist was not selected");
-        app.playlists.removeAll(playlistId, tracks.stream().map(Track::id).collect(Collectors.toSet()));
-        app.playlists.addAll(playlistId, List.of(second, first));
+        app.services().playlists().removeAll(playlistId, tracks.stream().map(Track::id).collect(Collectors.toSet()));
+        app.services().playlists().addAll(playlistId, List.of(second, first));
         player.tick();
         require(field("visible").equals(List.of(second, first)), "Playlist order was lost");
-        String duplicate = app.playlists.create("Smoke test");
-        app.playlists.add(duplicate, first);
+        String duplicate = app.services().playlists().create("Smoke test");
+        app.services().playlists().add(duplicate, first);
         player.tick();
         selectGroup(mc, duplicate);
         require(field("group").equals(duplicate) && field("visible").equals(List.of(first)), "Duplicate names confused selection");
-        app.playlists.rename(duplicate, "Renamed");
+        app.services().playlists().rename(duplicate, "Renamed");
         player.tick();
         require(field("group").equals(duplicate), "Rename lost selection");
-        app.playlists.delete(duplicate);
+        app.services().playlists().delete(duplicate);
         player.tick();
         require(field("group").equals(((List<?>) field("groups")).getFirst()), "Deletion did not fall back to the first playlist");
         selectGroup(mc, playlistId);
@@ -276,34 +276,34 @@ public final class SmokeClient implements ClientModInitializer {
         require(field("visible").equals(List.of(second)), "Playlist search failed");
         row(mc, player, "songs", 0, true);
         // The backend reports the new track from its own thread; the controller records the request at once.
-        var requested = app.playback.upNextSnapshot().current();
+        var requested = app.services().playback().upNextSnapshot().current();
         require(requested != null && requested.id().equals(second.id()), "Playlist playback failed: requested " + (requested == null ? null : requested.title()) + ", expected " + second.title());
         search.setValue("");
         var missing = new Track(first.rootId(), "missing.mp3", first.file(), "Missing", "", "", 0, 0, 0, "");
-        app.playlists.add(playlistId, missing);
+        app.services().playlists().add(playlistId, missing);
         player.tick();
         require(field("playlistNotice").toString().equals(Text.get("format.darkmusic.missing_entries", 1)), "Missing entry notice absent");
-        app.playlists.removeAll(playlistId, Set.of(missing.id()));
-        String empty = app.playlists.create("Empty");
+        app.services().playlists().removeAll(playlistId, Set.of(missing.id()));
+        String empty = app.services().playlists().create("Empty");
         player.tick();
         selectGroup(mc, empty);
         require(((List<?>) field("visible")).isEmpty(), "Empty playlist exposed all songs");
         // These playlists are deleted on purpose; play from the library so that is not a missing playback source.
-        app.playback.play(tracks, second);
+        app.services().playback().play(tracks, second);
         player.tick();
         view(mc, "Playlists");
-        app.playlists.delete(empty);
-        app.playlists.delete(playlistId);
+        app.services().playlists().delete(empty);
+        app.services().playlists().delete(playlistId);
         player.tick();
         require(((List<?>) field("visible")).isEmpty(), "No-playlists state exposed library");
-        playlistId = app.playlists.create("Smoke test");
-        app.playlists.addAll(playlistId, tracks);
+        playlistId = app.services().playlists().create("Smoke test");
+        app.services().playlists().addAll(playlistId, tracks);
         player.tick();
     }
 
     private void checkNavigationAndJump(DarkMusicClient app) throws Exception {
         var search = (EditBox) field("search");
-        var current = app.playback.state().track();
+        var current = app.services().playback().state().track();
         require(current != null, "Jump test needs current playback");
         var visible = (List<?>) field("visible");
         require(visible.stream().anyMatch(t -> ((Track) t).id().equals(current.id())), "Playing track missing before filtering");
@@ -313,14 +313,14 @@ public final class SmokeClient implements ClientModInitializer {
         var selected = (Track) field("selected");
         require(selected.id().equals(current.id()), "Jump did not select the currently playing track");
         require(((EditBox) field("search")).getValue().isEmpty(), "Jump did not clear incompatible search");
-        require(app.playback.state().track().id().equals(current.id()), "Jump changed playback");
-        var originalSource = app.playback.source();
-        for (var origin : List.of(new PlaybackController.Source("All", "", "", app.library.rootId()),
-            new PlaybackController.Source("All", current.relativePath().contains("/") ? current.relativePath().substring(0, current.relativePath().lastIndexOf('/')) : "", "", app.library.rootId()),
-            new PlaybackController.Source("Playlists", playlistId, "", app.library.rootId()),
-            new PlaybackController.Source("Artists", current.artist(), current.title(), app.library.rootId()),
-            new PlaybackController.Source("Albums", current.album(), "", app.library.rootId()))) {
-            SmokeUi.set(app.playback, "source", origin);
+        require(app.services().playback().state().track().id().equals(current.id()), "Jump changed playback");
+        var originalSource = app.services().playback().source();
+        for (var origin : List.of(new PlaybackController.Source("All", "", "", app.services().library().rootId()),
+            new PlaybackController.Source("All", current.relativePath().contains("/") ? current.relativePath().substring(0, current.relativePath().lastIndexOf('/')) : "", "", app.services().library().rootId()),
+            new PlaybackController.Source("Playlists", playlistId, "", app.services().library().rootId()),
+            new PlaybackController.Source("Artists", current.artist(), current.title(), app.services().library().rootId()),
+            new PlaybackController.Source("Albums", current.album(), "", app.services().library().rootId()))) {
+            SmokeUi.set(app.services().playback(), "source", origin);
             ((EditBox) field("search")).setValue("No matches before source jump");
             player.jumpToPlaying();
             require(field("mode").equals(origin.mode()) && field("group").equals(origin.group()), "Jump lost playback source: " + origin);
@@ -329,15 +329,15 @@ public final class SmokeClient implements ClientModInitializer {
             require(((Track) field("selected")).id().equals(current.id()), "Source jump selected a different track");
             var groups = (List<?>) field("groups");
             var rows = (List<RowList.Row>) field(field("navigation"), "rows");
-            var tracks = app.library.snapshot().tracks();
-            long count = origin.mode().equals("Playlists") ? app.playlists.resolve(origin.group(), tracks).size() : tracks.stream().filter(track -> switch (origin.mode()) {
+            var tracks = app.services().library().snapshot().tracks();
+            long count = origin.mode().equals("Playlists") ? app.services().playlists().resolve(origin.group(), tracks).size() : tracks.stream().filter(track -> switch (origin.mode()) {
                 case "Artists" -> track.artist().equals(origin.group());
                 case "Albums" -> track.album().equals(origin.group());
                 default -> FolderTree.includes(origin.group(), track);
             }).count();
             require(rows.get(groups.indexOf(origin.group())).title().endsWith(" (" + count + ")"), "Navigation count differs from total playable tracks: " + origin);
         }
-        SmokeUi.set(app.playback, "source", originalSource);
+        SmokeUi.set(app.services().playback(), "source", originalSource);
         player.jumpToPlaying();
         var list = (RowList) field("songs");
         require(Text.get("text.darkmusic.scroll_long_text").equals("text.darkmusic.scroll_long_text"), "Long-text hover hint remains translated");
@@ -349,25 +349,25 @@ public final class SmokeClient implements ClientModInitializer {
     }
 
     private void checkColors(Minecraft mc, DarkMusicClient app) throws Exception {
-        var settings = new SettingsScreen(app, player);
+        var settings = new SettingsScreen(app.sources(), player);
         mc.gui.setScreen(settings);
         click(mc, "Spectrum Colors");
         require(mc.gui.screen() instanceof ColorsScreen, "Spectrum colors did not open");
         click(mc, "Aurora Borealis");
-        require(app.settings().spectrumColors.preset == VisualColors.Preset.AURORA, "Preset did not apply");
+        require(app.services().settings().spectrumColors.preset == VisualColors.Preset.AURORA, "Preset did not apply");
         var start = (EditBox) field(mc.gui.screen(), "start");
         var end = (EditBox) field(mc.gui.screen(), "end");
         start.setValue("#55AAFF");
         end.setValue("#FFAACC");
-        require(app.settings().spectrumColors.color(0) == 0xFF55AAFF && app.settings().spectrumColors.color(1) == 0xFFFFAACC, "Custom mixed colors failed");
+        require(app.services().settings().spectrumColors.color(0) == 0xFF55AAFF && app.services().settings().spectrumColors.color(1) == 0xFFFFAACC, "Custom mixed colors failed");
         start.setValue("#xyz");
-        require(app.settings().spectrumColors.color(0) == 0xFF55AAFF, "Invalid color changed the last valid color");
+        require(app.services().settings().spectrumColors.color(0) == 0xFF55AAFF, "Invalid color changed the last valid color");
         click(mc, "Moonlight");
         escape(mc);
         require(mc.gui.screen() == settings, "Colors Escape did not return to Settings");
         click(mc, "Progress Bar Colors");
         click(mc, "Neon Dream");
-        require(app.settings().progressColors.preset == VisualColors.Preset.NEON_DREAM && app.settings().spectrumColors.preset == VisualColors.Preset.MOONLIGHT, "Progress and spectrum colors are not independent");
+        require(app.services().settings().progressColors.preset == VisualColors.Preset.NEON_DREAM && app.services().settings().spectrumColors.preset == VisualColors.Preset.MOONLIGHT, "Progress and spectrum colors are not independent");
         click(mc, "Moonlight");
         escape(mc);
         escape(mc);
@@ -379,7 +379,7 @@ public final class SmokeClient implements ClientModInitializer {
             ticks++;
             if (ticks > 1800) throw new IllegalStateException("Smoke test timed out");
             var app = DarkMusicClient.INSTANCE;
-            if (failed || app == null || app.library == null || !app.playlistsReady || !mc.isGameLoadFinished() || mc.gui.overlay() != null)
+            if (failed || app == null || app.services().library() == null || !app.services().playlistsReady() || !mc.isGameLoadFinished() || mc.gui.overlay() != null)
                 return;
             if (!fullscreenRequested) {
                 fullscreenRequested = true;
@@ -395,46 +395,46 @@ public final class SmokeClient implements ClientModInitializer {
                 if (System.getProperty("darkmusic.downloadTools") != null) {
                     Path tools = Path.of(System.getProperty("darkmusic.downloadTools"));
                     String ext = System.getProperty("os.name").startsWith("Windows") ? ".exe" : "";
-                    app.settings().ffmpegPath = tools.resolve("ffmpeg" + ext).toString();
-                    app.settings().ffprobePath = tools.resolve("ffprobe" + ext).toString();
-                    app.applySettings();
+                    app.services().settings().ffmpegPath = tools.resolve("ffmpeg" + ext).toString();
+                    app.services().settings().ffprobePath = tools.resolve("ffprobe" + ext).toString();
+                    app.services().apply();
                 }
-                app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> {
+                app.sources().chooseMusicFolder(Path.of(System.getProperty("darkmusic.music")), () -> {
                 });
                 return;
             }
-            if (app.library.snapshot().scanning() || app.library.snapshot().tracks().size() < 3) return;
-            musicCount = app.library.snapshot().tracks().size();
-            var audio = app.playback.state();
-            if (audio.status() == AudioBackend.Status.ERROR || !app.warning.isBlank())
-                throw new IllegalStateException("Audio/library error: " + app.warning + " " + audio.error());
+            if (app.services().library().snapshot().scanning() || app.services().library().snapshot().tracks().size() < 3) return;
+            musicCount = app.services().library().snapshot().tracks().size();
+            var audio = app.services().playback().state();
+            if (audio.status() == AudioBackend.Status.ERROR || !app.services().warnings().current().isBlank())
+                throw new IllegalStateException("Audio/library error: " + app.services().warnings().current() + " " + audio.error());
             if (audio.status() == AudioBackend.Status.PLAYING && audio.position() > 0)
                 playing.add(audio.track().relativePath());
             if (stage == -1) {
                 require(mc.level == null && mc.player == null, "Smoke test stays at title screen");
                 if (Boolean.getBoolean("darkmusic.testNativeBindings"))
-                    require(app.shortcuts.volumeUp.saveString().equals("key.keyboard.f10"), "Legacy config overrode the native controls binding");
+                    require(app.shortcuts().volumeUp.saveString().equals("key.keyboard.f10"), "Legacy config overrode the native controls binding");
                 mc.gui.setScreen(new TitleScreen());
                 app.open();
                 player = (MusicScreen) mc.gui.screen();
-                app.playlists.all().stream().map(p -> p.id()).toList().forEach(app.playlists::delete);
-                playlistId = app.playlists.create("Smoke test");
-                app.playlists.add(playlistId, app.library.snapshot().tracks().getFirst());
-                app.settings().hudArtwork = true;
-                app.settings().hudX = app.settings().hudY = 0.0;
-                app.settings().hudScale = 1;
-                app.settings().hudVisualizer = false;
+                app.services().playlists().all().stream().map(p -> p.id()).toList().forEach(app.services().playlists()::delete);
+                playlistId = app.services().playlists().create("Smoke test");
+                app.services().playlists().add(playlistId, app.services().library().snapshot().tracks().getFirst());
+                app.services().settings().hudArtwork = true;
+                app.services().settings().hudX = app.services().settings().hudY = 0.0;
+                app.services().settings().hudScale = 1;
+                app.services().settings().hudVisualizer = false;
                 // Answer the first-use online-lyrics prompt (offline) up front; a run folder without the earlier
                 // answer otherwise opens it over the player at an arbitrary later step.
-                app.settings().lyricsConsentVersion = 1;
-                app.settings().lyricsOnline = app.settings().lyricsLibraryLookup = false;
+                app.services().settings().lyricsConsentVersion = 1;
+                app.services().settings().lyricsOnline = app.services().settings().lyricsLibraryLookup = false;
 
-                app.applySettings();
-                app.playback.shuffle(false);
-                app.playback.repeat(Repeat.OFF);
-                app.speed(1);
-                app.playback.volume(.05);
-                app.playback.play(app.library.snapshot().tracks(), app.library.snapshot().tracks().getFirst());
+                app.services().apply();
+                app.services().playback().shuffle(false);
+                app.services().playback().repeat(Repeat.OFF);
+                app.sources().speed(1);
+                app.services().playback().volume(.05);
+                app.services().playback().play(app.services().library().snapshot().tracks(), app.services().library().snapshot().tracks().getFirst());
                 stage = 0;
                 frame = ticks;
                 return;
@@ -451,17 +451,17 @@ public final class SmokeClient implements ClientModInitializer {
             }
             switch (stage++) {
                 case 0 -> {
-                    var coverTrack = app.library.snapshot().tracks().stream().filter(t -> t.relativePath().contains("Departure")).findFirst();
-                    coverTrack.ifPresent(app.artwork::get);
+                    var coverTrack = app.services().library().snapshot().tracks().stream().filter(t -> t.relativePath().contains("Departure")).findFirst();
+                    coverTrack.ifPresent(app.services().artwork()::get);
                     var slider = (ValueSlider) field("progress");
                     // The player ignores a seek until its own tick sees the track playing with a known duration;
                     // ffmpeg can take longer than one check interval to start the first track.
-                    if (!slider.active || app.playback.state().status() != AudioBackend.Status.PLAYING) {
-                        require(++seekWaits < 25, "Playback never became seekable: " + app.playback.state().status());
+                    if (!slider.active || app.services().playback().state().status() != AudioBackend.Status.PLAYING) {
+                        require(++seekWaits < 25, "Playback never became seekable: " + app.services().playback().state().status());
                         stage = 0;
                         return;
                     }
-                    var generation = (AtomicLong) field(field(app.playback, "audio"), "generation");
+                    var generation = (AtomicLong) field(field(app.services().playback(), "audio"), "generation");
                     long before = generation.get();
                     double y = slider.getY() + 8;
                     mc.gui.screen().mouseClicked(mouse(slider.getX() + 12, y), false);
@@ -469,75 +469,75 @@ public final class SmokeClient implements ClientModInitializer {
                         mc.gui.screen().mouseDragged(mouse(slider.getX() + 15 + i * 2, y), 2, 0);
                     require(generation.get() == before, "Seek drag restarted the decoder before release");
                     mc.gui.screen().mouseReleased(mouse(slider.getX() + 23, y));
-                    require(generation.get() == before + 1, "Seek release must issue exactly one command: " + before + " -> " + generation.get() + " " + app.playback.state().status());
-                    app.playback.pause();
+                    require(generation.get() == before + 1, "Seek release must issue exactly one command: " + before + " -> " + generation.get() + " " + app.services().playback().state().status());
+                    app.services().playback().pause();
                     click(mc, "Settings");
                 }
                 case 1 -> {
                     require(audio.status() == AudioBackend.Status.PAUSED, "Pause failed");
-                    app.playback.seek(.5);
-                    if (!app.settings().lyricsEnabled) click(mc, "Enable Lyrics");
+                    app.services().playback().seek(.5);
+                    if (!app.services().settings().lyricsEnabled) click(mc, "Enable Lyrics");
                     click(mc, "Enable Lyrics");
-                    require(!app.settings().lyricsEnabled, "Global lyrics toggle did not disable lyrics");
+                    require(!app.services().settings().lyricsEnabled, "Global lyrics toggle did not disable lyrics");
                     var lyricsControls = mc.gui.screen().children().stream().filter(w -> w instanceof AbstractWidget a && a.visible).map(w -> ((AbstractWidget) w).getMessage().getString()).filter(text -> Set.of("Advanced Lyrics", "Lyrics in HUD", "Show Next Line").contains(text)).toList();
                     require(lyricsControls.isEmpty(), "Disabled lyrics controls remained visible: " + lyricsControls + " on " + mc.gui.screen().getClass().getSimpleName());
                     click(mc, "Enable Lyrics");
-                    require(app.settings().lyricsEnabled, "Global lyrics toggle did not re-enable lyrics");
+                    require(app.services().settings().lyricsEnabled, "Global lyrics toggle did not re-enable lyrics");
                     require(mc.gui.screen().children().stream().anyMatch(w -> w instanceof AbstractWidget a && a.visible && a.getMessage().getString().equals("Lyrics in HUD")), "Re-enabled lyrics did not restore its controls");
                 }
                 case 2 -> {
                     require(audio.status() == AudioBackend.Status.PAUSED && audio.position() >= .49, "Paused seek failed");
-                    app.speed(1.5);
-                    require(app.playback.speed() == 1.5, "Speed did not apply");
-                    app.playback.toggle();
+                    app.sources().speed(1.5);
+                    require(app.services().playback().speed() == 1.5, "Speed did not apply");
+                    app.services().playback().toggle();
                     click(mc, Text.get("text.darkmusic.hud_artwork"));
-                    require(!app.settings().hudArtwork, "Artwork toggle failed");
+                    require(!app.services().settings().hudArtwork, "Artwork toggle failed");
                     click(mc, Text.get("text.darkmusic.hud_artwork"));
                     click(mc, "Edit HUD Layout");
                 }
                 case 3 -> {
                     require(mc.gui.screen() instanceof HudEditorScreen, "HUD editor not opened");
-                    var b = NowPlayingHud.bounds(app.hud, mc.gui.screen().width, mc.gui.screen().height);
+                    var b = NowPlayingHud.bounds(app.services().hud(), mc.gui.screen().width, mc.gui.screen().height);
                     mc.gui.screen().mouseClicked(mouse(b.x() + 5, b.y() + 5), false);
                     mc.gui.screen().mouseDragged(mouse(b.x() + 105, b.y() + 85), 100, 80);
                     mc.gui.screen().mouseReleased(mouse(b.x() + 105, b.y() + 85));
-                    require(app.settings().hudX > 0 && app.settings().hudY > 0, "HUD did not drag");
-                    var resized = NowPlayingHud.bounds(app.hud, mc.gui.screen().width, mc.gui.screen().height);
+                    require(app.services().settings().hudX > 0 && app.services().settings().hudY > 0, "HUD did not drag");
+                    var resized = NowPlayingHud.bounds(app.services().hud(), mc.gui.screen().width, mc.gui.screen().height);
                     mc.gui.screen().mouseScrolled(resized.x() + 5, resized.y() + 5, 0, 1);
-                    require(app.settings().hudScale == 1.1, "Scale did not change by 0.1");
+                    require(app.services().settings().hudScale == 1.1, "Scale did not change by 0.1");
                     require(mc.gui.screen().children().stream().noneMatch(x -> x instanceof ValueSlider), "HUD scale slider was not removed");
-                    var spectrum = HudLayout.bounds(app.settings(), mc.gui.screen().width, mc.gui.screen().height);
-                    double previousScale = app.settings().hudScale;
+                    var spectrum = HudLayout.bounds(app.services().settings(), mc.gui.screen().width, mc.gui.screen().height);
+                    double previousScale = app.services().settings().hudScale;
                     mc.gui.screen().mouseScrolled(spectrum.x() + spectrum.width() - 3, spectrum.y() + 3, 0, 1);
-                    require(app.settings().hudScale == Math.round((previousScale + .1) * 10) / 10.0, "Combined editor did not scale the visualizer");
-                    require(app.settings().hudScale == 1.2, "Combined spectrum did not share the HUD scale");
+                    require(app.services().settings().hudScale == Math.round((previousScale + .1) * 10) / 10.0, "Combined editor did not scale the visualizer");
+                    require(app.services().settings().hudScale == 1.2, "Combined spectrum did not share the HUD scale");
                 }
                 case 4 -> {
                     escape(mc);
                     require(mc.gui.screen() instanceof SettingsScreen, "Escape did not return from HUD editor");
                 }
                 case 5 -> {
-                    require(Arrays.asList(mc.options.keyMappings).containsAll(Arrays.asList(app.shortcuts.bindings())), "Native controls are missing DarkMusic bindings");
+                    require(Arrays.asList(mc.options.keyMappings).containsAll(Arrays.asList(app.shortcuts().bindings())), "Native controls are missing DarkMusic bindings");
                     checkVolumeBindings(mc, app);
                     checkSpeedBindings(mc, app);
-                    app.shortcuts.faster.setKey(InputConstants.getKey("key.keyboard.f9"));
-                    app.save();
-                    require(app.shortcuts.faster.saveString().equals("key.keyboard.f9"), "Native speed binding did not change");
-                    app.shortcuts.faster.setKey(InputConstants.UNKNOWN);
+                    app.shortcuts().faster.setKey(InputConstants.getKey("key.keyboard.f9"));
+                    app.services().save();
+                    require(app.shortcuts().faster.saveString().equals("key.keyboard.f9"), "Native speed binding did not change");
+                    app.shortcuts().faster.setKey(InputConstants.UNKNOWN);
                     KeyMapping.resetMapping();
-                    app.save();
+                    app.services().save();
                     escape(mc);
                     require(mc.gui.screen() == player, "Escape did not return to player");
                     click(mc, "Manage Playlists");
                 }
                 case 6 -> {
                     require(mc.gui.screen() instanceof PlaylistScreen, "Editor not opened");
-                    var coverTrack = app.library.snapshot().tracks().stream().filter(t -> t.relativePath().contains("Departure")).findFirst();
+                    var coverTrack = app.services().library().snapshot().tracks().stream().filter(t -> t.relativePath().contains("Departure")).findFirst();
                     if (coverTrack.isPresent())
-                        require(app.artwork.get(coverTrack.get()) != null, "Real artwork did not become a Minecraft texture");
+                        require(app.services().artwork().get(coverTrack.get()) != null, "Real artwork did not become a Minecraft texture");
                     var rows = (List<RowList.Row>) field(field(mc.gui.screen(), "lists"), "rows");
                     // Favorite Music is built in and listed first; check the playlist this run created.
-                    String expected = "Smoke test (" + app.playlists.resolve(playlistId, app.library.snapshot().tracks()).size() + ")";
+                    String expected = "Smoke test (" + app.services().playlists().resolve(playlistId, app.services().library().snapshot().tracks()).size() + ")";
                     int smokeRow = rows.stream().map(RowList.Row::title).toList().indexOf(expected);
                     require(smokeRow >= 0, "Manage Playlists count differs from playable tracks: " + rows.stream().map(RowList.Row::title).toList() + " expected " + expected);
                     row(mc, mc.gui.screen(), "lists", smokeRow, false);
@@ -547,10 +547,10 @@ public final class SmokeClient implements ClientModInitializer {
                     require(mc.gui.screen() instanceof TrackPickerScreen, "Picker not opened");
                     click(mc, "Select All");
                     var selection = (SongSelection) field(mc.gui.screen(), "selection");
-                    require(selection.selected().size() == musicCount - 1, "Select All did not exclude the existing song: " + selection.selected().size() + " of " + musicCount + ", eligible " + app.playlists.availableToAdd(playlistId, app.library.snapshot().tracks()).size());
+                    require(selection.selected().size() == musicCount - 1, "Select All did not exclude the existing song: " + selection.selected().size() + " of " + musicCount + ", eligible " + app.services().playlists().availableToAdd(playlistId, app.services().library().snapshot().tracks()).size());
                     // The picker's search box is its only text input.
                     var search = mc.gui.screen().children().stream().filter(EditBox.class::isInstance).map(EditBox.class::cast).findFirst().orElseThrow();
-                    search.setValue(app.library.snapshot().tracks().get(1).relativePath());
+                    search.setValue(app.services().library().snapshot().tracks().get(1).relativePath());
                     require(selection.hidden() == musicCount - 2, "Filtered selections were lost");
                     click(mc, "Deselect All");
                     require(selection.selected().isEmpty(), "Deselect did not clear hidden selection");
@@ -562,16 +562,16 @@ public final class SmokeClient implements ClientModInitializer {
                 }
                 case 8 -> {
                     click(mc, "Add Selected");
-                    require(app.playlists.get(playlistId).entries().size() == musicCount, "Bulk add did not deduplicate");
+                    require(app.services().playlists().get(playlistId).entries().size() == musicCount, "Bulk add did not deduplicate");
                     row(mc, mc.gui.screen(), "entries", 0, false);
                     mc.gui.screen().tick();
                     click(mc, "Remove Selected");
-                    require(app.playlists.get(playlistId).entries().size() == musicCount - 1, "Bulk removal failed");
+                    require(app.services().playlists().get(playlistId).entries().size() == musicCount - 1, "Bulk removal failed");
                     click(mc, "Add Songs");
                     click(mc, "Select All");
                     escape(mc);
-                    require(app.playlists.get(playlistId).entries().size() == musicCount - 1, "Cancelled picker changed playlist");
-                    app.playlists.addAll(playlistId, app.library.snapshot().tracks());
+                    require(app.services().playlists().get(playlistId).entries().size() == musicCount - 1, "Cancelled picker changed playlist");
+                    app.services().playlists().addAll(playlistId, app.services().library().snapshot().tracks());
                     escape(mc);
                     mc.options.guiScale().set(6);
                     mc.resizeGui();
@@ -587,15 +587,15 @@ public final class SmokeClient implements ClientModInitializer {
                     view(mc, "Albums");
                     view(mc, "All");
                     click(mc, Text.get("key.darkmusic.normal_speed"));
-                    require(app.settings().speed == 1, "Speed reset failed");
+                    require(app.services().settings().speed == 1, "Speed reset failed");
                     // The player syncs its sliders from settings on the next screen tick.
                     mc.gui.screen().tick();
                     var speed = (ValueSlider) field("speed");
                     speed.setFocused(true);
                     boolean stepped = speed.keyPressed(new KeyEvent(262, 0, 0));
-                    require(app.settings().speed == 1.1, "Speed slider step failed: handled " + stepped + ", speed " + app.settings().speed);
+                    require(app.services().settings().speed == 1.1, "Speed slider step failed: handled " + stepped + ", speed " + app.services().settings().speed);
                     speed.keyPressed(new KeyEvent(263, 0, 0));
-                    require(app.settings().speed == 1, "Speed slider reverse step failed");
+                    require(app.services().settings().speed == 1, "Speed slider reverse step failed");
                     mc.options.guiScale().set(2);
                     mc.resizeGui();
                 }
@@ -628,30 +628,30 @@ public final class SmokeClient implements ClientModInitializer {
                 case 13 -> {
                     mc.options.guiScale().set(2);
                     mc.resizeGui();
-                    var first = app.library.snapshot().tracks().getFirst();
-                    app.playback.play(List.of(first), first);
-                    mc.gui.setScreen(new HudEditorScreen(app, player));
+                    var first = app.services().library().snapshot().tracks().getFirst();
+                    app.services().playback().play(List.of(first), first);
+                    mc.gui.setScreen(new HudEditorScreen(app.sources(), player));
                 }
                 case 14 -> {
                     escape(mc);
-                    mc.gui.setScreen(new PlaylistScreen(app, player));
+                    mc.gui.setScreen(new PlaylistScreen(app.sources(), player));
                 }
                 case 15 -> {
                     var lists = (List<RowList.Row>) field(field(mc.gui.screen(), "lists"), "rows");
                     int smokeRow = lists.stream().map(RowList.Row::title).toList().indexOf(lists.stream().map(RowList.Row::title).filter(t -> t.startsWith("Smoke test (")).findFirst().orElse(""));
                     require(smokeRow >= 0, "Smoke playlist missing from Manage Playlists: " + lists.stream().map(RowList.Row::title).toList());
                     row(mc, mc.gui.screen(), "lists", smokeRow, false);
-                    var first = app.library.snapshot().tracks().getFirst();
-                    app.playlists.add(playlistId, new Track(first.rootId(), "missing.mp3", first.file(), "Missing", "", "", 0, 0, 0, ""));
+                    var first = app.services().library().snapshot().tracks().getFirst();
+                    app.services().playlists().add(playlistId, new Track(first.rootId(), "missing.mp3", first.file(), "Missing", "", "", 0, 0, 0, ""));
                     mc.gui.screen().tick();
                     ((SongSelection) field(mc.gui.screen(), "selection")).choose(musicCount, false, false);
                     mc.gui.screen().tick();
                     click(mc, "Remove Selected");
-                    require(app.playlists.get(playlistId).entries().size() == musicCount, "Missing entry removal failed");
+                    require(app.services().playlists().get(playlistId).entries().size() == musicCount, "Missing entry removal failed");
                 }
                 case 16 -> {
-                    app.warn("Smoke transient warning");
-                    SmokeUi.set(app, "warningUntil", 0L);
+                    app.services().warn("Smoke transient warning");
+                    SmokeUi.set(app.services().warnings(), "warningUntil", 0L);
                 }
                 case 17 -> {
                     escape(mc);
@@ -662,9 +662,9 @@ public final class SmokeClient implements ClientModInitializer {
                     click(mc, "Analyze");
                 }
                 case 18 -> {
-                    require(!app.downloads.snapshot().analyzing(), "Invalid URL analysis remained active");
-                    require(app.downloads.snapshot().items().isEmpty(), "Analysis queued a download");
-                    require(!app.downloads.snapshot().message().isBlank(), "Invalid URL has no feedback");
+                    require(!app.services().downloads().snapshot().analyzing(), "Invalid URL analysis remained active");
+                    require(app.services().downloads().snapshot().items().isEmpty(), "Analysis queued a download");
+                    require(!app.services().downloads().snapshot().message().isBlank(), "Invalid URL has no feedback");
                     click(mc, "Tools");
                     require(mc.gui.screen() instanceof DownloadToolsScreen, "Tool settings not opened");
                 }
@@ -695,21 +695,21 @@ public final class SmokeClient implements ClientModInitializer {
                 }
                 case 22 -> {
                     click(mc, "Settings");
-                    app.settings().hudVisualizer = false;
+                    app.services().settings().hudVisualizer = false;
                     require(mc.gui.screen() instanceof SettingsScreen, "Unified settings did not open");
                     click(mc, "Music Spectrum");
-                    require(app.settings().hudVisualizer, "HUD visualizer toggle failed");
+                    require(app.services().settings().hudVisualizer, "HUD visualizer toggle failed");
                     click(mc, "Music Spectrum");
-                    require(!app.settings().hudVisualizer, "Shared spectrum toggle did not disable");
+                    require(!app.services().settings().hudVisualizer, "Shared spectrum toggle did not disable");
                     click(mc, "Music Spectrum");
                 }
                 case 23 -> click(mc, "Edit HUD Layout");
                 case 24 -> {
-                    var b = HudLayout.bounds(app.settings(), mc.gui.screen().width, mc.gui.screen().height);
+                    var b = HudLayout.bounds(app.services().settings(), mc.gui.screen().width, mc.gui.screen().height);
                     mc.gui.screen().mouseClicked(mouse(b.x() + 4, b.y() + 4), false);
                     mc.gui.screen().mouseDragged(mouse(b.x() - 36, b.y() - 16), -40, -20);
                     mc.gui.screen().mouseReleased(mouse(b.x() - 36, b.y() - 16));
-                    require(app.settings().hudX < .5 && app.settings().hudY < .5, "Combined HUD did not drag");
+                    require(app.services().settings().hudX < .5 && app.services().settings().hudY < .5, "Combined HUD did not drag");
                     escape(mc);
                     escape(mc);
                     mc.options.guiScale().set(2);
@@ -717,12 +717,12 @@ public final class SmokeClient implements ClientModInitializer {
                 }
                 case 25 -> {
                     mc.gui.setScreen(new TitleScreen());
-                    app.requestScreen(true);
+                    app.screens().requestScreen(true);
                 }
                 case 26 -> {
                     require(mc.gui.screen() instanceof HudEditorScreen, "Client layout command request did not open the editor");
                     escape(mc);
-                    app.requestScreen(false);
+                    app.screens().requestScreen(false);
                 }
                 case 27 -> {
                     require(mc.gui.screen() instanceof MusicScreen, "Client player command request did not open the player");
@@ -731,7 +731,7 @@ public final class SmokeClient implements ClientModInitializer {
                     checkColors(mc, app);
                 }
                 default -> {
-                    app.playback.stop();
+                    app.services().playback().stop();
                     LoggerFactory.getLogger("darkmusic-smoke").info("DARKMUSIC_SMOKE_PASS:" + Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip() + " command screen requests, jump to playing, removed row tooltips, row reveal, unified settings/player and HUD toggles/combined HUD drag/compact layouts, downloader navigation/invalid URL/queue/tools/layouts, bulk selection/search/cancel, speed/pause/seek, shortcuts, HUD drag/scale, Escape, layouts, actual device playback: {}", playing);
                     mc.stop();
                 }

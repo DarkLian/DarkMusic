@@ -4,6 +4,7 @@ import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.gui.MusicScreen;
 import com.darkmusic.client.gui.SettingsScreen;
+import com.darkmusic.client.hud.HudSources;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -21,13 +22,13 @@ final class HudMenusSmoke {
     boolean tick(Minecraft mc, DarkMusicClient app) throws Exception {
         if (System.nanoTime() > deadline) throw new IllegalStateException("HUD in menus smoke timed out at " + stage);
         if (mc.level == null || mc.player == null) return false;
-        var status = app.playback.state().status();
+        var status = app.services().playback().state().status();
         if (status == AudioBackend.Status.ERROR)
-            throw new IllegalStateException("Playback failed: " + app.playback.state().error());
+            throw new IllegalStateException("Playback failed: " + app.services().playback().state().error());
         if (stage == 0 && status != AudioBackend.Status.PLAYING) return false;
         if (++waited < (stage == 0 ? 100 : SETTLE)) return false;
         waited = 0;
-        var settings = app.settings();
+        var settings = app.services().settings();
         switch (stage) {
             case 0 -> {
                 settings.hudEnabled = true;
@@ -49,7 +50,7 @@ final class HudMenusSmoke {
             }
             case 3 -> {
                 require(mc, app, false, "HUD drew over the DarkMusic player");
-                mc.gui.setScreen(new SettingsScreen(app, mc.gui.screen()));
+                mc.gui.setScreen(new SettingsScreen(app.sources(), mc.gui.screen()));
             }
             case 4 -> {
                 require(mc, app, false, "HUD drew over DarkMusic Settings");
@@ -73,9 +74,9 @@ final class HudMenusSmoke {
     private static void require(Minecraft mc, DarkMusicClient app, boolean expected, String message) throws Exception {
         Screen screen = mc.gui.screen();
         if (screen == null) throw new IllegalStateException(message + ": no screen open");
-        var inMenus = Class.forName("com.darkmusic.client.hud.HudLayer").getDeclaredMethod("inMenus", DarkMusicClient.class, Screen.class);
+        var inMenus = Class.forName("com.darkmusic.client.hud.HudLayer").getDeclaredMethod("inMenus", HudSources.class, Screen.class);
         inMenus.setAccessible(true);
-        if ((boolean) inMenus.invoke(null, app, screen) != expected)
+        if ((boolean) inMenus.invoke(null, app.services().hud(), screen) != expected)
             throw new IllegalStateException(message + " (" + screen.getClass().getSimpleName() + ")");
     }
 }

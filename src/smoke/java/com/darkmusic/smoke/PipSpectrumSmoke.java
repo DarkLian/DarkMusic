@@ -27,14 +27,14 @@ final class PipSpectrumSmoke {
             SmokeUi.captureReady(mc);
             HudSettingsSmoke.check(mc, app);
             musicBefore = signature(app);
-            app.settings().pip.audioSpectrum = true;
-            var s = app.settings().pip.spectrum;
+            app.services().settings().pip.audioSpectrum = true;
+            var s = app.services().settings().pip.spectrum;
             for (int[] size : new int[][]{{320, 240}, {426, 240}, {960, 540}})
                 for (var position : Settings.ArtworkSpectrumPosition.values()) {
                     s.position = position;
                     for (var style : Settings.SpectrumStyle.values()) {
                         s.style = style;
-                        var screen = new PipSpectrumScreen(app, null);
+                        var screen = new PipSpectrumScreen(app.sources(), null);
                         screen.init(size[0], size[1]);
                         check(screen);
                         for (int i = 0; i < 24; i++) {
@@ -45,16 +45,16 @@ final class PipSpectrumSmoke {
                 }
             s.style = Settings.SpectrumStyle.ROUNDED_BARS;
             s.position = Settings.ArtworkSpectrumPosition.BELOW;
-            mc.gui.setScreen(new PipSpectrumScreen(app, null));
+            mc.gui.setScreen(new PipSpectrumScreen(app.sources(), null));
         }
         if (tick == 10) capture(mc, "settings");
         if (tick == 12) {
-            editorY = app.settings().pip.y;
-            app.settings().pip.y = 0;
-            var s = app.settings().pip.spectrum;
+            editorY = app.services().settings().pip.y;
+            app.services().settings().pip.y = 0;
+            var s = app.services().settings().pip.spectrum;
             s.style = Settings.SpectrumStyle.FILLED_WAVE;
             s.position = Settings.ArtworkSpectrumPosition.RIGHT;
-            mc.gui.setScreen(new PipEditorScreen(app, new PipSpectrumScreen(app, null), false));
+            mc.gui.setScreen(new PipEditorScreen(app.sources(), new PipSpectrumScreen(app.sources(), null), false));
         }
         if (tick == 22) {
             var back = SmokeUi.find(mc, Text.get("phase2.back"));
@@ -63,8 +63,8 @@ final class PipSpectrumSmoke {
             capture(mc, "layout");
         }
         if (tick == 24) {
-            app.settings().pip.y = editorY;
-            mc.gui.setScreen(new PipSpectrumScreen(app, null));
+            app.services().settings().pip.y = editorY;
+            mc.gui.setScreen(new PipSpectrumScreen(app.sources(), null));
             for (int i = 0; i < 30; i++) {
                 var colors = SmokeUi.find(mc, Text.get("colors.darkmusic.spectrum"));
                 if (colors != null && colors.visible) {
@@ -73,24 +73,24 @@ final class PipSpectrumSmoke {
                 }
                 mc.gui.screen().mouseScrolled(mc.getWindow().getGuiScaledWidth() / 2.0, 300, 0, -1);
             }
-            if (!(mc.gui.screen() instanceof ColorsScreen) || SmokeUi.field(mc.gui.screen(), "target") != app.settings().pip.spectrum.colors)
+            if (!(mc.gui.screen() instanceof ColorsScreen) || SmokeUi.field(mc.gui.screen(), "target") != app.services().settings().pip.spectrum.colors)
                 throw new IllegalStateException("PiP colors did not open its own editor");
         }
         if (tick == 34) capture(mc, "colors");
         if (tick == 36) {
-            hudWasEnabled = app.settings().hudEnabled;
-            app.settings().hudEnabled = false;
-            var screen = new SettingsScreen(app, null);
+            hudWasEnabled = app.services().settings().hudEnabled;
+            app.services().settings().hudEnabled = false;
+            var screen = new SettingsScreen(app.sources(), null);
             mc.gui.setScreen(screen);
             SmokeUi.set(screen, "selectedSection", 4);
             screen.init(960, 540);
         }
         if (tick == 46) capture(mc, "hud-disabled");
         if (tick == 50) {
-            app.settings().hudEnabled = hudWasEnabled;
+            app.services().settings().hudEnabled = hudWasEnabled;
             if (!musicBefore.equals(signature(app)))
                 throw new IllegalStateException("PiP edited music spectrum preferences");
-            app.save();
+            app.services().save();
             System.out.println("PIP_SPECTRUM_UI_PASS:320x240,426x240,960x540;all_styles;four_positions;keyboard;independent_colors");
             return true;
         }
@@ -98,7 +98,7 @@ final class PipSpectrumSmoke {
     }
 
     private static String signature(DarkMusicClient app) {
-        var s = app.settings();
+        var s = app.services().settings();
         return s.spectrumStyle + ":" + s.spectrumColors.preset + ":" + s.spectrumColors.start + ":" + s.spectrumColors.end + ":" + s.spectrumOpacity + ":" + s.visualizerSensitivity + ":" + s.visualizerSmoothing + ":" + s.visualizerBars;
     }
 

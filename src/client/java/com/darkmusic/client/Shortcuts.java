@@ -22,14 +22,19 @@ import java.util.concurrent.TimeUnit;
  * DarkMusic's native Controls bindings: registration, saved keys, conflicts and the playback actions they run.
  */
 public final class Shortcuts implements ShortcutKeys {
-    private final DarkMusicClient app;
+    private final ClientServices services;
+    private final PlaybackCommands commands;
+    // Opens the player for the jump key; the screen's sources are wired after the shortcuts.
+    private final Runnable openPlayer;
     public KeyMapping open, toggle, next, previous, faster, slower, normalSpeed, volumeUp, volumeDown, mute, seekBack, seekForward, stop, jump;
     // Unbound by default, so they never take a key another mod or Minecraft already uses.
     public KeyMapping hud, lyrics, favorite, shuffle, repeat;
     private long conflictWarning;
 
-    Shortcuts(DarkMusicClient app) {
-        this.app = app;
+    Shortcuts(ClientServices services, PlaybackCommands commands, Runnable openPlayer) {
+        this.services = services;
+        this.commands = commands;
+        this.openPlayer = openPlayer;
     }
 
     /**
@@ -142,14 +147,14 @@ public final class Shortcuts implements ShortcutKeys {
      * Applies keys saved by versions that stored them in DarkMusic's config instead of Minecraft's options.
      */
     void loadSaved() {
-        var settings = app.settings();
+        var settings = services.settings();
         for (KeyMapping key : bindings()) {
             String saved = settings.nativeShortcutNames.contains(key.getName()) ? null : settings.shortcuts.get(key.getName());
             if (saved != null) try {
                 key.setKey(InputConstants.getKey(saved));
             } catch (IllegalArgumentException e) {
                 key.setKey(InputConstants.UNKNOWN);
-                app.warn(Text.get("error.shortcut_invalid"));
+                services.warn(Text.get("error.shortcut_invalid"));
             }
         }
         migrateSpeedBindings();
@@ -159,7 +164,7 @@ public final class Shortcuts implements ShortcutKeys {
     }
 
     private void migrateSpeedBindings() {
-        var settings = app.settings();
+        var settings = services.settings();
         if (settings.nativeShortcutNames.contains(seekBack.getName()) || settings.nativeShortcutNames.contains(seekForward.getName())
             || settings.shortcuts.containsKey(seekBack.getName()) || settings.shortcuts.containsKey(seekForward.getName())
             || !faster.saveString().equals("key.keyboard.right") || !slower.saveString().equals("key.keyboard.left"))
@@ -169,12 +174,12 @@ public final class Shortcuts implements ShortcutKeys {
         settings.shortcuts.put(faster.getName(), faster.saveString());
         settings.shortcuts.put(slower.getName(), slower.saveString());
         var updated = Map.of("key_" + faster.getName(), faster.saveString(), "key_" + slower.getName(), slower.saveString());
-        app.io.execute(() -> {
+        services.io().execute(() -> {
             try {
-                app.config.resetShortcuts(updated);
+                services.config().resetShortcuts(updated);
             } catch (Exception failure) {
                 LoggerFactory.getLogger("darkmusic").warn("Cannot migrate default speed bindings", failure);
-                Minecraft.getInstance().execute(() -> app.warn(Text.get("error.shortcut_migrate")));
+                Minecraft.getInstance().execute(() -> services.warn(Text.get("error.shortcut_migrate")));
             }
         });
     }
@@ -188,7 +193,7 @@ public final class Shortcuts implements ShortcutKeys {
                     && !other.getName().startsWith("key.darkmusic.")) continue;
                 if (System.nanoTime() - conflictWarning > TimeUnit.SECONDS.toNanos(2)) {
                     conflictWarning = System.nanoTime();
-                    app.warn(Text.get("error.shortcut_conflict"));
+                    services.warn(Text.get("error.shortcut_conflict"));
                 }
                 return true;
             }
@@ -206,51 +211,51 @@ public final class Shortcuts implements ShortcutKeys {
 
     @Override
     public void perform(KeyMapping key) {
-        if (!app.idle() || app.settings() == null || app.playback == null || conflicts(key))
+        if (!services.state.idle() || services.settings() == null || services.playback() == null || conflicts(key))
             return;
-        var playback = app.playback;
+        var playback = services.playback();
         if (key == toggle) {
-            if (playback.state().track() == null) app.startPlayback();
+            if (playback.state().track() == null) commands.startPlayback();
             else playback.toggle();
         } else if (key == next) playback.next();
         else if (key == previous) playback.previous();
-        else if (key == faster) speed(app.settings().speed + .1);
-        else if (key == slower) speed(app.settings().speed - .1);
+        else if (key == faster) speed(services.settings().speed + .1);
+        else if (key == slower) speed(services.settings().speed - .1);
         else if (key == normalSpeed) speed(1);
-        else if (key == volumeUp) volume(app.settings().volume + .05);
-        else if (key == volumeDown) volume(app.settings().volume - .05);
-        else if (key == mute) app.toggleMute();
-        else if (key == seekBack) app.seekRelative(-5);
-        else if (key == seekForward) app.seekRelative(5);
+        else if (key == volumeUp) volume(services.settings().volume + .05);
+        else if (key == volumeDown) volume(services.settings().volume - .05);
+        else if (key == mute) commands.toggleMute();
+        else if (key == seekBack) commands.seekRelative(-5);
+        else if (key == seekForward) commands.seekRelative(5);
         else if (key == stop) playback.stop();
         else if (key == jump) {
-            app.open();
+            openPlayer.run();
             if (Minecraft.getInstance().gui.screen() instanceof MusicScreen screen)
                 screen.jumpToPlaying();
         } else if (key == hud) {
-            app.update(s -> s.hudEnabled = !s.hudEnabled);
-            notice(app.settings().hudEnabled ? "shortcut.darkmusic.hud_on" : "shortcut.darkmusic.hud_off");
+            services.update(s -> s.hudEnabled = !s.hudEnabled);
+            notice(services.settings().hudEnabled ? "shortcut.darkmusic.hud_on" : "shortcut.darkmusic.hud_off");
         } else if (key == lyrics) {
-            if (!app.settings().lyricsEnabled) notice("shortcut.darkmusic.lyrics_disabled");
+            if (!services.settings().lyricsEnabled) notice("shortcut.darkmusic.lyrics_disabled");
             else {
-                app.update(s -> s.lyricsHud = !s.lyricsHud);
-                notice(app.settings().lyricsHud ? "shortcut.darkmusic.lyrics_on" : "shortcut.darkmusic.lyrics_off");
+                services.update(s -> s.lyricsHud = !s.lyricsHud);
+                notice(services.settings().lyricsHud ? "shortcut.darkmusic.lyrics_on" : "shortcut.darkmusic.lyrics_off");
             }
         } else if (key == favorite) {
             var track = playback.state().track();
             if (track == null) notice("upnext.idle");
-            else if (!app.playlistsReady) notice("text.darkmusic.playlists_are_still_loading");
+            else if (!services.playlistsReady()) notice("text.darkmusic.playlists_are_still_loading");
             else {
-                boolean was = app.playlists.favorite(track);
-                app.playlists.toggleFavorite(track);
+                boolean was = services.playlists().favorite(track);
+                services.playlists().toggleFavorite(track);
                 notice(was ? "shortcut.darkmusic.unfavorited" : "shortcut.darkmusic.favorited", track.title());
             }
         } else if (key == shuffle) {
-            app.shuffle(!playback.shuffle());
+            commands.shuffle(!playback.shuffle());
             notice(playback.shuffle() ? "text.darkmusic.shuffle_on" : "text.darkmusic.shuffle_off");
         } else if (key == repeat) {
             var values = Repeat.values();
-            app.repeat(values[(playback.repeat().ordinal() + 1) % values.length]);
+            commands.repeat(values[(playback.repeat().ordinal() + 1) % values.length]);
             notice("command.darkmusic.repeat_now", Text.get("command.darkmusic.repeat_" + playback.repeat().name().toLowerCase(Locale.ROOT)));
         }
     }
@@ -263,13 +268,13 @@ public final class Shortcuts implements ShortcutKeys {
     }
 
     private void speed(double value) {
-        app.speed(value);
-        app.speedFeedback.show(app.settings().speed);
+        commands.speed(value);
+        services.speedFeedback().show(services.settings().speed);
     }
 
     private void volume(double value) {
-        app.volume(value);
-        app.volumeFeedback.show(app.settings().volume);
+        commands.volume(value);
+        services.volumeFeedback().show(services.settings().volume);
     }
 
     /**

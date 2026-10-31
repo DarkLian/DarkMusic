@@ -19,17 +19,23 @@ import java.util.Locale;
  * Runs chat commands against the live client, on the client thread, with the same guards as the player's controls.
  */
 final class ClientActions implements LocalCommands.Actions {
-    private final DarkMusicClient app;
+    private final ClientServices services;
+    private final PlaybackCommands commands;
+    private final ScreenRequests screens;
+    private final Shortcuts shortcuts;
     private final String version = FabricLoader.getInstance().getModContainer("darkmusic")
         .map(mod -> mod.getMetadata().getVersion().getFriendlyString()).orElse("");
 
-    ClientActions(DarkMusicClient app) {
-        this.app = app;
+    ClientActions(ClientServices services, PlaybackCommands commands, ScreenRequests screens, Shortcuts shortcuts) {
+        this.services = services;
+        this.commands = commands;
+        this.screens = screens;
+        this.shortcuts = shortcuts;
     }
 
     @Override
     public ChatPalette palette() {
-        var settings = app.settings();
+        var settings = services.settings();
         return ChatPalette.of(settings == null ? ChatPalette.DEFAULT_ACCENT : settings.menuAccentColor);
     }
 
@@ -40,47 +46,47 @@ final class ClientActions implements LocalCommands.Actions {
 
     @Override
     public void player() {
-        app.requestScreen(false);
+        screens.requestScreen(false);
     }
 
     @Override
     public void layout() {
-        app.requestScreen(true);
+        screens.requestScreen(true);
     }
 
     @Override
     public String lyrics() {
-        return app.requestLyrics();
+        return screens.requestLyrics();
     }
 
     @Override
     public void pip() {
-        app.requestPip();
+        screens.requestPip();
     }
 
     @Override
     public void editKeys() {
-        app.requestKeyBinds();
+        screens.requestKeyBinds();
     }
 
     @Override
     public void checkUpdate() {
-        if (app.updates != null) app.updates.checkFromCommand();
+        if (services.updates() != null) services.updates().checkFromCommand();
     }
 
     @Override
     public void installUpdate() {
-        if (app.updates != null) app.updates.requestUpdate();
+        if (services.updates() != null) services.updates().requestUpdate();
     }
 
     @Override
     public boolean installCode(String code) {
-        return app.updates != null && app.updates.installCode(code);
+        return services.updates() != null && services.updates().installCode(code);
     }
 
     @Override
     public List<LocalCommands.Shortcut> shortcuts() {
-        var keys = app.shortcuts;
+        var keys = shortcuts;
         if (keys.open == null) return List.of();
         return List.of(
             shortcut("key.darkmusic.open", keys.open),
@@ -106,13 +112,13 @@ final class ClientActions implements LocalCommands.Actions {
 
     @Override
     public List<String> songs() {
-        var library = app.library;
+        var library = services.library();
         if (library == null) return List.of();
         return library.snapshot().tracks().stream().map(Track::title).filter(t -> t != null && !t.isBlank()).distinct().toList();
     }
 
     private boolean ready() {
-        return app.idle() && app.settings() != null && app.playback != null && app.library != null;
+        return services.state.idle() && services.settings() != null && services.playback() != null && services.library() != null;
     }
 
     private Component unavailable() {
@@ -127,41 +133,41 @@ final class ClientActions implements LocalCommands.Actions {
     public Component play(String query) {
         if (!ready()) return unavailable();
         var palette = palette();
-        var tracks = app.library.snapshot().tracks();
+        var tracks = services.library().snapshot().tracks();
         if (query != null) {
             Track match = LocalCommands.find(tracks, query);
             if (match == null)
                 return palette.error(tracks.isEmpty() ? "command.darkmusic.no_songs" : "command.darkmusic.no_match", query.strip());
-            app.playback.play(tracks, match);
+            services.playback().play(tracks, match);
             return palette.value("command.darkmusic.playing", match.title());
         }
-        var state = app.playback.state();
+        var state = services.playback().state();
         if (state.status() == AudioBackend.Status.PLAYING) return palette.info("command.darkmusic.already_playing");
         if (state.track() == null) {
-            var started = app.startPlayback();
+            var started = commands.startPlayback();
             if (started != null) return palette.value("command.darkmusic.playing", started.title());
             return tracks.isEmpty() ? palette.error("command.darkmusic.no_songs") : null;
         }
-        if (state.status() == AudioBackend.Status.PAUSED) app.playback.resume();
-        else app.playback.toggle();
+        if (state.status() == AudioBackend.Status.PAUSED) services.playback().resume();
+        else services.playback().toggle();
         return palette.value("command.darkmusic.playing", state.track().title());
     }
 
     @Override
     public Component pause() {
         if (!ready()) return unavailable();
-        var status = app.playback.state().status();
+        var status = services.playback().state().status();
         if (status == AudioBackend.Status.PAUSED) return palette().info("command.darkmusic.already_paused");
-        if (!active(app.playback.state())) return palette().info("upnext.idle");
-        app.playback.pause();
+        if (!active(services.playback().state())) return palette().info("upnext.idle");
+        services.playback().pause();
         return palette().info("command.darkmusic.paused");
     }
 
     @Override
     public Component stop() {
         if (!ready()) return unavailable();
-        if (!active(app.playback.state())) return palette().info("upnext.idle");
-        app.playback.stop();
+        if (!active(services.playback().state())) return palette().info("upnext.idle");
+        services.playback().stop();
         return palette().info("command.darkmusic.stopped");
     }
 
@@ -169,16 +175,16 @@ final class ClientActions implements LocalCommands.Actions {
     @Override
     public Component next() {
         if (!ready()) return unavailable();
-        if (app.playback.state().track() == null) return palette().info("upnext.idle");
-        app.playback.next();
+        if (services.playback().state().track() == null) return palette().info("upnext.idle");
+        services.playback().next();
         return null;
     }
 
     @Override
     public Component previous() {
         if (!ready()) return unavailable();
-        if (app.playback.state().track() == null) return palette().info("upnext.idle");
-        app.playback.previous();
+        if (services.playback().state().track() == null) return palette().info("upnext.idle");
+        services.playback().previous();
         return null;
     }
 
@@ -186,7 +192,7 @@ final class ClientActions implements LocalCommands.Actions {
     public Component now() {
         if (!ready()) return unavailable();
         var palette = palette();
-        var state = app.playback.state();
+        var state = services.playback().state();
         if (!active(state))
             return palette.info("upnext.idle").append(palette.plain(" ", palette.muted()))
                 .append(palette.button("command.darkmusic.button.play", "/da play", palette.accent()));
@@ -198,19 +204,19 @@ final class ClientActions implements LocalCommands.Actions {
         var status = palette.key(paused ? "command.darkmusic.state_paused" : "command.darkmusic.state_playing", palette.accent())
             .append(palette.plain("  " + LocalCommands.time(state.position()) + " / " + LocalCommands.time(state.duration()), palette.text()))
             .append(palette.plain(" · ", palette.muted()))
-            .append(palette.key("command.darkmusic.volume_short", palette.secondary(), Math.round(app.settings().volume * 100)))
+            .append(palette.key("command.darkmusic.volume_short", palette.secondary(), Math.round(services.settings().volume * 100)))
             .append(palette.plain(" · ", palette.muted()))
-            .append(palette.plain(speed(app.settings().speed), palette.secondary()));
-        if (app.playback.shuffle())
+            .append(palette.plain(speed(services.settings().speed), palette.secondary()));
+        if (services.playback().shuffle())
             status.append(palette.plain(" · ", palette.muted())).append(palette.key("text.darkmusic.shuffle", palette.secondary()));
-        if (app.playback.stopAfterCurrent())
+        if (services.playback().stopAfterCurrent())
             status.append(palette.plain(" · ", palette.muted())).append(palette.key("command.darkmusic.stopafter_short", palette.warning()));
-        long sleep = app.sleep.remaining();
+        long sleep = services.sleep().remaining();
         if (sleep >= 0)
             status.append(palette.plain(" · ", palette.muted())).append(palette.key("command.darkmusic.sleep_short", palette.warning(), LocalCommands.time(sleep)));
-        if (app.playback.repeat() != Repeat.OFF)
+        if (services.playback().repeat() != Repeat.OFF)
             status.append(palette.plain(" · ", palette.muted()))
-                .append(palette.key("command.darkmusic.repeat_now", palette.secondary(), Text.get(repeatKey(app.playback.repeat()))));
+                .append(palette.key("command.darkmusic.repeat_now", palette.secondary(), Text.get(repeatKey(services.playback().repeat()))));
         MutableComponent buttons = palette.button("command.darkmusic.button.previous", "/da previous", palette.text())
             .append(palette.plain(" ", palette.muted()))
             // The message does not update after a click, so both stay available; the current state's opposite is highlighted.
@@ -228,13 +234,14 @@ final class ClientActions implements LocalCommands.Actions {
 
     @Override
     public Component queue(String query) {
-        if (!ready() || !app.canEditQueue()) return unavailable();
+        if (!ready() || !commands.canEditQueue()) return unavailable();
         var palette = palette();
-        var tracks = app.library.snapshot().tracks();
+        var tracks = services.library().snapshot().tracks();
         Track match = LocalCommands.find(tracks, query);
         if (match == null)
             return palette.error(tracks.isEmpty() ? "command.darkmusic.no_songs" : "command.darkmusic.no_match", query.strip());
-        if (!app.playback.addToQueue(match)) return palette.error("command.darkmusic.queue_failed", match.title());
+        if (!services.playback().addToQueue(match))
+            return palette.error("command.darkmusic.queue_failed", match.title());
         return palette.value("command.darkmusic.queued", match.title());
     }
 
@@ -242,17 +249,17 @@ final class ClientActions implements LocalCommands.Actions {
     public Component volume(Integer percent) {
         if (!ready()) return unavailable();
         if (percent != null) {
-            app.volume(percent / 100.0);
-            app.volumeFeedback.show(app.settings().volume);
+            commands.volume(percent / 100.0);
+            services.volumeFeedback().show(services.settings().volume);
         }
-        return palette().value("command.darkmusic.volume_now", Math.round(app.settings().volume * 100) + "%");
+        return palette().value("command.darkmusic.volume_now", Math.round(services.settings().volume * 100) + "%");
     }
 
     @Override
     public Component mute() {
         if (!ready()) return unavailable();
-        app.toggleMute();
-        return app.settings().volume > 0 ? palette().value("command.darkmusic.volume_now", Math.round(app.settings().volume * 100) + "%")
+        commands.toggleMute();
+        return services.settings().volume > 0 ? palette().value("command.darkmusic.volume_now", Math.round(services.settings().volume * 100) + "%")
             : palette().info("command.darkmusic.muted");
     }
 
@@ -260,10 +267,10 @@ final class ClientActions implements LocalCommands.Actions {
     public Component speed(Double value) {
         if (!ready()) return unavailable();
         if (value != null) {
-            app.speed(value);
-            app.speedFeedback.show(app.settings().speed);
+            commands.speed(value);
+            services.speedFeedback().show(services.settings().speed);
         }
-        return palette().value("command.darkmusic.speed_now", speed(app.settings().speed));
+        return palette().value("command.darkmusic.speed_now", speed(services.settings().speed));
     }
 
     private static String speed(double value) {
@@ -273,21 +280,21 @@ final class ClientActions implements LocalCommands.Actions {
     @Override
     public Component seek(String time) {
         if (!ready()) return unavailable();
-        var state = app.playback.state();
+        var state = services.playback().state();
         if (!active(state)) return palette().info("upnext.idle");
         double target = LocalCommands.seekTarget(time, state.position(), state.duration());
         if (Double.isNaN(target)) return palette().error("command.darkmusic.seek_invalid", time.strip());
         if (Double.isInfinite(target))
             return palette().error("command.darkmusic.seek_past_end", LocalCommands.time(state.duration()));
-        app.playback.seek(target);
+        services.playback().seek(target);
         return palette().value("command.darkmusic.position", LocalCommands.time(target) + " / " + LocalCommands.time(state.duration()));
     }
 
     @Override
     public Component shuffle(Boolean on) {
         if (!ready()) return unavailable();
-        boolean value = on == null ? !app.playback.shuffle() : on;
-        app.shuffle(value);
+        boolean value = on == null ? !services.playback().shuffle() : on;
+        commands.shuffle(value);
         return palette().info(value ? "text.darkmusic.shuffle_on" : "text.darkmusic.shuffle_off");
     }
 
@@ -295,16 +302,16 @@ final class ClientActions implements LocalCommands.Actions {
     public Component repeat(Repeat mode) {
         if (!ready()) return unavailable();
         var values = Repeat.values();
-        Repeat value = mode != null ? mode : values[(app.playback.repeat().ordinal() + 1) % values.length];
-        app.repeat(value);
+        Repeat value = mode != null ? mode : values[(services.playback().repeat().ordinal() + 1) % values.length];
+        commands.repeat(value);
         return palette().value("command.darkmusic.repeat_now", Text.get(repeatKey(value)));
     }
 
     @Override
     public Component sleep(Integer minutes) {
         if (!ready()) return unavailable();
-        if (minutes != null) app.sleepTimer(minutes);
-        long left = app.sleep.remaining();
+        if (minutes != null) commands.sleepTimer(minutes);
+        long left = services.sleep().remaining();
         return left < 0 ? palette().info("command.darkmusic.sleep_off")
             : palette().value("command.darkmusic.sleep_in", LocalCommands.time(left));
     }
@@ -312,9 +319,9 @@ final class ClientActions implements LocalCommands.Actions {
     @Override
     public Component stopAfter() {
         if (!ready()) return unavailable();
-        if (!active(app.playback.state())) return palette().info("upnext.idle");
-        app.playback.stopAfterCurrent(!app.playback.stopAfterCurrent());
-        return palette().info(app.playback.stopAfterCurrent() ? "command.darkmusic.stopafter_on" : "command.darkmusic.stopafter_off");
+        if (!active(services.playback().state())) return palette().info("upnext.idle");
+        services.playback().stopAfterCurrent(!services.playback().stopAfterCurrent());
+        return palette().info(services.playback().stopAfterCurrent() ? "command.darkmusic.stopafter_on" : "command.darkmusic.stopafter_off");
     }
 
     private static String repeatKey(Repeat value) {

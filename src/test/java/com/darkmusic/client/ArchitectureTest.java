@@ -33,7 +33,18 @@ class ArchitectureTest {
     private static final Set<String> DECOUPLED = Set.of("command", "gui", "hud", "pip", "render", "update");
     private static final Pattern ROOT_TYPE = Pattern.compile("\\bcom\\.darkmusic\\.client\\.[A-Z]\\w*");
     // Lower this as packages stop depending on DarkMusicClient; never raise it.
-    private static final int MAX_CLIENT_DEPENDENTS = 5;
+    private static final int MAX_CLIENT_DEPENDENTS = 1;
+    // DarkMusicClient is the entry point and lifecycle only. Lower this as it shrinks; never raise it.
+    private static final int MAX_CLIENT_LINES = 290;
+    private static final Path CLIENT = SOURCES.resolve("DarkMusicClient.java");
+    private static final Path CLIENT_SOURCES = SOURCES.resolve("ClientSources.java");
+    private static final Pattern IMPLEMENTS = Pattern.compile("\\bclass\\s+(\\w+)[^{;]*?\\bimplements\\s+([^{]*)\\{");
+    private static final Pattern SUPPLIED = Pattern.compile("\\b\\w+\\.Sources\\b|\\bSettingsSource\\b");
+    private static final Pattern ANONYMOUS_SOURCES = Pattern.compile("\\bnew\\s+(?:\\w+\\.Sources|SettingsSource)\\s*\\(\\s*\\)\\s*\\{");
+    private static final Pattern METHOD = Pattern.compile("\\b(\\w+)\\s*\\([^()]*\\)\\s*(?:throws\\s[^{;]*)?\\{");
+    // return a.b(x, y);  a.b(x);  return a.b;  return a;  with plain names as arguments.
+    private static final Pattern FORWARD = Pattern.compile("\\s*(?:return\\s+)?\\w+(?:\\.\\w+)?(?:\\([\\w\\s,]*\\))?\\s*;\\s*");
+    private static final Pattern PUBLIC_FIELD = Pattern.compile("\\bpublic\\s+((?:(?:static|volatile|transient|final)\\s+)*)[\\w.<>\\[\\]?, ]+?\\s+(\\w+)\\s*[=;]");
     // A screen reaches the screens it opens through gui.Navigation, so its Sources never inherits theirs.
     private static final Pattern SOURCES_DECLARATION = Pattern.compile("interface Sources extends ([^{]*)\\{");
     private static final Pattern SCREEN_SOURCES = Pattern.compile("\\b(\\w+Screen)\\.Sources\\b");
@@ -75,6 +86,85 @@ class ArchitectureTest {
                 }).count();
         }
         assertTrue(dependents <= MAX_CLIENT_DEPENDENTS, dependents + " files depend on DarkMusicClient; the limit is " + MAX_CLIENT_DEPENDENTS);
+    }
+
+    @Test
+    void darkMusicClientOnlyShrinks() throws IOException {
+        long lines = Files.readAllLines(CLIENT).size();
+        assertTrue(lines <= MAX_CLIENT_LINES, "DarkMusicClient has " + lines + " lines; the limit is " + MAX_CLIENT_LINES);
+    }
+
+    /**
+     * DarkMusicClient implements only the Fabric entry point. ClientSources is the one supplier of the screens'
+     * Sources, the shared pieces (SettingsSource, AudioPage.Sources) included; SettingsStore is the settings themselves.
+     */
+    @Test
+    void darkMusicClientIsOnlyTheEntryPoint() throws IOException {
+        var violations = new ArrayList<String>();
+        try (var files = Files.walk(SOURCES)) {
+            for (Path file : files.filter(p -> p.toString().endsWith(".java")).sorted().toList()) {
+                String code = COMMENTS_AND_STRINGS.matcher(Files.readString(file)).replaceAll(" ");
+                var declaration = IMPLEMENTS.matcher(code);
+                while (declaration.find()) {
+                    String type = declaration.group(1), implemented = declaration.group(2);
+                    if (type.equals("DarkMusicClient") && !implemented.strip().equals("ClientModInitializer"))
+                        violations.add("DarkMusicClient implements " + implemented.strip());
+                    var supplied = SUPPLIED.matcher(implemented);
+                    while (supplied.find())
+                        if (!type.equals("ClientSources") && !(type.equals("SettingsStore") && supplied.group().equals("SettingsSource")))
+                            violations.add(type + " implements " + supplied.group());
+                }
+                if (ANONYMOUS_SOURCES.matcher(code).find())
+                    violations.add(SOURCES.relativize(file) + " implements Sources anonymously");
+            }
+        }
+        assertEquals(List.of(), violations);
+    }
+
+    /**
+     * Every method of ClientSources is one forwarding statement with plain names as arguments. A method that needs a
+     * condition, a loop, a new object or a lambda belongs to a named collaborator, and ClientSources forwards to it.
+     */
+    @Test
+    void clientSourcesOnlyForwards() throws IOException {
+        String code = COMMENTS_AND_STRINGS.matcher(Files.readString(CLIENT_SOURCES)).replaceAll(" ");
+        var violations = new ArrayList<String>();
+        int methods = 0;
+        var method = METHOD.matcher(code);
+        // Continues after each body, so a block inside one is never read as a method of its own.
+        for (int from = 0; method.find(from); ) {
+            int open = method.end() - 1, close = matchingBrace(code, open);
+            from = close + 1;
+            if (method.group(1).equals("ClientSources")) continue;
+            methods++;
+            if (!FORWARD.matcher(code.substring(open + 1, close)).matches()) violations.add(method.group(1));
+        }
+        assertTrue(methods > 50, "Found only " + methods + " ClientSources methods; the check no longer reads the file");
+        assertEquals(List.of(), violations);
+    }
+
+    /**
+     * Services are replaced through ClientServices on the client thread, never by assigning a public field.
+     */
+    @Test
+    void noPublicMutableClientFields() throws IOException {
+        var mutable = new ArrayList<String>();
+        for (Path file : List.of(CLIENT, SOURCES.resolve("ClientServices.java"))) {
+            var field = PUBLIC_FIELD.matcher(COMMENTS_AND_STRINGS.matcher(Files.readString(file)).replaceAll(" "));
+            while (field.find())
+                if (!field.group(1).contains("final") && !field.group(2).equals("INSTANCE"))
+                    mutable.add(file.getFileName() + ": " + field.group(2));
+        }
+        assertEquals(List.of(), mutable);
+    }
+
+    private static int matchingBrace(String code, int open) {
+        int depth = 0;
+        for (int i = open; i < code.length(); i++) {
+            if (code.charAt(i) == '{') depth++;
+            else if (code.charAt(i) == '}' && --depth == 0) return i;
+        }
+        throw new IllegalStateException("Unbalanced braces after " + open);
     }
 
     /**

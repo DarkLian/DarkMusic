@@ -117,6 +117,37 @@ Change paths, before and after:
 | Change CI toolchain setup | 2 workflows | 1 composite action |
 | Change a lifecycle operation, add a setting | operation, adapter, screens, catalogs, tests | unchanged: each file owns a distinct concern |
 
+## DarkMusicClient split (2026-10-31)
+
+Measured against `92313e1` (v3.6.1). Earlier decoupling made screens independent of `DarkMusicClient` by giving each
+a `Sources` interface, but the client was the only implementation, so every call taken out of a screen came back as a
+method on the client (1,357 lines, 26 `Sources`, 16 public mutable fields). The split moved the code out and added
+guards that fail when it grows back. It changes structure only: no executor or thread changes. One assignment moved:
+startup now sets the pending autoplay after lyric lookup is configured instead of just before. Nothing reads it in
+between, and a failure there withdraws startup either way.
+
+| Piece | Holds |
+|---|---|
+| `DarkMusicClient` (290 lines) | Fabric entry point, startup, the client tick, shutdown, autoplay; wires the rest |
+| `ClientServices` | every service (private, with getters), `ClientState`, executors, settings store, the HUD/PiP/reconciliation adapters, `buildReplaceable`, `withdraw`, `apply` |
+| `ClientSources` | the 26 screen `Sources`; each method one forwarding statement |
+| `PlaybackCommands`, `ScreenRequests`, `BackupActions`, `OutputActions`, `ClientReset`, `Warnings` | the logic that was on the client, moved unchanged |
+
+- `FolderActions`, `MediaActions`, `Shortcuts` and `ClientActions` now receive `ClientServices` and the collaborators
+  they use; `MAX_CLIENT_DEPENDENTS` fell from 5 to 1 (the sound mixin).
+- New `ArchitectureTest` guards: `MAX_CLIENT_LINES` (290), `darkMusicClientIsOnlyTheEntryPoint`,
+  `clientSourcesOnlyForwards`, `noPublicMutableClientFields`. Each was checked to fail on an injected violation.
+- `ClientServices.buildServices` takes the startup part of `ready` with its order kept: histories, then saved
+  shortcuts, then playlists, PiP, the replaceable services and lyric lookup.
+- Smoke code reaches the services through `services()`, the screens' sources through `sources()`. `HudMenusSmoke`
+  reflected `HudLayer.inMenus(DarkMusicClient, Screen)`, stale since `5563d69`; it now uses `HudSources`. It runs only
+  with `-PpipSmoke`.
+- Checks: `verify.ps1 -Clean` 793 tests (789 plus the four guards), 11 skipped, as before; the JAR differs from
+  v3.6.1 only in the moved classes. In the testing window: `smoke.ps1 -Scenario suite -DesktopVerify` passed every
+  scenario, `-DesktopIntegration` included (793 tests, 6 skipped), with the private collection unchanged. The first
+  `default` run failed because one check set the client's `warningUntil` by name; it now sets it on `Warnings`, and
+  `default` and `default-restart` passed on the rerun. The PiP smoke with `check-hud-menus` passed.
+
 ## Open items
 
 The items still open when this work ended are the Known limits in [ARCHITECTURE.md](../ARCHITECTURE.md#known-limits).

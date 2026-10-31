@@ -102,9 +102,9 @@ final class HudSmokeClient {
             if (++tick > 4800) throw new IllegalStateException("HUD smoke timeout");
             if (tick % 6 != 0) return;
             var app = DarkMusicClient.INSTANCE;
-            var s = app.settings();
+            var s = app.services().settings();
             if (state == 2) {
-                screen = new SettingsScreen(app, null);
+                screen = new SettingsScreen(app.sources(), null);
                 mc.gui.setScreen(screen);
             }
             switch (state) {
@@ -114,13 +114,13 @@ final class HudSmokeClient {
                     s.hudEnabled = true;
                     mc.options.guiScale().set(2);
                     mc.resizeGui();
-                    screen = new SettingsScreen(app, mc.gui.screen());
+                    screen = new SettingsScreen(app.sources(), mc.gui.screen());
                     mc.gui.setScreen(screen);
                     double actualScale = s.hudScale;
                     int px = (int) field(screen, "previewX"), py = (int) field(screen, "previewY");
                     screen.mouseScrolled(px + 30, py + 40, 0, 1);
                     require((double) field(screen, "previewScale") == 1.1 && s.hudScale == actualScale, "Preview scaling changed the actual HUD");
-                    require(((String) field(screen, "folderPath")).equals(app.library.root().toString()), "Selected folder path is missing");
+                    require(((String) field(screen, "folderPath")).equals(app.services().library().root().toString()), "Selected folder path is missing");
                     require(screen.children().stream().noneMatch(c -> c instanceof AbstractWidget w && w.getMessage().getString().equals("Music-Player Visualizer")), "Legacy visualizer setting remains");
                     state++;
                 }
@@ -141,8 +141,8 @@ final class HudSmokeClient {
                     s.visualizerBars = combination % 2 == 0 ? 8 : 64;
                     s.visualizerSensitivity = 4;
                     s.visualizerSmoothing = .95;
-                    app.applySettings();
-                    var b = NowPlayingHud.bounds(app.hud, screen.width, screen.height);
+                    app.services().apply();
+                    var b = NowPlayingHud.bounds(app.services().hud(), screen.width, screen.height);
                     require(b.x() + b.width() <= screen.width - 8 && b.y() + b.height() <= screen.height - 8, "Combined bounds escaped viewport");
                     for (var child : screen.children())
                         // Header controls such as Back sit above the content region by design.
@@ -157,14 +157,14 @@ final class HudSmokeClient {
                     s.hudEnabled = true;
                     s.hudScale = 1;
                     s.hudBackgroundTransparency = .5;
-                    app.save();
+                    app.services().save();
                     state++;
                 }
                 case 3, 5, 7, 9 -> {
                     int choice = (state - 3) / 2;
                     s.spectrumPosition = choice < 2 ? Settings.SpectrumPosition.ABOVE : Settings.SpectrumPosition.BELOW;
                     s.spectrumDirection = choice % 2 == 0 ? Settings.SpectrumDirection.UPWARD : Settings.SpectrumDirection.DOWNWARD;
-                    screen = new SettingsScreen(app, null);
+                    screen = new SettingsScreen(app.sources(), null);
                     mc.gui.setScreen(screen);
                     state++;
                 }
@@ -174,7 +174,7 @@ final class HudSmokeClient {
                 }
                 case 11 -> {
                     s.hudEnabled = false;
-                    screen = new SettingsScreen(app, null);
+                    screen = new SettingsScreen(app.sources(), null);
                     mc.gui.setScreen(screen);
                     state++;
                 }
@@ -184,8 +184,8 @@ final class HudSmokeClient {
                 }
                 case 13 -> {
                     s.hudEnabled = true;
-                    app.playback.stop();
-                    screen = new SettingsScreen(app, null);
+                    app.services().playback().stop();
+                    screen = new SettingsScreen(app.sources(), null);
                     mc.gui.setScreen(screen);
                     state++;
                 }
@@ -207,11 +207,11 @@ final class HudSmokeClient {
                 }
                 case 16 -> {
                     var editor = mc.gui.screen();
-                    var b = NowPlayingHud.bounds(app.hud, editor.width, editor.height);
+                    var b = NowPlayingHud.bounds(app.services().hud(), editor.width, editor.height);
                     double x = b.x() + b.width() / 2.0, y = b.y() + b.height() / 2.0;
                     require(editor.mouseScrolled(x, y, 0, 1), "Combined HUD wheel failed");
                     require(s.hudScale == 1.1, "Combined HUD scale step incorrect");
-                    b = NowPlayingHud.bounds(app.hud, editor.width, editor.height);
+                    b = NowPlayingHud.bounds(app.services().hud(), editor.width, editor.height);
                     x = b.x() + b.width() / 2.0;
                     y = b.y() + b.height() / 2.0;
                     require(editor.mouseClicked(mouse(x, y), false), "Combined HUD click failed");
@@ -219,10 +219,10 @@ final class HudSmokeClient {
                     editor.mouseReleased(mouse(x + 100, y + 70));
                     require(s.hudX > 0 && s.hudY > 0, "Combined HUD did not move");
                     s.spectrumDirection = Settings.SpectrumDirection.UPWARD;
-                    app.save();
-                    saved = CompletableFuture.supplyAsync(() -> new ConfigStore(app.config.directory(), app.io, msg -> {
+                    app.services().save();
+                    saved = CompletableFuture.supplyAsync(() -> new ConfigStore(app.services().config().directory(), app.services().io(), msg -> {
                         throw new IllegalStateException(msg);
-                    }).load(), app.io);
+                    }).load(), app.services().io());
                     state++;
                 }
                 case 17 -> {
@@ -233,34 +233,34 @@ final class HudSmokeClient {
                     state++;
                 }
                 case 18 -> {
-                    var music = new MusicScreen(app, null);
+                    var music = new MusicScreen(app.sources(), null);
                     mc.gui.setScreen(music);
-                    var track = app.library.snapshot().tracks().getFirst();
-                    app.playback.play(app.library.snapshot().tracks(), track);
+                    var track = app.services().library().snapshot().tracks().getFirst();
+                    app.services().playback().play(app.services().library().snapshot().tracks(), track);
                     state++;
                 }
                 case 19 -> {
                     if (!playerSeeked) {
-                        if (app.playback.state().status() != AudioBackend.Status.PLAYING)
+                        if (app.services().playback().state().status() != AudioBackend.Status.PLAYING)
                             return;
-                        app.playback.seek(30);
+                        app.services().playback().seek(30);
                         playerSeeked = true;
                         return;
                     }
-                    if (app.playback.state().status() != AudioBackend.Status.PLAYING || app.playback.state().position() < 30.25)
+                    if (app.services().playback().state().status() != AudioBackend.Status.PLAYING || app.services().playback().state().position() < 30.25)
                         return;
                     capture(mc, "expanded-player");
                     state++;
                 }
                 case 20 -> {
-                    app.volume(.55);
-                    app.toggleMute();
+                    app.sources().volume(.55);
+                    app.sources().toggleMute();
                     require(s.volume == 0, "Mute did not apply to actual playback volume");
                     mc.gui.setScreen(new Screen(Component.literal("HUD feedback verification")) {
                         @Override
                         public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
                             g.fill(0, 0, width, height, 0xFF20283A);
-                            app.volumeFeedback.render(g);
+                            app.services().volumeFeedback().render(g);
                         }
                     });
                     state++;
@@ -270,7 +270,7 @@ final class HudSmokeClient {
                     state++;
                 }
                 case 22 -> {
-                    app.toggleMute();
+                    app.sources().toggleMute();
                     require(s.volume == .55, "Unmute did not restore actual playback volume");
                     state++;
                 }
@@ -279,7 +279,7 @@ final class HudSmokeClient {
                     state++;
                 }
                 case 24 -> {
-                    if (app.volumeFeedback.opacity(System.nanoTime()) > 0) return;
+                    if (app.services().volumeFeedback().opacity(System.nanoTime()) > 0) return;
                     state++;
                 }
                 case 25 -> {
@@ -287,11 +287,11 @@ final class HudSmokeClient {
                     state++;
                 }
                 case 26 -> {
-                    var music = new MusicScreen(app, null);
+                    var music = new MusicScreen(app.sources(), null);
                     mc.gui.setScreen(music);
                     music.tick();
-                    var track = app.library.snapshot().tracks().getFirst();
-                    var cover = app.artwork.get(track);
+                    var track = app.services().library().snapshot().tracks().getFirst();
+                    var cover = app.services().artwork().get(track);
                     require(cover != null && cover.size() > 256, "High-resolution cover was not loaded");
                     String title = (track.title() + " 音樂 ").repeat(8) + "終點";
                     ((RowList) field(music, "songs")).rows(List.of(new RowList.Row(title, track.relativePath().repeat(6))));
@@ -305,15 +305,15 @@ final class HudSmokeClient {
                 }
                 case 28 -> {
                     capture(mc, "long-player-text");
-                    var downloads = new DownloadScreen(app, mc.gui.screen());
+                    var downloads = new DownloadScreen(app.sources(), mc.gui.screen());
                     mc.gui.setScreen(downloads);
                     String link = "https://example.com/collection";
                     ((EditBox) field(downloads, "url")).setValue(link);
-                    var track = app.library.snapshot().tracks().getFirst();
+                    var track = app.services().library().snapshot().tracks().getFirst();
                     var entry = new DownloadModels.Entry(1, (track.title() + " 日本語 中文 ").repeat(12) + "終點", link, "Generic", "one", true);
-                    set(app.downloads, "preview", new DownloadModels.Preview(link, "Collection", "Generic", true, false, 1, 1, false, List.of(entry)));
-                    set(app.downloads, "message", ("Collection details: " + track.relativePath() + " ").repeat(10));
-                    set(app.downloads, "published", null);
+                    set(app.services().downloads(), "preview", new DownloadModels.Preview(link, "Collection", "Generic", true, false, 1, 1, false, List.of(entry)));
+                    set(app.services().downloads(), "message", ("Collection details: " + track.relativePath() + " ").repeat(10));
+                    set(app.services().downloads(), "published", null);
                     downloads.tick();
                     state++;
                 }
@@ -327,7 +327,7 @@ final class HudSmokeClient {
                 case 30 -> {
                     capture(mc, "long-download-text");
                     mc.gui.screen().onClose();
-                    mc.gui.setScreen(new DownloadToolsScreen(app, mc.gui.screen()));
+                    mc.gui.setScreen(new DownloadToolsScreen(app.sources(), mc.gui.screen()));
                     var cancel = (AbstractWidget) field(mc.gui.screen(), "cancel");
                     require(!cancel.visible, "Idle tools screen still shows a Cancel button");
                     var check = (Button) field(mc.gui.screen(), "check");
@@ -339,33 +339,33 @@ final class HudSmokeClient {
                     state++;
                 }
                 case 31 -> {
-                    if (app.downloads.snapshot().analyzing()) return;
+                    if (app.services().downloads().snapshot().analyzing()) return;
                     mc.gui.screen().tick();
                     require(!((AbstractWidget) field(mc.gui.screen(), "cancel")).visible, "Tool cancel button remains after completion");
                     capture(mc, "tools-idle");
                     state++;
                 }
                 case 32 -> {
-                    app.speed(1.5);
-                    app.speedFeedback.show(s.speed);
-                    app.volumeFeedback.show(s.volume);
+                    app.sources().speed(1.5);
+                    app.services().speedFeedback().show(s.speed);
+                    app.services().volumeFeedback().show(s.volume);
                     mc.gui.setScreen(new Screen(Component.literal("Speed feedback verification")) {
                         @Override
                         public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
                             g.fill(0, 0, width, height, 0xFF20283A);
-                            app.speedFeedback.render(g);
-                            app.volumeFeedback.render(g);
+                            app.services().speedFeedback().render(g);
+                            app.services().volumeFeedback().render(g);
                         }
                     });
                     state++;
                 }
                 case 33 -> {
-                    require(app.speedFeedback.opacity(System.nanoTime()) > 0, "Speed feedback is missing");
+                    require(app.services().speedFeedback().opacity(System.nanoTime()) > 0, "Speed feedback is missing");
                     capture(mc, "speed-feedback");
                     state++;
                 }
                 case 34 -> {
-                    if (app.speedFeedback.opacity(System.nanoTime()) > 0) return;
+                    if (app.services().speedFeedback().opacity(System.nanoTime()) > 0) return;
                     state++;
                 }
                 case 35 -> {
@@ -388,7 +388,7 @@ final class HudSmokeClient {
                     s.hudBackgroundTransparency = choice % 3 * .5;
                     s.hudArtwork = choice % 2 == 0;
                     s.hudProgress = s.hudVisualizer = true;
-                    mc.gui.setScreen(new SettingsScreen(app, null));
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), null));
                     if (++styleCombination == 180) {
                         mc.options.guiScale().set(2);
                         mc.resizeGui();
@@ -402,11 +402,11 @@ final class HudSmokeClient {
                     s.hudRaised = true;
                     s.hudBackgroundTransparency = .25;
                     s.hudArtwork = true;
-                    app.save();
-                    saved = CompletableFuture.supplyAsync(() -> new ConfigStore(app.config.directory(), app.io, msg -> {
+                    app.services().save();
+                    saved = CompletableFuture.supplyAsync(() -> new ConfigStore(app.services().config().directory(), app.services().io(), msg -> {
                         throw new IllegalStateException(msg);
-                    }).load(), app.io);
-                    mc.gui.setScreen(new SettingsScreen(app, null));
+                    }).load(), app.services().io());
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), null));
                     state++;
                 }
                 case 38 -> {
@@ -414,28 +414,28 @@ final class HudSmokeClient {
                     var loaded = saved.join();
                     require(loaded.spectrumStyle == s.spectrumStyle && loaded.hudShape == s.hudShape && loaded.hudRaised, "Visual styles did not persist");
                     capture(mc, "smooth-rounded-raised");
-                    app.playback.pause();
+                    app.services().playback().pause();
                     state++;
                 }
                 case 39 -> {
-                    if (app.playback.state().status() != AudioBackend.Status.PAUSED) return;
-                    app.playback.spectrum().copyTo(pausedStyleLevels);
+                    if (app.services().playback().state().status() != AudioBackend.Status.PAUSED) return;
+                    app.services().playback().spectrum().copyTo(pausedStyleLevels);
                     state++;
                 }
                 case 40 -> {
                     float[] after = new float[64];
-                    app.playback.spectrum().copyTo(after);
+                    app.services().playback().spectrum().copyTo(after);
                     require(Arrays.equals(pausedStyleLevels, after), "Paused spectrum moved with the new styles");
                     capture(mc, "smooth-paused");
-                    app.playback.resume();
+                    app.services().playback().resume();
                     s.spectrumStyle = Settings.SpectrumStyle.FILLED_WAVE;
                     s.hudShape = Settings.HudShape.CHAMFERED;
-                    mc.gui.setScreen(new MusicScreen(app, null));
+                    mc.gui.setScreen(new MusicScreen(app.sources(), null));
                     state++;
                 }
                 case 41 -> {
                     capture(mc, "filled-wave-player-no-status-icon");
-                    mc.gui.setScreen(new SettingsScreen(app, null));
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), null));
                     state++;
                 }
                 case 42 -> {
@@ -443,13 +443,13 @@ final class HudSmokeClient {
                     s.spectrumStyle = Settings.SpectrumStyle.BARS;
                     s.hudShape = Settings.HudShape.RECTANGLE;
                     s.hudRaised = false;
-                    app.save();
+                    app.services().save();
                     state++;
                 }
                 case 43 -> {
                     s.hudStyle = Settings.HudStyle.CLASSIC;
                     s.circularSpectrumStyle = Settings.SpectrumStyle.BARS;
-                    screen = new SettingsScreen(app, null);
+                    screen = new SettingsScreen(app.sources(), null);
                     mc.gui.setScreen(screen);
                     var style = screen.children().stream().filter(c -> c instanceof SettingRow w && w.getMessage().getString().startsWith("HUD Style:")).map(c -> (SettingRow) c).findFirst().orElseThrow();
                     style.onClick(mouse(style.getX() + 4, style.getY() + 4), false);
@@ -473,8 +473,8 @@ final class HudSmokeClient {
                     s.hudProgress = (choice & 1) != 0;
                     s.hudVisualizer = (choice & 2) != 0;
                     s.hudArtwork = (choice & 4) != 0;
-                    mc.gui.setScreen(new SettingsScreen(app, null));
-                    var bounds = NowPlayingHud.bounds(app.hud, mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), null));
+                    var bounds = NowPlayingHud.bounds(app.services().hud(), mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
                     require(bounds.y() + bounds.height() <= mc.getWindow().getGuiScaledHeight() - 8, "Circular HUD escaped viewport");
                     if (++styleCombination == 24) state++;
                 }
@@ -485,12 +485,12 @@ final class HudSmokeClient {
                     s.visualizerBars = 36;
                     s.visualizerSensitivity = 1;
                     s.visualizerSmoothing = .6;
-                    app.applySettings();
-                    app.save();
-                    saved = CompletableFuture.supplyAsync(() -> new ConfigStore(app.config.directory(), app.io, msg -> {
+                    app.services().apply();
+                    app.services().save();
+                    saved = CompletableFuture.supplyAsync(() -> new ConfigStore(app.services().config().directory(), app.services().io(), msg -> {
                         throw new IllegalStateException(msg);
-                    }).load(), app.io);
-                    screen = new SettingsScreen(app, null);
+                    }).load(), app.services().io());
+                    screen = new SettingsScreen(app.sources(), null);
                     mc.gui.setScreen(screen);
                     state++;
                 }
@@ -512,10 +512,10 @@ final class HudSmokeClient {
                 }
                 case 48 -> {
                     var editor = mc.gui.screen();
-                    var bounds = NowPlayingHud.bounds(app.hud, editor.width, editor.height);
+                    var bounds = NowPlayingHud.bounds(app.services().hud(), editor.width, editor.height);
                     double x = bounds.x() + bounds.width() / 2.0, y = bounds.y() + bounds.height() / 2.0;
                     require(editor.mouseScrolled(x, y, 0, 1), "Circular HUD wheel scaling failed");
-                    bounds = NowPlayingHud.bounds(app.hud, editor.width, editor.height);
+                    bounds = NowPlayingHud.bounds(app.services().hud(), editor.width, editor.height);
                     x = bounds.x() + bounds.width() / 2.0;
                     y = bounds.y() + bounds.height() / 2.0;
                     require(editor.mouseClicked(mouse(x, y), false), "Circular combined HUD drag did not start");
@@ -525,28 +525,28 @@ final class HudSmokeClient {
                 }
                 case 49 -> {
                     capture(mc, "circular-combined-layout");
-                    app.playback.pause();
+                    app.services().playback().pause();
                     state++;
                 }
                 case 50 -> {
-                    if (app.playback.state().status() != AudioBackend.Status.PAUSED) return;
-                    app.playback.spectrum().copyTo(pausedStyleLevels);
+                    if (app.services().playback().state().status() != AudioBackend.Status.PAUSED) return;
+                    app.services().playback().spectrum().copyTo(pausedStyleLevels);
                     state++;
                 }
                 case 51 -> {
                     float[] after = new float[64];
-                    app.playback.spectrum().copyTo(after);
+                    app.services().playback().spectrum().copyTo(after);
                     require(Arrays.equals(pausedStyleLevels, after), "Circular spectrum analysis moved while paused");
-                    app.playback.seek(35);
-                    app.playback.resume();
+                    app.services().playback().seek(35);
+                    app.services().playback().resume();
                     state++;
                 }
                 case 52 -> {
-                    if (app.playback.state().status() != AudioBackend.Status.PLAYING || app.playback.state().position() < 35)
+                    if (app.services().playback().state().status() != AudioBackend.Status.PLAYING || app.services().playback().state().position() < 35)
                         return;
                     capture(mc, "circular-after-seek");
-                    app.playback.stop();
-                    mc.gui.setScreen(new SettingsScreen(app, null));
+                    app.services().playback().stop();
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), null));
                     state++;
                 }
                 case 53 -> {
@@ -558,41 +558,41 @@ final class HudSmokeClient {
                     capture(mc, "circular-master-disabled");
                     s.hudEnabled = true;
                     s.hudStyle = Settings.HudStyle.CLASSIC;
-                    app.save();
+                    app.services().save();
                     state++;
                 }
                 case 55 -> {
                     s.hudStyle = Settings.HudStyle.CIRCULAR;
                     s.circularSpectrumStyle = Settings.SpectrumStyle.BARS;
                     s.circularText = s.circularIconPulse = s.hudVisualizer = true;
-                    mc.gui.setScreen(new SettingsScreen(app, null));
-                    var tracks = app.library.snapshot().tracks();
-                    app.playback.play(tracks, tracks.getFirst());
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), null));
+                    var tracks = app.services().library().snapshot().tracks();
+                    app.services().playback().play(tracks, tracks.getFirst());
                     playerSeeked = false;
                     state++;
                 }
                 case 56 -> {
-                    if (app.playback.state().status() != AudioBackend.Status.PLAYING) return;
+                    if (app.services().playback().state().status() != AudioBackend.Status.PLAYING) return;
                     if (!playerSeeked) {
-                        app.playback.seek(35);
+                        app.services().playback().seek(35);
                         playerSeeked = true;
                         return;
                     }
-                    if (app.playback.state().position() < 35.3) return;
+                    if (app.services().playback().state().position() < 35.3) return;
                     capture(mc, "circular-filled-bars");
                     s.circularSpectrumStyle = Settings.SpectrumStyle.FILLED_WAVE;
-                    mc.gui.setScreen(new SettingsScreen(app, null));
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), null));
                     state++;
                 }
                 case 57 -> {
                     capture(mc, "circular-filled-waves");
                     s.circularSpectrumStyle = Settings.SpectrumStyle.FILLED_SPIKE;
-                    mc.gui.setScreen(new SettingsScreen(app, null));
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), null));
                     state++;
                 }
                 case 58 -> {
                     capture(mc, "circular-filled-spike");
-                    screen = new SettingsScreen(app, null);
+                    screen = new SettingsScreen(app.sources(), null);
                     mc.gui.setScreen(screen);
                     int originalHeight = HudLayout.content(s, Integer.MAX_VALUE).height();
                     var text = screen.children().stream().filter(c -> c instanceof SettingRow w && w.getMessage().getString().equals("Song Information")).map(c -> (SettingRow) c).findFirst().orElseThrow();
@@ -603,28 +603,28 @@ final class HudSmokeClient {
                 case 59 -> {
                     capture(mc, "circular-text-hidden");
                     s.hudVisualizer = false;
-                    app.applySettings();
-                    mc.gui.setScreen(new SettingsScreen(app, null));
+                    app.services().apply();
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), null));
                     state++;
                 }
                 case 60 -> {
                     capture(mc, "circular-pulse-without-spectrum");
-                    app.playback.spectrum().copyTo(pausedStyleLevels);
+                    app.services().playback().spectrum().copyTo(pausedStyleLevels);
                     require(CircularHudLayout.iconZoom(pausedStyleLevels, s.visualizerBars) > 1, "Icon pulse has no audio data when spectrum is hidden");
-                    app.playback.pause();
+                    app.services().playback().pause();
                     state++;
                 }
                 case 61 -> {
-                    if (app.playback.state().status() != AudioBackend.Status.PAUSED) return;
-                    app.playback.spectrum().copyTo(pausedStyleLevels);
+                    if (app.services().playback().state().status() != AudioBackend.Status.PAUSED) return;
+                    app.services().playback().spectrum().copyTo(pausedStyleLevels);
                     state++;
                 }
                 case 62 -> {
                     float[] after = new float[64];
-                    app.playback.spectrum().copyTo(after);
+                    app.services().playback().spectrum().copyTo(after);
                     require(CircularHudLayout.iconZoom(pausedStyleLevels, s.visualizerBars) == CircularHudLayout.iconZoom(after, s.visualizerBars), "Icon pulse changed while paused");
                     s.circularIconPulse = false;
-                    app.applySettings();
+                    app.services().apply();
                     state++;
                 }
                 case 63 -> {
@@ -632,68 +632,68 @@ final class HudSmokeClient {
                     s.circularText = s.circularIconPulse = s.hudVisualizer = true;
                     s.circularSpectrumStyle = Settings.SpectrumStyle.BARS;
                     s.hudStyle = Settings.HudStyle.CLASSIC;
-                    app.save();
+                    app.services().save();
                     state++;
                 }
                 case 64 -> {
                     s.hudStyle = Settings.HudStyle.CIRCULAR;
                     s.circularSpectrumStyle = Settings.SpectrumStyle.BARS;
                     s.spectrumFinish = s.progressFinish = Settings.SurfaceFinish.FLAT;
-                    screen = new SettingsScreen(app, null);
+                    screen = new SettingsScreen(app.sources(), null);
                     mc.gui.setScreen(screen);
                     for (String label : new String[]{"Spectrum Finish:", "Progress Finish:"}) {
                         var finish = screen.children().stream().filter(c -> c instanceof SettingRow w && w.getMessage().getString().startsWith(label)).map(c -> (SettingRow) c).findFirst().orElseThrow();
                         finish.onClick(mouse(finish.getX() + 4, finish.getY() + 4), false);
                     }
                     require(s.spectrumFinish == Settings.SurfaceFinish.BEVELED && s.progressFinish == Settings.SurfaceFinish.BEVELED, "Finish controls did not apply independently");
-                    app.playback.resume();
+                    app.services().playback().resume();
                     state++;
                 }
                 case 65 -> {
-                    if (app.playback.state().status() != AudioBackend.Status.PLAYING) return;
+                    if (app.services().playback().state().status() != AudioBackend.Status.PLAYING) return;
                     capture(mc, "beveled-circular-bars");
                     s.circularSpectrumStyle = Settings.SpectrumStyle.FILLED_WAVE;
-                    mc.gui.setScreen(new SettingsScreen(app, null));
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), null));
                     state++;
                 }
                 case 66 -> {
                     capture(mc, "beveled-circular-wave");
                     s.circularSpectrumStyle = Settings.SpectrumStyle.FILLED_SPIKE;
-                    mc.gui.setScreen(new SettingsScreen(app, null));
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), null));
                     state++;
                 }
                 case 67 -> {
                     capture(mc, "beveled-circular-spike");
                     s.hudStyle = Settings.HudStyle.CLASSIC;
                     s.spectrumStyle = Settings.SpectrumStyle.FILLED_SPIKE;
-                    mc.gui.setScreen(new SettingsScreen(app, null));
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), null));
                     state++;
                 }
                 case 68 -> {
                     capture(mc, "beveled-classic-spike");
                     s.spectrumStyle = Settings.SpectrumStyle.BARS;
-                    mc.gui.setScreen(new SettingsScreen(app, null));
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), null));
                     state++;
                 }
                 case 69 -> {
                     capture(mc, "beveled-classic-bars");
-                    mc.gui.setScreen(new MusicScreen(app, null));
+                    mc.gui.setScreen(new MusicScreen(app.sources(), null));
                     state++;
                 }
                 case 70 -> {
                     capture(mc, "beveled-player");
                     s.progressFinish = Settings.SurfaceFinish.FLAT;
-                    app.save();
-                    saved = CompletableFuture.supplyAsync(() -> new ConfigStore(app.config.directory(), app.io, msg -> {
+                    app.services().save();
+                    saved = CompletableFuture.supplyAsync(() -> new ConfigStore(app.services().config().directory(), app.services().io(), msg -> {
                         throw new IllegalStateException(msg);
-                    }).load(), app.io);
+                    }).load(), app.services().io());
                     state++;
                 }
                 case 71 -> {
                     if (!saved.isDone()) return;
                     require(saved.join().spectrumFinish == Settings.SurfaceFinish.BEVELED && saved.join().progressFinish == Settings.SurfaceFinish.FLAT, "Independent finishes did not survive disk reload");
                     s.spectrumFinish = s.progressFinish = Settings.SurfaceFinish.FLAT;
-                    app.save();
+                    app.services().save();
                     state++;
                 }
                 case 72 -> {
@@ -706,20 +706,20 @@ final class HudSmokeClient {
                     s.circularRotation = Settings.Rotation.CLOCKWISE;
                     s.circularProgressRotation = Settings.Rotation.COUNTERCLOCKWISE;
                     s.circularRotationSeconds = 4;
-                    if (app.playback.state().status() != AudioBackend.Status.PLAYING) {
-                        var tracks = app.library.snapshot().tracks();
-                        app.playback.play(tracks, tracks.getFirst());
+                    if (app.services().playback().state().status() != AudioBackend.Status.PLAYING) {
+                        var tracks = app.services().library().snapshot().tracks();
+                        app.services().playback().play(tracks, tracks.getFirst());
                     }
-                    mc.gui.setScreen(new SettingsScreen(app, null));
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), null));
                     state++;
                 }
                 case 73 -> {
-                    var playing = app.playback.state();
+                    var playing = app.services().playback().state();
                     if (playing.status() != AudioBackend.Status.PLAYING || playing.duration() <= 0)
                         return;
                     if (!rotationSeeked) {
                         // Half the ring filled shows which way the progress ring turns.
-                        app.playback.seek(playing.duration() / 2);
+                        app.services().playback().seek(playing.duration() / 2);
                         rotationSeeked = true;
                         return;
                     }
@@ -739,39 +739,39 @@ final class HudSmokeClient {
                     SmokeUi.click(mc, Text.get("circle.darkmusic.rotation") + ": " + Text.get("circle.darkmusic.rotation.clockwise"));
                     require(s.circularRotation == Settings.Rotation.COUNTERCLOCKWISE, "Rotation row did not cycle to counterclockwise");
                     s.circularRotation = s.circularProgressRotation = Settings.Rotation.OFF;
-                    app.save();
+                    app.services().save();
                     state++;
                 }
                 case 75 -> {
                     // After launch nothing has played, so the waveform loader follows the preview's stand-in track
                     // only while the open screen asks for it. Stopping keeps the track, so check the request itself.
                     s.waveformProgress = true;
-                    mc.gui.setScreen(new SettingsScreen(app, null));
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), null));
                     state++;
                 }
                 case 76 -> {
                     var settingsScreen = (SettingsScreen) mc.gui.screen();
                     require((int) SmokeUi.field(settingsScreen, "selectedSection") == 0, "Settings did not open on General");
                     require(settingsScreen.previewsProgress(), "Settings General preview fell back to the plain progress bar");
-                    var first = app.library.snapshot().tracks().getFirst();
-                    if (app.waveforms.get(first) == null && app.waveforms.get(app.playback.state().track()) == null) {
+                    var first = app.services().library().snapshot().tracks().getFirst();
+                    if (app.services().waveforms().get(first) == null && app.services().waveforms().get(app.services().playback().state().track()) == null) {
                         require(++waveformWait < 100, "Waveform did not load for the Settings preview");
                         return;
                     }
                     capture(mc, "settings-general-waveform");
                     s.waveformProgress = false;
-                    app.save();
+                    app.services().save();
                     state++;
                 }
                 case 77, 78, 79, 80, 81, 82 -> {
                     // Beveled finish at the maximum bar count, one layout per step, with real music playing.
-                    if (app.playback.state().status() != AudioBackend.Status.PLAYING) {
-                        var tracks = app.library.snapshot().tracks();
-                        app.playback.play(tracks, tracks.getFirst());
+                    if (app.services().playback().state().status() != AudioBackend.Status.PLAYING) {
+                        var tracks = app.services().library().snapshot().tracks();
+                        app.services().playback().play(tracks, tracks.getFirst());
                         return;
                     }
-                    if (app.playback.state().position() < 20) {
-                        app.playback.seek(35);
+                    if (app.services().playback().state().position() < 20) {
+                        app.services().playback().seek(35);
                         return;
                     }
                     int step = state - 77;
@@ -783,8 +783,8 @@ final class HudSmokeClient {
                         s.visualizerBars = 36;
                         s.hudStyle = Settings.HudStyle.CLASSIC;
                         s.spectrumStyle = s.circularSpectrumStyle = Settings.SpectrumStyle.BARS;
-                        app.applySettings();
-                        app.save();
+                        app.services().apply();
+                        app.services().save();
                         state++;
                         return;
                     }
@@ -796,8 +796,8 @@ final class HudSmokeClient {
                     var style = next.endsWith("rounded") ? Settings.SpectrumStyle.ROUNDED_BARS : Settings.SpectrumStyle.BARS;
                     s.spectrumStyle = s.circularSpectrumStyle = style;
                     s.artworkSpectrumPosition = next.equals("artwork-side") ? Settings.ArtworkSpectrumPosition.LEFT : Settings.ArtworkSpectrumPosition.BELOW;
-                    app.applySettings();
-                    mc.gui.setScreen(new SettingsScreen(app, null));
+                    app.services().apply();
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), null));
                     state++;
                 }
                 default -> {

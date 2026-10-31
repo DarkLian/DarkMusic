@@ -57,7 +57,7 @@ final class MusicCaptureClient {
         try {
             if (++ticks > 2400) throw new IllegalStateException("Release capture timed out at " + step);
             var app = DarkMusicClient.INSTANCE;
-            if (app == null || app.settings() == null || app.library == null || !app.playlistsReady || !mc.isGameLoadFinished() || mc.gui.overlay() != null)
+            if (app == null || app.services().settings() == null || app.services().library() == null || !app.services().playlistsReady() || !mc.isGameLoadFinished() || mc.gui.overlay() != null)
                 return;
             if (!fullscreen) {
                 fullscreen = true;
@@ -71,43 +71,43 @@ final class MusicCaptureClient {
             }
             if (ticks % 20 != 0) return;
             if (step == -2) {
-                require(app.config.directory().toString().contains("capture-run"), "Captures require isolated settings");
-                app.replaceSettings(Settings.defaults(app.settings()));
-                app.volume(app.settings().volume);
-                app.speed(app.settings().speed);
-                app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> choosing = true);
+                require(app.services().config().directory().toString().contains("capture-run"), "Captures require isolated settings");
+                app.services().replaceSettings(Settings.defaults(app.services().settings()));
+                app.sources().volume(app.services().settings().volume);
+                app.sources().speed(app.services().settings().speed);
+                app.sources().chooseMusicFolder(Path.of(System.getProperty("darkmusic.music")), () -> choosing = true);
                 step++;
                 return;
             }
-            if (!choosing || app.library.snapshot().scanning() || app.library.snapshot().tracks().isEmpty()) return;
+            if (!choosing || app.services().library().snapshot().scanning() || app.services().library().snapshot().tracks().isEmpty()) return;
             switch (step) {
                 case -1 -> {
-                    for (var playlist : app.playlists.all()) app.playlists.delete(playlist.id());
-                    String favorites = app.playlists.create("Favorites");
-                    app.playlists.addAll(favorites, app.library.snapshot().tracks());
-                    emptyPlaylist = app.playlists.create("New Playlist");
-                    app.playback.play(app.library.snapshot().tracks(), app.library.snapshot().tracks().getFirst());
-                    player = new MusicScreen(app, null);
+                    for (var playlist : app.services().playlists().all()) app.services().playlists().delete(playlist.id());
+                    String favorites = app.services().playlists().create("Favorites");
+                    app.services().playlists().addAll(favorites, app.services().library().snapshot().tracks());
+                    emptyPlaylist = app.services().playlists().create("New Playlist");
+                    app.services().playback().play(app.services().library().snapshot().tracks(), app.services().library().snapshot().tracks().getFirst());
+                    player = new MusicScreen(app.sources(), null);
                     mc.gui.setScreen(player);
                 }
                 case 0 -> capture(mc, "player");
-                case 1 -> mc.gui.setScreen(new SettingsScreen(app, player));
+                case 1 -> mc.gui.setScreen(new SettingsScreen(app.sources(), player));
                 case 2 -> capture(mc, "settings");
                 case 3 -> {
                     mc.gui.screen().mouseScrolled(20, mc.gui.screen().height - 20, 0, -10);
                 }
                 case 4 -> capture(mc, "hud-settings");
-                case 5 -> mc.gui.setScreen(new HudEditorScreen(app, player));
+                case 5 -> mc.gui.setScreen(new HudEditorScreen(app.sources(), player));
                 case 6 -> capture(mc, "hud-editor");
-                case 7 -> mc.gui.setScreen(new PlaylistScreen(app, player));
+                case 7 -> mc.gui.setScreen(new PlaylistScreen(app.sources(), player));
                 case 8 -> capture(mc, "playlists");
                 case 9 -> {
-                    mc.gui.setScreen(new TrackPickerScreen(app, player, emptyPlaylist, tracks -> {
+                    mc.gui.setScreen(new TrackPickerScreen(app.sources(), player, emptyPlaylist, tracks -> {
                     }));
                     click(mc, "text.darkmusic.select_all");
                 }
                 case 10 -> capture(mc, "bulk-picker");
-                case 11 -> mc.gui.setScreen(new DownloadScreen(app, player));
+                case 11 -> mc.gui.setScreen(new DownloadScreen(app.sources(), player));
                 case 12 -> capture(mc, "downloads");
                 case 13 -> {
                     Path development = Path.of(System.getProperty("darkmusic.downloadTools"));
@@ -115,62 +115,62 @@ final class MusicCaptureClient {
                     Path directory = managed == null ? development : managed;
                     String ext = System.getProperty("os.name").startsWith("Windows") ? ".exe" : "";
                     String js = managed == null ? "" : directory.resolve("deno" + ext).toString();
-                    app.downloads.configure(new ToolPaths(directory.resolve("yt-dlp" + ext).toString(), directory.resolve("ffmpeg" + ext).toString(), directory.resolve("ffprobe" + ext).toString(), js));
-                    app.settings().ytDlpPath = directory.resolve("yt-dlp" + ext).toString();
-                    app.settings().ffmpegPath = directory.resolve("ffmpeg" + ext).toString();
-                    app.settings().ffprobePath = directory.resolve("ffprobe" + ext).toString();
-                    app.applySettings();
-                    app.settings().javascriptPath = js;
-                    app.downloads.checkTools();
-                    mc.gui.setScreen(new DownloadToolsScreen(app, player));
+                    app.services().downloads().configure(new ToolPaths(directory.resolve("yt-dlp" + ext).toString(), directory.resolve("ffmpeg" + ext).toString(), directory.resolve("ffprobe" + ext).toString(), js));
+                    app.services().settings().ytDlpPath = directory.resolve("yt-dlp" + ext).toString();
+                    app.services().settings().ffmpegPath = directory.resolve("ffmpeg" + ext).toString();
+                    app.services().settings().ffprobePath = directory.resolve("ffprobe" + ext).toString();
+                    app.services().apply();
+                    app.services().settings().javascriptPath = js;
+                    app.services().downloads().checkTools();
+                    mc.gui.setScreen(new DownloadToolsScreen(app.sources(), player));
                 }
                 case 14 -> {
-                    if (app.downloads.snapshot().analyzing()) return;
-                    require(app.downloads.toolVersions().size() == 4, "Tool versions are not separated into four rows: " + app.downloads.snapshot().message());
+                    if (app.services().downloads().snapshot().analyzing()) return;
+                    require(app.services().downloads().toolVersions().size() == 4, "Tool versions are not separated into four rows: " + app.services().downloads().snapshot().message());
                     capture(mc, "download-tools");
                 }
                 case 15 -> {
-                    mc.gui.setScreen(new SettingsScreen(app, player));
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), player));
                     click(mc, "reset.darkmusic.button");
                 }
                 case 16 -> capture(mc, "reset-confirmation");
                 case 17 -> {
-                    app.settings().spectrumColors.preset = VisualColors.Preset.AURORA;
-                    mc.gui.setScreen(new ColorsScreen(app, player, true));
+                    app.services().settings().spectrumColors.preset = VisualColors.Preset.AURORA;
+                    mc.gui.setScreen(new ColorsScreen(app.sources(), player, true));
                 }
                 case 18 -> capture(mc, "spectrum-colors");
                 case 19 -> {
-                    app.settings().spectrumColors.preset = VisualColors.Preset.MOONLIGHT;
-                    app.save();
+                    app.services().settings().spectrumColors.preset = VisualColors.Preset.MOONLIGHT;
+                    app.services().save();
                 }
                 case 20 -> {
-                    app.settings().hudStyle = Settings.HudStyle.CIRCULAR;
-                    app.settings().circularSpectrumStyle = Settings.SpectrumStyle.FILLED_WAVE;
-                    app.settings().spectrumFinish = app.settings().progressFinish = Settings.SurfaceFinish.BEVELED;
-                    mc.gui.setScreen(new SettingsScreen(app, player));
+                    app.services().settings().hudStyle = Settings.HudStyle.CIRCULAR;
+                    app.services().settings().circularSpectrumStyle = Settings.SpectrumStyle.FILLED_WAVE;
+                    app.services().settings().spectrumFinish = app.services().settings().progressFinish = Settings.SurfaceFinish.BEVELED;
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), player));
                 }
                 case 21 -> capture(mc, "circular-hud");
                 case 22 -> {
-                    app.settings().circularSpectrumStyle = Settings.SpectrumStyle.FILLED_SPIKE;
-                    app.settings().circularText = false;
-                    mc.gui.setScreen(new SettingsScreen(app, player));
+                    app.services().settings().circularSpectrumStyle = Settings.SpectrumStyle.FILLED_SPIKE;
+                    app.services().settings().circularText = false;
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), player));
                 }
                 case 23 -> capture(mc, "circular-spike");
                 case 24 -> {
-                    app.settings().hudStyle = Settings.HudStyle.CLASSIC;
-                    app.settings().hudShape = Settings.HudShape.ROUNDED;
-                    app.settings().hudRaised = true;
-                    mc.gui.setScreen(new SettingsScreen(app, player));
+                    app.services().settings().hudStyle = Settings.HudStyle.CLASSIC;
+                    app.services().settings().hudShape = Settings.HudShape.ROUNDED;
+                    app.services().settings().hudRaised = true;
+                    mc.gui.setScreen(new SettingsScreen(app.sources(), player));
                     mc.gui.screen().mouseScrolled(20, mc.gui.screen().height - 20, 0, -15);
                 }
                 case 25 -> capture(mc, "beveled-hud");
                 case 26 -> {
-                    app.settings().hudShape = Settings.HudShape.RECTANGLE;
-                    app.settings().hudRaised = false;
-                    app.settings().spectrumFinish = app.settings().progressFinish = Settings.SurfaceFinish.FLAT;
-                    app.settings().circularSpectrumStyle = Settings.SpectrumStyle.BARS;
-                    app.settings().circularText = true;
-                    app.save();
+                    app.services().settings().hudShape = Settings.HudShape.RECTANGLE;
+                    app.services().settings().hudRaised = false;
+                    app.services().settings().spectrumFinish = app.services().settings().progressFinish = Settings.SurfaceFinish.FLAT;
+                    app.services().settings().circularSpectrumStyle = Settings.SpectrumStyle.BARS;
+                    app.services().settings().circularText = true;
+                    app.services().save();
                 }
                 default -> {
                     if (captures != 13) return;

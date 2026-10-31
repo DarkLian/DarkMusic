@@ -70,37 +70,37 @@ final class QueueSmokeClient {
         try {
             if (++ticks > 4000) throw new AssertionError("Queue smoke timeout at " + stage);
             var app = DarkMusicClient.INSTANCE;
-            if (app == null || !app.playlistsReady || !mc.isGameLoadFinished() || mc.gui.overlay() != null) return;
+            if (app == null || !app.services().playlistsReady() || !mc.isGameLoadFinished() || mc.gui.overlay() != null) return;
             if (stage == -2) {
                 Path tools = Path.of(System.getProperty("darkmusic.downloadTools"));
                 String ext = System.getProperty("os.name").startsWith("Windows") ? ".exe" : "";
-                app.settings().ffmpegPath = tools.resolve("ffmpeg" + ext).toString();
-                app.settings().ffprobePath = tools.resolve("ffprobe" + ext).toString();
-                app.applySettings();
-                app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> {
+                app.services().settings().ffmpegPath = tools.resolve("ffmpeg" + ext).toString();
+                app.services().settings().ffprobePath = tools.resolve("ffprobe" + ext).toString();
+                app.services().apply();
+                app.sources().chooseMusicFolder(Path.of(System.getProperty("darkmusic.music")), () -> {
                 });
                 stage = -1;
                 return;
             }
             if (stage == -1) {
-                if (!app.library.root().equals(Path.of(System.getProperty("darkmusic.music")).toAbsolutePath().normalize()))
+                if (!app.services().library().root().equals(Path.of(System.getProperty("darkmusic.music")).toAbsolutePath().normalize()))
                     return;
-                if (app.library.snapshot().scanning()) return;
+                if (app.services().library().snapshot().scanning()) return;
                 stage = 0;
             }
-            if (app.library.snapshot().scanning()) return;
+            if (app.services().library().snapshot().scanning()) return;
             switch (stage) {
                 case 0 -> {
                     check(mc.options.guiScale().get() == 2 && mc.getWindow().getGuiScale() == 2, "GUI scale 2");
-                    var tracks = app.library.snapshot().tracks();
+                    var tracks = app.services().library().snapshot().tracks();
                     check(tracks.size() >= 3, "Private real music required");
                     a = tracks.get(0);
                     b = tracks.get(1);
                     x = tracks.get(2);
                     var diagnostic = DownloadDiagnostics.classify(new DownloadDiagnostics.Failure(DownloadDiagnostics.Stage.ANALYSIS, DownloadDiagnostics.Tool.YT_DLP, 1,
                         "Unable to extract initial state https://user:password@host/id?token=secret"), DownloadDiagnostics.Stage.ANALYSIS, "https://www.bilibili.com/video/private-id", 1, 1, "2026.08.19");
-                    set(app.downloads, "analysisDiagnostic", diagnostic);
-                    var download = new DownloadScreen(app, null);
+                    set(app.services().downloads(), "analysisDiagnostic", diagnostic);
+                    var download = new DownloadScreen(app.sources(), null);
                     mc.gui.setScreen(download);
                     for (int width : new int[]{320, 426, 960}) bounds(download, width, width == 960 ? 540 : 240);
                     var details = (AbstractWidget) field(download, "errorDetails");
@@ -118,8 +118,8 @@ final class QueueSmokeClient {
                     check(report.contains("EXTRACTOR_FAILURE") && !report.contains("secret") && !report.contains("password") && !report.contains("private-id"), "Safe real clipboard");
                     mc.gui.screen().onClose();
                     check(mc.gui.screen() instanceof DownloadScreen, "Diagnostic Back");
-                    set(app.downloads, "analysisDiagnostic", null);
-                    var actions = new SongActionsScreen(app, null, x);
+                    set(app.services().downloads(), "analysisDiagnostic", null);
+                    var actions = new SongActionsScreen(app.sources(), null, x);
                     mc.gui.setScreen(actions);
                     for (int width : new int[]{320, 426, 960}) bounds(actions, width, width == 960 ? 540 : 240);
                     since = ticks;
@@ -130,23 +130,23 @@ final class QueueSmokeClient {
                     var actions = (SongActionsScreen) mc.gui.screen();
                     activate(mc, "upnext.play_next");
                     activate(mc, "upnext.add");
-                    check(app.playback.upNextSnapshot().manual().size() == 2, "Queue without playback");
+                    check(app.services().playback().upNextSnapshot().manual().size() == 2, "Queue without playback");
                     activate(mc, "upnext.title");
                     var queue = (UpNextScreen) mc.gui.screen();
                     for (int width : new int[]{320, 426, 960}) bounds(queue, width, width == 960 ? 540 : 240);
                     var rows = (RowList) field(queue, "manual");
                     queue.mouseClicked(new MouseButtonEvent(rows.getX() + 8, rows.getY() + 8, new MouseButtonInfo(0, 0)), false);
-                    long id = app.playback.upNextSnapshot().manual().getFirst().id();
+                    long id = app.services().playback().upNextSnapshot().manual().getFirst().id();
                     var press = new MouseButtonEvent(rows.getX() + 48, rows.getY() + 8, new MouseButtonInfo(0, 0));
                     var drop = new MouseButtonEvent(rows.getX() + 48, rows.getY() + 52, new MouseButtonInfo(0, 0));
                     queue.mouseClicked(press, false);
                     queue.mouseDragged(drop, 0, 44);
                     queue.mouseReleased(drop);
-                    check(app.playback.upNextSnapshot().manual().get(1).id() == id, "Stable duplicate selection on reorder");
+                    check(app.services().playback().upNextSnapshot().manual().get(1).id() == id, "Stable duplicate selection on reorder");
                     activate(mc, "upnext.remove");
-                    check(app.playback.upNextSnapshot().manual().size() == 1, "Remove occurrence");
+                    check(app.services().playback().upNextSnapshot().manual().size() == 1, "Remove occurrence");
                     activate(mc, "upnext.clear");
-                    check(app.playback.upNextSnapshot().manual().isEmpty(), "Clear queue");
+                    check(app.services().playback().upNextSnapshot().manual().isEmpty(), "Clear queue");
                     // All Songs with a search: double-clicking a match queues it at the end.
                     pressView(queue, "upnext.view.collection");
                     check((boolean) field(queue, "allSongs"), "View did not switch to All Songs");
@@ -161,7 +161,7 @@ final class QueueSmokeClient {
                     var hit = new MouseButtonEvent(found.getX() + 48, found.getY() + 8, new MouseButtonInfo(0, 0));
                     found.mouseClicked(hit, false);
                     found.mouseClicked(hit, true);
-                    var queuedNow = app.playback.upNextSnapshot().manual();
+                    var queuedNow = app.services().playback().upNextSnapshot().manual();
                     check(queuedNow.size() == 1 && queuedNow.getFirst().track().id().equals(matches.getFirst().id()), "Double-click did not queue the search result");
                     activate(mc, "upnext.clear");
                     searchBox.setValue("");
@@ -169,44 +169,44 @@ final class QueueSmokeClient {
                     rows = (RowList) field(queue, "manual");
                     // Remove takes every checked row, not only the highlighted one.
                     for (var track : List.of(a, b, a))
-                        app.playback.insertQueued(track, app.playback.upNextSnapshot().manual().size());
+                        app.services().playback().insertQueued(track, app.services().playback().upNextSnapshot().manual().size());
                     queue.tick();
-                    long kept = app.playback.upNextSnapshot().manual().get(1).id();
+                    long kept = app.services().playback().upNextSnapshot().manual().get(1).id();
                     queue.mouseClicked(new MouseButtonEvent(rows.getX() + 8, rows.getY() + 8, new MouseButtonInfo(0, 0)), false);
                     queue.mouseClicked(new MouseButtonEvent(rows.getX() + 8, rows.getY() + 28 * 2 + 8, new MouseButtonInfo(0, 0)), false);
                     activate(mc, "upnext.remove");
-                    var left = app.playback.upNextSnapshot().manual();
+                    var left = app.services().playback().upNextSnapshot().manual();
                     check(left.size() == 1 && left.getFirst().id() == kept, "Bulk remove left " + left.size() + " entries");
                     activate(mc, "upnext.clear");
-                    app.playback.repeat(Repeat.OFF);
-                    app.playback.shuffle(false);
-                    app.playback.play(List.of(a, b), a);
+                    app.services().playback().repeat(Repeat.OFF);
+                    app.services().playback().shuffle(false);
+                    app.services().playback().play(List.of(a, b), a);
                     for (int width : new int[]{320, 426, 960}) {
                         bounds(queue, width, width == 960 ? 540 : 240);
                         queue.tick();
                         var collection = (RowList) field(queue, "automatic");
                         var queued = (RowList) field(queue, "manual");
-                        var upcoming = app.playback.upNextSnapshot().automatic();
+                        var upcoming = app.services().playback().upNextSnapshot().automatic();
                         var begin = new MouseButtonEvent(collection.getX() + 48, collection.getY() + 8, new MouseButtonInfo(0, 0));
                         var end = new MouseButtonEvent(queued.getX() + 48, queued.getY() + 8, new MouseButtonInfo(0, 0));
                         queue.mouseClicked(begin, false);
                         queue.mouseDragged(end, end.x() - begin.x(), end.y() - begin.y());
                         queue.mouseReleased(end);
-                        check(app.playback.upNextSnapshot().manual().size() == 1, "Collection drop adds queued copy");
-                        check(upcoming.equals(app.playback.upNextSnapshot().automatic()), "Collection drop preserves source preview");
-                        app.playback.clearQueued();
+                        check(app.services().playback().upNextSnapshot().manual().size() == 1, "Collection drop adds queued copy");
+                        check(upcoming.equals(app.services().playback().upNextSnapshot().automatic()), "Collection drop preserves source preview");
+                        app.services().playback().clearQueued();
                         queue.tick();
                     }
-                    app.playback.stop();
+                    app.services().playback().stop();
                     queue.onClose();
                     check(mc.gui.screen() == actions, "Queue Back");
-                    for (var page : List.of(new SettingsScreen(app, actions), new AudioSettingsScreen(app, actions),
-                        new SoundEnvironmentScreen(app, actions), new DownloadToolsScreen(app, actions),
-                        new DownloadPathsScreen(app, actions), new ImportHistoryScreen(app, actions),
-                        new LibraryManagerScreen(app, actions), new LyricsScreen(app, actions), new PlaylistScreen(app, actions),
-                        new ColorsScreen(app, actions, true), new ColorPickerScreen(actions, 0x336699, 0x336699, color -> {
+                    for (var page : List.of(new SettingsScreen(app.sources(), actions), new AudioSettingsScreen(app.sources(), actions),
+                        new SoundEnvironmentScreen(app.sources(), actions), new DownloadToolsScreen(app.sources(), actions),
+                        new DownloadPathsScreen(app.sources(), actions), new ImportHistoryScreen(app.sources(), actions),
+                        new LibraryManagerScreen(app.sources(), actions), new LyricsScreen(app.sources(), actions), new PlaylistScreen(app.sources(), actions),
+                        new ColorsScreen(app.sources(), actions, true), new ColorPickerScreen(actions, 0x336699, 0x336699, color -> {
                         }),
-                        new HudEditorScreen(app, actions))) {
+                        new HudEditorScreen(app.sources(), actions))) {
                         mc.gui.setScreen(page);
                         for (int width : new int[]{320, 426, 960}) {
                             bounds(page, width, width == 960 ? 540 : 240);
@@ -219,7 +219,7 @@ final class QueueSmokeClient {
                         activate(mc, "phase2.back");
                         check(mc.gui.screen() == actions, "Visible Back returns from " + page.getClass().getSimpleName());
                     }
-                    var player = new MusicScreen(app, null);
+                    var player = new MusicScreen(app.sources(), null);
                     mc.gui.setScreen(player);
                     for (int width : new int[]{320, 426, 480, 640, 960}) {
                         bounds(player, width, width >= 640 ? 540 : width >= 480 ? 360 : 240);
@@ -231,21 +231,21 @@ final class QueueSmokeClient {
                             if (child instanceof AbstractWidget other && other != actionsButton && other.visible)
                                 check(other.getX() >= actionsButton.getRight() || other.getRight() <= actionsButton.getX() || other.getY() >= actionsButton.getBottom() || other.getBottom() <= actionsButton.getY(), "Song actions overlap: " + other.getMessage().getString());
                     }
-                    app.settings().audio.neutral = true;
-                    app.settings().audio.gapless = true;
-                    app.settings().audio.crossfade = .15;
-                    app.playback.configure(app.settings().audio, app.settings().environment);
-                    app.playback.repeat(Repeat.OFF);
-                    app.playback.shuffle(false);
-                    app.playback.play(List.of(a, b), a);
-                    app.playback.addToQueue(x);
-                    mc.gui.setScreen(new UpNextScreen(app, player));
+                    app.services().settings().audio.neutral = true;
+                    app.services().settings().audio.gapless = true;
+                    app.services().settings().audio.crossfade = .15;
+                    app.services().playback().configure(app.services().settings().audio, app.services().settings().environment);
+                    app.services().playback().repeat(Repeat.OFF);
+                    app.services().playback().shuffle(false);
+                    app.services().playback().play(List.of(a, b), a);
+                    app.services().playback().addToQueue(x);
+                    mc.gui.setScreen(new UpNextScreen(app.sources(), player));
                     since = ticks;
                     stage = 1;
                 }
                 case 1 -> {
-                    check(app.playback.state().status() != AudioBackend.Status.ERROR, app.playback.state().error());
-                    if (app.playback.state().status() != AudioBackend.Status.PLAYING || app.playback.state().position() < .15 || ticks - since < 20)
+                    check(app.services().playback().state().status() != AudioBackend.Status.ERROR, app.services().playback().state().error());
+                    if (app.services().playback().state().status() != AudioBackend.Status.PLAYING || app.services().playback().state().position() < .15 || ticks - since < 20)
                         return;
                     var queue = (UpNextScreen) mc.gui.screen();
                     var collection = (RowList) field(queue, "automatic");
@@ -262,45 +262,45 @@ final class QueueSmokeClient {
                     var queue = (UpNextScreen) mc.gui.screen();
                     var manual = (RowList) field(queue, "manual");
                     queue.mouseReleased(new MouseButtonEvent(manual.getX() + 48, manual.getY() + 50, new MouseButtonInfo(0, 0)));
-                    var entries = app.playback.upNextSnapshot().manual();
+                    var entries = app.services().playback().upNextSnapshot().manual();
                     check(entries.size() == 2, "Rendered collection drag adds a copy");
-                    app.playback.removeQueued(entries.getLast().id());
-                    app.playback.pause();
+                    app.services().playback().removeQueued(entries.getLast().id());
+                    app.services().playback().pause();
                     stage = 2;
                 }
                 case 2 -> {
-                    if (app.playback.state().status() != AudioBackend.Status.PAUSED) return;
-                    check(app.playback.upNextSnapshot().manual().size() == 1, "Pause retains queue");
-                    app.playback.seek(Math.max(0, a.duration() - .35));
-                    app.playback.resume();
+                    if (app.services().playback().state().status() != AudioBackend.Status.PAUSED) return;
+                    check(app.services().playback().upNextSnapshot().manual().size() == 1, "Pause retains queue");
+                    app.services().playback().seek(Math.max(0, a.duration() - .35));
+                    app.services().playback().resume();
                     stage = 3;
                 }
                 case 3 -> {
-                    if (!x.equals(app.playback.state().track())) return;
-                    check(app.playback.upNextSnapshot().manual().isEmpty(), "Real manual promotion consumes once");
-                    check(app.playback.source().mode().equals("All"), "Original source retained");
-                    mc.gui.setScreen(new MusicScreen(app, null));
+                    if (!x.equals(app.services().playback().state().track())) return;
+                    check(app.services().playback().upNextSnapshot().manual().isEmpty(), "Real manual promotion consumes once");
+                    check(app.services().playback().source().mode().equals("All"), "Original source retained");
+                    mc.gui.setScreen(new MusicScreen(app.sources(), null));
                     since = ticks;
                     stage = 4;
                 }
                 case 4 -> {
-                    if (ticks - since < 20 || app.playback.state().position() < .15) return;
-                    app.playback.seek(Math.max(0, x.duration() - .35));
+                    if (ticks - since < 20 || app.services().playback().state().position() < .15) return;
+                    app.services().playback().seek(Math.max(0, x.duration() - .35));
                     stage = 5;
                 }
                 case 5 -> {
-                    if (!b.equals(app.playback.state().track())) return;
-                    app.playback.stop();
-                    app.playback.addToQueue(x);
-                    var player = new MusicScreen(app, null);
+                    if (!b.equals(app.services().playback().state().track())) return;
+                    app.services().playback().stop();
+                    app.services().playback().addToQueue(x);
+                    var player = new MusicScreen(app.sources(), null);
                     mc.gui.setScreen(player);
                     player.tick();
                     SmokeUi.click(mc, Text.get("text.darkmusic.play"));
-                    check(app.playback.upNextSnapshot().manual().size() == 1, "Restarting the current song after Stop retains Up Next");
-                    app.playback.stop();
-                    app.playback.clearQueued();
-                    app.listeningHistory.replace(Map.of());
-                    mc.gui.setScreen(new MusicScreen(app, null));
+                    check(app.services().playback().upNextSnapshot().manual().size() == 1, "Restarting the current song after Stop retains Up Next");
+                    app.services().playback().stop();
+                    app.services().playback().clearQueued();
+                    app.services().listeningHistory().replace(Map.of());
+                    mc.gui.setScreen(new MusicScreen(app.sources(), null));
                     SmokeUi.click(mc, Text.get("view.darkmusic.history"));
                     var historyPlayer = (MusicScreen) mc.gui.screen();
                     var categories = (RowList) field(historyPlayer, "navigation");
@@ -314,26 +314,26 @@ final class QueueSmokeClient {
                     stage = 9;
                 }
                 case 9 -> {
-                    check(app.playback.state().status() != AudioBackend.Status.ERROR, app.playback.state().error());
-                    var current = app.playback.state().track();
-                    if (current == null || app.playback.state().position() < .15) return;
-                    check(app.playback.playingSource().mode().equals("History") && app.playback.playingSource().group().equals("never"), "Playing from Never Played");
-                    if (app.playback.state().position() < 31) return;
-                    check(app.collection("History", "never").contains(current), "Current song stays in Never Played after 30 seconds");
-                    app.playback.pause();
-                    app.playback.addToQueue(x);
-                    var source = app.playback.playingSource();
-                    var queued = app.playback.upNextSnapshot().manual();
+                    check(app.services().playback().state().status() != AudioBackend.Status.ERROR, app.services().playback().state().error());
+                    var current = app.services().playback().state().track();
+                    if (current == null || app.services().playback().state().position() < .15) return;
+                    check(app.services().playback().playingSource().mode().equals("History") && app.services().playback().playingSource().group().equals("never"), "Playing from Never Played");
+                    if (app.services().playback().state().position() < 31) return;
+                    check(app.sources().collection("History", "never").contains(current), "Current song stays in Never Played after 30 seconds");
+                    app.services().playback().pause();
+                    app.services().playback().addToQueue(x);
+                    var source = app.services().playback().playingSource();
+                    var queued = app.services().playback().upNextSnapshot().manual();
                     SmokeUi.click(mc, Text.get("view.darkmusic.all"));
                     var player = (MusicScreen) mc.gui.screen();
-                    app.warning = "";
+                    app.services().warnings().clear();
                     SmokeUi.click(mc, Text.get("player.darkmusic.jump"));
                     check(field(player, "mode").equals("History") && field(player, "group").equals("never"), "Jump returns to Never Played");
                     check(((Track) field(player, "selected")).id().equals(current.id()), "Jump selects the playing song in Never Played");
-                    check(app.warning.isEmpty(), "Jump must not warn for a song still in the library: " + app.warning);
-                    check(app.playback.playingSource().equals(source) && app.playback.upNextSnapshot().manual().equals(queued), "Jump preserves playback source and Up Next");
-                    app.playback.stop();
-                    check(!app.collection("History", "never").contains(current), "Stopping removes the listened song from Never Played");
+                    check(app.services().warnings().current().isEmpty(), "Jump must not warn for a song still in the library: " + app.services().warnings().current());
+                    check(app.services().playback().playingSource().equals(source) && app.services().playback().upNextSnapshot().manual().equals(queued), "Jump preserves playback source and Up Next");
+                    app.services().playback().stop();
+                    check(!app.sources().collection("History", "never").contains(current), "Stopping removes the listened song from Never Played");
                     System.out.println("DARKMUSIC_QUEUE_UI_PASS: compact/wide layouts, keyboard queue actions, duplicate reorder/remove, diagnostic clipboard/Back, real-device pause/seek/resume, manual promotion, original-source continuation");
                     System.out.println("DARKMUSIC_SMOKE_PASS:" + Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip());
                     stage = 99;

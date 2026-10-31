@@ -12,7 +12,7 @@ import java.util.Locale;
 
 final class HudSettingsSmoke {
     static void check(Minecraft mc, DarkMusicClient app) throws Exception {
-        var s = app.settings();
+        var s = app.services().settings();
         boolean enabled = s.hudEnabled, lyrics = s.lyricsHud, waveform = s.waveformProgress;
         var style = s.hudStyle;
         try {
@@ -22,7 +22,7 @@ final class HudSettingsSmoke {
             for (var hudStyle : Settings.HudStyle.values()) {
                 s.hudStyle = hudStyle;
                 for (int[] size : new int[][]{{320, 240}, {426, 240}, {960, 540}}) {
-                    var screen = new SettingsScreen(app, null);
+                    var screen = new SettingsScreen(app.sources(), null);
                     screen.init(size[0], size[1]);
                     var labels = screen.children().stream().filter(c -> c instanceof AbstractWidget).map(c -> ((AbstractWidget) c).getMessage().getString()).toList();
                     for (String key : List.of("circle.darkmusic.style", "hud.image_source", "hud.darkmusic.position", "hud.darkmusic.direction", "hud.darkmusic.spectrum_height", "text.darkmusic.hud_progress", "text.darkmusic.edit_hud_layout", "hud.darkmusic.background_colors", "hud.darkmusic.spectrum"))
@@ -36,7 +36,7 @@ final class HudSettingsSmoke {
                         throw new IllegalStateException("HUD-off style must edit the linear main-player spectrum");
                 }
             }
-            var screen = new SettingsScreen(app, null);
+            var screen = new SettingsScreen(app.sources(), null);
             mc.gui.setScreen(screen);
             SmokeUi.set(screen, "selectedSection", 4);
             screen.init(960, 540);

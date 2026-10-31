@@ -10,8 +10,12 @@ layout is recorded in [its progress log](history/ARCHITECTURE_PROGRESS.md).
 Minecraft/Fabric callbacks, mixins, screens (gui), HUD (hud, render), PiP (pip), chat commands (command)
         │  narrow Sources interfaces / adapters; never DarkMusicClient (ArchitectureTest: DECOUPLED)
         ▼
-com.darkmusic.client (root): DarkMusicClient = composition root + Fabric integration;
-        Folder/Media/Client actions, Shortcuts, ScreenNavigation, LibraryReconciliation;
+com.darkmusic.client (root):
+        DarkMusicClient = Fabric entry point and lifecycle only (init, startup, tick, shutdown); wires the rest
+        ClientServices  = every service, ClientState, executors, settings store, Warnings; HUD/PiP/reconciliation adapters
+        ClientSources   = implements every screen's Sources; each method forwards to one service or collaborator
+        collaborators   = PlaybackCommands, ScreenRequests, BackupActions, OutputActions, FolderActions,
+                          MediaActions, Shortcuts, ClientActions, ClientReset, ScreenNavigation, LibraryReconciliation
         lifecycle: ClientState, Startup, ResetOperation, RestoreOperation + BackupRestore, Shutdown, Cleanup,
         ClientDispatch
         ▼
@@ -27,16 +31,27 @@ No screen's Sources extends another screen's Sources; it may extend only shared 
 `ArchitectureTest.screensDoNotInheritTheSourcesOfScreensTheyOpen` enforces this with no exceptions. Pages of one
 group (audio, PiP, download tools) share their group's Sources.
 
-Core packages never reference `DarkMusicClient`. At most `MAX_CLIENT_DEPENDENTS` files may name it (a ratchet:
-only lowered). The source guard proves reference direction only, not runtime isolation.
+Core packages never reference `DarkMusicClient`. At most `MAX_CLIENT_DEPENDENTS` files may name it (a ratchet,
+only lowered; today 1, the sound mixin). Collaborators receive `ClientServices` and each other, never the client.
+`ArchitectureTest` also keeps the client from growing back:
+
+- `darkMusicClientOnlyShrinks`: `MAX_CLIENT_LINES` caps `DarkMusicClient.java` (a ratchet, only lowered).
+- `darkMusicClientIsOnlyTheEntryPoint`: `DarkMusicClient` implements only `ClientModInitializer`, and only
+  `ClientSources` implements a `Sources` interface or `SettingsSource` (besides `SettingsStore` itself).
+- `clientSourcesOnlyForwards`: every `ClientSources` method is one statement, `return a.b(x);`, `a.b(x);` or
+  `return a;`, with plain names as arguments: no condition, loop, `new` or lambda.
+- `noPublicMutableClientFields`: `DarkMusicClient` (apart from `INSTANCE`) and `ClientServices` have no public
+  non-final field; services are read through getters and replaced only inside `ClientServices`.
+
+The source guards prove reference direction and shape only, not runtime isolation.
 
 ## Threads and executors
 
 | Executor / thread | Owner (owned / borrowed by) | Work | Bound and rejection |
 |---|---|---|---|
 | Minecraft client thread | Minecraft | all UI, admission of operations, publication of results, `ClientState` | — |
-| `darkmusic-storage` (`io`, single) | `DarkMusicClient` owns; borrowed by `ConfigStore`/`LatestWriter`, `PlaylistStore`, histories, `DuplicateReviewStore`, `LibraryReconciliation`, reset/restore operations | config/playlist/history/import-history writes, reset storage, restore journal, backup capture | unbounded queue; serial order is part of correctness. Shut down last at exit; a write enqueued after that throws `RejectedExecutionException` (only reachable after `closed`) |
-| `darkmusic-browse` (2 threads, queue 16, abort) | `DarkMusicClient` owns; borrowed by `FolderActions`, `MediaActions`, screens | folder checks, imports, metadata read/edit, deletion | rejected → `error.folder_busy`; media operations release their flag at once |
+| `darkmusic-storage` (`io`, single) | `ClientServices` owns; borrowed by `ConfigStore`/`LatestWriter`, `PlaylistStore`, histories, `DuplicateReviewStore`, `LibraryReconciliation`, reset/restore operations | config/playlist/history/import-history writes, reset storage, restore journal, backup capture | unbounded queue; serial order is part of correctness. Shut down last at exit; a write enqueued after that throws `RejectedExecutionException` (only reachable after `closed`) |
+| `darkmusic-browse` (2 threads, queue 16, abort) | `ClientServices` owns; borrowed by `FolderActions`, `MediaActions`, screens | folder checks, imports, metadata read/edit, deletion | rejected → `error.folder_busy`; media operations release their flag at once |
 | `darkmusic-audio` + preload | `JavaSoundBackend` (per playback generation) | decode, DSP, output line | one worker |
 | scan, root scan, watch | `MusicLibrary` (per library generation) | indexing, snapshots | generation counter rejects stale scans |
 | download pool, analysis, repair | `DownloadService` (per generation) | yt-dlp/FFmpeg jobs, bookkeeping | fixed workers |
@@ -66,7 +81,7 @@ first use and dropped by reset; **screen** = owned by one screen.
 | Cleanup / source evidence | duplicate pairs, review store, source index | own workers | cleanup and download screens | lazy | `close`; reset drops them |
 | PiP (`PipController`) | capture session, runtime lease | helper threads | PiP screens, HUD layer | app | `close` stops then releases runtime asynchronously |
 | Updates, Discord, Media Controls | jobs, IPC, helper process | own threads | settings screens, tick | app | `close` |
-| Library reconciliation (`LibraryReconciliation`) | revision markers, one pending playlist cleanup, generation | client (polled per tick); playlist absence check on storage | autoplay (in `DarkMusicClient`) | app; `reset()` starts a new generation | — |
+| Library reconciliation (`LibraryReconciliation`) | revision markers, one pending playlist cleanup, generation | client (polled per tick); playlist absence check on storage | autoplay (in `DarkMusicClient.tick`) | app; `reset()` starts a new generation | — |
 
 ## Lifecycle operations
 
@@ -98,7 +113,7 @@ suspended, so the shutdown flush cannot replace a restored file or a file a pend
 Playlists need no gate: shutdown does not write them, and playlist edits, shortcuts and reconciliation require
 `idle`. `BackupRestoreTest` drives these paths with the real stores and journal and reopens the files.
 
-`BackupScreen` only chooses the file and categories, previews and confirms. The client captures and writes exports
+`BackupScreen` only chooses the file and categories, previews and confirms. `BackupActions` captures and writes exports
 (`exportBackup`), reads archives (`readBackup`), prepares previews (`previewRestore`) and runs the restore from the
 archive and selection (`restoreBackup`), all on the storage executor. A preview is for display only: the music keeps
 playing while the confirmation is open, so the restore prepares again from the state at its start.
@@ -118,9 +133,9 @@ player keeps working. What the old services can still finish does not replace us
 - A player stuck in its audio line's write does not stop the replacement playing (`ResetStopTest`, on the Windows
   default device only).
 
-`DarkMusicClient.buildReplaceable` is the one place that builds what reset replaces: artwork, waveforms, playback,
+`ClientServices.buildReplaceable` is the one place that builds what reset replaces: artwork, waveforms, playback,
 library and downloads. It installs each in its field and registers it with the caller's `Cleanup`, for both startup
-and reset.
+and reset. `ClientReset` holds the reset steps: what to stop, clear and rebuild.
 
 ### Exclusive operations and overlap
 
@@ -157,8 +172,9 @@ of it (as the analyzer label says).
 
 ## Known limits
 
-- Which services are built (`ready`, the reset steps, `buildReplaceable`) is wiring in `DarkMusicClient`. It is
-  covered by compilation, review and the smoke checks rather than by unit tests.
+- Which services are built (`DarkMusicClient.ready`, `ClientServices.buildHistories`/`buildServices`/
+  `buildReplaceable`, the `ClientReset` steps) is wiring. It is covered by compilation, review and the smoke checks
+  rather than by unit tests.
 - A player stuck in its audio line's write keeps that line open until Minecraft exits. This was tested on the Windows
   default device only.
 - Retained screens re-read settings when shown again, and the confirmation screen cannot be left while a reset or
@@ -171,13 +187,18 @@ of it (as the analyzer label says).
   crash-durability claim. A save queues its write; the acknowledgement is checked at shutdown, and reset reads the
   config back.
 - `ExternalAudio`'s codec configuration is process-wide: one client per Minecraft process.
-- The services are separate fields rather than one holder object. Reset publishes them on the client thread and
-  callbacks compare captured identities, so a single swap has not been needed.
+- The replaceable services are separate fields of `ClientServices` rather than one generation object swapped at
+  once. Reset publishes them on the client thread and callbacks compare captured identities, so a single swap has
+  not been needed.
 
 ## Common changes
 
 - *Adding a destination screen*: its Sources, one `Navigation` method, one `ScreenNavigation` method and bound;
-  `DarkMusicClient` implements the new Sources. No other screen changes.
+  `ClientSources` implements the new Sources with forwarding methods. Logic it needs goes into a named collaborator
+  (or a new one), which `ClientSources` forwards to. `DarkMusicClient` and the other screens do not change.
+- *Adding a player control or menu action*: put it in the collaborator that owns the area (`PlaybackCommands`,
+  `FolderActions`, `MediaActions`, `BackupActions`, `OutputActions`); a new collaborator receives `ClientServices`
+  and is wired in `DarkMusicClient`'s fields.
 - *Replacing a library service*: construct it in `buildReplaceable`, used by both startup and reset, and add it to
   `Shutdown.Services`. Consumers read it through the getter or the reconciliation adapter, so screens and the HUD do
   not change. They are still typed on the concrete `MusicLibrary`, so a different implementation type would also

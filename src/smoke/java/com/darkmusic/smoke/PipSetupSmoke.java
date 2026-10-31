@@ -21,12 +21,12 @@ final class PipSetupSmoke {
 
     boolean tick(Minecraft mc, DarkMusicClient app) throws Exception {
         if (System.nanoTime() > deadline) throw new IllegalStateException("PiP setup smoke timed out at " + stage);
-        var setup = app.pip.tools.runtime;
-        var s = app.settings().pip;
+        var setup = app.services().pip().tools.runtime;
+        var s = app.services().settings().pip;
         switch (stage) {
             case 0 -> {
                 if (!(mc.gui.screen() instanceof PipScreen)) return false;
-                if (s.enabled || s.audioAccess || setup.ready() || app.pip.active())
+                if (s.enabled || s.audioAccess || setup.ready() || app.services().pip().active())
                     throw new IllegalStateException("Access must default off");
                 if (SmokeUi.find(mc, Text.get("pip.choose")) != null)
                     throw new IllegalStateException("Picker accessible before consent");
@@ -51,7 +51,7 @@ final class PipSetupSmoke {
                 staged = CompletableFuture.runAsync(() -> {
                     try (var input = getClass().getResourceAsStream("/assets/darkmusic/pip/windows-x64/dependencies.json")) {
                         var manifest = JsonParser.parseString(new String(input.readAllBytes(), StandardCharsets.UTF_8)).getAsJsonObject();
-                        var root = app.config.directory().resolve("pip-native");
+                        var root = app.services().config().directory().resolve("pip-native");
                         Files.createDirectories(root);
                         Files.copy(Path.of(System.getProperty("darkmusic.pipDependencies")), root.resolve("dependencies-" + manifest.get("sha256").getAsString() + ".zip"));
                     } catch (Exception e) {
@@ -87,7 +87,7 @@ final class PipSetupSmoke {
                 stage++;
             }
             case 9 -> {
-                if (!s.enabled || app.pip.active() || app.pip.source() != null || s.audioAccess)
+                if (!s.enabled || app.services().pip().active() || app.services().pip().source() != null || s.audioAccess)
                     throw new IllegalStateException("Consent must not start capture/audio");
                 SmokeUi.click(mc, Text.get("pip.audio_spectrum"));
                 stage++;
@@ -102,7 +102,7 @@ final class PipSetupSmoke {
                 stage++;
             }
             case 12 -> {
-                if (s.enabled || app.pip.active()) throw new IllegalStateException("Disable failed");
+                if (s.enabled || app.services().pip().active()) throw new IllegalStateException("Disable failed");
                 return true;
             }
         }

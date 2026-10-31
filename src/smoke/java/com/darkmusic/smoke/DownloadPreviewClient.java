@@ -139,12 +139,12 @@ final class DownloadPreviewClient {
         var screen = mc.gui.screen();
         for (String label : List.of("Retry Failed", "Clear Failed", "Cancel Selected", "Cancel All", "Clear Finished"))
             require(!button(mc, label).active, "Queue-only action enabled on Entries: " + label);
-        var snapshot = app.downloads.snapshot();
-        var tracks = app.library.snapshot().tracks();
-        var jobs = List.of(new DownloadModels.Item(101, tracks.getFirst().title(), app.library.root(), DownloadModels.Status.QUEUED, -1, "Waiting"),
-            new DownloadModels.Item(202, tracks.get(1).title(), app.library.root(), DownloadModels.Status.FAILED, -1, "HTTP 403 unique queue search"),
-            new DownloadModels.Item(303, tracks.get(2).title(), app.library.root(), DownloadModels.Status.SAVED, 1, "Saved"));
-        set(app.downloads, "published", new DownloadModels.Snapshot(false, "", snapshot.toolStatus(), snapshot.preview(), jobs));
+        var snapshot = app.services().downloads().snapshot();
+        var tracks = app.services().library().snapshot().tracks();
+        var jobs = List.of(new DownloadModels.Item(101, tracks.getFirst().title(), app.services().library().root(), DownloadModels.Status.QUEUED, -1, "Waiting"),
+            new DownloadModels.Item(202, tracks.get(1).title(), app.services().library().root(), DownloadModels.Status.FAILED, -1, "HTTP 403 unique queue search"),
+            new DownloadModels.Item(303, tracks.get(2).title(), app.services().library().root(), DownloadModels.Status.SAVED, 1, "Saved"));
+        set(app.services().downloads(), "published", new DownloadModels.Snapshot(false, "", snapshot.toolStatus(), snapshot.preview(), jobs));
         click(mc, "Queue / Entries");
         screen.tick();
         require(!((AbstractWidget) field(screen, "modeButton")).active && !((AbstractWidget) field(screen, "download")).active, "Queue allows changing download mode or queuing a new download");
@@ -164,7 +164,7 @@ final class DownloadPreviewClient {
         require(!button(mc, "Retry Selected").active && !button(mc, "Cancel Selected").active, "Hidden selection still allows item actions");
         click(mc, "Queue / Entries");
         require(search.getValue().isEmpty(), "Queue search leaked into Entries");
-        set(app.downloads, "published", null);
+        set(app.services().downloads(), "published", null);
         screen.tick();
     }
 
@@ -173,7 +173,7 @@ final class DownloadPreviewClient {
         try {
             if (++ticks > 2400) throw new IllegalStateException("Preview checks timed out");
             var app = DarkMusicClient.INSTANCE;
-            if (app == null || app.library == null || !app.playlistsReady || !mc.isGameLoadFinished() || mc.gui.overlay() != null)
+            if (app == null || app.services().library() == null || !app.services().playlistsReady() || !mc.isGameLoadFinished() || mc.gui.overlay() != null)
                 return;
             if (!fullscreen) {
                 fullscreen = true;
@@ -184,14 +184,14 @@ final class DownloadPreviewClient {
             }
             if (!selecting) {
                 selecting = true;
-                app.folders.choose(Path.of(System.getProperty("darkmusic.music")), () -> {
+                app.sources().chooseMusicFolder(Path.of(System.getProperty("darkmusic.music")), () -> {
                 });
                 return;
             }
-            if (app.library.snapshot().scanning() || app.library.snapshot().tracks().isEmpty()) return;
+            if (app.services().library().snapshot().scanning() || app.services().library().snapshot().tracks().isEmpty()) return;
             if (step == -1) {
                 if (serving == null) {
-                    Path file = app.library.snapshot().tracks().getFirst().file();
+                    Path file = app.services().library().snapshot().tracks().getFirst().file();
                     serving = CompletableFuture.supplyAsync(() -> {
                         try {
                             return serve(file);
@@ -204,13 +204,13 @@ final class DownloadPreviewClient {
                 if (!serving.isDone()) return;
                 address = serving.join();
                 Path tools = Path.of(System.getProperty("darkmusic.downloadTools"));
-                app.downloads.configure(new ToolPaths(tools.resolve("yt-dlp.exe").toString(), tools.resolve("ffmpeg.exe").toString(), tools.resolve("ffprobe.exe").toString(), ""));
-                app.settings().ytDlpPath = tools.resolve("yt-dlp.exe").toString();
-                app.settings().ffmpegPath = tools.resolve("ffmpeg.exe").toString();
-                app.settings().ffprobePath = tools.resolve("ffprobe.exe").toString();
-                app.applySettings();
-                var track = app.library.snapshot().tracks().getFirst();
-                app.playback.play(List.of(track), track);
+                app.services().downloads().configure(new ToolPaths(tools.resolve("yt-dlp.exe").toString(), tools.resolve("ffmpeg.exe").toString(), tools.resolve("ffprobe.exe").toString(), ""));
+                app.services().settings().ytDlpPath = tools.resolve("yt-dlp.exe").toString();
+                app.services().settings().ffmpegPath = tools.resolve("ffmpeg.exe").toString();
+                app.services().settings().ffprobePath = tools.resolve("ffprobe.exe").toString();
+                app.services().apply();
+                var track = app.services().library().snapshot().tracks().getFirst();
+                app.services().playback().play(List.of(track), track);
                 app.open();
                 player = (MusicScreen) mc.gui.screen();
                 click(mc, "Downloads");
@@ -222,8 +222,8 @@ final class DownloadPreviewClient {
             if (++frame % 20 != 0) return;
             switch (step) {
                 case 0 -> {
-                    if (app.downloads.snapshot().analyzing()) return;
-                    require(app.downloads.snapshot().preview() != null, "Local analysis failed: " + app.downloads.snapshot().message());
+                    if (app.services().downloads().snapshot().analyzing()) return;
+                    require(app.services().downloads().snapshot().preview() != null, "Local analysis failed: " + app.services().downloads().snapshot().message());
                     require((int) field(field(mc.gui.screen(), "url"), "displayPos") == 0, "The short analyzed URL is stored but visually scrolled out of the input");
                     require(field(mc.gui.screen(), "mode").toString().equals("VIDEO"), "Single video did not default to This Video Only");
                     require(button(mc, "Tools").getWidth() == button(mc, "Analyze").getWidth(), "Tools and Analyze widths differ");
@@ -240,23 +240,23 @@ final class DownloadPreviewClient {
                     step++;
                 }
                 case 1 -> {
-                    require(app.audition != null, "No audition player");
-                    var snapshot = app.audition.snapshot();
+                    require(app.services().audition() != null, "No audition player");
+                    var snapshot = app.services().audition().snapshot();
                     require(snapshot.status() != AuditionPlayer.Status.ERROR, "Audition failed: " + snapshot.error());
-                    var audio = (AudioBackend) field(app.audition, "audio");
+                    var audio = (AudioBackend) field(app.services().audition(), "audio");
                     if (audio == null || audio.state().status() != AudioBackend.Status.PLAYING || audio.state().position() < .2)
                         return;
-                    require(app.playback.state().status() == AudioBackend.Status.PAUSED, "Main music was not paused during audition");
+                    require(app.services().playback().state().status() == AudioBackend.Status.PAUSED, "Main music was not paused during audition");
                     click(mc, "Stop Audio Preview");
                     step++;
                 }
                 case 2 -> {
-                    if (app.playback.state().status() != AudioBackend.Status.PLAYING) return;
+                    if (app.services().playback().state().status() != AudioBackend.Status.PLAYING) return;
                     click(mc, "Play Audio Preview");
                     escape(mc);
                     require(mc.gui.screen() == player, "Escape did not return to the player");
-                    require(app.downloads.snapshot().preview() != null, "Preview was lost when leaving Downloads");
-                    require(app.audition == null, "Audition survived leaving Downloads");
+                    require(app.services().downloads().snapshot().preview() != null, "Preview was lost when leaving Downloads");
+                    require(app.services().audition() == null, "Audition survived leaving Downloads");
                     click(mc, "Downloads");
                     require(((EditBox) field(mc.gui.screen(), "url")).getValue().equals(address), "Last analyzed URL was not restored");
                     require(button(mc, "Download One Video").active, "Restored preview was not usable");
@@ -267,9 +267,9 @@ final class DownloadPreviewClient {
                     ((EditBox) field(mc.gui.screen(), "url")).setValue(link);
                     var entries = new ArrayList<DownloadModels.Entry>();
                     for (int i = 0; i < 5; i++)
-                        entries.add(new DownloadModels.Entry(i + 1, app.library.snapshot().tracks().get(i % app.library.snapshot().tracks().size()).title(), "https://example.com/" + i, "Generic", Integer.toString(i), true));
-                    set(app.downloads, "preview", new DownloadModels.Preview(link, "Real collection titles", "Generic", true, false, 1, 5, false, entries));
-                    set(app.downloads, "published", null);
+                        entries.add(new DownloadModels.Entry(i + 1, app.services().library().snapshot().tracks().get(i % app.services().library().snapshot().tracks().size()).title(), "https://example.com/" + i, "Generic", Integer.toString(i), true));
+                    set(app.services().downloads(), "preview", new DownloadModels.Preview(link, "Real collection titles", "Generic", true, false, 1, 5, false, entries));
+                    set(app.services().downloads(), "published", null);
                     mc.gui.screen().tick();
                     require(field(mc.gui.screen(), "mode").toString().equals("SELECTED"), "A collection-only URL defaulted to a video mode");
                     var rows = (RowList) field(mc.gui.screen(), "rows");
