@@ -19,6 +19,7 @@ verification, with commits waiting for approval. Six untracked local plan files 
 | U9 | Playlist controls, lists and entry actions are private sections; compact-state readback happens before rebuilding. | GUI/playlist suites and guards pass, reflected fields preserved. MAX_DEBT 4. Native default/queue/cleanup/reset and comparison pending. |
 | U10 | Environment header, short controls, advanced controls and saved environments are private sections; Off/blank/device/outdoor predicates named. | GUI/environment-preset suites and guards pass. MAX_DEBT 3. Native queue and comparison pending. |
 | U11 | Audio profile, normalization, equalizer, effects, transitions/game controls and saved-profile actions are private sections. | GUI/audio-settings suites and guards pass. Original-hint, neutral disabling, save status and rename/delete scope preserved. MAX_DEBT 2. Native advanced/queue checks pending. |
+| U12 | One immutable FrameLayout per frame; card, artwork/image/caption/spectrum, text/status/progress groups retain draw order and matrix/scissor boundaries. | HUD/render suites and guards pass. MAX_DEBT 1 (only the exposed PiP install lambda remains). Native default/preview and before/after comparisons pending. |
 
 G2 bytecode sizes: AudioProcessor 1731, environment Engine 1474, SpectrumAnalyzer 1099, TrackWaveform 804,
 CircularHudMesh.Rings 1570, SpectrumRenderer.bars 1428 bytes. No hot method exceeds 8000 bytes.
