@@ -1,9 +1,19 @@
 package com.darkmusic.client;
 
+import com.darkmusic.client.audio.PlaybackController;
+import com.darkmusic.client.audio.SleepTimer;
+import com.darkmusic.client.audio.WaveformCache;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.ResetStorage;
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.download.AuditionPlayer;
+import com.darkmusic.client.download.DownloadService;
 import com.darkmusic.client.gui.DesktopFolderPicker;
+import com.darkmusic.client.hud.SpeedFeedback;
+import com.darkmusic.client.hud.VolumeFeedback;
+import com.darkmusic.client.library.ImportHistory;
+import com.darkmusic.client.library.MusicLibrary;
+import com.darkmusic.client.pip.PipController;
 import com.darkmusic.client.text.Text;
 
 import java.io.IOException;
@@ -13,28 +23,91 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * Reset to Defaults: admission, and the services to stop, clear and rebuild. {@link ResetOperation} owns the phases
  * and what each failure leaves behind.
  */
 final class ClientReset {
-    private final ClientServices services;
-    private final ScreenRequests screens;
-    private final FolderActions folders;
-    private final Shortcuts shortcuts;
+    interface Inputs {
+        Settings settings();
+
+        ConfigStore config();
+
+        ExecutorService io();
+
+        PlaybackController playback();
+
+        MusicLibrary library();
+
+        DownloadService downloads();
+
+        AuditionPlayer takeAudition();
+
+        void closeCleanup();
+
+        void closeSourceIndex();
+
+        void forgetCleanupReviews();
+
+        LibraryReconciliation reconciliation();
+
+        SleepTimer sleep();
+
+        SpeedFeedback speedFeedback();
+
+        VolumeFeedback volumeFeedback();
+
+        AutoCloseable artwork();
+
+        WaveformCache waveforms();
+
+        PipController pip();
+
+        ImportHistory importHistory();
+
+        void replaceSettings(Settings settings);
+
+        void buildReplaceable(Cleanup acquired);
+
+        Warnings warnings();
+
+        void save();
+
+        void warn(String message);
+    }
+
+    record Controls(Runnable clearScreen, Runnable invalidateFolders,
+                    Supplier<Map<String, String>> defaults,
+                    Runnable restoreDefaults, Consumer<Path> activate, Runnable cancelPicker) {
+    }
+
+    private final Inputs services;
+    private final ClientState state;
+    private final Controls controls;
     private final Runnable cancelAutoplay;
     private final Executor clientThread;
 
     ClientReset(ClientServices services, ScreenRequests screens, FolderActions folders, Shortcuts shortcuts,
                 Runnable cancelAutoplay, Executor clientThread) {
+        this(services, services.state, new Controls(screens::clear, folders::invalidate, shortcuts::defaults,
+            shortcuts::restoreDefaults, folders::activate, DesktopFolderPicker::cancel), cancelAutoplay, clientThread);
+    }
+
+    /**
+     * For tests: live reset phases over disposable services and explicit desktop controls.
+     */
+    ClientReset(Inputs services, ClientState state, Controls controls, Runnable cancelAutoplay, Executor clientThread) {
         this.services = services;
-        this.screens = screens;
-        this.folders = folders;
-        this.shortcuts = shortcuts;
+        this.state = state;
+        this.controls = controls;
         this.cancelAutoplay = cancelAutoplay;
         this.clientThread = clientThread;
     }
@@ -43,9 +116,16 @@ final class ClientReset {
      * Called on the client thread only, after explicit confirmation.
      */
     CompletableFuture<Void> resetDefaults() {
-        if (!services.state.idle())
+        if (!state.idle())
             return CompletableFuture.failedFuture(new IllegalStateException(Text.get("reset.darkmusic.busy")));
-        return ResetOperation.run(new ResetSteps(), clientThread, services.io());
+        return ResetOperation.run(steps(), clientThread, services.io());
+    }
+
+    /**
+     * For tests: the real phase implementation, driven independently of the executors.
+     */
+    ResetOperation.Steps steps() {
+        return new ResetSteps();
     }
 
     private final class ResetSteps implements ResetOperation.Steps {
@@ -55,10 +135,9 @@ final class ClientReset {
 
         @Override
         public Callable<List<String>> begin() {
-            var state = services.state;
             state.resetting = true;
             prior = services.settings();
-            var defaultBindings = shortcuts.defaults();
+            var defaultBindings = controls.defaults().get();
             var roots = new LinkedHashSet<Path>();
             roots.add(services.library().root());
             for (String root : prior.roots.keySet())
@@ -77,31 +156,26 @@ final class ClientReset {
                 .then("pending requests", () -> {
                     services.forgetCleanupReviews();
                     services.reconciliation().reset();
-                    screens.clear();
-                    folders.invalidate();
+                    controls.clearScreen().run();
+                    controls.invalidateFolders().run();
                     // The timer belongs to the player being replaced; null leaves that player's volume alone.
                     services.sleep().start(0, null, 0);
                     cancelAutoplay.run();
                 })
-                .then("folder picker", DesktopFolderPicker::cancel)
+                .then("folder picker", controls.cancelPicker())
                 .then("playback", oldPlayback::reset)
                 .then("feedback", () -> {
                     services.speedFeedback().clear();
                     services.volumeFeedback().clear();
                 })
-                .then("artwork", services.artwork()::close)
+                .close("artwork", services.artwork())
                 .then("waveforms", () -> {
                     if (services.waveforms() != null) services.waveforms().close();
                 })
                 .then("PiP", () -> {
                     if (services.pip() != null) services.pip().stop();
                 }).run();
-            var stopping = new ArrayList<ResetOperation.Stopping>();
-            if (oldAudition != null)
-                stopping.add(new ResetOperation.Stopping("audition", oldAudition, oldAudition::awaitStopped));
-            stopping.add(new ResetOperation.Stopping("playback", oldPlayback, oldPlayback::awaitStopped));
-            stopping.add(new ResetOperation.Stopping("downloads", oldDownloads, oldDownloads::awaitStopped));
-            stopping.add(new ResetOperation.Stopping("library", oldLibrary, oldLibrary::awaitStopped));
+            var stopping = stopping(oldAudition, oldPlayback, oldDownloads, oldLibrary);
             return () -> {
                 ResetOperation.stop(stopping, 15);
                 var retained = ResetStorage.clear(services.config().directory(), roots);
@@ -117,13 +191,13 @@ final class ClientReset {
             services.buildReplaceable(built);
             if (defaults) {
                 services.warnings().clear();
-                shortcuts.restoreDefaults();
+                controls.restoreDefaults().run();
             }
             var config = services.config();
             try {
-                folders.activate(services.settings().musicDirectory.isBlank() ? config.defaultMusic() : Path.of(services.settings().musicDirectory));
+                controls.activate().accept(services.settings().musicDirectory.isBlank() ? config.defaultMusic() : Path.of(services.settings().musicDirectory));
             } catch (Exception e) {
-                folders.activate(config.defaultMusic());
+                controls.activate().accept(config.defaultMusic());
             }
         }
 
@@ -134,7 +208,7 @@ final class ClientReset {
 
         @Override
         public void release() {
-            services.state.resetting = false;
+            state.resetting = false;
             services.save();
             expected = ConfigStore.JSON.toJson(services.settings());
         }
@@ -147,12 +221,26 @@ final class ClientReset {
 
         @Override
         public boolean closed() {
-            return services.state.closed;
+            return state.closed;
         }
 
         @Override
         public void warn(String message) {
             services.warn(message);
         }
+    }
+
+    /**
+     * For tests: the same captured services are closed and awaited in this order.
+     */
+    static List<ResetOperation.Stopping> stopping(AuditionPlayer oldAudition, PlaybackController oldPlayback,
+                                                  DownloadService oldDownloads, MusicLibrary oldLibrary) {
+        var stopping = new ArrayList<ResetOperation.Stopping>();
+        if (oldAudition != null)
+            stopping.add(new ResetOperation.Stopping("audition", oldAudition, oldAudition::awaitStopped));
+        stopping.add(new ResetOperation.Stopping("playback", oldPlayback, oldPlayback::awaitStopped));
+        stopping.add(new ResetOperation.Stopping("downloads", oldDownloads, oldDownloads::awaitStopped));
+        stopping.add(new ResetOperation.Stopping("library", oldLibrary, oldLibrary::awaitStopped));
+        return List.copyOf(stopping);
     }
 }

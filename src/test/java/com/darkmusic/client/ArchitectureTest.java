@@ -37,11 +37,11 @@ class ArchitectureTest {
     // Lower this as packages stop depending on DarkMusicClient; never raise it.
     private static final int MAX_CLIENT_DEPENDENTS = 1;
     // DarkMusicClient is the entry point and lifecycle only. Lower this as it shrinks; never raise it.
-    private static final int MAX_CLIENT_LINES = 290;
+    private static final int MAX_CLIENT_LINES = 289;
     // ClientServices holds the services; it is the next place a hurried change would land. Lower this; never raise it.
     private static final int MAX_SERVICES_LINES = 572;
     private static final Path TESTS = Path.of("src/test/java/com/darkmusic/client");
-    private static final Set<String> ROOT_TESTS = new TreeSet<>(Set.of("ArchitectureTest", "BackupActionsTest",
+    private static final Set<String> ROOT_TESTS = new TreeSet<>(Set.of("ArchitectureTest", "ClientActionsTest", "ClientResetTest", "ScreenRequestsTest", "ShortcutsTest", "BackupActionsTest",
         "BackupRestoreTest", "CleanupTest", "ClientStateTest", "DownloadActionsTest", "FolderActionsTest",
         "LibraryReconciliationTest", "LyricsActionsTest", "MediaActionsTest", "MethodLengthTest", "OutputActionsTest", "PackagedJarTest",
         "PlaybackCommandsTest", "PlaylistActionsTest", "ResetOperationTest", "ResetStopTest", "RestoreOperationTest",
@@ -53,10 +53,6 @@ class ArchitectureTest {
     private static final Map<String, String> UNTESTED_ROOT = Map.of(
         "DarkMusicClient", "the Fabric entry point; the smoke suite starts it",
         "ClientServices", "builds the real services and needs Minecraft and Fabric; the smoke suite covers it",
-        "ScreenRequests", "opens Minecraft screens; the smoke suite covers it",
-        "Shortcuts", "registers and reads Minecraft key mappings; the smoke suite covers it",
-        "ClientActions", "chat command actions that open screens; the smoke suite covers it",
-        "ClientReset", "the reset steps over the real services; ResetOperationTest covers the phases, smoke reset the rest",
         "ClientSources", "forwards only (clientSourcesOnlyForwards)",
         "ScreenNavigation", "forwards screen changes to ScreenRequests",
         "ClientDispatch", "forwards to the client thread");

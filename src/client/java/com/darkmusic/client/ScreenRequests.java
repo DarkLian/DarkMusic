@@ -14,17 +14,16 @@ import net.minecraft.client.gui.screens.options.controls.KeyBindsScreen;
 
 import java.util.concurrent.TimeUnit;
 
+
 /**
  * Opening the player, and the screens chat commands ask for. A command runs while chat is still open, so its screen
  * is requested here and opened by a later client tick, in the same world, within five seconds. Client thread.
  */
 public final class ScreenRequests {
-    private enum RequestedScreen {PLAYER, HUD, LYRICS, PIP, KEYS}
+    enum RequestedScreen {PLAYER, HUD, LYRICS, PIP, KEYS}
 
     private final ClientServices services;
-    private RequestedScreen requestedScreen;
-    private Object requestedWorld;
-    private long requestUntil;
+    private ScreenRequest request;
 
     ScreenRequests(ClientServices services) {
         this.services = services;
@@ -40,46 +39,41 @@ public final class ScreenRequests {
     }
 
     public void requestScreen(boolean layout) {
-        requestedScreen = layout ? RequestedScreen.HUD : RequestedScreen.PLAYER;
-        requestedWorld = Minecraft.getInstance().level;
-        requestUntil = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        request = request(layout ? RequestedScreen.HUD : RequestedScreen.PLAYER, Minecraft.getInstance().level, System.nanoTime());
     }
 
     public String requestLyrics() {
         String problem = lyricsCommandProblem();
         if (!problem.isEmpty()) return problem;
-        requestedScreen = RequestedScreen.LYRICS;
-        requestedWorld = Minecraft.getInstance().level;
-        requestUntil = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        request = request(RequestedScreen.LYRICS, Minecraft.getInstance().level, System.nanoTime());
         return "";
     }
 
     public void requestPip() {
-        requestedScreen = RequestedScreen.PIP;
-        requestedWorld = Minecraft.getInstance().level;
-        requestUntil = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        request = request(RequestedScreen.PIP, Minecraft.getInstance().level, System.nanoTime());
     }
 
     /**
      * Minecraft's Key Binds screen, where DarkMusic's shortcuts are changed.
      */
     public void requestKeyBinds() {
-        requestedScreen = RequestedScreen.KEYS;
-        requestedWorld = Minecraft.getInstance().level;
-        requestUntil = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        request = request(RequestedScreen.KEYS, Minecraft.getInstance().level, System.nanoTime());
     }
 
     /**
      * Reset to Defaults drops a request that has not opened yet.
      */
     void clear() {
-        requestedScreen = null;
-        requestedWorld = null;
+        request = null;
     }
 
     /**
      * A button clicked in chat leaves chat open. The requested screen replaces it, and closing returns to the game.
      */
+    static ScreenRequest request(RequestedScreen kind, Object world, long now) {
+        return new ScreenRequest(kind, world, now + TimeUnit.SECONDS.toNanos(5));
+    }
+
     private static Screen chatless(Screen screen) {
         return screen instanceof ChatScreen ? null : screen;
     }
@@ -94,17 +88,16 @@ public final class ScreenRequests {
 
     <S extends MusicScreen.Sources & LyricsScreen.Sources & PipScreen.Sources & HudEditorScreen.Sources>
     void openRequested(Minecraft client, S sources) {
-        if (requestedScreen == null) return;
-        if (!services.state.alive() || client.level != requestedWorld || System.nanoTime() > requestUntil
-            || client.player != null && !client.player.isAlive()) {
-            requestedScreen = null;
+        if (request == null) return;
+        if (!request.due(System.nanoTime(), client.level, services.state.alive(), client.player == null || client.player.isAlive())) {
+            request = null;
             return;
         }
         var screen = chatless(client.gui.screen());
         if (services.settings() == null || services.library() == null || client.gui.overlay() != null || !client.gui.canInterruptScreen()
             || screen != null && !(screen instanceof TitleScreen)) return;
-        var requested = requestedScreen;
-        requestedScreen = null;
+        var requested = request.kind();
+        request = null;
         if (requested == RequestedScreen.LYRICS) {
             String problem = lyricsCommandProblem();
             if (!problem.isEmpty()) services.warn(Text.get(problem));

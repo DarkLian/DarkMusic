@@ -59,7 +59,7 @@ import java.util.function.Consumer;
  * getters on each use rather than keeping them: reset and restore publish replacements here, and the HUD, PiP and
  * reconciliation adapters read the current one on every call. Services are built and replaced on the client thread.
  */
-public final class ClientServices implements PlaybackCommands.Inputs, PlaylistActions.Inputs, DownloadActions.Inputs, MediaActions.Inputs, FolderActions.Inputs, OutputActions.Inputs, BackupActions.Inputs, LyricsActions.Inputs {
+public final class ClientServices implements PlaybackCommands.Inputs, PlaylistActions.Inputs, DownloadActions.Inputs, MediaActions.Inputs, FolderActions.Inputs, OutputActions.Inputs, BackupActions.Inputs, LyricsActions.Inputs, ClientActions.Inputs, ClientReset.Inputs {
     // Shutdown, reset and busy flags, and the checks built from them.
     final ClientState state = new ClientState();
     private final Warnings warnings = new Warnings(state);
@@ -257,7 +257,7 @@ public final class ClientServices implements PlaybackCommands.Inputs, PlaylistAc
         return pipSources;
     }
 
-    LibraryReconciliation reconciliation() {
+    public LibraryReconciliation reconciliation() {
         return reconciliation;
     }
 
@@ -331,7 +331,7 @@ public final class ClientServices implements PlaybackCommands.Inputs, PlaylistAc
     /**
      * Reset to Defaults takes the audition away before it stops the services, so nothing starts it again meanwhile.
      */
-    AuditionPlayer takeAudition() {
+    public AuditionPlayer takeAudition() {
         var old = audition;
         audition = null;
         return old;
@@ -402,17 +402,17 @@ public final class ClientServices implements PlaybackCommands.Inputs, PlaylistAc
         return sourceIndex;
     }
 
-    void closeCleanup() {
+    public void closeCleanup() {
         if (cleanupScanner != null) cleanupScanner.close();
         cleanupScanner = null;
     }
 
-    void closeSourceIndex() {
+    public void closeSourceIndex() {
         if (sourceIndex != null) sourceIndex.close();
         sourceIndex = null;
     }
 
-    void forgetCleanupReviews() {
+    public void forgetCleanupReviews() {
         cleanupReviews = null;
     }
 
@@ -520,7 +520,7 @@ public final class ClientServices implements PlaybackCommands.Inputs, PlaylistAc
      * library exists and before folders are activated, so scans start with the configured codec paths. What differs
      * between startup and reset stays with the caller.
      */
-    void buildReplaceable(Cleanup acquired) {
+    public void buildReplaceable(Cleanup acquired) {
         var newArtwork = artwork = new ArtworkCache();
         acquired.first("artwork", newArtwork::close);
         var newWaveforms = waveforms = new WaveformCache(config.directory());

@@ -1,6 +1,7 @@
 package com.darkmusic.client;
 
 import com.darkmusic.client.config.Repeat;
+import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.gui.MusicScreen;
 import com.darkmusic.client.gui.ShortcutKeys;
 import com.darkmusic.client.text.Text;
@@ -158,16 +159,13 @@ public final class Shortcuts implements ShortcutKeys {
             }
         }
         migrateSpeedBindings();
-        if (settings.nativeShortcutNames.containsAll(Arrays.stream(bindings()).map(KeyMapping::getName).toList()))
-            settings.shortcuts.clear();
+        ShortcutMigration.clearSaved(settings.nativeShortcutNames, settings.shortcuts, Arrays.stream(bindings()).map(KeyMapping::getName).toList());
         KeyMapping.resetMapping();
     }
 
     private void migrateSpeedBindings() {
         var settings = services.settings();
-        if (settings.nativeShortcutNames.contains(seekBack.getName()) || settings.nativeShortcutNames.contains(seekForward.getName())
-            || settings.shortcuts.containsKey(seekBack.getName()) || settings.shortcuts.containsKey(seekForward.getName())
-            || !faster.saveString().equals("key.keyboard.right") || !slower.saveString().equals("key.keyboard.left"))
+        if (!migration(settings, seekBack.getName(), seekForward.getName(), faster.saveString(), slower.saveString()))
             return;
         faster.setKey(faster.getDefaultKey());
         slower.setKey(slower.getDefaultKey());
@@ -182,6 +180,10 @@ public final class Shortcuts implements ShortcutKeys {
                 Minecraft.getInstance().execute(() -> services.warn(Text.get("error.shortcut_migrate")));
             }
         });
+    }
+
+    static boolean migration(Settings settings, String back, String forward, String faster, String slower) {
+        return ShortcutMigration.speed(settings.nativeShortcutNames, settings.shortcuts, back, forward, faster, slower);
     }
 
     @Override

@@ -4,8 +4,11 @@ import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.command.ChatPalette;
 import com.darkmusic.client.command.LocalCommands;
 import com.darkmusic.client.config.Repeat;
+import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.hud.SpeedFeedback;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.update.UpdateService;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.network.chat.Component;
@@ -19,15 +22,33 @@ import java.util.Locale;
  * Runs chat commands against the live client, on the client thread, with the same guards as the player's controls.
  */
 final class ClientActions implements LocalCommands.Actions {
-    private final ClientServices services;
+    interface Inputs extends PlaybackCommands.Inputs {
+        Settings settings();
+
+        SpeedFeedback speedFeedback();
+
+        UpdateService updates();
+    }
+
+    private final Inputs services;
+    private final ClientState state;
     private final PlaybackCommands commands;
     private final ScreenRequests screens;
     private final Shortcuts shortcuts;
-    private final String version = FabricLoader.getInstance().getModContainer("darkmusic")
-        .map(mod -> mod.getMetadata().getVersion().getFriendlyString()).orElse("");
+    private final String version;
 
     ClientActions(ClientServices services, PlaybackCommands commands, ScreenRequests screens, Shortcuts shortcuts) {
+        this(services, services.state, commands, screens, shortcuts, FabricLoader.getInstance().getModContainer("darkmusic")
+            .map(mod -> mod.getMetadata().getVersion().getFriendlyString()).orElse(""));
+    }
+
+    /**
+     * For tests: services, admission and version without the Fabric singleton.
+     */
+    ClientActions(Inputs services, ClientState state, PlaybackCommands commands, ScreenRequests screens, Shortcuts shortcuts, String version) {
         this.services = services;
+        this.state = state;
+        this.version = version;
         this.commands = commands;
         this.screens = screens;
         this.shortcuts = shortcuts;
@@ -118,7 +139,7 @@ final class ClientActions implements LocalCommands.Actions {
     }
 
     private boolean ready() {
-        return services.state.idle() && services.settings() != null && services.playback() != null && services.library() != null;
+        return state.idle() && services.settings() != null && services.playback() != null && services.library() != null;
     }
 
     private Component unavailable() {
