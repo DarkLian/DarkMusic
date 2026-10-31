@@ -122,7 +122,8 @@ public final class SoundEnvironmentProcessor {
         right = r + (b - r) * wet;
     }
 
-    private static final class Engine {
+    // Package-visible so exact-output and opt-in cost fixtures can exercise this loop directly.
+    static final class Engine {
         private final Biquad high = new Biquad(), low = new Biquad(), presence = new Biquad();
         private final EnvironmentRoom room = new EnvironmentRoom();
         private ConvolutionReverb convolution;

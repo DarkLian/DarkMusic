@@ -196,6 +196,14 @@ public final class SpectrumAnalyzer {
     }
 
     /**
+     * For tests: analyze the fixed input ring without charging PCM decoding to the cost measurement.
+     */
+    float analyzeForTests(long outputFrame) {
+        analyze(options, outputFrame);
+        return pending[(head + count - 1) % QUEUE][0];
+    }
+
+    /**
      * Freeze on pause; do not show samples queued ahead of the audible device position.
      */
     public void advance(long playedFrame, boolean playing) {

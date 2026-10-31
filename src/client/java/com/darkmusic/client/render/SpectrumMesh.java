@@ -148,7 +148,8 @@ public final class SpectrumMesh {
     }
 
     public void submit(GuiGraphicsExtractor g) {
-        if (count == 0) return;
+        // A null extractor lets headless exact-output/cost fixtures inspect the populated batch without a GPU.
+        if (count == 0 || g == null) return;
         int left = Integer.MAX_VALUE, top = Integer.MAX_VALUE, right = Integer.MIN_VALUE, bottom = Integer.MIN_VALUE;
         for (int i = 0; i < count; i += 5) {
             left = Math.min(left, rectangles[i]);

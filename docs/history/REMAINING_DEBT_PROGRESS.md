@@ -24,6 +24,7 @@ verification, with commits waiting for approval. Six untracked local plan files 
 | L1 | Named picker job, process launcher and result/wait phase; ownership cleanup and OPEN/CANCELLED order retained. | New admission/cancellation/forced-stop/start/exit/cleanup tests pass before/after the split. Actual child dialog approve/cancel passes on the desktop before/after. |
 | L2 | Named captured-release job and staging, manifest-properties and installer-copy phases. | New direct staging tests pass before/after: valid manifest/helper, checksum/identity/version/dependency/ZIP rejection before installer publication, installed-JAR preservation. Existing update/recovery/pruning/packaging and command-consent suites pass. No actual user mod was staged/replaced. |
 | L3 | Named setup job with immutable RuntimePackage value passed to archive preparation, unpack/repair and activation. | New busy/close, graphics refusal/cancellation and distinct error-label tests pass before/after; all PiP/packaging/architecture/method suites pass. MAX_DEBT is now 0. Live runtime and native PiP checks pending. |
+| H0 exactness | Before changing any hot loop, fixed direct DSP hashes for neutral/EQ/limiter/full chain and all 24 presets, plus waveform/band arrays, spectrum rectangles/gradients and circular vertices. | Three identical repeats each, then a separate non-recording golden run passed. Raw IEEE bits are hashed. Only hashes/counts are tracked; private audio stays in memory. Six opt-in cost checks use 10,000 warm-up calls and 15 rounds of 1,000 calls, median and p10–p90/full spread; normal builds skip them. Timing baseline pending native checks finishing. |
 
 G2 bytecode sizes: AudioProcessor 1731, environment Engine 1474, SpectrumAnalyzer 1099, TrackWaveform 804,
 CircularHudMesh.Rings 1570, SpectrumRenderer.bars 1428 bytes. No hot method exceeds 8000 bytes.
@@ -42,6 +43,12 @@ lambdas share the longest span, and other synthetic/bridge methods remain exclud
 Current evidence and separate commit boundaries are under ignored .local-tools/verification/remaining.
 checkpoint.ps1 captures trees in an alternate index, preserving the user's index and local plans; it creates no commits.
 Source edits use IDEA apply_patch and its built-in formatter. Start with deterministic visual captures before U.
+
+H0 test seams leave hot method bodies unchanged: package-visible environment Engine, a direct analyzer wrapper,
+read-only renderer mesh query, and null-extractor mesh submission for headless geometry capture (no GPU work).
+Timing is loop/geometry CPU cost, including a concrete consuming vertex sink; GPU driver/submission cost is excluded.
+Machine: AMD Ryzen 7 7800X3D (8 cores/16 threads), Microsoft OpenJDK 25.0.4.1. Timing runs wait for native/build
+jobs to finish. IDE/system background processes are retained; no claim of a dedicated benchmark machine.
 
 Baseline captures: 15 screen/HUD states, two original 1920x1080 GUI-scale-2 captures each, all pairs pixel-identical
 without masks. Stored privately in docs/images_private/remaining-before. Playback paused, visualizer/transitions off;

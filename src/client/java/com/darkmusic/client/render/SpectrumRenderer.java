@@ -16,6 +16,13 @@ public final class SpectrumRenderer {
 
     private long previewTime;
 
+    /**
+     * For tests: the populated geometry batch, before GPU submission.
+     */
+    SpectrumMesh mesh() {
+        return mesh;
+    }
+
     public static int barHeight(float magnitude, int height) {
         return Float.isFinite(magnitude) ? Math.round(Math.clamp(magnitude, 0, 1) * height) : 0;
     }
