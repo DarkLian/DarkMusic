@@ -241,51 +241,67 @@ public final class UpdateService implements AutoCloseable {
         downloading = true;
         message("update.downloading");
         GitHubRelease selected = release;
-        CompletableFuture.runAsync(() -> {
-            Path staged, job = null;
-            try {
-                byte[] bytes = fetch(selected.url(), selected.size());
-                if (bytes.length != selected.size()) throw new IOException("Unexpected asset size");
-                Files.createDirectories(directory);
-                job = Files.createDirectory(directory.resolve(UUID.randomUUID().toString()));
-                staged = job.resolve("download.jar");
-                Files.write(staged, bytes, StandardOpenOption.CREATE_NEW);
-                selected.verify(staged);
-                Properties p = new Properties();
-                p.setProperty("old", installed.toString());
-                p.setProperty("oldHash", GitHubRelease.hash(installed));
-                p.setProperty("name", selected.name());
-                p.setProperty("sha256", selected.sha256());
-                Path manifest = job.resolve("install.properties");
-                // Copy the JDK-only helper outside the loaded mod so Windows can release the old JAR.
-                String resource = UpdateInstaller.class.getName().replace('.', '/') + ".class";
-                Path helper = job.resolve(resource);
-                Files.createDirectories(helper.getParent());
-                try (var input = UpdateInstaller.class.getClassLoader().getResourceAsStream(resource)) {
-                    if (input == null) throw new IOException("Installer class unavailable");
-                    Files.copy(input, helper);
-                }
-                try (var output = Files.newOutputStream(manifest, StandardOpenOption.CREATE_NEW)) {
-                    p.store(output, "Approved DarkMusic update");
-                }
-                pending = manifest;
-                Minecraft.getInstance().execute(() -> {
-                    downloading = false;
-                    if (!closed) message("update.ready");
-                });
-            } catch (Exception failure) {
-                LOG.warn("Update download failed", failure);
-                if (job != null && (pending == null || !pending.getParent().equals(job))) try {
-                    UpdateRecovery.discard(job);
-                } catch (Exception cleanup) {
-                    LOG.warn("Cannot clean failed update", cleanup);
-                }
-                Minecraft.getInstance().execute(() -> {
-                    downloading = false;
-                    if (!closed) message("update.failed");
-                });
+        CompletableFuture.runAsync(() -> downloadSelected(selected), worker);
+    }
+
+    private void downloadSelected(GitHubRelease selected) {
+        Path job = null;
+        try {
+            byte[] bytes = fetch(selected.url(), selected.size());
+            if (bytes.length != selected.size()) throw new IOException("Unexpected asset size");
+            Files.createDirectories(directory);
+            job = Files.createDirectory(directory.resolve(UUID.randomUUID().toString()));
+            Path manifest = stage(job, installed, selected, bytes);
+            pending = manifest;
+            Minecraft.getInstance().execute(() -> {
+                downloading = false;
+                if (!closed) message("update.ready");
+            });
+        } catch (Exception failure) {
+            LOG.warn("Update download failed", failure);
+            if (job != null && (pending == null || !pending.getParent().equals(job))) try {
+                UpdateRecovery.discard(job);
+            } catch (Exception cleanup) {
+                LOG.warn("Cannot clean failed update", cleanup);
             }
-        }, worker);
+            Minecraft.getInstance().execute(() -> {
+                downloading = false;
+                if (!closed) message("update.failed");
+            });
+        }
+    }
+
+    static Path stage(Path job, Path installed, GitHubRelease selected, byte[] bytes) throws Exception {
+        Path staged = job.resolve("download.jar");
+        Files.write(staged, bytes, StandardOpenOption.CREATE_NEW);
+        selected.verify(staged);
+        Properties p = manifestProperties(installed, selected);
+        Path manifest = job.resolve("install.properties");
+        copyInstaller(job);
+        try (var output = Files.newOutputStream(manifest, StandardOpenOption.CREATE_NEW)) {
+            p.store(output, "Approved DarkMusic update");
+        }
+        return manifest;
+    }
+
+    private static Properties manifestProperties(Path installed, GitHubRelease selected) throws Exception {
+        Properties p = new Properties();
+        p.setProperty("old", installed.toString());
+        p.setProperty("oldHash", GitHubRelease.hash(installed));
+        p.setProperty("name", selected.name());
+        p.setProperty("sha256", selected.sha256());
+        return p;
+    }
+
+    private static void copyInstaller(Path job) throws Exception {
+        // Copy the JDK-only helper outside the loaded mod so Windows can release the old JAR.
+        String resource = UpdateInstaller.class.getName().replace('.', '/') + ".class";
+        Path helper = job.resolve(resource);
+        Files.createDirectories(helper.getParent());
+        try (var input = UpdateInstaller.class.getClassLoader().getResourceAsStream(resource)) {
+            if (input == null) throw new IOException("Installer class unavailable");
+            Files.copy(input, helper);
+        }
     }
 
     private byte[] fetch(URI url, long limit) throws Exception {
