@@ -93,3 +93,11 @@ It records only in-memory PCM; the tracked golden contains hashes and frame coun
 The 24-bit stereo proxy initially reported an unaligned buffer size and prevented EOF draining; aligning the fake
 buffer to whole frames fixed the fixture. No production audio arithmetic changed. Full D2 Java verification and
 smoke compilation also passed. Next: extract PlaybackClock and reproduce the fixed goldens (record mode off).
+
+### D1.2 PlaybackClock completed (also satisfies D1.4)
+
+Worker-confined source/device segments, submitted/hearing frames, offset and device rate now live in PlaybackClock.
+The backend retains volatile state publication and callbacks. New tests cover queued speed boundaries, handoff,
+hearing deltas and reopen/reset. All 71 named audio/guard tests passed, including twenty captures per scenario
+against the pre-extraction golden. The guard measured changeOutput at 59 compiled lines, so its debt entry was
+removed now; MAX_DEBT is 12. No separate output split is necessary. Next: normalization state.
