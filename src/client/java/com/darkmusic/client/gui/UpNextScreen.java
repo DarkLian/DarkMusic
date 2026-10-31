@@ -78,6 +78,26 @@ public final class UpNextScreen extends LocalScreen {
         int listHeight = wide ? Math.max(28, height - 166) : Math.max(24, (height - 206) / 2);
         automaticX = wide ? 20 + listWidth : 12;
         automaticTitleY = wide ? manualTitleY : manualTitleY + 18 + listHeight + 4;
+        currentAndManualLists(listHeight);
+        automaticList(wide, listHeight);
+        now.artwork(app.artwork(), i -> snapshot.current());
+        manual.artwork(app.artwork(), i -> snapshot.manual().get(i).track());
+        automatic.artwork(app.artwork(), i -> i < source.size() ? source.get(i) : null);
+        now.rowTooltips(false);
+        manual.rowTooltips(false);
+        automatic.rowTooltips(false);
+        now.emptyMessage(Text.get("upnext.idle"));
+        manual.emptyMessage(Text.get("upnext.empty"));
+        automatic.emptyMessage(Text.get("upnext.no_source"));
+        addRenderableWidget(new InfoHint(12, manualTitleY - 4, listWidth, Text.component("upnext.reorder.help")));
+        addRenderableWidget(new InfoHint(automaticX, automaticTitleY - 4, listWidth, Text.component("upnext.collection.help")));
+        queueActions();
+        snapshot = null;
+        sourceBasis = null;
+        refresh();
+    }
+
+    private void currentAndManualLists(int listHeight) {
         now = addRenderableWidget(new RowList(12, 48, width - 24, 32, 32, Text.get("upnext.now"), (i, a) -> {
         }));
         manual = addRenderableWidget(new RowList(12, manualTitleY + 18, listWidth, listHeight, 28, Text.get("upnext.manual"), (i, a) -> {
@@ -90,6 +110,9 @@ public final class UpNextScreen extends LocalScreen {
             app.queue().reorder(snapshot.manual().stream().map(PlaybackController.Queued::id).toList(), move.order(snapshot.manual().size()));
             refresh();
         });
+    }
+
+    private void automaticList(boolean wide, int listHeight) {
         var search = addRenderableWidget(new UiInput(font, automaticX, automaticTitleY + 18, listWidth - 112, 20, Text.component("text.darkmusic.search_songs")));
         search.setValue(query);
         search.setResponder(text -> {
@@ -114,17 +137,9 @@ public final class UpNextScreen extends LocalScreen {
                 }
             }
         }));
-        now.artwork(app.artwork(), i -> snapshot.current());
-        manual.artwork(app.artwork(), i -> snapshot.manual().get(i).track());
-        automatic.artwork(app.artwork(), i -> i < source.size() ? source.get(i) : null);
-        now.rowTooltips(false);
-        manual.rowTooltips(false);
-        automatic.rowTooltips(false);
-        now.emptyMessage(Text.get("upnext.idle"));
-        manual.emptyMessage(Text.get("upnext.empty"));
-        automatic.emptyMessage(Text.get("upnext.no_source"));
-        addRenderableWidget(new InfoHint(12, manualTitleY - 4, listWidth, Text.component("upnext.reorder.help")));
-        addRenderableWidget(new InfoHint(automaticX, automaticTitleY - 4, listWidth, Text.component("upnext.collection.help")));
+    }
+
+    private void queueActions() {
         int w = (width - 28) / 2, y = height - 28;
         remove = button("upnext.remove", 12, y, w, () -> {
             // Checked rows win over the single highlighted row, matching the playlist manager.
@@ -139,9 +154,6 @@ public final class UpNextScreen extends LocalScreen {
         Help.tip(remove, Text.get("upnext.remove.help"));
         UiButton.style(clear, UiButton.Style.DESTRUCTIVE);
         Help.tip(clear, Text.get("upnext.clear.help"));
-        snapshot = null;
-        sourceBasis = null;
-        refresh();
     }
 
     private int selectedIndex() {
