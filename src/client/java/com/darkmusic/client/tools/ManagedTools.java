@@ -262,27 +262,13 @@ public final class ManagedTools {
             try {
                 token.check();
                 status.accept(Text.get("tools.check_releases"));
-                var yt = release("yt-dlp/yt-dlp", stage, token);
-                var ff = release("eugeneware/ffmpeg-static", stage, token);
-                var deno = release("denoland/deno", stage, token);
-                Map<String, JsonObject> assets = new LinkedHashMap<>();
-                assets.put("yt-dlp" + platform.extension(), asset(yt, platform.ytAsset()));
-                assets.put("ffmpeg" + platform.extension(), asset(ff, "ffmpeg-" + platform.os + "-" + platform.arch + ".gz"));
-                assets.put("ffprobe" + platform.extension(), asset(ff, "ffprobe-" + platform.os + "-" + platform.arch + ".gz"));
-                assets.put("deno" + platform.extension(), asset(deno, platform.denoAsset()));
-                assets.put("FFmpeg.LICENSE", asset(ff, platform.os + "-" + platform.arch + ".LICENSE"));
-                assets.put("FFmpeg.README", asset(ff, platform.os + "-" + platform.arch + ".README"));
+                var releases = releases(platform, stage, token);
+                var assets = releases.assets();
                 long bytes = assets.values().stream().mapToLong(a -> a.get("size").getAsLong()).sum();
                 if (Files.getFileStore(root).getUsableSpace() < bytes + 800_000_000L)
                     throw new IOException(Text.get("tools.error.disk"));
-                JsonObject manifest = new JsonObject();
-                manifest.addProperty("platform", platform.os + "-" + platform.arch);
-                manifest.addProperty("ytDlpRelease", yt.get("tag_name").getAsString());
-                manifest.addProperty("ffmpegRelease", ff.get("tag_name").getAsString());
-                manifest.addProperty("denoRelease", deno.get("tag_name").getAsString());
-                JsonObject hashes = new JsonObject();
-                assets.forEach((name, a) -> hashes.addProperty(name, a.get("digest").getAsString()));
-                manifest.add("digests", hashes);
+                var plannedManifest = manifest(platform, releases);
+                JsonObject manifest = plannedManifest.json(), hashes = plannedManifest.hashes();
                 Path previous = current(data);
                 if (previous != null && Files.isRegularFile(previous.resolve("manifest.json"))) {
                     var old = JsonParser.parseString(Files.readString(previous.resolve("manifest.json"))).getAsJsonObject();
@@ -295,28 +281,7 @@ public final class ManagedTools {
                         }
                     }
                 }
-                int index = 0;
-                for (var entry : assets.entrySet()) {
-                    token.check();
-                    String name = entry.getKey(), label = ++index + "/" + assets.size() + " " + name;
-                    var info = entry.getValue();
-                    Path packed = stage.resolve("asset.download");
-                    long size = info.get("size").getAsLong();
-                    fetch.get(URI.create(info.get("browser_download_url").getAsString()), packed, size, token,
-                        n -> status.accept(label + " " + Math.min(100, n * 100 / size) + "%"));
-                    verify(packed, info.get("digest").getAsString(), size);
-                    Path output = stage.resolve(name);
-                    String source = info.get("name").getAsString();
-                    if (source.endsWith(".gz")) {
-                        try (var in = new GZIPInputStream(Files.newInputStream(packed))) {
-                            unpack(in, output, token);
-                        }
-                    } else if (source.endsWith(".zip")) {
-                        extractZip(packed, name, output, token);
-                    } else Files.move(packed, output);
-                    Files.deleteIfExists(packed);
-                    if (!name.startsWith("FFmpeg.")) executable(output);
-                }
+                downloadAssets(assets, stage, platform, token, status);
                 status.accept(Text.get("tools.verify"));
                 Toolchain checked = validate(stage, platform, runner, token);
                 manifest.addProperty("sources", "https://github.com/yt-dlp/yt-dlp | https://github.com/eugeneware/ffmpeg-static | https://github.com/denoland/deno");
@@ -390,6 +355,66 @@ public final class ManagedTools {
                 case "darwin" -> "apple-darwin";
                 default -> "unknown-linux-gnu";
             } + ".zip";
+        }
+    }
+
+    private record Releases(JsonObject yt, JsonObject ff, JsonObject deno, Map<String, JsonObject> assets) {
+    }
+
+    private record BundleManifest(JsonObject json, JsonObject hashes) {
+    }
+
+    private Releases releases(Platform platform, Path stage, ProcessRunner.Token token) throws Exception {
+        var yt = release("yt-dlp/yt-dlp", stage, token);
+        var ff = release("eugeneware/ffmpeg-static", stage, token);
+        var deno = release("denoland/deno", stage, token);
+        Map<String, JsonObject> assets = new LinkedHashMap<>();
+        assets.put("yt-dlp" + platform.extension(), asset(yt, platform.ytAsset()));
+        assets.put("ffmpeg" + platform.extension(), asset(ff, "ffmpeg-" + platform.os + "-" + platform.arch + ".gz"));
+        assets.put("ffprobe" + platform.extension(), asset(ff, "ffprobe-" + platform.os + "-" + platform.arch + ".gz"));
+        assets.put("deno" + platform.extension(), asset(deno, platform.denoAsset()));
+        assets.put("FFmpeg.LICENSE", asset(ff, platform.os + "-" + platform.arch + ".LICENSE"));
+        assets.put("FFmpeg.README", asset(ff, platform.os + "-" + platform.arch + ".README"));
+        return new Releases(yt, ff, deno, Collections.unmodifiableMap(new LinkedHashMap<>(assets)));
+    }
+
+    private static BundleManifest manifest(Platform platform, Releases releases) {
+        JsonObject yt = releases.yt(), ff = releases.ff(), deno = releases.deno();
+        var assets = releases.assets();
+        JsonObject manifest = new JsonObject();
+        manifest.addProperty("platform", platform.os + "-" + platform.arch);
+        manifest.addProperty("ytDlpRelease", yt.get("tag_name").getAsString());
+        manifest.addProperty("ffmpegRelease", ff.get("tag_name").getAsString());
+        manifest.addProperty("denoRelease", deno.get("tag_name").getAsString());
+        JsonObject hashes = new JsonObject();
+        assets.forEach((name, a) -> hashes.addProperty(name, a.get("digest").getAsString()));
+        manifest.add("digests", hashes);
+        return new BundleManifest(manifest, hashes);
+    }
+
+    private void downloadAssets(Map<String, JsonObject> assets, Path stage, Platform platform,
+                                ProcessRunner.Token token, Consumer<String> status) throws Exception {
+        int index = 0;
+        for (var entry : assets.entrySet()) {
+            token.check();
+            String name = entry.getKey(), label = ++index + "/" + assets.size() + " " + name;
+            var info = entry.getValue();
+            Path packed = stage.resolve("asset.download");
+            long size = info.get("size").getAsLong();
+            fetch.get(URI.create(info.get("browser_download_url").getAsString()), packed, size, token,
+                n -> status.accept(label + " " + Math.min(100, n * 100 / size) + "%"));
+            verify(packed, info.get("digest").getAsString(), size);
+            Path output = stage.resolve(name);
+            String source = info.get("name").getAsString();
+            if (source.endsWith(".gz")) {
+                try (var in = new GZIPInputStream(Files.newInputStream(packed))) {
+                    unpack(in, output, token);
+                }
+            } else if (source.endsWith(".zip")) {
+                extractZip(packed, name, output, token);
+            } else Files.move(packed, output);
+            Files.deleteIfExists(packed);
+            if (!name.startsWith("FFmpeg.")) executable(output);
         }
     }
 }

@@ -2,14 +2,16 @@ package com.darkmusic.client.library;
 
 import com.darkmusic.client.media.AudioFormats;
 import com.darkmusic.client.media.ExternalAudio;
-import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.ProcessRunner;
 import org.jaudiotagger.audio.AudioFileIO;
 import org.jaudiotagger.tag.FieldKey;
 import org.jaudiotagger.tag.Tag;
 import org.jaudiotagger.tag.wav.WavTag;
 import org.slf4j.LoggerFactory;
 
+import javax.imageio.ImageIO;
+import javax.imageio.stream.MemoryCacheImageInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -19,8 +21,6 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.util.*;
-import javax.imageio.ImageIO;
-import javax.imageio.stream.MemoryCacheImageInputStream;
 
 /**
  * File work only. Callers own playback coordination and client-thread playlist updates.

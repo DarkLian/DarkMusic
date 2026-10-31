@@ -10,6 +10,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.channels.FileChannel;
+import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -31,6 +32,51 @@ import java.util.zip.ZipOutputStream;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ManagedToolsTest {
+    @Test
+    void aFailedPointerPublicationRemovesTheNewBundleAndKeepsTheBlockingDocument() throws Exception {
+        var publisher = new Publisher();
+        Path root = Files.createDirectories(temp.resolve("tools/managed"));
+        Path pointer = Files.createDirectory(root.resolve("current.json"));
+        Path sentinel = Files.writeString(pointer.resolve("unrelated.txt"), "User-owned identity fixture");
+        assertThrows(IOException.class, () -> new ManagedTools(temp, publisher).install(capabilities, new ProcessRunner.Token(), text -> {
+        }));
+        assertEquals("User-owned identity fixture", Files.readString(sentinel));
+        try (var paths = Files.list(root)) {
+            assertFalse(paths.anyMatch(p -> p.getFileName().toString().startsWith("bundle-") || p.getFileName().toString().startsWith("staging-")));
+        }
+    }
+
+    @Test
+    void aConcurrentInstallAndAFailedRepairKeepThePreviousBundle() throws Exception {
+        var publisher = new Publisher();
+        var installer = new ManagedTools(temp, publisher);
+        installer.install(capabilities, new ProcessRunner.Token(), text -> {
+        });
+        Path previous = ManagedTools.current(temp);
+        try (var channel = FileChannel.open(temp.resolve("tools/install.lock"), StandardOpenOption.WRITE);
+             var held = channel.lock()) {
+            var failure = assertThrows(IOException.class, () -> installer.install(capabilities, new ProcessRunner.Token(), text -> {
+            }));
+            assertInstanceOf(OverlappingFileLockException.class, failure.getCause());
+            assertEquals(previous, ManagedTools.current(temp));
+        }
+        var statuses = new ArrayList<String>();
+        int before = publisher.binaries;
+        var rejected = new ProcessRunner() {
+            @Override
+            public Result run(List<String> args, Path directory, Token token, Duration timeout, int max, Consumer<String> lines) {
+                return new Result(1, "Fixture capability rejection");
+            }
+        };
+        assertThrows(IOException.class, () -> installer.install(rejected, new ProcessRunner.Token(), statuses::add));
+        assertTrue(publisher.binaries > before, "an unchanged but unhealthy bundle was prepared again for repair");
+        assertEquals(previous, ManagedTools.current(temp));
+        assertTrue(Files.isDirectory(previous));
+        try (var files = Files.list(temp.resolve("tools/managed"))) {
+            assertFalse(files.anyMatch(p -> p.getFileName().toString().startsWith("staging-")));
+        }
+    }
+
     private final ProcessRunner capabilities = new ProcessRunner() {
         @Override
         public Result run(List<String> args, Path directory, Token token, Duration timeout, int max, Consumer<String> lines) {

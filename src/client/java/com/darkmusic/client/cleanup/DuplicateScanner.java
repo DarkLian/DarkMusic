@@ -1,7 +1,7 @@
 package com.darkmusic.client.cleanup;
 
-import com.darkmusic.client.library.Track;
 import com.darkmusic.client.library.SourceLinks;
+import com.darkmusic.client.library.Track;
 import com.darkmusic.client.tools.Hashes;
 import com.darkmusic.client.tools.ProcessRunner;
 import org.slf4j.LoggerFactory;
