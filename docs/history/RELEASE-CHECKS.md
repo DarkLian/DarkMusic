@@ -1,4 +1,18 @@
 # Release checks
+## v3.6.1: True Peak switching, loudness cache merging, lifecycle fixes and .NET 8.0.33 helpers
+
+Clean Windows validation with `scripts/verify.ps1 -Clean` on Java 25 passed 789 tests: 778 passed, 11 skipped, zero
+failures/errors, with the private real collection and existing managed tools. All five release artifacts were built;
+the JAR's PiP and Media Controls manifests name the 3.6.1 packages. Both helpers ship .NET runtime 8.0.33 (checked in
+the built `deps.json` and file versions), which OSV lists with no advisories; 8.0.27 had 31. In-game smoke checks
+`reset` and `reset-restart` passed after the lifecycle fixes, with the collection unchanged, and fail at stage 10 when
+the folder-reset ticket check is removed. In a listening window the user heard no difference from the True Peak switch;
+switching it rapidly sounds like shaking, because each switch fades out and back in.
+
+A low-noise IntelliJ inspection pass and an unused-code pass ran over the client and test sources; their findings are
+fixed or recorded as false positives. `jdeps` and a source reference graph found no package cycles. The user confirmed
+manual testing of this build, after PiP and Media Controls with the new runtime were listed as untested, on 2026-10-31.
+
 ## v3.6.0: Import History selection, environment Off page and lifecycle fixes
 
 Clean Windows validation with `scripts/verify.ps1 -Clean` on Java 25 passed 778 tests: 767 passed, 11 skipped, zero

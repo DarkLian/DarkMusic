@@ -8,10 +8,10 @@ Picture-in-Picture view while you play.
 
 ## Install
 
-DarkMusic **v3.6.0** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for
+DarkMusic **v3.6.1** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for
 Minecraft 26.2**.
 
-1. Download `darkmusic-3.6.0.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-3.6.1.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Add songs under **Settings → General → Music Folders**, drag audio files into the player, or copy them to
@@ -138,6 +138,10 @@ Updates** checks on demand. Nothing downloads until you click, and the update in
 Your settings, library and playlists are kept.
 
 ## What's new
+
+**v3.6.1** fixes switching True Peak and lost loudness readings, fixes the sleep timer, resume point and music
+folder around Reset to Defaults and restores, and updates the .NET runtime in the PiP and Media Controls packages
+([release notes](docs/releases/RELEASE-3.6.1.md)).
 
 **v3.6.0** adds bulk removal in Import History, a simpler Sound Environment page when Off, Unknown Artist/Album
 labels, and fixes for restoring and resetting ([release notes](docs/releases/RELEASE-3.6.0.md)).

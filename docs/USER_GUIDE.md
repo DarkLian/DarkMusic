@@ -1,6 +1,6 @@
 # DarkMusic User Guide
 
-DarkMusic v3.6.0 for Minecraft 26.2, Fabric and Java 25. The music player works on Windows, Linux and macOS;
+DarkMusic v3.6.1 for Minecraft 26.2, Fabric and Java 25. The music player works on Windows, Linux and macOS;
 Picture-in-Picture and Media Controls are optional Windows x64 extensions.
 
 ## Getting started
