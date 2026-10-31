@@ -7,7 +7,6 @@ import com.darkmusic.client.library.Track;
 import com.darkmusic.client.media.AudioFormats;
 import com.darkmusic.client.media.ExternalAudio;
 import com.darkmusic.client.text.Text;
-import com.darkmusic.client.tools.ProcessRunner;
 import org.jaudiotagger.audio.AudioFileIO;
 import org.jaudiotagger.audio.exceptions.CannotReadException;
 import org.jaudiotagger.tag.FieldKey;
@@ -29,7 +28,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -40,7 +38,7 @@ import java.util.function.LongSupplier;
 /**
  * Bounded, deduplicated local inspection. Rendering reads immutable track-keyed snapshots only.
  */
-public final class LyricsService implements AutoCloseable {
+public final class LyricsService implements AutoCloseable, LibraryLyricsWalk.Inputs {
     private static final Lrc EMPTY = new Lrc(List.of());
     public final LyricsLookup lookup;
     private final ConcurrentHashMap<String, Shifted> shifted = new ConcurrentHashMap<>();
@@ -54,55 +52,34 @@ public final class LyricsService implements AutoCloseable {
     private volatile boolean enabled = true;
     private boolean closed;
     private long generation;
-    private final LongSupplier clock;
-    private List<Track> backgroundTracks = List.of();
-    private int backgroundCursor;
-    private Track backgroundTrack;
-    private long backgroundAt;
-    private boolean backgroundActive;
-    private long backgroundCacheRevision = -1;
-    private final Map<String, Track> backgroundVisited = new HashMap<>();
-    private Set<String> backgroundRoots;
-    private boolean libraryRun;
-    private ProcessRunner.Token libraryOwner;
-    private long libraryRequestStart;
+    private final LibraryLyricsWalk walk;
 
     public void startLibraryLookup() {
-        cancelLibraryLookup();
-        libraryRun = true;
-        libraryOwner = new ProcessRunner.Token();
-        backgroundActive = false;
-        backgroundTracks = List.of();
-        backgroundVisited.clear();
-        backgroundAt = 0;
-        libraryRequestStart = lookup.requests();
+        walk.startLibraryLookup();
     }
 
     public void cancelLibraryLookup() {
-        libraryRun = false;
-        backgroundActive = false;
-        lookup.cancelOwner(libraryOwner);
-        libraryOwner = null;
+        walk.cancelLibraryLookup();
     }
 
     public boolean libraryLookupRunning() {
-        return libraryRun;
+        return walk.libraryLookupRunning();
     }
 
     public int libraryChecked() {
-        return backgroundVisited.size();
+        return walk.libraryChecked();
     }
 
     public int libraryTotal() {
-        return backgroundTracks.size();
+        return walk.libraryTotal();
     }
 
     public long libraryRequests() {
-        return lookup.requests() - libraryRequestStart;
+        return walk.libraryRequests();
     }
 
     public long libraryRetrySeconds() {
-        return lookup.ownerRetrySeconds(libraryOwner);
+        return walk.libraryRetrySeconds();
     }
 
     public LyricsService() {
@@ -118,8 +95,8 @@ public final class LyricsService implements AutoCloseable {
     }
 
     LyricsService(Path directory, LyricsProvider provider, LongSupplier clock) {
-        this.clock = clock;
         lookup = new LyricsLookup(directory, provider, clock);
+        walk = new LibraryLyricsWalk(lookup, clock, this, () -> enabled && !closed, this);
         io.prestartCoreThread();
     }
 
@@ -131,59 +108,13 @@ public final class LyricsService implements AutoCloseable {
     }
 
     public void background(List<Track> tracks, Set<String> healthyRoots, boolean active) {
-        lookup.tickRetries();
-        if (!enabled || closed || !active) {
-            backgroundActive = false;
-            return;
-        }
-        long now = clock.getAsLong();
-        if (!backgroundActive || backgroundCacheRevision != lookup.cacheRevision()) {
-            backgroundActive = true;
-            backgroundCacheRevision = lookup.cacheRevision();
-            backgroundTracks = tracks;
-            backgroundRoots = healthyRoots;
-            backgroundCursor = 0;
-            backgroundTrack = null;
-            backgroundVisited.clear();
-        } else if (backgroundTrack == null && backgroundCursor >= backgroundTracks.size()
-            && (backgroundTracks != tracks || !Objects.equals(backgroundRoots, healthyRoots))) {
-            // Finish the current pass before adopting a rescan, so early songs cannot starve later ones.
-            backgroundTracks = tracks;
-            backgroundRoots = healthyRoots;
-            backgroundCursor = 0;
-        }
-        // Initialize progress even while a previous lookup or provider cooldown is still active.
-        if (now < backgroundAt || lookup.busy()) return;
-        backgroundAt = now + TimeUnit.SECONDS.toNanos(1);
-        if (backgroundTrack == null) {
-            for (int skipped = 0; skipped < 1024 && backgroundCursor < backgroundTracks.size(); skipped++) {
-                Track candidate = backgroundTracks.get(backgroundCursor++);
-                if (!candidate.equals(backgroundVisited.get(candidate.id()))) {
-                    backgroundTrack = candidate;
-                    break;
-                }
-            }
-            if (backgroundTrack == null) {
-                if (backgroundCursor >= backgroundTracks.size() && !lookup.ownerOutstanding(libraryOwner))
-                    libraryRun = false;
-                return;
-            }
-        }
-        if (healthyRoots != null && !healthyRoots.contains(backgroundTrack.rootId())) {
-            backgroundTrack = null;
-            return;
-        }
-        inspect(backgroundTrack);
-        if (!inspected(backgroundTrack)) return;
-        lookup.automatic(backgroundTrack, document(backgroundTrack).available(), libraryRun ? libraryOwner : null);
-        backgroundVisited.put(backgroundTrack.id(), backgroundTrack);
-        backgroundTrack = null;
+        walk.background(tracks, healthyRoots, active);
     }
 
     public synchronized void enabled(boolean value) {
         if (enabled == value || closed) return;
         enabled = value;
-        if (!value) cancelLibraryLookup();
+        if (!value) walk.disabled();
         generation++;
         pending.clear();
         queue.clear();

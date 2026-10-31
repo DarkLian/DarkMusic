@@ -112,3 +112,12 @@ Transition state stays on the backend: mix/handoff now read cohesive clock/norma
 upcoming is client-written AtomicReference and mixing/announcement/overlap retain their existing volatile semantics.
 Moving that cross-thread cluster would add synchronization risk without clarifying the remaining control flow.
 Human listening and physical unplug remain explicitly unperformed; final runtime controls will still be checked.
+
+### X2 completed
+
+LibraryLyricsWalk now owns the incremental library traversal and counters. LyricsService keeps local jobs/cache,
+its original public facade and synchronized lifecycle. The walk receives the service monitor: disabling lyrics
+re-enters that same monitor for cancellation; ordinary client-tick start/cancel/background remain unsynchronized
+as before. Job still only locks LyricsService.this and never reads walk fields. Retry ticking still precedes
+availability checks. The five named lyrics suites passed before and after; architecture and method guards passed.
+Next: record settings/preset serialization fingerprints before moving the environment recipe table.
