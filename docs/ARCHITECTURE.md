@@ -119,14 +119,14 @@ first use and dropped by reset; **screen** = owned by one screen.
 | Lifecycle flags (`ClientState`) | closed, resetting, mediaBusy, restoring, outputChanging | client (closed also read by workers) | every admission check | app | `closed` set once at stopping |
 | Settings (`SettingsStore`) | current `Settings` object (mutable fields) | client | screens, HUD, PiP, services via apply | app; object replaced by load/reset/restore | `save` = apply then enqueue write; `persist` = enqueue only |
 | Config persistence (`ConfigStore`, `LatestWriter`) | latest JSON, pending write and its acknowledgement | client enqueues, storage writes | backup export (`snapshotJson`, latest requested) | app | coalesced, serial; `write` returns an acknowledgement that completes when that JSON or a newer one is on disk; `SettingsStore.lastWrite()`; errors also reported by callback |
-| Playback (`PlaybackController` + `JavaSoundBackend`) | Up Next (`UpNextQueue`), play order and history (`PlayOrder`), sequence, transition plans; the worker's stall checks (`StallWatch`) | client (controller and its two parts), audio worker | screens, HUD, PiP, Discord, media controls | gen | `close` invalidates plans and joins the worker ≤1.5 s; `awaitStopped` |
+| Playback (`PlaybackController` + `JavaSoundBackend`) | Up Next (`UpNextQueue`), play order and history (`PlayOrder`), sequence, transition plans; worker stall checks (`StallWatch`), timeline (`PlaybackClock`) and loudness sessions (`Normalization`) | client (controller and its two parts), audio worker | screens, HUD, PiP, Discord, media controls | gen | `close` invalidates plans and joins the worker ≤1.5 s; `awaitStopped` |
 | Library (`MusicLibrary`) | roots, immutable snapshots, scan generation | scan threads publish snapshots | everything that lists tracks | gen | `close` non-blocking; `awaitStopped` waits for scanners and watcher |
 | Downloads (`DownloadService`) | jobs, workspace locks, receipts | download pool | download screens, HUD | gen | `close` cancels and waits ≤4 s |
 | Audition (`AuditionPlayer`) | one preview clip | own worker | download screens | gen (set by screens) | `close`, `awaitStopped` |
 | Artwork / waveform caches | decoded images, waveforms | own workers | HUD, screens | gen | `close` |
 | Playlists (`PlaylistStore`) | playlists, revision | client; writes on storage | screens, reconciliation, shortcuts | app (`playlistsReady` after async read) | writes via storage executor |
 | Listening/import history | heard counts, batches | client; writes on storage | screens, playback source | app (after `ready`) | `flush(true)` at shutdown; while a restore that selected history owns the file, listening history neither counts nor writes and keeps unsaved progress |
-| Lyrics (`LyricsService`, `LyricsLookup`) | caches, per-track operations | own executors | HUD, lyrics screens | app | `close` |
+| Lyrics (`LyricsService`, `LyricsLookup`) | caches, per-track operations; client-tick traversal (`LibraryLyricsWalk`) | client tick for walk, own executors for jobs | HUD, lyrics screens | app | `close` |
 | Cleanup / source evidence | duplicate pairs, review store, source index | own workers | cleanup and download screens | lazy | `close`; reset drops them |
 | PiP (`PipController`) | capture session, runtime lease | helper threads | PiP screens, HUD layer | app | `close` stops then releases runtime asynchronously |
 | Updates, Discord, Media Controls | jobs, IPC, helper process | own threads | settings screens, tick | app | `close` |
@@ -230,8 +230,8 @@ of it (as the analyzer label says).
   for the deferred refactor; GPU registration failure and rare independent cleanup/shutdown faults are listed in
   [the branch review](history/DEFERRED_BRANCH_MAP.md).
 - Which services are built (`DarkMusicClient.ready`, `ClientServices.buildHistories`/`buildServices`/
-  `buildReplaceable`, the `ClientReset` steps) is wiring. It is covered by compilation, review and the smoke checks
-  rather than by unit tests. The collaborators' admission rules have unit tests; a successful output switch, a
+  `buildReplaceable`) is wiring, covered by compilation, review and smoke checks. `ClientResetTest` pins the real
+  reset phases and their ordering over fake services. The collaborators' admission rules have unit tests; a successful output switch, a
   successful metadata edit and Trash deletion need a device, the tools or the desktop helper and stay with the
   integration tests and the smoke suite.
 - A lyric save already queued on the lyrics storage worker when a metadata edit starts is not stopped by the

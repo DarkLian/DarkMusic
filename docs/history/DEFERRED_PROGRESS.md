@@ -6,7 +6,8 @@ This is an incremental record: a pending item is not a completed check.
 ## Working agreement
 
 - The user authorized the desktop/audio testing window and continuous implementation through the plan.
-- Leave changes uncommitted for review, with separate commit boundaries recorded below. Do not push or release.
+- Initial implementation stayed uncommitted for review. The user subsequently authorized commit and push;
+  preserve the separate batch boundaries below. No release or tag is authorized by this publication request.
 - Preserve all five untracked plan files. Use IDEA's formatter, existing managed tools, and the private collection.
 - Update this record after each completed batch so work can resume after context compaction.
 
@@ -29,39 +30,65 @@ This is an incremental record: a pending item is not a completed check.
 | D2.10a | `MediaActions.importAudio` | Destination resolution returns an immutable `ImportTarget`; busy flags, captured services, browse execution and client publication keep their order. Media-actions/deletion/companion suites and guards passed before and after. This also checks the unchanged deletion method before D2.10b. |
 | D2.10b | `MediaActions.deleteAudio` | Deleted-file provenance cleanup is a named phase; each cleanup exception and the outer failure handling retain their boundaries. Media-actions/deletion/companion suites and guards passed after the split. |
 | D2.11 | `RestoreJournal.recover` | Journal validation and complete inspection return a `RecoveryPlan` whose ordered targets are immutable; apply receives only that plan and retains claim/revalidation/rollback behavior. New inspection-before-write and unsafe-journal tests plus archive/restore/operation suites and guards passed before and after. All twelve D2 methods are now below the length limit. |
+| D1.0 | Deterministic PCM baseline | All eight scenarios identical over twenty captures each before the state moves; fixed golden hashes recorded separately. |
+| D1.2?4 | PlaybackClock and Normalization | New arithmetic/session tests plus named audio suites passed after each move; every fixed PCM golden reproduced. Output change fell below 60 lines and debt fell to 12. |
+| D1.5 | Transition decision | State stays on the backend, retaining existing volatile/AtomicReference semantics; reasons recorded in ARCHITECTURE.md. |
+| X2 | LibraryLyricsWalk | Named lyrics suites passed before/after; existing service monitor and local-job ownership preserved. |
+| X3 | EnvironmentRecipes | All recipe/saved-preset hashes and the actual config round trip stayed byte-identical; focused suites/guards passed. Optional Parameters move omitted. |
+| V follow-up | Lyrics Options write admission | Actual native save/replace/restore and refused writes during a queued metadata rename passed on a disposable real-audio copy; copy removed. |
+| Final | Four smoke scenarios and clean desktop build | Lyrics, advanced, queue and cleanup passed. 917 tests, 6 skipped, zero failures/errors; all 53 original collection files unchanged. |
 
 Ratchets after these completed batches: `MAX_CLIENT_LINES` 289, `MAX_SERVICES_LINES` 572,
-`MAX_DEBT` 13, `MAX_TEST_REFLECTION` 7, `MAX_SMOKE_REFLECTION` 105. The untested-root list is down from 9 to 5.
+`MAX_DEBT` 12, `MAX_TEST_REFLECTION` 7, `MAX_SMOKE_REFLECTION` 105. The untested-root list is down from 9 to 5.
 
 ## Baseline limitations to carry forward
 
 - `-PlyricsIntegration` ran and failed: the production provider raised `PROVIDER`; a direct request to the same
   public LRCLIB endpoint returned HTTP 502. This happened before new production changes. Recheck at the end;
   do not turn the check into a skip or change the provider's behavior to hide it.
-- The manual Lyrics Options save/restore and concurrent-metadata check still needs a recorded runtime result.
+- Lyrics Options save/restore and concurrent-metadata admission now have a passing automated native-menu result;
+  this is not labeled a human manual check.
 - D1's human listening/device-unplug checklist has not run. Automated PCM equality will not be described as a
   listening result.
 - Artwork registration failure and native image disposal need the Minecraft runtime; the focused unit tests do
   not claim injected GPU failure coverage.
 
-## Current batch
+## Current status
 
-D1.0: full Java verification after D2, then the deterministic PCM fixture. The backend clock and normalization
-state have not moved. Add seeded dither and an injected stall clock without changing the production constructors'
-behavior, prove repeated captures before extraction, and record a separate pre-extraction checkpoint.
+Implementation and feasible automated verification are complete. The user approved committing and pushing
+the completed batches on 2026-11-01. The local plans and private evidence remain outside the commits. Final evidence:
 
-## Remaining implementation order
+- Clean desktop build: **917 tests, 6 explicit skips, zero failures/errors**. PCM and local serialization tests
+  both ran without skipping. Totals are preserved in `final-desktop-results.json` before later focused runs.
+- Final lyrics, advanced, queue and cleanup smoke scenarios all passed. The advanced scratch-cleanup follow-up
+  also passed separately. All 53 collection files stayed unchanged; no temporary lyrics/advanced audio directories remain.
+- Hosted-style missing-collection focused run: **52 tests, 4 expected audio-dependent skips, zero failures/errors**.
+- Live LRCLIB recheck still fails with `LrclibProvider.Failure(PROVIDER)`; the exact public endpoint again returns
+  **HTTP 502**, matching the pre-change baseline. It was executed and failed, not converted to a skip.
+- Before publishing these batches, the latest pushed GitHub build `de11d3c` was green: run [41229000785](https://github.com/DarkLian/DarkMusic/actions/runs/41229000785).
+  The prior failed push was `ed594ed`. New CI results must be associated with the new pushed head.
+- IDEA formatting, smoke compilation, architecture/method/reflection/packaging guards and `git diff --check` passed.
 
-1. Finish full D2 verification and compile the smoke sources. D2 cleanup smoke will be rerun with the final runtime checks.
-2. D1.0: seeded dither/injected clock constructor and `audio/PcmCapture`, using real collection clips.
-   Prove 20 repeated hashes per scenario before moving clock or normalization state; save the baseline hashes.
-3. D1.2 playback clock, D1.3 normalization, D1.4 output change under 60 lines; decide whether transition state stays.
-   Preserve arithmetic order and all cross-thread semantics. Run the named audio suites and golden PCM checks
-   after each step. Record listening limitations honestly; run advanced and queue smoke checks afterwards.
-4. X2 library lyrics walk, preserving the service monitor where existing calls hold it; then X3 environment recipes
-   and optionally parameter type, with byte-identical settings/preset round trips.
-5. Full verification and relevant runtime checks; finish architecture/testing/history documentation; present changes
-   for review and wait for commits.
+## Remaining human verification
+
+The user authorized commit and push after reviewing the implementation and verification summary. Separate
+batch boundaries are preserved below. Human listening/device rows remain unperformed. The exact protocol is in TESTING.md. No human file/device result
+has been invented, and automated PCM or native controls are not described as listening results.
+
+| Listening row | Status | Files/device used for human check |
+|---|---|---|
+| 1: loud/quiet normalization, 5 s overlap | Pending human listening | None recorded |
+| 2: gapless album | Pending human listening | None recorded |
+| 3: album normalization | Pending human listening | None recorded |
+| 4: seek during overlap | Pending human listening | None recorded |
+| 5: speed 1.5, Preserve Pitch, progress/lyrics | Pending human listening | None recorded |
+| 6: pause/resume overlap | Pending human listening | None recorded |
+| 7: output changes | Pending human listening | None recorded |
+| 8: physically unplug explicit output | Pending physical test | None recorded |
+| 9: mono/24-bit noise and channels | Pending human listening | None recorded |
+
+The I/O branch review explicitly records exceptional fault-injection gaps (GPU registration/disposal races,
+some independent cleanup/storage shutdown failures). Successful builds do not claim complete branch coverage.
 
 ## Resume evidence and commit boundaries
 
@@ -75,7 +102,9 @@ Current scratch work is under ignored `.local-tools/verification/deferred`:
   `03-backup-restore-preparation`, `04-artwork-cache-phases`, `05-metadata-edit-phases`,
   `06-download-pipeline-phases`, `07-source-index-inspection`, `08-duplicate-scan-phases`,
   `09-external-decoder-lifecycle`, `10-managed-tool-install-phases`, `11-import-destination-plan`,
-  `12-deletion-provenance-phase`, `13-restore-recovery-plan`.
+  `12-deletion-provenance-phase`, `13-restore-recovery-plan`, `14-pcm-baseline`, `15-playback-clock`,
+  `16-normalization`, `17-library-lyrics-walk`, `18-environment-recipes`, `19-lyrics-write-runtime-check`,
+  `20-final-review-and-protocol`.
 - Refactoring helpers emit patches for IDEA's `apply_patch`; IDEA's `reformat_file` formats the resulting sources.
   Native file writes followed immediately by formatting can race the IDE document cache. Use IDE patches for source
   edits. Java sources in Git use LF; preserve those endings.
@@ -151,3 +180,10 @@ The advanced smoke's pre-existing native-audio directory was under build; its ne
 including failure cleanup. This test-infrastructure adjustment needs a final advanced rerun. All four final smoke
 scenarios have already passed; clean desktop verification is now running. The clock read-order follow-up will also
 be checked by the final golden test. The detailed I/O branch map records remaining fault-injection gaps explicitly.
+
+### Final verification completed
+
+The final advanced rerun passed using .local-tools/verification/deferred scratch excerpts and removed the temporary
+directory. The final clean desktop suite includes the clock read-order follow-up and reproduces every PCM golden.
+The no-music run confirmed explicit skips on the new private-audio checks. The LRCLIB result remains external HTTP
+502 before and after production changes. Source/doc review and whitespace checks are complete. The user subsequently authorized commit and push; no release or tag is part of this publication.
