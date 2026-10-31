@@ -90,8 +90,12 @@ class OutputActionsTest {
         }
     }
 
+    /**
+     * Without a device every switch fails, so this cannot show that a success applies only to its own backend; it
+     * shows that a backend replaced meanwhile still releases the exclusive hold.
+     */
     @Test
-    void aSwitchAppliesOnlyToTheBackendItWasAskedOf() throws Exception {
+    void aBackendReplacedDuringTheSwitchStillReleasesTheHold() throws Exception {
         var actions = actions();
         try (var first = silent(); var second = silent()) {
             backend = first;

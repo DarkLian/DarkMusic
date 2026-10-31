@@ -104,10 +104,7 @@ public final class JavaSoundBackend implements AudioBackend {
 
     private final Thread worker;
     private final ArrayDeque<Segment> timeline = new ArrayDeque<>();
-    private final long stallNanos;
-    private final long decoderStallNanos;
-    private PcmRateConverter emptyConverter;
-    private long decoderEmptySince;
+    private final StallWatch stall;
     private volatile State state = new State(null, Status.STOPPED, 0, 0, "");
     private volatile boolean closed, paused;
     private volatile double gain = 0.7;
@@ -115,7 +112,6 @@ public final class JavaSoundBackend implements AudioBackend {
     private PcmRateConverter converter;
     private long submittedFrames;
     private double deviceRate;
-    private long progressedAt, lastPlayed;
     private volatile Request active;
     private volatile AudioInputStream stream;
     private SourceDataLine line;
@@ -152,8 +148,7 @@ public final class JavaSoundBackend implements AudioBackend {
 
     public JavaSoundBackend(Executor callbacks, Decoder decoder, Output output, Duration stallTimeout, Duration decoderTimeout) {
         this.callbacks = callbacks;
-        this.stallNanos = stallTimeout.toNanos();
-        this.decoderStallNanos = Math.max(1, decoderTimeout.toNanos());
+        stall = new StallWatch(System::nanoTime, stallTimeout, decoderTimeout);
         this.decoder = decoder;
         this.output = output;
         worker = Thread.ofPlatform().daemon().name("darkmusic-audio").start(this::run);
@@ -482,8 +477,7 @@ public final class JavaSoundBackend implements AudioBackend {
             if (!selected.neutral && selected.normalization)
                 normalizationGain = normalization(request.track, selected, false).gain(selected);
             normalizationStatus = normalizationSession == null ? LoudnessCache.Status.OFF : normalizationSession.status(selected, normalizationGain);
-            progressedAt = System.nanoTime();
-            lastPlayed = line.getLongFramePosition();
+            stall.opened(line.getLongFramePosition());
             spectrum.begin(deviceRate, line.getFormat().getChannels());
             if (!paused) line.start();
         } catch (Throwable e) {
@@ -558,26 +552,20 @@ public final class JavaSoundBackend implements AudioBackend {
         if (output instanceof OutputDevices && !line.isOpen())
             throw new LineUnavailableException("Audio output disconnected");
         if (paused) {
-            decoderEmptySince = 0;
+            stall.paused();
             line.stop();
             update(request, Status.PAUSED);
-            progressedAt = System.nanoTime();
+            stall.progressed();
             if (output instanceof OutputDevices devices && devices.isExplicit())
                 LockSupport.parkNanos(100_000_000);
             else LockSupport.park();
-            progressedAt = System.nanoTime();
+            stall.progressed();
             return false;
         }
         if (!line.isRunning()) line.start();
         update(request, Status.PLAYING);
-        long played = line.getLongFramePosition();
-        if (played != lastPlayed) {
-            lastPlayed = played;
-            progressedAt = System.nanoTime();
-        } else if (line.available() >= line.getBufferSize()) {
-            // Decoder/disk starvation is not a stalled output device.
-            progressedAt = System.nanoTime();
-        } else if (System.nanoTime() - progressedAt > stallNanos)
+        // Decoder or disk starvation leaves the buffer empty; that is not a stalled output device.
+        if (stall.deviceStalled(line.getLongFramePosition(), () -> line.available() >= line.getBufferSize()))
             throw new OutputFailure("audio.error.stalled");
         return true;
     }
@@ -594,16 +582,10 @@ public final class JavaSoundBackend implements AudioBackend {
         int frames = Math.min(amount / frame, pcm.length / inputChannels);
         long decodedBefore = converter.decodedFrames();
         int samples = converter.read(pcm, frames * inputChannels, rate, deviceRate, options.enhancements.preservePitch);
-        if (samples == 0 && converter.decodedFrames() == decodedBefore) {
-            long now = System.nanoTime();
-            if (emptyConverter != converter || decoderEmptySince == 0) {
-                emptyConverter = converter;
-                decoderEmptySince = now;
-            } else if (now - decoderEmptySince > decoderStallNanos)
-                throw new IOException(Text.get("audio.error.decoder_stalled"));
-        } else decoderEmptySince = 0;
+        if (stall.decoderStarved(converter, samples == 0 && converter.decodedFrames() == decodedBefore))
+            throw new IOException(Text.get("audio.error.decoder_stalled"));
         // Time spent decoding must not consume the output device's stall budget.
-        progressedAt = System.nanoTime();
+        stall.progressed();
         if (samples > 0 && inputChannels != outputChannels) {
             if (inputChannels == 1) {
                 for (int i = samples - 1; i >= 0; i--) {
@@ -720,7 +702,7 @@ public final class JavaSoundBackend implements AudioBackend {
                 line.stop();
                 update(request, Status.PAUSED);
                 LockSupport.park();
-                progressedAt = System.nanoTime();
+                stall.progressed();
                 if (outputChange.get() != null) break;
                 if (!paused && current(request)) line.start();
                 continue;
@@ -728,7 +710,7 @@ public final class JavaSoundBackend implements AudioBackend {
             int capacity = Math.min(count - written, line.available()) / frame * frame;
             int sent = capacity > 0 ? line.write(buffer, written, capacity) : 0;
             if (sent <= 0) {
-                if (System.nanoTime() - progressedAt > stallNanos)
+                if (stall.writeStalled())
                     throw new OutputFailure("audio.error.stalled");
                 LockSupport.parkNanos(5_000_000);
                 continue;
@@ -924,8 +906,7 @@ public final class JavaSoundBackend implements AudioBackend {
             normalizationStatus = normalizationSession == null ? LoudnessCache.Status.OFF : normalizationSession.status(options, normalizationGain);
             protectionFlushed = false;
             spectrum.begin(deviceRate, line.getFormat().getChannels());
-            progressedAt = System.nanoTime();
-            lastPlayed = line.getLongFramePosition();
+            stall.opened(line.getLongFramePosition());
             if (!paused) line.start();
             change.result.complete(true);
         } catch (Throwable failure) {

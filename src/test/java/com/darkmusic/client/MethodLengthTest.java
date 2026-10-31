@@ -40,7 +40,7 @@ class MethodLengthTest {
         Map.entry("DuplicateComparisonScreen.init", 70),
         Map.entry("DuplicateScanner.scan", 137),
         Map.entry("ExternalAudio.openAt", 116),
-        Map.entry("JavaSoundBackend.changeOutput", 62),
+        Map.entry("JavaSoundBackend.changeOutput", 61),
         Map.entry("LibrarySourceIndex.drain", 71),
         Map.entry("LocalCommands.register", 82),
         Map.entry("LyricsOptionsScreen.populate", 64),
