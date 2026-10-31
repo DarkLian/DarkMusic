@@ -140,6 +140,22 @@ public final class BackupArchive {
                                   List<Track> tracks, List<PlaylistStore.Playlist> existing,
                                   Map<String, ListeningHistory.Entry> history,
                                   Set<PlaylistStore.Entry> retained) {
+        Settings values = restoreSettings(data, selected, current);
+        Map<String, String> remappedRoots = remapRoots(data, selected, current, root);
+        var merged = mergePlaylists(data, selected, tracks, existing, retained, remappedRoots);
+        var stats = mergeHistory(data, selected, history, remappedRoots);
+        var protectedEntries = new HashSet<>(merged.retained());
+        var referenced = new HashSet<PlaylistStore.Entry>();
+        merged.playlists().forEach(p -> referenced.addAll(p.entries()));
+        protectedEntries.retainAll(referenced);
+        return new Restore(values, merged.playlists(), Set.copyOf(protectedEntries), Map.copyOf(stats), merged.unresolved(), selected);
+    }
+
+    private record MergedPlaylists(List<PlaylistStore.Playlist> playlists, Set<PlaylistStore.Entry> retained,
+                                   int unresolved) {
+    }
+
+    private static Settings restoreSettings(Data data, Selection selected, Settings current) {
         var values = selected.settings ? ConfigStore.JSON.fromJson(data.settings, Settings.class)
             : ConfigStore.JSON.fromJson(ConfigStore.JSON.toJson(current), Settings.class);
         values.musicDirectory = current.musicDirectory;
@@ -166,6 +182,10 @@ public final class BackupArchive {
         values.shortcuts = selected.shortcuts ? importedSettings.shortcuts : new LinkedHashMap<>(current.shortcuts);
         values.nativeShortcutNames = current.nativeShortcutNames;
         values.validate();
+        return values;
+    }
+
+    private static Map<String, String> remapRoots(Data data, Selection selected, Settings current, String root) {
         var remappedRoots = new HashMap<String, String>();
         if (selected.remap) {
             remappedRoots.put(data.root, current.roots.containsValue(data.root) ? data.root : root);
@@ -178,6 +198,12 @@ public final class BackupArchive {
                 if (matches.size() == 1) remappedRoots.put(id, matches.getFirst());
             });
         }
+        return Map.copyOf(remappedRoots);
+    }
+
+    private static MergedPlaylists mergePlaylists(Data data, Selection selected, List<Track> tracks,
+                                                  List<PlaylistStore.Playlist> existing, Set<PlaylistStore.Entry> retained,
+                                                  Map<String, String> remappedRoots) {
         var present = new HashSet<String>();
         tracks.forEach(t -> present.add(t.id()));
         var protectedEntries = new HashSet<>(retained);
@@ -206,6 +232,12 @@ public final class BackupArchive {
                 result.put(old.id(), new PlaylistStore.Playlist(old.id(), old.name(), List.copyOf(combined)));
             } else result.put(p.id(), new PlaylistStore.Playlist(p.id(), p.name(), List.copyOf(imported)));
         }
+        return new MergedPlaylists(List.copyOf(result.values()), Set.copyOf(protectedEntries), unresolved);
+    }
+
+    private static Map<String, ListeningHistory.Entry> mergeHistory(Data data, Selection selected,
+                                                                    Map<String, ListeningHistory.Entry> history,
+                                                                    Map<String, String> remappedRoots) {
         var stats = new LinkedHashMap<String, ListeningHistory.Entry>();
         if (!selected.history || !selected.replace) stats.putAll(history);
         if (selected.history) data.history.forEach((key, value) -> {
@@ -213,9 +245,6 @@ public final class BackupArchive {
             String mapped = remappedRoots.getOrDefault(key.substring(0, colon), key.substring(0, colon)) + key.substring(colon);
             stats.merge(mapped, value, (a, b) -> new ListeningHistory.Entry(Math.max(a.plays(), b.plays()), Math.max(a.lastPlayed(), b.lastPlayed()), Math.max(a.seconds(), b.seconds())));
         });
-        var referenced = new HashSet<PlaylistStore.Entry>();
-        result.values().forEach(p -> referenced.addAll(p.entries()));
-        protectedEntries.retainAll(referenced);
-        return new Restore(values, List.copyOf(result.values()), Set.copyOf(protectedEntries), Map.copyOf(stats), unresolved, selected);
+        return stats;
     }
 }

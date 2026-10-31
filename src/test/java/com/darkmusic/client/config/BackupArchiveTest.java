@@ -393,4 +393,47 @@ class BackupArchiveTest {
         assertFalse(RestoreJournal.recoveryPending(directory));
     }
 
+
+    @Test
+    void everyRestoreSelectionPreservesInstallationStateAndLeavesInputsUntouched() throws Exception {
+        var current = new Settings();
+        current.musicDirectory = directory.resolve("music").toString();
+        current.roots.put(current.musicDirectory, "local");
+        current.musicFolders = List.of(current.musicDirectory);
+        current.lyricsOnline = false;
+        current.lyricsConsentVersion = 0;
+        current.shortcuts.put("key.darkmusic.open", "key.keyboard.b");
+        String before = ConfigStore.JSON.toJson(current);
+        var source = data();
+        String sourceBefore = ConfigStore.JSON.toJson(source);
+        for (int bits = 0; bits < 64; bits++) {
+            var selection = new BackupArchive.Selection((bits & 1) != 0, (bits & 2) != 0, (bits & 4) != 0,
+                (bits & 8) != 0, (bits & 16) != 0, (bits & 32) != 0);
+            var result = BackupArchive.prepare(source, selection, current, "local", List.of(), List.of(), Map.of(), Set.of());
+            assertEquals(current.musicDirectory, result.settings().musicDirectory);
+            assertEquals(current.musicFolders, result.settings().musicFolders);
+            assertEquals(current.roots, result.settings().roots);
+            assertEquals(current.lyricsOnline, result.settings().lyricsOnline);
+            assertEquals(current.lyricsConsentVersion, result.settings().lyricsConsentVersion);
+            assertEquals(selection, result.selection());
+            assertEquals(before, ConfigStore.JSON.toJson(current));
+            assertEquals(sourceBefore, ConfigStore.JSON.toJson(source));
+        }
+        try (var files = Files.list(directory)) {
+            assertEquals(0, files.count());
+        }
+    }
+
+    @Test
+    void invalidPreparationNeverWritesAnyTarget() throws Exception {
+        Path sentinel = Files.writeString(directory.resolve("config.json"), "existing user data");
+        var malformed = new BackupArchive.Data(1, "r", null, List.of(), Map.of());
+        assertThrows(RuntimeException.class, () -> BackupArchive.prepare(malformed,
+            new BackupArchive.Selection(true, true, true, true, true, true), new Settings(), "r", List.of(), List.of(), Map.of(), Set.of()));
+        assertEquals("existing user data", Files.readString(sentinel));
+        try (var files = Files.list(directory)) {
+            assertEquals(1, files.count());
+        }
+    }
+
 }

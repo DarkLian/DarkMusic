@@ -33,7 +33,6 @@ class MethodLengthTest {
         debt("ArtworkCache.get", 83),
         hot("AudioProcessor.process", 127, "the per-sample DSP chain, run for every frame"),
         debt("AudioSettingsScreen.init", 144),
-        debt("BackupArchive.prepare", 76),
         hot("CircularHudMesh$Rings.buildVertices", 73, "builds the circular HUD mesh each frame"),
         debt("ColorsScreen.init", 86),
         debt("DownloadPipeline.download", 149),
@@ -63,7 +62,7 @@ class MethodLengthTest {
         debt("UpNextScreen.init", 73));
 
     // The debt entries; this only goes down as they are split.
-    private static final int MAX_DEBT = 24;
+    private static final int MAX_DEBT = 23;
 
     enum Kind {DEBT, DATA, HOT}
 
