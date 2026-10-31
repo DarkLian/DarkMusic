@@ -1,14 +1,16 @@
 # Remaining debt progress (2026-11-01)
 
 Implementing the local REMAINING_DEBT_PLAN.md from 18d95ae. The user authorized continuous implementation and
-verification, with commits waiting for approval. Six untracked local plan files are preserved.
+verification. The user subsequently confirmed proceeding, authorized commit/push and directed continuation with
+H5/H6. Six untracked local plan files are preserved.
 
 ## Current status
 
 G, all U/L batches, H0 and H1–H4 are implemented and verified. MAX_DEBT is **0**. The only remaining long
 methods are the two original per-sample hot entries and the recipe data entry. H5/H6 have not been attempted:
 the plan explicitly requires the owed human listening/device check first. Results were requested asynchronously
-at the start; none or an explicit waiver has been supplied. No listening or physical unplug result is invented.
+at the start. The user has now confirmed proceeding with H5/H6, resolving the prerequisite for implementation;
+no detailed listening rows or physical unplug observations were supplied, so none are invented.
 AudioProcessor is unchanged; the environment Engine only gained package visibility for the H0 fixtures.
 
 - Final `scripts/verify.ps1 -Clean -DesktopIntegration`: **937 tests, 12 explicit skips, zero failures/errors**.
@@ -25,7 +27,7 @@ AudioProcessor is unchanged; the environment Engine only gained package visibili
 - All **53 private collection files unchanged**. Live LRCLIB was executed and failed; direct endpoint recheck
   returned **HTTP 502**, matching the previous baseline. It was not converted to a skip.
 - IDEA formatting and `git diff --check` pass. Final UI source is restored, agent debugger probes/config removed,
-  and the user's disabled exception breakpoints preserved. No commits, staging, push, tag or release performed.
+  and the user's disabled exception breakpoints preserved. Commit and push are now authorized; no tag or release.
 
 The batch table is chronological: these final checks supersede earlier notes saying native/visual checks were pending.
 
@@ -111,7 +113,14 @@ Final default/lyrics/preview smoke, clean desktop verification, PiP spectrum fol
 Final verification completed; the Current status above and final-desktop-results.json, final-no-music-results.json,
 final-smoke/summary.txt, final-summary.txt and visual-v3.json are authoritative. Separate source/doc batch trees
 remain in batches/sequence.txt and incremental patches, using an alternate index only. All six local plans stay
-untracked. Commits wait for the user's request, with H5/H6 still behind the explicit listening prerequisite.
+untracked. The user subsequently authorized separate commits/push and confirmed proceeding with H5/H6.
+
+## Continuation authorization
+
+The user said "confirmed. commit and push and move on with H5 and H6". Publish the already verified batches,
+then measure and verify each per-sample candidate independently. Retain a split only under the original exactness
+and cost rule. Detailed human listening/device observations remain unrecorded; authorization is not labeled as
+an observed listening result. Keep recording progress and preserve the separate batch boundaries.
 
 Initial captures: 15 screen/HUD states, two original 1920x1080 GUI-scale-2 captures each. Their initial RGBA
 comparison was invalid (see visual audit above). Stored privately in docs/images_private/remaining-before. Playback paused, visualizer/transitions off;
