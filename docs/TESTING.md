@@ -45,7 +45,16 @@ A test lives in the package of the class it tests and is named after it (`<Subje
 holds only tests of the root package's own classes, the structure guards (`ArchitectureTest`, `MethodLengthTest`,
 `ScreenOperationsTest`, `SettingsSettersTest`, `SmokeReflectionTest`) and `PackagedJarTest`; `ArchitectureTest`
 lists them and rejects test class names taken from a review, audit, polish pass or release. Shared fixtures are
-public classes in `testing`: `TestMusic` (the private collection), `Tracks`, `Await`, `ToolsRunner` and `JavaTools`.
+public classes in `testing`: `TestMusic` (the private collection), `Tracks`, `Await`, `ToolsRunner`, `JavaTools` and
+`FakeAudio` (a player that plays nothing, for driving a real `PlaybackController`).
+
+A test reads private state of its own package through a package-private accessor documented "For tests: ...", not by
+reflection; `SmokeReflectionTest` rejects reflection on the test's own package and any reflection that does not name
+its class. Each root collaborator (`PlaybackCommands`, `MediaActions`, ...) has a root test built over its `Inputs`,
+real core objects in a temporary folder, temporary copies of songs from the private collection, and a client-thread
+queue the test drains by hand; `ArchitectureTest.rootCollaboratorsHaveTests` lists the root classes that have none
+and why. These tests never open an output device, the desktop Trash or a folder window: output switches use a device
+id that matches nothing with fallback off, and deletions are permanent on temporary copies.
 
 Two build quirks are expected. Running `clean` and `build` as separate invocations, as `verify.ps1 -Clean` does,
 leaves `Fabric-Loom-Client-Only-Entries` out of the JAR manifest; one invocation writes it, and the mod is

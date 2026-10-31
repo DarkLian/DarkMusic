@@ -43,7 +43,8 @@ class LyricsActionsTest {
 
     @AfterEach
     void close() {
-        lyrics.close();
+        // Null when the private collection is unavailable and the setup skipped the test.
+        if (lyrics != null) lyrics.close();
     }
 
     private LyricsDocument document() {

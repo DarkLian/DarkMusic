@@ -39,9 +39,19 @@ only `alive`, so an import can still be stopped and a preview can pause the musi
 playlists need `playlistsReady` and no media operation. `PlaybackCommands` implements the first three and
 `PlaylistActions` the last. Screens keep `canEditQueue()`/`mediaBusy()` to decide what to show as enabled.
 Downloads change through `gui.DownloadOperations` (`DownloadActions`), which forwards to `DownloadService`: the
-download screens offer a control only when it applies, and the service admits each change itself.
+download screens offer a control only when it applies, and the service admits each change itself. Lyrics change
+through `gui.LyricsOperations` (`LyricsActions`): writing a lyric file next to a song (save, restore, keep the
+current file) needs `idle`, because a metadata edit renames a song together with its lyric files and a file written
+meanwhile would stay behind under the old name; choices, searches, the cache and the library lookup apply at once.
 `ScreenOperationsTest` checks the compiled `gui` classes: none calls a transport or queue method of
-`PlaybackController`, or anything but a read of `PlaylistStore` or `DownloadService`.
+`PlaybackController`, or anything but a read of `PlaylistStore`, `DownloadService`, `LyricsService` or
+`LyricsLookup`. Each reads list is in the test; `LyricsService.request` and `inspect` count as reads, since they only
+ask for lyrics to be loaded for display.
+
+Each collaborator that holds admission rules declares a nested `Inputs` interface with what it reads on every call
+(named like the `ClientServices` getters, which implements them all), and takes what never changes through its
+constructor: the `ClientState`, the `SettingsStore` and the client thread as an `Executor` (`DarkMusicClient`'s
+`CLIENT_THREAD` looks Minecraft up on each call). Tests build them over real core objects and a hand-driven executor.
 
 Core packages never reference `DarkMusicClient`. At most `MAX_CLIENT_DEPENDENTS` files may name it (a ratchet,
 only lowered; today 1, the sound mixin). Collaborators receive `ClientServices` and each other, never the client.
@@ -70,8 +80,17 @@ Other guards, on compiled classes (ASM) or the smoke sources:
   tests' `getDeclared*` calls (ratchets, only lowered). Smoke reads a screen's state through a read-only query
   (`MusicScreen.browser()`, `SettingsScreen.previewBounds()`, `DownloadScreen.view()`) and finds its widgets by
   their labels, as a player would.
+- `SmokeReflectionTest.testsDoNotReflectOnTheirOwnPackage`: a test reaches a class of its own package through a
+  package-private accessor ("For tests: ..."), never by reflection, and every test reflection names its class
+  (`X.class` or `Class.forName("...")`). The remaining test reflection crosses a package (root into audio, download
+  into hud, gui into render).
 - `ArchitectureTest.rootTestsAreAllowlisted` and `testClassesNameASubject`: tests live in their subject's package
   (the root holds the root package's tests, these guards and `PackagedJarTest`), named after what they test.
+- `ArchitectureTest.rootCollaboratorsHaveTests`: every root class is named by a test other than the structure guards,
+  or is listed with the reason it is not (the Minecraft-bound ones, the forwarders, `ClientServices`,
+  `ClientReset`).
+- `MethodLengthTest.deliberateLengthSaysWhyAndDebtOnlyShrinks`: each allowlisted method is debt, or a hot loop or a
+  data table with a reason; `MAX_DEBT` counts the debt entries and only goes down.
 
 The source guards prove reference direction and shape only, not runtime isolation.
 
@@ -100,7 +119,7 @@ first use and dropped by reset; **screen** = owned by one screen.
 | Lifecycle flags (`ClientState`) | closed, resetting, mediaBusy, restoring, outputChanging | client (closed also read by workers) | every admission check | app | `closed` set once at stopping |
 | Settings (`SettingsStore`) | current `Settings` object (mutable fields) | client | screens, HUD, PiP, services via apply | app; object replaced by load/reset/restore | `save` = apply then enqueue write; `persist` = enqueue only |
 | Config persistence (`ConfigStore`, `LatestWriter`) | latest JSON, pending write and its acknowledgement | client enqueues, storage writes | backup export (`snapshotJson`, latest requested) | app | coalesced, serial; `write` returns an acknowledgement that completes when that JSON or a newer one is on disk; `SettingsStore.lastWrite()`; errors also reported by callback |
-| Playback (`PlaybackController` + `JavaSoundBackend`) | queue, sequence/order versions, transition plans | client (controller), audio worker | screens, HUD, PiP, Discord, media controls | gen | `close` invalidates plans and joins the worker ≤1.5 s; `awaitStopped` |
+| Playback (`PlaybackController` + `JavaSoundBackend`) | Up Next (`UpNextQueue`), play order and history (`PlayOrder`), sequence, transition plans; the worker's stall checks (`StallWatch`) | client (controller and its two parts), audio worker | screens, HUD, PiP, Discord, media controls | gen | `close` invalidates plans and joins the worker ≤1.5 s; `awaitStopped` |
 | Library (`MusicLibrary`) | roots, immutable snapshots, scan generation | scan threads publish snapshots | everything that lists tracks | gen | `close` non-blocking; `awaitStopped` waits for scanners and watcher |
 | Downloads (`DownloadService`) | jobs, workspace locks, receipts | download pool | download screens, HUD | gen | `close` cancels and waits ≤4 s |
 | Audition (`AuditionPlayer`) | one preview clip | own worker | download screens | gen (set by screens) | `close`, `awaitStopped` |
@@ -204,7 +223,11 @@ of it (as the analyzer label says).
 
 - Which services are built (`DarkMusicClient.ready`, `ClientServices.buildHistories`/`buildServices`/
   `buildReplaceable`, the `ClientReset` steps) is wiring. It is covered by compilation, review and the smoke checks
-  rather than by unit tests.
+  rather than by unit tests. The collaborators' admission rules have unit tests; a successful output switch, a
+  successful metadata edit and Trash deletion need a device, the tools or the desktop helper and stay with the
+  integration tests and the smoke suite.
+- A lyric save already queued on the lyrics storage worker when a metadata edit starts is not stopped by the
+  admission; reaching that needs leaving Lyrics Options and starting the edit elsewhere first.
 - A player stuck in its audio line's write keeps that line open until Minecraft exits. This was tested on the Windows
   default device only.
 - Retained screens re-read settings when shown again, and the confirmation screen cannot be left while a reset or
@@ -227,15 +250,18 @@ of it (as the analyzer label says).
   `ClientSources` implements the new Sources with forwarding methods. Logic it needs goes into a named collaborator
   (or a new one), which `ClientSources` forwards to. `DarkMusicClient` and the other screens do not change.
 - *Adding a player control or menu action*: put it in the collaborator that owns the area (`PlaybackCommands`,
-  `FolderActions`, `MediaActions`, `BackupActions`, `OutputActions`); a new collaborator receives `ClientServices`
-  and is wired in `DarkMusicClient`'s fields. A collaborator that needs only `ClientServices` and serves only the
-  screens may be built by `ClientSources` instead (`DownloadActions`), which keeps `DarkMusicClient` within its cap.
+  `FolderActions`, `MediaActions`, `BackupActions`, `OutputActions`); a new collaborator declares its `Inputs`, takes
+  the fixed objects through its constructor, gets a root test, and is wired in `DarkMusicClient`'s fields. A
+  collaborator that serves only the screens may be built by `ClientSources` instead (`DownloadActions`,
+  `LyricsActions`), which keeps `DarkMusicClient` within its cap.
 - *Adding a setting with a range*: a `Range` constant used by the class's `validate()` and a same-named setter that
   applies it; screens set it through the setter. Gson still writes the public field, so the file format is the
   field's name.
-- *Changing playback, playlists or downloads from a screen*: call the screen's `transport()`, `queue()`,
-  `playlistOperations()` or `downloadOperations()`; a new kind of change goes into the operation interface and its
-  implementation, with the same admission the existing ones use.
+- *Changing playback, playlists, downloads or lyrics from a screen*: call the screen's `transport()`, `queue()`,
+  `playlistOperations()`, `downloadOperations()` or `lyricsOperations()`; a new kind of change goes into the
+  operation interface and its implementation, with the same admission the existing ones use.
+- *Testing private state*: add a package-private accessor in the subject's package, documented "For tests: ...",
+  and keep the field private.
 - *Letting smoke check a screen*: drive it by its labels, or add a read-only query; no setters or widget getters
   for smoke. When reflection is unavoidable, name the declaring class.
 - *Changing loudness persistence*: `LoudnessStore` owns `loudness-cache.json` and its locks (flushLock, then

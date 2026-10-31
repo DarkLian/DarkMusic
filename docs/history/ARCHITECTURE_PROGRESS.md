@@ -249,6 +249,43 @@ search for a method name finds it.
   checks `check-hud-menus`, `check-setup` and `check-spectrum` passed; `-DesktopIntegration` 802 tests, 6 skipped,
   none failed; no run changed the private collection.
 
+## Next candidates (2026-11-01)
+
+The follow-ups the maintenance work named, measured against `95ce463`.
+
+- **Reflection.** Tests used to reflect 72 times; now they reflect 7 times, all across packages. The 65 removed sites
+  became package-private accessors ("For tests: ..."), and the fields stay private. Several of the old sites went
+  through `getClass()` or a variable that held the class, so the scan could not attribute them; each was traced
+  through its callers. `testsDoNotReflectOnTheirOwnPackage` now rejects own-package reflection and any reflection
+  that does not name its class. The download half of `StoppedMeansWritesDoneTest` moved to `download.DownloadStopTest`.
+- **Collaborator tests.** `PlaybackCommands`, `PlaylistActions`, `DownloadActions`, `MediaActions`, `FolderActions`,
+  `OutputActions`, `BackupActions` and `Warnings` now have root tests: 39 cases that pin today's admission rules.
+  - Each collaborator reads through a nested `Inputs`, which `ClientServices` implements.
+  - The fixed objects (`ClientState`, `SettingsStore`, the client-thread `Executor`) come in through the
+    constructor.
+  - `ClientServices` stayed at 572 lines and `DarkMusicClient` went to 289.
+  - `rootCollaboratorsHaveTests` lists the 9 root classes without a test, each with its reason.
+- **Up Next and play order.** `PlaybackController` went from 714 to 659 lines. The queue moved into `UpNextQueue` and
+  the order, cursor and history into `PlayOrder`, each with its own test. The controller keeps the order of every
+  settle, invalidate and refresh call. The order version is bumped at the same three points as before.
+- **Lyrics.** Screens change lyrics only through `gui.LyricsOperations` (`LyricsActions`). Checking the admission
+  first found a bug:
+  - Lyrics Options could save or restore a lyric file while a metadata edit was renaming the song, which left the
+    file under the old name.
+  - Writing next to a song now needs `idle`. The test failed before the fix.
+  - `ScreenOperationsTest` now covers `LyricsService` and `LyricsLookup`.
+- **PiP.** Screens and smoke use `PipController.setup()` and `windows(token)`, and `tools` is now private.
+- **Audio backend.** The stall and decoder-starvation checks moved into `StallWatch`, with fake-clock tests.
+  `changeOutput` went from 62 to 61 lines.
+- **Long methods.** Each `MethodLengthTest` entry is now `debt`, `hot` (6 entries, measure before splitting) or
+  `data` (1 entry, the preset table). `MAX_DEBT` is 25.
+- **Deferred:**
+  - `JavaSoundBackend` steps 2–5: the playback clock, normalization, and the transition decision. They go with the
+    listening check.
+  - The I/O method splits.
+- **Checks.** `verify.ps1 -JavaOnly` runs 861 tests: 12 skipped, 0 failed. The smoke runs, PiP, the lyrics
+  integration and the in-game checks wait for the testing window.
+
 ## Open items
 
 The items still open when this work ended are the Known limits in [ARCHITECTURE.md](../ARCHITECTURE.md#known-limits).
