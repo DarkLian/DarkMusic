@@ -14,6 +14,38 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LibrarySourceIndexTest {
+    @Test
+    void failedPersistenceRetriesAndUnavailableTracksDoNotClaimACompleteIndex() throws Exception {
+        Path root = temp.resolve("root"), data = Files.createDirectories(temp.resolve("data"));
+        Track track = file(root, "source.txt");
+        var entry = new DownloadModels.Entry(1, "Title", "https://youtu.be/abcDEFG_123", "Youtube", "abcDEFG_123", true);
+        SourceLinks.record(track.file(), entry.url());
+        Path cache = Files.createDirectory(data.resolve("source-index.json"));
+        try (var index = new LibrarySourceIndex(data)) {
+            index.update(List.of(track), Map.of(root, track.rootId()), true);
+            index.settled().get(10, TimeUnit.SECONDS);
+            assertEquals(1, index.verified(entry).size());
+            assertTrue(Files.isDirectory(cache));
+            Files.delete(cache);
+            index.update(List.of(track), Map.of(root, track.rootId()), true);
+            index.settled().get(10, TimeUnit.SECONDS);
+            assertTrue(Files.isRegularFile(cache));
+            var written = Files.getLastModifiedTime(cache);
+            index.update(List.of(track), Map.of(root, track.rootId()), true);
+            index.settled().get(10, TimeUnit.SECONDS);
+            assertEquals(written, Files.getLastModifiedTime(cache));
+            Files.delete(track.file());
+            index.update(List.of(track), Map.of(root, track.rootId()), true);
+            index.settled().get(10, TimeUnit.SECONDS);
+            assertFalse(index.lookup(entry).complete());
+            assertTrue(index.lookup(entry).confirmed().isEmpty());
+            index.close();
+            long revision = index.revision();
+            index.update(List.of(), Map.of(), true);
+            assertEquals(revision, index.revision());
+        }
+    }
+
     @TempDir
     Path temp;
 

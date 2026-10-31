@@ -121,34 +121,9 @@ public final class LibrarySourceIndex implements AutoCloseable {
             for (Track t : request.tracks) {
                 if (closed) return;
                 try {
-                    var attrs = DuplicateScanner.attributes(t);
-                    String stamp = DuplicateScanner.stamp(t, attrs);
-                    String source = provenance.computeIfAbsent(t.file().getParent(), SourceLinks::readDirectory).getOrDefault(t.file().getFileName().toString(), "");
-                    var archive = history.computeIfAbsent(t.file().getParent(), LibrarySourceIndex::archive);
-                    var archiveKeys = archive.getOrDefault(t.file().getFileName().toString(), List.of());
-                    synchronized (this) {
-                        if (deleted.containsKey(t.id()) && !deleted.get(t.id()).equals(stamp)) deleted.remove(t.id());
-                    }
-                    var modes = new HashSet<DownloadFormat>();
-                    var ids = new HashSet<String>();
-                    String sourceId = DuplicateMatcher.sourceId(source);
-                    if (!sourceId.isEmpty()) ids.add(sourceId);
-                    for (String archiveKey : archiveKeys) {
-                        if (!archiveKey.equals(bindings.computeIfAbsent(t.file().getParent(), SourceLinks::archiveBindings).get(t.file().getFileName().toString())))
-                            continue;
-                        String key = archiveKey;
-                        boolean original = key.endsWith(":original");
-                        if (original) key = key.substring(0, key.length() - 9);
-                        int split = key.indexOf(':');
-                        if (split > 0) ids.add(identity(key.substring(0, split), key.substring(split + 1), source));
-                        modes.add(original ? DownloadFormat.ORIGINAL : DownloadFormat.MP3);
-                    }
-                    cache.put(t.id(), new Cached(t.id(), stamp, source));
-                    String name = t.file().getFileName().toString();
-                    String format = name.contains(".") ? name.substring(name.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT) : "";
-                    var existing = new Existing(t, format, Set.copyOf(modes), stamp);
-                    for (String id : ids)
-                        if (!id.isEmpty()) result.computeIfAbsent(id, k -> new ArrayList<>()).add(existing);
+                    var inspected = inspect(t, provenance, bindings, history);
+                    for (String id : inspected.ids())
+                        if (!id.isEmpty()) result.computeIfAbsent(id, k -> new ArrayList<>()).add(inspected.existing());
                 } catch (Exception e) {
                     healthy = false;
                 }
@@ -284,5 +259,39 @@ public final class LibrarySourceIndex implements AutoCloseable {
     public void close() {
         closed = true;
         worker.shutdownNow();
+    }
+
+    private record Indexed(Set<String> ids, Existing existing) {
+    }
+
+    private Indexed inspect(Track t, Map<Path, Map<String, String>> provenance,
+                            Map<Path, Map<String, String>> bindings, Map<Path, Map<String, List<String>>> history) throws Exception {
+        var attrs = DuplicateScanner.attributes(t);
+        String stamp = DuplicateScanner.stamp(t, attrs);
+        String source = provenance.computeIfAbsent(t.file().getParent(), SourceLinks::readDirectory).getOrDefault(t.file().getFileName().toString(), "");
+        var archive = history.computeIfAbsent(t.file().getParent(), LibrarySourceIndex::archive);
+        var archiveKeys = archive.getOrDefault(t.file().getFileName().toString(), List.of());
+        synchronized (this) {
+            if (deleted.containsKey(t.id()) && !deleted.get(t.id()).equals(stamp)) deleted.remove(t.id());
+        }
+        var modes = new HashSet<DownloadFormat>();
+        var ids = new HashSet<String>();
+        String sourceId = DuplicateMatcher.sourceId(source);
+        if (!sourceId.isEmpty()) ids.add(sourceId);
+        for (String archiveKey : archiveKeys) {
+            if (!archiveKey.equals(bindings.computeIfAbsent(t.file().getParent(), SourceLinks::archiveBindings).get(t.file().getFileName().toString())))
+                continue;
+            String key = archiveKey;
+            boolean original = key.endsWith(":original");
+            if (original) key = key.substring(0, key.length() - 9);
+            int split = key.indexOf(':');
+            if (split > 0) ids.add(identity(key.substring(0, split), key.substring(split + 1), source));
+            modes.add(original ? DownloadFormat.ORIGINAL : DownloadFormat.MP3);
+        }
+        cache.put(t.id(), new Cached(t.id(), stamp, source));
+        String name = t.file().getFileName().toString();
+        String format = name.contains(".") ? name.substring(name.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT) : "";
+        var existing = new Existing(t, format, Set.copyOf(modes), stamp);
+        return new Indexed(Set.copyOf(ids), existing);
     }
 }
