@@ -18,7 +18,26 @@ public final class SoundEnvironmentScreen extends AudioPage<AudioSettingsScreen.
     @Override
     protected void populate() {
         var e = app.settings().environment;
-        var p = e.parameters;
+        header(e);
+        // Off applies nothing, so there is nothing to adjust or save.
+        if (isOff(e)) {
+            info("environment.off");
+            return;
+        }
+        slider("environment.intensity", e.intensity * 100, 0, 100, 100, v -> e.intensity(v / 100), "%");
+        info(() -> Text.get(e.ownsReverb() ? "environment.owns_reverb" : "environment.allows_reverb"));
+        section("environment.parameters");
+        if (!e.active()) info("environment.inactive");
+        shortControls(e);
+        // A blank Custom recipe has nothing in the short list, so it shows every control.
+        boolean blank = isBlankCustom(e);
+        if (!blank) toggle("environment.advanced", () -> advanced, v -> advanced = v);
+        advancedControls(e, blank);
+        info("environment.dependencies");
+        savedEnvironments(e);
+    }
+
+    private void header(SoundEnvironmentSettings e) {
         section("environment.title");
         info("environment.scope");
         // A saved environment shows its own name; Custom is an unsaved edit.
@@ -29,19 +48,14 @@ public final class SoundEnvironmentScreen extends AudioPage<AudioSettingsScreen.
         // Only built-in environments have a description.
         if (saved == null && !e.custom) row.description(Text.get("environment.description." + id));
         else row.besideLabel();
-        // Off applies nothing, so there is nothing to adjust or save.
-        if (e.preset == SoundEnvironmentSettings.Preset.OFF) {
-            info("environment.off");
-            return;
-        }
-        slider("environment.intensity", e.intensity * 100, 0, 100, 100, v -> e.intensity(v / 100), "%");
-        info(() -> Text.get(e.ownsReverb() ? "environment.owns_reverb" : "environment.allows_reverb"));
-        section("environment.parameters");
-        if (!e.active()) info("environment.inactive");
+    }
+
+    private void shortControls(SoundEnvironmentSettings e) {
+        var p = e.parameters;
         int parametersStart = rowCount();
         var recipe = SoundEnvironmentSettings.recipe(e.preset);
-        boolean device = e.preset.ordinal() >= SoundEnvironmentSettings.Preset.OLD_RADIO.ordinal() && e.preset.ordinal() <= SoundEnvironmentSettings.Preset.CASSETTE.ordinal();
-        boolean outdoors = e.preset == SoundEnvironmentSettings.Preset.OPEN_MEADOW || e.preset == SoundEnvironmentSettings.Preset.FOREST_CLEARING || e.preset == SoundEnvironmentSettings.Preset.UNDERWATER;
+        boolean device = devicePreset(e);
+        boolean outdoors = outdoorPreset(e);
         if (device) toggle("environment.texture", () -> e.texture, v -> e.texture = v);
         if (outdoors) toggle("environment.ambience", () -> e.ambience, v -> e.ambience = v);
         if (p.acoustic) slider("environment.distance", p.distance, 0, 1, 100, v -> p.distance(v), "");
@@ -55,9 +69,12 @@ public final class SoundEnvironmentScreen extends AudioPage<AudioSettingsScreen.
         if (recipe.modulationMs > 0)
             slider("environment.modulation", p.modulationMs, 0, 3, 60, v -> p.modulationMs(v), " ms");
         enableSince(parametersStart, e.enabled);
-        // A blank Custom recipe has nothing in the short list, so it shows every control.
-        boolean blank = e.preset == SoundEnvironmentSettings.Preset.CUSTOM;
-        if (!blank) toggle("environment.advanced", () -> advanced, v -> advanced = v);
+    }
+
+    private void advancedControls(SoundEnvironmentSettings e, boolean blank) {
+        var p = e.parameters;
+        var recipe = SoundEnvironmentSettings.recipe(e.preset);
+        boolean device = devicePreset(e), outdoors = outdoorPreset(e);
         int advancedStart = rowCount();
         if (advanced || blank) {
             if (!device) toggle("environment.texture", () -> e.texture, v -> e.texture = v);
@@ -106,7 +123,9 @@ public final class SoundEnvironmentScreen extends AudioPage<AudioSettingsScreen.
             }
         }
         enableSince(advancedStart, e.enabled);
-        info("environment.dependencies");
+    }
+
+    private void savedEnvironments(SoundEnvironmentSettings e) {
         section("environment.saved");
         info(() -> Text.get("environment.saved_count", e.userPresets.size(), PresetNames.ENVIRONMENT_LIMIT));
         if (e.userPresets.isEmpty()) info("environment.saved_empty");
@@ -129,4 +148,21 @@ public final class SoundEnvironmentScreen extends AudioPage<AudioSettingsScreen.
             }))).runs();
         info("environment.saved_in_picker");
     }
+
+    private static boolean isOff(SoundEnvironmentSettings e) {
+        return e.preset == SoundEnvironmentSettings.Preset.OFF;
+    }
+
+    private static boolean isBlankCustom(SoundEnvironmentSettings e) {
+        return e.preset == SoundEnvironmentSettings.Preset.CUSTOM;
+    }
+
+    private static boolean devicePreset(SoundEnvironmentSettings e) {
+        return e.preset.ordinal() >= SoundEnvironmentSettings.Preset.OLD_RADIO.ordinal() && e.preset.ordinal() <= SoundEnvironmentSettings.Preset.CASSETTE.ordinal();
+    }
+
+    private static boolean outdoorPreset(SoundEnvironmentSettings e) {
+        return e.preset == SoundEnvironmentSettings.Preset.OPEN_MEADOW || e.preset == SoundEnvironmentSettings.Preset.FOREST_CLEARING || e.preset == SoundEnvironmentSettings.Preset.UNDERWATER;
+    }
+
 }
