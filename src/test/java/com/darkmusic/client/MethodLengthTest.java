@@ -40,7 +40,6 @@ class MethodLengthTest {
         hot("CircularHudMesh$Rings.buildVertices", 73, "builds the circular HUD mesh each frame"),
         debt("ColorsScreen.init", 86),
         debt("DuplicateComparisonScreen.init", 70),
-        debt("MusicScreen.extractRenderState", 62),
         debt("NowPlayingHud.renderAt", 147),
         debt("PipScreen.populate", 83),
         debt("PipRuntime.begin$lambda", 83),
@@ -54,7 +53,7 @@ class MethodLengthTest {
         debt("UpNextScreen.init", 73));
 
     // G1 records one previously invisible existing lambda. From this baseline debt only goes down.
-    private static final int MAX_DEBT = 10;
+    private static final int MAX_DEBT = 9;
 
     enum Kind {DEBT, DATA, HOT}
 

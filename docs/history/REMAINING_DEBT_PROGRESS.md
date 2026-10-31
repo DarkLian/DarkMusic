@@ -11,6 +11,7 @@ verification, with commits waiting for approval. Six untracked local plan files 
 | U1 | Named factories for command subtrees; alias loop, attended-install consent and suggestion ordering retained. | LocalCommandsTest, NavigationAndCommandsTest and guards pass using private real-audio excerpts. MAX_DEBT 12. |
 | U2 | Settings search and navigation sections are private methods; reflected fields stay on the screen. | GUI suites, architecture/method/smoke-reflection guards pass. MAX_DEBT 11. Final native smoke and visual comparison pending. |
 | U3 | Lyric synchronization and version rows are separate visual groups; write-admission actions retain their order. | GUI/lyrics suites and guards pass. MAX_DEBT 10. Native lyrics smoke and comparison pending. |
+| U4 | Utility divider and copied-link feedback are private render groups in their original drawing order. | GUI suites and guards pass. MAX_DEBT 9. Native default smoke and comparison pending. |
 
 G2 bytecode sizes: AudioProcessor 1731, environment Engine 1474, SpectrumAnalyzer 1099, TrackWaveform 804,
 CircularHudMesh.Rings 1570, SpectrumRenderer.bars 1428 bytes. No hot method exceeds 8000 bytes.
@@ -29,3 +30,8 @@ lambdas share the longest span, and other synthetic/bridge methods remain exclud
 Current evidence and separate commit boundaries are under ignored .local-tools/verification/remaining.
 checkpoint.ps1 captures trees in an alternate index, preserving the user's index and local plans; it creates no commits.
 Source edits use IDEA apply_patch and its built-in formatter. Start with deterministic visual captures before U.
+
+Baseline captures: 15 screen/HUD states, two original 1920x1080 GUI-scale-2 captures each, all pairs pixel-identical
+without masks. Stored privately in docs/images_private/remaining-before. Playback paused, visualizer/transitions off;
+real collection/artwork and SmoothFont, isolated capture-run configuration. First harness attempt failed because
+resetting isolated settings cleared tool paths; the harness now reapplies the existing managed tool paths.

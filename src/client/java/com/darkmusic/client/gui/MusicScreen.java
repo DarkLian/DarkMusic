@@ -697,6 +697,13 @@ public final class MusicScreen extends LocalScreen {
             g.text(font, time(position), dock.x() + 4, layout.timeY(), color);
             g.text(font, total, dock.right() - 4 - font.width(total), layout.timeY(), color);
         }
+        utilityDivider(g, library);
+        super.extractRenderState(g, mx, my, delta);
+        copiedFeedback(g);
+        importOverlay.render(app, g, width, height);
+    }
+
+    private void utilityDivider(GuiGraphicsExtractor g, boolean library) {
         // Utility icons and view toggles are separate groups; the divider makes the gap intentional.
         if (library && !layout.singleColumn() && openFolder != null) {
             int utility = layout.navigationUtilityWidth(), contextY = height < 300 ? 64 : 70;
@@ -705,7 +712,9 @@ public final class MusicScreen extends LocalScreen {
             if (togglesStart - utilitiesEnd >= 9)
                 g.fill(dividerX, contextY + 4, dividerX + 1, contextY + 20, UiTheme.BORDER);
         }
-        super.extractRenderState(g, mx, my, delta);
+    }
+
+    private void copiedFeedback(GuiGraphicsExtractor g) {
         if (copySource.visible && browser.selected() != null && copiedTrack.equals(browser.selected().id()) && System.nanoTime() < copiedUntil) {
             var message = Text.component("library.darkmusic.copied");
             int right = queueActions.getX();
@@ -714,6 +723,7 @@ public final class MusicScreen extends LocalScreen {
             else
                 g.setTooltipForNextFrame(font, List.of(message.getVisualOrderText()), Help::position, copySource.getX(), copySource.getBottom(), true);
         }
-        importOverlay.render(app, g, width, height);
     }
+
+
 }
