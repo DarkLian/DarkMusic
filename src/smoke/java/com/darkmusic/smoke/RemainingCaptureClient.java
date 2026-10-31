@@ -81,6 +81,10 @@ final class RemainingCaptureClient {
         s.hudTransitions = false;
         s.hudIdleHide = 0;
         s.hudVisualizer = false;
+        var tools = Path.of(System.getProperty("darkmusic.downloadTools"));
+        s.ffmpegPath = tools.resolve("ffmpeg.exe").toString();
+        s.ffprobePath = tools.resolve("ffprobe.exe").toString();
+        s.ytDlpPath = tools.resolve("yt-dlp.exe").toString();
         app.services().apply();
         app.sources().chooseMusicFolder(Path.of(System.getProperty("darkmusic.music")), () -> choosing = true);
     }

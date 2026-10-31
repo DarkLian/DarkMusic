@@ -229,74 +229,122 @@ public final class LocalCommands {
                 .executes(context -> run(actions::player))
                 .then(ClientCommands.literal("gui").executes(context -> run(actions::layout)))
                 .then(ClientCommands.literal("pip").executes(context -> run(actions::pip)))
-                .then(ClientCommands.literal("lyrics").executes(context -> {
-                    String problem = actions.lyrics();
-                    if (problem != null && !problem.isEmpty()) {
-                        context.getSource().sendFeedback(actions.palette().error(problem));
-                        return 0;
-                    }
-                    return 1;
-                }))
-                .then(ClientCommands.literal("play")
-                    .executes(context -> reply(context, () -> actions.play(null)))
-                    .then(ClientCommands.argument("song", StringArgumentType.greedyString()).suggests(songs)
-                        .executes(context -> reply(context, () -> actions.play(StringArgumentType.getString(context, "song"))))))
-                .then(ClientCommands.literal("queue")
-                    .then(ClientCommands.argument("song", StringArgumentType.greedyString()).suggests(songs)
-                        .executes(context -> reply(context, () -> actions.queue(StringArgumentType.getString(context, "song"))))))
+                .then(lyricsCommand(actions))
+                .then(playCommand(actions, songs))
+                .then(queueCommand(actions, songs))
                 .then(simple("pause", actions::pause))
                 .then(simple("stop", actions::stop))
                 .then(simple("next", actions::next))
                 .then(simple("previous", actions::previous))
                 .then(simple("now", actions::now))
                 .then(simple("mute", actions::mute))
-                .then(ClientCommands.literal("volume")
-                    .executes(context -> reply(context, () -> actions.volume(null)))
-                    .then(ClientCommands.argument("percent", IntegerArgumentType.integer(0, 100))
-                        .executes(context -> reply(context, () -> actions.volume(IntegerArgumentType.getInteger(context, "percent"))))))
-                .then(ClientCommands.literal("speed")
-                    .executes(context -> reply(context, () -> actions.speed(null)))
-                    .then(ClientCommands.argument("value", DoubleArgumentType.doubleArg(.5, 3))
-                        .executes(context -> reply(context, () -> actions.speed(DoubleArgumentType.getDouble(context, "value"))))))
-                .then(ClientCommands.literal("seek")
-                    .then(ClientCommands.argument("time", StringArgumentType.greedyString())
-                        .executes(context -> reply(context, () -> actions.seek(StringArgumentType.getString(context, "time"))))))
-                .then(ClientCommands.literal("shuffle")
-                    .executes(context -> reply(context, () -> actions.shuffle(null)))
-                    .then(ClientCommands.literal("on").executes(context -> reply(context, () -> actions.shuffle(true))))
-                    .then(ClientCommands.literal("off").executes(context -> reply(context, () -> actions.shuffle(false)))))
-                .then(ClientCommands.literal("repeat")
-                    .executes(context -> reply(context, () -> actions.repeat(null)))
-                    .then(ClientCommands.literal("off").executes(context -> reply(context, () -> actions.repeat(Repeat.OFF))))
-                    .then(ClientCommands.literal("one").executes(context -> reply(context, () -> actions.repeat(Repeat.ONE))))
-                    .then(ClientCommands.literal("all").executes(context -> reply(context, () -> actions.repeat(Repeat.ALL)))))
-                .then(ClientCommands.literal("sleep")
-                    .executes(context -> reply(context, () -> actions.sleep(null)))
-                    .then(ClientCommands.literal("off").executes(context -> reply(context, () -> actions.sleep(0))))
-                    .then(ClientCommands.argument("minutes", IntegerArgumentType.integer(1, 720))
-                        .executes(context -> reply(context, () -> actions.sleep(IntegerArgumentType.getInteger(context, "minutes"))))))
+                .then(volumeCommand(actions))
+                .then(speedCommand(actions))
+                .then(seekCommand(actions))
+                .then(shuffleCommand(actions))
+                .then(repeatCommand(actions))
+                .then(sleepCommand(actions))
                 .then(simple("stopafter", actions::stopAfter))
-                .then(ClientCommands.literal("keys")
-                    .executes(context -> {
-                        keys(context.getSource(), actions);
-                        return 1;
-                    })
-                    .then(ClientCommands.literal("edit").executes(context -> run(actions::editKeys))))
-                .then(ClientCommands.literal("update")
-                    .executes(context -> run(actions::checkUpdate))
-                    .then(ClientCommands.literal("install")
-                        .executes(context -> install(context, actions, null))
-                        .then(ClientCommands.argument("code", StringArgumentType.word())
-                            .executes(context -> install(context, actions, StringArgumentType.getString(context, "code"))))))
-                .then(ClientCommands.literal("help")
-                    .executes(context -> {
-                        help(context.getSource(), actions);
-                        return 1;
-                    })
-                    .then(ClientCommands.literal("keys").executes(context -> {
-                        keys(context.getSource(), actions);
-                        return 1;
-                    }))));
+                .then(keysCommand(actions))
+                .then(updateCommand(actions))
+                .then(helpCommand(actions)));
+    }
+
+    private static LiteralArgumentBuilder<FabricClientCommandSource> lyricsCommand(Actions actions) {
+        return ClientCommands.literal("lyrics").executes(context -> {
+            String problem = actions.lyrics();
+            if (problem != null && !problem.isEmpty()) {
+                context.getSource().sendFeedback(actions.palette().error(problem));
+                return 0;
+            }
+            return 1;
+        });
+    }
+
+    private static LiteralArgumentBuilder<FabricClientCommandSource> playCommand(Actions actions, SuggestionProvider<FabricClientCommandSource> songs) {
+        return ClientCommands.literal("play")
+            .executes(context -> reply(context, () -> actions.play(null)))
+            .then(ClientCommands.argument("song", StringArgumentType.greedyString()).suggests(songs)
+                .executes(context -> reply(context, () -> actions.play(StringArgumentType.getString(context, "song")))));
+    }
+
+    private static LiteralArgumentBuilder<FabricClientCommandSource> queueCommand(Actions actions, SuggestionProvider<FabricClientCommandSource> songs) {
+        return ClientCommands.literal("queue")
+            .then(ClientCommands.argument("song", StringArgumentType.greedyString()).suggests(songs)
+                .executes(context -> reply(context, () -> actions.queue(StringArgumentType.getString(context, "song")))));
+    }
+
+    private static LiteralArgumentBuilder<FabricClientCommandSource> volumeCommand(Actions actions) {
+        return ClientCommands.literal("volume")
+            .executes(context -> reply(context, () -> actions.volume(null)))
+            .then(ClientCommands.argument("percent", IntegerArgumentType.integer(0, 100))
+                .executes(context -> reply(context, () -> actions.volume(IntegerArgumentType.getInteger(context, "percent")))));
+    }
+
+    private static LiteralArgumentBuilder<FabricClientCommandSource> speedCommand(Actions actions) {
+        return ClientCommands.literal("speed")
+            .executes(context -> reply(context, () -> actions.speed(null)))
+            .then(ClientCommands.argument("value", DoubleArgumentType.doubleArg(.5, 3))
+                .executes(context -> reply(context, () -> actions.speed(DoubleArgumentType.getDouble(context, "value")))));
+    }
+
+    private static LiteralArgumentBuilder<FabricClientCommandSource> seekCommand(Actions actions) {
+        return ClientCommands.literal("seek")
+            .then(ClientCommands.argument("time", StringArgumentType.greedyString())
+                .executes(context -> reply(context, () -> actions.seek(StringArgumentType.getString(context, "time")))));
+    }
+
+    private static LiteralArgumentBuilder<FabricClientCommandSource> shuffleCommand(Actions actions) {
+        return ClientCommands.literal("shuffle")
+            .executes(context -> reply(context, () -> actions.shuffle(null)))
+            .then(ClientCommands.literal("on").executes(context -> reply(context, () -> actions.shuffle(true))))
+            .then(ClientCommands.literal("off").executes(context -> reply(context, () -> actions.shuffle(false))));
+    }
+
+    private static LiteralArgumentBuilder<FabricClientCommandSource> repeatCommand(Actions actions) {
+        return ClientCommands.literal("repeat")
+            .executes(context -> reply(context, () -> actions.repeat(null)))
+            .then(ClientCommands.literal("off").executes(context -> reply(context, () -> actions.repeat(Repeat.OFF))))
+            .then(ClientCommands.literal("one").executes(context -> reply(context, () -> actions.repeat(Repeat.ONE))))
+            .then(ClientCommands.literal("all").executes(context -> reply(context, () -> actions.repeat(Repeat.ALL))));
+    }
+
+    private static LiteralArgumentBuilder<FabricClientCommandSource> sleepCommand(Actions actions) {
+        return ClientCommands.literal("sleep")
+            .executes(context -> reply(context, () -> actions.sleep(null)))
+            .then(ClientCommands.literal("off").executes(context -> reply(context, () -> actions.sleep(0))))
+            .then(ClientCommands.argument("minutes", IntegerArgumentType.integer(1, 720))
+                .executes(context -> reply(context, () -> actions.sleep(IntegerArgumentType.getInteger(context, "minutes")))));
+    }
+
+    private static LiteralArgumentBuilder<FabricClientCommandSource> keysCommand(Actions actions) {
+        return ClientCommands.literal("keys")
+            .executes(context -> {
+                keys(context.getSource(), actions);
+                return 1;
+            })
+            .then(ClientCommands.literal("edit").executes(context -> run(actions::editKeys)));
+    }
+
+    private static LiteralArgumentBuilder<FabricClientCommandSource> updateCommand(Actions actions) {
+        return ClientCommands.literal("update")
+            .executes(context -> run(actions::checkUpdate))
+            .then(ClientCommands.literal("install")
+                .executes(context -> install(context, actions, null))
+                .then(ClientCommands.argument("code", StringArgumentType.word())
+                    .executes(context -> install(context, actions, StringArgumentType.getString(context, "code")))));
+    }
+
+    private static LiteralArgumentBuilder<FabricClientCommandSource> helpCommand(Actions actions) {
+        return ClientCommands.literal("help")
+            .executes(context -> {
+                help(context.getSource(), actions);
+                return 1;
+            })
+            .then(ClientCommands.literal("keys").executes(context -> {
+                keys(context.getSource(), actions);
+                return 1;
+            }));
     }
 
     private static LiteralArgumentBuilder<FabricClientCommandSource> simple(String name, Supplier<Component> action) {
