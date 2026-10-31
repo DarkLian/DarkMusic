@@ -78,6 +78,24 @@ public final class ColorsScreen extends LocalScreen implements HudPreview {
         shownPreset = colors().preset;
         boolean wide = width >= 700;
         editorWidth = wide ? Math.min(500, (width - 40) / 2) : width - 24;
+        presetGrid();
+        presetPaging();
+        colorFields(draftStart, draftEnd);
+        previewX = wide ? editorWidth + 28 : 12;
+        previewWidth = wide ? width - previewX - 12 : width - 24;
+        previewY = 36;
+        if (!wide) {
+            if (previewOnly) for (var child : children())
+                if (child instanceof AbstractWidget widget) widget.visible = false;
+            UiButton.icon(addRenderableWidget(UiButton.builder(Text.component(previewOnly ? "phase2.settings_form" : "phase2.preview"), b -> {
+                previewOnly = !previewOnly;
+                rebuildWidgets();
+            }).bounds(width - 144, 6, 104, 24).build()), UiIcon.PREVIEW, false);
+        }
+        backButton(width - (wide ? 80 : 36), 6, wide ? 68 : 24);
+    }
+
+    private void presetGrid() {
         int columns = 3, gap = 4, cell = (editorWidth - (columns - 1) * gap) / columns;
         int tileHeight = height < 330 ? 20 : 30, gridTop = height < 330 ? 34 : 52;
         var presets = VisualColors.Preset.values();
@@ -103,6 +121,9 @@ public final class ColorsScreen extends LocalScreen implements HudPreview {
             tile.swatch(() -> preset == VisualColors.Preset.CUSTOM ? colors().start : preset.start, () -> preset == VisualColors.Preset.CUSTOM ? colors().end : preset.end);
         }
         pageY = gridTop + rows * (tileHeight + gap) + 2;
+    }
+
+    private void presetPaging() {
         var previous = addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.previous"), b -> {
             presetPage--;
             rebuildWidgets();
@@ -125,6 +146,9 @@ public final class ColorsScreen extends LocalScreen implements HudPreview {
             app.save();
             rebuildWidgets();
         }).bounds(12 + editorWidth - 88, pageY, 88, 20).build());
+    }
+
+    private void colorFields(String draftStart, String draftEnd) {
         fieldsY = pageY + 42;
         int half = (editorWidth - 4) / 2;
         start = addRenderableWidget(new UiInput(font, 12, fieldsY + 12, half, 20, Text.component("colors.darkmusic.start")));
@@ -142,18 +166,6 @@ public final class ColorsScreen extends LocalScreen implements HudPreview {
             .bounds(12, swatchY + 30, half, 20).build());
         addRenderableWidget(UiButton.builder(Text.component("colors.darkmusic.pick_end"), b -> pick(false))
             .bounds(16 + half, swatchY + 30, half, 20).build());
-        previewX = wide ? editorWidth + 28 : 12;
-        previewWidth = wide ? width - previewX - 12 : width - 24;
-        previewY = 36;
-        if (!wide) {
-            if (previewOnly) for (var child : children())
-                if (child instanceof AbstractWidget widget) widget.visible = false;
-            UiButton.icon(addRenderableWidget(UiButton.builder(Text.component(previewOnly ? "phase2.settings_form" : "phase2.preview"), b -> {
-                previewOnly = !previewOnly;
-                rebuildWidgets();
-            }).bounds(width - 144, 6, 104, 24).build()), UiIcon.PREVIEW, false);
-        }
-        backButton(width - (wide ? 80 : 36), 6, wide ? 68 : 24);
     }
 
     private void pick(boolean first) {

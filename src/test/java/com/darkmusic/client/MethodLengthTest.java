@@ -38,7 +38,6 @@ class MethodLengthTest {
         hot("AudioProcessor.process", 127, "the per-sample DSP chain, run for every frame"),
         debt("AudioSettingsScreen.init", 144),
         hot("CircularHudMesh$Rings.buildVertices", 73, "builds the circular HUD mesh each frame"),
-        debt("ColorsScreen.init", 86),
         debt("NowPlayingHud.renderAt", 147),
         debt("PipRuntime.begin$lambda", 83),
         debt("PlaylistScreen.init", 103),
@@ -50,7 +49,7 @@ class MethodLengthTest {
         hot("TrackWaveform.analyze", 72, "one pass over every sample of a song"));
 
     // G1 records one previously invisible existing lambda. From this baseline debt only goes down.
-    private static final int MAX_DEBT = 6;
+    private static final int MAX_DEBT = 5;
 
     enum Kind {DEBT, DATA, HOT}
 
