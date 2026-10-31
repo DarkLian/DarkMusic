@@ -45,7 +45,6 @@ class MethodLengthTest {
         debt("ManagedTools.install", 88),
         debt("MediaActions.deleteAudio", 64),
         debt("MediaActions.importAudio", 61),
-        debt("MediaFiles.edit", 134),
         debt("MusicScreen.extractRenderState", 62),
         debt("NowPlayingHud.renderAt", 147),
         debt("PipScreen.populate", 83),
@@ -61,7 +60,7 @@ class MethodLengthTest {
         debt("UpNextScreen.init", 73));
 
     // The debt entries; this only goes down as they are split.
-    private static final int MAX_DEBT = 22;
+    private static final int MAX_DEBT = 21;
 
     enum Kind {DEBT, DATA, HOT}
 

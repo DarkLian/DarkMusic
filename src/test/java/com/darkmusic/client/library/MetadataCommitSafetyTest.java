@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.*;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -15,6 +16,36 @@ import static org.junit.jupiter.api.Assertions.*;
  * Disposable documents test pathname transactions; these are not audio/codec fixtures.
  */
 class MetadataCommitSafetyTest {
+    @Test
+    void validationCollisionsAndCancellationLeaveDisposableOriginalsAlone() throws Exception {
+        Path source = Files.writeString(temp.resolve("song.txt"), "Original identity fixture");
+        var track = identity(source);
+        var original = new MediaFiles.Fields("", "", "", "song", ".txt");
+        var editor = new MediaFiles();
+        for (String name : List.of("", ".hidden", "bad/name", "song.", "CON"))
+            assertThrows(IOException.class, () -> editor.edit(track, original,
+                new MediaFiles.Fields("", "", "", name, ".txt"), new ProcessRunner.Token()));
+        for (String tag : List.of("x".repeat(513), "bad\nvalue"))
+            assertThrows(IOException.class, () -> editor.edit(track, original,
+                new MediaFiles.Fields(tag, "", "", "song", ".txt"), new ProcessRunner.Token()));
+        var requested = new MediaFiles.Fields("", "", "", "renamed", ".txt");
+        Path collision = Files.writeString(temp.resolve("renamed.txt"), "Other identity fixture");
+        assertThrows(IOException.class, () -> editor.edit(track, original, requested, new ProcessRunner.Token()));
+        assertEquals("Other identity fixture", Files.readString(collision));
+        Files.delete(collision);
+        Path lyric = Files.writeString(LyricsFiles.sidecar(collision), "Existing user lyrics");
+        assertThrows(IOException.class, () -> editor.edit(track, original, requested, new ProcessRunner.Token()));
+        assertEquals("Existing user lyrics", Files.readString(lyric));
+        Files.delete(lyric);
+        var token = new ProcessRunner.Token();
+        token.cancel();
+        assertThrows(CancellationException.class, () -> editor.edit(track, original, requested, token));
+        assertEquals("Original identity fixture", Files.readString(source));
+        try (var files = Files.list(temp)) {
+            assertFalse(files.anyMatch(p -> p.getFileName().toString().startsWith(".darkmusic-work-")));
+        }
+    }
+
     @TempDir
     Path temp;
 

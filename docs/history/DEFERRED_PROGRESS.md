@@ -1,0 +1,75 @@
+# Deferred work progress (2026-11-01)
+
+Implementation of the local `DEFERRED_WORK_PLAN.md`, starting from `de11d3c`.
+This is an incremental record: a pending item is not a completed check.
+
+## Working agreement
+
+- The user authorized the desktop/audio testing window and continuous implementation through the plan.
+- Leave changes uncommitted for review, with separate commit boundaries recorded below. Do not push or release.
+- Preserve all five untracked plan files. Use IDEA's formatter, existing managed tools, and the private collection.
+- Update this record after each completed batch so work can resume after context compaction.
+
+## Completed and checked
+
+| Batch | Change | Verification |
+|---|---|---|
+| V | Baseline runtime checks before new production changes | All nine `smoke.ps1 -Scenario suite -DesktopVerify` scenarios passed. Clean desktop build: 868 tests, 6 skipped, zero failures/errors. All 53 collection files unchanged. |
+| V | Baseline PiP and captures | `check-hud-menus`, `check-setup`, `check-spectrum`, and `-PcaptureMusic` passed; 13 original fullscreen GUI-scale-2 captures remain private. |
+| X1 | Test the remaining root collaborators | Added `ClientActions.Inputs`, `ClientReset.Inputs` and explicit reset desktop controls. Tests cover chat feedback/admission, actual reset phases and stopping order, screen request world identity/deadline/death/closing, and shortcut migration over plain data. Focused tests plus `ArchitectureTest` and `MethodLengthTest` passed. |
+| D2.1 | `DownloadDiagnostics.classify` | Cause inspection returns a value; category selection is separate. Added wrapped-cause, cancellation/storage precedence, depth-limit, HTTP, stage and version-context tests. Diagnostic suites passed before and after; architecture and method-length guards passed. |
+| D2.2 | `BackupArchive.prepare` | Settings, root mapping, playlist merging and history merging are separate phases. Added all 64 selection combinations and invalid-input/no-write checks. Backup archive/export/consent/restore suites passed before and after; guards passed. |
+| D2.3 | `ArtworkCache.get` | Separate bounded image reading, native-image preparation/ownership, and render-thread publication. Existing artwork/HUD tests passed before and after; new real-cover bounds and unavailable-cover tests and guards passed. |
+| D2.4 | `MediaFiles.edit` | Validation, identities, companions, staging, commit and cleanup are named phases. The facade retains rollback suppression and recovery retention. New validation/collision/cancellation checks and metadata safety/space/media/import-history suites passed before and after; guards passed. |
+
+Ratchets after these completed batches: `MAX_CLIENT_LINES` 289, `MAX_SERVICES_LINES` 572,
+`MAX_DEBT` 21, `MAX_TEST_REFLECTION` 7, `MAX_SMOKE_REFLECTION` 105. The untested-root list is down from 9 to 5.
+
+## Baseline limitations to carry forward
+
+- `-PlyricsIntegration` ran and failed: the production provider raised `PROVIDER`; a direct request to the same
+  public LRCLIB endpoint returned HTTP 502. This happened before new production changes. Recheck at the end;
+  do not turn the check into a skip or change the provider's behavior to hide it.
+- The manual Lyrics Options save/restore and concurrent-metadata check still needs a recorded runtime result.
+- D1's human listening/device-unplug checklist has not run. Automated PCM equality will not be described as a
+  listening result.
+- Artwork registration failure and native image disposal need the Minecraft runtime; the focused unit tests do
+  not claim injected GPU failure coverage.
+
+## Current batch
+
+D2.5: `DownloadPipeline.download`. Preparation is next: preserve stage/tool attribution in one per-call `Phase`,
+carry phase data in records, and preserve incoming-file ownership and cleanup on every exception path.
+
+## Remaining implementation order
+
+1. D2.5 download pipeline, D2.6 source index, D2.7 duplicate scanner,
+   D2.8 external decoder lifecycle, D2.9 managed tools, D2.10 import/deletion actions, D2.11 restore journal.
+   Keep one method per batch and run its tests before and after. Lower the debt count only when its guard passes.
+2. D1.0: seeded dither/injected clock constructor and `audio/PcmCapture`, using real collection clips.
+   Prove 20 repeated hashes per scenario before moving clock or normalization state; save the baseline hashes.
+3. D1.2 playback clock, D1.3 normalization, D1.4 output change under 60 lines; decide whether transition state stays.
+   Preserve arithmetic order and all cross-thread semantics. Run the named audio suites and golden PCM checks
+   after each step. Record listening limitations honestly; run advanced and queue smoke checks afterwards.
+4. X2 library lyrics walk, preserving the service monitor where existing calls hold it; then X3 environment recipes
+   and optionally parameter type, with byte-identical settings/preset round trips.
+5. Full verification and relevant runtime checks; finish architecture/testing/history documentation; present changes
+   for review and wait for commits.
+
+## Resume evidence and commit boundaries
+
+Current scratch work is under ignored `.local-tools/verification/deferred`:
+
+- `preflight.md`, `branches-before.md`, baseline logs and JSON totals, collection hashes and extra-check summaries.
+- `check.ps1` runs `scripts/verify.ps1` with actual array test filters and prepares/cleans private audio excerpts.
+- `checkpoint.ps1` captures source/doc trees using a separate temporary Git index; it never stages the user's index
+  or creates commits. `batches/sequence.txt`, `.tree` and incremental `.patch` files preserve completed boundaries.
+- Completed boundaries: `01-client-collaborator-tests`, `02-download-diagnostic-phases`,
+  `03-backup-restore-preparation`, `04-artwork-cache-phases`, `05-metadata-edit-phases`.
+- Refactoring helpers emit patches for IDEA's `apply_patch`; IDEA's `reformat_file` formats the resulting sources.
+  Native file writes followed immediately by formatting can race the IDE document cache. Use IDE patches for source
+  edits. Java sources in Git use LF; preserve those endings.
+
+Prior refactoring plans and the associated commits were read before implementation. The approach remains the same:
+small cohesive collaborators, current-service `Inputs`, unchanged operation/cleanup ordering, unchanged locks and
+persisted formats, and guards that only tighten.

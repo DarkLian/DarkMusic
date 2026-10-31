@@ -283,8 +283,11 @@ The follow-ups the maintenance work named, measured against `95ce463`.
   - `JavaSoundBackend` steps 2–5: the playback clock, normalization, and the transition decision. They go with the
     listening check.
   - The I/O method splits.
-- **Checks.** `verify.ps1 -JavaOnly` runs 861 tests: 12 skipped, 0 failed. The smoke runs, PiP, the lyrics
-  integration and the in-game checks wait for the testing window.
+- **Checks.** The original `verify.ps1 -JavaOnly` run had 861 tests: 12 skipped, 0 failed. The deferred-work baseline
+  at `de11d3c` passed all nine smoke scenarios, PiP HUD/menu/setup/spectrum checks, 13 private captures and a clean
+  desktop build (868 tests, 6 skipped, zero failures/errors); the private collection was unchanged. The live lyrics
+  integration check failed against an endpoint returning HTTP 502. Manual lyric-write/admission results and the
+  remaining work are recorded in [deferred work progress](DEFERRED_PROGRESS.md).
 
 ## Open items
 
