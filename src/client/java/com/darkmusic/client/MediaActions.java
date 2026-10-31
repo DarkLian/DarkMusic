@@ -107,19 +107,11 @@ public final class MediaActions {
             services.warn(Text.get("library.darkmusic.busy"));
             return;
         }
-        var library = services.library();
-        var root = library.root();
-        String rootId = library.rootId();
-        if (folder.startsWith("@")) {
-            int slash = folder.indexOf('/');
-            rootId = folder.substring(1, slash < 0 ? folder.length() : slash);
-            root = library.directory(rootId);
-            folder = slash < 0 ? "" : folder.substring(slash + 1);
-            if (root == null) {
-                services.warn(Text.get("library.status.unavailable"));
-                return;
-            }
-        }
+        var destinationPlan = importTarget(folder);
+        if (destinationPlan == null) return;
+        var root = destinationPlan.root();
+        String rootId = destinationPlan.rootId();
+        folder = destinationPlan.folder();
         final var destinationRoot = root;
         final var destinationId = rootId;
         final var destinationFolder = folder;
@@ -311,5 +303,25 @@ public final class MediaActions {
             result.completeExceptionally(busy());
         }
         return result;
+    }
+
+    private record ImportTarget(Path root, String rootId, String folder) {
+    }
+
+    private ImportTarget importTarget(String folder) {
+        var library = services.library();
+        var root = library.root();
+        String rootId = library.rootId();
+        if (folder.startsWith("@")) {
+            int slash = folder.indexOf('/');
+            rootId = folder.substring(1, slash < 0 ? folder.length() : slash);
+            root = library.directory(rootId);
+            folder = slash < 0 ? "" : folder.substring(slash + 1);
+            if (root == null) {
+                services.warn(Text.get("library.status.unavailable"));
+                return null;
+            }
+        }
+        return new ImportTarget(root, rootId, folder);
     }
 }
