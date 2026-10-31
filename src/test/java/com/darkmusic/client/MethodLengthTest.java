@@ -28,51 +28,82 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class MethodLengthTest {
     private static final int LIMIT = 60;
     // Every method over the limit, with its length. Lower these as methods are split; never raise one or add one.
-    private static final Map<String, Integer> ALLOWED = Map.ofEntries(
-        Map.entry("ArtworkCache.get", 83),
-        Map.entry("AudioProcessor.process", 127),
-        Map.entry("AudioSettingsScreen.init", 144),
-        Map.entry("BackupArchive.prepare", 76),
-        Map.entry("CircularHudMesh$Rings.buildVertices", 73),
-        Map.entry("ColorsScreen.init", 86),
-        Map.entry("DownloadDiagnostics.classify", 73),
-        Map.entry("DownloadPipeline.download", 149),
-        Map.entry("DuplicateComparisonScreen.init", 70),
-        Map.entry("DuplicateScanner.scan", 137),
-        Map.entry("ExternalAudio.openAt", 116),
-        Map.entry("JavaSoundBackend.changeOutput", 61),
-        Map.entry("LibrarySourceIndex.drain", 71),
-        Map.entry("LocalCommands.register", 82),
-        Map.entry("LyricsOptionsScreen.populate", 64),
-        Map.entry("ManagedTools.install", 88),
-        Map.entry("MediaActions.deleteAudio", 64),
-        Map.entry("MediaActions.importAudio", 61),
-        Map.entry("MediaFiles.edit", 134),
-        Map.entry("MusicScreen.extractRenderState", 62),
-        Map.entry("NowPlayingHud.renderAt", 147),
-        Map.entry("PipScreen.populate", 83),
-        Map.entry("PlaylistScreen.init", 103),
-        Map.entry("RestoreJournal.recover", 70),
-        Map.entry("SettingsScreen.init", 64),
-        Map.entry("SoundEnvironmentProcessor$Engine.process", 88),
-        Map.entry("SoundEnvironmentScreen.populate", 111),
-        Map.entry("SoundEnvironmentSettings.recipe", 149),
-        Map.entry("SpectrumAnalyzer.analyze", 75),
-        Map.entry("SpectrumRenderer.bars", 87),
-        Map.entry("TrackWaveform.analyze", 72),
-        Map.entry("UpNextScreen.init", 73));
+    // Most are debt. A hot loop or a table written as code is long on purpose and names why.
+    private static final Map<String, Allowed> ALLOWED = Map.ofEntries(
+        debt("ArtworkCache.get", 83),
+        hot("AudioProcessor.process", 127, "the per-sample DSP chain, run for every frame"),
+        debt("AudioSettingsScreen.init", 144),
+        debt("BackupArchive.prepare", 76),
+        hot("CircularHudMesh$Rings.buildVertices", 73, "builds the circular HUD mesh each frame"),
+        debt("ColorsScreen.init", 86),
+        debt("DownloadDiagnostics.classify", 73),
+        debt("DownloadPipeline.download", 149),
+        debt("DuplicateComparisonScreen.init", 70),
+        debt("DuplicateScanner.scan", 137),
+        debt("ExternalAudio.openAt", 116),
+        debt("JavaSoundBackend.changeOutput", 61),
+        debt("LibrarySourceIndex.drain", 71),
+        debt("LocalCommands.register", 82),
+        debt("LyricsOptionsScreen.populate", 64),
+        debt("ManagedTools.install", 88),
+        debt("MediaActions.deleteAudio", 64),
+        debt("MediaActions.importAudio", 61),
+        debt("MediaFiles.edit", 134),
+        debt("MusicScreen.extractRenderState", 62),
+        debt("NowPlayingHud.renderAt", 147),
+        debt("PipScreen.populate", 83),
+        debt("PlaylistScreen.init", 103),
+        debt("RestoreJournal.recover", 70),
+        debt("SettingsScreen.init", 64),
+        hot("SoundEnvironmentProcessor$Engine.process", 88, "the per-sample environment loop, run for every frame"),
+        debt("SoundEnvironmentScreen.populate", 111),
+        data("SoundEnvironmentSettings.recipe", 149, "a 22-case switch of preset parameters: a table written as code"),
+        hot("SpectrumAnalyzer.analyze", 75, "the per-block FFT and band fold"),
+        hot("SpectrumRenderer.bars", 87, "draws every spectrum bar each frame"),
+        hot("TrackWaveform.analyze", 72, "one pass over every sample of a song"),
+        debt("UpNextScreen.init", 73));
+
+    // The debt entries; this only goes down as they are split.
+    private static final int MAX_DEBT = 25;
+
+    enum Kind {DEBT, DATA, HOT}
+
+    record Allowed(int length, Kind kind, String reason) {
+    }
+
+    private static Map.Entry<String, Allowed> debt(String method, int length) {
+        return Map.entry(method, new Allowed(length, Kind.DEBT, ""));
+    }
+
+    private static Map.Entry<String, Allowed> data(String method, int length, String reason) {
+        return Map.entry(method, new Allowed(length, Kind.DATA, reason));
+    }
+
+    private static Map.Entry<String, Allowed> hot(String method, int length, String reason) {
+        return Map.entry(method, new Allowed(length, Kind.HOT, reason));
+    }
+
+    @Test
+    void deliberateLengthSaysWhyAndDebtOnlyShrinks() {
+        assertEquals(new ArrayList<String>(), ALLOWED.entrySet().stream()
+                .filter(e -> e.getValue().kind() != Kind.DEBT && e.getValue().reason().isBlank()).map(Map.Entry::getKey).toList(),
+            "A hot or data entry names why it is long");
+        long debt = ALLOWED.values().stream().filter(a -> a.kind() == Kind.DEBT).count();
+        assertEquals(MAX_DEBT, debt, "Lower MAX_DEBT to the debt entries left; never add one");
+    }
 
     @Test
     void longestMethodsOnlyShrink() throws IOException, URISyntaxException {
         var lengths = measure();
         var violations = new ArrayList<String>();
         lengths.forEach((method, length) -> {
-            Integer allowed = ALLOWED.get(method);
+            Integer allowed = ALLOWED.containsKey(method) ? ALLOWED.get(method).length() : null;
             if (length > LIMIT && (allowed == null || length > allowed))
                 violations.add("Map.entry(\"" + method + "\", " + length + ")" + (allowed == null ? "" : " // allowed " + allowed));
         });
         var stale = new ArrayList<String>();
-        ALLOWED.forEach((method, allowed) -> {
+        ALLOWED.forEach((method, entry) -> {
+            int allowed = entry.length();
             Integer length = lengths.get(method);
             if (length == null || length <= LIMIT || length < allowed)
                 stale.add(method + " is now " + (length == null ? "gone" : length) + "; lower or remove its entry");
