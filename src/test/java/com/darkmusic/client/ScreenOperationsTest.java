@@ -17,14 +17,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Screens change playback, the queue, playlists and downloads only through gui.TransportOperations,
- * QueueOperations, PlaylistOperations and DownloadOperations, which apply the admission once for every screen. Checked on the compiled gui classes, by the
- * owner of each call, so methods named next or add on other types do not count.
+ * Screens change playback, the queue, playlists, downloads and lyrics only through gui.TransportOperations,
+ * QueueOperations, PlaylistOperations, DownloadOperations and LyricsOperations, which apply the admission once for
+ * every screen. Checked on the compiled gui classes, by the owner of each call, so methods named next or add on other
+ * types do not count.
  */
 class ScreenOperationsTest {
     private static final String PLAYBACK = "com/darkmusic/client/audio/PlaybackController";
     private static final String PLAYLISTS = "com/darkmusic/client/playlist/PlaylistStore";
     private static final String DOWNLOADS = "com/darkmusic/client/download/DownloadService";
+    private static final String LYRICS = "com/darkmusic/client/lyrics/LyricsService";
+    private static final String LOOKUP = "com/darkmusic/client/lyrics/LyricsLookup";
     // What TransportOperations and QueueOperations cover; shuffle and repeat with an argument are the setters.
     private static final Set<String> PLAYBACK_CHANGES = Set.of("play", "toggle", "next", "previous", "seek", "seekRelative",
         "stop", "pause", "resume", "playNext", "addToQueue", "insertQueued", "reorderQueued", "removeQueued", "clearQueued");
@@ -34,6 +37,13 @@ class ScreenOperationsTest {
     // What the download screens read from the service; everything else on it changes it.
     private static final Set<String> DOWNLOAD_READS = Set.of("snapshot", "analysisDiagnostic", "toolDiagnostic",
         "diagnostic", "duplicateChoice", "toolVersions", "toolsBusy", "inputUrl", "lastAnalyzedUrl");
+    // What the screens read from lyrics; request and inspect only ask for a song's lyrics to be loaded for display.
+    private static final Set<String> LYRICS_READS = Set.of("get", "document", "inspected", "info", "status",
+        "sidecarExists", "backupExists", "libraryChecked", "libraryLookupRunning", "libraryRequests",
+        "libraryRetrySeconds", "libraryTotal", "request", "inspect");
+    // encoding with a value is the setter.
+    private static final Set<String> LOOKUP_READS = Set.of("choice", "snapshot", "busy", "cooldownSeconds",
+        "retrySeconds", "source", "knownInfo");
 
     @Test
     void screensMutateThroughOperations() throws IOException, URISyntaxException {
@@ -51,10 +61,13 @@ class ScreenOperationsTest {
                             @Override
                             public void visitMethodInsn(int opcode, String owner, String name, String called, boolean isInterface) {
                                 boolean setter = (name.equals("shuffle") || name.equals("repeat")) && !called.startsWith("()");
+                                boolean encodingRead = name.equals("encoding") && called.endsWith(")Ljava/lang/String;");
                                 if (owner.equals(PLAYBACK)) calls.add(name);
                                 if (owner.equals(PLAYBACK) && (PLAYBACK_CHANGES.contains(name) || setter)
                                     || owner.equals(PLAYLISTS) && !name.equals("<init>") && !PLAYLIST_READS.contains(name)
-                                    || owner.equals(DOWNLOADS) && !name.equals("<init>") && !DOWNLOAD_READS.contains(name))
+                                    || owner.equals(DOWNLOADS) && !name.equals("<init>") && !DOWNLOAD_READS.contains(name)
+                                    || owner.equals(LYRICS) && !name.equals("<init>") && !LYRICS_READS.contains(name)
+                                    || owner.equals(LOOKUP) && !LOOKUP_READS.contains(name) && !encodingRead)
                                     violations.add(type + " calls " + owner.substring(owner.lastIndexOf('/') + 1) + "." + name);
                             }
                         };

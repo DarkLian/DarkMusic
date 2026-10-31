@@ -25,6 +25,7 @@ import com.darkmusic.client.gui.HudEditorScreen;
 import com.darkmusic.client.gui.IgnoredMatchesScreen;
 import com.darkmusic.client.gui.ImportHistoryScreen;
 import com.darkmusic.client.gui.LibraryManagerScreen;
+import com.darkmusic.client.gui.LyricsOperations;
 import com.darkmusic.client.gui.LyricsScreen;
 import com.darkmusic.client.gui.MetadataScreen;
 import com.darkmusic.client.gui.MusicFoldersScreen;
@@ -85,6 +86,7 @@ public final class ClientSources implements MusicScreen.Sources, SettingsScreen.
     private final PlaybackCommands commands;
     private final PlaylistActions playlistActions;
     private final DownloadActions downloadActions;
+    private final LyricsActions lyricsActions;
     private final FolderActions folders;
     private final MediaActions media;
     private final BackupActions backups;
@@ -100,6 +102,7 @@ public final class ClientSources implements MusicScreen.Sources, SettingsScreen.
         this.commands = commands;
         this.playlistActions = playlistActions;
         downloadActions = new DownloadActions(services);
+        lyricsActions = new LyricsActions(services, services.state);
         this.folders = folders;
         this.media = media;
         this.backups = backups;
@@ -306,6 +309,11 @@ public final class ClientSources implements MusicScreen.Sources, SettingsScreen.
     @Override
     public DownloadOperations downloadOperations() {
         return downloadActions;
+    }
+
+    @Override
+    public LyricsOperations lyricsOperations() {
+        return lyricsActions;
     }
 
     @Override

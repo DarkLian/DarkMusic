@@ -25,13 +25,13 @@ public final class LyricsLibraryScreen extends AudioPage<LyricsScreen.Sources> {
             ? UiStatus.Tone.WARNING : UiStatus.Tone.INFO);
         int start = rowCount();
         action("lyrics.library.start", () -> {
-            app.lyrics().startLibraryLookup();
+            app.lyricsOperations().startLibraryLookup();
             rebuildWidgets();
         }).runs();
         enableSince(start, !running && app.settings().lyricsEnabled && app.settings().lyricsOnline && !app.library().snapshot().scanning());
         start = rowCount();
         action("lyrics.library.cancel", () -> {
-            app.lyrics().cancelLibraryLookup();
+            app.lyricsOperations().cancelLibraryLookup();
             rebuildWidgets();
         }).runs();
         enableSince(start, running);

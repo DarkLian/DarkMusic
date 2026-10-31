@@ -37,6 +37,11 @@ public final class LyricsScreen extends LocalScreen {
         LyricsService lyrics();
 
         /**
+         * Lyrics changes; reads stay on {@link #lyrics()}.
+         */
+        LyricsOperations lyricsOperations();
+
+        /**
          * Null until startup creates the player.
          */
         PlaybackController playback();
@@ -87,7 +92,7 @@ public final class LyricsScreen extends LocalScreen {
         app.lyrics().request(track);
         var document = app.lyrics().document(track);
         if (app.settings().lyricsAutomaticLookup && app.lyrics().inspected(track))
-            app.lyrics().lookup.automatic(track, document.available());
+            app.lyricsOperations().automatic(track, document.available());
         plain.visible = document.available() && !document.synchronizedLyrics() && !document.instrumental();
         if (rendered != document) {
             rendered = document;

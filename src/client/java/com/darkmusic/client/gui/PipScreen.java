@@ -48,7 +48,7 @@ public final class PipScreen extends AudioPage<PipScreen.Sources> implements Pip
         shownActive = pip.active();
         shownAudio = pip.audio();
         var s = app.settings().pip;
-        var setup = pip.tools.runtime;
+        var setup = pip.setup();
         shownSetup = setup.status();
         shownBusy = setup.busy();
         shownReady = setup.ready();
@@ -131,7 +131,7 @@ public final class PipScreen extends AudioPage<PipScreen.Sources> implements Pip
 
     @Override
     public void tick() {
-        var setup = app.pip().tools.runtime;
+        var setup = app.pip().setup();
         if (shownActive != app.pip().active() || shownAudio != app.pip().audio() || !shownSetup.equals(setup.status()) || shownBusy != setup.busy() || shownReady != setup.ready() || shownEnabled != app.settings().pip.enabled)
             rebuildWidgets();
     }

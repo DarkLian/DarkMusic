@@ -31,7 +31,7 @@ public final class LyricCandidateScreen extends LocalScreen {
         rows.rows(lines.stream().map(line -> new RowList.Row(line, "")).toList());
         addRenderableWidget(UiButton.builder(Text.component("lyrics.apply"), b -> {
             b.active = false;
-            app.lyrics().lookup.select(track, document).whenComplete((done, failure) -> minecraft.execute(() -> {
+            app.lyricsOperations().select(track, document).whenComplete((done, failure) -> minecraft.execute(() -> {
                 if (failure == null) onClose();
                 else {
                     error = Text.get("lyrics.operation_failed");

@@ -59,7 +59,7 @@ import java.util.function.Consumer;
  * getters on each use rather than keeping them: reset and restore publish replacements here, and the HUD, PiP and
  * reconciliation adapters read the current one on every call. Services are built and replaced on the client thread.
  */
-public final class ClientServices implements PlaybackCommands.Inputs, PlaylistActions.Inputs, DownloadActions.Inputs, MediaActions.Inputs, FolderActions.Inputs, OutputActions.Inputs, BackupActions.Inputs {
+public final class ClientServices implements PlaybackCommands.Inputs, PlaylistActions.Inputs, DownloadActions.Inputs, MediaActions.Inputs, FolderActions.Inputs, OutputActions.Inputs, BackupActions.Inputs, LyricsActions.Inputs {
     // Shutdown, reset and busy flags, and the checks built from them.
     final ClientState state = new ClientState();
     private final Warnings warnings = new Warnings(state);

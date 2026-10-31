@@ -43,7 +43,7 @@ class ArchitectureTest {
     private static final Path TESTS = Path.of("src/test/java/com/darkmusic/client");
     private static final Set<String> ROOT_TESTS = new TreeSet<>(Set.of("ArchitectureTest", "BackupActionsTest",
         "BackupRestoreTest", "CleanupTest", "ClientStateTest", "DownloadActionsTest", "FolderActionsTest",
-        "LibraryReconciliationTest", "MediaActionsTest", "MethodLengthTest", "OutputActionsTest", "PackagedJarTest",
+        "LibraryReconciliationTest", "LyricsActionsTest", "MediaActionsTest", "MethodLengthTest", "OutputActionsTest", "PackagedJarTest",
         "PlaybackCommandsTest", "PlaylistActionsTest", "ResetOperationTest", "ResetStopTest", "RestoreOperationTest",
         "ScreenOperationsTest", "SettingsSettersTest", "SmokeReflectionTest", "StartupShutdownTest", "WarningsTest"));
     // The structure guards name root classes to check them, not to test what they do.

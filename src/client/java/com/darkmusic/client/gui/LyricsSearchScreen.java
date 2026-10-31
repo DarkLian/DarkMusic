@@ -47,7 +47,7 @@ public final class LyricsSearchScreen extends LocalScreen {
         Help.tip(song, Text.get("lyrics.search_title"));
         Help.tip(artist, Text.get("lyrics.search_artist"));
         var search = addRenderableWidget(UiButton.builder(Text.component("lyrics.search"), b -> {
-            app.lyrics().lookup.search(track, new LyricsProvider.Query(song.getValue().strip(), artist.getValue().strip(), track.album(), track.duration()), false);
+            app.lyricsOperations().search(track, new LyricsProvider.Query(song.getValue().strip(), artist.getValue().strip(), track.album(), track.duration()), false);
         }).bounds(12, 60, half, 20).build());
         var source = addRenderableWidget(UiButton.builder(Text.component("lyrics.source_search"), b ->
             app.lyrics().lookup.source(track, app.settings().lyricsLanguages, app.settings().lyricsAutoCaptions)).bounds(16 + half, 60, half, 20).build());
@@ -60,10 +60,10 @@ public final class LyricsSearchScreen extends LocalScreen {
         rows.emptyMessage(Text.get(app.settings().lyricsOnline ? "lyrics.search_prompt" : "lyrics.online_required"));
         int third = (width - 32) / 3;
         preview = addRenderableWidget(UiButton.builder(Text.component("lyrics.preview"), b -> preview()).bounds(12, height - 28, third, 20).build());
-        addRenderableWidget(UiButton.builder(Text.component("lyrics.refresh"), b -> app.lyrics().lookup.search(track,
+        addRenderableWidget(UiButton.builder(Text.component("lyrics.refresh"), b -> app.lyricsOperations().search(track,
                 new LyricsProvider.Query(song.getValue().strip(), artist.getValue().strip(), track.album(), track.duration()), true))
             .bounds(16 + third, height - 28, third, 20).build()).active = app.settings().lyricsEnabled && app.settings().lyricsOnline;
-        addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.cancel"), b -> app.lyrics().lookup.cancel(track)).bounds(20 + 2 * third, height - 28, third, 20).build());
+        addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.cancel"), b -> app.lyricsOperations().cancel(track)).bounds(20 + 2 * third, height - 28, third, 20).build());
         shown = null;
         tick();
     }

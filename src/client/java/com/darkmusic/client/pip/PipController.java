@@ -6,6 +6,7 @@ import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.SpectrumRenderer;
 import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
+import com.darkmusic.client.tools.ProcessRunner;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.Minecraft;
@@ -16,6 +17,7 @@ import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWNativeWin32;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -23,7 +25,7 @@ import java.util.concurrent.CompletableFuture;
  */
 public final class PipController implements AutoCloseable {
     private final PipSources sources;
-    public final PipNativeTools tools;
+    private final PipNativeTools tools;
     private final PipTexture texture = new PipTexture(Identifier.fromNamespaceAndPath("darkmusic", "pip"));
     private final SpectrumRenderer audioSpectrum = new SpectrumRenderer();
     // Reused rendering adapter: never temporarily swap or edit the user's music preferences.
@@ -72,6 +74,20 @@ public final class PipController implements AutoCloseable {
 
     public boolean active() {
         return preparing || session != null && session.healthy();
+    }
+
+    /**
+     * The optional helper's installation: its status line, and whether it is installing or ready.
+     */
+    public PipRuntime setup() {
+        return tools.runtime;
+    }
+
+    /**
+     * The windows PiP can show, as the helper lists them.
+     */
+    public CompletableFuture<List<PipSource>> windows(ProcessRunner.Token token) {
+        return tools.windows(token);
     }
 
     public String status() {

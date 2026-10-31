@@ -39,6 +39,6 @@ public final class LyricsSettingsScreen extends AudioPage<LyricsScreen.Sources> 
                 app.save();
             }))).navigates();
         action("lyrics.clear_cache", () -> show(new ConfirmationScreen(this, Text.component("lyrics.clear_cache"), Text.component("lyrics.clear_cache.help"),
-            Text.component("lyrics.clear_cache"), () -> app.lyrics().lookup.clearCache()))).destructive();
+            Text.component("lyrics.clear_cache"), () -> app.lyricsOperations().clearCache()))).destructive();
     }
 }

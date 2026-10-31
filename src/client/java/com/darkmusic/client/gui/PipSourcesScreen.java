@@ -63,7 +63,7 @@ public final class PipSourcesScreen extends LocalScreen implements PipPreview {
         token = request;
         status = "pip.windows_loading";
         choose.active = false;
-        app.pip().tools.windows(request).whenComplete((windows, error) -> Minecraft.getInstance().execute(() -> {
+        app.pip().windows(request).whenComplete((windows, error) -> Minecraft.getInstance().execute(() -> {
             if (!isCurrent() || request != token || request.cancelled()) return;
             if (error != null) {
                 status = PipNativeTools.failure(error);

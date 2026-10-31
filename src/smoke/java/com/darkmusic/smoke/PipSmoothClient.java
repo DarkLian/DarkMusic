@@ -109,14 +109,14 @@ final class PipSmoothClient {
         if (joinedTick == 0) joinedTick = ticks;
         if (selecting || ticks - joinedTick < 200 || !Files.exists(folder.resolve("select-fixture"))) return;
         selecting = true;
-        var setup = app.services().pip().tools.runtime;
+        var setup = app.services().pip().setup();
         app.services().settings().pip.enabled = true;
         note("select-start");
         setup.check().thenCompose(done -> {
                 note("checked ready=" + setup.ready() + " status=" + setup.status());
                 return setup.ready() ? CompletableFuture.<Void>completedFuture(null) : setup.install();
             })
-            .thenCompose(done -> app.services().pip().tools.windows(new ProcessRunner.Token()))
+            .thenCompose(done -> app.services().pip().windows(new ProcessRunner.Token()))
             .thenAccept(sources -> mc.execute(() -> {
                 var matches = sources.stream().filter(s -> s.Title().contains(sourceTitle)).toList();
                 note("windows=" + sources.size() + " matches=" + matches.size());
@@ -174,7 +174,7 @@ final class PipSmoothClient {
                 if (!sourceTitle.isEmpty() || Files.exists(folder.resolve("check-hud-menus"))) joinBenchmarkWorld(mc);
                 else mc.gui.setScreen(new PipScreen(app.sources(), null));
                 if (sourceTitle.isEmpty() && Boolean.getBoolean("darkmusic.pipBenchmark") && Files.exists(folder.resolve("select-fixture")))
-                    app.services().pip().tools.windows(new ProcessRunner.Token()).thenAccept(sources -> mc.execute(() -> {
+                    app.services().pip().windows(new ProcessRunner.Token()).thenAccept(sources -> mc.execute(() -> {
                         var fixtures = sources.stream().filter(s -> s.App().equals("DarkMusic.Pip.BenchmarkSource")).toList();
                         if (fixtures.size() != 1)
                             throw new IllegalStateException("Expected one explicitly requested private capture fixture");
