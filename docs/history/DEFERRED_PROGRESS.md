@@ -28,9 +28,10 @@ This is an incremental record: a pending item is not a completed check.
 | D2.9 | `ManagedTools.install` | Ordered release/asset planning, manifest creation and asset preparation are named phases. Added install-lock, failed repair and failed pointer-publication checks; the pointer case also passed against the original checkpoint. Managed-tool/deadline/PiP unit suites, guards, and published-tool install/conversion integration passed before and after. |
 | D2.10a | `MediaActions.importAudio` | Destination resolution returns an immutable `ImportTarget`; busy flags, captured services, browse execution and client publication keep their order. Media-actions/deletion/companion suites and guards passed before and after. This also checks the unchanged deletion method before D2.10b. |
 | D2.10b | `MediaActions.deleteAudio` | Deleted-file provenance cleanup is a named phase; each cleanup exception and the outer failure handling retain their boundaries. Media-actions/deletion/companion suites and guards passed after the split. |
+| D2.11 | `RestoreJournal.recover` | Journal validation and complete inspection return a `RecoveryPlan` whose ordered targets are immutable; apply receives only that plan and retains claim/revalidation/rollback behavior. New inspection-before-write and unsafe-journal tests plus archive/restore/operation suites and guards passed before and after. All twelve D2 methods are now below the length limit. |
 
 Ratchets after these completed batches: `MAX_CLIENT_LINES` 289, `MAX_SERVICES_LINES` 572,
-`MAX_DEBT` 14, `MAX_TEST_REFLECTION` 7, `MAX_SMOKE_REFLECTION` 105. The untested-root list is down from 9 to 5.
+`MAX_DEBT` 13, `MAX_TEST_REFLECTION` 7, `MAX_SMOKE_REFLECTION` 105. The untested-root list is down from 9 to 5.
 
 ## Baseline limitations to carry forward
 
@@ -45,14 +46,13 @@ Ratchets after these completed batches: `MAX_CLIENT_LINES` 289, `MAX_SERVICES_LI
 
 ## Current batch
 
-D2.11: `RestoreJournal.recover`. New tests prove all originals/current/held files are inspected before applying
-the first target; absent and unsafe journals preserve targets. These and the archive/restore/operation suites passed
-against the original method. Next, make inspection return an immutable plan and let apply receive only that plan.
+D1.0: full Java verification after D2, then the deterministic PCM fixture. The backend clock and normalization
+state have not moved. Add seeded dither and an injected stall clock without changing the production constructors'
+behavior, prove repeated captures before extraction, and record a separate pre-extraction checkpoint.
 
 ## Remaining implementation order
 
-1. D2.11 restore journal.
-   Keep one method per batch and run its tests before and after. Lower the debt count only when its guard passes.
+1. Finish full D2 verification and compile the smoke sources. D2 cleanup smoke will be rerun with the final runtime checks.
 2. D1.0: seeded dither/injected clock constructor and `audio/PcmCapture`, using real collection clips.
    Prove 20 repeated hashes per scenario before moving clock or normalization state; save the baseline hashes.
 3. D1.2 playback clock, D1.3 normalization, D1.4 output change under 60 lines; decide whether transition state stays.
@@ -75,7 +75,7 @@ Current scratch work is under ignored `.local-tools/verification/deferred`:
   `03-backup-restore-preparation`, `04-artwork-cache-phases`, `05-metadata-edit-phases`,
   `06-download-pipeline-phases`, `07-source-index-inspection`, `08-duplicate-scan-phases`,
   `09-external-decoder-lifecycle`, `10-managed-tool-install-phases`, `11-import-destination-plan`,
-  `12-deletion-provenance-phase`.
+  `12-deletion-provenance-phase`, `13-restore-recovery-plan`.
 - Refactoring helpers emit patches for IDEA's `apply_patch`; IDEA's `reformat_file` formats the resulting sources.
   Native file writes followed immediately by formatting can race the IDE document cache. Use IDE patches for source
   edits. Java sources in Git use LF; preserve those endings.

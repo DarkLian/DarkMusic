@@ -42,7 +42,6 @@ class MethodLengthTest {
         debt("NowPlayingHud.renderAt", 147),
         debt("PipScreen.populate", 83),
         debt("PlaylistScreen.init", 103),
-        debt("RestoreJournal.recover", 70),
         debt("SettingsScreen.init", 64),
         hot("SoundEnvironmentProcessor$Engine.process", 88, "the per-sample environment loop, run for every frame"),
         debt("SoundEnvironmentScreen.populate", 111),
@@ -53,7 +52,7 @@ class MethodLengthTest {
         debt("UpNextScreen.init", 73));
 
     // The debt entries; this only goes down as they are split.
-    private static final int MAX_DEBT = 14;
+    private static final int MAX_DEBT = 13;
 
     enum Kind {DEBT, DATA, HOT}
 

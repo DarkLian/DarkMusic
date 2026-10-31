@@ -88,72 +88,9 @@ public final class RestoreJournal {
     public static boolean recover(Path directory) throws IOException {
         Path journal = directory.resolve(JOURNAL);
         if (!Files.exists(journal, LinkOption.NOFOLLOW_LINKS)) return false;
-        if (Files.isSymbolicLink(directory) || Files.isSymbolicLink(journal) || !Files.isRegularFile(journal)
-            || Files.size(journal) > 16_384) throw new IOException("Unsafe recovery journal");
-        Recovery recovery;
-        try {
-            recovery = ConfigStore.JSON.fromJson(Files.readString(journal), Recovery.class);
-            if (recovery == null || (recovery.version != 1 && recovery.version != 2) || recovery.existed == null || recovery.existed.isEmpty()
-                || !TARGETS.containsAll(recovery.existed.keySet()) || recovery.existed.values().stream().anyMatch(Objects::isNull)
-                || recovery.backup == null || !UUID.fromString(recovery.backup).toString().equals(recovery.backup))
-                throw new IllegalArgumentException();
-            if (recovery.version == 2 && (recovery.before == null || recovery.after == null
-                || !recovery.before.keySet().equals(recovery.existed.keySet()) || !recovery.after.keySet().equals(recovery.existed.keySet())
-                || recovery.before.values().stream().anyMatch(v -> v == null || !v.isEmpty() && !v.matches("[a-f0-9]{64}"))
-                || recovery.after.values().stream().anyMatch(v -> v == null || !v.matches("[a-f0-9]{64}"))))
-                throw new IllegalArgumentException();
-        } catch (RuntimeException invalid) {
-            throw new IOException("Invalid restore recovery journal", invalid);
-        }
-        Path backups = directory.resolve("backups"), originals = backups.resolve(recovery.backup);
-        if (Files.isSymbolicLink(backups) || Files.isSymbolicLink(originals))
-            throw new IOException("Unsafe recovery directory");
-        // Read all originals and inspect all current targets before changing anything.
-        var before = new LinkedHashMap<String, String>();
-        for (var e : recovery.existed.entrySet()) {
-            Path destination = target(directory, e.getKey()), source = originals.resolve(e.getKey());
-            if (e.getValue() && (Files.isSymbolicLink(source) || !Files.isRegularFile(source) || Files.size(source) > 32_000_000))
-                throw new IOException("Missing or invalid recovery copy");
-            String original = e.getValue() ? Files.readString(source) : null;
-            if (recovery.version == 2 && !Objects.equals(recovery.before.get(e.getKey()), original == null ? "" : digest(original)))
-                throw new IOException("Recovery copy does not match journal");
-            before.put(e.getKey(), original);
-            inspectRecovery(destination, recovery, e.getKey(), original, originals);
-            Path held = originals.resolve("recover-" + e.getKey());
-            if (Files.exists(held, LinkOption.NOFOLLOW_LINKS)) {
-                targetFile(held);
-                inspectRecovery(held, recovery, e.getKey(), original, originals);
-            }
-        }
-        for (var e : before.entrySet()) {
-            String name = e.getKey(), original = e.getValue();
-            Path destination = target(directory, name), held = originals.resolve("recover-" + name);
-            String current = Files.exists(destination) ? Files.readString(destination) : null;
-            if (!Objects.equals(current, original)) {
-                if (Files.exists(destination)) {
-                    if (Files.exists(held, LinkOption.NOFOLLOW_LINKS)) throw conflict(destination, originals);
-                    // Claim and validate the actual object, rather than overwriting a checked pathname.
-                    Files.move(destination, held);
-                    try {
-                        targetFile(held);
-                        inspectRecovery(held, recovery, name, original, originals);
-                    } catch (IOException conflict) {
-                        if (Files.notExists(destination)) Files.move(held, destination);
-                        throw conflict;
-                    }
-                }
-                if (original != null) {
-                    Path staged = Files.createTempFile(originals, "restore-", ".tmp");
-                    try {
-                        Files.writeString(staged, original);
-                        Files.move(staged, destination); // Never overwrite an external replacement.
-                    } finally {
-                        Files.deleteIfExists(staged);
-                    }
-                }
-            }
-            Files.deleteIfExists(held);
-        }
+        var recovery = readRecovery(directory, journal);
+        var plan = inspectRecovery(directory, journal, recovery);
+        applyRecovery(plan);
         Files.delete(journal);
         pruneBackups(directory);
         return true;
@@ -230,5 +167,95 @@ public final class RestoreJournal {
 
     public static boolean recoveryPending(Path directory) {
         return Files.exists(directory.resolve(JOURNAL), LinkOption.NOFOLLOW_LINKS);
+    }
+
+    private record Original(String name, String content) {
+    }
+
+    private record RecoveryPlan(Path directory, Path journal, Path originals, Recovery recovery,
+                                List<Original> targets) {
+    }
+
+    private static Recovery readRecovery(Path directory, Path journal) throws IOException {
+        if (Files.isSymbolicLink(directory) || Files.isSymbolicLink(journal) || !Files.isRegularFile(journal)
+            || Files.size(journal) > 16_384) throw new IOException("Unsafe recovery journal");
+        Recovery recovery;
+        try {
+            recovery = ConfigStore.JSON.fromJson(Files.readString(journal), Recovery.class);
+            if (recovery == null || (recovery.version != 1 && recovery.version != 2) || recovery.existed == null || recovery.existed.isEmpty()
+                || !TARGETS.containsAll(recovery.existed.keySet()) || recovery.existed.values().stream().anyMatch(Objects::isNull)
+                || recovery.backup == null || !UUID.fromString(recovery.backup).toString().equals(recovery.backup))
+                throw new IllegalArgumentException();
+            if (recovery.version == 2 && (recovery.before == null || recovery.after == null
+                || !recovery.before.keySet().equals(recovery.existed.keySet()) || !recovery.after.keySet().equals(recovery.existed.keySet())
+                || recovery.before.values().stream().anyMatch(v -> v == null || !v.isEmpty() && !v.matches("[a-f0-9]{64}"))
+                || recovery.after.values().stream().anyMatch(v -> v == null || !v.matches("[a-f0-9]{64}"))))
+                throw new IllegalArgumentException();
+        } catch (RuntimeException invalid) {
+            throw new IOException("Invalid restore recovery journal", invalid);
+        }
+        return recovery;
+    }
+
+    /**
+     * Every original, current target and held file is inspected before an apply plan can exist.
+     */
+    private static RecoveryPlan inspectRecovery(Path directory, Path journal, Recovery recovery) throws IOException {
+        Path backups = directory.resolve("backups"), originals = backups.resolve(recovery.backup);
+        if (Files.isSymbolicLink(backups) || Files.isSymbolicLink(originals))
+            throw new IOException("Unsafe recovery directory");
+        // Read all originals and inspect all current targets before changing anything.
+        var before = new LinkedHashMap<String, String>();
+        for (var e : recovery.existed.entrySet()) {
+            Path destination = target(directory, e.getKey()), source = originals.resolve(e.getKey());
+            if (e.getValue() && (Files.isSymbolicLink(source) || !Files.isRegularFile(source) || Files.size(source) > 32_000_000))
+                throw new IOException("Missing or invalid recovery copy");
+            String original = e.getValue() ? Files.readString(source) : null;
+            if (recovery.version == 2 && !Objects.equals(recovery.before.get(e.getKey()), original == null ? "" : digest(original)))
+                throw new IOException("Recovery copy does not match journal");
+            before.put(e.getKey(), original);
+            inspectRecovery(destination, recovery, e.getKey(), original, originals);
+            Path held = originals.resolve("recover-" + e.getKey());
+            if (Files.exists(held, LinkOption.NOFOLLOW_LINKS)) {
+                targetFile(held);
+                inspectRecovery(held, recovery, e.getKey(), original, originals);
+            }
+        }
+        var targets = before.entrySet().stream().map(e -> new Original(e.getKey(), e.getValue())).toList();
+        return new RecoveryPlan(directory, journal, originals, recovery, targets);
+    }
+
+    private static void applyRecovery(RecoveryPlan plan) throws IOException {
+        Path directory = plan.directory(), originals = plan.originals();
+        var recovery = plan.recovery();
+        for (var e : plan.targets()) {
+            String name = e.name(), original = e.content();
+            Path destination = target(directory, name), held = originals.resolve("recover-" + name);
+            String current = Files.exists(destination) ? Files.readString(destination) : null;
+            if (!Objects.equals(current, original)) {
+                if (Files.exists(destination)) {
+                    if (Files.exists(held, LinkOption.NOFOLLOW_LINKS)) throw conflict(destination, originals);
+                    // Claim and validate the actual object, rather than overwriting a checked pathname.
+                    Files.move(destination, held);
+                    try {
+                        targetFile(held);
+                        inspectRecovery(held, recovery, name, original, originals);
+                    } catch (IOException conflict) {
+                        if (Files.notExists(destination)) Files.move(held, destination);
+                        throw conflict;
+                    }
+                }
+                if (original != null) {
+                    Path staged = Files.createTempFile(originals, "restore-", ".tmp");
+                    try {
+                        Files.writeString(staged, original);
+                        Files.move(staged, destination); // Never overwrite an external replacement.
+                    } finally {
+                        Files.deleteIfExists(staged);
+                    }
+                }
+            }
+            Files.deleteIfExists(held);
+        }
     }
 }
