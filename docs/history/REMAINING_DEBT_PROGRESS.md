@@ -14,6 +14,7 @@ verification, with commits waiting for approval. Six untracked local plan files 
 | U4 | Utility divider and copied-link feedback are private render groups in their original drawing order. | GUI suites and guards pass. MAX_DEBT 9. Native default smoke and comparison pending. |
 | U5 | Duplicate comparison columns, review actions and asynchronous detail loading are private sections. | GUI/cleanup suites and guards pass. MAX_DEBT 8. Native cleanup smoke and comparison pending. |
 | U6 | Current/manual lists, automatic list and queue actions are private sections; double-click and checked-row rules retained. | GUI/UpNext suites and guards pass; all reflected fields preserved. MAX_DEBT 7. Native queue/cleanup checks pending. |
+| U7 | PiP setup/admission rows remain in populate; capture controls form a private section. | GUI/PiP suites and guards pass. MAX_DEBT 6. Native PiP checks and comparison pending. |
 
 G2 bytecode sizes: AudioProcessor 1731, environment Engine 1474, SpectrumAnalyzer 1099, TrackWaveform 804,
 CircularHudMesh.Rings 1570, SpectrumRenderer.bars 1428 bytes. No hot method exceeds 8000 bytes.

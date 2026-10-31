@@ -5,6 +5,7 @@ import com.darkmusic.client.pip.PipAudio;
 import com.darkmusic.client.pip.PipController;
 import com.darkmusic.client.pip.PipNativeTools;
 import com.darkmusic.client.pip.PipPreview;
+import com.darkmusic.client.pip.PipRuntime;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.text.Text;
@@ -77,6 +78,10 @@ public final class PipScreen extends AudioPage<PipScreen.Sources> implements Pip
             });
         }).runs();
         if (!s.enabled) return;
+        captureControls(pip, s, setup);
+    }
+
+    private void captureControls(PipController pip, PipSettings s, PipRuntime setup) {
         status(() -> Text.get(pip.status()), () -> pip.status().equals("pip.live") ? UiStatus.Tone.SUCCESS : pip.status().equals("pip.idle") ? UiStatus.Tone.INFO : UiStatus.Tone.WARNING);
         info(() -> pip.source() == null ? Text.get("pip.no_source") : pip.source().App() + " — " + pip.source().Title());
         if (!PipNativeTools.supported()) {
