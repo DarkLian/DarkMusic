@@ -148,6 +148,46 @@ between, and a failure there withdraws startup either way.
   `default` run failed because one check set the client's `warningUntil` by name; it now sets it on `Warnings`, and
   `default` and `default-restart` passed on the rerun. The PiP smoke with `check-hud-menus` passed.
 
+## Structure follow-ups (2026-10-31)
+
+Measured against `6128318`. The client split moved the place where hurried changes land; this work guarded the new
+holder, turned screen mutations into operations, gave ranged settings one definition, and shortened the longest
+classes and methods. It changes structure only: no thread, executor or persisted format changes.
+
+- **Guards.** `MAX_SERVICES_LINES` and `clientServicesHoldsNoPolicy` for `ClientServices`; `MethodLengthTest` (no
+  method grows past 60 compiled lines, 40 listed at their length and ratcheted down); `SmokeReflectionTest` (names
+  smoke code reflects must still exist); `ScreenOperationsTest` and `SettingsSettersTest` (below). Each was checked
+  to fail on an injected violation.
+- **Screen operations.** `gui.TransportOperations`, `QueueOperations`, `PlaylistOperations` and `PlayerQueries`,
+  implemented by `PlaybackCommands` and `PlaylistActions`. Each operation keeps the admission its call sites used, so
+  no open screen behaves differently: play/toggle/next/previous/seek `idle`; stop/pause/resume `alive` (the sites had
+  no guard; `idle` would stop Stop during an import); queue `canEditQueue`; playlists `playlistsReady` and no media
+  operation, stricter than the sites but unreachable because those controls are inactive meanwhile. `play` is a
+  transport operation: under `canEditQueue` it would also be refused during an output switch.
+- **Settings ranges.** `config.Range`, applied by `validate()` and by a same-named setter, for the 95 fields whose
+  range code outside `config` wrote (132 sites). Fields with dependent, nullable or derived values keep their plain
+  field. A reflection dump of `Settings` after `validate()` for the real `config.json` and for every numeric field
+  at edge values is byte-identical before and after.
+- **Large classes.** `SettingsScreen` 830 to ~395 lines (layout toolkit, four section classes, search);
+  `DownloadService` keeps one monitor, with its tools, caption fetch, duplicate review and preview state moved out;
+  `LyricsLookup` gives its file record and its retry schedule their own classes and keeps the in-memory choice state,
+  which shares its monitor; `MusicScreen.init`/`tick` split into methods; `JavaSoundBackend.run` 284 to 29 lines by
+  method extraction only, same order within an iteration.
+- **Narrower than planned.** `MusicScreen`'s `PlayerBrowser`/`TransportBar` were not extracted, because smoke
+  reflects 12 of the fields they would own. `LyricsLookup`'s choice map stayed, for the shared monitor.
+  `SettingsScreen` keeps its live preview, whose fields smoke also reflects.
+- **Found on the way.** Two smoke checks set `DownloadService.preview` by reflection; they now set it on the new
+  `previews` holder. The name-only reflection check could not see it, since another class declares `preview`.
+- **Checks.** `verify.ps1 -Clean` 798 tests (797 plus the setters guard), 11 skipped, as before; smoke sources
+  compile; the JAR differs only in class files; the download integration tests ran. In the testing window:
+  `smoke.ps1 -Scenario suite -DesktopVerify` passed every scenario, `-DesktopIntegration` included (798 tests,
+  6 skipped), with the private collection unchanged; the PiP smoke passed `check-hud-menus` and `check-setup`;
+  `-PlyricsIntegration` passed. `-PcaptureMusic` exposed two older faults, fixed in their own change: choosing,
+  adding or removing a folder before settings were ever activated threw on the null folder list (`FolderActions`
+  now starts from the destination, as activation does, through `MusicFolders.folders`), and the capture's own
+  click predated the Settings sections, so it could not reach Reset to Defaults (it now uses `SmokeUi.click`). The
+  capture then passed. The listening check (crossfade, gapless, an unplugged explicit device) is the player's own.
+
 ## Open items
 
 The items still open when this work ended are the Known limits in [ARCHITECTURE.md](../ARCHITECTURE.md#known-limits).

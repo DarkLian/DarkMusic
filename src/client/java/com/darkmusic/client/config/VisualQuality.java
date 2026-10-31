@@ -34,7 +34,14 @@ public final class VisualQuality {
         return Preset.CUSTOM;
     }
 
+    public static final Range DETAIL = Range.whole(96, 384);
+
     public void validate() {
-        detail = Math.clamp(detail, 96, 384);
+        detail = DETAIL.apply(detail);
+    }
+
+    // Each applies the same range as validate(); the fields stay public for Gson and for reading.
+    public void detail(int value) {
+        detail = DETAIL.apply(value);
     }
 }

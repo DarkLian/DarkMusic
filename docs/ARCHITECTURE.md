@@ -31,6 +31,16 @@ No screen's Sources extends another screen's Sources; it may extend only shared 
 `ArchitectureTest.screensDoNotInheritTheSourcesOfScreensTheyOpen` enforces this with no exceptions. Pages of one
 group (audio, PiP, download tools) share their group's Sources.
 
+Screens change playback, the queue and playlists only through `gui.TransportOperations`, `gui.QueueOperations` and
+`gui.PlaylistOperations`, which apply the admission once for every screen and return whether they ran; they read
+the player through `gui.PlayerQueries`. Each operation keeps the rule its screens checked before: starting a song,
+play/pause, skipping and seeking wait while a media operation owns the files (`idle`); stop, pause and resume need
+only `alive`, so an import can still be stopped and a preview can pause the music; the queue needs `canEditQueue`;
+playlists need `playlistsReady` and no media operation. `PlaybackCommands` implements the first three and
+`PlaylistActions` the last. Screens keep `canEditQueue()`/`mediaBusy()` to decide what to show as enabled.
+`ScreenOperationsTest` checks the compiled `gui` classes: none calls a transport or queue method of
+`PlaybackController` or anything but a read of `PlaylistStore`.
+
 Core packages never reference `DarkMusicClient`. At most `MAX_CLIENT_DEPENDENTS` files may name it (a ratchet,
 only lowered; today 1, the sound mixin). Collaborators receive `ClientServices` and each other, never the client.
 `ArchitectureTest` also keeps the client from growing back:
@@ -42,6 +52,18 @@ only lowered; today 1, the sound mixin). Collaborators receive `ClientServices` 
   `return a;`, with plain names as arguments: no condition, loop, `new` or lambda.
 - `noPublicMutableClientFields`: `DarkMusicClient` (apart from `INSTANCE`) and `ClientServices` have no public
   non-final field; services are read through getters and replaced only inside `ClientServices`.
+- `MAX_SERVICES_LINES` caps `ClientServices.java`, and `clientServicesHoldsNoPolicy` keeps it a holder: outside its
+  build methods and eight named wiring methods, each method is a getter, a lazy getter or one forwarding statement.
+
+Other guards, on compiled classes (ASM) or the smoke sources:
+
+- `MethodLengthTest`: no method may grow past 60 compiled lines; the ones already longer are listed with their
+  length and only shrink. Lambdas, constructors and static initializers are not measured.
+- `SettingsSettersTest`: a settings field with a range (`config.Range`, applied by `validate()` and by a same-named
+  setter) is set outside `config` only through its setter. The fields are found from the setters.
+- `SmokeReflectionTest`: every private member name smoke code reads or writes by reflection is still declared by a
+  class in `src/client`. It checks names only, so a name several classes declare still needs a look when its class
+  changes.
 
 The source guards prove reference direction and shape only, not runtime isolation.
 
@@ -199,6 +221,12 @@ of it (as the analyzer label says).
 - *Adding a player control or menu action*: put it in the collaborator that owns the area (`PlaybackCommands`,
   `FolderActions`, `MediaActions`, `BackupActions`, `OutputActions`); a new collaborator receives `ClientServices`
   and is wired in `DarkMusicClient`'s fields.
+- *Adding a setting with a range*: a `Range` constant used by the class's `validate()` and a same-named setter that
+  applies it; screens set it through the setter. Gson still writes the public field, so the file format is the
+  field's name.
+- *Changing playback or playlists from a screen*: call the screen's `transport()`, `queue()` or
+  `playlistOperations()`; a new kind of change goes into the operation interface and its implementation, with the
+  same admission the existing ones use.
 - *Replacing a library service*: construct it in `buildReplaceable`, used by both startup and reset, and add it to
   `Shutdown.Services`. Consumers read it through the getter or the reconciliation adapter, so screens and the HUD do
   not change. They are still typed on the concrete `MusicLibrary`, so a different implementation type would also

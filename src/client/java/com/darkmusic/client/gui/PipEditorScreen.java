@@ -36,9 +36,9 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
         reset = addRenderableWidget(UiButton.builder(Text.component("pip.reset"), b -> {
             if (crop) app.settings().pip.resetCrop();
             else {
-                app.settings().pip.x = .68;
-                app.settings().pip.y = .08;
-                app.settings().pip.width = .3;
+                app.settings().pip.x(.68);
+                app.settings().pip.y(.08);
+                app.settings().pip.width(.3);
             }
             app.save();
         }).bounds(12, 4, 80, 20).build());
@@ -88,7 +88,7 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
         endX = Math.clamp(e.x(), b.x(), b.x() + b.width());
         endY = Math.clamp(e.y(), b.y(), b.y() + b.height());
         if (!crop) {
-            if (resizing) s.width = Math.clamp((e.x() - b.x()) / width, .1, 1);
+            if (resizing) s.width((e.x() - b.x()) / width);
             else {
                 var f = app.pip().frame();
                 s.move(e.x() - offsetX, e.y() - offsetY, width, height, f == null ? 16 : f.width(), f == null ? 9 : f.height(), !HorizontalText.shiftDown());
@@ -106,8 +106,8 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
             double l = (Math.min(anchorX, endX) - b.x()) / b.width(), t = (Math.min(anchorY, endY) - b.y()) / b.height(), r = (Math.max(anchorX, endX) - b.x()) / b.width(), d = (Math.max(anchorY, endY) - b.y()) / b.height();
             if (r - l >= .05 && d - t >= .05) {
                 var s = app.settings().pip;
-                s.left = l;
-                s.top = t;
+                s.left(l);
+                s.top(t);
                 s.right = r;
                 s.bottom = d;
             }
@@ -119,7 +119,7 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
     @Override
     public boolean mouseScrolled(double x, double y, double dx, double dy) {
         if (crop || !image().contains(x, y)) return super.mouseScrolled(x, y, dx, dy);
-        app.update(s -> s.pip.width = Math.clamp(s.pip.width * Math.pow(1.08, dy), .1, 1));
+        app.update(s -> s.pip.width(s.pip.width * Math.pow(1.08, dy)));
         return true;
     }
 
@@ -128,16 +128,16 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
         if (!crop && getFocused() == null) {
             var s = app.settings().pip;
             var b = image();
-            s.x = b.x() / (double) width;
-            s.y = b.y() / (double) height;
+            s.x(b.x() / (double) width);
+            s.y(b.y() / (double) height);
             double step = event.hasShiftDown() ? 8 : 1;
             switch (event.key()) {
-                case 263 -> s.x -= step / width;
-                case 262 -> s.x += step / width;
-                case 265 -> s.y -= step / height;
-                case 264 -> s.y += step / height;
-                case 61, 334 -> s.width *= 1.04;
-                case 45, 333 -> s.width /= 1.04;
+                case 263 -> s.x(s.x - step / width);
+                case 262 -> s.x(s.x + step / width);
+                case 265 -> s.y(s.y - step / height);
+                case 264 -> s.y(s.y + step / height);
+                case 61, 334 -> s.width(s.width * 1.04);
+                case 45, 333 -> s.width(s.width / 1.04);
                 default -> {
                     return super.keyPressed(event);
                 }

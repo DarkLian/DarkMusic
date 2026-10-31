@@ -15,20 +15,52 @@ public final class PipSettings {
     public double left, top, right = 1, bottom = 1;
     public int frameRate = 60, focusKey = 119, returnKey = 120;
 
+    public static final Range X = Range.of(0, 1, .68);
+    public static final Range Y = Range.of(0, 1, .08);
+    public static final Range WIDTH = Range.of(.1, 1, .3);
+    public static final Range OPACITY = Range.of(.1, 1, 1);
+    public static final Range LEFT = Range.of(0, .95, 0);
+    public static final Range TOP = Range.of(0, .95, 0);
+
     public void validate() {
         if (spectrum == null) spectrum = new PipSpectrumSettings();
         spectrum.validate();
-        x = finite(x, 0, 1, .68);
-        y = finite(y, 0, 1, .08);
-        width = finite(width, .1, 1, .3);
-        opacity = finite(opacity, .1, 1, 1);
-        left = finite(left, 0, .95, 0);
-        top = finite(top, 0, .95, 0);
+        x = X.apply(x);
+        y = Y.apply(y);
+        width = WIDTH.apply(width);
+        opacity = OPACITY.apply(opacity);
+        left = LEFT.apply(left);
+        top = TOP.apply(top);
         right = finite(right, left + .05, 1, 1);
         bottom = finite(bottom, top + .05, 1, 1);
         if (frameRate != 0) frameRate = Math.clamp(frameRate, 15, MAX_FRAME_RATE);
         if (!validKey(focusKey)) focusKey = 119;
         if (!validKey(returnKey) || returnKey == focusKey) returnKey = focusKey == 120 ? 119 : 120;
+    }
+
+    // Each applies the same range as validate(); the fields stay public for Gson and for reading.
+    public void x(double value) {
+        x = X.apply(value);
+    }
+
+    public void y(double value) {
+        y = Y.apply(value);
+    }
+
+    public void width(double value) {
+        width = WIDTH.apply(value);
+    }
+
+    public void opacity(double value) {
+        opacity = OPACITY.apply(value);
+    }
+
+    public void left(double value) {
+        left = LEFT.apply(value);
+    }
+
+    public void top(double value) {
+        top = TOP.apply(value);
     }
 
     public static boolean validKey(int key) {

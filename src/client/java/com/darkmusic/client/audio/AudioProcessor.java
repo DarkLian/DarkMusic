@@ -85,12 +85,12 @@ public final class AudioProcessor {
             var e = settings.enhancements;
             var d = new AudioEnhancements.Node();
             d.enabled = e.deEsser;
-            d.frequency = e.deEsserFrequency;
-            d.q = 1;
-            d.threshold = e.deEsserThreshold;
-            d.range = -12 * e.deEsserStrength;
-            d.attack = .002;
-            d.release = .08;
+            d.frequency(e.deEsserFrequency);
+            d.q(1);
+            d.threshold(e.deEsserThreshold);
+            d.range(-12 * e.deEsserStrength);
+            d.attack(.002);
+            d.release(.08);
             deEsser.configure(d);
             if (first) {
                 headroom = filters.headroom();

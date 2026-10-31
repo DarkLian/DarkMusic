@@ -24,7 +24,7 @@ public final class SongActionsScreen extends AudioPage<SongActionsScreen.Sources
 
         MusicLibrary library();
 
-        PlaybackController playback();
+        QueueOperations queue();
 
         PlaylistStore playlists();
 
@@ -65,7 +65,7 @@ public final class SongActionsScreen extends AudioPage<SongActionsScreen.Sources
             feedbackTone = UiStatus.Tone.WARNING;
             return;
         }
-        boolean accepted = first ? app.playback().playNext(resolved) : app.playback().addToQueue(resolved);
+        boolean accepted = first ? app.queue().playNext(resolved) : app.queue().addToQueue(resolved);
         feedbackTone = accepted ? UiStatus.Tone.SUCCESS : UiStatus.Tone.WARNING;
         if (accepted)
             feedback = Text.get(first ? "upnext.added_next" : "upnext.added", track.title());

@@ -202,7 +202,7 @@ public final class AudioSettingsScreen extends LocalScreen {
                     return progress.total() == 0 ? "" : Text.get(!progress.running() && progress.processed() < progress.total() ? "audio.darkmusic.analysis_stopped" : "audio.darkmusic.analysis_progress", progress.processed(), progress.total(), progress.available(), progress.processed() - progress.available());
                 });
             }
-            slider((a.targetLufs + 24) / 15, "audio.darkmusic.target", v -> String.format(Locale.ROOT, "%.0f LUFS", a.targetLufs), v -> a.targetLufs = -24 + v * 15, 15, "audio.darkmusic.target_help");
+            slider((a.targetLufs + 24) / 15, "audio.darkmusic.target", v -> String.format(Locale.ROOT, "%.0f LUFS", a.targetLufs), v -> a.targetLufs(-24 + v * 15), 15, "audio.darkmusic.target_help");
             normalizationY = cursor;
             cursor += 20;
         }
@@ -229,26 +229,26 @@ public final class AudioSettingsScreen extends LocalScreen {
             }
         }
         section("audio.darkmusic.section_effects");
-        slider(a.bass / 6, "audio.darkmusic.bass", v -> String.format(Locale.ROOT, "%.1f dB", a.bass), v -> a.bass = v * 6, 12, "audio.darkmusic.bass_help");
-        slider(a.width / 1.5, "audio.darkmusic.width", v -> Math.round(a.width * 100) + "%", v -> a.width = v * 1.5, 30, "audio.darkmusic.width_help");
+        slider(a.bass / 6, "audio.darkmusic.bass", v -> String.format(Locale.ROOT, "%.1f dB", a.bass), v -> a.bass(v * 6), 12, "audio.darkmusic.bass_help");
+        slider(a.width / 1.5, "audio.darkmusic.width", v -> Math.round(a.width * 100) + "%", v -> a.width(v * 1.5), 30, "audio.darkmusic.width_help");
         toggle("audio.darkmusic.night", () -> a.compressor, v -> a.compressor = v, "audio.darkmusic.night_help");
         choice("audio.darkmusic.reverb", a.reverb, AudioSettings.Reverb.values(), v -> a.reverb = v, "audio.darkmusic.reverb_help");
         toggle("audio.darkmusic.limiter", () -> a.limiter, v -> a.limiter = v, "audio.darkmusic.limiter_help");
         for (int i = effectsStart; i < rows.size(); i++) rows.get(i).active = !a.neutral;
         section("audio.darkmusic.section_transitions");
         toggle("audio.darkmusic.gapless", () -> a.gapless, v -> a.gapless = v, "audio.darkmusic.transition_help");
-        slider(a.crossfade / 10, "audio.darkmusic.crossfade", v -> String.format(Locale.ROOT, "%.1f s", a.crossfade), v -> a.crossfade = v * 10, 20, "audio.darkmusic.crossfade_help");
+        slider(a.crossfade / 10, "audio.darkmusic.crossfade", v -> String.format(Locale.ROOT, "%.1f s", a.crossfade), v -> a.crossfade(v * 10), 20, "audio.darkmusic.crossfade_help");
         section("audio.darkmusic.section_game_audio");
         if (a.listening == AudioSettings.Listening.AMBIENT)
-            slider(a.ambientGain, "audio.darkmusic.ambient", v -> Math.round(a.ambientGain * 100) + "%", v -> a.ambientGain = v, 100, "audio.darkmusic.ambient_help");
+            slider(a.ambientGain, "audio.darkmusic.ambient", v -> Math.round(a.ambientGain * 100) + "%", v -> a.ambientGain(v), 100, "audio.darkmusic.ambient_help");
         if (a.listening == AudioSettings.Listening.FOCUS)
-            slider(a.focusGain, "audio.darkmusic.focus", v -> Math.round(a.focusGain * 100) + "%", v -> a.focusGain = v, 100, "audio.darkmusic.focus_help");
+            slider(a.focusGain, "audio.darkmusic.focus", v -> Math.round(a.focusGain * 100) + "%", v -> a.focusGain(v), 100, "audio.darkmusic.focus_help");
         toggle("audio.darkmusic.ducking", () -> a.ducking, v -> a.ducking = v, "audio.darkmusic.ducking_help");
         if (a.ducking) {
-            slider(a.duckGain, "audio.darkmusic.duck_level", v -> Math.round(a.duckGain * 100) + "%", v -> a.duckGain = v, 100, "audio.darkmusic.duck_level_help");
-            slider((a.duckAttack - .01) / .19, "audio.darkmusic.duck_attack", v -> Math.round(a.duckAttack * 1000) + " ms", v -> a.duckAttack = .01 + v * .19, 19, "audio.darkmusic.duck_attack_help");
-            slider((a.duckHold - .1) / 1.9, "audio.darkmusic.duck_hold", v -> String.format(Locale.ROOT, "%.1f s", a.duckHold), v -> a.duckHold = .1 + v * 1.9, 19, "audio.darkmusic.duck_hold_help");
-            slider((a.duckRelease - .1) / 1.9, "audio.darkmusic.duck_release", v -> String.format(Locale.ROOT, "%.1f s", a.duckRelease), v -> a.duckRelease = .1 + v * 1.9, 19, "audio.darkmusic.duck_release_help");
+            slider(a.duckGain, "audio.darkmusic.duck_level", v -> Math.round(a.duckGain * 100) + "%", v -> a.duckGain(v), 100, "audio.darkmusic.duck_level_help");
+            slider((a.duckAttack - .01) / .19, "audio.darkmusic.duck_attack", v -> Math.round(a.duckAttack * 1000) + " ms", v -> a.duckAttack(.01 + v * .19), 19, "audio.darkmusic.duck_attack_help");
+            slider((a.duckHold - .1) / 1.9, "audio.darkmusic.duck_hold", v -> String.format(Locale.ROOT, "%.1f s", a.duckHold), v -> a.duckHold(.1 + v * 1.9), 19, "audio.darkmusic.duck_hold_help");
+            slider((a.duckRelease - .1) / 1.9, "audio.darkmusic.duck_release", v -> String.format(Locale.ROOT, "%.1f s", a.duckRelease), v -> a.duckRelease(.1 + v * 1.9), 19, "audio.darkmusic.duck_release_help");
         }
         section("audio.saved_profiles");
         // Reserve a status line only when there is something to report.

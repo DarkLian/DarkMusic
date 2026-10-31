@@ -31,12 +31,16 @@ import com.darkmusic.client.gui.MusicFoldersScreen;
 import com.darkmusic.client.gui.MusicScreen;
 import com.darkmusic.client.gui.Navigation;
 import com.darkmusic.client.gui.PipScreen;
+import com.darkmusic.client.gui.PlayerQueries;
+import com.darkmusic.client.gui.PlaylistOperations;
 import com.darkmusic.client.gui.PlaylistScreen;
 import com.darkmusic.client.gui.SettingsScreen;
+import com.darkmusic.client.gui.QueueOperations;
 import com.darkmusic.client.gui.ShortcutKeys;
 import com.darkmusic.client.gui.SmartCleanupScreen;
 import com.darkmusic.client.gui.SongActionsScreen;
 import com.darkmusic.client.gui.TrackPickerScreen;
+import com.darkmusic.client.gui.TransportOperations;
 import com.darkmusic.client.gui.UpNextScreen;
 import com.darkmusic.client.gui.UpdateScreen;
 import com.darkmusic.client.hud.HudSources;
@@ -78,6 +82,7 @@ public final class ClientSources implements MusicScreen.Sources, SettingsScreen.
     private final ClientServices services;
     private final Warnings warnings;
     private final PlaybackCommands commands;
+    private final PlaylistActions playlistActions;
     private final FolderActions folders;
     private final MediaActions media;
     private final BackupActions backups;
@@ -86,11 +91,12 @@ public final class ClientSources implements MusicScreen.Sources, SettingsScreen.
     private final ClientReset reset;
     private final Navigation navigation = new ScreenNavigation<>(this);
 
-    ClientSources(ClientServices services, PlaybackCommands commands, FolderActions folders, MediaActions media,
-                  BackupActions backups, OutputActions output, Shortcuts shortcuts, ClientReset reset) {
+    ClientSources(ClientServices services, PlaybackCommands commands, PlaylistActions playlistActions, FolderActions folders,
+                  MediaActions media, BackupActions backups, OutputActions output, Shortcuts shortcuts, ClientReset reset) {
         this.services = services;
         this.warnings = services.warnings();
         this.commands = commands;
+        this.playlistActions = playlistActions;
         this.folders = folders;
         this.media = media;
         this.backups = backups;
@@ -272,6 +278,26 @@ public final class ClientSources implements MusicScreen.Sources, SettingsScreen.
     @Override
     public boolean canEditQueue() {
         return commands.canEditQueue();
+    }
+
+    @Override
+    public QueueOperations queue() {
+        return commands;
+    }
+
+    @Override
+    public TransportOperations transport() {
+        return commands;
+    }
+
+    @Override
+    public PlayerQueries player() {
+        return commands;
+    }
+
+    @Override
+    public PlaylistOperations playlistOperations() {
+        return playlistActions;
     }
 
     @Override

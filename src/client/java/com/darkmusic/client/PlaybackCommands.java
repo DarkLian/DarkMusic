@@ -7,6 +7,9 @@ import com.darkmusic.client.audio.ResumeTracker;
 import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.gui.FolderTree;
+import com.darkmusic.client.gui.PlayerQueries;
+import com.darkmusic.client.gui.QueueOperations;
+import com.darkmusic.client.gui.TransportOperations;
 import com.darkmusic.client.library.ListeningHistory;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.systemmedia.MediaControls;
@@ -14,10 +17,11 @@ import com.darkmusic.client.systemmedia.MediaControls;
 import java.util.List;
 
 /**
- * The player's controls as the menus, chat commands, shortcuts and media keys share them: transport, volume, speed,
- * shuffle and repeat saved with the settings, the songs of a collection, and Resume Where You Left Off. Client thread.
+ * The player's controls as the menus, chat commands, shortcuts and media keys share them: transport, the queue,
+ * volume, speed, shuffle and repeat saved with the settings, the songs of a collection, and Resume Where You Left Off.
+ * Each change applies its own admission here, so the screens only decide what to show as enabled. Client thread.
  */
-public final class PlaybackCommands {
+public final class PlaybackCommands implements QueueOperations, TransportOperations, PlayerQueries {
     public static final int RECENTLY_ADDED = 100;
     private final ClientServices services;
     private final ResumeTracker resume = new ResumeTracker();
@@ -30,20 +34,145 @@ public final class PlaybackCommands {
         return services.state.accepting() && services.playback() != null;
     }
 
+    @Override
+    public boolean playNext(Track track) {
+        return canEditQueue() && services.playback().playNext(track);
+    }
+
+    @Override
+    public boolean addToQueue(Track track) {
+        return canEditQueue() && services.playback().addToQueue(track);
+    }
+
+    @Override
+    public boolean insert(Track track, int index) {
+        return canEditQueue() && services.playback().insertQueued(track, index);
+    }
+
+    @Override
+    public boolean reorder(List<Long> expectedIds, List<Integer> order) {
+        return canEditQueue() && services.playback().reorderQueued(expectedIds, order);
+    }
+
+    @Override
+    public boolean remove(List<Long> ids) {
+        if (!canEditQueue()) return false;
+        for (long id : ids) services.playback().removeQueued(id);
+        return true;
+    }
+
+    @Override
+    public boolean clear() {
+        if (!canEditQueue()) return false;
+        services.playback().clearQueued();
+        return true;
+    }
+
+    // Starting a song, play/pause, skipping and seeking wait while a media operation owns the files.
+    private boolean steering() {
+        return services.state.idle() && services.playback() != null;
+    }
+
+    // Stop, pause and resume only need the client alive, as the screens that call them always allowed.
+    private boolean running() {
+        return services.state.alive() && services.playback() != null;
+    }
+
+    @Override
+    public boolean play(List<Track> tracks, Track track, PlaybackController.Source source) {
+        if (!steering()) return false;
+        services.playback().play(tracks, track, source);
+        return true;
+    }
+
+    @Override
+    public boolean toggle() {
+        if (!steering()) return false;
+        services.playback().toggle();
+        return true;
+    }
+
+    @Override
+    public boolean next() {
+        if (!steering()) return false;
+        services.playback().next();
+        return true;
+    }
+
+    @Override
+    public boolean previous() {
+        if (!steering()) return false;
+        services.playback().previous();
+        return true;
+    }
+
+    @Override
+    public boolean seek(double seconds) {
+        if (!steering()) return false;
+        services.playback().seek(seconds);
+        return true;
+    }
+
+    @Override
+    public boolean stop() {
+        if (!running()) return false;
+        services.playback().stop();
+        return true;
+    }
+
+    @Override
+    public boolean pause() {
+        if (!running()) return false;
+        services.playback().pause();
+        return true;
+    }
+
+    @Override
+    public boolean resume() {
+        if (!running()) return false;
+        services.playback().resume();
+        return true;
+    }
+
+    @Override
+    public AudioBackend.State state() {
+        return services.playback().state();
+    }
+
+    @Override
+    public PlaybackController.Source playingSource() {
+        return services.playback().playingSource();
+    }
+
+    @Override
+    public PlaybackController.UpNextSnapshot upNextSnapshot() {
+        return services.playback().upNextSnapshot();
+    }
+
+    @Override
+    public boolean shuffle() {
+        return services.playback().shuffle();
+    }
+
+    @Override
+    public Repeat repeat() {
+        return services.playback().repeat();
+    }
+
     public void seekRelative(double seconds) {
         if (services.state.idle() && services.playback() != null) services.playback().seekRelative(seconds);
     }
 
     public void speed(double value) {
         services.update(s -> {
-            s.speed = PcmRateConverter.clamp(value);
+            s.speed(PcmRateConverter.clamp(value));
             services.playback().speed(s.speed);
         });
     }
 
     public void volume(double value) {
         services.update(s -> {
-            s.volume = Settings.clampVolume(value);
+            s.volume(Settings.clampVolume(value));
             if (s.volume > 0) s.lastAudibleVolume = s.volume;
             services.playback().volume(s.volume);
         });

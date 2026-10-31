@@ -66,13 +66,13 @@ final class LyricsResultCache {
         Cached initial = value;
         if (value == null && directory != null) try {
             Path miss = directory.resolve("misses").resolve(key + ".json");
-            value = LyricsLookup.read(Files.isRegularFile(miss, LinkOption.NOFOLLOW_LINKS) ? miss : directory.resolve("cache").resolve(key + ".json"), Cached.class);
+            value = LyricChoiceStore.read(Files.isRegularFile(miss, LinkOption.NOFOLLOW_LINKS) ? miss : directory.resolve("cache").resolve(key + ".json"), Cached.class);
         } catch (Exception ignored) {
         }
         if (value == null || value.schema != 1 || value.expires < System.currentTimeMillis() || value.candidates == null || value.candidates.size() > 20)
             return null;
         try {
-            var checked = value.candidates.stream().map(c -> new LyricsProvider.Candidate(LyricsLookup.validated(c.document()), c.reliable(), c.evidence())).toList();
+            var checked = value.candidates.stream().map(c -> new LyricsProvider.Candidate(LyricChoiceStore.validated(c.document()), c.reliable(), c.evidence())).toList();
             value = new Cached(1, value.expires, checked);
             synchronized (results) {
                 Cached newer = results.get(key);

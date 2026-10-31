@@ -268,7 +268,7 @@ final class DownloadPreviewClient {
                     var entries = new ArrayList<DownloadModels.Entry>();
                     for (int i = 0; i < 5; i++)
                         entries.add(new DownloadModels.Entry(i + 1, app.services().library().snapshot().tracks().get(i % app.services().library().snapshot().tracks().size()).title(), "https://example.com/" + i, "Generic", Integer.toString(i), true));
-                    set(app.services().downloads(), "preview", new DownloadModels.Preview(link, "Real collection titles", "Generic", true, false, 1, 5, false, entries));
+                    set(field(app.services().downloads(), "previews"), "preview", new DownloadModels.Preview(link, "Real collection titles", "Generic", true, false, 1, 5, false, entries));
                     set(app.services().downloads(), "published", null);
                     mc.gui.screen().tick();
                     require(field(mc.gui.screen(), "mode").toString().equals("SELECTED"), "A collection-only URL defaulted to a video mode");

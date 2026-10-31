@@ -92,18 +92,18 @@ public class HudEditorScreen extends LocalScreen implements HudPreview {
         reset = addRenderableWidget(Help.tip(UiButton.builder(Text.component("hud.darkmusic.reset_selected"), b -> {
             switch (selected) {
                 case LYRICS -> {
-                    app.settings().lyricsHudX = .5;
-                    app.settings().lyricsHudY = .9;
-                    app.settings().lyricsHudScale = 1;
+                    app.settings().lyricsHudX(.5);
+                    app.settings().lyricsHudY(.9);
+                    app.settings().lyricsHudScale(1);
                 }
                 case CARD -> {
                     // Back beside the HUD.
                     app.settings().songCardX = app.settings().songCardY = null;
-                    app.settings().songCardScale = 1;
+                    app.settings().songCardScale(1);
                 }
                 case PLAYER -> {
                     app.settings().hudX = app.settings().hudY = 0.0;
-                    app.settings().hudScale = 1;
+                    app.settings().hudScale(1);
                 }
             }
             scaleChanged = System.nanoTime();
@@ -172,12 +172,12 @@ public class HudEditorScreen extends LocalScreen implements HudPreview {
         if (dy == 0 || !target(x, y)) return super.mouseScrolled(x, y, dx, dy);
         choose(x, y);
         switch (selected) {
-            case LYRICS -> app.settings().lyricsHudScale = lyricsWheel.scroll(app.settings().lyricsHudScale, dy);
+            case LYRICS -> app.settings().lyricsHudScale(lyricsWheel.scroll(app.settings().lyricsHudScale, dy));
             case CARD -> {
                 pinCard();
-                app.settings().songCardScale = cardWheel.scroll(app.settings().songCardScale, dy);
+                app.settings().songCardScale(cardWheel.scroll(app.settings().songCardScale, dy));
             }
-            case PLAYER -> app.settings().hudScale = wheel.scroll(app.settings().hudScale, dy);
+            case PLAYER -> app.settings().hudScale(wheel.scroll(app.settings().hudScale, dy));
         }
         scaleChanged = System.nanoTime();
         app.save();
@@ -207,8 +207,8 @@ public class HudEditorScreen extends LocalScreen implements HudPreview {
             ? .5 : HudLayout.normalized(top, height, b.height());
         switch (selected) {
             case LYRICS -> {
-                app.settings().lyricsHudX = x;
-                app.settings().lyricsHudY = y;
+                app.settings().lyricsHudX(x);
+                app.settings().lyricsHudY(y);
             }
             case CARD -> {
                 app.settings().songCardX = x;

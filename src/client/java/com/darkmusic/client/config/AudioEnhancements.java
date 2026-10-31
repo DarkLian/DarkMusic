@@ -45,15 +45,52 @@ public final class AudioEnhancements implements Cloneable {
                 && attack == b.attack && release == b.release;
         }
 
+        public static final Range FREQUENCY = Range.of(20, 20000, 1000);
+        public static final Range GAIN = Range.of(-12, 12, 0);
+        public static final Range Q = Range.of(.25, 8, 1.4);
+        public static final Range THRESHOLD = Range.of(-60, 0, -24);
+        public static final Range RANGE = Range.of(-12, 6, -6);
+        public static final Range ATTACK = Range.of(.001, .2, .01);
+        public static final Range RELEASE = Range.of(.02, 2, .15);
+
         public void validate() {
             if (type == null || type == Type.BAND_PASS) type = Type.PEAK;
-            frequency = finite(frequency, 20, 20000, 1000);
-            gain = finite(gain, -12, 12, 0);
-            q = finite(q, .25, 8, 1.4);
-            threshold = finite(threshold, -60, 0, -24);
-            range = finite(range, -12, 6, -6);
-            attack = finite(attack, .001, .2, .01);
-            release = finite(release, .02, 2, .15);
+            frequency = FREQUENCY.apply(frequency);
+            gain = GAIN.apply(gain);
+            q = Q.apply(q);
+            threshold = THRESHOLD.apply(threshold);
+            range = RANGE.apply(range);
+            attack = ATTACK.apply(attack);
+            release = RELEASE.apply(release);
+        }
+
+        // Each applies the same range as validate(); the fields stay public for Gson and for reading.
+        public void frequency(double value) {
+            frequency = FREQUENCY.apply(value);
+        }
+
+        public void gain(double value) {
+            gain = GAIN.apply(value);
+        }
+
+        public void q(double value) {
+            q = Q.apply(value);
+        }
+
+        public void threshold(double value) {
+            threshold = THRESHOLD.apply(value);
+        }
+
+        public void range(double value) {
+            range = RANGE.apply(value);
+        }
+
+        public void attack(double value) {
+            attack = ATTACK.apply(value);
+        }
+
+        public void release(double value) {
+            release = RELEASE.apply(value);
         }
     }
 
@@ -74,6 +111,22 @@ public final class AudioEnhancements implements Cloneable {
         return result;
     }
 
+    public static final Range BASS_GAIN = Range.of(-12, 12, 0);
+    public static final Range TREBLE_GAIN = Range.of(-12, 12, 0);
+    public static final Range BASS_FREQUENCY = Range.of(30, 500, 120);
+    public static final Range TREBLE_FREQUENCY = Range.of(1000, 16000, 6000);
+    public static final Range CROSSFEED_AMOUNT = Range.of(0, .5, .2);
+    public static final Range REVERB_AMOUNT = Range.of(0, 1, 1);
+    public static final Range THRESHOLD = Range.of(-60, 0, -18);
+    public static final Range RATIO = Range.of(1, 20, 4);
+    public static final Range ATTACK = Range.of(.001, .2, .01);
+    public static final Range RELEASE = Range.of(.02, 2, .2);
+    public static final Range KNEE = Range.of(0, 24, 0);
+    public static final Range MAKEUP = Range.of(0, 12, 0);
+    public static final Range DE_ESSER_STRENGTH = Range.of(0, 1, .5);
+    public static final Range DE_ESSER_FREQUENCY = Range.of(2000, 12000, 6500);
+    public static final Range DE_ESSER_THRESHOLD = Range.of(-60, -6, -26);
+
     public void validate() {
         if (protection == null) protection = Protection.SOFT;
         if (reverbEngine == null) reverbEngine = ReverbEngine.ALGORITHMIC;
@@ -81,21 +134,82 @@ public final class AudioEnhancements implements Cloneable {
         if (eqMode == null) eqMode = EqMode.GRAPHIC;
         nodes = validated(nodes, 5);
         dynamic = validated(dynamic, 2);
-        bassGain = finite(bassGain, -12, 12, 0);
-        trebleGain = finite(trebleGain, -12, 12, 0);
-        bassFrequency = finite(bassFrequency, 30, 500, 120);
-        trebleFrequency = finite(trebleFrequency, 1000, 16000, 6000);
-        crossfeedAmount = finite(crossfeedAmount, 0, .5, .2);
-        reverbAmount = finite(reverbAmount, 0, 1, 1);
-        threshold = finite(threshold, -60, 0, -18);
-        ratio = finite(ratio, 1, 20, 4);
-        attack = finite(attack, .001, .2, .01);
-        release = finite(release, .02, 2, .2);
-        knee = finite(knee, 0, 24, 0);
-        makeup = finite(makeup, 0, 12, 0);
-        deEsserStrength = finite(deEsserStrength, 0, 1, .5);
-        deEsserFrequency = finite(deEsserFrequency, 2000, 12000, 6500);
-        deEsserThreshold = finite(deEsserThreshold, -60, -6, -26);
+        bassGain = BASS_GAIN.apply(bassGain);
+        trebleGain = TREBLE_GAIN.apply(trebleGain);
+        bassFrequency = BASS_FREQUENCY.apply(bassFrequency);
+        trebleFrequency = TREBLE_FREQUENCY.apply(trebleFrequency);
+        crossfeedAmount = CROSSFEED_AMOUNT.apply(crossfeedAmount);
+        reverbAmount = REVERB_AMOUNT.apply(reverbAmount);
+        threshold = THRESHOLD.apply(threshold);
+        ratio = RATIO.apply(ratio);
+        attack = ATTACK.apply(attack);
+        release = RELEASE.apply(release);
+        knee = KNEE.apply(knee);
+        makeup = MAKEUP.apply(makeup);
+        deEsserStrength = DE_ESSER_STRENGTH.apply(deEsserStrength);
+        deEsserFrequency = DE_ESSER_FREQUENCY.apply(deEsserFrequency);
+        deEsserThreshold = DE_ESSER_THRESHOLD.apply(deEsserThreshold);
+    }
+
+    // Each applies the same range as validate(); the fields stay public for Gson and for reading.
+    public void bassGain(double value) {
+        bassGain = BASS_GAIN.apply(value);
+    }
+
+    public void trebleGain(double value) {
+        trebleGain = TREBLE_GAIN.apply(value);
+    }
+
+    public void bassFrequency(double value) {
+        bassFrequency = BASS_FREQUENCY.apply(value);
+    }
+
+    public void trebleFrequency(double value) {
+        trebleFrequency = TREBLE_FREQUENCY.apply(value);
+    }
+
+    public void crossfeedAmount(double value) {
+        crossfeedAmount = CROSSFEED_AMOUNT.apply(value);
+    }
+
+    public void reverbAmount(double value) {
+        reverbAmount = REVERB_AMOUNT.apply(value);
+    }
+
+    public void threshold(double value) {
+        threshold = THRESHOLD.apply(value);
+    }
+
+    public void ratio(double value) {
+        ratio = RATIO.apply(value);
+    }
+
+    public void attack(double value) {
+        attack = ATTACK.apply(value);
+    }
+
+    public void release(double value) {
+        release = RELEASE.apply(value);
+    }
+
+    public void knee(double value) {
+        knee = KNEE.apply(value);
+    }
+
+    public void makeup(double value) {
+        makeup = MAKEUP.apply(value);
+    }
+
+    public void deEsserStrength(double value) {
+        deEsserStrength = DE_ESSER_STRENGTH.apply(value);
+    }
+
+    public void deEsserFrequency(double value) {
+        deEsserFrequency = DE_ESSER_FREQUENCY.apply(value);
+    }
+
+    public void deEsserThreshold(double value) {
+        deEsserThreshold = DE_ESSER_THRESHOLD.apply(value);
     }
 
     public AudioEnhancements copy() {

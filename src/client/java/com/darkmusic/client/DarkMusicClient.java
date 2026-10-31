@@ -44,7 +44,7 @@ public class DarkMusicClient implements ClientModInitializer {
     private final FolderActions folders = new FolderActions(services);
     private final MediaActions media = new MediaActions(services, this::cancelAutoplay);
     private final ClientReset reset = new ClientReset(services, screens, folders, shortcuts, this::cancelAutoplay);
-    private final ClientSources sources = new ClientSources(services, commands, folders, media,
+    private final ClientSources sources = new ClientSources(services, commands, new PlaylistActions(services), folders, media,
         new BackupActions(services, folders, shortcuts), new OutputActions(services), shortcuts, reset);
     // Set once startup completes, played by the tick when the library has settled; reset and deletions cancel it.
     private boolean autoplayPending;

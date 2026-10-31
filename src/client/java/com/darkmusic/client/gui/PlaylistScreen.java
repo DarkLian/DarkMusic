@@ -38,6 +38,8 @@ public final class PlaylistScreen extends LocalScreen {
 
         PlaylistStore playlists();
 
+        PlaylistOperations playlistOperations();
+
         boolean mediaBusy();
 
         void importAudio(List<Path> paths, String folder, String playlistId);
@@ -100,20 +102,20 @@ public final class PlaylistScreen extends LocalScreen {
         int entryX = compact ? 12 : 20 + sidebar;
         int entryWidth = compact ? width - 24 : width - 32 - sidebar;
         var create = UiButton.icon(button(Text.get("text.darkmusic.new"), 12, 38, sidebar - 56, () -> show(new TextPromptScreen(this, Text.get("text.darkmusic.create_playlist"), "", text -> {
-            selectedId = app.playlists().create(text);
+            selectedId = app.playlistOperations().create(text);
             selection.clear();
         })), Text.get("text.darkmusic.create_a_local_playlist")), UiIcon.ADD, false);
         rename = UiButton.icon(button(Text.get("text.darkmusic.rename"), 16 + sidebar - 56, 38, 24, () -> {
             var p = selected();
             if (p != null)
-                show(new TextPromptScreen(this, Text.get("text.darkmusic.rename_playlist"), p.name(), text -> app.playlists().rename(p.id(), text)));
+                show(new TextPromptScreen(this, Text.get("text.darkmusic.rename_playlist"), p.name(), text -> app.playlistOperations().rename(p.id(), text)));
         }, Text.get("text.darkmusic.rename_the_selected_playlist")), UiIcon.EDIT, true);
         delete = UiButton.icon(button(Text.get("text.darkmusic.delete"), 12 + sidebar - 24, 38, 24, () -> {
             var playlist = selected();
             if (playlist == null) return;
             show(new ConfirmationScreen(this, Text.component("confirm.darkmusic.delete_title"),
                 Text.component("confirm.darkmusic.delete_body", playlist.name()), Text.component("text.darkmusic.delete"), () -> {
-                app.playlists().delete(playlist.id());
+                app.playlistOperations().delete(playlist.id());
                 selectedId = "";
                 selection.clear();
                 return CompletableFuture.completedFuture(null);
@@ -144,7 +146,7 @@ public final class PlaylistScreen extends LocalScreen {
         lists.visible = !compact || browsing;
         entries.visible = !compact || !browsing;
         entries.reorder(move -> {
-            app.playlists().moveBlock(selectedId, move.start(), move.count(), move.insertion());
+            app.playlistOperations().moveBlock(selectedId, move.start(), move.count(), move.insertion());
             refreshEntries();
         });
         int footerStart = children().size();
@@ -152,14 +154,14 @@ public final class PlaylistScreen extends LocalScreen {
         add = button(Text.get("text.darkmusic.add_songs"), entryX, 38, actionWidth, () -> {
             if (selected() != null) {
                 String id = selectedId;
-                show(app.navigation().trackPicker(this, id, tracks -> app.playlists().addAll(id, tracks)));
+                show(app.navigation().trackPicker(this, id, tracks -> app.playlistOperations().addAll(id, tracks)));
             }
         }, Text.get("text.darkmusic.select_library_songs_not_already_added_to_this_playlist"));
         remove = button(Text.get("text.darkmusic.remove_selected"), entryX + entryWidth - actionWidth, 38, actionWidth, () -> {
             String id = selectedId;
             var keys = Set.copyOf(selection.selected());
             Runnable removeEntries = () -> {
-                app.playlists().removeAll(id, keys);
+                app.playlistOperations().removeAll(id, keys);
                 selection.clear();
                 refreshEntries();
             };

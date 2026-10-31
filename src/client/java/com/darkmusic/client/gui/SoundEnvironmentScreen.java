@@ -34,7 +34,7 @@ public final class SoundEnvironmentScreen extends AudioPage<AudioSettingsScreen.
             info("environment.off");
             return;
         }
-        slider("environment.intensity", e.intensity * 100, 0, 100, 100, v -> e.intensity = v / 100, "%");
+        slider("environment.intensity", e.intensity * 100, 0, 100, 100, v -> e.intensity(v / 100), "%");
         info(() -> Text.get(e.ownsReverb() ? "environment.owns_reverb" : "environment.allows_reverb"));
         section("environment.parameters");
         if (!e.active()) info("environment.inactive");
@@ -44,16 +44,16 @@ public final class SoundEnvironmentScreen extends AudioPage<AudioSettingsScreen.
         boolean outdoors = e.preset == SoundEnvironmentSettings.Preset.OPEN_MEADOW || e.preset == SoundEnvironmentSettings.Preset.FOREST_CLEARING || e.preset == SoundEnvironmentSettings.Preset.UNDERWATER;
         if (device) toggle("environment.texture", () -> e.texture, v -> e.texture = v);
         if (outdoors) toggle("environment.ambience", () -> e.ambience, v -> e.ambience = v);
-        if (p.acoustic) slider("environment.distance", p.distance, 0, 1, 100, v -> p.distance = v, "");
+        if (p.acoustic) slider("environment.distance", p.distance, 0, 1, 100, v -> p.distance(v), "");
         if (p.acoustic && recipe.wet > 0) {
             if (p.reverbEngine == AudioEnhancements.ReverbEngine.ALGORITHMIC)
-                slider("environment.room_size", p.roomSize, .3, 2.5, 44, v -> p.roomSize = v, "");
-            slider("environment.wet", p.wet, 0, .55, 55, v -> p.wet = v, "");
+                slider("environment.room_size", p.roomSize, .3, 2.5, 44, v -> p.roomSize(v), "");
+            slider("environment.wet", p.wet, 0, .55, 55, v -> p.wet(v), "");
         }
         if (recipe.echoGain > 0)
-            slider("environment.echo_gain", p.echoGain, 0, .55, 55, v -> p.echoGain = v, "");
+            slider("environment.echo_gain", p.echoGain, 0, .55, 55, v -> p.echoGain(v), "");
         if (recipe.modulationMs > 0)
-            slider("environment.modulation", p.modulationMs, 0, 3, 60, v -> p.modulationMs = v, " ms");
+            slider("environment.modulation", p.modulationMs, 0, 3, 60, v -> p.modulationMs(v), " ms");
         enableSince(parametersStart, e.enabled);
         // A blank Custom recipe has nothing in the short list, so it shows every control.
         boolean blank = e.preset == SoundEnvironmentSettings.Preset.CUSTOM;
@@ -64,23 +64,23 @@ public final class SoundEnvironmentScreen extends AudioPage<AudioSettingsScreen.
             if (!outdoors) toggle("environment.ambience", () -> e.ambience, v -> e.ambience = v);
             if (p.acoustic && recipe.wet <= 0) {
                 if (p.reverbEngine == AudioEnhancements.ReverbEngine.ALGORITHMIC)
-                    slider("environment.room_size", p.roomSize, .3, 2.5, 44, v -> p.roomSize = v, "");
-                slider("environment.wet", p.wet, 0, .55, 55, v -> p.wet = v, "");
+                    slider("environment.room_size", p.roomSize, .3, 2.5, 44, v -> p.roomSize(v), "");
+                slider("environment.wet", p.wet, 0, .55, 55, v -> p.wet(v), "");
             }
             if (recipe.echoGain <= 0)
-                slider("environment.echo_gain", p.echoGain, 0, .55, 55, v -> p.echoGain = v, "");
+                slider("environment.echo_gain", p.echoGain, 0, .55, 55, v -> p.echoGain(v), "");
             if (recipe.modulationMs <= 0)
-                slider("environment.modulation", p.modulationMs, 0, 3, 60, v -> p.modulationMs = v, " ms");
+                slider("environment.modulation", p.modulationMs, 0, 3, 60, v -> p.modulationMs(v), " ms");
             slider("dsp.high_pass", p.highPass, 20, 2000, 198, v -> {
-                p.highPass = v;
+                p.highPass(v);
                 p.lowPass = Math.max(p.lowPass, v * 1.2);
             }, " Hz");
             slider("dsp.low_pass", p.lowPass, Math.max(100, p.highPass * 1.2), 20000, 199, v -> p.lowPass = v, " Hz");
-            slider("environment.presence", p.presenceGain, -6, 6, 48, v -> p.presenceGain = v, " dB");
-            slider("environment.presence_frequency", p.presenceFrequency, 100, 12000, 119, v -> p.presenceFrequency = v, " Hz");
-            slider("environment.drive", p.drive, 0, 3, 60, v -> p.drive = v, "");
-            if (!p.acoustic) slider("environment.distance", p.distance, 0, 1, 100, v -> p.distance = v, "");
-            slider("environment.pan", p.pan, -1, 1, 40, v -> p.pan = v, "");
+            slider("environment.presence", p.presenceGain, -6, 6, 48, v -> p.presenceGain(v), " dB");
+            slider("environment.presence_frequency", p.presenceFrequency, 100, 12000, 119, v -> p.presenceFrequency(v), " Hz");
+            slider("environment.drive", p.drive, 0, 3, 60, v -> p.drive(v), "");
+            if (!p.acoustic) slider("environment.distance", p.distance, 0, 1, 100, v -> p.distance(v), "");
+            slider("environment.pan", p.pan, -1, 1, 40, v -> p.pan(v), "");
             toggle("environment.mono", () -> p.mono, v -> p.mono = v);
             toggle("environment.acoustic", () -> p.acoustic, v -> p.acoustic = v);
             if (p.acoustic) {
@@ -89,15 +89,15 @@ public final class SoundEnvironmentScreen extends AudioPage<AudioSettingsScreen.
                     choice("dsp.impulse", p.impulse, AudioEnhancements.Impulse.values(), v -> p.impulse = v);
                     info("dsp.modelled_ir");
                 } else {
-                    slider("environment.decay", p.decay, .1, 8, 79, v -> p.decay = v, " s");
-                    slider("environment.predelay", p.predelay, 0, .25, 50, v -> p.predelay = v, " s");
+                    slider("environment.decay", p.decay, .1, 8, 79, v -> p.decay(v), " s");
+                    slider("environment.predelay", p.predelay, 0, .25, 50, v -> p.predelay(v), " s");
                 }
-                slider("environment.damping", p.damping, .05, .95, 45, v -> p.damping = v, "");
+                slider("environment.damping", p.damping, .05, .95, 45, v -> p.damping(v), "");
             }
-            slider("environment.echo_time", p.echoTime, .03, 1, 97, v -> p.echoTime = v, " s");
-            slider("environment.modulation_rate", p.modulationHz, .1, 6, 59, v -> p.modulationHz = v, " Hz");
+            slider("environment.echo_time", p.echoTime, .03, 1, 97, v -> p.echoTime(v), " s");
+            slider("environment.modulation_rate", p.modulationHz, .1, 6, 59, v -> p.modulationHz(v), " Hz");
             if (e.texture || e.ambience)
-                slider("environment.noise", p.noiseDb, -72, -30, 42, v -> p.noiseDb = v, " dBFS");
+                slider("environment.noise", p.noiseDb, -72, -30, 42, v -> p.noiseDb(v), " dBFS");
             for (int i = 0; i < p.reflectionTimes.length; i++) {
                 int n = i;
                 section("environment.reflection");

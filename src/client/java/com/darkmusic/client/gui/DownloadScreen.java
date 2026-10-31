@@ -2,7 +2,6 @@ package com.darkmusic.client.gui;
 
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.audio.JavaSoundBackend;
-import com.darkmusic.client.audio.PlaybackController;
 import com.darkmusic.client.cleanup.LibrarySourceIndex;
 import com.darkmusic.client.config.ConfigStore;
 import com.darkmusic.client.config.DownloadFormat;
@@ -48,10 +47,9 @@ public final class DownloadScreen extends LocalScreen {
 
         LibrarySourceIndex sourceIndex();
 
-        /**
-         * Null until startup creates the player.
-         */
-        PlaybackController playback();
+        TransportOperations transport();
+
+        PlayerQueries player();
 
         /**
          * Null until startup creates the library.
@@ -484,11 +482,11 @@ public final class DownloadScreen extends LocalScreen {
             audition = new AuditionPlayer((entry, tools, token) -> AuditionClip.fetch(entry, tools, app.config().directory(), runner, token), () -> new JavaSoundBackend(minecraft::execute), minecraft::execute, this::resumeMusic);
             app.audition(audition);
         }
-        var state = app.playback().state();
+        var state = app.player().state();
         if (pausedTrack == null && (state.status() == AudioBackend.Status.PLAYING || state.status() == AudioBackend.Status.LOADING || state.status() == AudioBackend.Status.SEEKING)) {
             pausedTrack = state.track();
             pausedPosition = state.position();
-            app.playback().pause();
+            app.transport().pause();
         }
         auditionEntry = listeningEntry;
         audition.play(listeningEntry, new ToolPaths(app.settings().ytDlpPath, app.settings().ffmpegPath, app.settings().ffprobePath, app.settings().javascriptPath), app.settings().volume);
@@ -499,9 +497,9 @@ public final class DownloadScreen extends LocalScreen {
             return;
         Track track = pausedTrack;
         pausedTrack = null;
-        var state = app.playback().state();
+        var state = app.player().state();
         if (track != null && track.equals(state.track()) && (state.status() == AudioBackend.Status.PAUSED || state.status() == AudioBackend.Status.PLAYING || state.status() == AudioBackend.Status.LOADING || state.status() == AudioBackend.Status.SEEKING) && Math.abs(state.position() - pausedPosition) < .5)
-            app.playback().resume();
+            app.transport().resume();
     }
 
     private void stopAudition() {

@@ -311,7 +311,7 @@ final class HudSmokeClient {
                     ((EditBox) field(downloads, "url")).setValue(link);
                     var track = app.services().library().snapshot().tracks().getFirst();
                     var entry = new DownloadModels.Entry(1, (track.title() + " 日本語 中文 ").repeat(12) + "終點", link, "Generic", "one", true);
-                    set(app.services().downloads(), "preview", new DownloadModels.Preview(link, "Collection", "Generic", true, false, 1, 1, false, List.of(entry)));
+                    set(field(app.services().downloads(), "previews"), "preview", new DownloadModels.Preview(link, "Collection", "Generic", true, false, 1, 1, false, List.of(entry)));
                     set(app.services().downloads(), "message", ("Collection details: " + track.relativePath() + " ").repeat(10));
                     set(app.services().downloads(), "published", null);
                     downloads.tick();

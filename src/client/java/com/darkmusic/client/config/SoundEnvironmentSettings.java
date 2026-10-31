@@ -83,26 +83,43 @@ public final class SoundEnvironmentSettings {
                 && Arrays.equals(reflectionGains, p.reflectionGains);
         }
 
+        public static final Range HIGH_PASS = Range.of(20, 2000, 20);
+        public static final Range PRESENCE_FREQUENCY = Range.of(100, 12000, 1200);
+        public static final Range PRESENCE_GAIN = Range.of(-6, 6, 0);
+        public static final Range DRIVE = Range.of(0, 3, 0);
+        public static final Range DISTANCE = Range.of(0, 1, 0);
+        public static final Range PAN = Range.of(-1, 1, 0);
+        public static final Range ROOM_SIZE = Range.of(.3, 2.5, 1);
+        public static final Range DECAY = Range.of(.1, 8, .7);
+        public static final Range DAMPING = Range.of(.05, .95, .5);
+        public static final Range WET = Range.of(0, .55, 0);
+        public static final Range PREDELAY = Range.of(0, .25, 0);
+        public static final Range ECHO_TIME = Range.of(.03, 1, .18);
+        public static final Range ECHO_GAIN = Range.of(0, .55, 0);
+        public static final Range MODULATION_MS = Range.of(0, 3, 0);
+        public static final Range MODULATION_HZ = Range.of(.1, 6, .7);
+        public static final Range NOISE_DB = Range.of(-72, -30, -50);
+
         public void validate() {
             if (reverbEngine == null) reverbEngine = AudioEnhancements.ReverbEngine.ALGORITHMIC;
             if (impulse == null) impulse = AudioEnhancements.Impulse.HALL;
-            highPass = AudioEnhancements.finite(highPass, 20, 2000, 20);
+            highPass = HIGH_PASS.apply(highPass);
             lowPass = AudioEnhancements.finite(lowPass, Math.max(100, highPass * 1.2), 20000, 20000);
-            presenceFrequency = AudioEnhancements.finite(presenceFrequency, 100, 12000, 1200);
-            presenceGain = AudioEnhancements.finite(presenceGain, -6, 6, 0);
-            drive = AudioEnhancements.finite(drive, 0, 3, 0);
-            distance = AudioEnhancements.finite(distance, 0, 1, 0);
-            pan = AudioEnhancements.finite(pan, -1, 1, 0);
-            roomSize = AudioEnhancements.finite(roomSize, .3, 2.5, 1);
-            decay = AudioEnhancements.finite(decay, .1, 8, .7);
-            damping = AudioEnhancements.finite(damping, .05, .95, .5);
-            wet = AudioEnhancements.finite(wet, 0, .55, 0);
-            predelay = AudioEnhancements.finite(predelay, 0, .25, 0);
-            echoTime = AudioEnhancements.finite(echoTime, .03, 1, .18);
-            echoGain = AudioEnhancements.finite(echoGain, 0, .55, 0);
-            modulationMs = AudioEnhancements.finite(modulationMs, 0, 3, 0);
-            modulationHz = AudioEnhancements.finite(modulationHz, .1, 6, .7);
-            noiseDb = AudioEnhancements.finite(noiseDb, -72, -30, -50);
+            presenceFrequency = PRESENCE_FREQUENCY.apply(presenceFrequency);
+            presenceGain = PRESENCE_GAIN.apply(presenceGain);
+            drive = DRIVE.apply(drive);
+            distance = DISTANCE.apply(distance);
+            pan = PAN.apply(pan);
+            roomSize = ROOM_SIZE.apply(roomSize);
+            decay = DECAY.apply(decay);
+            damping = DAMPING.apply(damping);
+            wet = WET.apply(wet);
+            predelay = PREDELAY.apply(predelay);
+            echoTime = ECHO_TIME.apply(echoTime);
+            echoGain = ECHO_GAIN.apply(echoGain);
+            modulationMs = MODULATION_MS.apply(modulationMs);
+            modulationHz = MODULATION_HZ.apply(modulationHz);
+            noiseDb = NOISE_DB.apply(noiseDb);
             if (reflectionTimes == null || reflectionGains == null) {
                 reflectionTimes = new double[]{.021, .037, .061};
                 reflectionGains = new double[]{0, 0, 0};
@@ -114,6 +131,71 @@ public final class SoundEnvironmentSettings {
                 reflectionTimes[i] = AudioEnhancements.finite(reflectionTimes[i], .001, 1.6, .02);
                 reflectionGains[i] = AudioEnhancements.finite(reflectionGains[i], -.35, .35, 0);
             }
+        }
+
+        // Each applies the same range as validate(); the fields stay public for Gson and for reading.
+        public void highPass(double value) {
+            highPass = HIGH_PASS.apply(value);
+        }
+
+        public void presenceFrequency(double value) {
+            presenceFrequency = PRESENCE_FREQUENCY.apply(value);
+        }
+
+        public void presenceGain(double value) {
+            presenceGain = PRESENCE_GAIN.apply(value);
+        }
+
+        public void drive(double value) {
+            drive = DRIVE.apply(value);
+        }
+
+        public void distance(double value) {
+            distance = DISTANCE.apply(value);
+        }
+
+        public void pan(double value) {
+            pan = PAN.apply(value);
+        }
+
+        public void roomSize(double value) {
+            roomSize = ROOM_SIZE.apply(value);
+        }
+
+        public void decay(double value) {
+            decay = DECAY.apply(value);
+        }
+
+        public void damping(double value) {
+            damping = DAMPING.apply(value);
+        }
+
+        public void wet(double value) {
+            wet = WET.apply(value);
+        }
+
+        public void predelay(double value) {
+            predelay = PREDELAY.apply(value);
+        }
+
+        public void echoTime(double value) {
+            echoTime = ECHO_TIME.apply(value);
+        }
+
+        public void echoGain(double value) {
+            echoGain = ECHO_GAIN.apply(value);
+        }
+
+        public void modulationMs(double value) {
+            modulationMs = MODULATION_MS.apply(value);
+        }
+
+        public void modulationHz(double value) {
+            modulationHz = MODULATION_HZ.apply(value);
+        }
+
+        public void noiseDb(double value) {
+            noiseDb = NOISE_DB.apply(value);
         }
     }
 
@@ -188,9 +270,11 @@ public final class SoundEnvironmentSettings {
         return selectedSaved;
     }
 
+    public static final Range INTENSITY = Range.of(0, 1, 1);
+
     public void validate() {
         if (preset == null) preset = Preset.OFF;
-        intensity = AudioEnhancements.finite(intensity, 0, 1, 1);
+        intensity = INTENSITY.apply(intensity);
         if (parameters == null) parameters = recipe(preset);
         parameters.validate();
         if (userPresets == null) userPresets = new LinkedHashMap<>();
@@ -208,6 +292,11 @@ public final class SoundEnvironmentSettings {
         }
         userPresets = clean;
         if (selectedSaved != null && !userPresets.containsKey(selectedSaved)) selectedSaved = null;
+    }
+
+    // Each applies the same range as validate(); the fields stay public for Gson and for reading.
+    public void intensity(double value) {
+        intensity = INTENSITY.apply(value);
     }
 
     public SoundEnvironmentSettings playbackCopy() {

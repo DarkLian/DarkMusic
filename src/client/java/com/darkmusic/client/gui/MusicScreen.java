@@ -51,9 +51,16 @@ public final class MusicScreen extends LocalScreen {
         Navigation navigation();
 
         /**
-         * Null until startup creates the player, library and playlists.
+         * Null until startup creates the player, library and playlists. Read only, for drawing the spectrum: changes go
+         * through transport().
          */
         PlaybackController playback();
+
+        TransportOperations transport();
+
+        PlayerQueries player();
+
+        PlaylistOperations playlistOperations();
 
         MusicLibrary library();
 
@@ -224,13 +231,13 @@ public final class MusicScreen extends LocalScreen {
 
     private void shuffle() {
         if (app.mediaBusy()) return;
-        app.shuffle(!app.playback().shuffle());
+        app.shuffle(!app.player().shuffle());
     }
 
     private void repeat() {
         if (app.mediaBusy()) return;
         var values = Repeat.values();
-        app.repeat(values[(app.playback().repeat().ordinal() + 1) % values.length]);
+        app.repeat(values[(app.player().repeat().ordinal() + 1) % values.length]);
     }
 
     @Override
@@ -248,6 +255,34 @@ public final class MusicScreen extends LocalScreen {
         openFolderTarget = "";
         shuffle = repeat = null;
         int contextY = height < 300 ? 64 : 70;
+        header();
+        boolean library = pane == Pane.LIBRARY;
+        boolean drawer = pane == Pane.COLLECTIONS;
+        paneTools(library, drawer, contextY);
+        lists(library, drawer);
+        detailButtons(library);
+        transportControls();
+        if (drawer) {
+            icon("text.darkmusic.open_folder", UiIcon.FOLDER, 84, contextY, 24, true, app::openMusicFolder);
+            icon("import.darkmusic.history", UiIcon.PLAYLIST, 112, contextY, 24, true, () -> show(app.navigation().importHistory(this)));
+            icon("text.darkmusic.refresh_library", UiIcon.REFRESH, 140, contextY, 24, true, () -> app.library().rescan());
+        }
+        if (shuffle != null) UiButton.selected(shuffle, () -> app.player().shuffle());
+        if (repeat != null) UiButton.selected(repeat, () -> app.player().repeat() != Repeat.OFF);
+        refresh();
+        songs.scrollOffset(songScroll);
+        navigation.scrollOffset(collectionScroll);
+        if (revealOnEntry) {
+            revealOnEntry = false;
+            if (app.player().state().track() != null) jumpToPlaying();
+            else revealResume();
+        }
+    }
+
+    /**
+     * The top row: Up Next, Downloads and Settings, the view modes, and the search field.
+     */
+    private void header() {
         boolean compactNavigation = width < 640;
         int navigationWidth = compactNavigation ? 24 : 112;
         int navigationX = width - 12 - 3 * navigationWidth - 8;
@@ -281,8 +316,12 @@ public final class MusicScreen extends LocalScreen {
             query = text;
             refreshSongs();
         });
-        boolean library = pane == Pane.LIBRARY;
-        boolean drawer = pane == Pane.COLLECTIONS;
+    }
+
+    /**
+     * The row below the header, which depends on the pane: back or collections, library tools, history and playlists.
+     */
+    private void paneTools(boolean library, boolean drawer, int contextY) {
         if (pane != Pane.LIBRARY) icon("phase2.back", UiIcon.BACK, 12, contextY, 68, false, () -> pane(Pane.LIBRARY));
         else if (layout.singleColumn())
             icon("ui.darkmusic.collections", UiIcon.FOLDER, 12, contextY, 110, false, () -> pane(Pane.COLLECTIONS));
@@ -312,6 +351,12 @@ public final class MusicScreen extends LocalScreen {
         }
         if (layout.inspector().width() == 0 && library)
             icon("phase2.details", UiIcon.ALBUM, width - 36, contextY, 24, true, () -> pane(Pane.DETAILS));
+    }
+
+    /**
+     * The collections list and the song list with their row decorations.
+     */
+    private void lists(boolean library, boolean drawer) {
         var list = layout.tracks();
         var nav = layout.navigation();
         navigation = addRenderableWidget(new RowList(drawer ? 12 : nav.x(), nav.y(), drawer ? width - 24 : Math.max(1, nav.width()), nav.height(), 24,
@@ -332,8 +377,8 @@ public final class MusicScreen extends LocalScreen {
             Text.get("text.darkmusic.songs_enter_or_double_click_to_play"), (i, activated) -> {
             selected = visible.get(i);
             awaitingEditedTrack = false;
-            if (activated && !app.mediaBusy())
-                app.playback().play(collectionTracks(), selected, new PlaybackController.Source(mode, group, "", ""));
+            if (activated)
+                app.transport().play(collectionTracks(), selected, new PlaybackController.Source(mode, group, "", ""));
         }));
         songs.visible = library;
         songs.artwork(app.artwork(), i -> i < visible.size() ? visible.get(i) : null);
@@ -341,23 +386,6 @@ public final class MusicScreen extends LocalScreen {
         songs.playing(i -> i < visible.size() && visible.get(i).id().equals(playingId));
         songs.playingIcon(() -> playingIcon);
         songs.favorites(i -> i < visible.size() && app.playlists().favorite(visible.get(i)));
-        detailButtons(library);
-        transportControls();
-        if (drawer) {
-            icon("text.darkmusic.open_folder", UiIcon.FOLDER, 84, contextY, 24, true, app::openMusicFolder);
-            icon("import.darkmusic.history", UiIcon.PLAYLIST, 112, contextY, 24, true, () -> show(app.navigation().importHistory(this)));
-            icon("text.darkmusic.refresh_library", UiIcon.REFRESH, 140, contextY, 24, true, () -> app.library().rescan());
-        }
-        if (shuffle != null) UiButton.selected(shuffle, () -> app.playback().shuffle());
-        if (repeat != null) UiButton.selected(repeat, () -> app.playback().repeat() != Repeat.OFF);
-        refresh();
-        songs.scrollOffset(songScroll);
-        navigation.scrollOffset(collectionScroll);
-        if (revealOnEntry) {
-            revealOnEntry = false;
-            if (app.playback().state().track() != null) jumpToPlaying();
-            else revealResume();
-        }
     }
 
     /**
@@ -372,7 +400,7 @@ public final class MusicScreen extends LocalScreen {
         Help.tip(queueActions, Text.get("upnext.actions.help"));
         favorite = addRenderableWidget(new FavoriteButton(inspector.x() + 6, inspector.y() + 4,
             () -> app.playlists().favorite(selected), () -> {
-            if (selected != null && app.playlistsReady()) app.playlists().toggleFavorite(selected);
+            if (selected != null) app.playlistOperations().toggleFavorite(selected);
         }));
         edit = icon("library.darkmusic.edit_metadata", UiIcon.EDIT, inspector.x() + 30, inspector.y() + 4, 22, true, () -> {
             if (selected != null && !app.mediaBusy()) {
@@ -426,7 +454,7 @@ public final class MusicScreen extends LocalScreen {
         jump = transportIcon("player.darkmusic.jump", UiIcon.LOCATE, x, transportY, buttonWidth, this::jumpToPlaying);
         x += buttonWidth + gap;
         transportIcon("text.darkmusic.previous", UiIcon.PREVIOUS, x, transportY, buttonWidth, () -> {
-            if (!app.mediaBusy()) app.playback().previous();
+            app.transport().previous();
         });
         x += buttonWidth + gap;
         seekBack = transportIcon("key.darkmusic.seek_back", UiIcon.SEEK_BACK, x, transportY, buttonWidth, () -> app.seekRelative(-5));
@@ -438,10 +466,10 @@ public final class MusicScreen extends LocalScreen {
         seekForward = transportIcon("key.darkmusic.seek_forward", UiIcon.SEEK_FORWARD, x, transportY, buttonWidth, () -> app.seekRelative(5));
         x += buttonWidth + gap;
         transportIcon("text.darkmusic.next", UiIcon.NEXT, x, transportY, buttonWidth, () -> {
-            if (!app.mediaBusy()) app.playback().next();
+            app.transport().next();
         });
         x += buttonWidth + gap;
-        transportIcon("text.darkmusic.stop", UiIcon.STOP, x, transportY, buttonWidth, () -> app.playback().stop());
+        transportIcon("text.darkmusic.stop", UiIcon.STOP, x, transportY, buttonWidth, () -> app.transport().stop());
         x += buttonWidth + gap;
         repeat = transportIcon("text.darkmusic.repeat", UiIcon.REPEAT, x, transportY, buttonWidth, this::repeat);
         x += buttonWidth + gap;
@@ -452,12 +480,12 @@ public final class MusicScreen extends LocalScreen {
                 v -> Text.get("format.darkmusic.volume", Math.round(v * 100)), app::volume, app::save, 0, v -> Math.round(v * 100) + "%", false),
             Help.withKeys(Text.get("text.darkmusic.darkmusic_volume_independent_of_minecraft_sound_sliders"), app.shortcuts().volumeDown(), app.shortcuts().volumeUp())));
         progress = addRenderableWidget(new ValueSlider(layout.dock().x() + 4, layout.seekY(), layout.dock().width() - 8, 0,
-            v -> time(progress != null && progress.editing() ? v * app.playback().state().duration() : app.playback().state().position()) + " / " + time(app.playback().state().duration()),
+            v -> time(progress != null && progress.editing() ? v * app.player().state().duration() : app.player().state().position()) + " / " + time(app.player().state().duration()),
             v -> {
-                if (!seekDragging) seekTrack = app.playback().state().track();
+                if (!seekDragging) seekTrack = app.player().state().track();
                 seekDragging = progress != null && progress.editing();
             }, this::commitSeek));
-        PlayerProgress.configure(progress, app, () -> app.playback().state().track());
+        PlayerProgress.configure(progress, app, () -> app.player().state().track());
     }
 
     private void refresh() {
@@ -570,9 +598,9 @@ public final class MusicScreen extends LocalScreen {
     }
 
     public void jumpToPlaying() {
-        var current = app.playback().state().track();
+        var current = app.player().state().track();
         if (current == null) return;
-        reveal(current.id(), app.playback().playingSource(), true);
+        reveal(current.id(), app.player().playingSource(), true);
     }
 
     /**
@@ -617,27 +645,26 @@ public final class MusicScreen extends LocalScreen {
     }
 
     private void commitSeek() {
-        var state = app.playback().state();
+        var state = app.player().state();
         if (seekTrack != null && state.track() != null && seekTrack.id().equals(state.track().id()) && progress.active)
-            app.playback().seek(progress.fraction() * state.duration());
+            app.transport().seek(progress.fraction() * state.duration());
         seekDragging = false;
         seekTrack = null;
     }
 
     private void playPause() {
-        if (app.mediaBusy()) return;
         // The remembered song continues from where it stopped rather than starting over.
-        if (app.playback().state().track() == null && selected != null && app.resumes(selected) && app.resumeLast(false))
+        if (app.player().state().track() == null && selected != null && app.resumes(selected) && app.resumeLast(false))
             return;
         if (!selectionIsPlaying()) {
             if (selected != null)
-                app.playback().play(collectionTracks(), selected, new PlaybackController.Source(mode, group, "", ""));
-        } else app.playback().toggle();
+                app.transport().play(collectionTracks(), selected, new PlaybackController.Source(mode, group, "", ""));
+        } else app.transport().toggle();
     }
 
     private boolean selectionIsPlaying() {
-        var current = app.playback().state().track();
-        var source = app.playback().playingSource();
+        var current = app.player().state().track();
+        var source = app.player().playingSource();
         return selected != null && current != null && selected.id().equals(current.id())
             && mode.equals(source.mode()) && group.equals(source.group())
             && (source.rootId().isEmpty() || app.library().directory(source.rootId()) != null);
@@ -658,7 +685,7 @@ public final class MusicScreen extends LocalScreen {
             }
         }
         var state = app.library().snapshot();
-        var playing = app.playback().state();
+        var playing = app.player().state();
         String historyNow = (playing.track() == null ? "" : playing.track().id()) + playing.status();
         if (mode.equals("History") && group.equals("never") && !historyNow.equals(historyPlaying)) refresh();
         historyPlaying = historyNow;
@@ -669,11 +696,11 @@ public final class MusicScreen extends LocalScreen {
             historyRevision = app.listeningHistory().revision();
             refresh();
         }
-        var audio = app.playback().state();
+        var audio = app.player().state();
         String currentId = audio.track() == null ? "" : audio.track().id();
-        if (!currentId.equals(followedId) || !app.playback().playingSource().equals(followedSource)) {
+        if (!currentId.equals(followedId) || !app.player().playingSource().equals(followedSource)) {
             followedId = currentId;
-            followedSource = app.playback().playingSource();
+            followedSource = app.player().playingSource();
             if (audio.track() != null && canFollowPlayback(query, getFocused() instanceof EditBox)) jumpToPlaying();
         }
         favorite.active = selected != null && app.playlistsReady() && !app.mediaBusy();
@@ -685,6 +712,14 @@ public final class MusicScreen extends LocalScreen {
         playingId = audio.track() != null && audio.status() != AudioBackend.Status.STOPPED && audio.status() != AudioBackend.Status.ERROR ? audio.track().id() : "";
         playingIcon = audio.status() == AudioBackend.Status.PAUSED ? UiIcon.PAUSE : UiIcon.PLAY;
         jump.active = audio.track() != null;
+        requestLyrics(audio);
+        syncTransport(audio);
+    }
+
+    /**
+     * Lyrics for the playing song, and for the selected one once it has stayed selected briefly.
+     */
+    private void requestLyrics(AudioBackend.State audio) {
         if (app.settings().lyricsEnabled) {
             app.lyrics().request(audio.track());
             String selectedId = selected == null ? "" : selected.id();
@@ -696,6 +731,13 @@ public final class MusicScreen extends LocalScreen {
             app.lyrics().request(selected, app.settings().lyricsAutomaticLookup && now - lyricsSelectedAt >= 750_000_000L);
             songs.inspectVisibleLyrics();
         }
+    }
+
+    /**
+     * The transport bar follows the player: volume, speed, which controls are enabled, progress, and the labels and
+     * icons of play, shuffle and repeat.
+     */
+    private void syncTransport(AudioBackend.State audio) {
         volume.sync(app.settings().volume);
         UiButton.icon(mute, app.settings().volume == 0 ? UiIcon.MUTED : UiIcon.VOLUME, true);
         speed.sync((app.settings().speed - .5) / 2.5);
@@ -708,10 +750,10 @@ public final class MusicScreen extends LocalScreen {
         play.setMessage(Component.literal(controlling && audio.status() == AudioBackend.Status.PLAYING ? Text.get("text.darkmusic.pause") : controlling && audio.status() == AudioBackend.Status.PAUSED ? Text.get("text.darkmusic.resume") : Text.get("text.darkmusic.play")));
         UiButton.icon(play, controlling && audio.status() == AudioBackend.Status.PLAYING ? UiIcon.PAUSE : UiIcon.PLAY, true);
         if (shuffle != null)
-            shuffle.setMessage(Component.literal(app.playback().shuffle() ? Text.get("text.darkmusic.shuffle_on") : Text.get("text.darkmusic.shuffle_off")));
+            shuffle.setMessage(Component.literal(app.player().shuffle() ? Text.get("text.darkmusic.shuffle_on") : Text.get("text.darkmusic.shuffle_off")));
         if (repeat != null) {
-            repeat.setMessage(Text.component("format.darkmusic.repeat", UiStatus.label(app.playback().repeat().name())));
-            UiButton.icon(repeat, app.playback().repeat() == Repeat.ONE ? UiIcon.REPEAT_ONE : app.playback().repeat() == Repeat.ALL ? UiIcon.REPEAT_ALL : UiIcon.REPEAT, true);
+            repeat.setMessage(Text.component("format.darkmusic.repeat", UiStatus.label(app.player().repeat().name())));
+            UiButton.icon(repeat, app.player().repeat() == Repeat.ONE ? UiIcon.REPEAT_ONE : app.player().repeat() == Repeat.ALL ? UiIcon.REPEAT_ALL : UiIcon.REPEAT, true);
         }
     }
 
@@ -846,7 +888,7 @@ public final class MusicScreen extends LocalScreen {
         }
         UiIcon.MUSIC.draw(g, 12, 10, 12, UiTheme.ACCENT);
         g.text(font, "DarkMusic", 30, 12, UiTheme.TEXT);
-        var audio = app.playback().state();
+        var audio = app.player().state();
         boolean library = pane == Pane.LIBRARY;
         queueActions.visible = favorite.visible = edit.visible = sourceLink.visible = copySource.visible = selected != null && (pane == Pane.DETAILS || library && layout.inspector().width() > 0);
         if (lyricsButton != null) lyricsButton.visible = copySource.visible;

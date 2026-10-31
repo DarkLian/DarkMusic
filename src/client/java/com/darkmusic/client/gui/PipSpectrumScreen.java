@@ -47,13 +47,13 @@ public final class PipSpectrumScreen extends AudioPage<PipScreen.Sources> implem
         effect("quality.darkmusic.trails", () -> s.quality.trails, v -> s.quality.trails = v);
         effect("quality.darkmusic.glow", () -> s.quality.glow, v -> s.quality.glow = v);
         labeledAction(Text.get("colors.darkmusic.spectrum"), Text.get("colors.darkmusic.help"), () -> show(app.navigation().colors(this, s.colors, "colors.darkmusic.spectrum", this::preview, "pip.spectrum.preview")));
-        control((s.opacity - .1) / .9, v -> Text.get("spectrum.darkmusic.opacity", Math.round(s.opacity * 100)), v -> s.opacity = .1 + v * .9, 18, "spectrum.darkmusic.opacity_help");
+        control((s.opacity - .1) / .9, v -> Text.get("spectrum.darkmusic.opacity", Math.round(s.opacity * 100)), v -> s.opacity(.1 + v * .9), 18, "spectrum.darkmusic.opacity_help");
         if (!s.style.bars())
-            control((s.quality.detail - 96) / 288.0, v -> Text.get("spectrum.darkmusic.detail", s.quality.detail), v -> s.quality.detail = 96 + (int) Math.round(v * 288), 12, "spectrum.darkmusic.detail_help");
-        control(s.smoothing / .95, v -> Text.get("format.darkmusic.smoothing", Math.round(s.smoothing * 100)), v -> s.smoothing = v * .95, 19, "pip.spectrum.smoothing.help");
-        control((s.sensitivity - .25) / 3.75, v -> Text.get("format.darkmusic.sensitivity", String.format(Locale.ROOT, "%.2f", s.sensitivity)), v -> s.sensitivity = .25 + v * 3.75, 15, "pip.spectrum.sensitivity.help");
-        control((s.bands - 8) / 56.0, v -> Text.get("format.darkmusic.bars", s.bands), v -> s.bands = 8 + (int) Math.round(v * 56), 14, "text.darkmusic.8_64_logarithmic_frequency_bands_from_bass_to_treble_narrow_areas_combine_bars_to");
-        control((s.height - 8) / 92.0, v -> Text.get("hud.darkmusic.spectrum_height", s.height), v -> s.height = 8 + (int) Math.round(v * 92), 92, "hud.darkmusic.spectrum_height_help");
+            control((s.quality.detail - 96) / 288.0, v -> Text.get("spectrum.darkmusic.detail", s.quality.detail), v -> s.quality.detail(96 + (int) Math.round(v * 288)), 12, "spectrum.darkmusic.detail_help");
+        control(s.smoothing / .95, v -> Text.get("format.darkmusic.smoothing", Math.round(s.smoothing * 100)), v -> s.smoothing(v * .95), 19, "pip.spectrum.smoothing.help");
+        control((s.sensitivity - .25) / 3.75, v -> Text.get("format.darkmusic.sensitivity", String.format(Locale.ROOT, "%.2f", s.sensitivity)), v -> s.sensitivity(.25 + v * 3.75), 15, "pip.spectrum.sensitivity.help");
+        control((s.bands - 8) / 56.0, v -> Text.get("format.darkmusic.bars", s.bands), v -> s.bands(8 + (int) Math.round(v * 56)), 14, "text.darkmusic.8_64_logarithmic_frequency_bands_from_bass_to_treble_narrow_areas_combine_bars_to");
+        control((s.height - 8) / 92.0, v -> Text.get("hud.darkmusic.spectrum_height", s.height), v -> s.height(8 + (int) Math.round(v * 92)), 92, "hud.darkmusic.spectrum_height_help");
         action("pip.placement", () -> show(new PipEditorScreen(app, this, false)));
     }
 

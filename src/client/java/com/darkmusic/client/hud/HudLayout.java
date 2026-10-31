@@ -68,7 +68,7 @@ public final class HudLayout {
         var settings = new Settings();
         settings.hudX = x;
         settings.hudY = y;
-        settings.hudScale = scale;
+        settings.hudScale(scale);
         settings.hudProgress = progress;
         return bounds(settings, width, height);
     }

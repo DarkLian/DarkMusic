@@ -21,6 +21,12 @@ public final class PipSpectrumSettings {
         return quality;
     }
 
+    public static final Range BANDS = Range.whole(8, 64);
+    public static final Range HEIGHT = Range.whole(8, 100);
+    public static final Range OPACITY = Range.of(.1, 1, 1);
+    public static final Range SENSITIVITY = Range.of(.25, 4, 1);
+    public static final Range SMOOTHING = Range.of(0, .95, .6);
+
     public void validate() {
         if (style == null) style = Settings.SpectrumStyle.BARS;
         if (finish == null) finish = Settings.SurfaceFinish.BEVELED;
@@ -30,16 +36,34 @@ public final class PipSpectrumSettings {
         if (quality == null) quality = defaults();
         colors.validate();
         quality.validate();
-        bands = Math.clamp(bands, 8, 64);
-        height = Math.clamp(height, 8, 100);
-        opacity = finite(opacity, .1, 1, 1);
-        sensitivity = finite(sensitivity, .25, 4, 1);
-        smoothing = finite(smoothing, 0, .95, .6);
+        bands = BANDS.apply(bands);
+        height = HEIGHT.apply(height);
+        opacity = OPACITY.apply(opacity);
+        sensitivity = SENSITIVITY.apply(sensitivity);
+        smoothing = SMOOTHING.apply(smoothing);
     }
 
-    private static double finite(double value, double min, double max, double fallback) {
-        return Double.isFinite(value) ? Math.clamp(value, min, max) : fallback;
+    // Each applies the same range as validate(); the fields stay public for Gson and for reading.
+    public void bands(int value) {
+        bands = BANDS.apply(value);
     }
+
+    public void height(int value) {
+        height = HEIGHT.apply(value);
+    }
+
+    public void opacity(double value) {
+        opacity = OPACITY.apply(value);
+    }
+
+    public void sensitivity(double value) {
+        sensitivity = SENSITIVITY.apply(value);
+    }
+
+    public void smoothing(double value) {
+        smoothing = SMOOTHING.apply(value);
+    }
+
 
     /**
      * Fill a session-owned rendering adapter, never the user's music settings.

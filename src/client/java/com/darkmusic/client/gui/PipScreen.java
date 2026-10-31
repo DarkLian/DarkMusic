@@ -123,7 +123,7 @@ public final class PipScreen extends AudioPage<PipScreen.Sources> implements Pip
             s.frameRate = caps[next % caps.length];
             changed();
         }).active = !pip.active();
-        var opacity = new ValueSlider(formX, 0, formWidth, (s.opacity - .1) / .9, v -> Text.get("pip.opacity", Math.round((.1 + v * .9) * 100)), v -> s.opacity = .1 + v * .9, app::save, 90);
+        var opacity = new ValueSlider(formX, 0, formWidth, (s.opacity - .1) / .9, v -> Text.get("pip.opacity", Math.round((.1 + v * .9) * 100)), v -> s.opacity(.1 + v * .9), app::save, 90);
         place(opacity);
         labeledAction(Text.get("pip.focus_key", s.focusKey - 111), Text.get("pip.shortcuts.help"), () -> cycleKey(true)).active = !pip.active();
         labeledAction(Text.get("pip.return_key", s.returnKey - 111), Text.get("pip.shortcuts.help"), () -> cycleKey(false)).active = !pip.active();

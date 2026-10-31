@@ -122,15 +122,34 @@ public final class Settings {
     }
 
     public static double clampVolume(double value) {
-        return Double.isFinite(value) ? Math.round(Math.clamp(value, 0, 1) * 100) / 100.0 : 1;
+        return Math.round(VOLUME.apply(value) * 100) / 100.0;
     }
 
     /**
      * Playback speed and HUD scales share one range: 0.5 to 3 in steps of 0.1.
      */
     public static double clampStep(double value) {
-        return Double.isFinite(value) ? Math.round(Math.clamp(value, .5, 3) * 10) / 10.0 : 1;
+        return Math.round(STEP.apply(value) * 10) / 10.0;
     }
+
+    // Speed and the HUD scales; validate() also rounds them to steps of 0.1, their setters only clamp.
+    public static final Range STEP = Range.of(.5, 3, 1);
+    public static final Range VOLUME = Range.of(0, 1, 1);
+    public static final Range LYRICS_HUD_X = Range.of(0, 1, .5);
+    public static final Range LYRICS_HUD_Y = Range.of(0, 1, .9);
+    public static final Range LYRICS_HUD_WIDTH = Range.whole(120, 600);
+    public static final Range LYRICS_HUD_OPACITY = Range.of(0, 1, 0);
+    public static final Range CIRCULAR_IMAGE_GAP = Range.whole(0, 24);
+    public static final Range HUD_IDLE_HIDE = Range.whole(0, Settings.IDLE_HIDE_MAX);
+    public static final Range CIRCULAR_ROTATION_SECONDS = Range.whole(4, 120);
+    public static final Range HUD_BACKGROUND_TRANSPARENCY = Range.of(0, 1, 1);
+    public static final Range CIRCULAR_SPECTRUM_HEIGHT = Range.whole(4, 60);
+    public static final Range CLASSIC_SPECTRUM_HEIGHT = Range.whole(8, 100);
+    public static final Range ARTWORK_SPECTRUM_HEIGHT = Range.whole(8, 100);
+    public static final Range VISUALIZER_BARS = Range.whole(8, 64);
+    public static final Range SPECTRUM_OPACITY = Range.of(.1, 1, 1);
+    public static final Range VISUALIZER_SENSITIVITY = Range.of(.25, 4, 1);
+    public static final Range VISUALIZER_SMOOTHING = Range.of(0, .95, .6);
 
     public void validate() {
         if (pip == null) pip = new PipSettings();
@@ -142,6 +161,87 @@ public final class Settings {
         validateMenuColors();
         validateHud();
         validateSpectrum();
+    }
+
+    // Each applies the same range as validate(); the fields stay public for Gson and for reading.
+    public void volume(double value) {
+        volume = VOLUME.apply(value);
+    }
+
+    public void lyricsHudX(double value) {
+        lyricsHudX = LYRICS_HUD_X.apply(value);
+    }
+
+    public void lyricsHudY(double value) {
+        lyricsHudY = LYRICS_HUD_Y.apply(value);
+    }
+
+    public void lyricsHudWidth(int value) {
+        lyricsHudWidth = LYRICS_HUD_WIDTH.apply(value);
+    }
+
+    public void lyricsHudOpacity(double value) {
+        lyricsHudOpacity = LYRICS_HUD_OPACITY.apply(value);
+    }
+
+    public void circularImageGap(int value) {
+        circularImageGap = CIRCULAR_IMAGE_GAP.apply(value);
+    }
+
+    public void hudIdleHide(int value) {
+        hudIdleHide = HUD_IDLE_HIDE.apply(value);
+    }
+
+    public void circularRotationSeconds(int value) {
+        circularRotationSeconds = CIRCULAR_ROTATION_SECONDS.apply(value);
+    }
+
+    public void hudBackgroundTransparency(double value) {
+        hudBackgroundTransparency = HUD_BACKGROUND_TRANSPARENCY.apply(value);
+    }
+
+    public void circularSpectrumHeight(int value) {
+        circularSpectrumHeight = CIRCULAR_SPECTRUM_HEIGHT.apply(value);
+    }
+
+    public void classicSpectrumHeight(int value) {
+        classicSpectrumHeight = CLASSIC_SPECTRUM_HEIGHT.apply(value);
+    }
+
+    public void artworkSpectrumHeight(int value) {
+        artworkSpectrumHeight = ARTWORK_SPECTRUM_HEIGHT.apply(value);
+    }
+
+    public void visualizerBars(int value) {
+        visualizerBars = VISUALIZER_BARS.apply(value);
+    }
+
+    public void spectrumOpacity(double value) {
+        spectrumOpacity = SPECTRUM_OPACITY.apply(value);
+    }
+
+    public void visualizerSensitivity(double value) {
+        visualizerSensitivity = VISUALIZER_SENSITIVITY.apply(value);
+    }
+
+    public void visualizerSmoothing(double value) {
+        visualizerSmoothing = VISUALIZER_SMOOTHING.apply(value);
+    }
+
+    public void speed(double value) {
+        speed = STEP.apply(value);
+    }
+
+    public void lyricsHudScale(double value) {
+        lyricsHudScale = STEP.apply(value);
+    }
+
+    public void songCardScale(double value) {
+        songCardScale = STEP.apply(value);
+    }
+
+    public void hudScale(double value) {
+        hudScale = STEP.apply(value);
     }
 
     private void validateLibrary() {
@@ -177,7 +277,7 @@ public final class Settings {
 
     private void validatePlayback() {
         if (resume != null && !resume.valid()) resume = null;
-        volume = Double.isFinite(volume) ? Math.clamp(volume, 0, 1) : 1;
+        volume = VOLUME.apply(volume);
         lastAudibleVolume = volume > 0 ? volume : Double.isFinite(lastAudibleVolume) && lastAudibleVolume > 0 ? Math.clamp(lastAudibleVolume, .01, 1) : 1;
         if (outputDevice == null || !outputDevice.matches("[0-9a-f]{64}|")) outputDevice = "";
         if (audio == null) audio = new AudioSettings();
@@ -209,12 +309,12 @@ public final class Settings {
             lyricsLanguages = "auto";
         }
         lyricsHudScale = clampStep(lyricsHudScale);
-        lyricsHudX = Double.isFinite(lyricsHudX) ? Math.clamp(lyricsHudX, 0, 1) : .5;
-        lyricsHudY = Double.isFinite(lyricsHudY) ? Math.clamp(lyricsHudY, 0, 1) : .9;
-        lyricsHudWidth = Math.clamp(lyricsHudWidth, 120, 600);
+        lyricsHudX = LYRICS_HUD_X.apply(lyricsHudX);
+        lyricsHudY = LYRICS_HUD_Y.apply(lyricsHudY);
+        lyricsHudWidth = LYRICS_HUD_WIDTH.apply(lyricsHudWidth);
         lyricsHudColor &= 0xFFFFFF;
         lyricsHudNextColor &= 0xFFFFFF;
-        lyricsHudOpacity = Double.isFinite(lyricsHudOpacity) ? Math.clamp(lyricsHudOpacity, 0, 1) : 0;
+        lyricsHudOpacity = LYRICS_HUD_OPACITY.apply(lyricsHudOpacity);
     }
 
     private void validateMenuColors() {
@@ -226,7 +326,7 @@ public final class Settings {
         if (classicImage == null) classicImage = HudImage.ARTWORK;
         if (circularImage == null) circularImage = HudImage.ARTWORK;
         if (artworkImage == null) artworkImage = HudImage.ARTWORK;
-        circularImageGap = Math.clamp(circularImageGap, 0, 24);
+        circularImageGap = CIRCULAR_IMAGE_GAP.apply(circularImageGap);
         if (waveform == null) waveform = new WaveformSettings();
         waveform.validate();
         if (hudBackgroundColors == null) hudBackgroundColors = backgroundColors();
@@ -242,7 +342,7 @@ public final class Settings {
         if (hudIdleAnimation == null) hudIdleAnimation = Motion.SLIDE;
         if (hudTimePosition == null) hudTimePosition = TimePosition.BELOW_BAR;
         if (songCardAnimation == null) songCardAnimation = Motion.SLIDE;
-        hudIdleHide = Math.clamp(hudIdleHide, 0, IDLE_HIDE_MAX);
+        hudIdleHide = HUD_IDLE_HIDE.apply(hudIdleHide);
         if (songCardX == null || songCardY == null || !Double.isFinite(songCardX) || !Double.isFinite(songCardY))
             songCardX = songCardY = null;
         else {
@@ -252,26 +352,26 @@ public final class Settings {
         songCardScale = clampStep(songCardScale);
         if (circularRotation == null) circularRotation = Rotation.OFF;
         if (circularProgressRotation == null) circularProgressRotation = Rotation.OFF;
-        circularRotationSeconds = Math.clamp(circularRotationSeconds, 4, 120);
-        hudBackgroundTransparency = Double.isFinite(hudBackgroundTransparency) ? Math.clamp(hudBackgroundTransparency, 0, 1) : 1;
+        circularRotationSeconds = CIRCULAR_ROTATION_SECONDS.apply(circularRotationSeconds);
+        hudBackgroundTransparency = HUD_BACKGROUND_TRANSPARENCY.apply(hudBackgroundTransparency);
         hudScale = clampStep(hudScale);
         hudX = hudX == null || !Double.isFinite(hudX) ? (hudPosition.endsWith("RIGHT") ? 1.0 : 0.0) : Math.clamp(hudX, 0, 1);
         hudY = hudY == null || !Double.isFinite(hudY) ? (hudPosition.startsWith("BOTTOM") ? 1.0 : 0.0) : Math.clamp(hudY, 0, 1);
     }
 
     private void validateSpectrum() {
-        circularSpectrumHeight = Math.clamp(circularSpectrumHeight, 4, 60);
-        classicSpectrumHeight = Math.clamp(classicSpectrumHeight, 8, 100);
-        artworkSpectrumHeight = Math.clamp(artworkSpectrumHeight, 8, 100);
+        circularSpectrumHeight = CIRCULAR_SPECTRUM_HEIGHT.apply(circularSpectrumHeight);
+        classicSpectrumHeight = CLASSIC_SPECTRUM_HEIGHT.apply(classicSpectrumHeight);
+        artworkSpectrumHeight = ARTWORK_SPECTRUM_HEIGHT.apply(artworkSpectrumHeight);
         if (artworkSpectrumPosition == null) artworkSpectrumPosition = ArtworkSpectrumPosition.BELOW;
         if (visualQuality == null) visualQuality = defaultVisualQuality();
         visualQuality.validate();
         if (spectrumColors == null) spectrumColors = defaultVisualColors();
         spectrumColors.validate();
-        visualizerBars = Math.clamp(visualizerBars, 8, 64);
-        spectrumOpacity = Double.isFinite(spectrumOpacity) ? Math.clamp(spectrumOpacity, .1, 1) : 1;
-        visualizerSensitivity = Double.isFinite(visualizerSensitivity) ? Math.clamp(visualizerSensitivity, .25, 4) : 1;
-        visualizerSmoothing = Double.isFinite(visualizerSmoothing) ? Math.clamp(visualizerSmoothing, 0, .95) : .6;
+        visualizerBars = VISUALIZER_BARS.apply(visualizerBars);
+        spectrumOpacity = SPECTRUM_OPACITY.apply(spectrumOpacity);
+        visualizerSensitivity = VISUALIZER_SENSITIVITY.apply(visualizerSensitivity);
+        visualizerSmoothing = VISUALIZER_SMOOTHING.apply(visualizerSmoothing);
         if (spectrumStyle == null) spectrumStyle = SpectrumStyle.BARS;
         if (spectrumFinish == null) spectrumFinish = SurfaceFinish.BEVELED;
         if (circularSpectrumStyle != SpectrumStyle.BARS && circularSpectrumStyle != SpectrumStyle.ROUNDED_BARS && circularSpectrumStyle != SpectrumStyle.FILLED_WAVE && circularSpectrumStyle != SpectrumStyle.FILLED_SPIKE)

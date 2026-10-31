@@ -394,80 +394,7 @@ public final class JavaSoundBackend implements AudioBackend {
         try {
             while (!closed) {
                 Request request = pending.getAndSet(null);
-                if (request != null) {
-                    var prepared = upcoming.get();
-                    if (prepared != null && !prepared.untouched()) {
-                        cancelUpcoming();
-                        if (current(request))
-                            nextTrack(prepared.track, prepared.started, prepared.ended, prepared.failed, prepared.transition);
-                    }
-                    if (announcement != null && request.session == announcement.previous.session) {
-                        normalizationSession = announcement.normalization;
-                        normalizationSessionId = request.session;
-                        normalizationGain = announcement.gain;
-                    }
-                    release();
-                    if (normalizationSessionId != request.session) {
-                        normalizationSession = null;
-                        normalizationGain = 1;
-                        normalizationSessionId = request.session;
-                    }
-                    incomingSession = null;
-                    incomingNormalization = 1;
-                    mixing = null;
-                    overlap = 0;
-                    announcement = null;
-                    active = request;
-                    if (request.track != null) {
-                        try {
-                            var opened = decoder.openAt(request.track.file(), request.position);
-                            stream = opened.stream();
-                            AudioFormat format = stream.getFormat();
-                            long framesToSkip = Math.max(0, Math.round((request.position - opened.offset()) * format.getFrameRate()));
-                            Request seeking = request;
-                            long skipped = discardFrames(stream, framesToSkip, new byte[65536], () -> current(seeking));
-                            if (!current(request)) {
-                                release();
-                                continue;
-                            }
-                            offset = opened.offset() + skipped / (double) format.getFrameRate();
-                            converter = new PcmRateConverter(stream);
-                            submittedFrames = 0;
-                            hearingFrame = 0;
-                            timeline.clear();
-                            timeline.add(new Segment(0, offset, speed));
-                            Exception unavailable = null;
-                            int preferredBits = format.getSampleSizeInBits() > 16 ? 24 : 16;
-                            for (float fallback : new float[]{format.getSampleRate(), 48_000, 44_100}) {
-                                for (int bits : preferredBits == 24 ? new int[]{24, 16} : new int[]{16}) {
-                                    try {
-                                        line = output.open(new AudioFormat(fallback, bits, format.getChannels(), true, false));
-                                        break;
-                                    } catch (Exception failure) {
-                                        if (unavailable == null) unavailable = failure;
-                                        else unavailable.addSuppressed(failure);
-                                    }
-                                }
-                                if (line != null) break;
-                            }
-                            if (line == null) throw unavailable;
-                            deviceRate = line.getFormat().getFrameRate();
-                            processor.begin(deviceRate, line.getFormat().getChannels());
-                            protectionFlushed = false;
-                            processor.initialVolume(gain);
-                            var selected = options;
-                            if (!selected.neutral && selected.normalization)
-                                normalizationGain = normalization(request.track, selected, false).gain(selected);
-                            normalizationStatus = normalizationSession == null ? LoudnessCache.Status.OFF : normalizationSession.status(selected, normalizationGain);
-                            progressedAt = System.nanoTime();
-                            lastPlayed = line.getLongFramePosition();
-                            spectrum.begin(deviceRate, line.getFormat().getChannels());
-                            if (!paused) line.start();
-                        } catch (Throwable e) {
-                            fail(request, e);
-                        }
-                    }
-                }
+                if (request != null && !begin(request)) continue;
                 var route = outputChange.get();
                 // A prepared next track is not an active crossfade.
                 if (route != null && (paused || overlap <= 0 && announcement == null) && outputChange.compareAndSet(route, null))
@@ -478,191 +405,9 @@ public final class JavaSoundBackend implements AudioBackend {
                     continue;
                 }
                 try {
-                    if (output instanceof OutputDevices && !line.isOpen())
-                        throw new LineUnavailableException("Audio output disconnected");
-                    if (paused) {
-                        decoderEmptySince = 0;
-                        line.stop();
-                        update(request, Status.PAUSED);
-                        progressedAt = System.nanoTime();
-                        if (output instanceof OutputDevices devices && devices.isExplicit())
-                            LockSupport.parkNanos(100_000_000);
-                        else LockSupport.park();
-                        progressedAt = System.nanoTime();
-                        continue;
-                    }
-                    if (!line.isRunning()) line.start();
-                    update(request, Status.PLAYING);
-                    long played = line.getLongFramePosition();
-                    if (played != lastPlayed) {
-                        lastPlayed = played;
-                        progressedAt = System.nanoTime();
-                    } else if (line.available() >= line.getBufferSize()) {
-                        // Decoder/disk starvation is not a stalled output device.
-                        progressedAt = System.nanoTime();
-                    } else if (System.nanoTime() - progressedAt > stallNanos)
-                        throw new OutputFailure("audio.error.stalled");
-                    int bytesPerSample = line.getFormat().getSampleSizeInBits() / 8;
-                    int frame = line.getFormat().getChannels() * bytesPerSample;
-                    int amount = Math.min(buffer.length, line.available()) / frame * frame;
-                    if (amount == 0) {
-                        LockSupport.parkNanos(5_000_000);
-                        continue;
-                    }
-                    double rate = speed;
-                    if (timeline.getLast().speed != rate)
-                        timeline.add(new Segment(submittedFrames, offset + converter.positionFrames() / stream.getFormat().getFrameRate(), rate));
-                    int inputChannels = stream.getFormat().getChannels(), outputChannels = line.getFormat().getChannels();
-                    processor.diagnostics().sourceChannels(inputChannels);
-                    int frames = Math.min(amount / frame, pcm.length / inputChannels);
-                    long decodedBefore = converter.decodedFrames();
-                    int samples = converter.read(pcm, frames * inputChannels, rate, deviceRate, options.enhancements.preservePitch);
-                    if (samples == 0 && converter.decodedFrames() == decodedBefore) {
-                        long now = System.nanoTime();
-                        if (emptyConverter != converter || decoderEmptySince == 0) {
-                            emptyConverter = converter;
-                            decoderEmptySince = now;
-                        } else if (now - decoderEmptySince > decoderStallNanos)
-                            throw new IOException(Text.get("audio.error.decoder_stalled"));
-                    } else decoderEmptySince = 0;
-                    // Time spent decoding must not consume the output device's stall budget.
-                    progressedAt = System.nanoTime();
-                    if (samples > 0 && inputChannels != outputChannels) {
-                        if (inputChannels == 1) {
-                            for (int i = samples - 1; i >= 0; i--) {
-                                pcm[2 * i] = pcm[i];
-                                pcm[2 * i + 1] = pcm[i];
-                            }
-                            samples *= 2;
-                        } else {
-                            for (int i = 0; i < samples / 2; i++) pcm[i] = (pcm[2 * i] + pcm[2 * i + 1]) * .5f;
-                            samples /= 2;
-                        }
-                    }
-                    int count = samples < 0 ? -1 : samples * bytesPerSample;
-                    boolean flushing = false;
-                    var preparedNext = upcoming.get();
-                    if (count < 0 && !protectionFlushed && processor.latencyFrames() > 0
-                        && (preparedNext == null || preparedNext.peek() == null || !options.gapless && options.crossfade <= 0)) {
-                        samples = processor.latencyFrames() * outputChannels;
-                        Arrays.fill(pcm, 0, samples, 0);
-                        count = samples * bytesPerSample;
-                        protectionFlushed = flushing = true;
-                    }
-                    if (count < 0) {
-                        if (handoff(request)) continue;
-                        // Drain with short polls so stop/seek never waits on a blocking drain().
-                        if (line.available() < line.getBufferSize()) {
-                            LockSupport.parkNanos(5_000_000);
-                            continue;
-                        }
-                        update(request, Status.STOPPED);
-                        release();
-                        active = null;
-                        Request finished = request;
-                        callbacks.execute(() -> {
-                            if (current(finished)) finished.ended.run();
-                        });
-                    } else if (count == 0) {
-                        // Vorbis providers can return zero while priming their PCM buffer.
-                        LockSupport.parkNanos(5_000_000);
-                    } else if (current(request)) {
-                        var selected = options;
-                        processor.configure(selected, environment);
-                        processor.comparison(comparison);
-                        double normalized = 1;
-                        boolean normalize = !selected.neutral && selected.normalization;
-                        if (normalize && !flushing) {
-                            normalized = normalization(request.track, selected, false).gain(selected);
-                        } else if (normalize) {
-                            normalized = normalizationGain;
-                        }
-                        double gainSmoothing = 1 - Math.exp(-1 / (deviceRate * .05));
-                        for (int f = 0; f < samples / outputChannels; f++) {
-                            normalizationGain += (normalized - normalizationGain) * gainSmoothing;
-                            for (int c = 0; c < outputChannels; c++)
-                                pcm[f * outputChannels + c] *= (float) normalizationGain;
-                        }
-                        normalizationStatus = normalizationSession == null ? LoudnessCache.Status.OFF : normalizationSession.status(selected, normalizationGain);
-                        var next = upcoming.get();
-                        if (next != mixing) {
-                            mixing = next;
-                            overlap = 0;
-                            incomingNormalization = 1;
-                            incomingSession = null;
-                        }
-                        var ready = next == null ? null : next.peek();
-                        double remaining = request.track.duration() - (offset + converter.positionFrames() / stream.getFormat().getFrameRate());
-                        if (selected.crossfade > 0 && remaining / rate <= selected.crossfade && request.track.duration() > 0 && ready != null && next.generation == request.generation) {
-                            int outputFrames = samples / outputChannels;
-                            int nextChannels = ready.stream().getFormat().getChannels();
-                            int n;
-                            try {
-                                n = ready.converter().read(nextPcm, outputFrames * nextChannels, rate, deviceRate, selected.enhancements.preservePitch);
-                            } catch (Exception failure) {
-                                n = -1;
-                                LoggerFactory.getLogger("darkmusic-audio").debug("Prepared track became unavailable", failure);
-                            }
-                            if (n > 0) {
-                                double incomingTarget = normalize ? normalization(next.track, selected, true).gain(selected) : 1;
-                                if (overlap == 0)
-                                    overlap = Math.max(0, selected.crossfade - Math.max(0, remaining / rate));
-                                for (int f = 0; f < outputFrames; f++) {
-                                    incomingNormalization += (incomingTarget - incomingNormalization) * gainSmoothing;
-                                    double t = Math.clamp((overlap + f / deviceRate) / selected.crossfade, 0, 1);
-                                    double incomingGain = crossfadeGain(t, true), outgoingGain = crossfadeGain(t, false);
-                                    for (int c = 0; c < outputChannels; c++) {
-                                        double incoming = 0;
-                                        if (f * nextChannels < n)
-                                            incoming = nextChannels == 1 ? nextPcm[f] : outputChannels == 1 ? (nextPcm[f * 2] + nextPcm[f * 2 + 1]) * .5 : nextPcm[f * 2 + c];
-                                        pcm[f * outputChannels + c] = (float) (pcm[f * outputChannels + c] * outgoingGain + incoming * incomingNormalization * incomingGain);
-                                    }
-                                }
-                                overlap += outputFrames / deviceRate;
-                            }
-                        }
-                        processor.process(pcm, samples, gain, 1);
-                        AudioProcessor.quantize(pcm, buffer, samples, bytesPerSample, dither);
-                        int written = 0;
-                        while (written < count && current(request)) {
-                            if (paused) {
-                                line.stop();
-                                update(request, Status.PAUSED);
-                                LockSupport.park();
-                                progressedAt = System.nanoTime();
-                                if (outputChange.get() != null) break;
-                                if (!paused && current(request)) line.start();
-                                continue;
-                            }
-                            int capacity = Math.min(count - written, line.available()) / frame * frame;
-                            int sent = capacity > 0 ? line.write(buffer, written, capacity) : 0;
-                            if (sent <= 0) {
-                                if (System.nanoTime() - progressedAt > stallNanos)
-                                    throw new OutputFailure("audio.error.stalled");
-                                LockSupport.parkNanos(5_000_000);
-                                continue;
-                            }
-                            if (sent % frame != 0)
-                                throw new OutputFailure("audio.error.device");
-                            spectrum.accept(buffer, written, sent, submittedFrames, bytesPerSample);
-                            processor.diagnostics().submitted(buffer, written, sent, submittedFrames, bytesPerSample, processor);
-                            written += sent;
-                            submittedFrames += sent / frame;
-                        }
-                    }
+                    play(request, buffer, pcm, nextPcm);
                 } catch (Throwable e) {
-                    if (e instanceof Exception && output instanceof OutputDevices selected && selected.isExplicit() &&
-                        (!line.isOpen() || e instanceof LineUnavailableException ||
-                            e instanceof OutputFailure)) {
-                        var recovery = new CompletableFuture<Boolean>();
-                        changeOutput(new OutputChange(new OutputDevices("", false, s -> {
-                        }), recovery));
-                        if (recovery.getNow(false)) {
-                            callbacks.execute(selected::reportFallback);
-                            continue;
-                        }
-                    }
-                    fail(request, e);
+                    if (!recover(e)) fail(request, e);
                 }
 
             }
@@ -672,6 +417,348 @@ public final class JavaSoundBackend implements AudioBackend {
                 if (loudness != null) loudness.closeAsync();
             }
         }
+    }
+
+    /**
+     * Takes a new request: carries over the prepared next track and its normalization session, releases the old line
+     * and opens the request's song. Returns false when the request was replaced while it was opening, so the loop starts
+     * over without playing.
+     */
+    private boolean begin(Request request) {
+        var prepared = upcoming.get();
+        if (prepared != null && !prepared.untouched()) {
+            cancelUpcoming();
+            if (current(request))
+                nextTrack(prepared.track, prepared.started, prepared.ended, prepared.failed, prepared.transition);
+        }
+        if (announcement != null && request.session == announcement.previous.session) {
+            normalizationSession = announcement.normalization;
+            normalizationSessionId = request.session;
+            normalizationGain = announcement.gain;
+        }
+        release();
+        if (normalizationSessionId != request.session) {
+            normalizationSession = null;
+            normalizationGain = 1;
+            normalizationSessionId = request.session;
+        }
+        incomingSession = null;
+        incomingNormalization = 1;
+        mixing = null;
+        overlap = 0;
+        announcement = null;
+        active = request;
+        return request.track == null || open(request);
+    }
+
+    /**
+     * Opens the request's song at its position, then the output line. A failure fails the request. Returns false when
+     * the request was replaced while seeking.
+     */
+    private boolean open(Request request) {
+        try {
+            var opened = decoder.openAt(request.track.file(), request.position);
+            stream = opened.stream();
+            AudioFormat format = stream.getFormat();
+            long framesToSkip = Math.max(0, Math.round((request.position - opened.offset()) * format.getFrameRate()));
+            Request seeking = request;
+            long skipped = discardFrames(stream, framesToSkip, new byte[65536], () -> current(seeking));
+            if (!current(request)) {
+                release();
+                return false;
+            }
+            offset = opened.offset() + skipped / (double) format.getFrameRate();
+            converter = new PcmRateConverter(stream);
+            submittedFrames = 0;
+            hearingFrame = 0;
+            timeline.clear();
+            timeline.add(new Segment(0, offset, speed));
+            openLine(format);
+            deviceRate = line.getFormat().getFrameRate();
+            processor.begin(deviceRate, line.getFormat().getChannels());
+            protectionFlushed = false;
+            processor.initialVolume(gain);
+            var selected = options;
+            if (!selected.neutral && selected.normalization)
+                normalizationGain = normalization(request.track, selected, false).gain(selected);
+            normalizationStatus = normalizationSession == null ? LoudnessCache.Status.OFF : normalizationSession.status(selected, normalizationGain);
+            progressedAt = System.nanoTime();
+            lastPlayed = line.getLongFramePosition();
+            spectrum.begin(deviceRate, line.getFormat().getChannels());
+            if (!paused) line.start();
+        } catch (Throwable e) {
+            fail(request, e);
+        }
+        return true;
+    }
+
+    /**
+     * The song's own rate and depth first, then 48 and 44.1 kHz; 24-bit sources try 24 bits before 16. Throws the first
+     * failure, with the later ones suppressed, when no format opens.
+     */
+    private void openLine(AudioFormat format) throws Exception {
+        Exception unavailable = null;
+        int preferredBits = format.getSampleSizeInBits() > 16 ? 24 : 16;
+        for (float fallback : new float[]{format.getSampleRate(), 48_000, 44_100}) {
+            for (int bits : preferredBits == 24 ? new int[]{24, 16} : new int[]{16}) {
+                try {
+                    line = output.open(new AudioFormat(fallback, bits, format.getChannels(), true, false));
+                    break;
+                } catch (Exception failure) {
+                    if (unavailable == null) unavailable = failure;
+                    else unavailable.addSuppressed(failure);
+                }
+            }
+            if (line != null) break;
+        }
+        if (line == null) throw unavailable;
+    }
+
+    /**
+     * One pass of the playing request: wait for the device, decode a block, then finish, hand off or mix and write it.
+     */
+    private void play(Request request, byte[] buffer, float[] pcm, float[] nextPcm) throws Exception {
+        if (!waitForOutput(request)) return;
+        int bytesPerSample = line.getFormat().getSampleSizeInBits() / 8;
+        int frame = line.getFormat().getChannels() * bytesPerSample;
+        int amount = Math.min(buffer.length, line.available()) / frame * frame;
+        if (amount == 0) {
+            LockSupport.parkNanos(5_000_000);
+            return;
+        }
+        double rate = speed;
+        int samples = decode(pcm, amount, frame, rate);
+        int outputChannels = line.getFormat().getChannels();
+        int count = samples < 0 ? -1 : samples * bytesPerSample;
+        boolean flushing = false;
+        var preparedNext = upcoming.get();
+        if (count < 0 && !protectionFlushed && processor.latencyFrames() > 0
+            && (preparedNext == null || preparedNext.peek() == null || !options.gapless && options.crossfade <= 0)) {
+            samples = processor.latencyFrames() * outputChannels;
+            Arrays.fill(pcm, 0, samples, 0);
+            count = samples * bytesPerSample;
+            protectionFlushed = flushing = true;
+        }
+        if (count < 0) {
+            finishOrHandoff(request);
+        } else if (count == 0) {
+            // Vorbis providers can return zero while priming their PCM buffer.
+            LockSupport.parkNanos(5_000_000);
+        } else if (current(request)) {
+            mix(request, pcm, nextPcm, samples, rate, flushing, outputChannels);
+            write(request, pcm, buffer, samples, count, bytesPerSample, frame);
+        }
+    }
+
+    /**
+     * Checks the device before a block: a disconnected explicit device fails, a paused request parks (returning false),
+     * and a device whose position stopped moving for the stall time fails.
+     */
+    private boolean waitForOutput(Request request) throws Exception {
+        if (output instanceof OutputDevices && !line.isOpen())
+            throw new LineUnavailableException("Audio output disconnected");
+        if (paused) {
+            decoderEmptySince = 0;
+            line.stop();
+            update(request, Status.PAUSED);
+            progressedAt = System.nanoTime();
+            if (output instanceof OutputDevices devices && devices.isExplicit())
+                LockSupport.parkNanos(100_000_000);
+            else LockSupport.park();
+            progressedAt = System.nanoTime();
+            return false;
+        }
+        if (!line.isRunning()) line.start();
+        update(request, Status.PLAYING);
+        long played = line.getLongFramePosition();
+        if (played != lastPlayed) {
+            lastPlayed = played;
+            progressedAt = System.nanoTime();
+        } else if (line.available() >= line.getBufferSize()) {
+            // Decoder/disk starvation is not a stalled output device.
+            progressedAt = System.nanoTime();
+        } else if (System.nanoTime() - progressedAt > stallNanos)
+            throw new OutputFailure("audio.error.stalled");
+        return true;
+    }
+
+    /**
+     * Decodes up to amount bytes' worth of frames at rate into pcm, in the line's channel count. Returns the samples
+     * decoded, or a negative number at the end of the stream. A decoder that yields nothing for too long fails.
+     */
+    private int decode(float[] pcm, int amount, int frame, double rate) throws Exception {
+        if (timeline.getLast().speed != rate)
+            timeline.add(new Segment(submittedFrames, offset + converter.positionFrames() / stream.getFormat().getFrameRate(), rate));
+        int inputChannels = stream.getFormat().getChannels(), outputChannels = line.getFormat().getChannels();
+        processor.diagnostics().sourceChannels(inputChannels);
+        int frames = Math.min(amount / frame, pcm.length / inputChannels);
+        long decodedBefore = converter.decodedFrames();
+        int samples = converter.read(pcm, frames * inputChannels, rate, deviceRate, options.enhancements.preservePitch);
+        if (samples == 0 && converter.decodedFrames() == decodedBefore) {
+            long now = System.nanoTime();
+            if (emptyConverter != converter || decoderEmptySince == 0) {
+                emptyConverter = converter;
+                decoderEmptySince = now;
+            } else if (now - decoderEmptySince > decoderStallNanos)
+                throw new IOException(Text.get("audio.error.decoder_stalled"));
+        } else decoderEmptySince = 0;
+        // Time spent decoding must not consume the output device's stall budget.
+        progressedAt = System.nanoTime();
+        if (samples > 0 && inputChannels != outputChannels) {
+            if (inputChannels == 1) {
+                for (int i = samples - 1; i >= 0; i--) {
+                    pcm[2 * i] = pcm[i];
+                    pcm[2 * i + 1] = pcm[i];
+                }
+                samples *= 2;
+            } else {
+                for (int i = 0; i < samples / 2; i++) pcm[i] = (pcm[2 * i] + pcm[2 * i + 1]) * .5f;
+                samples /= 2;
+            }
+        }
+        return samples;
+    }
+
+    /**
+     * The end of the stream: hand off to the prepared track, or let the line drain with short polls, so stop and seek
+     * never wait on a blocking drain(), and then report the song ended.
+     */
+    private void finishOrHandoff(Request request) {
+        if (handoff(request)) return;
+        // Drain with short polls so stop/seek never waits on a blocking drain().
+        if (line.available() < line.getBufferSize()) {
+            LockSupport.parkNanos(5_000_000);
+            return;
+        }
+        update(request, Status.STOPPED);
+        release();
+        active = null;
+        Request finished = request;
+        callbacks.execute(() -> {
+            if (current(finished)) finished.ended.run();
+        });
+    }
+
+    /**
+     * Applies loudness normalization, smoothed over 50 ms, and in the last crossfade seconds mixes in the prepared
+     * track at its own normalization.
+     */
+    private void mix(Request request, float[] pcm, float[] nextPcm, int samples, double rate, boolean flushing, int outputChannels) {
+        var selected = options;
+        processor.configure(selected, environment);
+        processor.comparison(comparison);
+        double normalized = 1;
+        boolean normalize = !selected.neutral && selected.normalization;
+        if (normalize && !flushing) {
+            normalized = normalization(request.track, selected, false).gain(selected);
+        } else if (normalize) {
+            normalized = normalizationGain;
+        }
+        double gainSmoothing = 1 - Math.exp(-1 / (deviceRate * .05));
+        for (int f = 0; f < samples / outputChannels; f++) {
+            normalizationGain += (normalized - normalizationGain) * gainSmoothing;
+            for (int c = 0; c < outputChannels; c++)
+                pcm[f * outputChannels + c] *= (float) normalizationGain;
+        }
+        normalizationStatus = normalizationSession == null ? LoudnessCache.Status.OFF : normalizationSession.status(selected, normalizationGain);
+        var next = upcoming.get();
+        if (next != mixing) {
+            mixing = next;
+            overlap = 0;
+            incomingNormalization = 1;
+            incomingSession = null;
+        }
+        var ready = next == null ? null : next.peek();
+        double remaining = request.track.duration() - (offset + converter.positionFrames() / stream.getFormat().getFrameRate());
+        if (selected.crossfade > 0 && remaining / rate <= selected.crossfade && request.track.duration() > 0 && ready != null && next.generation == request.generation)
+            crossfade(selected, next, ready, pcm, nextPcm, samples, rate, remaining, normalize, gainSmoothing, outputChannels);
+    }
+
+    /**
+     * Mixes the prepared track into the block, rising as this one falls; selected is the settings the block began with.
+     */
+    private void crossfade(AudioSettings selected, NextAudio next, NextAudio.Ready ready, float[] pcm, float[] nextPcm, int samples,
+                           double rate, double remaining, boolean normalize, double gainSmoothing, int outputChannels) {
+        int outputFrames = samples / outputChannels;
+        int nextChannels = ready.stream().getFormat().getChannels();
+        int n;
+        try {
+            n = ready.converter().read(nextPcm, outputFrames * nextChannels, rate, deviceRate, selected.enhancements.preservePitch);
+        } catch (Exception failure) {
+            n = -1;
+            LoggerFactory.getLogger("darkmusic-audio").debug("Prepared track became unavailable", failure);
+        }
+        if (n > 0) {
+            double incomingTarget = normalize ? normalization(next.track, selected, true).gain(selected) : 1;
+            if (overlap == 0)
+                overlap = Math.max(0, selected.crossfade - Math.max(0, remaining / rate));
+            for (int f = 0; f < outputFrames; f++) {
+                incomingNormalization += (incomingTarget - incomingNormalization) * gainSmoothing;
+                double t = Math.clamp((overlap + f / deviceRate) / selected.crossfade, 0, 1);
+                double incomingGain = crossfadeGain(t, true), outgoingGain = crossfadeGain(t, false);
+                for (int c = 0; c < outputChannels; c++) {
+                    double incoming = 0;
+                    if (f * nextChannels < n)
+                        incoming = nextChannels == 1 ? nextPcm[f] : outputChannels == 1 ? (nextPcm[f * 2] + nextPcm[f * 2 + 1]) * .5 : nextPcm[f * 2 + c];
+                    pcm[f * outputChannels + c] = (float) (pcm[f * outputChannels + c] * outgoingGain + incoming * incomingNormalization * incomingGain);
+                }
+            }
+            overlap += outputFrames / deviceRate;
+        }
+    }
+
+    /**
+     * Processes the block and writes it, waiting while paused and failing a device that accepts nothing for the stall
+     * time. A pending output change ends the wait so the loop can switch devices.
+     */
+    private void write(Request request, float[] pcm, byte[] buffer, int samples, int count, int bytesPerSample, int frame) throws Exception {
+        processor.process(pcm, samples, gain, 1);
+        AudioProcessor.quantize(pcm, buffer, samples, bytesPerSample, dither);
+        int written = 0;
+        while (written < count && current(request)) {
+            if (paused) {
+                line.stop();
+                update(request, Status.PAUSED);
+                LockSupport.park();
+                progressedAt = System.nanoTime();
+                if (outputChange.get() != null) break;
+                if (!paused && current(request)) line.start();
+                continue;
+            }
+            int capacity = Math.min(count - written, line.available()) / frame * frame;
+            int sent = capacity > 0 ? line.write(buffer, written, capacity) : 0;
+            if (sent <= 0) {
+                if (System.nanoTime() - progressedAt > stallNanos)
+                    throw new OutputFailure("audio.error.stalled");
+                LockSupport.parkNanos(5_000_000);
+                continue;
+            }
+            if (sent % frame != 0)
+                throw new OutputFailure("audio.error.device");
+            spectrum.accept(buffer, written, sent, submittedFrames, bytesPerSample);
+            processor.diagnostics().submitted(buffer, written, sent, submittedFrames, bytesPerSample, processor);
+            written += sent;
+            submittedFrames += sent / frame;
+        }
+    }
+
+    /**
+     * An explicit output device that disconnected, stalled or failed falls back to the default device. Returns true
+     * when it did, so the request keeps playing there.
+     */
+    private boolean recover(Throwable e) {
+        if (e instanceof Exception && output instanceof OutputDevices selected && selected.isExplicit() &&
+            (!line.isOpen() || e instanceof LineUnavailableException ||
+                e instanceof OutputFailure)) {
+            var recovery = new CompletableFuture<Boolean>();
+            changeOutput(new OutputChange(new OutputDevices("", false, s -> {
+            }), recovery));
+            if (recovery.getNow(false)) {
+                callbacks.execute(selected::reportFallback);
+                return true;
+            }
+        }
+        return false;
     }
 
     private LoudnessCache.Session normalization(Track track, AudioSettings selected, boolean incoming) {

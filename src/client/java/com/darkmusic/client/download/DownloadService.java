@@ -2,30 +2,21 @@ package com.darkmusic.client.download;
 
 import com.darkmusic.client.cleanup.LibrarySourceIndex;
 import com.darkmusic.client.config.DownloadFormat;
-import com.darkmusic.client.config.LyricsLanguages;
-import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
-import com.darkmusic.client.lyrics.CaptionUrls;
 import com.darkmusic.client.lyrics.LyricsDocument;
 import com.darkmusic.client.text.Text;
 import com.darkmusic.client.tools.DownloadDiagnostics;
-import com.darkmusic.client.tools.ManagedTools;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.tools.RetryPolicy;
 import com.darkmusic.client.tools.ToolPaths;
 import com.darkmusic.client.tools.Toolchain;
-import org.jaudiotagger.audio.AudioFileIO;
-import org.jaudiotagger.tag.FieldKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.UnknownHostException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -47,9 +38,12 @@ public final class DownloadService implements AutoCloseable {
     private final Path data;
     private final ProcessRunner runner;
     private final DownloadPipeline pipeline;
+    private final DownloadTools tools;
+    private final CaptionFetcher captions;
+    // The typed and analyzed URL and the preview; guarded by this, like the rest of the state.
+    private final DownloadPreview previews;
     private final Runnable refresh;
     private final ExecutorService analysis = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-url-analysis").factory());
-    private final Object toolResolutionLock = new Object();
     private final ExecutorService downloads = Executors.newFixedThreadPool(PARALLEL_DOWNLOADS, Thread.ofPlatform().daemon().name("darkmusic-download-", 1).factory());
     private final ScheduledExecutorService bookkeeping = Executors.newSingleThreadScheduledExecutor(Thread.ofPlatform().daemon().name("darkmusic-download-repair").factory());
     private final BlockingQueue<Work> pending = new LinkedBlockingQueue<>();
@@ -63,10 +57,6 @@ public final class DownloadService implements AutoCloseable {
     private boolean analyzing, toolOperation;
     private volatile boolean closed;
     private String message = "", toolStatus = Text.get("download.darkmusic.tools_unchecked");
-    private Preview preview;
-    private String lastAnalyzedUrl = "", inputUrl = "";
-    private long previewRevision;
-    private ProcessRunner.Token previewToken;
     private ProcessRunner.Token analysisToken = new ProcessRunner.Token();
     private ToolPaths settings = new ToolPaths("", "", "", "");
     private DownloadFormat format = DownloadFormat.ORIGINAL;
@@ -77,20 +67,18 @@ public final class DownloadService implements AutoCloseable {
                                   Map<String, List<LibrarySourceIndex.Existing>> matches) {
     }
 
-    private DuplicateChoice duplicateChoice;
-    private long choiceIds;
+    private final DuplicateChoices choices = new DuplicateChoices();
 
     public void awareness(LibrarySourceIndex value) {
         awareness = value;
     }
 
     public synchronized DuplicateChoice duplicateChoice() {
-        return duplicateChoice;
+        return choices.current();
     }
 
     public synchronized void cancelDuplicateChoice(long id) {
-        if (duplicateChoice != null && duplicateChoice.id() == id) {
-            duplicateChoice = null;
+        if (choices.take(id) != null) {
             message = Text.get("download.darkmusic.cancelled");
             published = null;
         }
@@ -99,9 +87,9 @@ public final class DownloadService implements AutoCloseable {
     public void resolveDuplicateChoice(long id, boolean skip) {
         DuplicateChoice choice;
         synchronized (this) {
-            choice = duplicateChoice;
-            if (closed || analyzing || choice == null || choice.id() != id) return;
-            duplicateChoice = null;
+            if (closed || analyzing) return;
+            choice = choices.take(id);
+            if (choice == null) return;
         }
         start(Text.get("download.darkmusic.preparing_selected"), token -> {
             var skipped = new HashSet<String>();
@@ -128,66 +116,20 @@ public final class DownloadService implements AutoCloseable {
      * Explicit lyric lookup for existing music, using configured tools without installing anything.
      */
     public LyricsDocument fetchLyrics(Track track, String preferences, boolean generated, ProcessRunner.Token token) throws Exception {
-        String link = CaptionUrls.automatic(SourceLinks.read(track.file()));
-        return fetchLyrics(track, link, preferences, generated, token);
+        return captions.fetchLyrics(track, preferences, generated, token);
     }
 
     public LyricsDocument fetchSourceLyrics(Track track, String preferences, boolean generated, ProcessRunner.Token token) throws Exception {
-        String source = SourceLinks.resolve(track.file());
-        String canonical = CaptionUrls.automatic(source);
-        if (!source.isBlank() && canonical.isBlank())
-            throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.UNSUPPORTED_URL, DownloadDiagnostics.Stage.OPTIONAL,
-                DownloadDiagnostics.Tool.YT_DLP, null, "", null);
-        return fetchLyrics(track, canonical, preferences, generated, token);
+        return captions.fetchSourceLyrics(track, preferences, generated, token);
     }
 
-    private LyricsDocument fetchLyrics(Track track, String link, String preferences, boolean generated, ProcessRunner.Token token) throws Exception {
-        if (link.isBlank()) return null;
-        try {
-            link = CaptionUrls.publicUrl(link);
-        } catch (UnknownHostException network) {
-            throw network;
-        } catch (IOException rejected) {
-            throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.UNSUPPORTED_URL, DownloadDiagnostics.Stage.OPTIONAL,
-                DownloadDiagnostics.Tool.YT_DLP, null, "", rejected);
-        }
-        ToolPaths selected;
-        synchronized (this) {
-            selected = settings;
-        }
-        var chain = tools(selected, token);
-        Files.createDirectories(data);
-        Path work = Files.createTempDirectory(data, ".lyrics-");
-        try {
-            var args = chain.base();
-            args.addAll(List.of("--dump-single-json", "--skip-download", "--no-playlist", "--playlist-items", "1", "--", url(link)));
-            var result = runner.run(args, work, token, Duration.ofSeconds(90), 2_000_000);
-            if (result.exit() != 0)
-                throw new DownloadDiagnostics.Failure(DownloadDiagnostics.Stage.ANALYSIS, DownloadDiagnostics.Tool.YT_DLP, result.exit(), result.output());
-            var metadata = DownloadJson.object(result.output());
-            var entry = new Entry(1, track.title(), link, "", "", true);
-            try {
-                var tag = AudioFileIO.read(track.file().toFile()).getTag();
-                if (tag != null)
-                    preferences = LyricsLanguages.preferSongLanguage(preferences, tag.getFirst(FieldKey.LANGUAGE));
-            } catch (
-                Exception unavailable) { /* Unknown song language remains Auto; video/UI language is not substituted. */ }
-            var lyrics = DownloadLyrics.fetch(runner, chain, entry, metadata, work, token, LyricsLanguages.resolve(preferences), generated);
-            if (lyrics.failure() != null)
-                throw new DownloadDiagnostics.Failure(lyrics.failure(), DownloadDiagnostics.Stage.OPTIONAL, DownloadDiagnostics.Tool.YT_DLP, null, "", null);
-            return lyrics.text().isBlank() ? null : DownloadLyrics.document(lyrics);
-        } finally {
-            try (var files = Files.walk(work)) {
-                for (Path path : files.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
-            }
-        }
+    private synchronized ToolPaths toolPaths() {
+        return settings;
     }
 
     public synchronized void format(DownloadFormat value) {
         format = Objects.requireNonNull(value);
     }
-
-    private volatile Cache cache;
 
     public DownloadService(Path data, Runnable refresh) {
         this(data, refresh, new ProcessRunner());
@@ -198,6 +140,9 @@ public final class DownloadService implements AutoCloseable {
         this.refresh = refresh;
         this.runner = runner;
         pipeline = new DownloadPipeline(runner, this.data);
+        tools = new DownloadTools(this.data, runner);
+        captions = new CaptionFetcher(this.data, runner, this::toolPaths, this::tools);
+        previews = new DownloadPreview(runner, this.data);
         for (int i = 0; i < PARALLEL_DOWNLOADS; i++) downloads.execute(this::drain);
     }
 
@@ -207,7 +152,7 @@ public final class DownloadService implements AutoCloseable {
 
     public synchronized Snapshot snapshot() {
         if (published == null)
-            published = new Snapshot(analyzing, message, toolStatus, preview, work.stream().map(Work::view).toList());
+            published = new Snapshot(analyzing, message, toolStatus, previews.preview, work.stream().map(Work::view).toList());
         return published;
     }
 
@@ -229,13 +174,13 @@ public final class DownloadService implements AutoCloseable {
                 if (!activeKeys.isEmpty())
                     throw new IOException(Text.get("download.darkmusic.finish_queue_before_update"));
             }
-            new ManagedTools(data).install(runner, token, text -> {
+            tools.install(token, text -> {
                 synchronized (this) {
                     toolStatus = text;
                     published = null;
                 }
             });
-            cache = null;
+            tools.forget();
             ToolPaths selected;
             synchronized (this) {
                 selected = settings;
@@ -255,7 +200,7 @@ public final class DownloadService implements AutoCloseable {
                 selected = settings;
             }
             synchronized (this) {
-                cache = null;
+                tools.forget();
                 toolStatus = Text.get("download.darkmusic.tools_checking");
                 published = null;
             }
@@ -263,7 +208,7 @@ public final class DownloadService implements AutoCloseable {
                 tools(selected, token);
             } catch (Exception e) {
                 synchronized (this) {
-                    cache = null;
+                    tools.forget();
                     toolStatus = Text.get("download.darkmusic.tool_check_failed", DownloadJson.friendly(String.valueOf(e.getMessage())));
                     published = null;
                 }
@@ -273,38 +218,28 @@ public final class DownloadService implements AutoCloseable {
     }
 
     private Toolchain tools(ToolPaths selected, ProcessRunner.Token token) throws Exception {
-        synchronized (toolResolutionLock) {
-            Cache cached = cache;
-            token.check();
-            if (cached != null && selected.equals(cached.settings())) return cached.tools();
-            Files.createDirectories(data);
-            Toolchain result = DownloadDiagnostics.at(DownloadDiagnostics.Stage.TOOLS, DownloadDiagnostics.Tool.TOOLS,
-                () -> Toolchain.resolve(selected, data, runner, token));
-            token.check();
-            cache = new Cache(selected, result);
+        return tools.resolve(selected, token, versions -> {
             synchronized (this) {
-                toolStatus = result.versions();
+                toolStatus = versions;
                 published = null;
             }
-            return result;
-        }
+        });
     }
 
     public synchronized List<String> toolVersions() {
-        Cache resolved = cache;
-        return resolved == null || !resolved.settings().equals(settings) ? List.of() : List.of(resolved.tools().versions().split(" \\| ", -1));
+        return tools.versions(settings);
     }
 
     public synchronized String lastAnalyzedUrl() {
-        return lastAnalyzedUrl;
+        return previews.lastAnalyzedUrl;
     }
 
     public synchronized String inputUrl() {
-        return inputUrl;
+        return previews.inputUrl;
     }
 
     public synchronized void rememberInput(String value) {
-        inputUrl = value;
+        previews.inputUrl = value;
         if (value.isBlank()) {
             analysisDiagnostic = null;
             published = null;
@@ -316,9 +251,9 @@ public final class DownloadService implements AutoCloseable {
      */
     public synchronized void clearPreview() {
         analysisDiagnostic = null;
-        previewRevision++;
-        if (previewToken != null) previewToken.cancel();
-        preview = null;
+        previews.revision++;
+        if (previews.token != null) previews.token.cancel();
+        previews.preview = null;
         if (!analyzing) message = "";
         published = null;
     }
@@ -334,17 +269,17 @@ public final class DownloadService implements AutoCloseable {
         try {
             link = url(value);
         } catch (IllegalArgumentException e) {
-            preview = null;
+            previews.preview = null;
             message = e.getMessage();
             analysisDiagnostic = DownloadDiagnostics.classify(new DownloadDiagnostics.Failure(DownloadDiagnostics.Category.UNSUPPORTED_URL,
                 DownloadDiagnostics.Stage.ANALYSIS, DownloadDiagnostics.Tool.NONE, null, "", e), DownloadDiagnostics.Stage.ANALYSIS, value, -++analysisIds, 1, "");
             published = null;
             return;
         }
-        lastAnalyzedUrl = link;
-        inputUrl = link;
-        long ticket = ++previewRevision;
-        preview = null;
+        previews.lastAnalyzedUrl = link;
+        previews.inputUrl = link;
+        long ticket = ++previews.revision;
+        previews.preview = null;
         published = null;
         start(Text.get("download.darkmusic.analyzing"), token -> {
             token.check();
@@ -353,28 +288,17 @@ public final class DownloadService implements AutoCloseable {
             synchronized (this) {
                 selected = settings;
             }
-            Preview result = inspect(link, first, first + PAGE_SIZE - 1, tools(selected, token), token,
+            Preview result = previews.inspect(link, first, first + PAGE_SIZE - 1, tools(selected, token), token,
                 page > 0 ? DownloadDiagnostics.Stage.COLLECTION : DownloadDiagnostics.Stage.ANALYSIS);
             synchronized (this) {
                 token.check();
-                if (ticket != previewRevision) return;
-                preview = result;
+                if (ticket != previews.revision) return;
+                previews.preview = result;
                 published = null;
                 message = Text.get(result.collection() ? "download.analysis_collection" : "download.analysis_video", result.source());
             }
         });
-        previewToken = analysisToken;
-    }
-
-    private Preview inspect(String value, int first, int last, Toolchain tools, ProcessRunner.Token token, DownloadDiagnostics.Stage stage) throws Exception {
-        var args = tools.base();
-        args.addAll(List.of("--flat-playlist", "--dump-single-json", "--skip-download", "--ignore-errors", "--yes-playlist", "--playlist-items", first + ":" + last, "--", url(value)));
-        var r = DownloadDiagnostics.at(stage, DownloadDiagnostics.Tool.YT_DLP, () -> runner.run(args, data, token, Duration.ofMinutes(3), 16_000_000, s -> {
-            if (!s.startsWith("{") && !s.isBlank()) LOG.debug("Analysis: {}", s);
-        }));
-        if (r.exit() != 0)
-            throw new DownloadDiagnostics.Failure(stage, DownloadDiagnostics.Tool.YT_DLP, r.exit(), r.output()).versions(tools.versions());
-        return DownloadDiagnostics.at(stage, DownloadDiagnostics.Tool.YT_DLP, () -> DownloadJson.preview(value, first, DownloadJson.object(r.output())));
+        previews.token = analysisToken;
     }
 
     public void enqueueVideo(String value, Path destination) {
@@ -411,7 +335,7 @@ public final class DownloadService implements AutoCloseable {
             for (long position = first; position <= last; position += PAGE_SIZE) {
                 token.check();
                 int from = (int) position;
-                Preview page = inspect(expected.url(), from, (int) Math.min(last, position + PAGE_SIZE - 1), chain, token, DownloadDiagnostics.Stage.COLLECTION);
+                Preview page = previews.inspect(expected.url(), from, (int) Math.min(last, position + PAGE_SIZE - 1), chain, token, DownloadDiagnostics.Stage.COLLECTION);
                 if (!page.collection())
                     throw new IOException(Text.get("text.darkmusic.this_url_is_not_a_supported_collection_choose_this_video_only"));
                 entries.addAll(page.entries());
@@ -450,8 +374,7 @@ public final class DownloadService implements AutoCloseable {
             }
             if (!found.isEmpty()) synchronized (this) {
                 token.check();
-                // The newest request replaces an unanswered review; keeping the old one would drop this batch.
-                duplicateChoice = new DuplicateChoice(++choiceIds, List.copyOf(entries), destination, selected, requested, Map.copyOf(found));
+                choices.offer(entries, destination, selected, requested, found);
                 message = Text.get("download.library.review_needed", found.size());
                 published = null;
                 return;
@@ -509,7 +432,7 @@ public final class DownloadService implements AutoCloseable {
     }
 
     public synchronized void cancelAll() {
-        duplicateChoice = null;
+        choices.clear();
         work.forEach(w -> {
             w.retryAllowed = false;
             cancel(w.id);
@@ -597,7 +520,7 @@ public final class DownloadService implements AutoCloseable {
         if (tools) toolDiagnostic = null;
         else analysisDiagnostic = null;
         long operation = -++analysisIds;
-        String operationUrl = inputUrl;
+        String operationUrl = previews.inputUrl;
         toolOperation = tools;
         published = null;
         message = text;
@@ -770,6 +693,4 @@ public final class DownloadService implements AutoCloseable {
     private record ActiveKey(Path directory, String media, DownloadFormat format) {
     }
 
-    private record Cache(ToolPaths settings, Toolchain tools) {
-    }
 }

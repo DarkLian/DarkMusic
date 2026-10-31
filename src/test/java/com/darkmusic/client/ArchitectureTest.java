@@ -36,6 +36,9 @@ class ArchitectureTest {
     private static final int MAX_CLIENT_DEPENDENTS = 1;
     // DarkMusicClient is the entry point and lifecycle only. Lower this as it shrinks; never raise it.
     private static final int MAX_CLIENT_LINES = 290;
+    // ClientServices holds the services; it is the next place a hurried change would land. Lower this; never raise it.
+    private static final int MAX_SERVICES_LINES = 572;
+    private static final Path CLIENT_SERVICES = SOURCES.resolve("ClientServices.java");
     private static final Path CLIENT = SOURCES.resolve("DarkMusicClient.java");
     private static final Path CLIENT_SOURCES = SOURCES.resolve("ClientSources.java");
     private static final Pattern IMPLEMENTS = Pattern.compile("\\bclass\\s+(\\w+)[^{;]*?\\bimplements\\s+([^{]*)\\{");
@@ -43,6 +46,19 @@ class ArchitectureTest {
     private static final Pattern ANONYMOUS_SOURCES = Pattern.compile("\\bnew\\s+(?:\\w+\\.Sources|SettingsSource)\\s*\\(\\s*\\)\\s*\\{");
     private static final Pattern METHOD = Pattern.compile("\\b(\\w+)\\s*\\([^()]*\\)\\s*(?:throws\\s[^{;]*)?\\{");
     // return a.b(x, y);  a.b(x);  return a.b;  return a;  with plain names as arguments.
+    // if (field == null) field = ...; return field;  or the same with a block that builds it.
+    private static final Pattern LAZY = Pattern.compile("\\s*if\\s*\\(\\s*(\\w+)\\s*==\\s*null\\s*\\)\\s*(?:\\{[^{}]*\\}|[^{};]+;)\\s*return\\s+\\1\\s*;\\s*");
+    private static final Pattern ANONYMOUS_CLASS = Pattern.compile("\\bnew\\s+[\\w.<>]+\\s*$");
+    // ClientServices methods that hold the services' wiring and replacement, each with why it is not a plain getter.
+    private static final Map<String, String> SERVICES_WIRING = Map.of(
+        "browse", "submits to the browse pool and turns a full queue into the busy warning",
+        "audition", "the download screens install and clear their preview player",
+        "takeAudition", "reset takes the preview player before it stops the services",
+        "closeCleanup", "reset closes the duplicate scanner if one was opened",
+        "closeSourceIndex", "reset closes the source index if one was opened",
+        "forgetCleanupReviews", "reset drops the review store",
+        "reopenArtwork", "the smoke check replaces the artwork cache it closed",
+        "downloadsConnected", "null-safe check of the current download service for the reset smoke check");
     private static final Pattern FORWARD = Pattern.compile("\\s*(?:return\\s+)?\\w+(?:\\.\\w+)?(?:\\([\\w\\s,]*\\))?\\s*;\\s*");
     private static final Pattern PUBLIC_FIELD = Pattern.compile("\\bpublic\\s+((?:(?:static|volatile|transient|final)\\s+)*)[\\w.<>\\[\\]?, ]+?\\s+(\\w+)\\s*[=;]");
     // A screen reaches the screens it opens through gui.Navigation, so its Sources never inherits theirs.
@@ -92,6 +108,8 @@ class ArchitectureTest {
     void darkMusicClientOnlyShrinks() throws IOException {
         long lines = Files.readAllLines(CLIENT).size();
         assertTrue(lines <= MAX_CLIENT_LINES, "DarkMusicClient has " + lines + " lines; the limit is " + MAX_CLIENT_LINES);
+        long services = Files.readAllLines(CLIENT_SERVICES).size();
+        assertTrue(services <= MAX_SERVICES_LINES, "ClientServices has " + services + " lines; the limit is " + MAX_SERVICES_LINES);
     }
 
     /**
@@ -127,20 +145,44 @@ class ArchitectureTest {
      */
     @Test
     void clientSourcesOnlyForwards() throws IOException {
-        String code = COMMENTS_AND_STRINGS.matcher(Files.readString(CLIENT_SOURCES)).replaceAll(" ");
-        var violations = new ArrayList<String>();
-        int methods = 0;
+        var methods = methods(CLIENT_SOURCES, "ClientSources");
+        assertTrue(methods.size() > 50, "Found only " + methods.size() + " ClientSources methods; the check no longer reads the file");
+        assertEquals(List.of(), methods.stream().filter(m -> !FORWARD.matcher(m.getValue()).matches()).map(Map.Entry::getKey).toList());
+    }
+
+    /**
+     * ClientServices holds and builds the services; it makes no decisions. Its build methods (build*, create*, apply,
+     * withdraw) and the named wiring are exempt; every other method is a getter, a lazy getter or one forwarding
+     * statement. The HUD, PiP and reconciliation adapters are anonymous classes whose methods read the current
+     * service; they are not checked.
+     */
+    @Test
+    void clientServicesHoldsNoPolicy() throws IOException {
+        var methods = methods(CLIENT_SERVICES, "ClientServices");
+        assertTrue(methods.size() > 40, "Found only " + methods.size() + " ClientServices methods; the check no longer reads the file");
+        assertEquals(List.of(), methods.stream().filter(m -> {
+            String name = m.getKey(), body = m.getValue();
+            boolean builds = name.startsWith("build") || name.startsWith("create") || name.equals("apply") || name.equals("withdraw");
+            return !builds && !SERVICES_WIRING.containsKey(name) && !FORWARD.matcher(body).matches() && !LAZY.matcher(body).matches();
+        }).map(Map.Entry::getKey).toList());
+    }
+
+    /**
+     * The methods of one class's source, name and body, without its constructors or the bodies of anonymous classes.
+     * Each search continues after the body it found, so a block inside a method is never read as a method of its own.
+     */
+    private static List<Map.Entry<String, String>> methods(Path file, String type) throws IOException {
+        String code = COMMENTS_AND_STRINGS.matcher(Files.readString(file)).replaceAll(" ");
+        var methods = new ArrayList<Map.Entry<String, String>>();
         var method = METHOD.matcher(code);
-        // Continues after each body, so a block inside one is never read as a method of its own.
         for (int from = 0; method.find(from); ) {
             int open = method.end() - 1, close = matchingBrace(code, open);
             from = close + 1;
-            if (method.group(1).equals("ClientSources")) continue;
-            methods++;
-            if (!FORWARD.matcher(code.substring(open + 1, close)).matches()) violations.add(method.group(1));
+            boolean anonymous = ANONYMOUS_CLASS.matcher(code.substring(Math.max(0, method.start() - 80), method.start() + method.group(1).length())).find();
+            if (!anonymous && !method.group(1).equals(type))
+                methods.add(Map.entry(method.group(1), code.substring(open + 1, close)));
         }
-        assertTrue(methods > 50, "Found only " + methods + " ClientSources methods; the check no longer reads the file");
-        assertEquals(List.of(), violations);
+        return methods;
     }
 
     /**

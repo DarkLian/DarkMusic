@@ -18,14 +18,46 @@ public final class WaveformSettings {
         return new Look(style, height, detail, spacing, unplayedColor, smoothing, contrast, opacity);
     }
 
+    public static final Range HEIGHT = Range.whole(6, 18);
+    public static final Range DETAIL = Range.whole(48, 512);
+    public static final Range SPACING = Range.whole(0, 4);
+    public static final Range SMOOTHING = Range.of(0, 1, .35);
+    public static final Range CONTRAST = Range.of(.5, 2.5, 1.4);
+    public static final Range OPACITY = Range.of(.15, 1, 1);
+
     public void validate() {
         if (style == null) style = Style.FILLED;
-        height = Math.clamp(height, 6, 18);
-        detail = Math.clamp(detail, 48, 512);
-        spacing = Math.clamp(spacing, 0, 4);
+        height = HEIGHT.apply(height);
+        detail = DETAIL.apply(detail);
+        spacing = SPACING.apply(spacing);
         unplayedColor &= 0xffffff;
-        smoothing = Double.isFinite(smoothing) ? Math.clamp(smoothing, 0, 1) : .35;
-        contrast = Double.isFinite(contrast) ? Math.clamp(contrast, .5, 2.5) : 1.4;
-        opacity = Double.isFinite(opacity) ? Math.clamp(opacity, .15, 1) : 1;
+        smoothing = SMOOTHING.apply(smoothing);
+        contrast = CONTRAST.apply(contrast);
+        opacity = OPACITY.apply(opacity);
+    }
+
+    // Each applies the same range as validate(); the fields stay public for Gson and for reading.
+    public void height(int value) {
+        height = HEIGHT.apply(value);
+    }
+
+    public void detail(int value) {
+        detail = DETAIL.apply(value);
+    }
+
+    public void spacing(int value) {
+        spacing = SPACING.apply(value);
+    }
+
+    public void smoothing(double value) {
+        smoothing = SMOOTHING.apply(value);
+    }
+
+    public void contrast(double value) {
+        contrast = CONTRAST.apply(value);
+    }
+
+    public void opacity(double value) {
+        opacity = OPACITY.apply(value);
     }
 }

@@ -84,19 +84,31 @@ public final class AudioSettings {
             && enhancements.same(other.enhancements);
     }
 
+    public static final Range BAND = Range.of(-12, 12, 0);
+    public static final Range TARGET_LUFS = Range.of(-24, -9, -18);
+    public static final Range BASS = Range.of(0, 6, 0);
+    public static final Range WIDTH = Range.of(0, 1.5, 1);
+    public static final Range CROSSFADE = Range.of(0, 10, 0);
+    public static final Range AMBIENT_GAIN = Range.of(0, 1, .5);
+    public static final Range FOCUS_GAIN = Range.of(0, 1, .35);
+    public static final Range DUCK_GAIN = Range.of(0, 1, .35);
+    public static final Range DUCK_ATTACK = Range.of(.01, .2, .03);
+    public static final Range DUCK_HOLD = Range.of(.1, 2, .4);
+    public static final Range DUCK_RELEASE = Range.of(.1, 2, .5);
+
     public void validate() {
         if (bands == null || bands.length != 10) bands = new double[10];
-        for (int i = 0; i < bands.length; i++) bands[i] = finite(bands[i], -12, 12, 0);
-        targetLufs = finite(targetLufs, -24, -9, -18);
-        bass = finite(bass, 0, 6, 0);
-        width = finite(width, 0, 1.5, 1);
-        crossfade = finite(crossfade, 0, 10, 0);
-        ambientGain = finite(ambientGain, 0, 1, .5);
-        focusGain = finite(focusGain, 0, 1, .35);
-        duckGain = finite(duckGain, 0, 1, .35);
-        duckAttack = finite(duckAttack, .01, .2, .03);
-        duckHold = finite(duckHold, .1, 2, .4);
-        duckRelease = finite(duckRelease, .1, 2, .5);
+        for (int i = 0; i < bands.length; i++) bands[i] = BAND.apply(bands[i]);
+        targetLufs = TARGET_LUFS.apply(targetLufs);
+        bass = BASS.apply(bass);
+        width = WIDTH.apply(width);
+        crossfade = CROSSFADE.apply(crossfade);
+        ambientGain = AMBIENT_GAIN.apply(ambientGain);
+        focusGain = FOCUS_GAIN.apply(focusGain);
+        duckGain = DUCK_GAIN.apply(duckGain);
+        duckAttack = DUCK_ATTACK.apply(duckAttack);
+        duckHold = DUCK_HOLD.apply(duckHold);
+        duckRelease = DUCK_RELEASE.apply(duckRelease);
         if (reverb == null) reverb = Reverb.DRY;
         if (gainMode == null) gainMode = Normalization.TRACK;
         if (listening == null) listening = Listening.NORMAL;
@@ -108,9 +120,47 @@ public final class AudioSettings {
         if (selectedSaved != null && !savedProfiles.containsKey(selectedSaved)) selectedSaved = null;
     }
 
-    private static double finite(double v, double min, double max, double fallback) {
-        return Double.isFinite(v) ? Math.clamp(v, min, max) : fallback;
+    // Each applies the same range as validate(); the fields stay public for Gson and for reading.
+    public void targetLufs(double value) {
+        targetLufs = TARGET_LUFS.apply(value);
     }
+
+    public void bass(double value) {
+        bass = BASS.apply(value);
+    }
+
+    public void width(double value) {
+        width = WIDTH.apply(value);
+    }
+
+    public void crossfade(double value) {
+        crossfade = CROSSFADE.apply(value);
+    }
+
+    public void ambientGain(double value) {
+        ambientGain = AMBIENT_GAIN.apply(value);
+    }
+
+    public void focusGain(double value) {
+        focusGain = FOCUS_GAIN.apply(value);
+    }
+
+    public void duckGain(double value) {
+        duckGain = DUCK_GAIN.apply(value);
+    }
+
+    public void duckAttack(double value) {
+        duckAttack = DUCK_ATTACK.apply(value);
+    }
+
+    public void duckHold(double value) {
+        duckHold = DUCK_HOLD.apply(value);
+    }
+
+    public void duckRelease(double value) {
+        duckRelease = DUCK_RELEASE.apply(value);
+    }
+
 
     public void equalizer(Equalizer preset) {
         eqPreset = preset.name();
