@@ -3,11 +3,14 @@ package com.darkmusic.client;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 import java.io.IOException;
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,12 +19,14 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Long methods are where changes go wrong, so none may grow. A method's length is the span of its compiled line
  * numbers: last executable line minus first, so blank lines, comments and a closing brace do not count, and the IDE
- * formatter can move it a little. Lambda bodies compile to methods of their own and are skipped (their lines still
- * count toward the enclosing method's span), as are synthetic and bridge methods. Constructors and static
+ * formatter can move it a little. Lambda bodies are measured separately, including synthetic lambda methods.
+ * Their compiler-assigned numeric suffix is dropped; siblings in one enclosing method share the longest span.
+ * Other synthetic and bridge methods are skipped. Constructors and static
  * initializers are skipped too: field initializers anywhere in the file compile into them, so their span measures the
  * class. Overloads share one entry, the longest.
  */
@@ -40,6 +45,7 @@ class MethodLengthTest {
         debt("MusicScreen.extractRenderState", 62),
         debt("NowPlayingHud.renderAt", 147),
         debt("PipScreen.populate", 83),
+        debt("PipRuntime.begin$lambda", 83),
         debt("PlaylistScreen.init", 103),
         debt("SettingsScreen.init", 64),
         hot("SoundEnvironmentProcessor$Engine.process", 88, "the per-sample environment loop, run for every frame"),
@@ -50,8 +56,8 @@ class MethodLengthTest {
         hot("TrackWaveform.analyze", 72, "one pass over every sample of a song"),
         debt("UpNextScreen.init", 73));
 
-    // The debt entries; this only goes down as they are split.
-    private static final int MAX_DEBT = 12;
+    // G1 records one previously invisible existing lambda. From this baseline debt only goes down.
+    private static final int MAX_DEBT = 13;
 
     enum Kind {DEBT, DATA, HOT}
 
@@ -104,12 +110,15 @@ class MethodLengthTest {
         var lengths = new TreeMap<String, Integer>();
         try (var files = Files.walk(root)) {
             for (Path file : files.filter(p -> p.toString().endsWith(".class")).toList()) {
-                var reader = new ClassReader(Files.readAllBytes(file));
+                byte[] bytes = Files.readAllBytes(file);
+                var code = codeLengths(bytes);
+                var reader = new ClassReader(bytes);
                 String type = reader.getClassName().substring(reader.getClassName().lastIndexOf('/') + 1);
                 reader.accept(new ClassVisitor(Opcodes.ASM9) {
                     @Override
                     public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-                        if ((access & (Opcodes.ACC_SYNTHETIC | Opcodes.ACC_BRIDGE)) != 0 || name.startsWith("lambda$")
+                        boolean lambda = name.startsWith("lambda$");
+                        if (!lambda && (access & (Opcodes.ACC_SYNTHETIC | Opcodes.ACC_BRIDGE)) != 0
                             || name.equals("<init>") || name.equals("<clinit>"))
                             return null;
                         return new MethodVisitor(Opcodes.ASM9) {
@@ -123,7 +132,14 @@ class MethodLengthTest {
 
                             @Override
                             public void visitEnd() {
-                                if (first <= last) lengths.merge(type + "." + name, last - first, Math::max);
+                                String key = type + "." + stableName(name);
+                                if (first <= last) lengths.merge(key, last - first, Math::max);
+                                if (ALLOWED.containsKey(key) || lambda && last - first > 40)
+                                    System.out.printf("METHOD_SIZE %s%s: %d lines, %d bytes%n",
+                                        key, descriptor, last - first, code.get(name + descriptor));
+                                if (ALLOWED.containsKey(key) && ALLOWED.get(key).kind() == Kind.HOT)
+                                    assertTrue(code.get(name + descriptor) <= 8000,
+                                        key + " exceeds the huge-method JIT threshold; split and measure it first");
                             }
                         };
                     }
@@ -131,5 +147,88 @@ class MethodLengthTest {
             }
         }
         return lengths;
+    }
+
+    static String stableName(String name) {
+        return name.startsWith("lambda$") ? name.substring(7, name.lastIndexOf('$')) + "$lambda" : name;
+    }
+
+    @Test
+    void lambdaKeysIgnoreOnlyTheCompilerOrdinal() {
+        assertEquals("begin$lambda", stableName("lambda$begin$0"));
+        assertEquals("begin$lambda", stableName("lambda$begin$29"));
+        assertEquals("other$lambda", stableName("lambda$other$0"));
+        assertEquals("process", stableName("process"));
+    }
+
+    @Test
+    void encodedLengthsKeepOverloadsAndWideOperands() throws Exception {
+        var writer = new ClassWriter(0);
+        writer.visit(Opcodes.V25, Opcodes.ACC_PUBLIC, "Measured", null, "java/lang/Object", null);
+        writer.visitField(Opcodes.ACC_PRIVATE, "field", "J", null, 1L).visitEnd();
+        var shortMethod = writer.visitMethod(Opcodes.ACC_STATIC, "work", "()V", null, null);
+        shortMethod.visitCode();
+        shortMethod.visitInsn(Opcodes.RETURN);
+        shortMethod.visitMaxs(0, 0);
+        shortMethod.visitEnd();
+        var wide = writer.visitMethod(Opcodes.ACC_STATIC | Opcodes.ACC_SYNTHETIC, "work", "(I)V", null, null);
+        wide.visitCode();
+        wide.visitIincInsn(300, 1000); // WIDE IINC is six encoded bytes.
+        wide.visitInsn(Opcodes.RETURN);
+        wide.visitMaxs(0, 301);
+        wide.visitEnd();
+        writer.visitEnd();
+        var lengths = codeLengths(writer.toByteArray());
+        assertEquals(1, lengths.get("work()V"));
+        assertEquals(7, lengths.get("work(I)V"));
+        assertEquals(2, lengths.size());
+    }
+
+    // Read Code.code_length directly: ASM's visitor does not expose the encoded instruction length (switch padding,
+    // wide instructions and branch encoding matter). Constant-pool UTF8 entries name attributes and methods.
+    static Map<String, Integer> codeLengths(byte[] bytes) throws IOException {
+        try (var input = new DataInputStream(new ByteArrayInputStream(bytes))) {
+            input.skipNBytes(8);
+            String[] strings = new String[input.readUnsignedShort()];
+            for (int i = 1; i < strings.length; i++) {
+                int tag = input.readUnsignedByte();
+                switch (tag) {
+                    case 1 -> strings[i] = input.readUTF();
+                    case 3, 4, 9, 10, 11, 12, 17, 18 -> input.skipNBytes(4);
+                    case 5, 6 -> {
+                        input.skipNBytes(8);
+                        i++;
+                    }
+                    case 7, 8, 16, 19, 20 -> input.skipNBytes(2);
+                    case 15 -> input.skipNBytes(3);
+                    default -> throw new IOException("Unknown constant-pool tag " + tag);
+                }
+            }
+            input.skipNBytes(6);
+            input.skipNBytes(input.readUnsignedShort() * 2L);
+            readMembers(input, strings, false);
+            return readMembers(input, strings, true);
+        }
+    }
+
+    private static Map<String, Integer> readMembers(DataInputStream input, String[] strings, boolean methods) throws IOException {
+        var sizes = new TreeMap<String, Integer>();
+        int count = input.readUnsignedShort();
+        for (int i = 0; i < count; i++) {
+            input.readUnsignedShort();
+            String name = strings[input.readUnsignedShort()], descriptor = strings[input.readUnsignedShort()];
+            int attributes = input.readUnsignedShort();
+            for (int a = 0; a < attributes; a++) {
+                String attribute = strings[input.readUnsignedShort()];
+                long length = Integer.toUnsignedLong(input.readInt());
+                if (methods && attribute.equals("Code")) {
+                    input.skipNBytes(4);
+                    sizes.put(name + descriptor, input.readInt());
+                    length -= 8;
+                }
+                input.skipNBytes(length);
+            }
+        }
+        return sizes;
     }
 }

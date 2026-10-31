@@ -54,6 +54,7 @@ loom {
             vmArg "-Ddarkmusic.resetSmoke=${providers.gradleProperty('resetSmoke').isPresent()}"
             vmArg "-Ddarkmusic.previewSmoke=${providers.gradleProperty('previewSmoke').isPresent()}"
             vmArg "-Ddarkmusic.capture=${providers.gradleProperty('captureMusic').isPresent()}"
+            if (providers.gradleProperty('remainingCapture').isPresent()) vmArg "-Ddarkmusic.remainingCapture=${file(providers.gradleProperty('remainingCapture').get()).absolutePath}"
             vmArg "-Ddarkmusic.advanced=${providers.gradleProperty('advancedSmoke').isPresent()}"
             vmArg "-Ddarkmusic.cleanupSmoke=${providers.gradleProperty('cleanupSmoke').isPresent()}"
             vmArg "-Ddarkmusic.lyricsSmoke=${providers.gradleProperty('lyricsSmoke').isPresent()}"
