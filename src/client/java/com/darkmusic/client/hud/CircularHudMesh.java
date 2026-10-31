@@ -159,51 +159,10 @@ final class CircularHudMesh {
 
         @Override
         public void buildVertices(VertexConsumer v) {
-            for (int i = 0; progress >= 0 && i < detail; i++) {
-                double start = i / (double) detail, end = (i + 1) / (double) detail;
-                surfaceArc(v, pose, cx, cy, progressInner, progressInner + CircularHudLayout.RING_OUTER - CircularHudLayout.RING_INNER, start, end, 0xFF49485F, 0xFF49485F, progressFinish, true, rotation);
-                if (start < progress) {
-                    double filled = Math.min(end, progress);
-                    surfaceArc(v, pose, cx, cy, progressInner, progressInner + CircularHudLayout.RING_OUTER - CircularHudLayout.RING_INNER, start, filled,
-                        mix(progressStart, progressEnd, start), mix(progressStart, progressEnd, filled), progressFinish, false, rotation);
-                }
-            }
+            progressRing(v);
             if (levels == null) return;
             if (!style.bars()) {
-                int segments = style == Settings.SpectrumStyle.FILLED_SPIKE ? bands * 8 : detail;
-                for (int i = 0; i < segments; i++) {
-                    double a = i / (double) segments, b = (i + 1) / (double) segments;
-                    float h0 = CircularHudLayout.waveHeight(levels, bands, a, style, spectrumHeight), h1 = CircularHudLayout.waveHeight(levels, bands, b, style, spectrumHeight);
-                    if (Math.max(h0, h1) < .01f) continue;
-                    int first = mix(spectrumStart, spectrumEnd, 1 - Math.abs(2 * a - 1));
-                    int last = mix(spectrumStart, spectrumEnd, 1 - Math.abs(2 * b - 1));
-                    float base = baseRadius, feather = CircularHudLayout.FEATHER;
-                    boolean beveled = spectrumFinish == Settings.SurfaceFinish.BEVELED;
-                    boolean trail = progress == -1;
-                    int outer0 = trail ? SpectrumAppearance.alpha(first, 0x10) : beveled ? Bevel.shade(first, Bevel.circularLight(a + rotation) * .34) : first;
-                    int outer1 = trail ? SpectrumAppearance.alpha(last, 0x10) : beveled ? Bevel.shade(last, Bevel.circularLight(b + rotation) * .34) : last;
-                    point(v, pose, cx, cy, base + h0, a, outer0);
-                    point(v, pose, cx, cy, peakOnly() ? base + Math.max(0, h0 - .75f) : base, a, trail ? SpectrumAppearance.alpha(first, 0x58) : beveled ? Bevel.shade(first, -.22) : first);
-                    point(v, pose, cx, cy, peakOnly() ? base + Math.max(0, h1 - .75f) : base, b, trail ? SpectrumAppearance.alpha(last, 0x58) : beveled ? Bevel.shade(last, -.22) : last);
-                    point(v, pose, cx, cy, base + h1, b, outer1);
-                    if (beveled) {
-                        point(v, pose, cx, cy, base + h0, a, outer0);
-                        point(v, pose, cx, cy, base + h0 - Math.min(1, h0 * .3f), a, Bevel.shade(first, .04));
-                        point(v, pose, cx, cy, base + h1 - Math.min(1, h1 * .3f), b, Bevel.shade(last, .04));
-                        point(v, pose, cx, cy, base + h1, b, outer1);
-                    }
-                    point(v, pose, cx, cy, base + h0 + feather, a, outer0 & 0xFFFFFF);
-                    point(v, pose, cx, cy, base + h0, a, outer0);
-                    point(v, pose, cx, cy, base + h1, b, outer1);
-                    point(v, pose, cx, cy, base + h1 + feather, b, outer1 & 0xFFFFFF);
-                    if (glow) {
-                        // Follow both endpoints of the true contour: a constant maximum radius detaches from slopes.
-                        point(v, pose, cx, cy, base + h0 + 1.6f, a, first & 0xffffff);
-                        point(v, pose, cx, cy, base + h0, a, SpectrumAppearance.alpha(first, 0x33));
-                        point(v, pose, cx, cy, base + h1, b, SpectrumAppearance.alpha(last, 0x33));
-                        point(v, pose, cx, cy, base + h1 + 1.6f, b, last & 0xffffff);
-                    }
-                }
+                spectrumContour(v);
                 return;
             }
             for (int i = 0; i < bands; i++) {
@@ -231,6 +190,55 @@ final class CircularHudMesh {
                             turn - half + 2 * half * slice / slices, turn - half + 2 * half * (slice + 1) / slices, color, color, spectrumFinish, false, rotation);
                 if (glow)
                     strip(v, pose, cx, cy, baseRadius + height, baseRadius + height + 1.6f, turn - half, turn + half, SpectrumAppearance.alpha(color, 0x33), color & 0xffffff, SpectrumAppearance.alpha(color, 0x33), color & 0xffffff);
+            }
+        }
+
+        private void progressRing(VertexConsumer v) {
+            for (int i = 0; progress >= 0 && i < detail; i++) {
+                double start = i / (double) detail, end = (i + 1) / (double) detail;
+                surfaceArc(v, pose, cx, cy, progressInner, progressInner + CircularHudLayout.RING_OUTER - CircularHudLayout.RING_INNER, start, end, 0xFF49485F, 0xFF49485F, progressFinish, true, rotation);
+                if (start < progress) {
+                    double filled = Math.min(end, progress);
+                    surfaceArc(v, pose, cx, cy, progressInner, progressInner + CircularHudLayout.RING_OUTER - CircularHudLayout.RING_INNER, start, filled,
+                        mix(progressStart, progressEnd, start), mix(progressStart, progressEnd, filled), progressFinish, false, rotation);
+                }
+            }
+        }
+
+        private void spectrumContour(VertexConsumer v) {
+            int segments = style == Settings.SpectrumStyle.FILLED_SPIKE ? bands * 8 : detail;
+            for (int i = 0; i < segments; i++) {
+                double a = i / (double) segments, b = (i + 1) / (double) segments;
+                float h0 = CircularHudLayout.waveHeight(levels, bands, a, style, spectrumHeight), h1 = CircularHudLayout.waveHeight(levels, bands, b, style, spectrumHeight);
+                if (Math.max(h0, h1) < .01f) continue;
+                int first = mix(spectrumStart, spectrumEnd, 1 - Math.abs(2 * a - 1));
+                int last = mix(spectrumStart, spectrumEnd, 1 - Math.abs(2 * b - 1));
+                float base = baseRadius, feather = CircularHudLayout.FEATHER;
+                boolean beveled = spectrumFinish == Settings.SurfaceFinish.BEVELED;
+                boolean trail = progress == -1;
+                int outer0 = trail ? SpectrumAppearance.alpha(first, 0x10) : beveled ? Bevel.shade(first, Bevel.circularLight(a + rotation) * .34) : first;
+                int outer1 = trail ? SpectrumAppearance.alpha(last, 0x10) : beveled ? Bevel.shade(last, Bevel.circularLight(b + rotation) * .34) : last;
+                point(v, pose, cx, cy, base + h0, a, outer0);
+                point(v, pose, cx, cy, peakOnly() ? base + Math.max(0, h0 - .75f) : base, a, trail ? SpectrumAppearance.alpha(first, 0x58) : beveled ? Bevel.shade(first, -.22) : first);
+                point(v, pose, cx, cy, peakOnly() ? base + Math.max(0, h1 - .75f) : base, b, trail ? SpectrumAppearance.alpha(last, 0x58) : beveled ? Bevel.shade(last, -.22) : last);
+                point(v, pose, cx, cy, base + h1, b, outer1);
+                if (beveled) {
+                    point(v, pose, cx, cy, base + h0, a, outer0);
+                    point(v, pose, cx, cy, base + h0 - Math.min(1, h0 * .3f), a, Bevel.shade(first, .04));
+                    point(v, pose, cx, cy, base + h1 - Math.min(1, h1 * .3f), b, Bevel.shade(last, .04));
+                    point(v, pose, cx, cy, base + h1, b, outer1);
+                }
+                point(v, pose, cx, cy, base + h0 + feather, a, outer0 & 0xFFFFFF);
+                point(v, pose, cx, cy, base + h0, a, outer0);
+                point(v, pose, cx, cy, base + h1, b, outer1);
+                point(v, pose, cx, cy, base + h1 + feather, b, outer1 & 0xFFFFFF);
+                if (glow) {
+                    // Follow both endpoints of the true contour: a constant maximum radius detaches from slopes.
+                    point(v, pose, cx, cy, base + h0 + 1.6f, a, first & 0xffffff);
+                    point(v, pose, cx, cy, base + h0, a, SpectrumAppearance.alpha(first, 0x33));
+                    point(v, pose, cx, cy, base + h1, b, SpectrumAppearance.alpha(last, 0x33));
+                    point(v, pose, cx, cy, base + h1 + 1.6f, b, last & 0xffffff);
+                }
             }
         }
 

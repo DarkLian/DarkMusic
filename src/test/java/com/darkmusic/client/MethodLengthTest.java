@@ -36,7 +36,6 @@ class MethodLengthTest {
     // Most are debt. A hot loop or a table written as code is long on purpose and names why.
     private static final Map<String, Allowed> ALLOWED = Map.ofEntries(
         hot("AudioProcessor.process", 127, "the per-sample DSP chain, run for every frame"),
-        hot("CircularHudMesh$Rings.buildVertices", 73, "builds the circular HUD mesh each frame"),
         hot("SoundEnvironmentProcessor$Engine.process", 88, "the per-sample environment loop, run for every frame"),
         data("EnvironmentRecipes.recipe", 149, "a 22-case switch of preset parameters: a table written as code"),
         hot("SpectrumRenderer.bars", 87, "draws every spectrum bar each frame"));
