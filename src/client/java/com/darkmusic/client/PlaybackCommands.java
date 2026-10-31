@@ -4,14 +4,19 @@ import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.audio.PcmRateConverter;
 import com.darkmusic.client.audio.PlaybackController;
 import com.darkmusic.client.audio.ResumeTracker;
+import com.darkmusic.client.audio.SleepTimer;
 import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.config.Settings;
+import com.darkmusic.client.config.SettingsStore;
 import com.darkmusic.client.gui.FolderTree;
 import com.darkmusic.client.gui.PlayerQueries;
 import com.darkmusic.client.gui.QueueOperations;
 import com.darkmusic.client.gui.TransportOperations;
+import com.darkmusic.client.hud.VolumeFeedback;
 import com.darkmusic.client.library.ListeningHistory;
+import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.playlist.PlaylistStore;
 import com.darkmusic.client.systemmedia.MediaControls;
 
 import java.util.List;
@@ -23,15 +28,36 @@ import java.util.List;
  */
 public final class PlaybackCommands implements QueueOperations, TransportOperations, PlayerQueries {
     public static final int RECENTLY_ADDED = 100;
-    private final ClientServices services;
+    private final Inputs services;
+    private final ClientState state;
+    private final SettingsStore store;
     private final ResumeTracker resume = new ResumeTracker();
 
-    PlaybackCommands(ClientServices services) {
+    /**
+     * What the commands read, each time they run: reset replaces the services behind these.
+     */
+    interface Inputs {
+        PlaybackController playback();
+
+        MusicLibrary library();
+
+        PlaylistStore playlists();
+
+        ListeningHistory listeningHistory();
+
+        VolumeFeedback volumeFeedback();
+
+        SleepTimer sleep();
+    }
+
+    PlaybackCommands(Inputs services, ClientState state, SettingsStore store) {
         this.services = services;
+        this.state = state;
+        this.store = store;
     }
 
     public boolean canEditQueue() {
-        return services.state.accepting() && services.playback() != null;
+        return state.accepting() && services.playback() != null;
     }
 
     @Override
@@ -70,12 +96,12 @@ public final class PlaybackCommands implements QueueOperations, TransportOperati
 
     // Starting a song, play/pause, skipping and seeking wait while a media operation owns the files.
     private boolean steering() {
-        return services.state.idle() && services.playback() != null;
+        return state.idle() && services.playback() != null;
     }
 
     // Stop, pause and resume only need the client alive, as the screens that call them always allowed.
     private boolean running() {
-        return services.state.alive() && services.playback() != null;
+        return state.alive() && services.playback() != null;
     }
 
     @Override
@@ -160,18 +186,18 @@ public final class PlaybackCommands implements QueueOperations, TransportOperati
     }
 
     public void seekRelative(double seconds) {
-        if (services.state.idle() && services.playback() != null) services.playback().seekRelative(seconds);
+        if (state.idle() && services.playback() != null) services.playback().seekRelative(seconds);
     }
 
     public void speed(double value) {
-        services.update(s -> {
+        store.update(s -> {
             s.speed(PcmRateConverter.clamp(value));
             services.playback().speed(s.speed);
         });
     }
 
     public void volume(double value) {
-        services.update(s -> {
+        store.update(s -> {
             s.volume(Settings.clampVolume(value));
             if (s.volume > 0) s.lastAudibleVolume = s.volume;
             services.playback().volume(s.volume);
@@ -179,7 +205,7 @@ public final class PlaybackCommands implements QueueOperations, TransportOperati
     }
 
     public void sleepTimer(int minutes) {
-        services.sleep().start(minutes, services.playback(), services.settings() == null ? 1 : services.settings().volume);
+        services.sleep().start(minutes, services.playback(), store.settings() == null ? 1 : store.settings().volume);
     }
 
     /**
@@ -187,8 +213,8 @@ public final class PlaybackCommands implements QueueOperations, TransportOperati
      */
     void mediaAction(MediaControls.Action action) {
         var playback = services.playback();
-        if (!services.state.idle() || services.settings() == null || playback == null || services.library() == null
-            || !services.settings().mediaControls) return;
+        if (!state.idle() || store.settings() == null || playback == null || services.library() == null
+            || !store.settings().mediaControls) return;
         var state = playback.state();
         switch (action.button()) {
             case "play" -> {
@@ -212,23 +238,23 @@ public final class PlaybackCommands implements QueueOperations, TransportOperati
     }
 
     public void shuffle(boolean on) {
-        services.update(s -> {
+        store.update(s -> {
             s.shuffle = on;
             services.playback().shuffle(on);
         });
     }
 
     public void repeat(Repeat mode) {
-        services.update(s -> {
+        store.update(s -> {
             s.repeat = mode;
             services.playback().repeat(mode);
         });
     }
 
     public void toggleMute() {
-        var settings = services.settings();
+        var settings = store.settings();
         volume(settings.volume > 0 ? 0 : settings.lastAudibleVolume);
-        services.volumeFeedback().show(services.settings().volume);
+        services.volumeFeedback().show(store.settings().volume);
     }
 
     /**
@@ -264,11 +290,11 @@ public final class PlaybackCommands implements QueueOperations, TransportOperati
      * the whole library when that collection no longer has it. Returns false when there is nothing to resume.
      */
     public boolean resumeLast(boolean paused) {
-        var settings = services.settings();
+        var settings = store.settings();
         var point = settings == null || !settings.resumeLast ? null : settings.resume;
         var library = services.library();
         var playback = services.playback();
-        if (point == null || library == null || playback == null || !services.state.idle()) return false;
+        if (point == null || library == null || playback == null || !state.idle()) return false;
         var tracks = collection(point.mode, point.group);
         var source = new PlaybackController.Source(point.mode, point.group, "", "");
         var track = tracks.stream().filter(t -> t.id().equals(point.track)).findFirst().orElse(null);
@@ -299,13 +325,13 @@ public final class PlaybackCommands implements QueueOperations, TransportOperati
      * Whether Play on this song should continue it from the remembered position.
      */
     public boolean resumes(Track track) {
-        var settings = services.settings();
+        var settings = store.settings();
         var point = settings == null || !settings.resumeLast ? null : settings.resume;
         return point != null && track != null && point.track.equals(track.id());
     }
 
     void recordResume(boolean persist) {
-        if (resume.record(services.settings(), services.playback(), persist) && persist)
-            services.settingsStore().persist();
+        if (resume.record(store.settings(), services.playback(), persist) && persist)
+            store.persist();
     }
 }

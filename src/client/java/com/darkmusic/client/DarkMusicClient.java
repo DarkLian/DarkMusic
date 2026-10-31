@@ -14,7 +14,6 @@ import com.darkmusic.client.hud.NowPlayingHud;
 import com.darkmusic.client.hud.SongCard;
 import com.darkmusic.client.pip.PipController;
 import com.darkmusic.client.presence.DiscordPresence;
-import com.darkmusic.client.systemmedia.MediaControls;
 import com.darkmusic.client.text.Text;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
@@ -28,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -37,15 +37,18 @@ import java.util.concurrent.TimeUnit;
  */
 public class DarkMusicClient implements ClientModInitializer {
     public static DarkMusicClient INSTANCE;
-    private final ClientServices services = new ClientServices(this::mediaAction);
-    private final PlaybackCommands commands = new PlaybackCommands(services);
+    // Looks Minecraft up on each call, so constructing the collaborators before the game exists is safe.
+    private static final Executor CLIENT_THREAD = task -> Minecraft.getInstance().execute(task);
+    private final ClientServices services = new ClientServices(action -> this.commands.mediaAction(action));
+    private final PlaybackCommands commands = new PlaybackCommands(services, services.state, services.settingsStore());
     private final ScreenRequests screens = new ScreenRequests(services);
     private final Shortcuts shortcuts = new Shortcuts(services, commands, this::open);
-    private final FolderActions folders = new FolderActions(services);
-    private final MediaActions media = new MediaActions(services, this::cancelAutoplay);
-    private final ClientReset reset = new ClientReset(services, screens, folders, shortcuts, this::cancelAutoplay);
-    private final ClientSources sources = new ClientSources(services, commands, new PlaylistActions(services), folders, media,
-        new BackupActions(services, folders, shortcuts), new OutputActions(services), shortcuts, reset);
+    private final FolderActions folders = new FolderActions(services, services.state, services.settingsStore(), CLIENT_THREAD);
+    private final MediaActions media = new MediaActions(services, services.state, CLIENT_THREAD, this::cancelAutoplay);
+    private final ClientReset reset = new ClientReset(services, screens, folders, shortcuts, this::cancelAutoplay, CLIENT_THREAD);
+    private final ClientSources sources = new ClientSources(services, commands, new PlaylistActions(services, services.state), folders, media,
+        new BackupActions(services, services.state, services.settingsStore(), folders::invalidate, shortcuts::bindings, CLIENT_THREAD),
+        new OutputActions(services, services.state, services.settingsStore(), CLIENT_THREAD), shortcuts, reset);
     // Set once startup completes, played by the tick when the library has settled; reset and deletions cancel it.
     private boolean autoplayPending;
 
@@ -71,10 +74,6 @@ public class DarkMusicClient implements ClientModInitializer {
 
     public void open() {
         screens.open(sources);
-    }
-
-    private void mediaAction(MediaControls.Action action) {
-        commands.mediaAction(action);
     }
 
     private void cancelAutoplay() {

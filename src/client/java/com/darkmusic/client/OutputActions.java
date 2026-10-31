@@ -1,20 +1,40 @@
 package com.darkmusic.client;
 
+import com.darkmusic.client.audio.JavaSoundBackend;
 import com.darkmusic.client.audio.LoudnessCache;
 import com.darkmusic.client.audio.OutputDevices;
-import net.minecraft.client.Minecraft;
+import com.darkmusic.client.audio.PlaybackController;
+import com.darkmusic.client.config.SettingsStore;
+import com.darkmusic.client.library.MusicLibrary;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 /**
  * Output device switching and library loudness analysis, on the current playback backend. Client thread.
  */
 final class OutputActions {
-    private final ClientServices services;
+    private final Inputs services;
+    private final ClientState state;
+    private final SettingsStore store;
+    private final Executor clientThread;
 
-    OutputActions(ClientServices services) {
+    interface Inputs {
+        JavaSoundBackend backend();
+
+        PlaybackController playback();
+
+        MusicLibrary library();
+
+        void warn(String text);
+    }
+
+    OutputActions(Inputs services, ClientState state, SettingsStore store, Executor clientThread) {
         this.services = services;
+        this.state = state;
+        this.store = store;
+        this.clientThread = clientThread;
     }
 
     String outputDeviceId() {
@@ -30,15 +50,15 @@ final class OutputActions {
     void analyzeLibraryLoudness() {
         var backend = services.backend();
         var library = services.library();
-        if (backend == null || library == null || !services.state.alive()) return;
+        if (backend == null || library == null || !state.alive()) return;
         if (backend.analysisProgress().running()) backend.cancelAnalysis();
         else if (!library.snapshot().scanning())
-            backend.analyzeLibrary(library.snapshot().tracks(), services.settings().audio);
+            backend.analyzeLibrary(library.snapshot().tracks(), store.settings().audio);
     }
 
     CompletableFuture<Boolean> selectOutputDevice(String id) {
         var result = new CompletableFuture<Boolean>();
-        if (services.backend() == null || !services.state.accepting()) {
+        if (services.backend() == null || !state.accepting()) {
             result.complete(false);
             return result;
         }
@@ -51,14 +71,14 @@ final class OutputActions {
             result.complete(false);
             return result;
         }
-        services.state.outputChanging = true;
+        state.outputChanging = true;
         // Applies only to the backend it was asked of: a reset in between replaces the backend and voids the switch.
-        switching.whenComplete((ok, failure) -> Minecraft.getInstance().execute(() -> {
-            services.state.outputChanging = false;
-            boolean applied = !services.state.closed && services.backend() == selected && failure == null && ok;
+        switching.whenComplete((ok, failure) -> clientThread.execute(() -> {
+            state.outputChanging = false;
+            boolean applied = !state.closed && services.backend() == selected && failure == null && ok;
             try {
                 if (applied) {
-                    services.update(s -> {
+                    store.update(s -> {
                         s.outputDevice = id;
                         services.playback().outputChanged();
                     });

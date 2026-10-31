@@ -45,7 +45,7 @@ class MethodLengthTest {
         Map.entry("LocalCommands.register", 82),
         Map.entry("LyricsOptionsScreen.populate", 64),
         Map.entry("ManagedTools.install", 88),
-        Map.entry("MediaActions.deleteAudio", 65),
+        Map.entry("MediaActions.deleteAudio", 64),
         Map.entry("MediaActions.importAudio", 61),
         Map.entry("MediaFiles.edit", 134),
         Map.entry("MusicScreen.extractRenderState", 62),

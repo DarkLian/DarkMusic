@@ -1,5 +1,13 @@
 package com.darkmusic.client;
 
+import com.darkmusic.client.audio.PlaybackController;
+import com.darkmusic.client.cleanup.DuplicateReviewStore;
+import com.darkmusic.client.cleanup.DuplicateScanner;
+import com.darkmusic.client.cleanup.LibrarySourceIndex;
+import com.darkmusic.client.library.ListeningHistory;
+import com.darkmusic.client.library.MusicLibrary;
+import com.darkmusic.client.lyrics.LyricsService;
+import com.darkmusic.client.playlist.PlaylistStore;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.gui.DesktopWindowGuard;
 import com.darkmusic.client.library.AudioDeletion;
@@ -9,7 +17,6 @@ import com.darkmusic.client.library.MediaFiles;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.text.Text;
-import net.minecraft.client.Minecraft;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
@@ -18,6 +25,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -27,15 +36,50 @@ import java.util.stream.Collectors;
  * the identity check on completion discards the stale result.
  */
 public final class MediaActions {
-    private final ClientServices services;
+    private final Inputs services;
+    private final ClientState state;
+    private final Executor clientThread;
     // Deleting audio files supersedes a pending autoplay, which would otherwise start a song being removed.
     private final Runnable cancelAutoplay;
     private boolean importing;
     private String importDestination = "";
     private ProcessRunner.Token mediaToken;
 
-    MediaActions(ClientServices services, Runnable cancelAutoplay) {
+    /**
+     * What the media operations read when they start and again when they finish: reset replaces the services
+     * behind these, and the identity checks compare the two.
+     */
+    interface Inputs {
+        MusicLibrary library();
+
+        PlaybackController playback();
+
+        PlaylistStore playlists();
+
+        boolean playlistsReady();
+
+        ImportHistory importHistory();
+
+        ListeningHistory listeningHistory();
+
+        LyricsService lyrics();
+
+        // The raw fields: the lazy getters would create a scanner or index just to notify it.
+        DuplicateScanner openCleanup();
+
+        DuplicateReviewStore openCleanupReviews();
+
+        LibrarySourceIndex openSourceIndex();
+
+        Future<?> browse(Runnable task);
+
+        void warn(String text);
+    }
+
+    MediaActions(Inputs services, ClientState state, Executor clientThread, Runnable cancelAutoplay) {
         this.services = services;
+        this.state = state;
+        this.clientThread = clientThread;
         this.cancelAutoplay = cancelAutoplay;
     }
 
@@ -59,7 +103,7 @@ public final class MediaActions {
     }
 
     public void importAudio(List<Path> paths, String folder, String playlistId) {
-        if (!services.state.idle() || !services.playlistsReady()) {
+        if (!state.idle() || !services.playlistsReady()) {
             services.warn(Text.get("library.darkmusic.busy"));
             return;
         }
@@ -84,11 +128,11 @@ public final class MediaActions {
         String target = store.get(playlistId) != null ? store.displayName(store.get(playlistId)) : folder.isBlank() ? Text.get("text.darkmusic.all_tracks") : folder;
         String destination = root.toString() + " | " + target;
         long started = System.currentTimeMillis();
-        services.state.mediaBusy = true;
+        state.mediaBusy = true;
         var token = mediaToken = new ProcessRunner.Token();
         var accepted = List.copyOf(paths);
         if (accepted.size() > 1000) {
-            services.state.mediaBusy = false;
+            state.mediaBusy = false;
             services.warn(Text.get("library.darkmusic.import_limit"));
             return;
         }
@@ -99,10 +143,10 @@ public final class MediaActions {
                 var imported = new MediaFiles().importFiles(destinationRoot, destinationId, destinationFolder, accepted, token);
                 if (services.importHistory() != null)
                     services.importHistory().record(new ImportHistory.Batch(started, destination, accepted.size(), imported.entries(), ""));
-                Minecraft.getInstance().execute(() -> {
+                clientThread.execute(() -> {
                     importing = false;
-                    services.state.mediaBusy = false;
-                    if (!services.state.alive() || services.playlists() != store) return;
+                    state.mediaBusy = false;
+                    if (!state.alive() || services.playlists() != store) return;
                     if (store.get(playlistId) != null) store.addAll(playlistId, imported.tracks());
                     scanned.requestRescan();
                     services.warn(Text.get("library.darkmusic.import_result", imported.tracks().size(), imported.errors().size()));
@@ -112,14 +156,14 @@ public final class MediaActions {
             } catch (Exception failure) {
                 if (services.importHistory() != null)
                     services.importHistory().record(new ImportHistory.Batch(started, destination, accepted.size(), List.of(), String.valueOf(failure.getMessage())));
-                Minecraft.getInstance().execute(() -> {
+                clientThread.execute(() -> {
                     importing = false;
-                    services.state.mediaBusy = false;
+                    state.mediaBusy = false;
                     services.warn(Text.failure(failure, "library.darkmusic.import_failed"));
                 });
             }
         });
-        if (task == null) importing = services.state.mediaBusy = false;
+        if (task == null) importing = state.mediaBusy = false;
     }
 
     public CompletableFuture<MediaFiles.Fields> readMetadata(Track track) {
@@ -136,9 +180,9 @@ public final class MediaActions {
     }
 
     public CompletableFuture<Track> editMetadata(Track track, MediaFiles.Fields original, MediaFiles.Fields fields) {
-        if (!services.state.idle())
+        if (!state.idle())
             return CompletableFuture.failedFuture(busy());
-        services.state.mediaBusy = true;
+        state.mediaBusy = true;
         var token = mediaToken = new ProcessRunner.Token();
         var player = services.playback();
         var store = services.playlists();
@@ -157,9 +201,9 @@ public final class MediaActions {
             }
             var edited = replacement;
             var failure = problem;
-            Minecraft.getInstance().execute(() -> {
-                services.state.mediaBusy = false;
-                if (!services.state.alive() || services.playback() != player) {
+            clientThread.execute(() -> {
+                state.mediaBusy = false;
+                if (!state.alive() || services.playback() != player) {
                     result.completeExceptionally(busy());
                     return;
                 }
@@ -175,7 +219,7 @@ public final class MediaActions {
             });
         });
         if (task == null) {
-            services.state.mediaBusy = false;
+            state.mediaBusy = false;
             player.finishEdit(resume, track, track);
             result.completeExceptionally(busy());
         }
@@ -185,7 +229,7 @@ public final class MediaActions {
     public CompletableFuture<AudioDeletion.Plan> prepareAudioDeletion(List<Track> tracks) {
         var result = new CompletableFuture<AudioDeletion.Plan>();
         var window = new DesktopWindowGuard();
-        result.whenComplete((value, failure) -> Minecraft.getInstance().execute(window::close));
+        result.whenComplete((value, failure) -> clientThread.execute(window::close));
         var roots = services.library().roots();
         var selected = List.copyOf(tracks);
         if (services.browse(() -> {
@@ -204,9 +248,9 @@ public final class MediaActions {
                                                                Consumer<AudioDeletion.Progress> progress) {
         Objects.requireNonNull(mode);
         Objects.requireNonNull(token);
-        if (!services.state.accepting() || !services.playlistsReady() || !plan.roots().equals(services.library().roots()))
+        if (!state.accepting() || !services.playlistsReady() || !plan.roots().equals(services.library().roots()))
             return CompletableFuture.failedFuture(busy());
-        services.state.mediaBusy = true;
+        state.mediaBusy = true;
         cancelAutoplay.run();
         mediaToken = token;
         var player = services.playback();
@@ -216,7 +260,7 @@ public final class MediaActions {
         var result = new CompletableFuture<AudioDeletion.Result>();
         var window = mode == AudioDeletion.Mode.TRASH || plan.trashCompanions() ? new DesktopWindowGuard() : null;
         result.whenComplete((value, failure) -> {
-            if (window != null) Minecraft.getInstance().execute(window::close);
+            if (window != null) clientThread.execute(window::close);
         });
         var task = services.browse(() -> {
             AudioDeletion.Result deleted = null;
@@ -238,22 +282,21 @@ public final class MediaActions {
             }
             var completed = deleted;
             var failure = problem;
-            Minecraft.getInstance().execute(() -> {
-                services.state.mediaBusy = false;
+            clientThread.execute(() -> {
+                state.mediaBusy = false;
                 var removed = completed == null ? Set.<String>of() : completed.removed().stream().map(Track::id).collect(Collectors.toSet());
                 try {
                     store.removeTracks(removed);
                 } catch (RuntimeException storageClosed) {
                     LoggerFactory.getLogger("darkmusic").warn("Deleted files require playlist reconciliation on restart", storageClosed);
                 }
-                if (!services.state.alive() || services.playback() != player) {
+                if (!state.alive() || services.playback() != player) {
                     if (completed != null) result.complete(completed);
                     else result.completeExceptionally(failure);
                     return;
                 }
                 services.lyrics().lookup.deleted(removed);
                 player.finishDeletion(resume, removed);
-                // Read the raw fields: the lazy getters would create a scanner or index just to notify it.
                 if (services.openCleanup() != null) services.openCleanup().deleted(removed);
                 if (services.openCleanupReviews() != null) services.openCleanupReviews().deleted(removed);
                 if (services.openSourceIndex() != null) services.openSourceIndex().deleted(removed);
@@ -263,7 +306,7 @@ public final class MediaActions {
             });
         });
         if (task == null) {
-            services.state.mediaBusy = false;
+            state.mediaBusy = false;
             player.finishDeletion(resume, Set.of());
             result.completeExceptionally(busy());
         }

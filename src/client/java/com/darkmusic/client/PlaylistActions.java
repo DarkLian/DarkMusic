@@ -2,6 +2,7 @@ package com.darkmusic.client;
 
 import com.darkmusic.client.gui.PlaylistOperations;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.playlist.PlaylistStore;
 
 import java.util.List;
 import java.util.Set;
@@ -11,14 +12,22 @@ import java.util.Set;
  * operation owns the files: an import, edit, deletion or restore reconciles the playlists itself. Client thread.
  */
 final class PlaylistActions implements PlaylistOperations {
-    private final ClientServices services;
+    private final Inputs services;
+    private final ClientState state;
 
-    PlaylistActions(ClientServices services) {
+    interface Inputs {
+        boolean playlistsReady();
+
+        PlaylistStore playlists();
+    }
+
+    PlaylistActions(Inputs services, ClientState state) {
         this.services = services;
+        this.state = state;
     }
 
     private boolean ready() {
-        return services.playlistsReady() && !services.mediaBusy() && services.playlists() != null;
+        return services.playlistsReady() && !state.mediaBusy && services.playlists() != null;
     }
 
     @Override

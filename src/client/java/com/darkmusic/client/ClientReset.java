@@ -5,7 +5,6 @@ import com.darkmusic.client.config.ResetStorage;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.gui.DesktopFolderPicker;
 import com.darkmusic.client.text.Text;
-import net.minecraft.client.Minecraft;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,6 +15,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 /**
  * Reset to Defaults: admission, and the services to stop, clear and rebuild. {@link ResetOperation} owns the phases
@@ -27,14 +27,16 @@ final class ClientReset {
     private final FolderActions folders;
     private final Shortcuts shortcuts;
     private final Runnable cancelAutoplay;
+    private final Executor clientThread;
 
     ClientReset(ClientServices services, ScreenRequests screens, FolderActions folders, Shortcuts shortcuts,
-                Runnable cancelAutoplay) {
+                Runnable cancelAutoplay, Executor clientThread) {
         this.services = services;
         this.screens = screens;
         this.folders = folders;
         this.shortcuts = shortcuts;
         this.cancelAutoplay = cancelAutoplay;
+        this.clientThread = clientThread;
     }
 
     /**
@@ -43,7 +45,7 @@ final class ClientReset {
     CompletableFuture<Void> resetDefaults() {
         if (!services.state.idle())
             return CompletableFuture.failedFuture(new IllegalStateException(Text.get("reset.darkmusic.busy")));
-        return ResetOperation.run(new ResetSteps(), Minecraft.getInstance()::execute, services.io());
+        return ResetOperation.run(new ResetSteps(), clientThread, services.io());
     }
 
     private final class ResetSteps implements ResetOperation.Steps {

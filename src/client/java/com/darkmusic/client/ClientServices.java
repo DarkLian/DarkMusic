@@ -59,7 +59,7 @@ import java.util.function.Consumer;
  * getters on each use rather than keeping them: reset and restore publish replacements here, and the HUD, PiP and
  * reconciliation adapters read the current one on every call. Services are built and replaced on the client thread.
  */
-public final class ClientServices {
+public final class ClientServices implements PlaybackCommands.Inputs, PlaylistActions.Inputs, DownloadActions.Inputs, MediaActions.Inputs, FolderActions.Inputs, OutputActions.Inputs, BackupActions.Inputs {
     // Shutdown, reset and busy flags, and the checks built from them.
     final ClientState state = new ClientState();
     private final Warnings warnings = new Warnings(state);
@@ -273,7 +273,7 @@ public final class ClientServices {
         return playback;
     }
 
-    JavaSoundBackend backend() {
+    public JavaSoundBackend backend() {
         return backend;
     }
 
@@ -390,15 +390,15 @@ public final class ClientServices {
 
     // The raw fields, for code that must not create a scanner, index or review store just to notify or close it.
 
-    DuplicateScanner openCleanup() {
+    public DuplicateScanner openCleanup() {
         return cleanupScanner;
     }
 
-    DuplicateReviewStore openCleanupReviews() {
+    public DuplicateReviewStore openCleanupReviews() {
         return cleanupReviews;
     }
 
-    LibrarySourceIndex openSourceIndex() {
+    public LibrarySourceIndex openSourceIndex() {
         return sourceIndex;
     }
 

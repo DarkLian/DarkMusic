@@ -1,6 +1,7 @@
 package com.darkmusic.client;
 
 import com.darkmusic.client.download.DownloadModels;
+import com.darkmusic.client.download.DownloadService;
 import com.darkmusic.client.gui.DownloadOperations;
 import com.darkmusic.client.tools.ToolPaths;
 
@@ -12,9 +13,13 @@ import java.util.List;
  * missing tools); the menus add no condition of their own. Client thread.
  */
 final class DownloadActions implements DownloadOperations {
-    private final ClientServices services;
+    private final Inputs services;
 
-    DownloadActions(ClientServices services) {
+    interface Inputs {
+        DownloadService downloads();
+    }
+
+    DownloadActions(Inputs services) {
         this.services = services;
     }
 

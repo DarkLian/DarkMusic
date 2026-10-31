@@ -41,10 +41,25 @@ class ArchitectureTest {
     // ClientServices holds the services; it is the next place a hurried change would land. Lower this; never raise it.
     private static final int MAX_SERVICES_LINES = 572;
     private static final Path TESTS = Path.of("src/test/java/com/darkmusic/client");
-    private static final Set<String> ROOT_TESTS = new TreeSet<>(Set.of("ArchitectureTest", "BackupRestoreTest",
-        "CleanupTest", "ClientStateTest", "LibraryReconciliationTest", "MethodLengthTest", "PackagedJarTest",
-        "ResetOperationTest", "ResetStopTest", "RestoreOperationTest", "ScreenOperationsTest", "SettingsSettersTest",
-        "SmokeReflectionTest", "StartupShutdownTest"));
+    private static final Set<String> ROOT_TESTS = new TreeSet<>(Set.of("ArchitectureTest", "BackupActionsTest",
+        "BackupRestoreTest", "CleanupTest", "ClientStateTest", "DownloadActionsTest", "FolderActionsTest",
+        "LibraryReconciliationTest", "MediaActionsTest", "MethodLengthTest", "OutputActionsTest", "PackagedJarTest",
+        "PlaybackCommandsTest", "PlaylistActionsTest", "ResetOperationTest", "ResetStopTest", "RestoreOperationTest",
+        "ScreenOperationsTest", "SettingsSettersTest", "SmokeReflectionTest", "StartupShutdownTest", "WarningsTest"));
+    // The structure guards name root classes to check them, not to test what they do.
+    private static final Set<String> GUARDS = Set.of("ArchitectureTest", "MethodLengthTest", "PackagedJarTest",
+        "ScreenOperationsTest", "SettingsSettersTest", "SmokeReflectionTest");
+    // Root classes no test names, each with why. Only shrinks: a new root class needs a test or an entry here.
+    private static final Map<String, String> UNTESTED_ROOT = Map.of(
+        "DarkMusicClient", "the Fabric entry point; the smoke suite starts it",
+        "ClientServices", "builds the real services and needs Minecraft and Fabric; the smoke suite covers it",
+        "ScreenRequests", "opens Minecraft screens; the smoke suite covers it",
+        "Shortcuts", "registers and reads Minecraft key mappings; the smoke suite covers it",
+        "ClientActions", "chat command actions that open screens; the smoke suite covers it",
+        "ClientReset", "the reset steps over the real services; ResetOperationTest covers the phases, smoke reset the rest",
+        "ClientSources", "forwards only (clientSourcesOnlyForwards)",
+        "ScreenNavigation", "forwards screen changes to ScreenRequests",
+        "ClientDispatch", "forwards to the client thread");
     // A class name's words: "AudioUx231Test" is Audio, Ux, 231, Test.
     private static final Pattern WORDS = Pattern.compile("(?<=[a-z])(?=[A-Z0-9])|(?<=[0-9])(?=[A-Z])");
     private static final Pattern PROCESS_WORD = Pattern.compile("Review|Audit|Polish|Refinements?|Regression|Ux|\\d{3}");
@@ -268,6 +283,29 @@ class ArchitectureTest {
                 .map(n -> n.substring(0, n.length() - ".java".length())).toList());
             assertEquals(ROOT_TESTS, root, "Place a new test in its subject's package, or add it here on purpose");
         }
+    }
+
+    /**
+     * Each root collaborator holds admission rules, so each has a test that names it; the exceptions are listed with
+     * their reason.
+     */
+    @Test
+    void rootCollaboratorsHaveTests() throws IOException {
+        var tests = new ArrayList<String>();
+        try (var files = Files.walk(TESTS)) {
+            for (Path file : files.filter(f -> f.toString().endsWith(".java")).toList())
+                if (!GUARDS.contains(file.getFileName().toString().replace(".java", "")))
+                    tests.add(COMMENTS_AND_STRINGS.matcher(Files.readString(file)).replaceAll(" "));
+        }
+        var untested = new TreeSet<String>();
+        try (var files = Files.list(SOURCES)) {
+            for (Path file : files.filter(f -> f.toString().endsWith(".java")).toList()) {
+                String name = file.getFileName().toString().replace(".java", "");
+                var token = Pattern.compile("\\b" + name + "\\b");
+                if (tests.stream().noneMatch(code -> token.matcher(code).find())) untested.add(name);
+            }
+        }
+        assertEquals(new TreeSet<>(UNTESTED_ROOT.keySet()), untested, "Test the new root class, or list it with a reason");
     }
 
     /**

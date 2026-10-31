@@ -1,8 +1,10 @@
 package com.darkmusic.client;
 
+import com.darkmusic.client.config.ConfigStore;
+import com.darkmusic.client.config.SettingsStore;
 import com.darkmusic.client.library.MusicFolders;
+import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.text.Text;
-import net.minecraft.client.Minecraft;
 import net.minecraft.util.Util;
 
 import java.io.IOException;
@@ -10,17 +12,35 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
 
 /**
  * Music folder choices from menus. Checks run on the browse pool; settings change on the client thread only.
  */
 public final class FolderActions {
-    private final ClientServices services;
+    private final Inputs services;
+    private final ClientState state;
+    private final SettingsStore store;
+    private final Executor clientThread;
     // Reset and restore bump this so a folder check that finishes afterwards cannot apply a stale choice.
     private long generation;
 
-    FolderActions(ClientServices services) {
+    interface Inputs {
+        ConfigStore config();
+
+        MusicLibrary library();
+
+        Future<?> browse(Runnable task);
+
+        void warn(String text);
+    }
+
+    FolderActions(Inputs services, ClientState state, SettingsStore store, Executor clientThread) {
         this.services = services;
+        this.state = state;
+        this.store = store;
+        this.clientThread = clientThread;
     }
 
     void invalidate() {
@@ -28,15 +48,15 @@ public final class FolderActions {
     }
 
     void activate(Path path) {
-        var settings = services.settings();
+        var settings = store.settings();
         var roots = MusicFolders.resolve(settings, path);
         var destination = settings.musicDirectory.isBlank() ? services.config().defaultMusic() : Path.of(settings.musicDirectory);
         services.library().setRoots(roots, destination);
-        services.save();
+        store.save();
     }
 
     public void choose(Path directory, Runnable success) {
-        if (services.mediaBusy()) {
+        if (state.mediaBusy) {
             services.warn(Text.get("library.darkmusic.busy"));
             return;
         }
@@ -46,14 +66,14 @@ public final class FolderActions {
                 if (!Files.isDirectory(directory) || !Files.isReadable(directory))
                     throw new IOException("Directory unavailable or unreadable");
                 Path canonical = directory.toRealPath();
-                Minecraft.getInstance().execute(() -> {
-                    if (services.state.idle() && ticket == generation) {
+                clientThread.execute(() -> {
+                    if (state.idle() && ticket == generation) {
                         var library = services.library();
                         if (!library.roots().containsKey(canonical) && MusicFolders.overlaps(library.roots().keySet(), canonical)) {
                             services.warn(Text.get("folders.overlap"));
                             return;
                         }
-                        var settings = services.settings();
+                        var settings = store.settings();
                         var folders = new ArrayList<>(MusicFolders.folders(settings, services.config().defaultMusic()));
                         if (!folders.contains(canonical.toString())) folders.add(canonical.toString());
                         settings.musicFolders = List.copyOf(folders);
@@ -73,10 +93,10 @@ public final class FolderActions {
         services.browse(() -> {
             try {
                 Files.createDirectories(services.config().defaultMusic());
-                Minecraft.getInstance().execute(() -> {
-                    if (!services.state.alive() || ticket != generation) return;
+                clientThread.execute(() -> {
+                    if (!state.alive() || ticket != generation) return;
                     choose(services.config().defaultMusic(), () -> {
-                        services.update(s -> s.musicDirectory = "");
+                        store.update(s -> s.musicDirectory = "");
                     });
                 });
             } catch (Exception e) {
@@ -92,13 +112,13 @@ public final class FolderActions {
                 var canonical = directory.toRealPath();
                 if (!Files.isDirectory(canonical) || !Files.isReadable(canonical))
                     throw new IOException("Unreadable music folder");
-                Minecraft.getInstance().execute(() -> {
-                    if (!services.state.idle() || ticket != generation) return;
+                clientThread.execute(() -> {
+                    if (!state.idle() || ticket != generation) return;
                     if (MusicFolders.overlaps(services.library().roots().keySet(), canonical)) {
                         services.warn(Text.get("folders.overlap"));
                         return;
                     }
-                    var settings = services.settings();
+                    var settings = store.settings();
                     var folders = new ArrayList<>(MusicFolders.folders(settings, services.config().defaultMusic()));
                     folders.add(canonical.toString());
                     settings.musicFolders = List.copyOf(folders);
@@ -111,12 +131,12 @@ public final class FolderActions {
     }
 
     public boolean remove(Path directory) {
-        if (!services.state.idle()) {
+        if (!state.idle()) {
             services.warn(Text.get("library.darkmusic.busy"));
             return false;
         }
         if (directory.equals(services.library().root())) return false;
-        var settings = services.settings();
+        var settings = store.settings();
         settings.musicFolders = MusicFolders.folders(settings, services.config().defaultMusic()).stream().filter(p -> !Path.of(p).equals(directory)).toList();
         activate(services.library().root());
         return true;
