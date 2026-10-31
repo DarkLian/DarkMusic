@@ -67,7 +67,8 @@ final class AdvancedSmokeClient {
                         });
                         return;
                     }
-                    if (app.services().library().snapshot().scanning() || app.services().library().snapshot().tracks().isEmpty()) return;
+                    if (app.services().library().snapshot().scanning() || app.services().library().snapshot().tracks().isEmpty())
+                        return;
                     Path tools = Path.of(System.getProperty("darkmusic.downloadTools"));
                     app.services().settings().ffmpegPath = tools.resolve("ffmpeg.exe").toString();
                     app.services().settings().ffprobePath = tools.resolve("ffprobe.exe").toString();
@@ -78,8 +79,9 @@ final class AdvancedSmokeClient {
                     if (!mc.getWindow().isFullscreen()) mc.getWindow().toggleFullScreen();
                     mc.options.guiScale().set(2);
                     mc.resizeGui();
-                    work = Path.of("native-audio").toAbsolutePath();
-                    Files.createDirectories(work);
+                    Path scratch = Path.of(System.getProperty("darkmusic.verification")).resolve("deferred");
+                    Files.createDirectories(scratch);
+                    work = Files.createTempDirectory(scratch, "advanced-audio-");
                     Track song = app.services().library().snapshot().tracks().getFirst();
                     preparation = CompletableFuture.supplyAsync(() -> {
                         try {
@@ -188,10 +190,7 @@ final class AdvancedSmokeClient {
                 }
                 case 7 -> {
                     if (captures != 3) return;
-                    for (Path file : preparation.join().stream().map(Track::file).toList()) {
-                        require(file.startsWith(work), "Cleanup escaped test directory");
-                        Files.delete(file);
-                    }
+                    cleanup();
                     app.services().save();
                     LoggerFactory.getLogger("darkmusic-advanced-smoke").info("DARKMUSIC_SMOKE_PASS:{} real-device ALAC/AAC/Opus/FLAC transitions, sample-rate/channel adaptation, pause/seek, neutral and DSP, live Extreme Circular HUD and lyrics view, background loudness cache; three private fullscreen GUI-scale-2 captures", Files.readString(Path.of(System.getProperty("darkmusic.smokeRunFile"))).strip());
                     stage = 999;
@@ -200,8 +199,37 @@ final class AdvancedSmokeClient {
             }
         } catch (Throwable e) {
             LoggerFactory.getLogger("darkmusic-advanced-smoke").error("DARKMUSIC_SMOKE_FAIL stage=" + stage, e);
-            stage = 999;
-            mc.stop();
+            try {
+                var app = DarkMusicClient.INSTANCE;
+                if (app != null) app.services().playback().stop();
+            } finally {
+                try {
+                    cleanup();
+                } catch (Exception cleanup) {
+                    e.addSuppressed(cleanup);
+                }
+                stage = 999;
+                mc.stop();
+            }
         }
+    }
+
+    private void cleanup() throws Exception {
+        if (work == null) return;
+        var app = DarkMusicClient.INSTANCE;
+        if (app != null) {
+            app.services().playback().stop();
+            require(app.services().playback().awaitIdle(10), "Playback did not release the disposable excerpts");
+        }
+        // Preparation runs only on browse workers, so waiting here cannot wait on a client-thread callback.
+        if (preparation != null)
+            preparation.handle((tracks, failure) -> null).get(35, TimeUnit.SECONDS);
+        try (var files = Files.walk(work)) {
+            for (Path file : files.sorted(Comparator.reverseOrder()).toList()) {
+                require(file.startsWith(work), "Cleanup escaped test directory");
+                Files.delete(file);
+            }
+        }
+        work = null;
     }
 }

@@ -283,3 +283,60 @@ Native smoke checks render artwork and icon choices in all three layouts, simula
 ### Spectrum opacity, curve detail, and rounded peak markers
 
 New regressions verify opacity composition for faces, trails, gradient tails and glow; persisted opacity defaults/range recovery; rounded peak separation; and fixed radial peak thickness independent of bar width. Circular separation is evaluated after the same mirrored frequency smoothing used by the live bar. Native rounded-spectrum captures use 55% opacity with real private audio in the main player and all four HUDs. Curve Detail is shown only for styles using the segment budget; frequency-band count remains independent.
+## Exact PCM regression checks and deferred-work protocol
+
+`audio/PcmCaptureTest` captures only in-memory bytes written to a fake `SourceDataLine`. Samples come from the real
+private clip in `TestMusic`; the second source is attenuated from it, and the mono/24-bit case derives from the same
+samples. No fabricated audio or audio files are written. A fixed dither seed, frame-derived stall clock, prepared-next
+resource fences and client events at output-frame positions remove wall-clock timing from the scenarios.
+
+Eight scenarios run twenty times each: track normalization with a three-second crossfade; gapless handoff; album
+normalization; seek during overlap; mid-track speed 1.25 with Preserve Pitch on then off; pause/resume during overlap;
+output change during playback and overlap; mono/24-bit input on a stereo line. Hash and frame count must be identical
+across every repeat. `pcm-capture-golden.properties` was recorded before moving clock or normalization state; later
+steps compare exact SHA-256 values, with no tolerance. The input clip hash identifies that private baseline. Another
+collection still runs the repeatability check, but cannot claim equality to this collection's golden. Hosted CI skips
+audio tests when the private collection is unavailable.
+
+Run the focused check through the maintained excerpt workflow:
+
+```powershell
+./scripts/verify.ps1 -JavaOnly -Tests '*PcmCaptureTest','*PlaybackClockTest','*NormalizationTest'
+```
+
+The fixture's explicit `DARKMUSIC_PCM_RECORD=true` mode was used only to create the pre-extraction baseline. Keep it
+unset for regression verification; never regenerate a golden to make a pure move pass. The captured PCM stays in
+memory, and tracked resources contain only hashes/counts. `EnvironmentSerializationTest` similarly retains hashes
+of every recipe and a saved preset; its optional local config check reads the real config and compares its round
+trip and a detached saved preset with the ignored pre-move snapshot. It never writes the player's config.
+
+The native lyrics smoke also drives actual Lyrics Options save, replace and restore on a disposable real-audio copy.
+Both browse workers are fenced while a real metadata rename owns media admission. The operation APIs and menu
+confirmations must refuse saves/restores, preserve every companion byte, then allow the queued rename to finish
+and release admission. Expected busy-error warnings are part of this check. Copies live beneath the smoke run's
+`darkmusic.verification` directory, outside `build`, and are removed when the check finishes. Original collection
+hashes are compared by `smoke.ps1`. Advanced format excerpts use the same external scratch root and are removed on
+success and through failure cleanup. Screenshots remain original fullscreen 1920x1080 captures at configured and
+effective GUI scale 2 with SmoothFont; they remain private until reviewed.
+
+Exact PCM equality and native controls do not establish what a listener hears or physical device-unplug recovery.
+Run the following once after normalization changes, and again if transition state is later moved. Use only private
+collection songs; record pass/fail, private file identities and device in ignored evidence, with a public result
+summary in the history. Do not claim a row passed without listening/performing it.
+
+| Row | Setup | Required observation |
+|---|---|---|
+| 1 | Loud then quiet song, track normalization, 5 s crossfade | No level jump at either end of overlap. |
+| 2 | Consecutive gapless album tracks, crossfade off | No click, gap or overlap. |
+| 3 | Same album, album normalization | Consistent level across handoff. |
+| 4 | Seek during crossfade | No burst; incoming playback continues at the right position. |
+| 5 | Speed 1.5, Preserve Pitch on then off, across overlap | No boundary pitch glitch; progress and synced lyrics align. |
+| 6 | Pause/resume during overlap | Crossfade continues without restarting. |
+| 7 | Switch output during playback and during overlap | Position and level continue. |
+| 8 | Select an explicit device, then physically unplug it | Same fallback/recovery as the baseline. |
+| 9 | Mono recording and 24-bit FLAC on stereo output | Correct channels and unchanged audible noise floor. |
+
+Then run `smoke.ps1 -Scenario advanced,queue`. The current session's exact results, external-provider failures and
+human/device rows still pending are in [deferred progress](history/DEFERRED_PROGRESS.md). GPU registration failure,
+rare independent filesystem cleanup refusals and shutdown races have the specific limits recorded in the
+[I/O branch map](history/DEFERRED_BRANCH_MAP.md); a passing build is not a claim that they were all fault-injected.

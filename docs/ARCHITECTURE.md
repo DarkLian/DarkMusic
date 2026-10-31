@@ -87,8 +87,8 @@ Other guards, on compiled classes (ASM) or the smoke sources:
 - `ArchitectureTest.rootTestsAreAllowlisted` and `testClassesNameASubject`: tests live in their subject's package
   (the root holds the root package's tests, these guards and `PackagedJarTest`), named after what they test.
 - `ArchitectureTest.rootCollaboratorsHaveTests`: every root class is named by a test other than the structure guards,
-  or is listed with the reason it is not (the Minecraft-bound ones, the forwarders, `ClientServices`,
-  `ClientReset`).
+  or is listed with the reason it is not (`DarkMusicClient`, `ClientServices`, `ClientSources`, `ScreenNavigation`
+  and `ClientDispatch`).
 - `MethodLengthTest.deliberateLengthSaysWhyAndDebtOnlyShrinks`: each allowlisted method is debt, or a hot loop or a
   data table with a reason; `MAX_DEBT` counts the debt entries and only goes down.
 
@@ -221,6 +221,14 @@ of it (as the analyzer label says).
 
 ## Known limits
 
+- Transition state stays on `JavaSoundBackend`: `upcoming` is an `AtomicReference` written by the client thread;
+  `mixing`, `announcement` and `overlap` keep their existing volatile semantics. After the clock and normalization
+  moves, `mix` and `handoff` read cohesive collaborators. Moving this remaining cross-thread cluster would add
+  synchronization risk without clarifying its control flow.
+- Exact PCM and native smoke checks do not replace the human listening and physical device-unplug protocol in
+  [TESTING.md](TESTING.md#exact-pcm-regression-checks-and-deferred-work-protocol). Those human rows remain pending
+  for the deferred refactor; GPU registration failure and rare independent cleanup/shutdown faults are listed in
+  [the branch review](history/DEFERRED_BRANCH_MAP.md).
 - Which services are built (`DarkMusicClient.ready`, `ClientServices.buildHistories`/`buildServices`/
   `buildReplaceable`, the `ClientReset` steps) is wiring. It is covered by compilation, review and the smoke checks
   rather than by unit tests. The collaborators' admission rules have unit tests; a successful output switch, a
@@ -271,3 +279,44 @@ of it (as the analyzer label says).
   `Shutdown.Services`. Consumers read it through the getter or the reconciliation adapter, so screens and the HUD do
   not change. They are still typed on the concrete `MusicLibrary`, so a different implementation type would also
   change those signatures.
+
+## Deferred refactors: file phases, audio state and library lyrics
+
+The completed batches and verification record are in [deferred progress](history/DEFERRED_PROGRESS.md).
+The [I/O branch review](history/DEFERRED_BRANCH_MAP.md) distinguishes exercised paths from fault-injection gaps.
+
+`PlaybackClock` owns the audio worker's device/source timeline, submitted and heard frames, offset and device rate.
+Its segments keep the expression order used for speed changes and handoffs. `Normalization` owns the worker's
+pinned current/incoming loudness sessions and smoothed gains. Its methods name new-session reset, same-session
+continuation, announcement restoration and incoming adoption. Reopening an output route retains normalization;
+`JavaSoundBackend` still publishes volatile playback state and normalization status and invokes hearing callbacks.
+Neither helper creates a thread or acquires a lock. Seeded test dither and a supplied stall clock support exact PCM
+comparison; production constructors continue to use the system clock and a fresh dither seed.
+
+`LibraryLyricsWalk` owns the incremental client-tick pass, roots, visited tracks, cursor, provider owner and counters.
+It requests local inspection through `Inputs`; `LyricsService` retains its bounded local jobs, immutable published
+cache, lookup and lifecycle. Local jobs never touch walk state. Disabling lyrics already holds the service monitor;
+the walk receives and re-enters that same monitor for cancellation. Ordinary start/cancel/background calls remain
+client-tick operations with no new monitor. Retry ticking still happens before the availability check.
+
+The file operations now expose their existing phases through small value records and private methods:
+
+- Backup preparation separates settings, roots, playlists and history; restore recovery inspects every original
+  and held/current target into an immutable ordered `RecoveryPlan` before applying any target.
+- Metadata edits separate validation, target/companion identities, staging, commit and work cleanup. The outer
+  facade still owns rollback suppression and retained recovery work.
+- Downloads separate preflight, fetch, collected source, conversion, validation, publication and cleanup. Their
+  one per-call mutable `Phase` carries stage/tool attribution; no shared service state was introduced.
+- Artwork separates bounded image reading, native-image ownership and render-thread publication. Source indexing
+  returns per-track evidence under its existing coalescing loop. Duplicate reading/matching/fingerprinting return
+  phase values with final counters and original failures, leaving final cache persistence in the facade.
+- External decoder pipes retain their process/watchdog ownership in `DecoderPipe`. Managed tool installation keeps
+  ordered release/asset values, the existing install lock and atomic pointer publication. Import destination and
+  deleted-file provenance are named phases; browse/client publication and admission retain their order.
+
+`EnvironmentRecipes` holds the preset table and its space helper. `SoundEnvironmentSettings.recipe` retains its
+public facade; `Parameters` remains the existing nested public type. Gson field names/order and saved presets are
+unchanged. Root action/reset tests use explicit service inputs and reset desktop controls; screen requests and
+shortcut migration have plain-data values. The untested-root allowlist is now five classes. The ratchets are client
+289 lines, services 572, debt 12, test reflection 7 and smoke reflection 105; the twelve remaining debt methods are
+UI layout/registration work outside this plan.

@@ -141,3 +141,13 @@ unchanged. Releasing the fence completed the rename and released admission. The 
 This is an automated native-menu check, not a claim that a human performed the manual row. Original music was never
 written. DARKMUSIC_LYRICS_WRITE_PASS and the scenario-specific smoke pass marker are in final-smoke/lyrics.log.
 Advanced, queue, cleanup and the clean desktop build are now running in the same verification window.
+
+### Self-review follow-up
+
+GitHub's latest pushed build at de11d3c is successful (run 41229000785); the older failed run is ed594ed. No remote
+mutation was made. Review preserved the initial volatile-speed read after decoder construction when opening a song.
+The advanced smoke's pre-existing native-audio directory was under build; its new temporary directory is beneath
+.local-tools/verification/deferred and cleanup waits for preparation/playback ownership before deleting excerpts,
+including failure cleanup. This test-infrastructure adjustment needs a final advanced rerun. All four final smoke
+scenarios have already passed; clean desktop verification is now running. The clock read-order follow-up will also
+be checked by the final golden test. The detailed I/O branch map records remaining fault-injection gaps explicitly.

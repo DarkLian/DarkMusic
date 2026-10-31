@@ -455,8 +455,9 @@ public final class JavaSoundBackend implements AudioBackend {
                 release();
                 return false;
             }
-            clock.open(opened.offset() + skipped / (double) format.getFrameRate(), speed);
+            double sourceOffset = opened.offset() + skipped / (double) format.getFrameRate();
             converter = new PcmRateConverter(stream);
+            clock.open(sourceOffset, speed);
             openLine(format);
             clock.deviceRate(line.getFormat().getFrameRate());
             processor.begin(clock.deviceRate(), line.getFormat().getChannels());
