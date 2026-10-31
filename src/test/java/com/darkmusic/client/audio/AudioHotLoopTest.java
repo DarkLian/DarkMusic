@@ -8,6 +8,7 @@ import com.darkmusic.client.testing.HotCost;
 import com.darkmusic.client.testing.HotGolden;
 import com.darkmusic.client.testing.TestMusic;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import javax.sound.sampled.AudioInputStream;
@@ -146,6 +147,7 @@ class AudioHotLoopTest {
     @Test
     @EnabledIfSystemProperty(named = "darkmusic.test.perf", matches = "true")
     void audioProcessorCost() throws Exception {
+        Assumptions.assumeTrue(TestMusic.clip().format().getChannels() == 2, "This cost workload requires a real stereo clip");
         float[] source = Arrays.copyOf(input(), 512), work = source.clone();
         var processor = new AudioProcessor();
         processor.configure(settings("chain"));
@@ -160,6 +162,7 @@ class AudioHotLoopTest {
     @Test
     @EnabledIfSystemProperty(named = "darkmusic.test.perf", matches = "true")
     void environmentEngineCost() throws Exception {
+        Assumptions.assumeTrue(TestMusic.clip().format().getChannels() == 2, "This cost workload requires a real stereo clip");
         float[] source = Arrays.copyOf(input(), 512);
         var settings = new SoundEnvironmentSettings();
         settings.select(SoundEnvironmentSettings.Preset.DREAMSCAPE);

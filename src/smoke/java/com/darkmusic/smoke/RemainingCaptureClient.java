@@ -72,8 +72,11 @@ final class RemainingCaptureClient {
             if (frame == 0) {
                 mc.gui.setScreen(screen(app, state));
                 mc.gui.screen().setFocused(null);
-                GLFW.glfwSetCursorPos(mc.getWindow().handle(), 1918, 1078);
             }
+            // setScreen releases the mouse and may queue a later recenter callback. Reassert until settled.
+            GLFW.glfwFocusWindow(mc.getWindow().handle());
+            GLFW.glfwSetCursorPos(mc.getWindow().handle(), frame % 2 == 0 ? 1916 : 1918, 1078);
+            mc.gui.screen().mouseMoved(mc.gui.screen().width - 1, mc.gui.screen().height - 1);
             if (frame == 5 || frame == 7) capture(mc, state, frame == 5 ? "a" : "b");
             if (++frame > 8) {
                 frame = 0;
@@ -161,6 +164,8 @@ final class RemainingCaptureClient {
 
     private void capture(Minecraft mc, int index, String repeat) throws Exception {
         SmokeUi.captureReady(mc);
+        if (mc.mouseHandler.xpos() < 1900 || mc.mouseHandler.ypos() < 1060)
+            throw new IllegalStateException("Capture pointer did not settle outside controls: " + mc.mouseHandler.xpos() + ", " + mc.mouseHandler.ypos());
         Path root = Path.of(System.getProperty("darkmusic.remainingCapture"));
         Files.createDirectories(root.resolve("screenshots"));
         Screenshot.grab(root.toFile(), "%02d-%s.png".formatted(index, repeat), mc.gameRenderer.mainRenderTarget(), 1, text -> completed++);

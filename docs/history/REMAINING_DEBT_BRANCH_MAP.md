@@ -43,3 +43,19 @@ during preparation, graphics refusal/cancellation immediately before lease publi
 
 These are focused branch checks, not exhaustive filesystem fault injection. The separate deferred branch map's
 GPU, independent rollback/cleanup/storage and shutdown failures remain outside this plan.
+
+## Completed checks
+
+- Picker: added admission refusal/stale-cancellation isolation, cancellation precedence, stdin-close/destroy/forced
+  stop order, launch/exit failure cleanup and reopening. They passed before/after phase extraction; the actual JDK
+  dialog approve/cancel check also passed before/after. Independent OS refusals of scratch cleanup remain unforced.
+- Update: direct staging checks cover verified manifest/helper contents and original JAR identity, rejection of
+  bad ZIP/identity/version/dependency/checksum before installer publication, and preservation of the installed JAR.
+  Tests passed before/after phase splitting alongside installer/recovery/pruning/packaging and command consent.
+  The HTTP redirect/transport and client notification paths retain existing tests/review; no actual player mod was staged.
+- PiP: added busy/close admission, graphics refusal, cancellation immediately before activation, distinct check/install
+  fallback errors and temporary-download cleanup. Suites passed before/after. All three native PiP checks and the
+  production downloader against the SHA-256-verified published 3.6.1 JAR/runtime package passed.
+
+The original exceptional cleanup-failure seams were not expanded, and successful integration does not prove every
+OS/filesystem/close race has been injected. No guard budget was raised to accommodate new code.

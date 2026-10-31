@@ -340,3 +340,44 @@ Then run `smoke.ps1 -Scenario advanced,queue`. The current session's exact resul
 human/device rows still pending are in [deferred progress](history/DEFERRED_PROGRESS.md). GPU registration failure,
 rare independent filesystem cleanup refusals and shutdown races have the specific limits recorded in the
 [I/O branch map](history/DEFERRED_BRANCH_MAP.md); a passing build is not a claim that they were all fault-injected.
+
+## Remaining-debt exactness, timing and visual checks
+
+`AudioHotLoopTest` exercises direct AudioProcessor buffers and the environment Engine for every preset, plus
+waveform and spectrum arrays. `SpectrumHotLoopTest` captures actual rectangular batches, including gradient colors;
+`RingsHotLoopTest` captures every emitted vertex/color bit through a concrete consumer. Repeated output must match
+before comparison with fixed SHA-256 resources recorded before the hot-loop splits. Audio inputs derive from the
+private collection and stay in memory. Missing/different private clips are explicitly distinguished from a matching
+golden; hosted CI cannot claim private-audio equality when it skips those checks.
+
+```powershell
+./scripts/verify.ps1 -JavaOnly -Tests '*HotLoopTest'
+# Run separately, with no other repository builds, native clients or debugger sessions active:
+./scripts/verify.ps1 -JavaOnly -PerfChecks -Tests '*HotLoopTest.*Cost'
+```
+
+The six timing methods run only with `-PperfChecks` (the script's `-PerfChecks` passes it through). Each uses 10,000
+warm-up calls and 15 measured rounds of 1,000 calls, printing raw rounds, median, p10/p90 spread and full range.
+Timing is observational and never asserts a CI performance threshold. GPU submission is excluded from headless
+geometry timing. Workloads, noise rule and actual results are in [the measurement record](history/REMAINING_DEBT_MEASUREMENTS.md).
+H5/H6 require the listening/device rows above before touching either per-sample method, then listening again after
+the DSP change. Those human results have not been supplied in this session.
+
+The remaining-debt capture mode uses the real screens/HUD renderer with isolated capture-run settings, private
+audio/artwork and SmoothFont. It pauses at a fixed position, moves the pointer outside controls, uses short display
+labels derived from the real track metadata to prevent marquees, and places an opaque test backdrop behind the HUD
+editor's translucent background. Audio, tags and artwork files remain original. Both original 1920x1080 captures
+are kept for every state; configured and effective GUI scale must both be 2. Captures stay in docs/images_private.
+
+`scripts/compare-captures.py` checks repeated captures on unchanged code first, then each before/after pair, without
+resizing, cropping or ignoring any color channel. It requires Pillow in the development environment. Its self-test
+includes an RGB-only change with identical alpha: RGBA.getbbox's alpha-only default must never hide such a change.
+
+```powershell
+python scripts/compare-captures.py --self-test
+python scripts/compare-captures.py --before docs/images_private/remaining-before-v3/screenshots --after docs/images_private/remaining-after-v3/screenshots --report .local-tools/verification/remaining/visual-v3.json
+```
+
+The Lyrics smoke waits for PAUSED as well as the target seek position before toggling resume. A seek publishes its
+target while still SEEKING; toggling then intentionally pauses the request. A worker-only debugger delay reproduced
+the harness race, and the corrected gate passed with the same controlled delay and in a separate normal desktop run.

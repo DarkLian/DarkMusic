@@ -289,6 +289,14 @@ The follow-ups the maintenance work named, measured against `95ce463`.
   integration check failed against an endpoint returning HTTP 502. Manual lyric-write/admission results and the
   remaining work are recorded in [deferred work progress](DEFERRED_PROGRESS.md).
 
+## Remaining-debt work (2026-11-01)
+
+The follow-up [progress record](REMAINING_DEBT_PROGRESS.md) documents lambda/bytecode guards, all twelve UI
+sections, the three I/O lambdas, exact output baselines and measured H1–H4 splits. MAX_DEBT is now zero; four
+hot entries were removed after exactness and cost checks, while the two per-sample entries remain behind the
+owed human listening/device protocol. The [measurements](REMAINING_DEBT_MEASUREMENTS.md) include noise and scope
+limits. Commit/push remain waiting for the user; no release is part of this work.
+
 ## Open items
 
 The items still open when this work ended are the Known limits in [ARCHITECTURE.md](../ARCHITECTURE.md#known-limits).

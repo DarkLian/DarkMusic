@@ -5,32 +5,45 @@ param(
     [switch]$Clean,
     [switch]$DesktopIntegration,
     [switch]$JavaOnly,
-    # Explicit CPU cost observations; normally combine with -Tests '*HotLoopTest.*Cost' and no other jobs.
+# Explicit CPU cost observations; normally combine with -Tests '*HotLoopTest.*Cost' and no other jobs.
     [switch]$PerfChecks,
-    # Runs only these test classes or patterns (Gradle --tests), with the same excerpts, instead of the full build.
+# Runs only these test classes or patterns (Gradle --tests), with the same excerpts, instead of the full build.
     [string[]]$Tests = @()
 )
 
 $ErrorActionPreference = 'Stop'
 $projectDirectory = Split-Path -Parent $PSScriptRoot
-if (-not $MusicDirectory) { $MusicDirectory = Join-Path $projectDirectory 'run/config/darkmusic/music' }
+if (-not $MusicDirectory)
+{
+    $MusicDirectory = Join-Path $projectDirectory 'run/config/darkmusic/music'
+}
 $MusicDirectory = (Resolve-Path -LiteralPath $MusicDirectory).Path
 $musicFiles = @(Get-ChildItem -LiteralPath $MusicDirectory -Recurse -File |
-    Where-Object { $_.Extension -match '^\.(mp3|flac|wav|ogg|opus|aac|m4a|mp4|webm|aiff|aif)$' } |
-    Sort-Object FullName)
-if (-not $musicFiles.Count) { throw 'A real music collection is required.' }
+        Where-Object { $_.Extension -match '^\.(mp3|flac|wav|ogg|opus|aac|m4a|mp4|webm|aiff|aif)$' } |
+        Sort-Object FullName)
+if (-not $musicFiles.Count)
+{
+    throw 'A real music collection is required.'
+}
 
-if (-not $ToolsDirectory) {
+if (-not $ToolsDirectory)
+{
     $managed = Join-Path $projectDirectory 'run/config/darkmusic/tools/managed'
     $bundle = Get-ChildItem -LiteralPath $managed -Directory -ErrorAction SilentlyContinue |
-        Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'ffmpeg.exe') } |
-        Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if ($bundle) { $ToolsDirectory = $bundle.FullName }
+            Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'ffmpeg.exe') } |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($bundle)
+    {
+        $ToolsDirectory = $bundle.FullName
+    }
 }
-if ($ToolsDirectory) {
+if ($ToolsDirectory)
+{
     $ToolsDirectory = (Resolve-Path -LiteralPath $ToolsDirectory).Path
-    foreach ($tool in @('ffmpeg.exe', 'ffprobe.exe', 'yt-dlp.exe')) {
-        if (-not (Test-Path -LiteralPath (Join-Path $ToolsDirectory $tool) -PathType Leaf)) {
+    foreach ($tool in @('ffmpeg.exe', 'ffprobe.exe', 'yt-dlp.exe'))
+    {
+        if (-not (Test-Path -LiteralPath (Join-Path $ToolsDirectory $tool) -PathType Leaf))
+        {
             throw "Missing tool: $tool in $ToolsDirectory"
         }
     }
@@ -39,65 +52,120 @@ if ($ToolsDirectory) {
 $scratchRoot = Join-Path $projectDirectory '.local-tools/verification/runs'
 $scratch = Join-Path $scratchRoot ([guid]::NewGuid().ToString())
 $verificationDirectory = $MusicDirectory
-$originalHashes = @{}
+$originalHashes = @{ }
 $gradle = Join-Path $projectDirectory 'gradlew.bat'
 
 # Gradle and javac write warnings to stderr. Under 'Stop', Windows PowerShell 5.1 turns such a line into a
 # terminating error whenever the output is redirected, ending the run although the build succeeds.
 # Only the exit code decides success.
-function Invoke-Gradle {
+function Invoke-Gradle
+{
     $previous = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    try { & $gradle @args } finally { $ErrorActionPreference = $previous }
+    try
+    {
+        & $gradle @args
+    }
+    finally
+    {
+        $ErrorActionPreference = $previous
+    }
 }
 Push-Location $projectDirectory
-try {
+try
+{
     # Clean before preparing excerpts, so Gradle cannot delete its own test inputs.
-    if ($Clean) {
+    if ($Clean)
+    {
         Invoke-Gradle clean
-        if ($LASTEXITCODE -ne 0) { throw "Gradle clean failed ($LASTEXITCODE)." }
+        if ($LASTEXITCODE -ne 0)
+        {
+            throw "Gradle clean failed ($LASTEXITCODE)."
+        }
     }
     $readerFiles = @($musicFiles | Where-Object { $_.Extension -match '^\.(mp3|flac|wav|ogg)$' })
-    if (-not $readerFiles.Count) {
-        if (-not $ToolsDirectory) { throw 'This collection needs FFmpeg for test excerpts. Supply -ToolsDirectory or install managed tools.' }
+    if (-not $readerFiles.Count)
+    {
+        if (-not $ToolsDirectory)
+        {
+            throw 'This collection needs FFmpeg for test excerpts. Supply -ToolsDirectory or install managed tools.'
+        }
         New-Item -ItemType Directory -Path $scratch -Force | Out-Null
         $verificationDirectory = $scratch
         $index = 0
-        foreach ($source in ($musicFiles | Select-Object -First 3)) {
+        foreach ($source in ($musicFiles | Select-Object -First 3))
+        {
             $originalHashes[$source.FullName] = (Get-FileHash -LiteralPath $source.FullName -Algorithm SHA256).Hash
             $destination = Join-Path $scratch ('{0:D2}.mp3' -f $index++)
             & (Join-Path $ToolsDirectory 'ffmpeg.exe') -hide_banner -loglevel error -nostdin -y -i $source.FullName -t 45 `
                 -map 0:a:0 -map '0:v?' -c:a libmp3lame -q:a 2 -c:v copy -id3v2_version 3 -write_id3v1 1 $destination
-            if ($LASTEXITCODE -ne 0) { throw "Could not prepare a real-audio excerpt ($LASTEXITCODE)." }
+            if ($LASTEXITCODE -ne 0)
+            {
+                throw "Could not prepare a real-audio excerpt ($LASTEXITCODE)."
+            }
         }
     }
     # @() keeps a one-element result an array, so += appends flags instead of joining strings.
-    $arguments = @(if ($Tests) { 'test'; $Tests | ForEach-Object { '--tests', $_ } } else { 'build' })
+    $arguments = @(if ($Tests)
+    {
+        'test'; $Tests | ForEach-Object { '--tests', $_ }
+    }
+    else
+    {
+        'build'
+    })
     $arguments += @('-PrequireMusic', "-PmusicDirectory=$verificationDirectory")
-    if ($JavaOnly) { $arguments += '-PjavaOnly' }
-    if ($PerfChecks) { $arguments += '-PperfChecks' }
-    if ($ToolsDirectory) { $arguments += @('-PdownloadIntegration', "-PdownloadToolsDirectory=$ToolsDirectory") }
-    if ($DesktopIntegration) { $arguments += '-PdesktopIntegration' }
+    if ($JavaOnly)
+    {
+        $arguments += '-PjavaOnly'
+    }
+    if ($PerfChecks)
+    {
+        $arguments += '-PperfChecks'
+    }
+    if ($ToolsDirectory)
+    {
+        $arguments += @('-PdownloadIntegration', "-PdownloadToolsDirectory=$ToolsDirectory")
+    }
+    if ($DesktopIntegration)
+    {
+        $arguments += '-PdesktopIntegration'
+    }
     Invoke-Gradle @arguments
-    if ($LASTEXITCODE -ne 0) { throw "Gradle verification failed ($LASTEXITCODE)." }
-} finally {
-    try {
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw "Gradle verification failed ($LASTEXITCODE)."
+    }
+}
+finally
+{
+    try
+    {
         # This directory is generated by this invocation, never a configured library.
         $resolvedScratch = [IO.Path]::GetFullPath($scratch)
         $resolvedRoot = [IO.Path]::GetFullPath($scratchRoot).TrimEnd('\') + '\'
-        if (-not $resolvedScratch.StartsWith($resolvedRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        if (-not $resolvedScratch.StartsWith($resolvedRoot, [StringComparison]::OrdinalIgnoreCase))
+        {
             throw 'Refusing to clean an unexpected verification directory.'
         }
-        if (Test-Path -LiteralPath $resolvedScratch) {
-            if ((Get-Item -LiteralPath $resolvedScratch -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+        if (Test-Path -LiteralPath $resolvedScratch)
+        {
+            if ((Get-Item -LiteralPath $resolvedScratch -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)
+            {
                 throw 'Refusing to clean a linked verification directory.'
             }
             Remove-Item -LiteralPath $resolvedScratch -Recurse -Force
         }
-        foreach ($sourcePath in $originalHashes.Keys) {
-            if ((Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash -ne $originalHashes[$sourcePath]) {
+        foreach ($sourcePath in $originalHashes.Keys)
+        {
+            if ((Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash -ne $originalHashes[$sourcePath])
+            {
                 throw "Original audio changed during verification: $sourcePath"
             }
         }
-    } finally { Pop-Location }
+    }
+    finally
+    {
+        Pop-Location
+    }
 }

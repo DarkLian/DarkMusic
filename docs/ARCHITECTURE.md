@@ -320,3 +320,30 @@ unchanged. Root action/reset tests use explicit service inputs and reset desktop
 shortcut migration have plain-data values. The untested-root allowlist is now five classes. The ratchets are client
 289 lines, services 572, debt 12, test reflection 7 and smoke reflection 105; the twelve remaining debt methods are
 UI layout/registration work outside this plan.
+
+## Remaining UI and measured hot-loop work
+
+The [remaining-debt record](history/REMAINING_DEBT_PROGRESS.md) and
+[measurements](history/REMAINING_DEBT_MEASUREMENTS.md) carry the batch boundaries, exactness checks and limits.
+MethodLengthTest now measures synthetic lambdas separately under a stable enclosing-method key (compiler numeric
+suffixes are dropped; sibling lambdas share their longest span), and reports exact class-file Code lengths.
+Recording the previously invisible PiP install lambda added one existing debt entry once. All twelve UI entries
+and that lambda have since been removed: MAX_DEBT is zero. Source/reflective ownership ratchets are unchanged.
+
+Screens retain their widget fields and public facades. Private visual sections preserve widget insertion, compact
+layout, selection and callback order. LocalCommands retains its alias loop and attended/session-code installation
+consent. NowPlayingHud builds one immutable FrameLayout per frame, then draws card/artwork/text/status/progress
+groups in the original order, with the original matrix/scissor boundaries.
+
+DesktopFolderPicker retains OPEN admission, admitted-call cancellation reset, child-process ownership and final
+release order. UpdateService captures the approved release, verifies the downloaded JAR before preparing installer
+properties/helper/manifest, and publishes pending only after the manifest closes. PipRuntime passes one immutable
+RuntimePackage through archive preparation, unpack/repair and activation; setup lock, cancellation checks, lease
+publication and synchronization with close retain their order. Their [branch review](history/REMAINING_DEBT_BRANCH_MAP.md)
+distinguishes checked paths from independent filesystem fault-injection work.
+
+Measured splits separate waveform envelope finalization, the FFT transform, circular progress/contour geometry,
+and rectangular contour/bar-row geometry. Every pre-split golden bit is preserved; their median cost changes fit
+the recorded before/after spread. This does not establish a universal zero-cost result. No new helper runs once
+per sample. AudioProcessor.process and SoundEnvironmentProcessor.Engine.process remain hot entries, unchanged
+pending the owed human listening/device protocol; EnvironmentRecipes.recipe remains a data entry.

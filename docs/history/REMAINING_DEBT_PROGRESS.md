@@ -69,6 +69,19 @@ The original UI source from HEAD is temporarily applied for a fresh baseline; fi
 .local-tools/verification/remaining/visual-baseline-final. visual-source-state.json records this window.
 Restore with visual-baseline.py restore through IDEA apply_patch before running guards or resuming implementation.
 
+V2: all 15 unchanged-code pairs were identical in each run, and 12 screen/HUD states matched before/after.
+Three screens differed only in row/button hover backgrounds because setScreen's queued mouse recenter could run
+after the one-time cursor move. V3 reasserts a neutral pointer every tick, clears hover and asserts actual mouse
+coordinates before capture. Baseline source is being applied again; restore final sources before verification.
+
+V3 completed: **60 comparisons, zero differing pixels**, with every RGBA channel checked and no masks, resizing
+or cropping. All 15 baseline repeats, 15 final repeats and 30 baseline/final pairs match. The self-test catches RGB
+changes with equal alpha and alpha-only changes. Original HEAD UI source was used for the baseline, with the
+already bit-verified final renderer loops; final UI source has been restored and matches its saved contents exactly.
+Both capture tasks emitted their current-run pass markers and Gradle BUILD SUCCESSFUL. visual-v3.json and the
+original images under remaining-before-v3/remaining-after-v3 are authoritative; v1/v2 remain failed/superseded evidence.
+Final default/lyrics/preview smoke, clean desktop verification, PiP spectrum follow-up and hosted-style checks are running.
+
 Initial captures: 15 screen/HUD states, two original 1920x1080 GUI-scale-2 captures each. Their initial RGBA
 comparison was invalid (see visual audit above). Stored privately in docs/images_private/remaining-before. Playback paused, visualizer/transitions off;
 real collection/artwork and SmoothFont, isolated capture-run configuration. First harness attempt failed because
