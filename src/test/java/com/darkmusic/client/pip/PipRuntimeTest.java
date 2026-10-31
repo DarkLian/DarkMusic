@@ -172,6 +172,82 @@ class PipRuntimeTest {
     }
 
     @Test
+    void busyAndClosedAdmissionDoNotReplaceTheActiveRequest() throws Exception {
+        byte[] deps = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1}, "runtime.dll", new byte[]{2}));
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var checks = new AtomicInteger();
+        try (var runtime = new PipRuntime(temp, resources(deps), (u, p, m, t, c) -> fail("Check never downloads"), t -> {
+            checks.incrementAndGet();
+            entered.countDown();
+            assertTrue(release.await(5, TimeUnit.SECONDS));
+            return 26300;
+        }, (e, t) -> fail("Cancelled before graphics"))) {
+            var first = runtime.check();
+            try {
+                assertTrue(entered.await(5, TimeUnit.SECONDS));
+                assertTrue(runtime.check().isDone());
+                assertEquals(1, checks.get());
+                runtime.close();
+                release.countDown();
+                first.get(5, TimeUnit.SECONDS);
+                assertFalse(runtime.ready());
+                assertFalse(runtime.busy());
+                assertEquals("pip.setup.cancelled", runtime.status());
+                assertTrue(runtime.check().isDone());
+                assertEquals(1, checks.get());
+            } finally {
+                release.countDown();
+                first.get(5, TimeUnit.SECONDS);
+            }
+        }
+    }
+
+    @Test
+    void graphicsRefusalAndCancellationCannotPublishAnExecutable() throws Exception {
+        byte[] deps = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1}, "runtime.dll", new byte[]{2}));
+        for (boolean cancel : new boolean[]{false, true}) {
+            try (var runtime = new PipRuntime(temp.resolve("graphics-" + cancel), resources(deps),
+                (u, p, m, t, c) -> Files.write(p, deps), t -> 26300, (exe, request) -> {
+                if (cancel) request.cancel();
+                return cancel;
+            })) {
+                runtime.check().get(5, TimeUnit.SECONDS);
+                runtime.install().get(5, TimeUnit.SECONDS);
+                assertFalse(runtime.ready());
+                assertFalse(runtime.busy());
+                assertThrows(IOException.class, runtime::executable);
+                assertEquals(cancel ? "pip.setup.cancelled" : "pip.setup.graphics_failed", runtime.status());
+            }
+        }
+    }
+
+    @Test
+    void unknownFailuresKeepCheckAndInstallLabelsDistinct() throws Exception {
+        byte[] deps = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1}, "runtime.dll", new byte[]{2}));
+        try (var runtime = new PipRuntime(temp.resolve("check"), resources(deps), (u, p, m, t, c) -> fail("No download"),
+            t -> {
+                throw new IOException("requirements fixture");
+            }, (e, t) -> false)) {
+            runtime.check().get(5, TimeUnit.SECONDS);
+            assertEquals("pip.setup.check_failed", runtime.status());
+            assertFalse(runtime.busy());
+        }
+        try (var runtime = new PipRuntime(temp.resolve("install"), resources(deps),
+            (u, p, m, t, c) -> {
+                throw new IOException("download fixture");
+            }, t -> 26300, (e, t) -> false)) {
+            runtime.check().get(5, TimeUnit.SECONDS);
+            runtime.install().get(5, TimeUnit.SECONDS);
+            assertEquals("pip.setup.install_failed", runtime.status());
+            assertFalse(runtime.ready());
+            try (var files = Files.list(temp.resolve("install/pip-native"))) {
+                assertTrue(files.noneMatch(p -> p.getFileName().toString().endsWith(".download")));
+            }
+        }
+    }
+
+    @Test
     void explicitInstallVerifiesAndReusesDependenciesAcrossRestart() throws Exception {
         byte[] deps = zip(Map.of("DarkMusic.Pip.exe", new byte[]{1}, "runtime.dll", new byte[]{2}));
         var downloads = new AtomicInteger();

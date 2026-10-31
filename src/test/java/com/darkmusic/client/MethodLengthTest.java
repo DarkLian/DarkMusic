@@ -37,7 +37,6 @@ class MethodLengthTest {
     private static final Map<String, Allowed> ALLOWED = Map.ofEntries(
         hot("AudioProcessor.process", 127, "the per-sample DSP chain, run for every frame"),
         hot("CircularHudMesh$Rings.buildVertices", 73, "builds the circular HUD mesh each frame"),
-        debt("PipRuntime.begin$lambda", 83),
         hot("SoundEnvironmentProcessor$Engine.process", 88, "the per-sample environment loop, run for every frame"),
         data("EnvironmentRecipes.recipe", 149, "a 22-case switch of preset parameters: a table written as code"),
         hot("SpectrumAnalyzer.analyze", 75, "the per-block FFT and band fold"),
@@ -45,7 +44,7 @@ class MethodLengthTest {
         hot("TrackWaveform.analyze", 72, "one pass over every sample of a song"));
 
     // G1 records one previously invisible existing lambda. From this baseline debt only goes down.
-    private static final int MAX_DEBT = 1;
+    private static final int MAX_DEBT = 0;
 
     enum Kind {DEBT, DATA, HOT}
 

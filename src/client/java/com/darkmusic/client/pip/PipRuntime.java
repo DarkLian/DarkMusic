@@ -166,10 +166,10 @@ public final class PipRuntime implements AutoCloseable {
         return root.resolve("dependencies-" + bundle.sha256 + ".zip");
     }
 
-    private boolean cached() throws Exception {
-        if (!Files.exists(archive(), LinkOption.NOFOLLOW_LINKS)) return false;
+    private boolean cached(RuntimePackage prepared) throws Exception {
+        if (!Files.exists(prepared.archive, LinkOption.NOFOLLOW_LINKS)) return false;
         try {
-            bundle.verify(archive());
+            prepared.bundle.verify(prepared.archive);
             return true;
         } catch (IOException damaged) {
             return false;
@@ -225,92 +225,112 @@ public final class PipRuntime implements AutoCloseable {
         var request = new ProcessRunner.Token();
         token = request;
         status = install ? "pip.setup.installing" : "pip.setup.checking";
-        return CompletableFuture.runAsync(() -> {
-            try {
-                build = requirements.build(request);
-                compatible = build >= 19041;
-                request.check();
-                if (!compatible) {
-                    status = "pip.setup.unsupported";
-                    return;
-                }
-                bundle = Bundle.parse(new String(resources.read("dependencies.json", 4096), StandardCharsets.UTF_8));
-                directory();
-                try (var setup = PipStorage.setup(root, request)) {
-                    try {
-                        PipStorage.removeOtherPackages(root, archive());
-                    } catch (IOException cleanup) {
-                        LoggerFactory.getLogger("darkmusic-pip-setup").warn("Old PiP package cleanup deferred", cleanup);
-                    }
-                    // A valid cached archive needs no download; a damaged one is replaced, never trusted.
-                    if (install && !cached()) {
-                        Path temporary = Files.createTempFile(root, "runtime-", ".download");
-                        try {
-                            download.fetch(bundle.url(), temporary, bundle.size, request, n -> downloaded = n);
-                            bundle.verify(temporary);
-                            request.check();
-                            Files.move(temporary, archive(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-                        } finally {
-                            Files.deleteIfExists(temporary);
-                        }
-                    }
-                    if (!Files.exists(archive(), LinkOption.NOFOLLOW_LINKS)) {
-                        status = "pip.setup.required";
-                        return;
-                    }
-                    bundle.verify(archive());
-                    request.check();
-                    Path exe;
-                    try {
-                        exe = PipNativeTools.unpack(archive(), bundle.sha256, root);
-                    } catch (IOException damaged) {
-                        // The archive was just verified, so the mismatch is in the extracted copy. Install extracts it again.
-                        Path runtime = root.resolve(bundle.sha256);
-                        if (!install || !"pip.bundle_damaged".equals(damaged.getMessage()) || !Files.isDirectory(runtime, LinkOption.NOFOLLOW_LINKS))
-                            throw damaged;
-                        if (lease != null) {
-                            lease.close();
-                            lease = null;
-                        }
-                        PipStorage.discard(root, runtime);
-                        request.check();
-                        exe = PipNativeTools.unpack(archive(), bundle.sha256, root);
-                    }
-                    request.check();
-                    if (!graphics.supported(exe, request)) {
-                        status = "pip.setup.graphics_failed";
-                        return;
-                    }
-                    request.check();
-                    if (lease != null) lease.close();
-                    lease = PipStorage.use(exe.getParent(), archive().getFileName().toString(), request);
-                    executable = exe;
-                    ready = true;
-                    status = "pip.setup.ready";
-                    try {
-                        PipStorage.prune(root, exe.getParent(), System.currentTimeMillis());
-                    } catch (Exception cleanup) {
-                        LoggerFactory.getLogger("darkmusic-pip-setup").warn("Unused PiP runtime cleanup deferred", cleanup);
-                    }
-                }
-            } catch (Exception error) {
-                if (!request.cancelled())
-                    LoggerFactory.getLogger("darkmusic-pip-setup").warn("PiP runtime setup failed", error);
-                status = request.cancelled() ? "pip.setup.cancelled" : PipNativeTools.failure(error);
-                if (status.equals("pip.capture_error"))
-                    status = install ? "pip.setup.install_failed" : "pip.setup.check_failed";
-            } finally {
-                // Synchronized with close(): one side always sees the other's state and releases the lease.
-                synchronized (this) {
-                    if (closed && lease != null) try {
-                        lease.close();
-                        lease = null;
-                    } catch (IOException ignored) {
-                    }
-                    busy = false;
-                }
+        return CompletableFuture.runAsync(() -> setup(install, request), worker);
+    }
+
+    private void setup(boolean install, ProcessRunner.Token request) {
+        try {
+            build = requirements.build(request);
+            compatible = build >= 19041;
+            request.check();
+            if (!compatible) {
+                status = "pip.setup.unsupported";
+                return;
             }
-        }, worker);
+            bundle = Bundle.parse(new String(resources.read("dependencies.json", 4096), StandardCharsets.UTF_8));
+            directory();
+            var prepared = new RuntimePackage(bundle, archive());
+            try (var setup = PipStorage.setup(root, request)) {
+                try {
+                    PipStorage.removeOtherPackages(root, prepared.archive);
+                } catch (IOException cleanup) {
+                    LoggerFactory.getLogger("darkmusic-pip-setup").warn("Old PiP package cleanup deferred", cleanup);
+                }
+                if (!prepareArchive(prepared, install, request)) return;
+                Path exe = unpack(prepared, install, request);
+                activate(prepared, exe, request);
+            }
+        } catch (Exception error) {
+            if (!request.cancelled())
+                LoggerFactory.getLogger("darkmusic-pip-setup").warn("PiP runtime setup failed", error);
+            status = request.cancelled() ? "pip.setup.cancelled" : PipNativeTools.failure(error);
+            if (status.equals("pip.capture_error"))
+                status = install ? "pip.setup.install_failed" : "pip.setup.check_failed";
+        } finally {
+            // Synchronized with close(): one side always sees the other's state and releases the lease.
+            synchronized (this) {
+                if (closed && lease != null) try {
+                    lease.close();
+                    lease = null;
+                } catch (IOException ignored) {
+                }
+                busy = false;
+            }
+        }
+    }
+
+    private record RuntimePackage(Bundle bundle, Path archive) {
+    }
+
+    private boolean prepareArchive(RuntimePackage prepared, boolean install, ProcessRunner.Token request) throws Exception {
+        // A valid cached archive needs no download; a damaged one is replaced, never trusted.
+        if (install && !cached(prepared)) {
+            Path temporary = Files.createTempFile(root, "runtime-", ".download");
+            try {
+                download.fetch(prepared.bundle.url(), temporary, prepared.bundle.size, request, n -> downloaded = n);
+                prepared.bundle.verify(temporary);
+                request.check();
+                Files.move(temporary, prepared.archive, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } finally {
+                Files.deleteIfExists(temporary);
+            }
+        }
+        if (!Files.exists(prepared.archive, LinkOption.NOFOLLOW_LINKS)) {
+            status = "pip.setup.required";
+            return false;
+        }
+        prepared.bundle.verify(prepared.archive);
+        request.check();
+        return true;
+    }
+
+    private Path unpack(RuntimePackage prepared, boolean install, ProcessRunner.Token request) throws Exception {
+        Path exe;
+        try {
+            exe = PipNativeTools.unpack(prepared.archive, prepared.bundle.sha256, root);
+        } catch (IOException damaged) {
+            // The archive was just verified, so the mismatch is in the extracted copy. Install extracts it again.
+            Path runtime = root.resolve(prepared.bundle.sha256);
+            if (!install || !"pip.bundle_damaged".equals(damaged.getMessage()) || !Files.isDirectory(runtime, LinkOption.NOFOLLOW_LINKS))
+                throw damaged;
+            if (lease != null) {
+                lease.close();
+                lease = null;
+            }
+            PipStorage.discard(root, runtime);
+            request.check();
+            exe = PipNativeTools.unpack(prepared.archive, prepared.bundle.sha256, root);
+        }
+        return exe;
+    }
+
+    private void activate(RuntimePackage prepared, Path exe, ProcessRunner.Token request) throws Exception {
+        request.check();
+        if (!graphics.supported(exe, request)) {
+            status = "pip.setup.graphics_failed";
+            return;
+        }
+        request.check();
+        if (lease != null) lease.close();
+        lease = PipStorage.use(exe.getParent(), prepared.archive.getFileName().toString(), request);
+        executable = exe;
+        ready = true;
+        status = "pip.setup.ready";
+        try {
+            PipStorage.prune(root, exe.getParent(), System.currentTimeMillis());
+        } catch (Exception cleanup) {
+            LoggerFactory.getLogger("darkmusic-pip-setup").warn("Unused PiP runtime cleanup deferred", cleanup);
+        }
     }
 
     public synchronized void cancel() {
