@@ -119,113 +119,20 @@ public final class DuplicateScanner implements AutoCloseable {
                 cache.load();
                 loaded = true;
             }
-            var sizes = new HashMap<Long, Integer>();
-            for (Track t : tracks) sizes.merge(t.size(), 1, Integer::sum);
-            var sources = new HashMap<Path, Map<String, String>>();
-            var archives = new HashMap<Path, Map<String, List<String>>>();
-            long nextUpdate = 0, nextFlush = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
-            for (Track t : tracks.stream().limit(DuplicatePolicy.MAX_TRACKS).toList()) {
-                request.check();
-                try {
-                    var before = attributes(t);
-                    String stamp = stamp(t, before);
-                    var saved = cache.get(t.id(), stamp);
-                    String hash = saved == null ? "" : saved.hash();
-                    var verified = sources.computeIfAbsent(t.file().getParent(), SourceLinks::readDirectory).containsKey(t.file().getFileName().toString())
-                        ? SourceLinks.verify(t.file()) : null;
-                    String source = verified == null ? (saved != null && saved.source().startsWith("unverified:") ? saved.source().substring(11) : "") : verified.url();
-                    boolean verifiedSource = verified != null;
-                    if (verified != null) {
-                        hash = verified.hash(); // Reuse the same fresh hash for exact and archive evidence.
-                        if (DuplicateMatcher.sourceId(source).isEmpty()) {
-                            for (String archiveKey : archives.computeIfAbsent(t.file().getParent(), LibrarySourceIndex::archive).getOrDefault(t.file().getFileName().toString(), List.of())) {
-                                if (!archiveKey.equals(verified.identity())) continue;
-                                String key = archiveKey.endsWith(":original") ? archiveKey.substring(0, archiveKey.length() - 9) : archiveKey;
-                                int split = key.indexOf(':');
-                                if (split > 0) {
-                                    source = "darkmusic-source:" + LibrarySourceIndex.identity(key.substring(0, split), key.substring(split + 1), source);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    int[] fingerprint = saved == null ? new int[0] : saved.values();
-                    if (hash.isEmpty() && sizes.get(t.size()) > 1) hash = hash(t.file(), request);
-                    request.check();
-                    if (!stamp.equals(stamp(t, attributes(t))))
-                        throw new IOException("File changed during analysis");
-                    cache.put(t.id(), stamp, hash, verifiedSource || source.isEmpty() ? source : "unverified:" + source, fingerprint);
-                    analyzed.add(new DuplicateMatcher.Entry(t, stamp, hash, source, audio ? fingerprint : new int[0], verifiedSource));
-                } catch (CancellationException cancelled) {
-                    throw cancelled;
-                } catch (Exception failure) {
-                    unavailable++;
-                    LoggerFactory.getLogger("darkmusic-cleanup").debug("Cannot inspect {}", t.file(), failure);
-                }
-                done++;
-                if (System.nanoTime() >= nextUpdate) {
-                    publish(Stage.READING, done, total, unavailable, audioFailed, limited, false, 0, List.of());
-                    nextUpdate = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(200);
-                }
-                if (System.nanoTime() >= nextFlush) {
-                    try {
-                        cache.flush();
-                    } catch (Exception failure) {
-                        LoggerFactory.getLogger("darkmusic-cleanup").warn("Duplicate cache checkpoint failed", failure);
-                    }
-                    nextFlush = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
-                }
-            }
-            int finalDone = done, finalUnavailable = unavailable, finalAudio = audioFailed;
+            var reading = readTracks(tracks, audio, request, new ScanProgress(done, total, unavailable, audioFailed, limited));
+            done = reading.done();
+            unavailable = reading.unavailable();
+            analyzed.addAll(reading.entries());
+            if (reading.failure() != null) throw reading.failure();
             publish(Stage.MATCHING, done, total, unavailable, audioFailed, limited, false, 0, List.of());
-            DuplicateMatcher.Session incremental = audio ? new DuplicateMatcher.Session(policy, request) : null;
-            DuplicateMatcher.Matches result;
-            if (incremental != null) {
-                for (int i = 0; i < analyzed.size(); i++) {
-                    incremental.add(analyzed.get(i));
-                    if (i % 1000 == 0)
-                        publish(Stage.MATCHING, done, total, unavailable, audioFailed, limited, false, 0, incremental.snapshot().pairs());
-                }
-                result = incremental.snapshot();
-            } else
-                result = new DuplicateMatcher().match(analyzed, policy, request, pairs -> publish(Stage.MATCHING, finalDone, total, finalUnavailable, finalAudio, limited, false, 0, pairs));
+            var matched = matchTracks(analyzed, policy, audio, request, new ScanProgress(done, total, unavailable, audioFailed, limited));
+            var incremental = matched.session();
+            var result = matched.matches();
             if (audio) {
-                int processed = 0;
-                long nextPartial = System.nanoTime() + TimeUnit.SECONDS.toNanos(60), nextProgress = 0;
-                for (int i = 0; i < analyzed.size(); i++) {
-                    request.check();
-                    var e = analyzed.get(i);
-                    processed++;
-                    if (System.nanoTime() >= nextProgress) {
-                        publish(Stage.READING, processed, analyzed.size(), unavailable, audioFailed, limited || result.limited(), false, result.comparisons(), result.pairs());
-                        nextProgress = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(200);
-                    }
-                    if (e.fingerprint().length == 0) try {
-                        if (!e.stamp().equals(stamp(e.track(), attributes(e.track()))))
-                            throw new IOException("File changed");
-                        int[] fingerprint = fingerprints.extract(e.track().file(), scratch, request);
-                        String source = e.source().isEmpty() ? DuplicateMediaInfo.read(e.track(), "").source() : e.source();
-                        if (!e.stamp().equals(stamp(e.track(), attributes(e.track()))))
-                            throw new IOException("File changed");
-                        analyzed.set(i, new DuplicateMatcher.Entry(e.track(), e.stamp(), e.hash(), source, fingerprint, e.verifiedSource()));
-                        incremental.update(i, analyzed.get(i));
-                        cache.put(e.track().id(), e.stamp(), e.hash(), e.verifiedSource() || source.isEmpty() ? source : "unverified:" + source, fingerprint);
-                    } catch (CancellationException cancelled) {
-                        throw cancelled;
-                    } catch (Exception failure) {
-                        audioFailed++;
-                        LoggerFactory.getLogger("darkmusic-cleanup").debug("Cannot fingerprint {}", e.track().file(), failure);
-                    }
-                    if (System.nanoTime() >= nextPartial) {
-                        result = incremental.snapshot();
-                        nextPartial = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
-                        try {
-                            cache.flush();
-                        } catch (Exception ignored) {
-                        }
-                    }
-                }
-                result = incremental.snapshot();
+                var pass = fingerprintTracks(analyzed, incremental, result, request, new ScanProgress(done, total, unavailable, audioFailed, limited));
+                audioFailed = pass.failed();
+                result = pass.matches();
+                if (pass.failure() != null) throw pass.failure();
             }
             publish(Stage.COMPLETE, done, total, unavailable, audioFailed, limited || result.limited(), false, result.comparisons(), result.pairs());
         } catch (CancellationException cancelled) {
@@ -277,5 +184,156 @@ public final class DuplicateScanner implements AutoCloseable {
     public CompletableFuture<Void> settled() {
         return CompletableFuture.runAsync(() -> {
         }, worker);
+    }
+
+    private record ScanProgress(int done, int total, int unavailable, int audioFailed, boolean limited) {
+    }
+
+    private record Reading(List<DuplicateMatcher.Entry> entries, int done, int unavailable, Throwable failure) {
+    }
+
+    private record Matching(DuplicateMatcher.Session session, DuplicateMatcher.Matches matches) {
+    }
+
+    private record FingerprintPass(DuplicateMatcher.Matches matches, int failed, Throwable failure) {
+    }
+
+    private Reading readTracks(List<Track> tracks, boolean audio, ProcessRunner.Token request, ScanProgress progress) {
+        int done = progress.done(), total = progress.total(), unavailable = progress.unavailable(), audioFailed = progress.audioFailed();
+        boolean limited = progress.limited();
+        var analyzed = new ArrayList<DuplicateMatcher.Entry>();
+        try {
+            var sizes = new HashMap<Long, Integer>();
+            for (Track t : tracks) sizes.merge(t.size(), 1, Integer::sum);
+            var sources = new HashMap<Path, Map<String, String>>();
+            var archives = new HashMap<Path, Map<String, List<String>>>();
+            long nextUpdate = 0, nextFlush = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
+            for (Track t : tracks.stream().limit(DuplicatePolicy.MAX_TRACKS).toList()) {
+                request.check();
+                try {
+                    analyzed.add(inspectTrack(t, sizes, sources, archives, audio, request));
+                } catch (CancellationException cancelled) {
+                    throw cancelled;
+                } catch (Exception failure) {
+                    unavailable++;
+                    LoggerFactory.getLogger("darkmusic-cleanup").debug("Cannot inspect {}", t.file(), failure);
+                }
+                done++;
+                if (System.nanoTime() >= nextUpdate) {
+                    publish(Stage.READING, done, total, unavailable, audioFailed, limited, false, 0, List.of());
+                    nextUpdate = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(200);
+                }
+                if (System.nanoTime() >= nextFlush) {
+                    try {
+                        cache.flush();
+                    } catch (Exception failure) {
+                        LoggerFactory.getLogger("darkmusic-cleanup").warn("Duplicate cache checkpoint failed", failure);
+                    }
+                    nextFlush = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
+                }
+            }
+        } catch (Throwable failure) {
+            return new Reading(List.copyOf(analyzed), done, unavailable, failure);
+        }
+        return new Reading(List.copyOf(analyzed), done, unavailable, null);
+    }
+
+    private DuplicateMatcher.Entry inspectTrack(Track t, Map<Long, Integer> sizes, Map<Path, Map<String, String>> sources,
+                                                Map<Path, Map<String, List<String>>> archives, boolean audio, ProcessRunner.Token request) throws Exception {
+        var before = attributes(t);
+        String stamp = stamp(t, before);
+        var saved = cache.get(t.id(), stamp);
+        String hash = saved == null ? "" : saved.hash();
+        var verified = sources.computeIfAbsent(t.file().getParent(), SourceLinks::readDirectory).containsKey(t.file().getFileName().toString())
+            ? SourceLinks.verify(t.file()) : null;
+        String source = verified == null ? (saved != null && saved.source().startsWith("unverified:") ? saved.source().substring(11) : "") : verified.url();
+        boolean verifiedSource = verified != null;
+        if (verified != null) {
+            hash = verified.hash(); // Reuse the same fresh hash for exact and archive evidence.
+            if (DuplicateMatcher.sourceId(source).isEmpty()) {
+                for (String archiveKey : archives.computeIfAbsent(t.file().getParent(), LibrarySourceIndex::archive).getOrDefault(t.file().getFileName().toString(), List.of())) {
+                    if (!archiveKey.equals(verified.identity())) continue;
+                    String key = archiveKey.endsWith(":original") ? archiveKey.substring(0, archiveKey.length() - 9) : archiveKey;
+                    int split = key.indexOf(':');
+                    if (split > 0) {
+                        source = "darkmusic-source:" + LibrarySourceIndex.identity(key.substring(0, split), key.substring(split + 1), source);
+                        break;
+                    }
+                }
+            }
+        }
+        int[] fingerprint = saved == null ? new int[0] : saved.values();
+        if (hash.isEmpty() && sizes.get(t.size()) > 1) hash = hash(t.file(), request);
+        request.check();
+        if (!stamp.equals(stamp(t, attributes(t))))
+            throw new IOException("File changed during analysis");
+        cache.put(t.id(), stamp, hash, verifiedSource || source.isEmpty() ? source : "unverified:" + source, fingerprint);
+        return new DuplicateMatcher.Entry(t, stamp, hash, source, audio ? fingerprint : new int[0], verifiedSource);
+    }
+
+    private Matching matchTracks(List<DuplicateMatcher.Entry> analyzed, DuplicatePolicy policy, boolean audio,
+                                 ProcessRunner.Token request, ScanProgress progress) {
+        int done = progress.done(), total = progress.total(), unavailable = progress.unavailable(), audioFailed = progress.audioFailed();
+        boolean limited = progress.limited();
+        int finalDone = done, finalUnavailable = unavailable, finalAudio = audioFailed;
+        DuplicateMatcher.Session incremental = audio ? new DuplicateMatcher.Session(policy, request) : null;
+        DuplicateMatcher.Matches result;
+        if (incremental != null) {
+            for (int i = 0; i < analyzed.size(); i++) {
+                incremental.add(analyzed.get(i));
+                if (i % 1000 == 0)
+                    publish(Stage.MATCHING, done, total, unavailable, audioFailed, limited, false, 0, incremental.snapshot().pairs());
+            }
+            result = incremental.snapshot();
+        } else
+            result = new DuplicateMatcher().match(analyzed, policy, request, pairs -> publish(Stage.MATCHING, finalDone, total, finalUnavailable, finalAudio, limited, false, 0, pairs));
+        return new Matching(incremental, result);
+    }
+
+    private FingerprintPass fingerprintTracks(List<DuplicateMatcher.Entry> analyzed, DuplicateMatcher.Session incremental,
+                                              DuplicateMatcher.Matches result, ProcessRunner.Token request, ScanProgress progress) {
+        int done = progress.done(), total = progress.total(), unavailable = progress.unavailable(), audioFailed = progress.audioFailed();
+        boolean limited = progress.limited();
+        try {
+            int processed = 0;
+            long nextPartial = System.nanoTime() + TimeUnit.SECONDS.toNanos(60), nextProgress = 0;
+            for (int i = 0; i < analyzed.size(); i++) {
+                request.check();
+                var e = analyzed.get(i);
+                processed++;
+                if (System.nanoTime() >= nextProgress) {
+                    publish(Stage.READING, processed, analyzed.size(), unavailable, audioFailed, limited || result.limited(), false, result.comparisons(), result.pairs());
+                    nextProgress = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(200);
+                }
+                if (e.fingerprint().length == 0) try {
+                    if (!e.stamp().equals(stamp(e.track(), attributes(e.track()))))
+                        throw new IOException("File changed");
+                    int[] fingerprint = fingerprints.extract(e.track().file(), scratch, request);
+                    String source = e.source().isEmpty() ? DuplicateMediaInfo.read(e.track(), "").source() : e.source();
+                    if (!e.stamp().equals(stamp(e.track(), attributes(e.track()))))
+                        throw new IOException("File changed");
+                    analyzed.set(i, new DuplicateMatcher.Entry(e.track(), e.stamp(), e.hash(), source, fingerprint, e.verifiedSource()));
+                    incremental.update(i, analyzed.get(i));
+                    cache.put(e.track().id(), e.stamp(), e.hash(), e.verifiedSource() || source.isEmpty() ? source : "unverified:" + source, fingerprint);
+                } catch (CancellationException cancelled) {
+                    throw cancelled;
+                } catch (Exception failure) {
+                    audioFailed++;
+                    LoggerFactory.getLogger("darkmusic-cleanup").debug("Cannot fingerprint {}", e.track().file(), failure);
+                }
+                if (System.nanoTime() >= nextPartial) {
+                    result = incremental.snapshot();
+                    nextPartial = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
+                    try {
+                        cache.flush();
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+            result = incremental.snapshot();
+        } catch (Throwable failure) {
+            return new FingerprintPass(result, audioFailed, failure);
+        }
+        return new FingerprintPass(result, audioFailed, null);
     }
 }

@@ -23,9 +23,10 @@ This is an incremental record: a pending item is not a completed check.
 | D2.4 | `MediaFiles.edit` | Validation, identities, companions, staging, commit and cleanup are named phases. The facade retains rollback suppression and recovery retention. New validation/collision/cancellation checks and metadata safety/space/media/import-history suites passed before and after; guards passed. |
 | D2.5 | `DownloadPipeline.download` | Preflight, fetch, collection, conversion, validation, commit and cleanup are separate phases. One per-call `Phase` retains stage/tool attribution and incoming-file ownership. Added failure tests at five phase boundaries and malformed optional metadata; focused suites and real-tool download integration passed before and after; guards passed. |
 | D2.6 | `LibrarySourceIndex.drain` | Per-track inspection returns an `Indexed` value; coalescing, publication, dirty-cache retry and monitor identity stay in place. Added unavailable-track, failed-save/retry, unchanged-cache and closed-admission checks. Source-index/download-awareness tests passed before and after; guards passed. |
+| D2.7 | `DuplicateScanner.scan` | Reading, matching and fingerprinting return phase values. Reading/fingerprinting return original failure objects with their final counters, preserving outer cancellation/failure handling and final cache persistence. Added failed-save/retry and cancellation-after-progress checks. Duplicate storage, real-audio cleanup, reconciliation and guards passed before and after. |
 
 Ratchets after these completed batches: `MAX_CLIENT_LINES` 289, `MAX_SERVICES_LINES` 572,
-`MAX_DEBT` 19, `MAX_TEST_REFLECTION` 7, `MAX_SMOKE_REFLECTION` 105. The untested-root list is down from 9 to 5.
+`MAX_DEBT` 18, `MAX_TEST_REFLECTION` 7, `MAX_SMOKE_REFLECTION` 105. The untested-root list is down from 9 to 5.
 
 ## Baseline limitations to carry forward
 
@@ -40,15 +41,12 @@ Ratchets after these completed batches: `MAX_CLIENT_LINES` 289, `MAX_SERVICES_LI
 
 ## Current batch
 
-D2.7: `DuplicateScanner.scan`. Preserve progress counters when a phase is cancelled or fails: phase results must
-carry the original exception object and the counters reached before it, so the outer catches see the same failure
-and publish the same progress. Add persistence-failure coverage before extraction; retain the existing cancellation,
-unavailable-file, fingerprint-cache and reconciliation checks.
+D2.8: `ExternalAudio.openAt`. Add an explicit opener seam for fake probe/process lifecycle checks before moving
+the existing anonymous decoder pipe into a named class. Preserve watchdog, abort, close and failed-open ownership.
 
 ## Remaining implementation order
 
-1. D2.7 duplicate scanner,
-   D2.8 external decoder lifecycle, D2.9 managed tools, D2.10 import/deletion actions, D2.11 restore journal.
+1. D2.8 external decoder lifecycle, D2.9 managed tools, D2.10 import/deletion actions, D2.11 restore journal.
    Keep one method per batch and run its tests before and after. Lower the debt count only when its guard passes.
 2. D1.0: seeded dither/injected clock constructor and `audio/PcmCapture`, using real collection clips.
    Prove 20 repeated hashes per scenario before moving clock or normalization state; save the baseline hashes.
@@ -70,7 +68,7 @@ Current scratch work is under ignored `.local-tools/verification/deferred`:
   or creates commits. `batches/sequence.txt`, `.tree` and incremental `.patch` files preserve completed boundaries.
 - Completed boundaries: `01-client-collaborator-tests`, `02-download-diagnostic-phases`,
   `03-backup-restore-preparation`, `04-artwork-cache-phases`, `05-metadata-edit-phases`,
-  `06-download-pipeline-phases`, `07-source-index-inspection`.
+  `06-download-pipeline-phases`, `07-source-index-inspection`, `08-duplicate-scan-phases`.
 - Refactoring helpers emit patches for IDEA's `apply_patch`; IDEA's `reformat_file` formats the resulting sources.
   Native file writes followed immediately by formatting can race the IDE document cache. Use IDE patches for source
   edits. Java sources in Git use LF; preserve those endings.

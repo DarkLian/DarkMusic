@@ -13,6 +13,47 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DuplicateStorageTest {
+    @Test
+    void cancellationAfterPublishedProgressKeepsTheCountersAndTheSources() throws Exception {
+        var track = file("cancelled.txt", "Disposable scan identity");
+        try (var scanner = new DuplicateScanner(temp.resolve("cancel-data"))) {
+            scanner.start(Collections.nCopies(100_000, track), DuplicatePolicy.BALANCED, false);
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+            while (scanner.snapshot().done() == 0 && System.nanoTime() < deadline) Thread.sleep(1);
+            int before = scanner.snapshot().done();
+            assertTrue(before > 0, "the scanner published progress before cancellation");
+            scanner.cancel();
+            scanner.settled().get(10, TimeUnit.SECONDS);
+            assertEquals(DuplicateScanner.Stage.CANCELLED, scanner.snapshot().stage());
+            assertTrue(scanner.snapshot().done() >= before);
+            assertEquals(0, scanner.snapshot().unavailable());
+        }
+        assertEquals("Disposable scan identity", Files.readString(track.file()));
+    }
+
+    @Test
+    void persistenceFailureIsReportedAndTheNextScanCanRetryWithoutChangingTheSources() throws Exception {
+        var a = file("first.txt", "Matching disposable identities");
+        var b = file("second.txt", "Matching disposable identities");
+        Path data = Files.createDirectories(temp.resolve("failure-data"));
+        Path blocked = Files.writeString(data.resolve("cleanup-cache"), "Unrelated document blocks directory creation");
+        try (var scanner = new DuplicateScanner(data)) {
+            assertTrue(scanner.start(List.of(a, b), DuplicatePolicy.BALANCED, false));
+            scanner.settled().get(10, TimeUnit.SECONDS);
+            assertEquals(DuplicateScanner.Stage.COMPLETE, scanner.snapshot().stage());
+            assertTrue(scanner.snapshot().cacheFailed());
+            assertEquals(1, scanner.snapshot().pairs().size());
+            assertEquals("Unrelated document blocks directory creation", Files.readString(blocked));
+            Files.delete(blocked);
+            assertTrue(scanner.start(List.of(a, b), DuplicatePolicy.BALANCED, false));
+            scanner.settled().get(10, TimeUnit.SECONDS);
+            assertFalse(scanner.snapshot().cacheFailed());
+            assertEquals(1, scanner.snapshot().pairs().size());
+        }
+        assertEquals("Matching disposable identities", Files.readString(a.file()));
+        assertEquals("Matching disposable identities", Files.readString(b.file()));
+    }
+
     @TempDir
     Path temp;
 
