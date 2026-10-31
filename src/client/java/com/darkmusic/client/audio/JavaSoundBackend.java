@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.LongSupplier;
 
 /**
  * One worker owns every decoder and output resource. PCM is bounded to small buffers.
@@ -49,7 +50,7 @@ public final class JavaSoundBackend implements AudioBackend {
     private final AtomicLong generation = new AtomicLong();
     private final SpectrumAnalyzer spectrum = new SpectrumAnalyzer();
     private final AudioProcessor processor = new AudioProcessor();
-    private final AudioProcessor.Dither dither = new AudioProcessor.Dither(System.nanoTime());
+    private final AudioProcessor.Dither dither;
     private volatile SoundEnvironmentSettings environment = new SoundEnvironmentSettings();
     private volatile AudioComparison comparison = AudioComparison.OFF;
     private boolean protectionFlushed;
@@ -147,8 +148,15 @@ public final class JavaSoundBackend implements AudioBackend {
     }
 
     public JavaSoundBackend(Executor callbacks, Decoder decoder, Output output, Duration stallTimeout, Duration decoderTimeout) {
+        this(callbacks, decoder, output, stallTimeout, decoderTimeout, System::nanoTime, System.nanoTime());
+    }
+
+    // For tests: deterministic output without changing the production clock or dither seed.
+    JavaSoundBackend(Executor callbacks, Decoder decoder, Output output, Duration stallTimeout, Duration decoderTimeout,
+                     LongSupplier clock, long ditherSeed) {
         this.callbacks = callbacks;
-        stall = new StallWatch(System::nanoTime, stallTimeout, decoderTimeout);
+        dither = new AudioProcessor.Dither(ditherSeed);
+        stall = new StallWatch(clock, stallTimeout, decoderTimeout);
         this.decoder = decoder;
         this.output = output;
         worker = Thread.ofPlatform().daemon().name("darkmusic-audio").start(this::run);

@@ -83,3 +83,13 @@ Current scratch work is under ignored `.local-tools/verification/deferred`:
 Prior refactoring plans and the associated commits were read before implementation. The approach remains the same:
 small cohesive collaborators, current-service `Inputs`, unchanged operation/cleanup ordering, unchanged locks and
 persisted formats, and guards that only tighten.
+
+### D1.0 PCM baseline completed
+
+All eight scenarios produced one identical SHA-256 and frame count over twenty runs each (160 captures).
+The fixture uses frame-position client events, preloader fences, a fixed dither seed and frame-derived stall clock.
+It records only in-memory PCM; the tracked golden contains hashes and frame counts, with the input clip hash.
+`PcmCaptureTest`, `ArchitectureTest` and `MethodLengthTest` passed before any clock/normalization move.
+The 24-bit stereo proxy initially reported an unaligned buffer size and prevented EOF draining; aligning the fake
+buffer to whole frames fixed the fixture. No production audio arithmetic changed. Full D2 Java verification and
+smoke compilation also passed. Next: extract PlaybackClock and reproduce the fixed goldens (record mode off).
