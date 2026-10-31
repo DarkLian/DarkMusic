@@ -118,37 +118,7 @@ public final class SpectrumAnalyzer {
     }
 
     private void analyze(Options selected, long outputFrame) {
-        for (int i = 0; i < SIZE; i++) {
-            real[i] = samples[(cursor + i) % SIZE] * window[i];
-            imaginary[i] = 0;
-        }
-        for (int i = 1, j = 0; i < SIZE; i++) {
-            int bit = SIZE >> 1;
-            for (; (j & bit) != 0; bit >>= 1) j ^= bit;
-            j ^= bit;
-            if (i < j) {
-                double value = real[i];
-                real[i] = real[j];
-                real[j] = value;
-            }
-        }
-        for (int size = 2; size <= SIZE; size <<= 1) {
-            double angle = -2 * Math.PI / size, wr = Math.cos(angle), wi = Math.sin(angle);
-            for (int block = 0; block < SIZE; block += size) {
-                double ar = 1, ai = 0;
-                for (int j = 0; j < size / 2; j++) {
-                    int a = block + j, b = a + size / 2;
-                    double br = real[b] * ar - imaginary[b] * ai, bi = real[b] * ai + imaginary[b] * ar;
-                    real[b] = real[a] - br;
-                    imaginary[b] = imaginary[a] - bi;
-                    real[a] += br;
-                    imaginary[a] += bi;
-                    double next = ar * wr - ai * wi;
-                    ai = ar * wi + ai * wr;
-                    ar = next;
-                }
-            }
-        }
+        transform();
         if (count == QUEUE) {
             head = (head + 1) % QUEUE;
             count--;
@@ -248,6 +218,40 @@ public final class SpectrumAnalyzer {
     public void copyTo(float[] destination) {
         synchronized (levels) {
             System.arraycopy(levels, 0, destination, 0, Math.min(destination.length, MAX_BARS));
+        }
+    }
+
+    private void transform() {
+        for (int i = 0; i < SIZE; i++) {
+            real[i] = samples[(cursor + i) % SIZE] * window[i];
+            imaginary[i] = 0;
+        }
+        for (int i = 1, j = 0; i < SIZE; i++) {
+            int bit = SIZE >> 1;
+            for (; (j & bit) != 0; bit >>= 1) j ^= bit;
+            j ^= bit;
+            if (i < j) {
+                double value = real[i];
+                real[i] = real[j];
+                real[j] = value;
+            }
+        }
+        for (int size = 2; size <= SIZE; size <<= 1) {
+            double angle = -2 * Math.PI / size, wr = Math.cos(angle), wi = Math.sin(angle);
+            for (int block = 0; block < SIZE; block += size) {
+                double ar = 1, ai = 0;
+                for (int j = 0; j < size / 2; j++) {
+                    int a = block + j, b = a + size / 2;
+                    double br = real[b] * ar - imaginary[b] * ai, bi = real[b] * ai + imaginary[b] * ar;
+                    real[b] = real[a] - br;
+                    imaginary[b] = imaginary[a] - bi;
+                    real[a] += br;
+                    imaginary[a] += bi;
+                    double next = ar * wr - ai * wi;
+                    ai = ar * wi + ai * wr;
+                    ar = next;
+                }
+            }
         }
     }
 
