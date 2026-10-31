@@ -10,7 +10,7 @@ def visualSmoke = ['visualSmoke', 'captureMusic', 'previewSmoke', 'advancedSmoke
 def smokeFont = file(providers.gradleProperty('smokeFont').getOrElse('run/resourcepacks/SmoothFont_1.21.zip'))
 // Each check mode runs in its own folder under build/, so their worlds and logs never mix. Without one, the default
 // check runs in smoke-run.
-def smokeFolders = [pipSmoke: 'pip-smooth-run', lyricsSmoke: 'lyrics-run', cleanupSmoke: 'cleanup-run', queueSmoke: 'queue-run',
+def smokeFolders = [pipSmoke     : 'pip-smooth-run', lyricsSmoke: 'lyrics-run', cleanupSmoke: 'cleanup-run', queueSmoke: 'queue-run',
                     advancedSmoke: 'advanced-run', resetSmoke: 'reset-run', previewSmoke: 'preview-run', captureMusic: 'capture-run']
 def smokeModes = smokeFolders.keySet().findAll { providers.gradleProperty(it).isPresent() }
 if (smokeModes.size() > 1) throw new GradleException("Choose one smoke mode, not ${smokeModes.join(', ')}")
@@ -24,7 +24,7 @@ def smokeFolder = smokeModes ? smokeFolders[smokeModes.first()] : 'smoke-run'
 def pipFolder = file(providers.gradleProperty('pipFolder').getOrElse('.local-tools/verification/pip-integrated'))
 // The private collection is Opus, so every playback check needs the managed ffmpeg.
 def smokeNeedsTools = ['downloadToolsDirectory', 'lyricsSmoke', 'cleanupSmoke', 'queueSmoke', 'captureMusic', 'previewSmoke', 'advancedSmoke']
-    .any { providers.gradleProperty(it).isPresent() }
+        .any { providers.gradleProperty(it).isPresent() }
 sourceSets {
     smoke {
         compileClasspath += sourceSets.client.output + sourceSets.client.compileClasspath
@@ -60,6 +60,7 @@ loom {
             vmArg "-Ddarkmusic.queueSmoke=${providers.gradleProperty('queueSmoke').isPresent()}"
             vmArg "-Ddarkmusic.testNativeBindings=${providers.gradleProperty('nativeBindingsSmoke').isPresent()}"
             vmArg "-Ddarkmusic.privateImages=${file('docs/images_private').absolutePath}"
+            vmArg "-Ddarkmusic.verification=${file('.local-tools/verification').absolutePath}"
             // Lets scripts/smoke.ps1 stop only the client it started.
             if (providers.gradleProperty('smokeOwner').isPresent()) vmArg "-Ddarkmusic.smokeOwner=${providers.gradleProperty('smokeOwner').get()}"
             if (smokeNeedsTools) vmArg "-Ddarkmusic.downloadTools=${downloadToolsDirectory.absolutePath}"

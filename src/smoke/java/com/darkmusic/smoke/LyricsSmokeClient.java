@@ -42,6 +42,8 @@ final class LyricsSmokeClient {
     private double paused;
     private LyricsDocument timed;
     private boolean scrollVerified;
+    private LyricsWriteSmoke writes;
+    private boolean writesChecked;
 
     private void scrollProbe(Minecraft mc) {
         mc.gui.setScreen(new LocalScreen(Component.literal("Live text regression"), null) {
@@ -197,6 +199,13 @@ final class LyricsSmokeClient {
                 operation = null;
             }
             if (stage == -3) {
+                if (!writesChecked) {
+                    if (writes == null) writes = new LyricsWriteSmoke(app, a);
+                    if (!writes.tick(mc, app)) return;
+                    writes.close();
+                    writes = null;
+                    writesChecked = true;
+                }
                 scrollProbe(mc);
                 stage = -4;
                 return;
@@ -581,6 +590,11 @@ final class LyricsSmokeClient {
                 mc.stop();
             }
         } catch (Throwable failure) {
+            if (writes != null) try {
+                writes.close();
+            } catch (Exception cleanup) {
+                failure.addSuppressed(cleanup);
+            }
             failure.printStackTrace();
             stage = 99;
             mc.stop();

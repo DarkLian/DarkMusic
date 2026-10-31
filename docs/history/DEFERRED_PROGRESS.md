@@ -131,3 +131,13 @@ JSON fingerprints and the actual local config: its raw bytes equal its typed JSO
 saved preset derived from it retained their pre-move SHA-256. Original config was only read, never written.
 Next: runtime Lyrics Options save/restore and busy admission on a disposable real-audio copy, final smoke/build,
 and final architecture/testing evidence.
+
+### Runtime lyric-write admission completed
+
+The extended lyrics smoke passed actual Lyrics Options save, replace and restore on a temporary copy of a real
+collection song. Both browse workers were fenced while the actual metadata rename held mediaBusy. Direct operations
+returned the original busy error; both menu confirmations refused and remained usable; all companion bytes stayed
+unchanged. Releasing the fence completed the rename and released admission. The temporary audio directory was deleted.
+This is an automated native-menu check, not a claim that a human performed the manual row. Original music was never
+written. DARKMUSIC_LYRICS_WRITE_PASS and the scenario-specific smoke pass marker are in final-smoke/lyrics.log.
+Advanced, queue, cleanup and the clean desktop build are now running in the same verification window.
