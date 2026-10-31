@@ -36,7 +36,6 @@ class MethodLengthTest {
         debt("BackupArchive.prepare", 76),
         hot("CircularHudMesh$Rings.buildVertices", 73, "builds the circular HUD mesh each frame"),
         debt("ColorsScreen.init", 86),
-        debt("DownloadDiagnostics.classify", 73),
         debt("DownloadPipeline.download", 149),
         debt("DuplicateComparisonScreen.init", 70),
         debt("DuplicateScanner.scan", 137),
@@ -64,7 +63,7 @@ class MethodLengthTest {
         debt("UpNextScreen.init", 73));
 
     // The debt entries; this only goes down as they are split.
-    private static final int MAX_DEBT = 25;
+    private static final int MAX_DEBT = 24;
 
     enum Kind {DEBT, DATA, HOT}
 

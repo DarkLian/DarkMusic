@@ -115,14 +115,9 @@ public final class DownloadDiagnostics {
     }
 
     public static Diagnostic classify(Throwable error, Stage fallback, String url, long operation, int attempt, String knownVersions) {
-        Failure typed = null;
-        boolean cancelled = false, storage = false;
-        int depth = 0;
-        for (Throwable cause = error; cause != null && depth++ < 16; cause = cause.getCause()) {
-            if (typed == null && cause instanceof Failure f) typed = f;
-            cancelled |= cause instanceof CancellationException || cause instanceof InterruptedException;
-            storage |= cause instanceof FileSystemException;
-        }
+        var chain = causes(error);
+        Failure typed = chain.typed();
+        boolean cancelled = chain.cancelled(), storage = chain.storage();
         Stage stage = typed == null ? fallback : typed.stage;
         Tool tool = typed == null ? Tool.NONE : typed.tool;
         String text = (typed == null ? messages(error) : typed.excerpt + "\n" + messages(typed.getCause())).toLowerCase(Locale.ROOT);
@@ -130,37 +125,7 @@ public final class DownloadDiagnostics {
         String detail = "";
         var http = Pattern.compile("\\bhttp(?: error| status| status code)?[ :]+([45][0-9]{2})\\b").matcher(text);
         int code = http.find() ? Integer.parseInt(http.group(1)) : 0;
-        if (category == null) {
-            if (storage) category = Category.STORAGE_FAILURE;
-            else if (code == 429) category = Category.RATE_LIMITED;
-            else if (code == 403) category = Category.ACCESS_DENIED;
-            else if (code == 401) category = Category.AUTH_REQUIRED;
-            else if (code == 404 || code == 410) category = Category.CONTENT_UNAVAILABLE;
-            else if (code == 408) category = Category.NETWORK_TIMEOUT;
-            else if (code >= 500) category = Category.NETWORK_FAILURE;
-            else if (contains(text, "not a bot")) category = Category.BOT_CHECK;
-            else if (contains(text, "private video", "video is private", "login required", "sign in to", "requires authentication", "age-restricted", "drm"))
-                category = Category.AUTH_REQUIRED;
-            else if (contains(text, "unsupported url")) category = Category.UNSUPPORTED_URL;
-            else if (contains(text, "no space", "disk full", "not enough space", "permission denied", "access denied", "not writable"))
-                category = Category.STORAGE_FAILURE;
-            else if (contains(text, "javascript runtime", "js runtime", "challenge solving failed", "challenge solver", "unrecognized option", "unknown option", "unsupported option"))
-                category = Category.TOOL_INCOMPATIBLE;
-            else if ((tool == Tool.YT_DLP || tool == Tool.NONE && (stage == Stage.ANALYSIS || stage == Stage.COLLECTION))
-                && contains(text, "unable to extract", "failed to extract", "extractor error"))
-                category = Category.EXTRACTOR_FAILURE;
-            else if (contains(text, "timed out", "timeout") || error instanceof SocketTimeoutException)
-                category = Category.NETWORK_TIMEOUT;
-            else if (contains(text, "name resolution", "unable to resolve", "connection refused", "connection reset", "network is unreachable", "remote end closed") || error instanceof UnknownHostException)
-                category = Category.NETWORK_FAILURE;
-            else if (contains(text, "requested format is not available"))
-                category = Category.TOOL_INCOMPATIBLE;
-            else if (contains(text, "deleted video", "video unavailable", "video is unavailable", "not available"))
-                category = Category.CONTENT_UNAVAILABLE;
-            else if (stage == Stage.PROCESSING) category = Category.PROCESSING_FAILURE;
-            else if (stage == Stage.VALIDATION) category = Category.OUTPUT_VALIDATION_FAILURE;
-            else category = Category.UNKNOWN;
-        }
+        category = category(error, stage, tool, text, category, storage, code);
         // Only fixed recognized phrases and numeric HTTP status codes leave this boundary.
         // Unknown text is intentionally omitted, rather than claiming regex redaction makes arbitrary output safe.
         if (code != 0) detail = "HTTP " + code;
@@ -229,5 +194,55 @@ public final class DownloadDiagnostics {
     }
 
     private DownloadDiagnostics() {
+    }
+
+    private record Causes(Failure typed, boolean cancelled, boolean storage) {
+    }
+
+    private static Causes causes(Throwable error) {
+        Failure typed = null;
+        boolean cancelled = false, storage = false;
+        int depth = 0;
+        for (Throwable cause = error; cause != null && depth++ < 16; cause = cause.getCause()) {
+            if (typed == null && cause instanceof Failure f) typed = f;
+            cancelled |= cause instanceof CancellationException || cause instanceof InterruptedException;
+            storage |= cause instanceof FileSystemException;
+        }
+        return new Causes(typed, cancelled, storage);
+    }
+
+    private static Category category(Throwable error, Stage stage, Tool tool, String text, Category category, boolean storage, int code) {
+        if (category == null) {
+            if (storage) category = Category.STORAGE_FAILURE;
+            else if (code == 429) category = Category.RATE_LIMITED;
+            else if (code == 403) category = Category.ACCESS_DENIED;
+            else if (code == 401) category = Category.AUTH_REQUIRED;
+            else if (code == 404 || code == 410) category = Category.CONTENT_UNAVAILABLE;
+            else if (code == 408) category = Category.NETWORK_TIMEOUT;
+            else if (code >= 500) category = Category.NETWORK_FAILURE;
+            else if (contains(text, "not a bot")) category = Category.BOT_CHECK;
+            else if (contains(text, "private video", "video is private", "login required", "sign in to", "requires authentication", "age-restricted", "drm"))
+                category = Category.AUTH_REQUIRED;
+            else if (contains(text, "unsupported url")) category = Category.UNSUPPORTED_URL;
+            else if (contains(text, "no space", "disk full", "not enough space", "permission denied", "access denied", "not writable"))
+                category = Category.STORAGE_FAILURE;
+            else if (contains(text, "javascript runtime", "js runtime", "challenge solving failed", "challenge solver", "unrecognized option", "unknown option", "unsupported option"))
+                category = Category.TOOL_INCOMPATIBLE;
+            else if ((tool == Tool.YT_DLP || tool == Tool.NONE && (stage == Stage.ANALYSIS || stage == Stage.COLLECTION))
+                && contains(text, "unable to extract", "failed to extract", "extractor error"))
+                category = Category.EXTRACTOR_FAILURE;
+            else if (contains(text, "timed out", "timeout") || error instanceof SocketTimeoutException)
+                category = Category.NETWORK_TIMEOUT;
+            else if (contains(text, "name resolution", "unable to resolve", "connection refused", "connection reset", "network is unreachable", "remote end closed") || error instanceof UnknownHostException)
+                category = Category.NETWORK_FAILURE;
+            else if (contains(text, "requested format is not available"))
+                category = Category.TOOL_INCOMPATIBLE;
+            else if (contains(text, "deleted video", "video unavailable", "video is unavailable", "not available"))
+                category = Category.CONTENT_UNAVAILABLE;
+            else if (stage == Stage.PROCESSING) category = Category.PROCESSING_FAILURE;
+            else if (stage == Stage.VALIDATION) category = Category.OUTPUT_VALIDATION_FAILURE;
+            else category = Category.UNKNOWN;
+        }
+        return category;
     }
 }

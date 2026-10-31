@@ -6,6 +6,9 @@ import com.darkmusic.client.text.Text;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
+import java.nio.file.FileSystemException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
@@ -13,8 +16,8 @@ import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.function.Consumer;
 
-import static org.junit.jupiter.api.Assertions.*;
 import static com.darkmusic.client.tools.DownloadDiagnostics.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 class DownloadDiagnosticsTest {
     private Diagnostic diagnostic(String text, Stage stage) {
@@ -121,4 +124,56 @@ class DownloadDiagnosticsTest {
         assertTrue(result.toolsRelated());
         assertEquals(Category.AUTH_REQUIRED, diagnostic("This video is private", Stage.ANALYSIS).category());
     }
+
+    @Test
+    void causeShapesKeepCancellationStorageTypedPrecedenceAndTheDepthLimit() {
+        record Case(Throwable error, Category category, Stage stage, Tool tool) {
+        }
+        var cases = List.of(
+            new Case(new IOException("outer", new CancellationException()), Category.CANCELLED, Stage.COMMIT, Tool.NONE),
+            new Case(new IOException("outer", new InterruptedException()), Category.CANCELLED, Stage.COMMIT, Tool.NONE),
+            new Case(new IOException("HTTP 429", new FileSystemException("private")), Category.STORAGE_FAILURE, Stage.COMMIT, Tool.NONE),
+            new Case(new Failure(Category.TOOL_MISSING, Stage.TOOLS, Tool.FFMPEG, null, "HTTP 429", new FileSystemException("private")), Category.TOOL_MISSING, Stage.TOOLS, Tool.FFMPEG),
+            new Case(new Failure(Category.TOOL_MISSING, Stage.TOOLS, Tool.FFMPEG, null, "", new CancellationException()), Category.CANCELLED, Stage.TOOLS, Tool.FFMPEG),
+            new Case(new IOException("outer", new Failure(Stage.PROCESSING, Tool.FFMPEG, 9, "unrecognized")), Category.PROCESSING_FAILURE, Stage.PROCESSING, Tool.FFMPEG),
+            new Case(new SocketTimeoutException(), Category.NETWORK_TIMEOUT, Stage.COMMIT, Tool.NONE),
+            new Case(new UnknownHostException(), Category.NETWORK_FAILURE, Stage.COMMIT, Tool.NONE));
+        for (var entry : cases) {
+            var result = classify(entry.error(), Stage.COMMIT, "invalid", 19, 3, "2026.1 | ffmpeg version 8.0 | ffprobe version 8.0");
+            assertEquals(entry.category(), result.category());
+            assertEquals(entry.stage(), result.stage());
+            assertEquals(entry.tool(), result.tool());
+            assertEquals(19, result.operation());
+            assertEquals(3, result.attempt());
+        }
+        Throwable included = new CancellationException();
+        for (int i = 0; i < 15; i++) included = new IOException("", included);
+        assertEquals(Category.CANCELLED, classify(included, Stage.COMMIT, "", 0, 1, "").category());
+        Throwable excluded = new IOException("", included);
+        assertEquals(Category.UNKNOWN, classify(excluded, Stage.COMMIT, "", 0, 1, "").category());
+    }
+
+    @Test
+    void everyHttpBranchAndStageFallbackKeepTheirFixedSafeDetail() {
+        var categories = Map.of(401, Category.AUTH_REQUIRED, 403, Category.ACCESS_DENIED, 404, Category.CONTENT_UNAVAILABLE,
+            408, Category.NETWORK_TIMEOUT, 410, Category.CONTENT_UNAVAILABLE, 429, Category.RATE_LIMITED, 500, Category.NETWORK_FAILURE);
+        categories.forEach((code, expected) -> {
+            var result = diagnostic("HTTP status code: " + code + " private video timeout", Stage.DOWNLOAD);
+            assertEquals(expected, result.category());
+            assertEquals("HTTP " + code, result.detail());
+        });
+        for (Stage stage : Stage.values()) {
+            var expected = stage == Stage.PROCESSING ? Category.PROCESSING_FAILURE : stage == Stage.VALIDATION ? Category.OUTPUT_VALIDATION_FAILURE : Category.UNKNOWN;
+            assertEquals(expected, classify(new IOException(), stage, "", 0, 1, "").category());
+        }
+        var first = new Failure(Stage.DOWNLOAD, Tool.YT_DLP, 7, "timeout").versions("2026.9 | ffmpeg version 8.1 | ffprobe version 8.1");
+        var outer = new Failure(Category.ACCESS_DENIED, Stage.ANALYSIS, Tool.FFPROBE, 11, "HTTP 403", first);
+        var result = classify(outer, Stage.COMMIT, "https://youtu.be/abcdefghijk", 1, 1, "2025.1 | ffmpeg version 7.0 | ffprobe version 7.0");
+        assertEquals(Category.ACCESS_DENIED, result.category());
+        assertEquals(11, result.exitCode());
+        assertEquals("7.0", result.toolVersion(), "the first typed failure owns the context and verified versions");
+        assertEquals(Source.YOUTUBE, result.source());
+        assertEquals("2026.9", classify(first, Stage.COMMIT, "", 1, 1, "").toolVersion());
+    }
+
 }
