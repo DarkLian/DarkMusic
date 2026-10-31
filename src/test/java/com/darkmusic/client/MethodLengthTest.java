@@ -46,7 +46,6 @@ class MethodLengthTest {
         debt("PipScreen.populate", 83),
         debt("PipRuntime.begin$lambda", 83),
         debt("PlaylistScreen.init", 103),
-        debt("SettingsScreen.init", 64),
         hot("SoundEnvironmentProcessor$Engine.process", 88, "the per-sample environment loop, run for every frame"),
         debt("SoundEnvironmentScreen.populate", 111),
         data("EnvironmentRecipes.recipe", 149, "a 22-case switch of preset parameters: a table written as code"),
@@ -56,7 +55,7 @@ class MethodLengthTest {
         debt("UpNextScreen.init", 73));
 
     // G1 records one previously invisible existing lambda. From this baseline debt only goes down.
-    private static final int MAX_DEBT = 12;
+    private static final int MAX_DEBT = 11;
 
     enum Kind {DEBT, DATA, HOT}
 

@@ -121,6 +121,18 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
         int previewX = wide ? formX + formWidth + 12 : 12, previewY = wide ? 44 : 68;
         preview.place(previewX, previewY, wide ? width - previewX - 12 : width - 24, height - previewY - 44);
         previewVisible = wide || previewOnly;
+        searchInput(wide);
+        navigationButtons(wide);
+        buildRows();
+        scrollbar = addRenderableWidget(new ScrollBar(() -> scroll, value -> {
+            scroll = value;
+            position();
+        }));
+        position();
+        app.applySettings();
+    }
+
+    private void searchInput(boolean wide) {
         int searchY = wide ? 44 : 68;
         top = searchY + 26;
         bottom = height - 12;
@@ -134,6 +146,9 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
             position();
         });
         searchInput.visible = !previewOnly;
+    }
+
+    private void navigationButtons(boolean wide) {
         for (int i = 0; i < SECTION_KEYS.length; i++) {
             final int index = i;
             if (wide || i == selectedSection) {
@@ -160,13 +175,6 @@ public final class SettingsScreen extends LocalScreen implements HudPreview {
                     button -> show(app.navigation().hudEditor(this)))
                 .bounds(preview.x() + (preview.width() - layoutButtonWidth) / 2, preview.y() + preview.height() + 4, layoutButtonWidth, 24).build()), UiIcon.EDIT, false);
         }
-        buildRows();
-        scrollbar = addRenderableWidget(new ScrollBar(() -> scroll, value -> {
-            scroll = value;
-            position();
-        }));
-        position();
-        app.applySettings();
     }
 
     private boolean searching() {
