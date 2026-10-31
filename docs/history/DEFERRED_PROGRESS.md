@@ -101,3 +101,14 @@ The backend retains volatile state publication and callbacks. New tests cover qu
 hearing deltas and reopen/reset. All 71 named audio/guard tests passed, including twenty captures per scenario
 against the pre-extraction golden. The guard measured changeOutput at 59 compiled lines, so its debt entry was
 removed now; MAX_DEBT is 12. No separate output split is necessary. Next: normalization state.
+
+### D1.3 Normalization completed; D1.5 transition decision
+
+The worker's pinned current/incoming sessions, session id and smoothed gains now live in Normalization. Named
+operations preserve same-session continuation, announcement restoration, incoming adoption and reset. Output changes
+retain this object; normalizationStatus remains volatile on the backend. New carry/reset/failure tests and all
+73 named audio/guard tests passed, with all eight golden hashes unchanged over twenty captures each.
+Transition state stays on the backend: mix/handoff now read cohesive clock/normalization collaborators, while
+upcoming is client-written AtomicReference and mixing/announcement/overlap retain their existing volatile semantics.
+Moving that cross-thread cluster would add synchronization risk without clarifying the remaining control flow.
+Human listening and physical unplug remain explicitly unperformed; final runtime controls will still be checked.
