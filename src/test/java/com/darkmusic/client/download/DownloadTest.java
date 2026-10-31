@@ -33,6 +33,65 @@ import static com.darkmusic.client.download.DownloadModels.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DownloadTest {
+    @Test
+    void everyPipelineFailureKeepsItsStageToolAndScratchCleanup() throws Exception {
+        var stages = List.of(DownloadDiagnostics.Stage.DOWNLOAD, DownloadDiagnostics.Stage.VALIDATION,
+            DownloadDiagnostics.Stage.PROCESSING, DownloadDiagnostics.Stage.VALIDATION, DownloadDiagnostics.Stage.VALIDATION);
+        var tools = List.of(DownloadDiagnostics.Tool.YT_DLP, DownloadDiagnostics.Tool.NONE,
+            DownloadDiagnostics.Tool.FFMPEG, DownloadDiagnostics.Tool.FFPROBE, DownloadDiagnostics.Tool.FFMPEG);
+        for (int index = 0; index < stages.size(); index++) {
+            int point = index;
+            var fake = new FakeRunner() {
+                @Override
+                public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) throws IOException, InterruptedException {
+                    if (point == 0 && args.contains("--write-info-json")) return new Result(7, "Download failed");
+                    if (point == 2 && args.contains("libmp3lame")) throw new IOException("Conversion I/O failure");
+                    if (point == 3 && args.contains("-show_entries") && args.getLast().contains("converted."))
+                        return new Result(0, "{\"streams\":[{\"codec_name\":\"flac\"}]}");
+                    if (point == 4 && args.contains("-f") && args.contains("null"))
+                        return new Result(9, "Decode failed");
+                    var result = super.run(args, dir, token, timeout, max, line);
+                    if (point == 1 && args.contains("--write-info-json")) Files.delete(dir.resolve("source.mp3"));
+                    return result;
+                }
+            };
+            var token = new ProcessRunner.Token();
+            Path data = temp.resolve("phase-" + index);
+            var chain = Toolchain.resolve(JavaTools.paths(), data, fake, token);
+            var failure = assertThrows(DownloadDiagnostics.Failure.class, () ->
+                new DownloadPipeline(fake, data).execute(entry("phase-" + point), data.resolve("music"), chain, token, (a, b) -> {
+                }));
+            assertEquals(stages.get(index), failure.stage);
+            assertEquals(tools.get(index), failure.tool);
+            if (point == 2) assertEquals("Conversion I/O failure", failure.getCause().getMessage());
+            try (var files = Files.list(data.resolve("downloads/work"))) {
+                assertEquals(0, files.count());
+            }
+            try (var files = Files.list(data.resolve("music"))) {
+                assertFalse(files.anyMatch(p -> p.toString().endsWith(".mp3")));
+            }
+        }
+    }
+
+    @Test
+    void malformedOptionalMetadataAndNoCoverStillSaveTheRealAudio() throws Exception {
+        var fake = new FakeRunner() {
+            @Override
+            public Result run(List<String> args, Path dir, Token token, Duration timeout, int max, Consumer<String> line) throws IOException, InterruptedException {
+                var result = super.run(args, dir, token, timeout, max, line);
+                if (args.contains("--write-info-json")) Files.writeString(dir.resolve("source.info.json"), "{");
+                return result;
+            }
+        };
+        fake.noCover = true;
+        var token = new ProcessRunner.Token();
+        var chain = Toolchain.resolve(JavaTools.paths(), temp.resolve("data"), fake, token);
+        var saved = new DownloadPipeline(fake, temp.resolve("data")).execute(entry("metadata"), temp.resolve("music"), chain, token, (a, b) -> {
+        });
+        assertTrue(Files.exists(saved.file()));
+        assertEquals(Text.get("download.no_thumbnail"), saved.warning());
+    }
+
     @TempDir
     Path temp;
 
