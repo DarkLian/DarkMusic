@@ -5,10 +5,28 @@ import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
 import java.io.ByteArrayInputStream;
+import java.nio.file.Files;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class ArtworkCacheTest {
+    @Test
+    void decodedRealArtworkKeepsBoundsAndUnavailableArtworkRemainsEmpty() throws Exception {
+        var file = TestMusic.featured();
+        var track = new MetadataReader().read("real", file.getFileName().toString(), file,
+            Files.size(file), Files.getLastModifiedTime(file).toMillis());
+        for (int limit : new int[]{128, ArtworkCache.MAX_SIZE}) {
+            var image = ArtworkCache.readArtwork(track, limit);
+            assertNotNull(image.values());
+            assertTrue(image.dimension() <= limit);
+            assertEquals(image.dimension() * image.dimension(), image.values().length);
+            assertTrue(image.width() <= image.dimension());
+            assertTrue(image.height() <= image.dimension());
+        }
+        var absent = new Track("r", "absent", file.resolveSibling("absent-artwork-fixture"), "", "", "", 1, 1, 1, "");
+        assertNull(ArtworkCache.readArtwork(absent, 128).values());
+    }
+
     @Test
     void realEmbeddedArtworkIsLetterboxedWithoutStretching() throws Exception {
         byte[] bytes = new MetadataReader().artwork(TestMusic.featured());

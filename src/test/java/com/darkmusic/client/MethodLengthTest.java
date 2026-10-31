@@ -30,7 +30,6 @@ class MethodLengthTest {
     // Every method over the limit, with its length. Lower these as methods are split; never raise one or add one.
     // Most are debt. A hot loop or a table written as code is long on purpose and names why.
     private static final Map<String, Allowed> ALLOWED = Map.ofEntries(
-        debt("ArtworkCache.get", 83),
         hot("AudioProcessor.process", 127, "the per-sample DSP chain, run for every frame"),
         debt("AudioSettingsScreen.init", 144),
         hot("CircularHudMesh$Rings.buildVertices", 73, "builds the circular HUD mesh each frame"),
@@ -62,7 +61,7 @@ class MethodLengthTest {
         debt("UpNextScreen.init", 73));
 
     // The debt entries; this only goes down as they are split.
-    private static final int MAX_DEBT = 23;
+    private static final int MAX_DEBT = 22;
 
     enum Kind {DEBT, DATA, HOT}
 
