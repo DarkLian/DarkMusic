@@ -149,17 +149,16 @@ class MenuLayoutTest {
         assertEquals(EditBox.class, UiInput.class.getSuperclass());
         var nativeMethods = List.of("mouseClicked", "mouseDragged", "keyPressed", "charTyped",
             "updateWidgetNarration", "onPress", "isActive");
-        for (var type : List.of(UiButton.class, UiInput.class))
-            for (var method : type.getDeclaredMethods())
+        for (var methods : List.of(UiButton.class.getDeclaredMethods(), UiInput.class.getDeclaredMethods()))
+            for (var method : methods)
                 assertFalse(nativeMethods.contains(method.getName()), method.toString());
     }
 
     @Test
     void wideGradientIsStillOneQuadWithExactEndpointColors() throws Exception {
-        var type = Class.forName("com.darkmusic.client.render.UiTheme$Gradient");
-        var constructor = type.getDeclaredConstructors()[0];
+        var constructor = Class.forName("com.darkmusic.client.render.UiTheme$Gradient").getDeclaredConstructors()[0];
         constructor.setAccessible(true);
-        var build = type.getDeclaredMethod("buildVertices", VertexConsumer.class);
+        var build = Class.forName("com.darkmusic.client.render.UiTheme$Gradient").getDeclaredMethod("buildVertices", VertexConsumer.class);
         build.setAccessible(true);
         for (int width : new int[]{1, 240, 3840}) {
             var colors = new ArrayList<Integer>();

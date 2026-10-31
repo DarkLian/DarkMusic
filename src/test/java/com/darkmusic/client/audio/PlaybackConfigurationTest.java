@@ -88,16 +88,14 @@ class PlaybackConfigurationTest {
             var source = new AudioSettings();
             source.crossfade = 100;
             backend.configure(source);
-            var field = JavaSoundBackend.class.getDeclaredField("options");
-            field.setAccessible(true);
-            var snapshot = (AudioSettings) field.get(backend);
+            var snapshot = backend.options();
             assertEquals(10, snapshot.crossfade);
             source.bands[0] = 12;
             assertEquals(0, snapshot.bands[0]);
             source.crossfade = Double.NaN;
             source.bands = null;
             backend.configure(source);
-            snapshot = (AudioSettings) field.get(backend);
+            snapshot = backend.options();
             assertEquals(0, snapshot.crossfade);
             assertEquals(10, snapshot.bands.length);
         }

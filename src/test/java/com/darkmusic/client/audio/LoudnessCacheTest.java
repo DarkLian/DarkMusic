@@ -7,9 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ExecutorService;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -21,9 +18,7 @@ class LoudnessCacheTest {
     void albumFallbackRequiresAUsableReadingAndReportsHeadroom() throws Exception {
         ExternalAudio.configure(null);
         try (var cache = new LoudnessCache()) {
-            var executor = LoudnessCache.class.getDeclaredField("executor");
-            executor.setAccessible(true);
-            ((ExecutorService) executor.get(cache)).submit(() -> {
+            cache.executor().submit(() -> {
             }).get();
             var a = new AudioSettings();
             a.neutral = false;
@@ -33,15 +28,11 @@ class LoudnessCacheTest {
             String key = t.file().toAbsolutePath() + ":1:1:ALBUM", attempt = key + ":false";
             assertEquals(LoudnessCache.State.NO_MEASUREMENT, cache.status(t, a, 1).state());
             assertFalse(cache.status(t, a, 1).albumFallback());
-            var pending = LoudnessCache.class.getDeclaredField("pending");
-            pending.setAccessible(true);
-            ((Set<String>) pending.get(cache)).add(attempt);
+            cache.pending().add(attempt);
             assertEquals(LoudnessCache.State.PENDING, cache.status(t, a, 1).state());
             assertFalse(cache.status(t, a, 1).albumFallback());
-            ((Set<?>) pending.get(cache)).clear();
-            var retry = LoudnessCache.class.getDeclaredField("retryAfter");
-            retry.setAccessible(true);
-            ((Map<String, Long>) retry.get(cache)).put(attempt, Long.MAX_VALUE);
+            cache.pending().clear();
+            cache.retryWaits().put(attempt, Long.MAX_VALUE);
             assertEquals(LoudnessCache.State.FAILED, cache.status(t, a, 1).state());
             assertFalse(cache.status(t, a, 1).albumFallback());
             cache.remember(t, key, new LoudnessCache.Reading(-20, -6, LoudnessCache.Source.LEGACY));

@@ -202,7 +202,7 @@ public final class AudioDeletion {
         return attributes;
     }
 
-    private static boolean sameIdentity(Item item, BasicFileAttributes attributes) throws IOException {
+    static boolean sameIdentity(Item item, BasicFileAttributes attributes) throws IOException {
         return Objects.equals(item.fileKey(), attributes.fileKey())
             && (item.fileKey() != null || !item.hash().isEmpty() && item.hash().equals(hash(item.file())));
     }

@@ -13,14 +13,8 @@ class SpectrumMeshTest {
         mesh.begin(100, 0, Settings.HudShape.RECTANGLE, .4);
         mesh.rounded(0, 10, 10, 80, 0xff123456, Settings.SurfaceFinish.FLAT);
         mesh.gradient(20, 10, 30, 80, 0x58123456, 0x10123456);
-        var countField = SpectrumMesh.class.getDeclaredField("count");
-        countField.setAccessible(true);
-        var dataField = SpectrumMesh.class.getDeclaredField("rectangles");
-        dataField.setAccessible(true);
-        var bottomField = SpectrumMesh.class.getDeclaredField("bottomColors");
-        bottomField.setAccessible(true);
-        int[] data = (int[]) dataField.get(mesh), bottom = (int[]) bottomField.get(mesh);
-        int count = (int) countField.get(mesh);
+        int[] data = mesh.rectangles(), bottom = mesh.bottomColors();
+        int count = mesh.count();
         for (int i = 0; i < count; i += 5) {
             assertEquals(0x123456, data[i + 4] & 0xffffff);
             assertTrue((data[i + 4] >>> 24) <= 102);
@@ -32,23 +26,17 @@ class SpectrumMeshTest {
 
     @Test
     void geometryBeyondTheInitialBudgetGrowsOnceThenDropsInsteadOfThrowing() throws Exception {
-        var countField = SpectrumMesh.class.getDeclaredField("count");
-        countField.setAccessible(true);
         var mesh = new SpectrumMesh();
         mesh.begin(400, 0, Settings.HudShape.RECTANGLE);
         // 40,000 one-pixel rectangles: past the initial 3,276 and past the hard cap.
         for (int i = 0; i < 40_000; i++) mesh.fill(i % 400, i / 400, i % 400 + 1, i / 400 + 1, 0xff123456);
-        int count = (int) countField.get(mesh);
+        int count = mesh.count();
         assertTrue(count / 5 > 3276, "The batch grows past its initial size");
         assertTrue(count / 5 <= 26_214, "The batch stays bounded");
     }
 
     @Test
     void roundedBarsSoftenCornersAndStayWithinTheExistingBatchBudget() throws Exception {
-        var countField = SpectrumMesh.class.getDeclaredField("count");
-        countField.setAccessible(true);
-        var dataField = SpectrumMesh.class.getDeclaredField("rectangles");
-        dataField.setAccessible(true);
         for (int width : new int[]{220, 960})
             for (int bars : new int[]{8, 64}) {
                 var mesh = new SpectrumMesh();
@@ -59,9 +47,9 @@ class SpectrumMeshTest {
                     mesh.rounded(left, 25, right, 100, 0xff123456, Settings.SurfaceFinish.BEVELED);
                     mesh.fill(left, 0, right, 1, 0xff123456);
                 }
-                int count = (int) countField.get(mesh);
-                assertTrue(count > 0 && count <= ((int[]) dataField.get(mesh)).length);
-                int[] data = (int[]) dataField.get(mesh);
+                int count = mesh.count();
+                assertTrue(count > 0 && count <= (mesh.rectangles()).length);
+                int[] data = mesh.rectangles();
                 for (int i = 0; i < count; i += 5) {
                     assertTrue(data[i] >= 0 && data[i + 2] <= width);
                     assertTrue(data[i + 1] >= 0 && data[i + 3] <= 100);
@@ -70,8 +58,8 @@ class SpectrumMeshTest {
         var corner = new SpectrumMesh();
         corner.begin(32, 0, Settings.HudShape.RECTANGLE);
         corner.rounded(10, 0, 22, 30, 0xff123456, Settings.SurfaceFinish.FLAT);
-        int[] data = (int[]) dataField.get(corner);
-        int count = (int) countField.get(corner);
+        int[] data = corner.rectangles();
+        int count = corner.count();
         boolean softened = false;
         for (int i = 0; i < count; i += 5) {
             if (data[i + 1] == 0 && data[i] > 10) {
@@ -86,14 +74,8 @@ class SpectrumMeshTest {
      * {left, top, right, bottom, topColor, bottomColor} per batched rectangle.
      */
     private static int[][] rectangles(SpectrumMesh mesh) throws Exception {
-        var countField = SpectrumMesh.class.getDeclaredField("count");
-        countField.setAccessible(true);
-        var dataField = SpectrumMesh.class.getDeclaredField("rectangles");
-        dataField.setAccessible(true);
-        var bottomField = SpectrumMesh.class.getDeclaredField("bottomColors");
-        bottomField.setAccessible(true);
-        int count = (int) countField.get(mesh);
-        int[] data = (int[]) dataField.get(mesh), bottoms = (int[]) bottomField.get(mesh);
+        int count = mesh.count();
+        int[] data = mesh.rectangles(), bottoms = mesh.bottomColors();
         var result = new int[count / 5][];
         for (int i = 0; i < count; i += 5)
             result[i / 5] = new int[]{data[i], data[i + 1], data[i + 2], data[i + 3], data[i + 4], bottoms[i / 5]};
@@ -187,15 +169,9 @@ class SpectrumMeshTest {
             var mesh = new SpectrumMesh();
             mesh.begin(220, 82, shape);
             mesh.gradient(0, 50, 220, 82, 0x10B8A8FA, 0x58B8A8FA);
-            var countField = SpectrumMesh.class.getDeclaredField("count");
-            countField.setAccessible(true);
-            var dataField = SpectrumMesh.class.getDeclaredField("rectangles");
-            dataField.setAccessible(true);
-            var bottomField = SpectrumMesh.class.getDeclaredField("bottomColors");
-            bottomField.setAccessible(true);
-            int count = (int) countField.get(mesh);
-            int[] data = (int[]) dataField.get(mesh);
-            int[] bottoms = (int[]) bottomField.get(mesh);
+            int count = mesh.count();
+            int[] data = mesh.rectangles();
+            int[] bottoms = mesh.bottomColors();
             assertTrue(count / 5 <= 7);
             for (int i = 0; i < count; i += 5) {
                 assertEquals(0xB8A8FA, data[i + 4] & 0xffffff);
@@ -212,12 +188,8 @@ class SpectrumMeshTest {
             var mesh = new SpectrumMesh();
             mesh.begin(220, 82, shape);
             mesh.fill(0, 50, 220, 82, 0xFF123456);
-            var countField = SpectrumMesh.class.getDeclaredField("count");
-            countField.setAccessible(true);
-            var dataField = SpectrumMesh.class.getDeclaredField("rectangles");
-            dataField.setAccessible(true);
-            int count = (int) countField.get(mesh);
-            int[] data = (int[]) dataField.get(mesh);
+            int count = mesh.count();
+            int[] data = mesh.rectangles();
             assertTrue(count / 5 <= 7, "Interior spans must not turn into per-pixel submissions");
             for (int y = 50; y < 82; y++)
                 for (int x = 0; x < 220; x++) {
@@ -230,7 +202,7 @@ class SpectrumMeshTest {
                     assertEquals(x >= inset && x < 220 - inset ? 1 : 0, coverage, "Clipping seam at " + x + "," + y + " " + shape);
                 }
             mesh.begin(220, 82, shape);
-            assertEquals(0, countField.get(mesh));
+            assertEquals(0, mesh.count());
         }
     }
 }

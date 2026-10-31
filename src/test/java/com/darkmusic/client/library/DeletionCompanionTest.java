@@ -62,14 +62,12 @@ class DeletionCompanionTest {
         };
         String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(t.file())));
         var item = new AudioDeletion.Item(t, t.file(), null, hash);
-        var matches = AudioDeletion.class.getDeclaredMethod("sameIdentity", AudioDeletion.Item.class, BasicFileAttributes.class);
-        matches.setAccessible(true);
-        assertEquals(true, matches.invoke(null, item, noKey));
+        assertTrue(AudioDeletion.sameIdentity(item, noKey));
         Files.writeString(t.file(), "Changed identity!! ");
         Files.setLastModifiedTime(t.file(), before.lastModifiedTime());
         assertEquals(before.size(), Files.size(t.file()));
-        assertEquals(false, matches.invoke(null, item, noKey));
-        assertEquals(false, matches.invoke(null, new AudioDeletion.Item(t, t.file(), null), noKey));
+        assertFalse(AudioDeletion.sameIdentity(item, noKey));
+        assertFalse(AudioDeletion.sameIdentity(new AudioDeletion.Item(t, t.file(), null), noKey));
     }
 
     private Track track(String name) throws Exception {

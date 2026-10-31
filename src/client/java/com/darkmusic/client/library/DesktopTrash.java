@@ -115,4 +115,11 @@ final class DesktopTrash implements AudioDeletion.Trash {
             process = null;
         }
     }
+
+    /**
+     * For tests: the helper process, or null before it starts.
+     */
+    Process process() {
+        return process;
+    }
 }

@@ -431,4 +431,39 @@ public final class LoudnessCache implements AutoCloseable {
             this(lufs, peakDb, Source.LEGACY);
         }
     }
+
+    /**
+     * For tests: the single inspection worker; a task submitted to it runs after the initial load.
+     */
+    ThreadPoolExecutor executor() {
+        return executor;
+    }
+
+    /**
+     * For tests: the attempts queued or running.
+     */
+    Set<String> pending() {
+        return pending;
+    }
+
+    /**
+     * For tests: when each failed attempt may be retried.
+     */
+    Map<String, Long> retryWaits() {
+        return retryAfter;
+    }
+
+    /**
+     * For tests: the worker that writes the cache file.
+     */
+    ScheduledExecutorService writer() {
+        return writer;
+    }
+
+    /**
+     * For tests: the track a queued inspection measures.
+     */
+    static Track queuedTrack(Runnable task) {
+        return ((Inspection) task).lookup.track();
+    }
 }

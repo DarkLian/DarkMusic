@@ -31,12 +31,6 @@ class ParallelLoudnessTest {
         return settings;
     }
 
-    private ThreadPoolExecutor executor(LoudnessCache cache) throws Exception {
-        var field = LoudnessCache.class.getDeclaredField("executor");
-        field.setAccessible(true);
-        return (ThreadPoolExecutor) field.get(cache);
-    }
-
     @Test
     void parallelModeDefaultsOffAndSurvivesSnapshotsAndPersistence() {
         var settings = new AudioSettings();
@@ -54,12 +48,12 @@ class ParallelLoudnessTest {
         ExternalAudio.configure(null);
         try (var cache = new LoudnessCache()) {
             cache.parallel(true);
-            assertEquals(Math.clamp(Runtime.getRuntime().availableProcessors() / 2, 1, 3), executor(cache).getCorePoolSize());
-            assertTrue(executor(cache).getMaximumPoolSize() <= 3);
+            assertEquals(Math.clamp(Runtime.getRuntime().availableProcessors() / 2, 1, 3), cache.executor().getCorePoolSize());
+            assertTrue(cache.executor().getMaximumPoolSize() <= 3);
             cache.parallel(false);
-            assertEquals(1, executor(cache).getCorePoolSize());
-            assertEquals(1, executor(cache).getMaximumPoolSize());
-            assertEquals(2, executor(cache).getQueue().remainingCapacity());
+            assertEquals(1, cache.executor().getCorePoolSize());
+            assertEquals(1, cache.executor().getMaximumPoolSize());
+            assertEquals(2, cache.executor().getQueue().remainingCapacity());
         }
     }
 
@@ -88,7 +82,7 @@ class ParallelLoudnessTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(100);
         int peak = 0;
         while (cache.analysisProgress().running() && System.nanoTime() < deadline) {
-            peak = Math.max(peak, executor(cache).getActiveCount());
+            peak = Math.max(peak, cache.executor().getActiveCount());
             Thread.sleep(10);
         }
         assertFalse(cache.analysisProgress().running(), "Library analysis did not finish");
@@ -149,16 +143,14 @@ class ParallelLoudnessTest {
         try (var cache = new LoudnessCache()) {
             cache.analyzeLibrary(tracks, settings(true));
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-            while (executor(cache).getActiveCount() == 0 && System.nanoTime() < deadline) Thread.sleep(5);
+            while (cache.executor().getActiveCount() == 0 && System.nanoTime() < deadline) Thread.sleep(5);
             cache.cancelAnalysis();
             awaitBatch(cache);
             deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-            while (executor(cache).getActiveCount() > 0 && System.nanoTime() < deadline) Thread.sleep(10);
-            assertEquals(0, executor(cache).getActiveCount());
-            assertTrue(executor(cache).getQueue().isEmpty());
-            var retry = LoudnessCache.class.getDeclaredField("retryAfter");
-            retry.setAccessible(true);
-            assertTrue(((Map<?, ?>) retry.get(cache)).isEmpty(), "Cancellation was reported as analysis failure");
+            while (cache.executor().getActiveCount() > 0 && System.nanoTime() < deadline) Thread.sleep(10);
+            assertEquals(0, cache.executor().getActiveCount());
+            assertTrue(cache.executor().getQueue().isEmpty());
+            assertTrue(cache.retryWaits().isEmpty(), "Cancellation was reported as analysis failure");
         } finally {
             ExternalAudio.configure(null);
         }

@@ -6,7 +6,6 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,12 +13,6 @@ import static org.junit.jupiter.api.Assertions.*;
 class WatcherReliabilityTest {
     @TempDir
     Path temp;
-
-    private Object field(MusicLibrary library, String name) throws Exception {
-        var f = MusicLibrary.class.getDeclaredField(name);
-        f.setAccessible(true);
-        return f.get(library);
-    }
 
     private void replace(MusicLibrary library, List<Path> directories) throws Exception {
         library.watcher().replace(directories);
@@ -61,14 +54,12 @@ class WatcherReliabilityTest {
             assertFalse(library.watcher().known(root.resolve("unrelated.txt")));
             Path audio = root.resolve("extensionless");
             var track = new Track("root", "extensionless", audio, "Song", "", "", 1, 10, 1, "");
-            var snapshot = MusicLibrary.class.getDeclaredField("snapshot");
-            snapshot.setAccessible(true);
-            snapshot.set(library, new MusicLibrary.Snapshot(1, List.of(track), true, ""));
+            library.publish(new MusicLibrary.Snapshot(1, List.of(track), true, ""));
             assertTrue(library.watcher().known(audio));
-            snapshot.set(library, new MusicLibrary.Snapshot(2, List.of(track), false, ""));
-            ((AtomicBoolean) field(library, "running")).set(true);
+            library.publish(new MusicLibrary.Snapshot(2, List.of(track), false, ""));
+            library.scanRunning(true);
             assertTrue(library.watcher().known(audio), "Cache publication cannot hide a deleted extensionless song");
-            ((AtomicBoolean) field(library, "running")).set(false);
+            library.scanRunning(false);
             assertFalse(library.watcher().known(root.resolve("never-indexed.mp3")));
         }
     }

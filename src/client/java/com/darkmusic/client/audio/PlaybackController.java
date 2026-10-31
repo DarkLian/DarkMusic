@@ -711,4 +711,18 @@ public final class PlaybackController implements AutoCloseable {
      */
     public record Source(String mode, String group, String query, String rootId) {
     }
+
+    /**
+     * For tests: the play order, as indexes into the tracks.
+     */
+    List<Integer> order() {
+        return order;
+    }
+
+    /**
+     * For tests: the current track's place in the play order.
+     */
+    int cursor() {
+        return cursor;
+    }
 }

@@ -189,4 +189,25 @@ public final class SpectrumMesh {
             }
         }
     }
+
+    /**
+     * For tests: how many values the batched rectangles use, five per rectangle.
+     */
+    int count() {
+        return count;
+    }
+
+    /**
+     * For tests: {left, top, right, bottom, topColor} per batched rectangle.
+     */
+    int[] rectangles() {
+        return rectangles;
+    }
+
+    /**
+     * For tests: the bottom color per batched rectangle.
+     */
+    int[] bottomColors() {
+        return bottomColors;
+    }
 }

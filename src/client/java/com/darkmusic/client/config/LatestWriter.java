@@ -85,4 +85,11 @@ public final class LatestWriter {
             }
         }
     }
+
+    /**
+     * For tests: whether a write is in progress.
+     */
+    synchronized boolean writing() {
+        return writing;
+    }
 }

@@ -12,12 +12,8 @@ class ResamplerKernelTest {
         // Inspect coefficients only: no dummy audio file, playback or generated PCM.
         var input = new AudioInputStream(InputStream.nullInputStream(), new AudioFormat(192000, 16, 1, true, false), 0);
         var converter = new PcmRateConverter(input);
-        var prepare = PcmRateConverter.class.getDeclaredMethod("prepare", double.class);
-        prepare.setAccessible(true);
-        prepare.invoke(converter, ratio);
-        var field = PcmRateConverter.class.getDeclaredField("weights");
-        field.setAccessible(true);
-        return ((double[][]) field.get(converter))[0];
+        converter.prepare(ratio);
+        return converter.weights()[0];
     }
 
     private double db(double[] w, double frequency) {

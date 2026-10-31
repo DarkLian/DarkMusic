@@ -35,9 +35,7 @@ class DesktopTrashHelperTest {
                 assertTrue(trash.move(new AudioDeletion.Item(reviewed, disposable, attributes.fileKey(), attributes.fileKey() == null ? SourceLinks.contentHash(disposable) : "")), "Native desktop Trash transfer");
                 assertTrue(Files.notExists(disposable), "Confirmed file must leave its original location");
             }
-            var process = DesktopTrash.class.getDeclaredField("process");
-            process.setAccessible(true);
-            Process helper = (Process) process.get(trash);
+            Process helper = trash.process();
             trash.close();
             assertFalse(helper.isAlive(), "Desktop helper must not remain orphaned");
         } finally {

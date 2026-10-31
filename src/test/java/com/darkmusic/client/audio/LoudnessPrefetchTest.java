@@ -41,21 +41,6 @@ class LoudnessPrefetchTest {
         return settings;
     }
 
-    private ThreadPoolExecutor executor(LoudnessCache cache) throws Exception {
-        var field = LoudnessCache.class.getDeclaredField("executor");
-        field.setAccessible(true);
-        return (ThreadPoolExecutor) field.get(cache);
-    }
-
-    private String queuedTrack(Runnable task) throws Exception {
-        var field = task.getClass().getDeclaredField("lookup");
-        field.setAccessible(true);
-        Object lookup = field.get(task);
-        var accessor = lookup.getClass().getDeclaredMethod("track");
-        accessor.setAccessible(true);
-        return ((Track) accessor.invoke(lookup)).relativePath();
-    }
-
     @Test
     void upcomingRequestsReturnWithoutWaitingAndPrioritizeTheBoundedQueue() throws Exception {
         LoggerFactory.getLogger(getClass());
@@ -63,7 +48,7 @@ class LoudnessPrefetchTest {
         var entered = new CountDownLatch(1);
         var release = new CountDownLatch(1);
         try (var cache = new LoudnessCache()) {
-            var executor = executor(cache);
+            var executor = cache.executor();
             executor.submit(() -> {
                 entered.countDown();
                 try {
@@ -82,12 +67,10 @@ class LoudnessPrefetchTest {
             }
             var queued = new ArrayList<>(executor.getQueue());
             assertEquals(2, queued.size(), "Upcoming work must not grow the bounded queue");
-            assertEquals("upcoming", queuedTrack(queued.getFirst()));
+            assertEquals("upcoming", LoudnessCache.queuedTrack(queued.getFirst()).relativePath());
             cache.prefetch(track("upcoming"), settings);
             assertEquals(2, executor.getQueue().size(), "Repeated notification must not duplicate analysis");
-            var pending = LoudnessCache.class.getDeclaredField("pending");
-            pending.setAccessible(true);
-            assertEquals(2, ((Set<?>) pending.get(cache)).size(), "Eviction must release the displaced pending marker");
+            assertEquals(2, cache.pending().size(), "Eviction must release the displaced pending marker");
             settings.neutral = true;
             cache.prefetch(track("disabled"), settings);
             assertEquals(2, executor.getQueue().size());
@@ -106,12 +89,10 @@ class LoudnessPrefetchTest {
         ExternalAudio.configure(() -> new ExternalAudio.Paths(directory, "", ""));
         try (var cache = new LoudnessCache()) {
             cache.prefetch(track, settings());
-            executor(cache).submit(() -> {
+            cache.executor().submit(() -> {
             }).get(5, TimeUnit.SECONDS);
             assertEquals(Math.pow(10, -.5), cache.session(track, settings()).gain(settings()), 1e-12);
-            var retry = LoudnessCache.class.getDeclaredField("retryAfter");
-            retry.setAccessible(true);
-            assertTrue(((Map<?, ?>) retry.get(cache)).isEmpty(), "No external tools are available, so an unwanted probe would fail");
+            assertTrue(cache.retryWaits().isEmpty(), "No external tools are available, so an unwanted probe would fail");
         } finally {
             ExternalAudio.configure(null);
         }

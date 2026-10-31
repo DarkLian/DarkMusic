@@ -358,7 +358,7 @@ public final class DownloadService implements AutoCloseable {
         });
     }
 
-    private void add(List<Entry> entries, Path destination, ToolPaths selected, ProcessRunner.Token token) throws IOException {
+    void add(List<Entry> entries, Path destination, ToolPaths selected, ProcessRunner.Token token) throws IOException {
         if (entries.size() > MAX_BATCH) throw new IOException(Text.get("download.queue_capacity", MAX_BATCH));
         var index = awareness;
         DownloadFormat requested;
@@ -693,4 +693,17 @@ public final class DownloadService implements AutoCloseable {
     private record ActiveKey(Path directory, String media, DownloadFormat format) {
     }
 
+    /**
+     * For tests: the token of the current analysis.
+     */
+    ProcessRunner.Token analysisToken() {
+        return analysisToken;
+    }
+
+    /**
+     * For tests: the worker that repairs the download history.
+     */
+    ScheduledExecutorService bookkeeping() {
+        return bookkeeping;
+    }
 }

@@ -13,7 +13,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,9 +39,7 @@ class LoudnessRetryTest {
         try (var cache = new LoudnessCache(clock::get)) {
             var settings = new AudioSettings();
             assertEquals(1, cache.gain(track, settings));
-            var retryField = LoudnessCache.class.getDeclaredField("retryAfter");
-            retryField.setAccessible(true);
-            var retries = (Map<?, ?>) retryField.get(cache);
+            var retries = cache.retryWaits();
             Await.until(Duration.ofSeconds(5), () -> !retries.isEmpty(), "retry scheduled");
             assertEquals(1, retries.size());
             ExternalAudio.configure(() -> new ExternalAudio.Paths(temp, ff.toString(), ff.resolveSibling(ff.getFileName().toString().replace("ffmpeg", "ffprobe")).toString()));

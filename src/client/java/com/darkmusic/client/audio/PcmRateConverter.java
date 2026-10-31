@@ -80,7 +80,7 @@ public final class PcmRateConverter {
         return read(out, length, speed * ratio);
     }
 
-    private void prepare(double speed) {
+    void prepare(double speed) {
         if (prepared == speed) return;
         prepared = speed;
         int required = Math.clamp((int) Math.ceil(32 * Math.max(1, speed) / 2) * 2L, 32, 512);
@@ -165,5 +165,12 @@ public final class PcmRateConverter {
             position += speed;
         }
         return written == 0 && ended ? -1 : written;
+    }
+
+    /**
+     * For tests: the filter coefficients per phase.
+     */
+    double[][] weights() {
+        return weights;
     }
 }

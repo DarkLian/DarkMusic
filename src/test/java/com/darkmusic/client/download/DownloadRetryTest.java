@@ -90,7 +90,7 @@ class DownloadRetryTest {
             assertEquals(Status.FAILED, service.snapshot().items().getFirst().status());
             var hud = new DownloadHud();
             hud.update(service, System.nanoTime());
-            var notice = hud.getClass().getDeclaredField("notice");
+            var notice = DownloadHud.class.getDeclaredField("notice");
             notice.setAccessible(true);
             String failedNotice = (String) notice.get(hud);
             repaired.set(true);

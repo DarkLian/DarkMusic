@@ -82,9 +82,7 @@ class MultilingualLyricsTest {
         try (var lookup = new LyricsLookup(prefs, provider(q -> List.of()))) {
             lookup.retain(tracks.getFirst());
             for (Track track : tracks) lookup.load(track);
-            var choices = LyricsLookup.class.getDeclaredField("choices");
-            choices.setAccessible(true);
-            assertTrue(((Map<?, ?>) choices.get(lookup)).size() <= 128);
+            assertTrue(lookup.choices().size() <= 128);
             assertEquals(words, lookup.choice(tracks.getFirst()).selected());
             Track evicted = tracks.stream().filter(t -> lookup.choice(t).selected() == null).findFirst().orElseThrow();
             assertEquals(LyricsInfo.PLAIN, lookup.knownInfo(evicted));
@@ -936,9 +934,7 @@ class MultilingualLyricsTest {
         try (var lookup = new LyricsLookup(prefs, provider(q -> List.of(new LyricsProvider.Candidate(document("Late save"), true, "lyrics.match.metadata"))))) {
             lookup.configure(true, true);
             lookup.load(track);
-            var field = LyricsLookup.class.getDeclaredField("storage");
-            field.setAccessible(true);
-            ((ExecutorService) field.get(lookup)).execute(() -> {
+            lookup.storage().execute(() -> {
                 entered.countDown();
                 try {
                     release.await(3, TimeUnit.SECONDS);

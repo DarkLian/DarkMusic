@@ -81,9 +81,7 @@ class RowListReliabilityTest {
             return new RowList.Row("Track " + i, "Artist");
         });
         assertEquals(0, calls.get());
-        var rows = RowList.class.getDeclaredField("rows");
-        rows.setAccessible(true);
-        var values = (List<RowList.Row>) rows.get(list);
+        var values = list.rows();
         for (int i = 0; i < 15; i++) values.get(i);
         for (int i = 0; i < 15; i++) values.get(i);
         assertEquals(15, calls.get());

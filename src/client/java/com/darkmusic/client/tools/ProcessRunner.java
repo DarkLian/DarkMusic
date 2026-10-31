@@ -167,6 +167,13 @@ public class ProcessRunner {
             if (size < maximum || cursor == 0) return new String(data, 0, size);
             return new String(data, cursor, size - cursor) + new String(data, 0, cursor);
         }
+
+        /**
+         * For tests: the characters allocated so far.
+         */
+        int capacity() {
+            return data.length;
+        }
     }
 
     public record Result(int exit, String output) {

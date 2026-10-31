@@ -470,4 +470,11 @@ public final class LyricsService implements AutoCloseable {
 
     private record Cached(Fingerprint fingerprint, LyricsDocument document, LyricsInfo info, long checked) {
     }
+
+    /**
+     * For tests: the worker that reads and writes lyric files.
+     */
+    ThreadPoolExecutor io() {
+        return io;
+    }
 }

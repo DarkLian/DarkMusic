@@ -13,9 +13,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -38,9 +36,7 @@ class LoudnessPersistenceTest {
         Files.writeString(file, original);
         ExternalAudio.configure(() -> new ExternalAudio.Paths(temp, "", ""));
         try (var cache = new LoudnessCache()) {
-            var executor = LoudnessCache.class.getDeclaredField("executor");
-            executor.setAccessible(true);
-            ((ExecutorService) executor.get(cache)).submit(() -> {
+            cache.executor().submit(() -> {
             }).get();
             var t = track("new.opus", 1);
             cache.remember(t, key(t), new LoudnessCache.Reading(-20, -3));
@@ -51,9 +47,7 @@ class LoudnessPersistenceTest {
     }
 
     private static void loaded(LoudnessCache cache) throws Exception {
-        var executor = LoudnessCache.class.getDeclaredField("executor");
-        executor.setAccessible(true);
-        ((ExecutorService) executor.get(cache)).submit(() -> {
+        cache.executor().submit(() -> {
         }).get();
     }
 
@@ -168,9 +162,7 @@ class LoudnessPersistenceTest {
             var cache = new LoudnessCache(() -> 0L);
             loaded(cache);
             cache.close();
-            var field = LoudnessCache.class.getDeclaredField("retryAfter");
-            field.setAccessible(true);
-            var waits = (Map<String, Long>) field.get(cache);
+            var waits = cache.retryWaits();
             waits.put("expired", -1L);
             for (int i = 1; i <= 4097; i++) waits.put("attempt-" + i, (long) i);
             cache.gain(track("song.opus", 1), new AudioSettings());
@@ -222,9 +214,7 @@ class LoudnessPersistenceTest {
         assertTrue(Files.size(file) > 4_000_000);
         ExternalAudio.configure(() -> new ExternalAudio.Paths(temp, "", ""));
         try (var cache = new LoudnessCache()) {
-            var executor = LoudnessCache.class.getDeclaredField("executor");
-            executor.setAccessible(true);
-            ((ExecutorService) executor.get(cache)).submit(() -> {
+            cache.executor().submit(() -> {
             }).get();
             assertEquals(Math.pow(10, 2 / 20.0), cache.gain(selected, new AudioSettings()), 1e-12);
         } finally {
@@ -239,9 +229,7 @@ class LoudnessPersistenceTest {
         try {
             try (var cache = new LoudnessCache()) {
                 // Wait for initial loading, as normal inspections do on its single worker.
-                var executor = LoudnessCache.class.getDeclaredField("executor");
-                executor.setAccessible(true);
-                ((ExecutorService) executor.get(cache)).submit(() -> {
+                cache.executor().submit(() -> {
                 }).get();
                 for (int i = 0; i < 1000; i++) {
                     var t = track("song-" + i + ".opus", 1);
@@ -251,9 +239,7 @@ class LoudnessPersistenceTest {
             var file = temp.resolve("loudness-cache.json");
             assertEquals(1000, JsonParser.parseString(Files.readString(file)).getAsJsonObject().size());
             try (var cache = new LoudnessCache()) {
-                var executor = LoudnessCache.class.getDeclaredField("executor");
-                executor.setAccessible(true);
-                ((ExecutorService) executor.get(cache)).submit(() -> {
+                cache.executor().submit(() -> {
                 }).get();
                 var original = track("song-0.opus", 1);
                 assertEquals(Math.pow(10, 2 / 20.0), cache.gain(original, settings), 1e-12);
@@ -276,9 +262,7 @@ class LoudnessPersistenceTest {
     void failedAtomicWriteRetainsDirtyResultsForRetry() throws Exception {
         ExternalAudio.configure(() -> new ExternalAudio.Paths(temp, "", ""));
         try (var cache = new LoudnessCache()) {
-            var executor = LoudnessCache.class.getDeclaredField("executor");
-            executor.setAccessible(true);
-            ((ExecutorService) executor.get(cache)).submit(() -> {
+            cache.executor().submit(() -> {
             }).get();
             var t = track("real-reference.opus", 1);
             cache.remember(t, key(t), new LoudnessCache.Reading(-20, -3));

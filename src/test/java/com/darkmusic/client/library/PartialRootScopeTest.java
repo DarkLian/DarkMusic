@@ -129,9 +129,7 @@ class PartialRootScopeTest {
         }, 2000, p -> !p.equals(denied))) {
             library.setRoot(root, "r");
             Await.until(Duration.ofSeconds(5), () -> !library.snapshot().scanning(), "Initial scan");
-            var field = MusicLibrary.class.getDeclaredField("snapshot");
-            field.setAccessible(true);
-            field.set(library, new MusicLibrary.Snapshot(library.snapshot().revision(), List.of(blocked, deleted), false, "", List.of("@r/denied"), true, Set.of("r")));
+            library.publish(new MusicLibrary.Snapshot(library.snapshot().revision(), List.of(blocked, deleted), false, "", List.of("@r/denied"), true, Set.of("r")));
             long revision = library.snapshot().revision();
             library.rescan();
             Await.until(Duration.ofSeconds(5), () -> !library.snapshot().scanning() && library.snapshot().revision() > revision, "Scoped rescan");

@@ -12,24 +12,12 @@ import static org.junit.jupiter.api.Assertions.*;
  * Audio inputs derive exclusively from the private real collection.
  */
 class DspContinuityTest {
-    private Object field(Object owner, String name) throws Exception {
-        var f = owner.getClass().getDeclaredField(name);
-        f.setAccessible(true);
-        return f.get(owner);
-    }
-
     private float[] samples() throws Exception {
         var clip = TestMusic.clip();
         byte[] bytes = clip.bytes();
         float[] out = new float[bytes.length / 2];
         for (int i = 0; i < out.length; i++) out[i] = (short) ((bytes[2 * i] & 255) | (bytes[2 * i + 1] << 8)) / 32768f;
         return out;
-    }
-
-    private void handoff(AudioProcessor p, double rate, int channels) throws Exception {
-        var m = AudioProcessor.class.getDeclaredMethod("begin", double.class, int.class, boolean.class);
-        m.setAccessible(true);
-        m.invoke(p, rate, channels, true);
     }
 
     @Test
@@ -64,14 +52,14 @@ class DspContinuityTest {
             for (int at = 0; at < input.length; at += block) {
                 int n = Math.min(block, input.length - at);
                 float[] expected = Arrays.copyOfRange(input, at, at + n), actual = expected.clone();
-                if (at == boundary) handoff(split, rate, channels);
+                if (at == boundary) split.begin(rate, channels, true);
                 uninterrupted.process(expected, n, .8, 1);
                 split.process(actual, n, .8, 1);
                 assertArrayEquals(expected, actual, 0f, "Handoff must preserve DSP histories: " + preset);
             }
-            assertEquals(s.width, (double) field(split, "width"), 0);
-            handoff(split, rate / 2, channels);
-            assertEquals(1.0, (double) field(split, "width"), 0, "Changed format resets state before first preparation");
+            assertEquals(s.width, split.width(), 0);
+            split.begin(rate / 2, channels, true);
+            assertEquals(1.0, split.width(), 0, "Changed format resets state before first preparation");
         }
     }
 
@@ -85,10 +73,8 @@ class DspContinuityTest {
         s.validate();
         p.configure(s);
         p.begin(clip.format().getSampleRate(), clip.format().getChannels());
-        var prepare = AudioProcessor.class.getDeclaredMethod("prepare");
-        prepare.setAccessible(true);
-        prepare.invoke(p);
-        assertEquals(.2, (double) field(p, "width"), 0);
+        p.prepare();
+        assertEquals(.2, p.width(), 0);
     }
 
     @Test
@@ -105,12 +91,10 @@ class DspContinuityTest {
         p.prepare();
         for (int i = 0; i < input.length / 2; i += channels)
             p.process(input[i], channels == 2 ? input[i + 1] : input[i], false);
-        Object[] engines = (Object[]) field(p, "engines");
-        int active = (int) field(p, "current");
-        Object engine = engines[active];
-        float[][] history = (float[][]) field(engine, "history");
+        int active = p.current();
+        float[][] history = p.history(active);
         float[][] before = {history[0].clone(), history[1].clone()};
-        int cursor = (int) field(engine, "cursor");
+        int cursor = p.cursor(active);
         for (int edit = 0; edit < 20; edit++) {
             var changed = settings.playbackCopy();
             changed.parameters.highPass = 30 + edit;
@@ -120,26 +104,25 @@ class DspContinuityTest {
             changed.parameters.decay = 1 + edit / 20.0;
             p.configure(changed);
             p.prepare();
-            assertFalse((boolean) field(p, "transitioning"));
-            assertSame(history, field(engine, "history"));
+            assertFalse(p.transitioning());
+            assertSame(history, p.history(active));
             assertArrayEquals(before[0], history[0]);
             assertArrayEquals(before[1], history[1]);
-            assertEquals(cursor, field(engine, "cursor"));
+            assertEquals(cursor, p.cursor(active));
         }
         settings.select(SoundEnvironmentSettings.Preset.BATHROOM);
         p.configure(settings.playbackCopy());
         p.prepare();
-        assertTrue((boolean) field(p, "transitioning"));
+        assertTrue(p.transitioning());
         var changed = settings.playbackCopy();
         changed.parameters.pan = -.5;
         p.configure(changed);
         p.prepare();
-        Object next = engines[1 - active];
-        assertEquals(-.5, ((SoundEnvironmentSettings.Parameters) field(next, "p")).pan, 0);
+        assertEquals(-.5, p.parameters(1 - active).pan, 0);
         for (int i = 0; i < Math.min(input.length, (int) (rate * .1) * channels); i += channels) {
             p.process(input[i], channels == 2 ? input[i + 1] : input[i], false);
             assertTrue(Double.isFinite(p.left) && Double.isFinite(p.right));
         }
-        assertFalse((boolean) field(p, "transitioning"));
+        assertFalse(p.transitioning());
     }
 }

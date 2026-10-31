@@ -817,4 +817,18 @@ public final class LyricsLookup implements AutoCloseable {
         } catch (Exception ignored) {
         }
     }
+
+    /**
+     * For tests: the remembered choices per track.
+     */
+    Map<String, Choice> choices() {
+        return choices;
+    }
+
+    /**
+     * For tests: the worker that writes sidecar files.
+     */
+    ThreadPoolExecutor storage() {
+        return storage;
+    }
 }

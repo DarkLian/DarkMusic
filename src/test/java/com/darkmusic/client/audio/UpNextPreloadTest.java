@@ -23,12 +23,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * Real private-collection PCM through the actual decoder promotion path and a controlled device clock.
  */
 class UpNextPreloadTest {
-    static Object field(Object owner, String name) throws Exception {
-        var f = owner.getClass().getDeclaredField(name);
-        f.setAccessible(true);
-        return f.get(owner);
-    }
-
     @Test
     @Timeout(30)
     void gaplessAndCrossfadePromoteOnlyTheCurrentPlanWithoutReopeningTheDevice() throws Exception {
@@ -70,8 +64,7 @@ class UpNextPreloadTest {
                 controller.configure(options);
                 controller.play(List.of(a, b), a);
                 Await.until(Duration.ofSeconds(5), () -> backend.state().status() == AudioBackend.Status.PLAYING && ready(backend), "Normal preload ready");
-                Object obsolete = ((AtomicReference<?>) field(backend, "upcoming")).get();
-                var obsoleteGate = (AudioBackend.Transition) field(obsolete, "transition");
+                var obsoleteGate = backend.upcoming().transition;
                 controller.addToQueue(x);
                 controller.playNext(y);
                 controller.removeQueued(controller.upNextSnapshot().manual().getFirst().id());
@@ -105,12 +98,8 @@ class UpNextPreloadTest {
     }
 
     private static boolean ready(JavaSoundBackend backend) {
-        try {
-            Object next = ((AtomicReference<?>) field(backend, "upcoming")).get();
-            return next != null && field(next, "ready") != null;
-        } catch (Exception e) {
-            throw new AssertionError(e);
-        }
+        var next = backend.upcoming();
+        return next != null && next.peek() != null;
     }
 
     private static Track track(String name) {

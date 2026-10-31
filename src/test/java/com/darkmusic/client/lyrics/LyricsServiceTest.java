@@ -14,7 +14,6 @@ import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.security.MessageDigest;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -47,9 +46,7 @@ class LyricsServiceTest {
             lyrics.enabled(false);
             lyrics.enabled(true);
             lyrics.request(track);
-            var worker = LyricsService.class.getDeclaredField("io");
-            worker.setAccessible(true);
-            ((ExecutorService) worker.get(lyrics)).submit(() -> {
+            lyrics.io().submit(() -> {
             }).get();
             assertTrue(lyrics.get(track).lines().isEmpty());
         }

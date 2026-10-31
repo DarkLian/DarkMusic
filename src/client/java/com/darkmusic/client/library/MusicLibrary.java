@@ -527,6 +527,31 @@ public final class MusicLibrary implements AutoCloseable {
         return watcher;
     }
 
+    /**
+     * For tests: publishes this snapshot as if a scan had produced it.
+     */
+    void publish(Snapshot value) {
+        snapshot = value;
+    }
+
+    /**
+     * For tests: marks a scan as running or finished without starting one.
+     */
+    void scanRunning(boolean value) {
+        running.set(value);
+    }
+
+    /**
+     * For tests: combines one root whose scan found these tracks and folders, still running or finished.
+     */
+    Snapshot combined(Path root, String id, Snapshot prior, List<Track> tracks, List<String> folders, boolean complete, boolean finished) {
+        var job = new RootJob(root, id, 0);
+        var found = new RootResult(tracks, List.of(root), folders, complete, "", List.of());
+        job.partial = found;
+        if (finished) job.result.complete(found);
+        return combined(0, Map.of(root, id), Map.of(root, job), prior, !finished);
+    }
+
     public boolean awaitStopped(long seconds) throws InterruptedException {
         if (!scanner.awaitTermination(seconds, TimeUnit.SECONDS) || !monitor.awaitTermination(seconds, TimeUnit.SECONDS)
             || !rootScanner.awaitTermination(seconds, TimeUnit.SECONDS)) return false;

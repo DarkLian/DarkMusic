@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -314,14 +313,9 @@ class DownloadTest {
     void cancelledAnalysisCannotInsertBatchAfterCancelAll() throws Exception {
         try (var service = new DownloadService(temp, () -> {
         })) {
-            var tokenField = DownloadService.class.getDeclaredField("analysisToken");
-            tokenField.setAccessible(true);
-            var token = (ProcessRunner.Token) tokenField.get(service);
+            var token = service.analysisToken();
             service.cancelAll();
-            var add = DownloadService.class.getDeclaredMethod("add", List.class, Path.class, ToolPaths.class, ProcessRunner.Token.class);
-            add.setAccessible(true);
-            var failure = assertThrows(InvocationTargetException.class, () -> add.invoke(service, List.of(new DownloadModels.Entry(1, "Entry", "https://example.com/a", "Test", "a", true)), temp, new ToolPaths("", "", "", ""), token));
-            assertInstanceOf(CancellationException.class, failure.getCause());
+            assertThrows(CancellationException.class, () -> service.add(List.of(new DownloadModels.Entry(1, "Entry", "https://example.com/a", "Test", "a", true)), temp, new ToolPaths("", "", "", ""), token));
             assertTrue(service.snapshot().items().isEmpty());
         }
     }

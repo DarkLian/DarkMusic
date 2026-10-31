@@ -56,9 +56,7 @@ class UpcomingLoudnessTest {
             backend.playFrom(current, 0, true, () -> {
             }, errors::set);
             Await.of(() -> backend.state().status() == AudioBackend.Status.PAUSED);
-            var field = JavaSoundBackend.class.getDeclaredField("loudness");
-            field.setAccessible(true);
-            var cache = (LoudnessCache) field.get(backend);
+            var cache = backend.loudness();
             openedCache.set(cache);
             backend.nextTrack(upcoming, () -> {
             }, () -> {

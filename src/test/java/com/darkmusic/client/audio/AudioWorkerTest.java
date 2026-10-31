@@ -307,9 +307,7 @@ class AudioWorkerTest {
             assertTrue(observed.duration() >= observed.position());
             backend.pause();
             Await.of(() -> backend.state().status() == AudioBackend.Status.PAUSED);
-            var field = JavaSoundBackend.class.getDeclaredField("worker");
-            field.setAccessible(true);
-            Thread worker = (Thread) field.get(backend);
+            Thread worker = backend.worker();
             Await.of(() -> worker.getState() == Thread.State.WAITING);
             backend.stop();
             Await.of(() -> resources.stream().allMatch(AtomicBoolean::get));

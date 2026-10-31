@@ -623,4 +623,11 @@ public final class RowList extends AbstractWidget {
             return new Row(title, subtitle, details, value, tone);
         }
     }
+
+    /**
+     * For tests: the rows, built as they are read.
+     */
+    List<Row> rows() {
+        return rows;
+    }
 }

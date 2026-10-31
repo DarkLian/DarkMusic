@@ -208,9 +208,7 @@ class OutputRoutingTest {
     }
 
     private void cacheReading(JavaSoundBackend backend, Track track, double lufs) throws Exception {
-        var field = JavaSoundBackend.class.getDeclaredField("loudness");
-        field.setAccessible(true);
-        var cache = (LoudnessCache) field.get(backend);
+        var cache = backend.loudness();
         cache.store().readings().put(track.file().toAbsolutePath() + ":" + track.size() + ":" + track.modified() + ":TRACK",
             new LoudnessCache.Reading(lufs, -6, LoudnessCache.Source.ANALYSIS));
     }
@@ -347,15 +345,7 @@ class OutputRoutingTest {
                 backend.nextTrack(second, () -> started.set(true), () -> {
                 }, errors::set);
                 if (fade > 0) {
-                    var overlap = JavaSoundBackend.class.getDeclaredField("overlap");
-                    overlap.setAccessible(true);
-                    Await.of(() -> {
-                        try {
-                            return overlap.getDouble(backend) > 0;
-                        } catch (Exception e) {
-                            throw new AssertionError(e);
-                        }
-                    });
+                    Await.of(() -> backend.overlap() > 0);
                     cacheReading(backend, second, -20);
                 } else {
                     Await.of(started::get);

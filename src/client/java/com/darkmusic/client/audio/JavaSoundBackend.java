@@ -1072,4 +1072,46 @@ public final class JavaSoundBackend implements AudioBackend {
     private record Announcement(Request previous, NextAudio next, long boundary, double oldPosition,
                                 LoudnessCache.Session normalization, double gain) {
     }
+
+    /**
+     * For tests: the audio worker thread.
+     */
+    Thread worker() {
+        return worker;
+    }
+
+    /**
+     * For tests: the loudness cache, or null before the first track opens.
+     */
+    LoudnessCache loudness() {
+        return loudness;
+    }
+
+    /**
+     * For tests: uses this cache instead of creating one.
+     */
+    synchronized void loudness(LoudnessCache cache) {
+        loudness = cache;
+    }
+
+    /**
+     * For tests: the crossfade length of the transition in progress, or 0.
+     */
+    double overlap() {
+        return overlap;
+    }
+
+    /**
+     * For tests: the settings snapshot playback uses.
+     */
+    AudioSettings options() {
+        return options;
+    }
+
+    /**
+     * For tests: the prepared next track, or null.
+     */
+    NextAudio upcoming() {
+        return upcoming.get();
+    }
 }

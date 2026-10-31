@@ -21,9 +21,7 @@ class WriterRecoveryTest {
             io.submit(() -> {
             }).get(5, TimeUnit.SECONDS);
             assertEquals(2, warnings.get());
-            var field = LatestWriter.class.getDeclaredField("writing");
-            field.setAccessible(true);
-            assertFalse(field.getBoolean(writer));
+            assertFalse(writer.writing());
         }
     }
 }

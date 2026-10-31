@@ -44,12 +44,6 @@ class ResetStopTest {
     @TempDir
     Path data;
 
-    private static Object field(Object owner, String name) throws ReflectiveOperationException {
-        var f = owner.getClass().getDeclaredField(name);
-        f.setAccessible(true);
-        return f.get(owner);
-    }
-
     @Test
     void aThrowingCloseStillClosesTheOtherServices() throws Exception {
         var downloads = new DownloadService(data, () -> {
@@ -88,7 +82,9 @@ class ResetStopTest {
         loudness.set(playback, cache);
         var release = new CountDownLatch(1);
         // The final cache write queues behind this, as behind a slow disk.
-        ((ExecutorService) field(cache, "writer")).execute(() -> {
+        var writer = LoudnessCache.class.getDeclaredField("writer");
+        writer.setAccessible(true);
+        ((ExecutorService) writer.get(cache)).execute(() -> {
             while (true) try {
                 release.await();
                 return;

@@ -76,7 +76,7 @@ public final class AudioProcessor {
         width = 1;
     }
 
-    private void prepare() {
+    void prepare() {
         if (applied != settings) {
             boolean first = applied == null;
             filters.configure(settings, first);
@@ -351,5 +351,12 @@ public final class AudioProcessor {
             state ^= state << 17;
             return (state >>> 11) * 0x1.0p-53;
         }
+    }
+
+    /**
+     * For tests: the stereo width in effect.
+     */
+    double width() {
+        return width;
     }
 }

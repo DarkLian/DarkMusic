@@ -18,7 +18,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Smoke code reads and writes private members by name, so a renamed or moved field fails only when that smoke window
  * runs. Each reflection names the class that declares the member, and that class must declare it: a field moved to
  * another class fails here even when some other class happens to declare the same name. Tests need no such check:
- * they fail in the normal build when a member they reflect disappears. Both kinds of reflection only shrink.
+ * they fail in the normal build when a member they reflect disappears. A test reaches a class of its own package
+ * through a package-private accessor instead, so tests reflect only across packages, each naming the class it
+ * reaches into. Both kinds of reflection only shrink.
  */
 class SmokeReflectionTest {
     private static final Path SMOKE = Path.of("src/smoke/java");
@@ -31,14 +33,18 @@ class SmokeReflectionTest {
     // Type.class.getDeclaredField("name") or Class.forName("binary.Name").getDeclaredMethod("name", ...).
     private static final Pattern DECLARED = Pattern.compile("\\bgetDeclared(?:Field|Method|Constructor)s?\\(");
     private static final Pattern NAMED_DECLARED = Pattern.compile("(?:([A-Z]\\w*(?:\\.[A-Z]\\w*)*)\\.class|Class\\.forName\\(\"([\\w.$]+)\"\\))\\.getDeclared(Field|Method)\\(\"(\\w+)\"");
+    // In tests, the class named just before the call; a listing (getDeclaredMethods()) reads no member.
+    private static final Pattern TEST_DECLARED = Pattern.compile("(?:([A-Z]\\w*(?:\\.[A-Z]\\w*)*)\\.class|Class\\.forName\\(\"([\\w.$]+)\"\\))?\\.getDeclared(?:Field|Method|Constructor)(s?)\\(");
+    private static final Pattern COMMENTS = Pattern.compile("//[^\\n]*|/\\*.*?\\*/", Pattern.DOTALL);
+    private static final Pattern PACKAGE = Pattern.compile("^package ([\\w.]+);", Pattern.MULTILINE);
     private static final Pattern COMMENTS_AND_STRINGS = Pattern.compile("//[^\\n]*|/\\*.*?\\*/|\"(?:\\\\.|[^\"\\\\\\n])*\"", Pattern.DOTALL);
     private static final Pattern IMPORT = Pattern.compile("^import ([\\w.]+?)(\\.\\*)?;", Pattern.MULTILINE);
     // Reflection on private members, counted as the patterns above find it. Lower these as code stops reflecting;
     // never raise them.
     private static final int MAX_SMOKE_REFLECTION = 105;
-    private static final int MAX_TEST_REFLECTION = 72;
+    private static final int MAX_TEST_REFLECTION = 7;
 
-    record Reflection(String file, String type, String name) {
+    record Reflection(Path path, String file, String type, String name) {
     }
 
     @Test
@@ -47,10 +53,30 @@ class SmokeReflectionTest {
         var found = smokeReflections(problems);
         assertTrue(found.size() > 50, "Found only " + found.size() + " reflections; the check no longer reads the smoke code");
         for (var r : found) {
-            Class<?> type = resolve(r.file(), r.type());
+            Class<?> type = resolve(r.path(), r.type());
             if (type == null) problems.add(r.file() + ": no class " + r.type());
             else if (!declaresField(type, r.name()))
                 problems.add(r.file() + ": " + type.getName() + " declares no field " + r.name());
+        }
+        assertEquals(List.of(), problems);
+    }
+
+    @Test
+    void testsDoNotReflectOnTheirOwnPackage() throws IOException {
+        var problems = new ArrayList<String>();
+        for (Path file : javaFiles(TESTS).stream().filter(f -> !f.endsWith("SmokeReflectionTest.java")).toList()) {
+            String code = COMMENTS.matcher(Files.readString(file)).replaceAll(" "), name = file.getFileName().toString();
+            var own = PACKAGE.matcher(code);
+            String pkg = own.find() ? own.group(1) : "";
+            var call = TEST_DECLARED.matcher(code);
+            while (call.find()) {
+                String type = call.group(1) != null ? call.group(1) : call.group(2);
+                Class<?> target = type == null ? null : resolve(file, type);
+                if (type == null) problems.add(name + ": reflection without a class literal or Class.forName(\"...\")");
+                else if (target == null) problems.add(name + ": no class " + type);
+                else if (call.group(3).isEmpty() && target.getPackageName().equals(pkg))
+                    problems.add(name + ": reflects on " + target.getName() + "; add a package-private accessor");
+            }
         }
         assertEquals(List.of(), problems);
     }
@@ -82,12 +108,12 @@ class SmokeReflectionTest {
                     problems.add(name + ": reflection without a literal class and name: " + call.group() + String.join(",", args) + ")");
                     continue;
                 }
-                found.add(new Reflection(name, type.matches() ? type.group(1) : string.group(1), member.group(1)));
+                found.add(new Reflection(file, name, type.matches() ? type.group(1) : string.group(1), member.group(1)));
             }
             var declared = NAMED_DECLARED.matcher(code);
             while (declared.find()) {
                 String type = declared.group(1) != null ? declared.group(1) : declared.group(2);
-                Class<?> owner = resolve(name, type);
+                Class<?> owner = resolve(file, type);
                 if (owner == null) problems.add(name + ": no class " + type);
                 else if (declared.group(3).equals("Field") ? !declaresField(owner, declared.group(4)) : Arrays.stream(owner.getDeclaredMethods()).noneMatch(m -> m.getName().equals(declared.group(4))))
                     problems.add(name + ": " + owner.getName() + " declares no " + declared.group(4));
@@ -122,14 +148,15 @@ class SmokeReflectionTest {
     }
 
     /**
-     * A class literal through the file's imports, or a binary name as written.
+     * A class literal through the file's own package and imports, or a binary name as written.
      */
-    private static Class<?> resolve(String file, String type) throws IOException {
+    private static Class<?> resolve(Path file, String type) throws IOException {
         if (type.contains(".") && Character.isLowerCase(type.charAt(0))) return load(type);
-        String code = Files.readString(javaFiles(SMOKE).stream().filter(f -> f.getFileName().toString().equals(file)).findFirst().orElseThrow());
+        String code = Files.readString(file);
         String outer = type.split("\\.")[0], binary = type.replace('.', '$');
-        Matcher imports = IMPORT.matcher(code);
+        Matcher imports = IMPORT.matcher(code), own = PACKAGE.matcher(code);
         var candidates = new ArrayList<String>();
+        if (own.find()) candidates.add(own.group(1) + "." + binary);
         while (imports.find()) {
             if (imports.group(2) != null) candidates.add(imports.group(1) + "." + binary);
             else if (imports.group(1).endsWith("." + outer))

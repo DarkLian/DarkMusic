@@ -24,34 +24,9 @@ class LibraryRetentionTest {
         return new Track(id, name, root.resolve(name), title, "", "", 0, 0, 0, "");
     }
 
-    private void snapshot(MusicLibrary library, MusicLibrary.Snapshot value) throws Exception {
-        var field = MusicLibrary.class.getDeclaredField("snapshot");
-        field.setAccessible(true);
-        field.set(library, value);
-    }
-
     private MusicLibrary.Snapshot combined(MusicLibrary library, Path root, MusicLibrary.Snapshot prior,
-                                           List<Track> scanned, boolean complete, boolean finished) throws Exception {
-        Class<?> jobType = Class.forName(MusicLibrary.class.getName() + "$RootJob");
-        Class<?> resultType = Class.forName(MusicLibrary.class.getName() + "$RootResult");
-        var constructor = jobType.getDeclaredConstructor(MusicLibrary.class, Path.class, String.class, long.class);
-        constructor.setAccessible(true);
-        Object job = constructor.newInstance(library, root, "root", 0L);
-        var resultConstructor = resultType.getDeclaredConstructor(List.class, List.class, List.class, boolean.class, String.class, List.class);
-        resultConstructor.setAccessible(true);
-        Object result = resultConstructor.newInstance(scanned, List.of(root), List.of("@root", "@root/new"), complete, "", List.of());
-        var partial = jobType.getDeclaredField("partial");
-        partial.setAccessible(true);
-        partial.set(job, result);
-        if (finished) {
-            var future = jobType.getDeclaredField("result");
-            future.setAccessible(true);
-            @SuppressWarnings("unchecked") var completion = (CompletableFuture<Object>) future.get(job);
-            completion.complete(result);
-        }
-        var method = MusicLibrary.class.getDeclaredMethod("combined", long.class, Map.class, Map.class, MusicLibrary.Snapshot.class, boolean.class);
-        method.setAccessible(true);
-        return (MusicLibrary.Snapshot) method.invoke(library, 0L, Map.of(root, "root"), Map.of(root, job), prior, !finished);
+                                           List<Track> scanned, boolean complete, boolean finished) {
+        return library.combined(root, "root", prior, scanned, List.of("@root", "@root/new"), complete, finished);
     }
 
     @Test
@@ -127,7 +102,7 @@ class LibraryRetentionTest {
             library.setRoots(Map.of(kept, "kept", removed, "removed"), kept);
             Await.until(Duration.ofSeconds(5), () -> library.snapshot().complete(), "Initial empty scan");
             var retained = track(kept, "kept", "old/song.opus", "Retained metadata");
-            snapshot(library, new MusicLibrary.Snapshot(10, List.of(retained, track(removed, "removed", "song.opus", "Removed")),
+            library.publish(new MusicLibrary.Snapshot(10, List.of(retained, track(removed, "removed", "song.opus", "Removed")),
                 false, "", List.of("@kept", "@kept/old", "@removed"), true));
             offline.set(true);
             library.setRoots(Map.of(kept, "kept", added, "added"), kept);

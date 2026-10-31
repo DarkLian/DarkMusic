@@ -340,4 +340,39 @@ public final class SoundEnvironmentProcessor {
                 + (lowOn ? low.response(hz, rate, false) : 0);
         }
     }
+
+    /**
+     * For tests: the engine that is heard.
+     */
+    int current() {
+        return current;
+    }
+
+    /**
+     * For tests: whether a preset change is fading to the other engine.
+     */
+    boolean transitioning() {
+        return transitioning;
+    }
+
+    /**
+     * For tests: an engine's delay history.
+     */
+    float[][] history(int engine) {
+        return engines[engine].history;
+    }
+
+    /**
+     * For tests: an engine's position in its delay history.
+     */
+    int cursor(int engine) {
+        return engines[engine].cursor;
+    }
+
+    /**
+     * For tests: an engine's parameters.
+     */
+    Parameters parameters(int engine) {
+        return engines[engine].p;
+    }
 }
