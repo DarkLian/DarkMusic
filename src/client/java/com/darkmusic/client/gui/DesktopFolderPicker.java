@@ -33,50 +33,69 @@ public final class DesktopFolderPicker {
     }
 
     public static CompletableFuture<Path> choose(Path initial, String title, String mode) {
+        return choose(initial, title, mode, DesktopFolderPicker::start);
+    }
+
+    @FunctionalInterface
+    interface Launcher {
+        Process start(Path initial, String title, String mode, Path result, Path log) throws Exception;
+    }
+
+    static CompletableFuture<Path> choose(Path initial, String title, String mode, Launcher launcher) {
         if (!OPEN.compareAndSet(false, true)) return CompletableFuture.completedFuture(null);
         CANCELLED.set(false);
-        return CompletableFuture.supplyAsync(() -> {
-            Path result = null, log = null;
-            try {
-                result = Files.createTempFile("darkmusic-folder-", ".txt");
-                log = Files.createTempFile("darkmusic-folder-", ".log");
-                String binary = System.getProperty("os.name").startsWith("Windows") ? "javaw.exe" : "java";
-                Path java = Path.of(System.getProperty("java.home"), "bin", binary);
-                Path classes = Path.of(DesktopFolderDialog.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-                active = new ProcessBuilder(List.of(java.toString(), "-Djava.awt.headless=false", "-cp", classes.toString(), DesktopFolderDialog.class.getName(), initial.toString(), title, result.toString(), Long.toString(ProcessHandle.current().pid()), mode, Text.get("backup.overwrite")))
-                    .redirectErrorStream(true).redirectOutput(log.toFile()).start();
-                active.getOutputStream().close();
-                while (!active.waitFor(100, TimeUnit.MILLISECONDS)) {
-                    if (CANCELLED.get()) {
-                        active.destroy();
-                        if (!active.waitFor(2, TimeUnit.SECONDS)) active.destroyForcibly();
-                    }
+        return CompletableFuture.supplyAsync(() -> dialogJob(initial, title, mode, launcher), task -> Thread.ofVirtual().name("darkmusic-folder-dialog").start(task));
+    }
+
+    private static Path dialogJob(Path initial, String title, String mode, Launcher launcher) {
+        Path result = null, log = null;
+        try {
+            result = Files.createTempFile("darkmusic-folder-", ".txt");
+            log = Files.createTempFile("darkmusic-folder-", ".log");
+            active = launcher.start(initial, title, mode, result, log);
+            return awaitSelection(active, result, log);
+        } catch (Exception e) {
+            throw new CompletionException(e);
+        } finally {
+            var process = active;
+            if (process != null && process.isAlive()) process.destroyForcibly();
+            active = null;
+            for (Path file : new Path[]{result, log})
+                if (file != null) try {
+                    Files.deleteIfExists(file);
+                } catch (IOException ignored) {
                 }
-                if (CANCELLED.get()) return null;
-                if (active.exitValue() != 0) {
-                    String details;
-                    try (var input = Files.newInputStream(log)) {
-                        details = new String(input.readNBytes(8192), StandardCharsets.UTF_8);
-                    }
-                    LoggerFactory.getLogger("darkmusic").warn("Desktop dialog failed: {}", details);
-                    throw new IOException(Text.get("error.folder"));
-                }
-                String selected = Files.readString(result);
-                return selected.isBlank() ? null : Path.of(selected);
-            } catch (Exception e) {
-                throw new CompletionException(e);
-            } finally {
-                var process = active;
-                if (process != null && process.isAlive()) process.destroyForcibly();
-                active = null;
-                for (Path file : new Path[]{result, log})
-                    if (file != null) try {
-                        Files.deleteIfExists(file);
-                    } catch (IOException ignored) {
-                    }
-                OPEN.set(false);
+            OPEN.set(false);
+        }
+    }
+
+    private static Path awaitSelection(Process process, Path result, Path log) throws Exception {
+        process.getOutputStream().close();
+        while (!process.waitFor(100, TimeUnit.MILLISECONDS)) {
+            if (CANCELLED.get()) {
+                process.destroy();
+                if (!process.waitFor(2, TimeUnit.SECONDS)) process.destroyForcibly();
             }
-        }, task -> Thread.ofVirtual().name("darkmusic-folder-dialog").start(task));
+        }
+        if (CANCELLED.get()) return null;
+        if (process.exitValue() != 0) {
+            String details;
+            try (var input = Files.newInputStream(log)) {
+                details = new String(input.readNBytes(8192), StandardCharsets.UTF_8);
+            }
+            LoggerFactory.getLogger("darkmusic").warn("Desktop dialog failed: {}", details);
+            throw new IOException(Text.get("error.folder"));
+        }
+        String selected = Files.readString(result);
+        return selected.isBlank() ? null : Path.of(selected);
+    }
+
+    private static Process start(Path initial, String title, String mode, Path result, Path log) throws Exception {
+        String binary = System.getProperty("os.name").startsWith("Windows") ? "javaw.exe" : "java";
+        Path java = Path.of(System.getProperty("java.home"), "bin", binary);
+        Path classes = Path.of(DesktopFolderDialog.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+        return new ProcessBuilder(List.of(java.toString(), "-Djava.awt.headless=false", "-cp", classes.toString(), DesktopFolderDialog.class.getName(), initial.toString(), title, result.toString(), Long.toString(ProcessHandle.current().pid()), mode, Text.get("backup.overwrite")))
+            .redirectErrorStream(true).redirectOutput(log.toFile()).start();
     }
 
     public static void cancel() {

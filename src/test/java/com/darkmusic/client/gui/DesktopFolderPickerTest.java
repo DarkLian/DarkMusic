@@ -6,16 +6,169 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class DesktopFolderPickerTest {
     @TempDir
     Path temporary;
+
+    private static Process exited(int exit) {
+        return new Process() {
+            public OutputStream getOutputStream() {
+                return OutputStream.nullOutputStream();
+            }
+
+            public InputStream getInputStream() {
+                return InputStream.nullInputStream();
+            }
+
+            public InputStream getErrorStream() {
+                return InputStream.nullInputStream();
+            }
+
+            public int waitFor() {
+                return exit;
+            }
+
+            public boolean waitFor(long timeout, TimeUnit unit) {
+                return true;
+            }
+
+            public int exitValue() {
+                return exit;
+            }
+
+            public boolean isAlive() {
+                return false;
+            }
+
+            public void destroy() {
+            }
+        };
+    }
+
+    @Test
+    void cancellationClosesInputThenDestroysAndForcesAnUnresponsiveChild() throws Exception {
+        var order = new ArrayList<String>();
+        assertNull(DesktopFolderPicker.choose(temporary, "cancel", "folder", (i, t, m, r, l) -> {
+            DesktopFolderPicker.cancel();
+            return new Process() {
+                int waits;
+
+                public OutputStream getOutputStream() {
+                    return new OutputStream() {
+                        public void write(int b) {
+                        }
+
+                        public void close() {
+                            order.add("stdin");
+                        }
+                    };
+                }
+
+                public InputStream getInputStream() {
+                    return InputStream.nullInputStream();
+                }
+
+                public InputStream getErrorStream() {
+                    return InputStream.nullInputStream();
+                }
+
+                public int waitFor() {
+                    return 1;
+                }
+
+                public boolean waitFor(long timeout, TimeUnit unit) {
+                    return ++waits >= 3;
+                }
+
+                public int exitValue() {
+                    fail("Cancellation wins over exit failure");
+                    return 1;
+                }
+
+                public boolean isAlive() {
+                    return false;
+                }
+
+                public void destroy() {
+                    order.add("destroy");
+                }
+
+                public Process destroyForcibly() {
+                    order.add("force");
+                    return this;
+                }
+            };
+        }).get(5, TimeUnit.SECONDS));
+        assertEquals(List.of("stdin", "destroy", "force"), order);
+        assertFalse(DesktopFolderPicker.isOpen());
+    }
+
+    @Test
+    void admittedJobOwnsCancellationAndRefusesASecondPicker() throws Exception {
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var resultFile = new AtomicReference<Path>();
+        var logFile = new AtomicReference<Path>();
+        var first = DesktopFolderPicker.choose(temporary, "test", "folder", (initial, title, mode, result, log) -> {
+            assertTrue(DesktopFolderPicker.isOpen());
+            resultFile.set(result);
+            logFile.set(log);
+            Files.writeString(result, temporary.toString());
+            entered.countDown();
+            assertTrue(release.await(5, TimeUnit.SECONDS));
+            return exited(0);
+        });
+        try {
+            assertTrue(entered.await(5, TimeUnit.SECONDS));
+            DesktopFolderPicker.cancel();
+            assertNull(DesktopFolderPicker.choose(temporary, "second").get(5, TimeUnit.SECONDS));
+            release.countDown();
+            assertNull(first.get(5, TimeUnit.SECONDS), "Refused admission must not clear the first job's cancellation");
+            assertFalse(DesktopFolderPicker.isOpen());
+            assertFalse(Files.exists(resultFile.get()));
+            assertFalse(Files.exists(logFile.get()));
+            assertEquals(temporary, DesktopFolderPicker.choose(temporary, "next", "folder", (i, t, m, r, l) -> {
+                Files.writeString(r, temporary.toString());
+                return exited(0);
+            }).get(5, TimeUnit.SECONDS), "The next admitted job clears stale cancellation");
+        } finally {
+            release.countDown();
+            first.get(5, TimeUnit.SECONDS);
+        }
+    }
+
+    @Test
+    void failedStartAndFailedExitCleanScratchAndReleaseAdmission() throws Exception {
+        for (boolean startFails : new boolean[]{true, false}) {
+            var resultFile = new AtomicReference<Path>();
+            var logFile = new AtomicReference<Path>();
+            var job = DesktopFolderPicker.choose(temporary, "failure", "folder", (i, t, m, result, log) -> {
+                resultFile.set(result);
+                logFile.set(log);
+                if (startFails) throw new IOException("start failure");
+                Files.writeString(log, "diagnostic".repeat(2000));
+                return exited(1);
+            });
+            assertThrows(CompletionException.class, job::join);
+            assertFalse(DesktopFolderPicker.isOpen());
+            assertFalse(Files.exists(resultFile.get()));
+            assertFalse(Files.exists(logFile.get()));
+        }
+    }
 
     private Path dialog(boolean approve) throws Exception {
         Path directory = TestMusic.featured().getParent();
