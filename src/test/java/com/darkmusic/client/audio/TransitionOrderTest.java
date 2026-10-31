@@ -20,10 +20,10 @@ class TransitionOrderTest {
         Runnable dispatched = audio.started;
         audio.state = new AudioBackend.State(tracks.get(1), AudioBackend.Status.PLAYING, 0, 120, "");
         controller.shuffle(true);
-        var expected = List.copyOf(controller.order());
+        var expected = List.copyOf(controller.playOrder().list());
         dispatched.run();
-        assertEquals(expected, controller.order(), "A dispatched callback restored an obsolete queue order");
-        assertEquals(expected.indexOf(1), controller.cursor(), "The queue must still follow the audible track");
+        assertEquals(expected, controller.playOrder().list(), "A dispatched callback restored an obsolete queue order");
+        assertEquals(expected.indexOf(1), controller.playOrder().cursor(), "The queue must still follow the audible track");
     }
 
     static final class Backend implements AudioBackend {

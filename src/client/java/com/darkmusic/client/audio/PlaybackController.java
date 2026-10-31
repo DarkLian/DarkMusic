@@ -16,24 +16,20 @@ import java.util.function.Consumer;
 public final class PlaybackController implements AutoCloseable {
     private final AudioBackend audio;
     private final Consumer<String> warning;
-    private final List<Integer> order = new ArrayList<>();
-    private final Deque<Visited> history = new ArrayDeque<>();
-    private final List<Queued> manual = new ArrayList<>();
+    private final PlayOrder order = new PlayOrder();
+    private final UpNextQueue upNext = new UpNextQueue();
     private Map<String, Integer> sourceIndex = Map.of();
     private Playing current;
     private Plan planned;
-    private long queueIds, queueRevision;
-    private UpNextSnapshot queueSnapshot;
     public static final int QUEUE_LIMIT = 1000, PREVIEW_LIMIT = 25;
     private List<Track> tracks = List.of();
-    private int cursor = -1, failures;
+    private int failures;
     private boolean shuffle;
     private double speed = 1;
     private Repeat repeat = Repeat.OFF;
     private AudioSettings configuredAudio;
     private SoundEnvironmentSettings configuredEnvironment = new SoundEnvironmentSettings();
     private long sequence;
-    private long orderVersion;
     private Source source = new Source("All", "", "", "");
     private BiConsumer<Source, List<Track>> sourceChanged = (source, tracks) -> {
     };
@@ -127,28 +123,15 @@ public final class PlaybackController implements AutoCloseable {
     public void repeat(Repeat value) {
         invalidatePlan();
         repeat = Objects.requireNonNullElse(value, Repeat.OFF);
-        orderVersion++;
+        order.bump();
         refreshNext();
     }
 
     public void shuffle(boolean value) {
         invalidatePlan();
         shuffle = value;
-        int current = cursor >= 0 && cursor < order.size() ? order.get(cursor) : -1;
-        rebuildOrder(current);
+        order.rebuild(order.current(), tracks.size(), shuffle);
         refreshNext();
-    }
-
-    private void rebuildOrder(int current) {
-        orderVersion++;
-        order.clear();
-        for (int i = 0; i < tracks.size(); i++) if (i != current) order.add(i);
-        if (shuffle) Collections.shuffle(order);
-        if (current >= 0) {
-            if (shuffle) order.addFirst(current);
-            else order.add(Math.min(current, order.size()), current);
-        }
-        cursor = current >= 0 ? order.indexOf(current) : -1;
     }
 
     public void play(List<Track> queue, Track selected) {
@@ -174,11 +157,11 @@ public final class PlaybackController implements AutoCloseable {
         tracks = List.copyOf(queue);
         indexSource();
         sourceChanged.accept(source, tracks);
-        history.clear();
+        order.forget();
         failures = 0;
         int index = tracks.indexOf(selected);
         if (index < 0) return;
-        rebuildOrder(index);
+        order.rebuild(index, tracks.size(), shuffle);
         start(index, Double.isFinite(position) ? Math.max(0, position) : 0, paused);
     }
 
@@ -194,9 +177,6 @@ public final class PlaybackController implements AutoCloseable {
     }
 
     private record Playing(Track track, boolean manual) {
-    }
-
-    private record Visited(Track track, boolean manual, int anchor) {
     }
 
     private static final class Plan {
@@ -227,8 +207,7 @@ public final class PlaybackController implements AutoCloseable {
     }
 
     private void changedQueue() {
-        queueRevision++;
-        queueSnapshot = null;
+        upNext.changed();
     }
 
     public boolean playNext(Track track) {
@@ -242,13 +221,13 @@ public final class PlaybackController implements AutoCloseable {
     public boolean insertQueued(Track track, int destination) {
         if (track == null) return false;
         settlePromotion();
-        if (manual.size() >= QUEUE_LIMIT) {
+        if (upNext.full()) {
             warning.accept(Text.get("upnext.full", QUEUE_LIMIT));
             return false;
         }
-        int index = Math.clamp(destination, 0, manual.size());
+        int index = Math.clamp(destination, 0, upNext.size());
         if (index == 0) invalidatePlan();
-        manual.add(index, new Queued(++queueIds, track));
+        upNext.insert(index, track);
         changedQueue();
         refreshNext();
         return true;
@@ -257,22 +236,18 @@ public final class PlaybackController implements AutoCloseable {
     /**
      * Reject a stale drag if playback consumed or changed any occurrence meanwhile.
      */
-    public boolean reorderQueued(List<Long> expectedIds, List<Integer> order) {
+    public boolean reorderQueued(List<Long> expectedIds, List<Integer> positions) {
         settlePromotion();
-        if (!manual.stream().map(Queued::id).toList().equals(expectedIds) || order.size() != manual.size()
-            || new HashSet<>(order).size() != manual.size()
-            || order.stream().anyMatch(i -> i == null || i < 0 || i >= manual.size())) return false;
-        var reordered = order.stream().map(manual::get).toList();
-        if (reordered.equals(manual)) return false;
-        if (!reordered.getFirst().equals(manual.getFirst())) {
+        var reordered = upNext.reordered(expectedIds, positions);
+        if (reordered == null) return false;
+        if (!reordered.getFirst().equals(upNext.first())) {
             invalidatePlan();
-            if (!manual.stream().map(Queued::id).toList().equals(expectedIds)) {
+            if (!upNext.ids().equals(expectedIds)) {
                 refreshNext();
                 return false;
             }
         }
-        manual.clear();
-        manual.addAll(reordered);
+        upNext.replace(reordered);
         changedQueue();
         refreshNext();
         return true;
@@ -281,14 +256,12 @@ public final class PlaybackController implements AutoCloseable {
     private boolean enqueue(Track track, boolean first) {
         if (track == null) return false;
         settlePromotion();
-        if (manual.size() >= QUEUE_LIMIT) {
+        if (upNext.full()) {
             warning.accept(Text.get("upnext.full", QUEUE_LIMIT));
             return false;
         }
-        if (first || manual.isEmpty()) invalidatePlan();
-        var entry = new Queued(++queueIds, track);
-        if (first) manual.addFirst(entry);
-        else manual.add(entry);
+        if (first || upNext.isEmpty()) invalidatePlan();
+        upNext.add(track, first);
         changedQueue();
         refreshNext();
         return true;
@@ -296,15 +269,10 @@ public final class PlaybackController implements AutoCloseable {
 
     public boolean removeQueued(long id) {
         settlePromotion();
-        int index = -1;
-        for (int i = 0; i < manual.size(); i++)
-            if (manual.get(i).id == id) {
-                index = i;
-                break;
-            }
+        int index = upNext.indexOf(id);
         if (index < 0) return false;
         if (index == 0) invalidatePlan();
-        if (!manual.removeIf(q -> q.id == id)) {
+        if (!upNext.remove(id)) {
             refreshNext();
             return false;
         }
@@ -314,9 +282,9 @@ public final class PlaybackController implements AutoCloseable {
     }
 
     public void clearQueued() {
-        if (manual.isEmpty()) return;
+        if (upNext.isEmpty()) return;
         invalidatePlan();
-        manual.clear();
+        upNext.clear();
         changedQueue();
         refreshNext();
     }
@@ -345,31 +313,29 @@ public final class PlaybackController implements AutoCloseable {
 
     public UpNextSnapshot upNextSnapshot() {
         settlePromotion();
-        if (queueSnapshot == null) {
+        if (upNext.snapshot() == null) {
             var automatic = new ArrayList<Track>();
-            for (int i = cursor + 1; automatic.size() < PREVIEW_LIMIT && !order.isEmpty(); i++) {
-                if (i >= order.size() && repeat != Repeat.ALL) break;
-                if (i >= order.size() && shuffle && (planned == null || planned.manualId != 0 || planned.order == order))
+            var list = order.list();
+            int cursor = order.cursor();
+            for (int i = cursor + 1; automatic.size() < PREVIEW_LIMIT && !list.isEmpty(); i++) {
+                if (i >= list.size() && repeat != Repeat.ALL) break;
+                if (i >= list.size() && shuffle && (planned == null || planned.manualId != 0 || planned.order == list))
                     break;
                 // Reuse an already planned shuffled wrap; do not shuffle or copy a library for a preview.
-                var previewOrder = i >= order.size() && planned != null && planned.manualId == 0 && !planned.hold ? planned.order : order;
-                automatic.add(tracks.get(previewOrder.get(i % order.size())));
-                if (i - cursor >= order.size()) break;
+                var previewOrder = i >= list.size() && planned != null && planned.manualId == 0 && !planned.hold ? planned.order : list;
+                automatic.add(tracks.get(previewOrder.get(i % list.size())));
+                if (i - cursor >= list.size()) break;
             }
-            queueSnapshot = new UpNextSnapshot(queueRevision, current == null ? null : current.track, manual, automatic, shuffle, repeat, source, tracks.size());
+            upNext.snapshot(new UpNextSnapshot(upNext.revision(), current == null ? null : current.track, upNext.entries(), automatic, shuffle, repeat, source, tracks.size()));
         }
-        return queueSnapshot;
+        return upNext.snapshot();
     }
 
     public void reconcileQueued(Map<String, Track> index, Set<String> registeredRoots, Set<String> completeRoots) {
         settlePromotion();
-        boolean changed = manual.stream().anyMatch(q -> !registeredRoots.contains(q.track.rootId())
-            || !index.containsKey(q.track.id()) && completeRoots.contains(q.track.rootId())
-            || index.containsKey(q.track.id()) && !index.get(q.track.id()).equals(q.track));
-        if (!changed) return;
+        if (!upNext.stale(index, registeredRoots, completeRoots)) return;
         invalidatePlan();
-        manual.removeIf(q -> !registeredRoots.contains(q.track.rootId()) || !index.containsKey(q.track.id()) && completeRoots.contains(q.track.rootId()));
-        manual.replaceAll(q -> new Queued(q.id, index.getOrDefault(q.track.id(), q.track)));
+        upNext.reconcile(index, registeredRoots, completeRoots);
         changedQueue();
         refreshNext();
     }
@@ -408,7 +374,7 @@ public final class PlaybackController implements AutoCloseable {
         if (ticket != sequence || current != point) return;
         warning.accept(Text.get("audio.error.track", point.track.title(), message));
         if (!point.manual) failures++;
-        if (manual.isEmpty() && failures >= Math.max(1, tracks.size())) stop();
+        if (upNext.isEmpty() && failures >= Math.max(1, tracks.size())) stop();
         else advance(false);
     }
 
@@ -426,22 +392,22 @@ public final class PlaybackController implements AutoCloseable {
             return;
         }
         boolean hold = repeat == Repeat.ONE;
-        var queued = !hold && !manual.isEmpty() ? manual.getFirst() : null;
-        long manualId = queued == null ? 0 : queued.id;
-        if (planned != null && planned.from == current && planned.version == orderVersion && planned.manualId == manualId && planned.hold == hold) {
+        var queued = !hold && !upNext.isEmpty() ? upNext.first() : null;
+        long manualId = queued == null ? 0 : queued.id();
+        if (planned != null && planned.from == current && planned.version == order.version() && planned.manualId == manualId && planned.hold == hold) {
             // Seeking may have dropped a consumed preload while retaining this controller plan.
             prepare(planned);
             return;
         }
         invalidatePlan();
         hold = repeat == Repeat.ONE;
-        queued = !hold && !manual.isEmpty() ? manual.getFirst() : null;
-        manualId = queued == null ? 0 : queued.id;
+        queued = !hold && !upNext.isEmpty() ? upNext.first() : null;
+        manualId = queued == null ? 0 : queued.id();
         long ticket = sequence;
-        int old = cursor >= 0 && cursor < order.size() ? order.get(cursor) : -1;
-        List<Integer> nextOrder = order;
-        int nextCursor = cursor + 1;
-        if (hold || queued != null) nextCursor = cursor;
+        int old = order.current();
+        List<Integer> nextOrder = order.list();
+        int nextCursor = order.cursor() + 1;
+        if (hold || queued != null) nextCursor = order.cursor();
         else if (nextCursor >= order.size()) {
             if (repeat != Repeat.ALL) {
                 audio.nextTrack(null, () -> {
@@ -459,14 +425,14 @@ public final class PlaybackController implements AutoCloseable {
             }
             nextCursor = 0;
             if (shuffle) {
-                nextOrder = new ArrayList<>(order);
+                nextOrder = new ArrayList<>(order.list());
                 Collections.shuffle(nextOrder);
                 if (nextOrder.size() > 1 && nextOrder.getFirst() == old) Collections.swap(nextOrder, 0, 1);
             }
         }
-        Playing target = hold ? new Playing(current.track, current.manual) : queued != null ? new Playing(queued.track, true)
+        Playing target = hold ? new Playing(current.track, current.manual) : queued != null ? new Playing(queued.track(), true)
             : new Playing(tracks.get(nextOrder.get(nextCursor)), false);
-        var plan = new Plan(current, target, ticket, orderVersion, manualId, nextCursor, nextOrder, hold);
+        var plan = new Plan(current, target, ticket, order.version(), manualId, nextCursor, nextOrder, hold);
         planned = plan;
         prepare(plan);
     }
@@ -481,8 +447,7 @@ public final class PlaybackController implements AutoCloseable {
 
     private void remember() {
         if (current == null) return;
-        history.addLast(new Visited(current.track, current.manual, cursor >= 0 && cursor < order.size() ? order.get(cursor) : -1));
-        if (history.size() > 1000) history.removeFirst();
+        order.remember(current.track, current.manual);
     }
 
     private void settlePromotion() {
@@ -491,14 +456,8 @@ public final class PlaybackController implements AutoCloseable {
         if (plan == null || plan.applied || !plan.gate.claimed() || plan.ticket != sequence) return;
         plan.applied = true;
         if (!plan.hold) remember();
-        if (plan.manualId != 0) manual.removeIf(q -> q.id == plan.manualId);
-        else if (!plan.hold) {
-            if (plan.order != order) {
-                order.clear();
-                order.addAll(plan.order);
-            }
-            cursor = plan.destination;
-        }
+        if (plan.manualId != 0) upNext.remove(plan.manualId);
+        else if (!plan.hold) order.adopt(plan.order, plan.destination);
         current = plan.target;
         failures = 0;
         changedQueue();
@@ -524,45 +483,38 @@ public final class PlaybackController implements AutoCloseable {
 
     private void advance(boolean manual) {
         invalidatePlan();
-        if (!this.manual.isEmpty()) {
+        if (!upNext.isEmpty()) {
             remember();
-            var entry = this.manual.removeFirst();
-            start(new Playing(entry.track, true), 0, false, false);
+            var entry = upNext.removeFirst();
+            start(new Playing(entry.track(), true), 0, false, false);
             return;
         }
         if (order.isEmpty()) {
             stop();
             return;
         }
-        int old = cursor >= 0 ? order.get(cursor) : -1;
-        if (cursor + 1 >= order.size() && !manual && repeat != Repeat.ALL) {
+        int old = order.cursor() >= 0 ? order.at(order.cursor()) : -1;
+        if (order.cursor() + 1 >= order.size() && !manual && repeat != Repeat.ALL) {
             stop();
             return;
         }
         remember();
-        if (cursor + 1 >= order.size()) {
+        if (order.cursor() + 1 >= order.size()) {
             if (!manual && repeat != Repeat.ALL) {
                 stop();
                 return;
             }
-            rebuildOrder(-1);
-            cursor = 0;
-            if (shuffle && order.size() > 1 && order.getFirst() == old) Collections.swap(order, 0, 1);
-        } else cursor++;
-        start(order.get(cursor));
+            order.wrap(old, tracks.size(), shuffle);
+        } else order.cursor(order.cursor() + 1);
+        start(order.at(order.cursor()));
     }
 
     public void previous() {
         invalidatePlan();
         failures = 0;
-        if (!history.isEmpty()) {
-            var visited = history.removeLast();
-            cursor = order.indexOf(visited.anchor);
-            start(new Playing(visited.track, visited.manual), 0, false, false);
-        } else if (cursor >= 0 && !order.isEmpty()) {
-            cursor = (cursor + order.size() - 1) % order.size();
-            start(order.get(cursor));
-        }
+        var visited = order.back();
+        if (visited != null) start(new Playing(visited.track(), visited.manual()), 0, false, false);
+        else if (order.stepBack()) start(order.at(order.cursor()));
     }
 
     public void toggle() {
@@ -571,8 +523,8 @@ public final class PlaybackController implements AutoCloseable {
             case PAUSED -> audio.resume();
             default -> {
                 if (current != null) start(new Playing(current.track, current.manual), 0, false, false);
-                else if (!manual.isEmpty()) advance(true);
-                else if (cursor >= 0) start(order.get(cursor));
+                else if (!upNext.isEmpty()) advance(true);
+                else if (order.cursor() >= 0) start(order.at(order.cursor()));
             }
         }
     }
@@ -601,13 +553,11 @@ public final class PlaybackController implements AutoCloseable {
     public void reset() {
         stop();
         tracks = List.of();
-        manual.clear();
+        upNext.clear();
         current = null;
         sourceIndex = Map.of();
         source = new Source("All", "", "", "");
-        order.clear();
-        history.clear();
-        cursor = -1;
+        order.reset();
         failures = 0;
     }
 
@@ -646,10 +596,8 @@ public final class PlaybackController implements AutoCloseable {
         Track updated = replacement;
         tracks = tracks.stream().map(t -> t.id().equals(old.id()) ? updated : t).toList();
         indexSource();
-        manual.replaceAll(q -> q.track.id().equals(old.id()) ? new Queued(q.id, updated) : q);
-        var visits = history.stream().map(v -> v.track.id().equals(old.id()) ? new Visited(updated, v.manual, v.anchor) : v).toList();
-        history.clear();
-        history.addAll(visits);
+        upNext.replaceTrack(old.id(), updated);
+        order.replaceTrack(old.id(), updated);
         if (current != null && current.track.id().equals(old.id())) current = new Playing(updated, current.manual);
         changedQueue();
         if (sequence != resume.sequence || current == null) return;
@@ -664,9 +612,8 @@ public final class PlaybackController implements AutoCloseable {
      */
     public void finishDeletion(EditResume resume, Set<String> removed) {
         invalidatePlan();
-        manual.removeIf(q -> removed.contains(q.track.id()));
+        upNext.removeTracks(removed);
         Playing playing = current;
-        int oldCursor = cursor;
         var retained = new ArrayList<Track>();
         int[] mapping = new int[tracks.size()];
         Arrays.fill(mapping, -1);
@@ -675,20 +622,11 @@ public final class PlaybackController implements AutoCloseable {
                 mapping[i] = retained.size();
                 retained.add(tracks.get(i));
             }
-        var nextOrder = order.stream().filter(i -> mapping[i] >= 0).map(i -> mapping[i]).toList();
-        var nextHistory = history.stream().filter(v -> !removed.contains(v.track.id()))
-            .map(v -> new Visited(v.track, v.manual, v.anchor < 0 || mapping[v.anchor] < 0 ? -1 : mapping[v.anchor])).toList();
-        int predecessor = (int) order.stream().limit(Math.max(0, oldCursor)).filter(i -> mapping[i] >= 0).count() - 1;
-        int anchor = oldCursor >= 0 && oldCursor < order.size() ? mapping[order.get(oldCursor)] : -1;
+        order.remap(mapping, removed);
         tracks = List.copyOf(retained);
         indexSource();
-        order.clear();
-        order.addAll(nextOrder);
-        history.clear();
-        history.addAll(nextHistory);
-        cursor = anchor < 0 ? predecessor : order.indexOf(anchor);
         current = playing != null && !removed.contains(playing.track.id()) ? playing : null;
-        orderVersion++;
+        order.bump();
         changedQueue();
         if (sequence == resume.sequence && current != null && (resume.status == AudioBackend.Status.PLAYING || resume.status == AudioBackend.Status.PAUSED
             || resume.status == AudioBackend.Status.SEEKING || resume.status == AudioBackend.Status.LOADING))
@@ -713,16 +651,9 @@ public final class PlaybackController implements AutoCloseable {
     }
 
     /**
-     * For tests: the play order, as indexes into the tracks.
+     * For tests: the play order and where playback is in it.
      */
-    List<Integer> order() {
+    PlayOrder playOrder() {
         return order;
-    }
-
-    /**
-     * For tests: the current track's place in the play order.
-     */
-    int cursor() {
-        return cursor;
     }
 }
