@@ -38,8 +38,10 @@ play/pause, skipping and seeking wait while a media operation owns the files (`i
 only `alive`, so an import can still be stopped and a preview can pause the music; the queue needs `canEditQueue`;
 playlists need `playlistsReady` and no media operation. `PlaybackCommands` implements the first three and
 `PlaylistActions` the last. Screens keep `canEditQueue()`/`mediaBusy()` to decide what to show as enabled.
+Downloads change through `gui.DownloadOperations` (`DownloadActions`), which forwards to `DownloadService`: the
+download screens offer a control only when it applies, and the service admits each change itself.
 `ScreenOperationsTest` checks the compiled `gui` classes: none calls a transport or queue method of
-`PlaybackController` or anything but a read of `PlaylistStore`.
+`PlaybackController`, or anything but a read of `PlaylistStore` or `DownloadService`.
 
 Core packages never reference `DarkMusicClient`. At most `MAX_CLIENT_DEPENDENTS` files may name it (a ratchet,
 only lowered; today 1, the sound mixin). Collaborators receive `ClientServices` and each other, never the client.
@@ -61,9 +63,15 @@ Other guards, on compiled classes (ASM) or the smoke sources:
   length and only shrink. Lambdas, constructors and static initializers are not measured.
 - `SettingsSettersTest`: a settings field with a range (`config.Range`, applied by `validate()` and by a same-named
   setter) is set outside `config` only through its setter. The fields are found from the setters.
-- `SmokeReflectionTest`: every private member name smoke code reads or writes by reflection is still declared by a
-  class in `src/client`. It checks names only, so a name several classes declare still needs a look when its class
-  changes.
+- `SmokeReflectionTest`: smoke code reflects only through `SmokeUi.field/set(owner, Declaring.class, "name")`
+  (a binary class name for a type smoke cannot name), and each pair must exist: a member that moves to another
+  class fails even when some other class declares the same name. A wrong class that also declares the name passes,
+  and `SmokeUi` then rejects the owner when the smoke runs. `reflectionOnlyShrinks` counts smoke reflection and the
+  tests' `getDeclared*` calls (ratchets, only lowered). Smoke reads a screen's state through a read-only query
+  (`MusicScreen.browser()`, `SettingsScreen.previewBounds()`, `DownloadScreen.view()`) and finds its widgets by
+  their labels, as a player would.
+- `ArchitectureTest.rootTestsAreAllowlisted` and `testClassesNameASubject`: tests live in their subject's package
+  (the root holds the root package's tests, these guards and `PackagedJarTest`), named after what they test.
 
 The source guards prove reference direction and shape only, not runtime isolation.
 
@@ -75,7 +83,7 @@ The source guards prove reference direction and shape only, not runtime isolatio
 | `darkmusic-storage` (`io`, single) | `ClientServices` owns; borrowed by `ConfigStore`/`LatestWriter`, `PlaylistStore`, histories, `DuplicateReviewStore`, `LibraryReconciliation`, reset/restore operations | config/playlist/history/import-history writes, reset storage, restore journal, backup capture | unbounded queue; serial order is part of correctness. Shut down last at exit; a write enqueued after that throws `RejectedExecutionException` (only reachable after `closed`) |
 | `darkmusic-browse` (2 threads, queue 16, abort) | `ClientServices` owns; borrowed by `FolderActions`, `MediaActions`, screens | folder checks, imports, metadata read/edit, deletion | rejected → `error.folder_busy`; media operations release their flag at once |
 | `darkmusic-audio` + preload | `JavaSoundBackend` (per playback generation) | decode, DSP, output line | one worker |
-| scan, root scan, watch | `MusicLibrary` (per library generation) | indexing, snapshots | generation counter rejects stale scans |
+| scan, root scan, watch | `MusicLibrary` (per library generation); the watcher's state is `LibraryWatcher`'s, under its own lock | indexing, snapshots, change polling | generation counter rejects stale scans |
 | download pool, analysis, repair | `DownloadService` (per generation) | yt-dlp/FFmpeg jobs, bookkeeping | fixed workers |
 | lyrics, lookup, storage, captions | `LyricsService` / `LyricsLookup` (app lifetime) | lyric discovery and files | bounded queues |
 | artwork, waveform, loudness | caches (per playback generation) | decoding for display/analysis | bounded |
@@ -220,13 +228,19 @@ of it (as the analyzer label says).
   (or a new one), which `ClientSources` forwards to. `DarkMusicClient` and the other screens do not change.
 - *Adding a player control or menu action*: put it in the collaborator that owns the area (`PlaybackCommands`,
   `FolderActions`, `MediaActions`, `BackupActions`, `OutputActions`); a new collaborator receives `ClientServices`
-  and is wired in `DarkMusicClient`'s fields.
+  and is wired in `DarkMusicClient`'s fields. A collaborator that needs only `ClientServices` and serves only the
+  screens may be built by `ClientSources` instead (`DownloadActions`), which keeps `DarkMusicClient` within its cap.
 - *Adding a setting with a range*: a `Range` constant used by the class's `validate()` and a same-named setter that
   applies it; screens set it through the setter. Gson still writes the public field, so the file format is the
   field's name.
-- *Changing playback or playlists from a screen*: call the screen's `transport()`, `queue()` or
-  `playlistOperations()`; a new kind of change goes into the operation interface and its implementation, with the
-  same admission the existing ones use.
+- *Changing playback, playlists or downloads from a screen*: call the screen's `transport()`, `queue()`,
+  `playlistOperations()` or `downloadOperations()`; a new kind of change goes into the operation interface and its
+  implementation, with the same admission the existing ones use.
+- *Letting smoke check a screen*: drive it by its labels, or add a read-only query; no setters or widget getters
+  for smoke. When reflection is unavoidable, name the declaring class.
+- *Changing loudness persistence*: `LoudnessStore` owns `loudness-cache.json` and its locks (flushLock, then
+  SAVING, then persistence); `LoudnessCache` keeps scheduling and its monitor, which it never holds while calling
+  the store.
 - *Replacing a library service*: construct it in `buildReplaceable`, used by both startup and reset, and add it to
   `Shutdown.Services`. Consumers read it through the getter or the reconciliation adapter, so screens and the HUD do
   not change. They are still typed on the concrete `MusicLibrary`, so a different implementation type would also

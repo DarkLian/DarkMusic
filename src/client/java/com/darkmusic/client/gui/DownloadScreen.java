@@ -45,6 +45,8 @@ public final class DownloadScreen extends LocalScreen {
 
         DownloadService downloads();
 
+        DownloadOperations downloadOperations();
+
         LibrarySourceIndex sourceIndex();
 
         TransportOperations transport();
@@ -64,6 +66,27 @@ public final class DownloadScreen extends LocalScreen {
         AuditionPlayer audition();
 
         void audition(AuditionPlayer player);
+    }
+
+    /**
+     * What the screen shows: the queue or the preview, the download mode (its name and label), the preview entries
+     * and queue jobs that match the search, the selected job (-1 for none), how many entries are checked, and where
+     * the results list starts. Read only.
+     */
+    public record View(boolean queue, String mode, String modeLabel, String downloadLabel, List<Entry> entries,
+                       List<Item> jobs, long selectedJob, int checked, int resultTop) {
+    }
+
+    public View view() {
+        return new View(queueView, mode.name(), mode.label(), downloadLabel(), visible, visibleJobs, selectedJob,
+            selection.size(), resultTop);
+    }
+
+    /**
+     * The Download button names what it would queue in the current mode.
+     */
+    private String downloadLabel() {
+        return mode == Mode.SELECTED ? Text.get("format.darkmusic.download_checked", selection.size()) : mode == Mode.VIDEO ? Text.get("text.darkmusic.download_one_video") : mode == Mode.ALL ? Text.get("text.darkmusic.download_all_entries") : Text.get("text.darkmusic.download_range");
     }
 
     private final Sources app;
@@ -152,6 +175,18 @@ public final class DownloadScreen extends LocalScreen {
         app.sourceIndex();
         backButton();
         rowsSnapshot = null;
+        sourceControls();
+        browseControls();
+        resultList();
+        queueControls();
+        styleControls();
+        tick();
+    }
+
+    /**
+     * Tools, the source panel, the URL and Analyze, the mode and range, the format and Download.
+     */
+    private void sourceControls() {
         UiButton.icon(button(Text.get("text.darkmusic.tools"), width - 172, 4, 88,
             () -> show(app.navigation().downloadTools(this)), Text.get("text.darkmusic.set_executable_paths_and_check_yt_dlp_ffmpeg_ffprobe_and_optional_javascript_runti")), UiIcon.TOOLS, false);
         sourceToggle = UiButton.icon(button(Text.get("phase2.source"), width - 264, 4, 88, () -> {
@@ -160,7 +195,7 @@ public final class DownloadScreen extends LocalScreen {
         }, Text.get("download.darkmusic.source_panel_help")), UiIcon.SEARCH, false);
         url = input("text.darkmusic.video_or_collection_url", 4096, input, s -> {
             input = s;
-            app.downloads().rememberInput(s);
+            app.downloadOperations().rememberInput(s);
             notice = "";
         });
         url.setHint(Text.component("text.darkmusic.paste_a_video_or_collection_url"));
@@ -176,7 +211,7 @@ public final class DownloadScreen extends LocalScreen {
                 search.setValue(query);
             }
             queueView = false;
-            app.downloads().analyze(input, 0);
+            app.downloadOperations().analyze(input, 0);
         }, "text.darkmusic.identify_the_source_and_preview_up_to_100_entries_nothing_downloads_automatically");
         modeButton = action("phase2.source", this::cycleMode, "download.darkmusic.mode_help");
         first = input("download.darkmusic.range_start", 7, from, s -> from = s);
@@ -189,6 +224,12 @@ public final class DownloadScreen extends LocalScreen {
             updateButtons();
         }, "audio.darkmusic.download_help");
         download = action("text.darkmusic.download", this::download, "text.darkmusic.queue_only_the_explicitly_chosen_selection_into_the_current_music_folder_up_to_1_0");
+    }
+
+    /**
+     * The Entries and Queue tabs, paging, checks, search and listening.
+     */
+    private void browseControls() {
         entriesTab = action("phase2.entries", () -> queue(false), "text.darkmusic.switch_between_collection_preview_and_download_queue_closing_this_screen_does_not");
         queueToggle = action("ui.darkmusic.queue", () -> queue(true), "text.darkmusic.switch_between_collection_preview_and_download_queue_closing_this_screen_does_not");
         previous = action("text.darkmusic.prev_100", () -> page(-1), "text.darkmusic.preview_the_previous_page_checked_entries_are_kept_across_pages");
@@ -210,6 +251,12 @@ public final class DownloadScreen extends LocalScreen {
         stopListening = action("download.darkmusic.stop_listening", this::stopAudition, "download.darkmusic.listen_help");
         UiButton.icon(listen, UiIcon.PLAY, true);
         UiButton.icon(stopListening, UiIcon.STOP, true);
+    }
+
+    /**
+     * The preview entries or queue jobs, with their status tint, icon and progress.
+     */
+    private void resultList() {
         rows = addRenderableWidget(new RowList(12, 150, width - 24, 40, 36, Text.get("text.darkmusic.preview_or_queue"), (i, activated) -> {
             if (queueView) {
                 if (i < visibleJobs.size()) selectedJob = visibleJobs.get(i).id();
@@ -219,37 +266,6 @@ public final class DownloadScreen extends LocalScreen {
             }
         }));
         rows.rowTooltips(false);
-        retrySelected = action("download.darkmusic.retry_selected", () -> {
-            if (queueView && selectedJob >= 0) app.downloads().retry(selectedJob);
-
-        }, "download.darkmusic.retry_help");
-        retryFailed = action("download.darkmusic.retry_failed", app.downloads()::retryFailed, "download.darkmusic.retry_help");
-        clearFailed = action("download.darkmusic.clear_failed", app.downloads()::clearFailed, "download.darkmusic.clear_failed_help");
-        cancelSelected = action("text.darkmusic.cancel_selected", () -> {
-            if (selectedJob >= 0) app.downloads().cancel(selectedJob);
-        }, "text.darkmusic.cancel_the_selected_queued_or_active_item_other_downloads_continue");
-        cancelAll = action("text.darkmusic.cancel_all", app.downloads()::cancelAll, "text.darkmusic.cancel_url_analysis_active_work_and_queued_entries_completed_songs_are_kept");
-        clearFinished = action("text.darkmusic.clear_finished", app.downloads()::clearFinished, "download.darkmusic.clear_finished_help");
-        errorDetails = action("download.diag.title", () -> {
-            var diagnostic = queueView ? app.downloads().diagnostic(selectedJob) : app.downloads().analysisDiagnostic();
-            if (diagnostic != null) show(app.navigation().downloadDiagnostic(this, diagnostic, queueView
-                ? () -> app.downloads().retry(selectedJob) : () -> app.downloads().analyze(app.downloads().inputUrl(), 0)));
-        }, "download.diag.help");
-        UiButton.icon(errorDetails, UiIcon.WARNING, true);
-        existingDetails = action("download.library.existing", () -> {
-            var choice = app.downloads().duplicateChoice();
-            if (choice != null) show(app.navigation().downloadDuplicate(this, choice));
-            else if (hasExistingMatches(listeningEntry)) show(app.navigation().existingDownloads(this, listeningEntry));
-        }, "download.library.inspect_help");
-        UiButton.icon(existingDetails, UiIcon.FOLDER, true);
-        UiButton.style(analyze, UiButton.Style.PRIMARY);
-        UiButton.style(download, UiButton.Style.PRIMARY);
-        UiButton.selected(entriesTab, () -> !queueView);
-        UiButton.selected(queueToggle, () -> queueView);
-        UiButton.style(cancelSelected, UiButton.Style.DESTRUCTIVE);
-        UiButton.style(cancelAll, UiButton.Style.DESTRUCTIVE);
-        UiButton.style(clearFailed, UiButton.Style.DESTRUCTIVE);
-        UiButton.style(clearFinished, UiButton.Style.SUBTLE);
         rows.tint(i -> queueView && i < visibleJobs.size() ? switch (visibleJobs.get(i).status()) {
             case FAILED -> UiTheme.ERROR;
             case SAVED, SKIPPED -> UiTheme.SUCCESS;
@@ -264,7 +280,46 @@ public final class DownloadScreen extends LocalScreen {
             default -> UiIcon.DOWNLOAD;
         } : UiIcon.MUSIC);
         rows.progress(i -> queueView && i < visibleJobs.size() ? visibleJobs.get(i).progress() : -1);
-        tick();
+    }
+
+    /**
+     * Retry, cancel and clear for the queue, and the error and existing-copy details.
+     */
+    private void queueControls() {
+        retrySelected = action("download.darkmusic.retry_selected", () -> {
+            if (queueView && selectedJob >= 0) app.downloadOperations().retry(selectedJob);
+
+        }, "download.darkmusic.retry_help");
+        retryFailed = action("download.darkmusic.retry_failed", app.downloadOperations()::retryFailed, "download.darkmusic.retry_help");
+        clearFailed = action("download.darkmusic.clear_failed", app.downloadOperations()::clearFailed, "download.darkmusic.clear_failed_help");
+        cancelSelected = action("text.darkmusic.cancel_selected", () -> {
+            if (selectedJob >= 0) app.downloadOperations().cancel(selectedJob);
+        }, "text.darkmusic.cancel_the_selected_queued_or_active_item_other_downloads_continue");
+        cancelAll = action("text.darkmusic.cancel_all", app.downloadOperations()::cancelAll, "text.darkmusic.cancel_url_analysis_active_work_and_queued_entries_completed_songs_are_kept");
+        clearFinished = action("text.darkmusic.clear_finished", app.downloadOperations()::clearFinished, "download.darkmusic.clear_finished_help");
+        errorDetails = action("download.diag.title", () -> {
+            var diagnostic = queueView ? app.downloads().diagnostic(selectedJob) : app.downloads().analysisDiagnostic();
+            if (diagnostic != null) show(app.navigation().downloadDiagnostic(this, diagnostic, queueView
+                ? () -> app.downloadOperations().retry(selectedJob) : () -> app.downloadOperations().analyze(app.downloads().inputUrl(), 0)));
+        }, "download.diag.help");
+        UiButton.icon(errorDetails, UiIcon.WARNING, true);
+        existingDetails = action("download.library.existing", () -> {
+            var choice = app.downloads().duplicateChoice();
+            if (choice != null) show(app.navigation().downloadDuplicate(this, choice));
+            else if (hasExistingMatches(listeningEntry)) show(app.navigation().existingDownloads(this, listeningEntry));
+        }, "download.library.inspect_help");
+        UiButton.icon(existingDetails, UiIcon.FOLDER, true);
+    }
+
+    private void styleControls() {
+        UiButton.style(analyze, UiButton.Style.PRIMARY);
+        UiButton.style(download, UiButton.Style.PRIMARY);
+        UiButton.selected(entriesTab, () -> !queueView);
+        UiButton.selected(queueToggle, () -> queueView);
+        UiButton.style(cancelSelected, UiButton.Style.DESTRUCTIVE);
+        UiButton.style(cancelAll, UiButton.Style.DESTRUCTIVE);
+        UiButton.style(clearFailed, UiButton.Style.DESTRUCTIVE);
+        UiButton.style(clearFinished, UiButton.Style.SUBTLE);
     }
 
     private void place(AbstractWidget widget, int x, int y, int w, boolean visible) {
@@ -429,7 +484,7 @@ public final class DownloadScreen extends LocalScreen {
         var p = app.downloads().snapshot().preview();
         if (p != null) {
             stopAudition();
-            app.downloads().analyze(p.url(), Math.max(0, (p.first() - 1) / PAGE_SIZE + delta));
+            app.downloadOperations().analyze(p.url(), Math.max(0, (p.first() - 1) / PAGE_SIZE + delta));
         }
     }
 
@@ -447,7 +502,7 @@ public final class DownloadScreen extends LocalScreen {
             notice = "";
             if (page != (preview.first() - 1) / PAGE_SIZE + 1) {
                 stopAudition();
-                app.downloads().analyze(preview.url(), page - 1);
+                app.downloadOperations().analyze(preview.url(), page - 1);
             }
         } catch (IllegalArgumentException e) {
             notice = Text.get("download.darkmusic.page_invalid", availablePages(preview));
@@ -517,8 +572,9 @@ public final class DownloadScreen extends LocalScreen {
             notice = "";
             switch (mode) {
                 case VIDEO -> {
-                    if (single(p)) app.downloads().enqueueSelected(List.of(p.entries().getFirst()), destination);
-                    else if (p.videoAlso()) app.downloads().enqueueVideo(p.url(), destination);
+                    if (single(p))
+                        app.downloadOperations().enqueueSelected(List.of(p.entries().getFirst()), destination);
+                    else if (p.videoAlso()) app.downloadOperations().enqueueVideo(p.url(), destination);
                     else throw new IllegalArgumentException(Text.get("download.darkmusic.choose_collection_mode"));
                 }
                 case SELECTED -> {
@@ -526,18 +582,18 @@ public final class DownloadScreen extends LocalScreen {
                     var selected = known.entrySet().stream().filter(e -> checked.contains(e.getKey())).map(Map.Entry::getValue).toList();
                     if (selected.isEmpty())
                         throw new IllegalArgumentException(Text.get("text.darkmusic.check_at_least_one_preview_entry"));
-                    app.downloads().enqueueSelected(selected, destination);
+                    app.downloadOperations().enqueueSelected(selected, destination);
                 }
                 case RANGE -> {
                     int start = positive(from), end = positive(to);
                     // Validate here so a rejected range keeps the user on the form beside its fields.
                     DownloadModels.range(start, end);
-                    app.downloads().enqueueRange(p, start, end, destination);
+                    app.downloadOperations().enqueueRange(p, start, end, destination);
                 }
                 case ALL -> {
                     if (p.total() < 1) throw new IllegalArgumentException(Text.get("download.darkmusic.unknown_end"));
                     DownloadModels.range(1, p.total());
-                    app.downloads().enqueueRange(p, 1, p.total(), destination);
+                    app.downloadOperations().enqueueRange(p, 1, p.total(), destination);
                 }
             }
             stopAudition();
@@ -596,7 +652,7 @@ public final class DownloadScreen extends LocalScreen {
         cancelSelected.active = queueView && selectedItem.filter(i -> !i.status().finished()).isPresent();
         cancelAll.active = queueView && (snapshot.analyzing() || snapshot.items().stream().anyMatch(i -> !i.status().finished()));
         clearFinished.active = queueView && snapshot.items().stream().anyMatch(i -> i.status().finished() && i.status() != Status.FAILED);
-        download.setMessage(Component.literal(mode == Mode.SELECTED ? Text.get("format.darkmusic.download_checked", selection.size()) : mode == Mode.VIDEO ? Text.get("text.darkmusic.download_one_video") : mode == Mode.ALL ? Text.get("text.darkmusic.download_all_entries") : Text.get("text.darkmusic.download_range")));
+        download.setMessage(Component.literal(downloadLabel()));
         layout();
     }
 

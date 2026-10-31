@@ -20,14 +20,12 @@ class WatcherIsolationTest {
         Path root = Files.createDirectory(temp.resolve("music"));
         Path album = Files.createDirectory(root.resolve("album"));
         try (var library = new MusicLibrary(temp.resolve("data"))) {
-            var replace = MusicLibrary.class.getDeclaredMethod("replaceWatcher", List.class);
-            replace.setAccessible(true);
-            replace.invoke(library, List.of(root, album));
-            assertFalse(library.relevantWatchEvent(StandardWatchEventKinds.ENTRY_MODIFY, album));
-            assertFalse(library.relevantWatchEvent(StandardWatchEventKinds.ENTRY_CREATE, album.resolve("song.lrc.darkmusic.json")));
-            assertTrue(library.relevantWatchEvent(StandardWatchEventKinds.ENTRY_CREATE, album));
-            assertTrue(library.relevantWatchEvent(StandardWatchEventKinds.ENTRY_DELETE, album));
-            assertTrue(library.relevantWatchEvent(StandardWatchEventKinds.ENTRY_MODIFY, album.resolve("song.mp3")));
+            library.watcher().replace(List.of(root, album));
+            assertFalse(library.watcher().relevant(StandardWatchEventKinds.ENTRY_MODIFY, album));
+            assertFalse(library.watcher().relevant(StandardWatchEventKinds.ENTRY_CREATE, album.resolve("song.lrc.darkmusic.json")));
+            assertTrue(library.watcher().relevant(StandardWatchEventKinds.ENTRY_CREATE, album));
+            assertTrue(library.watcher().relevant(StandardWatchEventKinds.ENTRY_DELETE, album));
+            assertTrue(library.watcher().relevant(StandardWatchEventKinds.ENTRY_MODIFY, album.resolve("song.mp3")));
         }
     }
 
@@ -60,14 +58,10 @@ class WatcherIsolationTest {
             }
         };
         try (var library = new MusicLibrary(temp.resolve("data"))) {
-            var watcher = MusicLibrary.class.getDeclaredField("watcher");
-            watcher.setAccessible(true);
-            watcher.set(library, service);
-            var poll = MusicLibrary.class.getDeclaredMethod("poll");
-            poll.setAccessible(true);
+            library.watcher().service(service);
             Thread worker = Thread.ofPlatform().daemon().start(() -> {
                 try {
-                    poll.invoke(library);
+                    library.watcher().poll();
                 } catch (Throwable e) {
                     failure.set(e);
                 }

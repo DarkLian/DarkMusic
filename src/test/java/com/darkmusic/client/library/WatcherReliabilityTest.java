@@ -22,9 +22,7 @@ class WatcherReliabilityTest {
     }
 
     private void replace(MusicLibrary library, List<Path> directories) throws Exception {
-        var m = MusicLibrary.class.getDeclaredMethod("replaceWatcher", List.class);
-        m.setAccessible(true);
-        m.invoke(library, directories);
+        library.watcher().replace(directories);
     }
 
     @Test
@@ -32,20 +30,19 @@ class WatcherReliabilityTest {
         Path healthy = Files.createDirectory(temp.resolve("healthy")), missing = temp.resolve("later");
         try (var library = new MusicLibrary(temp.resolve("data"))) {
             replace(library, List.of(healthy, missing));
-            Object service = field(library, "watcher");
-            var keys = (Map<Path, WatchKey>) field(library, "watchKeys");
-            WatchKey original = keys.get(healthy);
+            Object service = library.watcher().service();
+            WatchKey original = library.watcher().key(healthy);
             Files.createDirectory(missing);
             replace(library, List.of(healthy, missing));
-            assertSame(service, field(library, "watcher"));
-            assertSame(original, keys.get(healthy));
-            assertFalse(keys.containsKey(missing));
-            ((Map<Path, Long>) field(library, "failedWatches")).put(missing, 0L);
+            assertSame(service, library.watcher().service());
+            assertSame(original, library.watcher().key(healthy));
+            assertFalse(library.watcher().watched().contains(missing));
+            library.watcher().retryNow(missing);
             replace(library, List.of(healthy, missing));
-            assertSame(service, field(library, "watcher"));
-            assertEquals(Set.of(healthy, missing), keys.keySet());
+            assertSame(service, library.watcher().service());
+            assertEquals(Set.of(healthy, missing), library.watcher().watched());
             assertTrue(original.isValid());
-            WatchKey removed = keys.get(missing);
+            WatchKey removed = library.watcher().key(missing);
             replace(library, List.of(healthy));
             assertFalse(removed.isValid());
             assertTrue(original.isValid());
@@ -57,22 +54,22 @@ class WatcherReliabilityTest {
         Path root = Files.createDirectory(temp.resolve("music"));
         try (var library = new MusicLibrary(temp.resolve("data"))) {
             for (String name : List.of(".darkmusic-work-example", ".darkmusic-lyrics-recovery-" + UUID.randomUUID() + ".json", "song.lrc.darkmusic-backup", "song.lrc.darkmusic.json", ".darkmusic-sources.json"))
-                assertTrue(library.ignoredWatchPath(root.resolve(name)), name);
-            assertFalse(library.ignoredWatchPath(root.resolve("song.mp3")));
+                assertTrue(library.watcher().ignored(root.resolve(name)), name);
+            assertFalse(library.watcher().ignored(root.resolve("song.mp3")));
             replace(library, List.of(root));
-            assertTrue(library.knownWatchPath(root));
-            assertFalse(library.knownWatchPath(root.resolve("unrelated.txt")));
+            assertTrue(library.watcher().known(root));
+            assertFalse(library.watcher().known(root.resolve("unrelated.txt")));
             Path audio = root.resolve("extensionless");
             var track = new Track("root", "extensionless", audio, "Song", "", "", 1, 10, 1, "");
             var snapshot = MusicLibrary.class.getDeclaredField("snapshot");
             snapshot.setAccessible(true);
             snapshot.set(library, new MusicLibrary.Snapshot(1, List.of(track), true, ""));
-            assertTrue(library.knownWatchPath(audio));
+            assertTrue(library.watcher().known(audio));
             snapshot.set(library, new MusicLibrary.Snapshot(2, List.of(track), false, ""));
             ((AtomicBoolean) field(library, "running")).set(true);
-            assertTrue(library.knownWatchPath(audio), "Cache publication cannot hide a deleted extensionless song");
+            assertTrue(library.watcher().known(audio), "Cache publication cannot hide a deleted extensionless song");
             ((AtomicBoolean) field(library, "running")).set(false);
-            assertFalse(library.knownWatchPath(root.resolve("never-indexed.mp3")));
+            assertFalse(library.watcher().known(root.resolve("never-indexed.mp3")));
         }
     }
 
@@ -97,13 +94,9 @@ class WatcherReliabilityTest {
             }
         };
         try (var library = new MusicLibrary(temp.resolve("data"))) {
-            var f = MusicLibrary.class.getDeclaredField("watcher");
-            f.setAccessible(true);
-            f.set(library, service);
-            var poll = MusicLibrary.class.getDeclaredMethod("poll");
-            poll.setAccessible(true);
-            assertDoesNotThrow(() -> poll.invoke(library));
-            assertDoesNotThrow(() -> poll.invoke(library));
+            library.watcher().service(service);
+            assertDoesNotThrow(() -> library.watcher().poll());
+            assertDoesNotThrow(() -> library.watcher().poll());
             assertEquals(2, attempts.get());
         }
     }

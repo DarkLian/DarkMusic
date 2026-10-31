@@ -48,15 +48,9 @@ public final class MusicLibrary implements AutoCloseable {
     private volatile Path root;
     private volatile String rootId;
     private volatile boolean closed;
-    private final Object watchLock = new Object();
     private final CompletableFuture<Void> watchClosed = new CompletableFuture<>();
-    private volatile WatchService watcher;
-    private volatile Set<Path> desiredWatchDirectories = Set.of();
-    private final Map<Path, WatchKey> watchKeys = new HashMap<>();
-    private final Map<Path, Long> failedWatches = new HashMap<>();
-    private final AtomicBoolean pollWarning = new AtomicBoolean();
+    private final LibraryWatcher watcher;
     private boolean cacheDirty;
-    private final AtomicBoolean watchWarning = new AtomicBoolean();
     private volatile Snapshot snapshot = new Snapshot(0, List.of(), false, Text.get("library.status.waiting"));
 
     public MusicLibrary(Path data) {
@@ -73,6 +67,7 @@ public final class MusicLibrary implements AutoCloseable {
         this.readableDirectory = readableDirectory;
         rootTimeoutNanos = TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
         cacheFile = data.resolve("library-cache.json");
+        watcher = new LibraryWatcher(() -> closed, this::requestRescan, this::knownFile, cacheFile.toAbsolutePath().getParent().resolve("downloads/work"));
         scanner.execute(() -> {
             try {
                 if (Files.exists(cacheFile)) try (var reader = Files.newBufferedReader(cacheFile)) {
@@ -85,7 +80,7 @@ public final class MusicLibrary implements AutoCloseable {
                 cache.clear();
             }
         });
-        monitor.scheduleWithFixedDelay(this::poll, 2, 2, TimeUnit.SECONDS);
+        monitor.scheduleWithFixedDelay(watcher::poll, 2, 2, TimeUnit.SECONDS);
         monitor.scheduleWithFixedDelay(this::rescan, 120, 120, TimeUnit.SECONDS);
     }
 
@@ -186,8 +181,44 @@ public final class MusicLibrary implements AutoCloseable {
             selected = roots;
             ticket = generation.get();
         }
-        var prior = snapshot;
-        // A first scan after restart also needs the persisted index when a subtree is unavailable.
+        var prior = withPersisted(selected, snapshot);
+        var jobs = startJobs(selected, ticket);
+        boolean waiting;
+        List<Long> previousVersions = null;
+        boolean wasWaiting = false;
+        Snapshot value = prior;
+        do {
+            if (closed || ticket != generation.get()) return;
+            waiting = false;
+            for (var job : jobs.values()) {
+                if (!job.result.isDone() && System.nanoTime() - job.progressAt < rootTimeoutNanos) waiting = true;
+                else if (!job.result.isDone()) job.timedOut = true;
+            }
+            var versions = jobs.values().stream().map(job -> job.revision * 2 + (job.timedOut ? 1 : 0)).toList();
+            if (!versions.equals(previousVersions) || waiting != wasWaiting) {
+                value = combined(ticket, selected, jobs, prior, waiting);
+                if (waiting) publish(ticket, value);
+                previousVersions = versions;
+                wasWaiting = waiting;
+            }
+            if (!waiting) {
+                saveIndex(value);
+                watcher.replace(consumeDirectories(jobs, ticket));
+                publish(ticket, value);
+            } else try {
+                Thread.sleep(250);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        } while (waiting);
+    }
+
+    /**
+     * The last snapshot plus the persisted index of the selected roots: a first scan after restart also needs the
+     * index when a subtree is unavailable.
+     */
+    private Snapshot withPersisted(Map<Path, String> selected, Snapshot prior) {
         var known = new LinkedHashMap<String, Track>();
         var rootPaths = new HashMap<String, Path>();
         selected.forEach((path, id) -> rootPaths.put(id, path));
@@ -201,7 +232,14 @@ public final class MusicLibrary implements AutoCloseable {
             } catch (InvalidPathException invalid) { /* Ignore malformed persisted paths. */ }
         }
         for (Track track : prior.tracks()) known.put(track.id(), track);
-        prior = new Snapshot(prior.revision(), List.copyOf(known.values()), prior.scanning(), prior.message(), prior.folders(), prior.complete(), prior.completeRoots());
+        return new Snapshot(prior.revision(), List.copyOf(known.values()), prior.scanning(), prior.message(), prior.folders(), prior.complete(), prior.completeRoots());
+    }
+
+    /**
+     * A job per selected root: a running job of this scan is reused, one of an earlier scan is cancelled and asks for
+     * a rescan when it ends, and a finished job of this scan not yet consumed is kept.
+     */
+    private Map<Path, RootJob> startJobs(Map<Path, String> selected, long ticket) {
         rootJobs.entrySet().removeIf(entry -> !selected.containsKey(entry.getKey()) && entry.getValue().result.isDone());
         var jobs = new LinkedHashMap<Path, RootJob>();
         for (var entry : selected.entrySet()) {
@@ -222,55 +260,42 @@ public final class MusicLibrary implements AutoCloseable {
             });
             jobs.put(entry.getKey(), job);
         }
-        boolean waiting;
-        List<Long> previousVersions = null;
-        boolean wasWaiting = false;
-        Snapshot value = prior;
-        do {
-            if (closed || ticket != generation.get()) return;
-            waiting = false;
-            for (var job : jobs.values()) {
-                if (!job.result.isDone() && System.nanoTime() - job.progressAt < rootTimeoutNanos) waiting = true;
-                else if (!job.result.isDone()) job.timedOut = true;
+        return jobs;
+    }
+
+    /**
+     * Replaces the index entries of the completely scanned roots and writes the index when it changed or the last
+     * write failed.
+     */
+    private void saveIndex(Snapshot value) {
+        var next = new HashMap<>(cache);
+        var completeRoots = value.completeRoots();
+        next.entrySet().removeIf(e -> completeRoots.contains(e.getValue().root));
+        for (Track track : value.tracks()) next.put(track.id(), Cached.of(track));
+        if (!next.equals(cache) || cacheDirty) {
+            cache.clear();
+            cache.putAll(next);
+            try {
+                ConfigStore.atomicWrite(cacheFile, ConfigStore.JSON.toJson(cache.values()));
+                cacheDirty = false;
+            } catch (IOException e) {
+                cacheDirty = true;
+                LoggerFactory.getLogger("darkmusic").warn("Could not save library index", e);
             }
-            var versions = jobs.values().stream().map(job -> job.revision * 2 + (job.timedOut ? 1 : 0)).toList();
-            if (!versions.equals(previousVersions) || waiting != wasWaiting) {
-                value = combined(ticket, selected, jobs, prior, waiting);
-                if (waiting) publish(ticket, value);
-                previousVersions = versions;
-                wasWaiting = waiting;
+        }
+    }
+
+    /**
+     * The folders this scan's finished jobs found, to watch; those jobs are consumed.
+     */
+    private List<Path> consumeDirectories(Map<Path, RootJob> jobs, long ticket) {
+        var directories = new ArrayList<Path>();
+        for (var job : jobs.values())
+            if (job.ticket == ticket && job.result.isDone()) {
+                directories.addAll(job.result.join().directories);
+                job.consumed = true;
             }
-            if (!waiting) {
-                var next = new HashMap<>(cache);
-                var completeRoots = value.completeRoots();
-                next.entrySet().removeIf(e -> completeRoots.contains(e.getValue().root));
-                for (Track track : value.tracks()) next.put(track.id(), Cached.of(track));
-                if (!next.equals(cache) || cacheDirty) {
-                    cache.clear();
-                    cache.putAll(next);
-                    try {
-                        ConfigStore.atomicWrite(cacheFile, ConfigStore.JSON.toJson(cache.values()));
-                        cacheDirty = false;
-                    } catch (IOException e) {
-                        cacheDirty = true;
-                        LoggerFactory.getLogger("darkmusic").warn("Could not save library index", e);
-                    }
-                }
-                var directories = new ArrayList<Path>();
-                for (var job : jobs.values())
-                    if (job.ticket == ticket && job.result.isDone()) {
-                        directories.addAll(job.result.join().directories);
-                        job.consumed = true;
-                    }
-                replaceWatcher(directories);
-                publish(ticket, value);
-            } else try {
-                Thread.sleep(250);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        } while (waiting);
+        return directories;
     }
 
     private Snapshot combined(long ticket, Map<Path, String> selected, Map<Path, RootJob> jobs, Snapshot prior, boolean scanning) {
@@ -349,15 +374,9 @@ public final class MusicLibrary implements AutoCloseable {
 
         @Override
         public void run() {
-            var tracks = new ArrayList<Track>();
-            var directories = new ArrayList<Path>();
-            var folders = new ArrayList<String>();
-            folders.add("@" + id);
-            int[] unreadable = {0}, recoveryDirectories = {0};
-            var unreadablePaths = new ArrayList<Path>();
+            var walk = new Walk();
             Semaphore permit = null;
             boolean acquired = false;
-            long[] publishedAt = {System.nanoTime()};
             boolean complete = false;
             String message = "";
             try {
@@ -371,184 +390,105 @@ public final class MusicLibrary implements AutoCloseable {
                 }
                 acquired = true;
                 progressAt = System.nanoTime();
-                Files.walkFileTree(directory, new SimpleFileVisitor<>() {
-                    @Override
-                    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
-                        progressAt = System.nanoTime();
-                        if (cancelled || closed || ticket != generation.get()) return FileVisitResult.TERMINATE;
-                        if (!readableDirectory.test(dir)) {
-                            unreadable[0]++;
-                            unreadablePaths.add(dir.toAbsolutePath().normalize());
-                            return FileVisitResult.SKIP_SUBTREE;
-                        }
-                        if (!dir.equals(directory) && dir.getFileName().toString().startsWith(".darkmusic-work-")) {
-                            recoveryDirectories[0]++;
-                            if (reportedWork.add(dir))
-                                LoggerFactory.getLogger("darkmusic-library").warn("Metadata recovery files retained; inspect before removing: {}", dir);
-                            return FileVisitResult.SKIP_SUBTREE;
-                        }
-                        if (dir.toAbsolutePath().normalize().equals(cacheFile.toAbsolutePath().getParent().resolve("downloads/work")))
-                            return FileVisitResult.SKIP_SUBTREE;
-                        directories.add(dir);
-                        String relative = directory.relativize(dir).toString().replace('\\', '/');
-                        if (!relative.isEmpty()) folders.add("@" + id + "/" + relative);
-                        return FileVisitResult.CONTINUE;
-                    }
-
-                    @Override
-                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                        progressAt = System.nanoTime();
-                        if (cancelled || closed || ticket != generation.get()) return FileVisitResult.TERMINATE;
-                        if (attrs.isRegularFile() && supported(file)) {
-                            String relative = directory.relativize(file).toString().replace('\\', '/');
-                            Cached old = cache.get(id + ":" + relative);
-                            tracks.add(old != null && old.size == attrs.size() && old.modified == attrs.lastModifiedTime().toMillis()
-                                ? old.track(file) : metadata.read(id, relative, file, attrs.size(), attrs.lastModifiedTime().toMillis()));
-                            if (tracks.size() % 100 == 0 && System.nanoTime() - publishedAt[0] > 250_000_000L) {
-                                partial = new RootResult(tracks, directories, folders, false, recoveryDirectories[0] == 0 ? "" : Text.get("library.status.recovery_folders", recoveryDirectories[0]), unreadablePaths);
-                                revision++;
-                                publishedAt[0] = System.nanoTime();
-                            }
-                        }
-                        return FileVisitResult.CONTINUE;
-                    }
-
-                    @Override
-                    public FileVisitResult visitFileFailed(Path file, IOException failure) {
-                        progressAt = System.nanoTime();
-                        unreadable[0]++;
-                        unreadablePaths.add(file.toAbsolutePath().normalize());
-                        return cancelled || closed || ticket != generation.get() ? FileVisitResult.TERMINATE : FileVisitResult.CONTINUE;
-                    }
-
-                    @Override
-                    public FileVisitResult postVisitDirectory(Path dir, IOException failure) {
-                        if (failure != null) {
-                            unreadable[0]++;
-                            unreadablePaths.add(dir.toAbsolutePath().normalize());
-                        }
-                        return cancelled || closed || ticket != generation.get() ? FileVisitResult.TERMINATE : FileVisitResult.CONTINUE;
-                    }
-                });
+                Files.walkFileTree(directory, walk);
                 complete = !cancelled && !closed && ticket == generation.get();
-                if (unreadable[0] != 0) message = Text.get("library.status.unreadable", unreadable[0]);
+                if (walk.unreadable != 0) message = Text.get("library.status.unreadable", walk.unreadable);
             } catch (Exception failure) {
                 message = Text.failure(failure, "library.status.scan_failed");
             } finally {
                 if (acquired) permit.release();
-                if (recoveryDirectories[0] > 0)
-                    message = (message.isBlank() ? "" : message + " | ") + Text.get("library.status.recovery_folders", recoveryDirectories[0]);
-                result.complete(new RootResult(tracks, directories, folders, complete, message, unreadablePaths));
+                if (walk.recoveryDirectories > 0)
+                    message = (message.isBlank() ? "" : message + " | ") + Text.get("library.status.recovery_folders", walk.recoveryDirectories);
+                result.complete(new RootResult(walk.tracks, walk.directories, walk.folders, complete, message, walk.unreadablePaths));
                 revision++;
                 if (timedOut && !closed) requestRescan();
             }
         }
-    }
 
+        /**
+         * One walk of the root: the songs, folders and unreadable paths it finds, published as partial results while
+         * it runs. It stops when the job is cancelled, the library closes or a newer scan starts.
+         */
+        private final class Walk extends SimpleFileVisitor<Path> {
+            private final List<Track> tracks = new ArrayList<>();
+            private final List<Path> directories = new ArrayList<>();
+            private final List<String> folders = new ArrayList<>(List.of("@" + id));
+            private final List<Path> unreadablePaths = new ArrayList<>();
+            private int unreadable, recoveryDirectories;
+            private long publishedAt = System.nanoTime();
+
+            private boolean stopped() {
+                return cancelled || closed || ticket != generation.get();
+            }
+
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                progressAt = System.nanoTime();
+                if (stopped()) return FileVisitResult.TERMINATE;
+                if (!readableDirectory.test(dir)) {
+                    unreadable++;
+                    unreadablePaths.add(dir.toAbsolutePath().normalize());
+                    return FileVisitResult.SKIP_SUBTREE;
+                }
+                if (!dir.equals(directory) && dir.getFileName().toString().startsWith(".darkmusic-work-")) {
+                    recoveryDirectories++;
+                    if (reportedWork.add(dir))
+                        LoggerFactory.getLogger("darkmusic-library").warn("Metadata recovery files retained; inspect before removing: {}", dir);
+                    return FileVisitResult.SKIP_SUBTREE;
+                }
+                if (dir.toAbsolutePath().normalize().equals(cacheFile.toAbsolutePath().getParent().resolve("downloads/work")))
+                    return FileVisitResult.SKIP_SUBTREE;
+                directories.add(dir);
+                String relative = directory.relativize(dir).toString().replace('\\', '/');
+                if (!relative.isEmpty()) folders.add("@" + id + "/" + relative);
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                progressAt = System.nanoTime();
+                if (stopped()) return FileVisitResult.TERMINATE;
+                if (attrs.isRegularFile() && supported(file)) {
+                    String relative = directory.relativize(file).toString().replace('\\', '/');
+                    Cached old = cache.get(id + ":" + relative);
+                    tracks.add(old != null && old.size == attrs.size() && old.modified == attrs.lastModifiedTime().toMillis()
+                        ? old.track(file) : metadata.read(id, relative, file, attrs.size(), attrs.lastModifiedTime().toMillis()));
+                    if (tracks.size() % 100 == 0 && System.nanoTime() - publishedAt > 250_000_000L) {
+                        partial = new RootResult(tracks, directories, folders, false, recoveryDirectories == 0 ? "" : Text.get("library.status.recovery_folders", recoveryDirectories), unreadablePaths);
+                        revision++;
+                        publishedAt = System.nanoTime();
+                    }
+                }
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFileFailed(Path file, IOException failure) {
+                progressAt = System.nanoTime();
+                unreadable++;
+                unreadablePaths.add(file.toAbsolutePath().normalize());
+                return stopped() ? FileVisitResult.TERMINATE : FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult postVisitDirectory(Path dir, IOException failure) {
+                if (failure != null) {
+                    unreadable++;
+                    unreadablePaths.add(dir.toAbsolutePath().normalize());
+                }
+                return stopped() ? FileVisitResult.TERMINATE : FileVisitResult.CONTINUE;
+            }
+        }
+    }
 
     private synchronized void publish(long ticket, Snapshot value) {
         if (!closed && ticket == generation.get()) snapshot = value;
     }
 
-    private void replaceWatcher(List<Path> directories) {
-        synchronized (watchLock) {
-            Set<Path> desired = Set.copyOf(directories);
-            desiredWatchDirectories = desired;
-            if (closed) return;
-            if (watcher == null) try {
-                watcher = FileSystems.getDefault().newWatchService();
-            } catch (IOException failure) {
-                watchFailed(failure);
-                return;
-            }
-            var iterator = watchKeys.entrySet().iterator();
-            while (iterator.hasNext()) {
-                var entry = iterator.next();
-                if (!desired.contains(entry.getKey()) || !entry.getValue().isValid()) {
-                    entry.getValue().cancel();
-                    iterator.remove();
-                }
-            }
-            failedWatches.keySet().retainAll(desired);
-            long now = System.nanoTime();
-            for (Path directory : desired) {
-                if (watchKeys.containsKey(directory) || now < failedWatches.getOrDefault(directory, 0L)) continue;
-                try {
-                    watchKeys.put(directory, directory.register(watcher, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_DELETE, StandardWatchEventKinds.ENTRY_MODIFY));
-                    failedWatches.remove(directory);
-                } catch (Exception failure) {
-                    failedWatches.put(directory, now + TimeUnit.MINUTES.toNanos(1));
-                    watchFailed(failure);
-                }
-            }
-        }
-    }
-
-    private void watchFailed(Exception failure) {
-        if (watchWarning.compareAndSet(false, true))
-            LoggerFactory.getLogger("darkmusic").warn("Some music folders cannot be watched; successful watches are retained and periodic scans remain active", failure);
-    }
-
-    private void poll() {
-        try {
-            pollEvents();
-        } catch (ClosedWatchServiceException closedService) {
-            if (!closed) {
-                closeWatcher();
-                requestRescan();
-            }
-        } catch (Throwable failure) {
-            if (pollWarning.compareAndSet(false, true))
-                LoggerFactory.getLogger("darkmusic-library").warn("Library change polling failed; polling will retry and periodic rescans remain enabled", failure);
-            if (!closed) requestRescan();
-        }
-    }
-
-    private void pollEvents() {
-        synchronized (watchLock) {
-            WatchService service = watcher;
-            if (service == null || closed) return;
-            boolean changed = false;
-            WatchKey key;
-            while ((key = service.poll()) != null) {
-                for (var event : key.pollEvents()) {
-                    if (event.kind() == StandardWatchEventKinds.OVERFLOW) {
-                        changed = true;
-                        continue;
-                    }
-                    if (!(event.context() instanceof Path relative)) continue;
-                    Path path = ((Path) key.watchable()).resolve(relative).normalize();
-                    changed |= relevantWatchEvent(event.kind(), path);
-                }
-                if (!key.reset()) {
-                    watchKeys.remove((Path) key.watchable(), key);
-                    changed = true;
-                }
-            }
-            if (changed) requestRescan();
-        }
-    }
-
-    boolean relevantWatchEvent(WatchEvent.Kind<?> kind, Path path) {
-        if (ignoredWatchPath(path)) return false;
-        if (kind == StandardWatchEventKinds.ENTRY_DELETE) return knownWatchPath(path);
-        // Parent directory modify events do not tell us that any audio changed inside it.
-        if (desiredWatchDirectories.contains(path)) return kind == StandardWatchEventKinds.ENTRY_CREATE;
-        if (Files.isDirectory(path)) return kind == StandardWatchEventKinds.ENTRY_CREATE;
-        return supported(path);
-    }
-
-    boolean ignoredWatchPath(Path path) {
-        String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-        return path.startsWith(cacheFile.toAbsolutePath().getParent().resolve("downloads/work")) || name.startsWith(".darkmusic-work-") ||
-            name.endsWith(".lrc.darkmusic-backup") || name.endsWith(".lrc.darkmusic.json") || name.startsWith(".darkmusic-") &&
-            (name.endsWith(".tmp") || name.equals(".darkmusic-downloads.json") || name.equals(".darkmusic-sources.json") ||
-                name.matches("\\.darkmusic-download-commit-[a-f0-9]{64}\\.json") || name.matches("\\.darkmusic-lyrics-[a-f0-9]{24}\\.json") ||
-                name.matches("\\.darkmusic-lyrics-recovery-[a-f0-9-]{36}\\.json"));
-    }
-
-    boolean knownWatchPath(Path path) {
-        if (desiredWatchDirectories.contains(path)) return true;
+    /**
+     * Whether the library's cache, or a scan still publishing, lists this file: its deletion is a change.
+     */
+    private boolean knownFile(Path path) {
         for (var entry : roots.entrySet())
             if (path.startsWith(entry.getKey())) {
                 String relative = entry.getKey().relativize(path).toString().replace('\\', '/');
@@ -557,20 +497,6 @@ public final class MusicLibrary implements AutoCloseable {
         // Cover initial partial scans and the short cache-publication window for extensionless tracks.
         var visible = snapshot;
         return (visible.scanning() || running.get()) && visible.tracks().stream().anyMatch(track -> track.file().equals(path));
-    }
-
-    private void closeWatcher() {
-        synchronized (watchLock) {
-            WatchService old = watcher;
-            watcher = null;
-            desiredWatchDirectories = Set.of();
-            watchKeys.clear();
-            failedWatches.clear();
-            if (old != null) try {
-                old.close();
-            } catch (IOException ignored) {
-            }
-        }
     }
 
     @Override
@@ -584,7 +510,7 @@ public final class MusicLibrary implements AutoCloseable {
         // Network filesystem calls in the watcher must not hold up the client closing this library.
         Thread.ofPlatform().daemon().name("darkmusic-watch-close").start(() -> {
             try {
-                closeWatcher();
+                watcher.close();
             } finally {
                 watchClosed.complete(null);
             }
@@ -592,6 +518,13 @@ public final class MusicLibrary implements AutoCloseable {
         scanner.shutdownNow();
         rootJobs.values().forEach(job -> job.cancelled = true);
         rootScanner.shutdownNow();
+    }
+
+    /**
+     * The folder watcher, for tests.
+     */
+    LibraryWatcher watcher() {
+        return watcher;
     }
 
     public boolean awaitStopped(long seconds) throws InterruptedException {

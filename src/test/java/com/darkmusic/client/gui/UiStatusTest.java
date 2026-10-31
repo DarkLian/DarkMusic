@@ -2,7 +2,9 @@ package com.darkmusic.client.gui;
 
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.download.DownloadModels;
+import com.darkmusic.client.lyrics.LyricsInfo;
 import com.darkmusic.client.lyrics.LyricsLookup;
+import com.darkmusic.client.render.LyricsStatusIcon;
 import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.render.UiTheme;
 import org.junit.jupiter.api.Test;
@@ -67,5 +69,18 @@ class UiStatusTest {
         assertEquals(UiStatus.Tone.WARNING, partial.tone());
         assertTrue(partial.status().contains("Source association repair pending"));
         assertFalse(partial.status().contains("song.mp3"));
+    }
+
+    @Test
+    void lyricsStatesHaveDistinctShapesAndAbsenceIsNotAnError() {
+        assertEquals(LyricsStatusIcon.Kind.AVAILABLE, LyricsStatusIcon.kind(LyricsInfo.AVAILABLE));
+        assertEquals(LyricsStatusIcon.Kind.INSTRUMENTAL, LyricsStatusIcon.kind(LyricsInfo.INSTRUMENTAL));
+        assertEquals(LyricsStatusIcon.Kind.NONE, LyricsStatusIcon.kind(LyricsInfo.UNAVAILABLE));
+        assertEquals(LyricsStatusIcon.Kind.NONE, LyricsStatusIcon.kind(LyricsInfo.lookup(LyricsLookup.Status.NOT_FOUND)));
+        assertEquals(LyricsStatusIcon.Kind.FAILED, LyricsStatusIcon.kind(LyricsInfo.lookup(LyricsLookup.Status.NETWORK)));
+        assertEquals(LyricsStatusIcon.Kind.PENDING, LyricsStatusIcon.kind(LyricsInfo.SEARCHING));
+        assertEquals(UiTheme.SECONDARY, UiStatus.lyricsColor(LyricsInfo.INSTRUMENTAL));
+        assertEquals(UiTheme.SECONDARY, UiStatus.lyricsColor(LyricsInfo.UNAVAILABLE));
+        assertEquals(UiStatus.color(UiStatus.Tone.ERROR), UiStatus.lyricsColor(LyricsInfo.lookup(LyricsLookup.Status.NETWORK)));
     }
 }

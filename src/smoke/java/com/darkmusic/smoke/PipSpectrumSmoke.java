@@ -73,7 +73,7 @@ final class PipSpectrumSmoke {
                 }
                 mc.gui.screen().mouseScrolled(mc.getWindow().getGuiScaledWidth() / 2.0, 300, 0, -1);
             }
-            if (!(mc.gui.screen() instanceof ColorsScreen) || SmokeUi.field(mc.gui.screen(), "target") != app.services().settings().pip.spectrum.colors)
+            if (!(mc.gui.screen() instanceof ColorsScreen) || SmokeUi.field(mc.gui.screen(), ColorsScreen.class, "target") != app.services().settings().pip.spectrum.colors)
                 throw new IllegalStateException("PiP colors did not open its own editor");
         }
         if (tick == 34) capture(mc, "colors");
@@ -82,7 +82,7 @@ final class PipSpectrumSmoke {
             app.services().settings().hudEnabled = false;
             var screen = new SettingsScreen(app.sources(), null);
             mc.gui.setScreen(screen);
-            SmokeUi.set(screen, "selectedSection", 4);
+            SmokeUi.set(screen, SettingsScreen.class, "selectedSection", 4);
             screen.init(960, 540);
         }
         if (tick == 46) capture(mc, "hud-disabled");

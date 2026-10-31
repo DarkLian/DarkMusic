@@ -8,6 +8,17 @@ public final class Await {
     private Await() {
     }
 
+    /**
+     * Waits up to 12 seconds for an asynchronous storage, audio or lyrics operation.
+     */
+    public static void of(BooleanSupplier condition) {
+        until(Duration.ofSeconds(12), condition, "asynchronous operation");
+    }
+
+    public static void of(Duration timeout, BooleanSupplier condition) {
+        until(timeout, condition, "condition");
+    }
+
     public static void until(Duration timeout, BooleanSupplier condition, String description) {
         long deadline = System.nanoTime() + timeout.toNanos();
         while (!condition.getAsBoolean()) {

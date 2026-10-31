@@ -7,9 +7,11 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,6 +40,14 @@ class ArchitectureTest {
     private static final int MAX_CLIENT_LINES = 290;
     // ClientServices holds the services; it is the next place a hurried change would land. Lower this; never raise it.
     private static final int MAX_SERVICES_LINES = 572;
+    private static final Path TESTS = Path.of("src/test/java/com/darkmusic/client");
+    private static final Set<String> ROOT_TESTS = new TreeSet<>(Set.of("ArchitectureTest", "BackupRestoreTest",
+        "CleanupTest", "ClientStateTest", "LibraryReconciliationTest", "MethodLengthTest", "PackagedJarTest",
+        "ResetOperationTest", "ResetStopTest", "RestoreOperationTest", "ScreenOperationsTest", "SettingsSettersTest",
+        "SmokeReflectionTest", "StartupShutdownTest"));
+    // A class name's words: "AudioUx231Test" is Audio, Ux, 231, Test.
+    private static final Pattern WORDS = Pattern.compile("(?<=[a-z])(?=[A-Z0-9])|(?<=[0-9])(?=[A-Z])");
+    private static final Pattern PROCESS_WORD = Pattern.compile("Review|Audit|Polish|Refinements?|Regression|Ux|\\d{3}");
     private static final Path CLIENT_SERVICES = SOURCES.resolve("ClientServices.java");
     private static final Path CLIENT = SOURCES.resolve("DarkMusicClient.java");
     private static final Path CLIENT_SOURCES = SOURCES.resolve("ClientSources.java");
@@ -245,6 +255,32 @@ class ArchitectureTest {
             }
         }
         assertEquals(List.of(), violations);
+    }
+
+    /**
+     * Tests live in their subject's package. The root holds only tests of the root package's own classes, the
+     * structure guards and the packaged-JAR check; fixtures go in testing.
+     */
+    @Test
+    void rootTestsAreAllowlisted() throws IOException {
+        try (var files = Files.list(TESTS)) {
+            var root = new TreeSet<>(files.map(f -> f.getFileName().toString()).filter(n -> n.endsWith(".java"))
+                .map(n -> n.substring(0, n.length() - ".java".length())).toList());
+            assertEquals(ROOT_TESTS, root, "Place a new test in its subject's package, or add it here on purpose");
+        }
+    }
+
+    /**
+     * A test class is named after what it tests, not the review, audit or release that produced it.
+     */
+    @Test
+    void testClassesNameASubject() throws IOException {
+        try (var files = Files.walk(TESTS)) {
+            var named = files.map(f -> f.getFileName().toString()).filter(n -> n.endsWith("Test.java"))
+                .filter(n -> Arrays.stream(WORDS.split(n.substring(0, n.length() - ".java".length())))
+                    .anyMatch(word -> PROCESS_WORD.matcher(word).matches())).sorted().toList();
+            assertEquals(List.of(), named);
+        }
     }
 
     private static boolean allowed(String from, String to) {

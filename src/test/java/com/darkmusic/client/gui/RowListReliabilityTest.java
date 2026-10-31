@@ -62,16 +62,11 @@ class RowListReliabilityTest {
                 if (fail) throw new IllegalStateException("Rejected write");
             });
             list.rows(List.of(new RowList.Row("A", ""), new RowList.Row("B", "")));
-            var drag = RowList.class.getDeclaredField("drag");
-            drag.setAccessible(true);
-            drag.set(list, new PlaylistDrag(0, 1, 1));
-            var finish = RowList.class.getDeclaredMethod("finishDrop");
-            finish.setAccessible(true);
-            assertDoesNotThrow(() -> finish.invoke(list));
-            assertNull(drag.get(list));
-            var dropping = RowList.class.getDeclaredField("dropping");
-            dropping.setAccessible(true);
-            assertNull(dropping.get(list));
+            list.dragState().press(0, 0, 0);
+            list.dragState().start(new PlaylistDrag(0, 1, 1), 0, 0, 36);
+            assertDoesNotThrow(list::finishDrop);
+            assertFalse(list.dragState().dragging());
+            assertFalse(list.dragState().dropping());
         }
     }
 
@@ -95,8 +90,6 @@ class RowListReliabilityTest {
         for (int i = 100; i < 200; i++) values.get(i);
         values.get(0);
         assertEquals(116, calls.get(), "Old viewport rows should be evicted");
-        var order = RowList.class.getDeclaredField("order");
-        order.setAccessible(true);
-        assertTrue(((List<?>) order.get(list)).isEmpty(), "Non-draggable lists do not need a full ordering array");
+        assertTrue(list.dragState().order().isEmpty(), "Non-draggable lists do not need a full ordering array");
     }
 }

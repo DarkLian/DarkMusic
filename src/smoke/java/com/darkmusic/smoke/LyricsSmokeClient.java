@@ -10,6 +10,7 @@ import com.darkmusic.client.hud.LyricsHud;
 import com.darkmusic.client.library.ArtworkCache;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.lyrics.*;
+import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
@@ -50,15 +51,15 @@ final class LyricsSmokeClient {
                 longText.begin();
                 longText.drawUpdating(g, font, "status", "The lyrics provider request failed | Retrying automatically in 120 s", 12, 40, 80, 0xffffffff);
                 longText.pan("status", 10_000);
-                var entries = (Map<?, ?>) SmokeUi.field(longText, "lines");
+                var entries = (Map<?, ?>) SmokeUi.field(longText, HorizontalText.class, "lines");
                 Object line = entries.get("status");
-                double before = (double) SmokeUi.field(line, "offset");
+                double before = (double) SmokeUi.field(line, "com.darkmusic.client.render.HorizontalText$Line", "offset");
                 longText.drawUpdating(g, font, "status", "The lyrics provider request failed | Retrying automatically in 119 s", 12, 40, 80, 0xffffffff);
-                double after = (double) SmokeUi.field(line, "offset");
-                check(before > 0 && after == Math.min(before, (int) SmokeUi.field(line, "maximum")), "Live status preserves horizontal position");
-                check(((String) SmokeUi.field(line, "visible")).contains("119"), "Updated retry countdown is visible");
+                double after = (double) SmokeUi.field(line, "com.darkmusic.client.render.HorizontalText$Line", "offset");
+                check(before > 0 && after == Math.min(before, (int) SmokeUi.field(line, "com.darkmusic.client.render.HorizontalText$Line", "maximum")), "Live status preserves horizontal position");
+                check(((String) SmokeUi.field(line, "com.darkmusic.client.render.HorizontalText$Line", "visible")).contains("119"), "Updated retry countdown is visible");
                 longText.draw(g, font, "status", "Another song title that starts from the beginning", 12, 60, 80, 0xffffffff);
-                check((double) SmokeUi.field(line, "offset") == 0, "Ordinary replacement starts at the beginning");
+                check((double) SmokeUi.field(line, "com.darkmusic.client.render.HorizontalText$Line", "offset") == 0, "Ordinary replacement starts at the beginning");
                 scrollVerified = true;
             }
         });
@@ -157,7 +158,8 @@ final class LyricsSmokeClient {
         try {
             check(++ticks < 1800, "Lyrics smoke timeout: " + stage);
             var app = DarkMusicClient.INSTANCE;
-            if (app == null || !app.services().playlistsReady() || !mc.isGameLoadFinished() || mc.gui.overlay() != null) return;
+            if (app == null || !app.services().playlistsReady() || !mc.isGameLoadFinished() || mc.gui.overlay() != null)
+                return;
             if (stage == -2) {
                 Path tools = Path.of(System.getProperty("darkmusic.downloadTools"));
                 app.services().settings().ffmpegPath = tools.resolve("ffmpeg.exe").toString();
@@ -173,7 +175,8 @@ final class LyricsSmokeClient {
                 return;
             }
             if (stage == -1) {
-                if (app.services().library().snapshot().scanning() || app.services().library().snapshot().tracks().isEmpty()) return;
+                if (app.services().library().snapshot().scanning() || app.services().library().snapshot().tracks().isEmpty())
+                    return;
                 SmokeUi.displayReady(mc);
                 Path requested = Path.of(System.getProperty("darkmusic.music")).toAbsolutePath().normalize();
                 String root = app.services().library().roots().get(requested);
@@ -238,15 +241,15 @@ final class LyricsSmokeClient {
                 app.services().settings().lyricsHud = app.services().settings().lyricsNextLine = true;
                 var settingsScreen = new SettingsScreen(app.sources(), null);
                 mc.gui.setScreen(settingsScreen);
-                var keys = (String[]) SmokeUi.field(settingsScreen, "SECTION_KEYS");
+                var keys = (String[]) SmokeUi.field(settingsScreen, SettingsScreen.class, "SECTION_KEYS");
                 check(keys[1].equals("settings.audio_section") && keys[2].equals("lyrics.section")
                     && keys[3].equals("settings.appearance_section"), "Audio, Lyrics and Appearance order");
                 for (int section = 0; section < keys.length; section++) {
-                    SmokeUi.set(settingsScreen, "selectedSection", section);
+                    SmokeUi.set(settingsScreen, SettingsScreen.class, "selectedSection", section);
                     for (int w : new int[]{320, 426, 960}) bounds(settingsScreen, w, w == 960 ? 540 : 240);
                 }
                 var category = SmokeUi.find(mc, Text.get("lyrics.section"));
-                check(category != null && SmokeUi.field(category, "icon") == null, "Lyrics category has no icon");
+                check(category != null && SmokeUi.field(category, UiButton.class, "icon") == null, "Lyrics category has no icon");
                 var player = new MusicScreen(app.sources(), null);
                 mc.gui.setScreen(player);
                 for (int w : new int[]{320, 426, 960}) {
@@ -395,7 +398,8 @@ final class LyricsSmokeClient {
                 app.services().playback().seek(app.services().playback().state().duration() * .4);
                 stage = 13;
             } else if (stage == 13) {
-                if (Math.abs(app.services().playback().state().position() / app.services().playback().state().duration() - .4) > .03) return;
+                if (Math.abs(app.services().playback().state().position() / app.services().playback().state().duration() - .4) > .03)
+                    return;
                 app.services().playback().pause();
                 mc.gui.setScreen(new MusicScreen(app.sources(), null));
                 since = ticks;
@@ -406,32 +410,33 @@ final class LyricsSmokeClient {
                 app.services().settings().hudStyle = Settings.HudStyle.ARTWORK;
                 var waveformSettings = new SettingsScreen(app.sources(), null);
                 mc.gui.setScreen(waveformSettings);
-                SmokeUi.set(waveformSettings, "selectedSection", 4);
+                SmokeUi.set(waveformSettings, SettingsScreen.class, "selectedSection", 4);
                 for (var style : WaveformSettings.Style.values()) {
                     app.services().settings().waveform.style = style;
                     for (int w : new int[]{320, 426, 960}) {
-                        SmokeUi.set(waveformSettings, "previewOnly", true);
+                        SmokeUi.set(waveformSettings, SettingsScreen.class, "previewOnly", true);
                         bounds(waveformSettings, w, w == 960 ? 540 : 240);
-                        var playerPreview = (ValueSlider) SmokeUi.field(waveformSettings, "playerProgressPreview");
-                        check(playerPreview.getX() >= 0 && playerPreview.getRight() <= w && playerPreview.getY() >= 0 && playerPreview.getBottom() <= waveformSettings.height,
+                        var playerPreview = waveformSettings.previewBounds();
+                        check(playerPreview.progressX() >= 0 && playerPreview.progressX() + playerPreview.progressWidth() <= w && playerPreview.progressY() >= 0
+                                && playerPreview.progressY() + playerPreview.progressHeight() <= waveformSettings.height,
                             "Main-menu progress preview fits compact and wide settings");
                     }
                 }
                 app.services().settings().waveform.style = WaveformSettings.Style.FILLED;
                 waveformSettings.init(960, 540);
                 // The HUD section has several groups (Appearance, Motion, Card, Progress); only the Progress heading counts.
-                var groups = ((List<?>) SmokeUi.field(waveformSettings, "subsections")).stream()
-                    .filter(group -> (int) SmokeUi.field(group, "section") == 4
-                        && SmokeUi.field(group, "title").equals(Text.get("progress.darkmusic.group"))).toList();
+                var groups = ((List<?>) SmokeUi.field(waveformSettings, SettingsScreen.class, "subsections")).stream()
+                    .filter(group -> (int) SmokeUi.field(group, "com.darkmusic.client.gui.SettingsLayout$Subsection", "section") == 4
+                        && SmokeUi.field(group, "com.darkmusic.client.gui.SettingsLayout$Subsection", "title").equals(Text.get("progress.darkmusic.group"))).toList();
                 check(groups.size() == 1, "Progress uses the shared category heading renderer");
-                int groupY = (int) SmokeUi.field(groups.getFirst(), "y");
-                var placed = (List<?>) SmokeUi.field(waveformSettings, "controls");
+                int groupY = (int) SmokeUi.field(groups.getFirst(), "com.darkmusic.client.gui.SettingsLayout$Subsection", "y");
+                var placed = (List<?>) SmokeUi.field(waveformSettings, SettingsScreen.class, "controls");
                 for (String label : List.of(
                     Text.get("hud.darkmusic.transparency", Math.round(app.services().settings().hudBackgroundTransparency * 100)),
                     Text.get("hud.darkmusic.background_gradient"),
                     Text.get("hud.darkmusic.background_colors"))) {
-                    var control = placed.stream().filter(row -> ((AbstractWidget) SmokeUi.field(row, "widget")).getMessage().getString().equals(label)).findFirst().orElseThrow();
-                    check((int) SmokeUi.field(control, "y") < groupY, "HUD background controls precede Progress Bar");
+                    var control = placed.stream().filter(row -> ((AbstractWidget) SmokeUi.field(row, "com.darkmusic.client.gui.SettingsLayout$Placed", "widget")).getMessage().getString().equals(label)).findFirst().orElseThrow();
+                    check((int) SmokeUi.field(control, "com.darkmusic.client.gui.SettingsLayout$Placed", "y") < groupY, "HUD background controls precede Progress Bar");
                 }
                 SmokeUi.click(mc, Text.get("waveform.style") + ": " + Text.get("waveform.style.filled"));
                 app.services().settings().waveform.style = WaveformSettings.Style.FILLED;

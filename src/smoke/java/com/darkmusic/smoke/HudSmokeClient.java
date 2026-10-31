@@ -4,8 +4,10 @@ import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.config.*;
 import com.darkmusic.client.download.DownloadModels;
+import com.darkmusic.client.download.DownloadService;
 import com.darkmusic.client.gui.*;
 import com.darkmusic.client.hud.*;
+import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.text.Text;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
@@ -26,9 +28,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.*;
 
-import static com.darkmusic.smoke.SmokeUi.field;
-import static com.darkmusic.smoke.SmokeUi.set;
-
 /**
  * Runtime checks use the current private library and the same renderer as gameplay.
  */
@@ -47,22 +46,23 @@ final class HudSmokeClient {
     private void pan(RowList rows) throws Exception {
         rows.setFocused(true);
         rows.select(0);
-        int vertical = (int) field(rows, "scroll");
-        var text = field(rows, "horizontal");
+        int vertical = (int) SmokeUi.field(rows, RowList.class, "scroll");
+        var text = SmokeUi.field(rows, RowList.class, "horizontal");
         Object zone = null;
-        for (var candidate : (List<?>) field(text, "zones"))
-            if (field(candidate, "key").equals("title0")) zone = candidate;
+        for (var candidate : (List<?>) SmokeUi.field(text, HorizontalText.class, "zones"))
+            if (SmokeUi.field(candidate, "com.darkmusic.client.render.HorizontalText$Zone", "key").equals("title0"))
+                zone = candidate;
         require(zone != null, "Visible title has no horizontal text hit zone");
-        require(rows.mouseScrolled((int) field(zone, "x") + 1, (int) field(zone, "y") + 1, -1000, 0), "Horizontal trackpad input was ignored");
-        var lines = (Map<?, ?>) field(text, "lines");
+        require(rows.mouseScrolled((int) SmokeUi.field(zone, "com.darkmusic.client.render.HorizontalText$Zone", "x") + 1, (int) SmokeUi.field(zone, "com.darkmusic.client.render.HorizontalText$Zone", "y") + 1, -1000, 0), "Horizontal trackpad input was ignored");
+        var lines = (Map<?, ?>) SmokeUi.field(text, HorizontalText.class, "lines");
         var line = lines.get("title0");
-        double end = (double) field(line, "offset");
-        require(end > 0 && end == (int) field(line, "maximum"), "Long Unicode title did not pan fully right");
+        double end = (double) SmokeUi.field(line, "com.darkmusic.client.render.HorizontalText$Line", "offset");
+        require(end > 0 && end == (int) SmokeUi.field(line, "com.darkmusic.client.render.HorizontalText$Line", "maximum"), "Long Unicode title did not pan fully right");
         rows.keyPressed(new KeyEvent(263, 0, 0));
-        require((double) field(line, "offset") < end, "Left key did not pan the focused row");
+        require((double) SmokeUi.field(line, "com.darkmusic.client.render.HorizontalText$Line", "offset") < end, "Left key did not pan the focused row");
         rows.keyPressed(new KeyEvent(262, 0, 0));
-        require((double) field(line, "offset") == end, "Right key did not pan the focused row");
-        require((int) field(rows, "scroll") == vertical && rows.selected() == 0, "Horizontal panning changed vertical position or selection");
+        require((double) SmokeUi.field(line, "com.darkmusic.client.render.HorizontalText$Line", "offset") == end, "Right key did not pan the focused row");
+        require((int) SmokeUi.field(rows, RowList.class, "scroll") == vertical && rows.selected() == 0, "Horizontal panning changed vertical position or selection");
     }
 
     private MouseButtonEvent mouse(double x, double y) {
@@ -76,12 +76,8 @@ final class HudSmokeClient {
     private int waveformWait;
 
     private static double rotationTurn() throws Exception {
-        var type = Class.forName("com.darkmusic.client.hud.CircularRotation");
-        var shared = type.getDeclaredField("SHARED");
-        shared.setAccessible(true);
-        var field = type.getDeclaredField("turn");
-        field.setAccessible(true);
-        return field.getDouble(shared.get(null));
+        var shared = SmokeUi.field(null, "com.darkmusic.client.hud.CircularRotation", "SHARED");
+        return (double) SmokeUi.field(shared, "com.darkmusic.client.hud.CircularRotation", "turn");
     }
 
     void start() {
@@ -117,10 +113,10 @@ final class HudSmokeClient {
                     screen = new SettingsScreen(app.sources(), mc.gui.screen());
                     mc.gui.setScreen(screen);
                     double actualScale = s.hudScale;
-                    int px = (int) field(screen, "previewX"), py = (int) field(screen, "previewY");
+                    int px = screen.previewBounds().x(), py = screen.previewBounds().y();
                     screen.mouseScrolled(px + 30, py + 40, 0, 1);
-                    require((double) field(screen, "previewScale") == 1.1 && s.hudScale == actualScale, "Preview scaling changed the actual HUD");
-                    require(((String) field(screen, "folderPath")).equals(app.services().library().root().toString()), "Selected folder path is missing");
+                    require(screen.previewBounds().scale() == 1.1 && s.hudScale == actualScale, "Preview scaling changed the actual HUD");
+                    require(((String) SmokeUi.field(screen, SettingsScreen.class, "folderPath")).equals(app.services().library().root().toString()), "Selected folder path is missing");
                     require(screen.children().stream().noneMatch(c -> c instanceof AbstractWidget w && w.getMessage().getString().equals("Music-Player Visualizer")), "Legacy visualizer setting remains");
                     state++;
                 }
@@ -294,13 +290,13 @@ final class HudSmokeClient {
                     var cover = app.services().artwork().get(track);
                     require(cover != null && cover.size() > 256, "High-resolution cover was not loaded");
                     String title = (track.title() + " 音樂 ").repeat(8) + "終點";
-                    ((RowList) field(music, "songs")).rows(List.of(new RowList.Row(title, track.relativePath().repeat(6))));
-                    ((RowList) field(music, "navigation")).rows(List.of(new RowList.Row(title, "")));
+                    ((RowList) SmokeUi.widget(music, RowList.class, Text.get("text.darkmusic.songs_enter_or_double_click_to_play"))).rows(List.of(new RowList.Row(title, track.relativePath().repeat(6))));
+                    ((RowList) SmokeUi.widget(music, RowList.class, Text.get("text.darkmusic.library_navigation"))).rows(List.of(new RowList.Row(title, "")));
                     state++;
                 }
                 case 27 -> {
-                    pan((RowList) field(mc.gui.screen(), "songs"));
-                    pan((RowList) field(mc.gui.screen(), "navigation"));
+                    pan((RowList) SmokeUi.widget(mc.gui.screen(), RowList.class, Text.get("text.darkmusic.songs_enter_or_double_click_to_play")));
+                    pan((RowList) SmokeUi.widget(mc.gui.screen(), RowList.class, Text.get("text.darkmusic.library_navigation")));
                     state++;
                 }
                 case 28 -> {
@@ -308,29 +304,29 @@ final class HudSmokeClient {
                     var downloads = new DownloadScreen(app.sources(), mc.gui.screen());
                     mc.gui.setScreen(downloads);
                     String link = "https://example.com/collection";
-                    ((EditBox) field(downloads, "url")).setValue(link);
+                    ((EditBox) SmokeUi.widget(downloads, EditBox.class, Text.get("text.darkmusic.video_or_collection_url"))).setValue(link);
                     var track = app.services().library().snapshot().tracks().getFirst();
                     var entry = new DownloadModels.Entry(1, (track.title() + " 日本語 中文 ").repeat(12) + "終點", link, "Generic", "one", true);
-                    set(field(app.services().downloads(), "previews"), "preview", new DownloadModels.Preview(link, "Collection", "Generic", true, false, 1, 1, false, List.of(entry)));
-                    set(app.services().downloads(), "message", ("Collection details: " + track.relativePath() + " ").repeat(10));
-                    set(app.services().downloads(), "published", null);
+                    SmokeUi.set(SmokeUi.field(app.services().downloads(), DownloadService.class, "previews"), "com.darkmusic.client.download.DownloadPreview", "preview", new DownloadModels.Preview(link, "Collection", "Generic", true, false, 1, 1, false, List.of(entry)));
+                    SmokeUi.set(app.services().downloads(), DownloadService.class, "message", ("Collection details: " + track.relativePath() + " ").repeat(10));
+                    SmokeUi.set(app.services().downloads(), DownloadService.class, "published", null);
                     downloads.tick();
                     state++;
                 }
                 case 29 -> {
-                    var results = (RowList) field(mc.gui.screen(), "rows");
+                    var results = (RowList) SmokeUi.widget(mc.gui.screen(), RowList.class, Text.get("text.darkmusic.preview_or_queue"));
                     pan(results);
                     // The status line starts at the result list, which moves right in the wide layout.
-                    require(mc.gui.screen().mouseScrolled(results.getX() + 20, (int) field(mc.gui.screen(), "resultTop") - 8, -1000, 0), "Long download status did not scroll");
+                    require(mc.gui.screen().mouseScrolled(results.getX() + 20, (int) ((DownloadScreen) mc.gui.screen()).view().resultTop() - 8, -1000, 0), "Long download status did not scroll");
                     state++;
                 }
                 case 30 -> {
                     capture(mc, "long-download-text");
                     mc.gui.screen().onClose();
                     mc.gui.setScreen(new DownloadToolsScreen(app.sources(), mc.gui.screen()));
-                    var cancel = (AbstractWidget) field(mc.gui.screen(), "cancel");
+                    var cancel = (AbstractWidget) SmokeUi.field(mc.gui.screen(), DownloadToolsScreen.class, "cancel");
                     require(!cancel.visible, "Idle tools screen still shows a Cancel button");
-                    var check = (Button) field(mc.gui.screen(), "check");
+                    var check = (Button) SmokeUi.field(mc.gui.screen(), DownloadToolsScreen.class, "check");
                     check.onClick(mouse(check.getX() + 3, check.getY() + 3), false);
                     mc.gui.screen().tick();
                     require(cancel.visible, "Running tool check has no operation-cancel button");
@@ -341,7 +337,7 @@ final class HudSmokeClient {
                 case 31 -> {
                     if (app.services().downloads().snapshot().analyzing()) return;
                     mc.gui.screen().tick();
-                    require(!((AbstractWidget) field(mc.gui.screen(), "cancel")).visible, "Tool cancel button remains after completion");
+                    require(!((AbstractWidget) SmokeUi.field(mc.gui.screen(), DownloadToolsScreen.class, "cancel")).visible, "Tool cancel button remains after completion");
                     capture(mc, "tools-idle");
                     state++;
                 }
@@ -496,7 +492,7 @@ final class HudSmokeClient {
                 }
                 case 46 -> {
                     capture(mc, "circular-live-preview");
-                    require(screen.mouseScrolled((int) field(screen, "previewX") + 30, (int) field(screen, "previewY") + 40, 0, 1), "Circular preview did not scale");
+                    require(screen.mouseScrolled(screen.previewBounds().x() + 30, screen.previewBounds().y() + 40, 0, 1), "Circular preview did not scale");
                     state++;
                 }
                 case 47 -> {
@@ -751,7 +747,7 @@ final class HudSmokeClient {
                 }
                 case 76 -> {
                     var settingsScreen = (SettingsScreen) mc.gui.screen();
-                    require((int) SmokeUi.field(settingsScreen, "selectedSection") == 0, "Settings did not open on General");
+                    require((int) SmokeUi.field(settingsScreen, SettingsScreen.class, "selectedSection") == 0, "Settings did not open on General");
                     require(settingsScreen.previewsProgress(), "Settings General preview fell back to the plain progress bar");
                     var first = app.services().library().snapshot().tracks().getFirst();
                     if (app.services().waveforms().get(first) == null && app.services().waveforms().get(app.services().playback().state().track()) == null) {

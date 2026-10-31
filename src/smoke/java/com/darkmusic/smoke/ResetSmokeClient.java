@@ -152,7 +152,8 @@ final class ResetSmokeClient {
                     stage++;
                 }
                 case 2 -> {
-                    if (!custom.equals(app.services().library().root()) || app.services().library().snapshot().scanning()) return;
+                    if (!custom.equals(app.services().library().root()) || app.services().library().snapshot().scanning())
+                        return;
                     require(!app.services().library().snapshot().tracks().isEmpty(), "Copied real collection did not scan");
                     require(app.services().settings().roots.keySet().stream().allMatch(r -> Path.of(r).startsWith(data)), "Original collection entered reset scope");
                     for (var old : app.services().playlists().all()) app.services().playlists().delete(old.id());
@@ -173,11 +174,11 @@ final class ResetSmokeClient {
                 }
                 case 3 -> {
                     // Built-in Favorite Music is listed and selected first and cannot be deleted.
-                    var lists = (RowList) SmokeUi.field(mc.gui.screen(), "lists");
-                    var titles = ((List<RowList.Row>) SmokeUi.field(lists, "rows")).stream().map(RowList.Row::title).toList();
+                    var lists = (RowList) SmokeUi.field(mc.gui.screen(), PlaylistScreen.class, "lists");
+                    var titles = ((List<RowList.Row>) SmokeUi.field(lists, RowList.class, "rows")).stream().map(RowList.Row::title).toList();
                     int index = titles.indexOf(titles.stream().filter(t -> t.startsWith(app.services().playlists().displayName(app.services().playlists().get(playlist)) + " (")).findFirst().orElse(""));
                     require(index >= 0, "Reset test playlist is not listed: " + titles);
-                    lists.onClick(new MouseButtonEvent(lists.getX() + 4, lists.getY() + index * (int) SmokeUi.field(lists, "rowHeight") + 4, new MouseButtonInfo(0, 0)), false);
+                    lists.onClick(new MouseButtonEvent(lists.getX() + 4, lists.getY() + index * (int) SmokeUi.field(lists, RowList.class, "rowHeight") + 4, new MouseButtonInfo(0, 0)), false);
                     mc.gui.screen().tick();
                     click(mc, "text.darkmusic.delete");
                     require(mc.gui.screen() instanceof ConfirmationScreen, "Playlist delete did not open shared confirmation");
@@ -267,7 +268,7 @@ final class ResetSmokeClient {
                     if (!saved.isDone() || app.services().library().snapshot().scanning()) return;
                     require(ConfigStore.JSON.toJson(saved.join()).equals(ConfigStore.JSON.toJson(app.services().settings())), "Defaults were not saved");
                     require(app.services().library().snapshot().tracks().size() == 1, "Preserved default-folder music did not rescan immediately");
-                    require((double) SmokeUi.field(settingsScreen, "previewScale") <= 1, "Preview scale did not reset");
+                    require(((SettingsScreen) settingsScreen).previewBounds().scale() <= 1, "Preview scale did not reset");
                     for (var entry : hashes.entrySet())
                         require(entry.getValue().equals(hash(entry.getKey())), "Reset changed media bytes: " + entry.getKey());
                     stage = 8;

@@ -94,4 +94,29 @@ class DuplicateMatcherTest {
         assertThrows(CancellationException.class, () -> new DuplicateMatcher().match(entries, DuplicatePolicy.LOOSE, cancelled, v -> {
         }));
     }
+
+    @Test
+    void incrementalAudioDiscoveryDoesNotRepeatTheHundredThousandTrackPass() {
+        long started = System.nanoTime();
+        var session = new DuplicateMatcher.Session(DuplicatePolicy.BALANCED, new ProcessRunner.Token());
+        var entries = new ArrayList<DuplicateMatcher.Entry>();
+        for (int i = 0; i < 100_000; i++) {
+            String id = "unique" + i;
+            var t = new Track("root", id, Path.of(id), id, "", "", 180, 1, 1, "");
+            var e = new DuplicateMatcher.Entry(t, id, "", "", new int[0]);
+            entries.add(e);
+            session.add(e);
+        }
+        long before = session.snapshot().comparisons();
+        int[] fingerprint = new Random(71).ints(400).toArray();
+        for (int i : new int[]{0, 99_999}) {
+            var e = entries.get(i);
+            session.update(i, new DuplicateMatcher.Entry(e.track(), e.stamp(), "", "", fingerprint));
+        }
+        var result = session.snapshot();
+        assertEquals(1, result.comparisons() - before);
+        assertEquals(1, result.pairs().size());
+        assertTrue(result.pairs().getFirst().evidence().contains(DuplicateResult.Evidence.AUDIO));
+        System.out.printf("100k indexed entries plus two fingerprint updates: %.3f s, %d comparisons%n", (System.nanoTime() - started) / 1e9, result.comparisons());
+    }
 }

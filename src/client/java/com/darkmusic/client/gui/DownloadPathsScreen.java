@@ -22,6 +22,8 @@ public final class DownloadPathsScreen extends LocalScreen {
          * Null until startup creates it.
          */
         DownloadService downloads();
+
+        DownloadOperations downloadOperations();
     }
 
     private final Sources app;
@@ -84,7 +86,7 @@ public final class DownloadPathsScreen extends LocalScreen {
         app.settings().ffmpegPath = values[1].strip();
         app.settings().ffprobePath = values[2].strip();
         app.settings().javascriptPath = values[3].strip();
-        app.downloads().configure(new ToolPaths(app.settings().ytDlpPath, app.settings().ffmpegPath, app.settings().ffprobePath, app.settings().javascriptPath));
+        app.downloadOperations().configure(new ToolPaths(app.settings().ytDlpPath, app.settings().ffmpegPath, app.settings().ffprobePath, app.settings().javascriptPath));
         super.removed();
     }
 

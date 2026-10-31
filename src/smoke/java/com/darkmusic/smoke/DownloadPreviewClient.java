@@ -4,6 +4,7 @@ import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.download.*;
 import com.darkmusic.client.gui.*;
+import com.darkmusic.client.text.Text;
 import com.darkmusic.client.tools.ToolPaths;
 import com.sun.net.httpserver.HttpServer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -17,9 +18,6 @@ import java.net.InetSocketAddress;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
-
-import static com.darkmusic.smoke.SmokeUi.field;
-import static com.darkmusic.smoke.SmokeUi.set;
 
 /**
  * Real-device audition and download-screen safety checks; local private music never leaves loopback.
@@ -144,19 +142,19 @@ final class DownloadPreviewClient {
         var jobs = List.of(new DownloadModels.Item(101, tracks.getFirst().title(), app.services().library().root(), DownloadModels.Status.QUEUED, -1, "Waiting"),
             new DownloadModels.Item(202, tracks.get(1).title(), app.services().library().root(), DownloadModels.Status.FAILED, -1, "HTTP 403 unique queue search"),
             new DownloadModels.Item(303, tracks.get(2).title(), app.services().library().root(), DownloadModels.Status.SAVED, 1, "Saved"));
-        set(app.services().downloads(), "published", new DownloadModels.Snapshot(false, "", snapshot.toolStatus(), snapshot.preview(), jobs));
+        SmokeUi.set(app.services().downloads(), DownloadService.class, "published", new DownloadModels.Snapshot(false, "", snapshot.toolStatus(), snapshot.preview(), jobs));
         click(mc, "Queue / Entries");
         screen.tick();
-        require(!((AbstractWidget) field(screen, "modeButton")).active && !((AbstractWidget) field(screen, "download")).active, "Queue allows changing download mode or queuing a new download");
-        var search = (EditBox) field(screen, "search");
+        require(!((AbstractWidget) SmokeUi.widget(screen, AbstractWidget.class, Text.get("format.darkmusic.mode", ((DownloadScreen) screen).view().modeLabel()))).active && !((AbstractWidget) SmokeUi.widget(screen, AbstractWidget.class, ((DownloadScreen) screen).view().downloadLabel())).active, "Queue allows changing download mode or queuing a new download");
+        var search = (EditBox) SmokeUi.widget(screen, EditBox.class, Text.get("download.darkmusic.search"));
         require(search.visible && search.active, "Queue search is unavailable");
         search.setValue("unique queue search");
         screen.tick();
-        require(((List<?>) field(screen, "visibleJobs")).size() == 1, "Queue error search did not filter");
-        var rows = (RowList) field(screen, "rows");
+        require(((List<?>) ((DownloadScreen) screen).view().jobs()).size() == 1, "Queue error search did not filter");
+        var rows = (RowList) SmokeUi.widget(screen, RowList.class, Text.get("text.darkmusic.preview_or_queue"));
         rows.onClick(mouse(rows.getX() + 40, rows.getY() + 5), false);
         screen.tick();
-        require((long) field(screen, "selectedJob") == 202, "Filtered row selected a different queue job");
+        require((long) ((DownloadScreen) screen).view().selectedJob() == 202, "Filtered row selected a different queue job");
         require(button(mc, "Retry Selected").active && !button(mc, "Cancel Selected").active, "Failed selection has incorrect actions");
         require(button(mc, "Retry Failed").active && button(mc, "Clear Failed").active && button(mc, "Clear Finished").active, "Queue-wide actions are missing");
         search.setValue("No matching queue item");
@@ -164,7 +162,7 @@ final class DownloadPreviewClient {
         require(!button(mc, "Retry Selected").active && !button(mc, "Cancel Selected").active, "Hidden selection still allows item actions");
         click(mc, "Queue / Entries");
         require(search.getValue().isEmpty(), "Queue search leaked into Entries");
-        set(app.services().downloads(), "published", null);
+        SmokeUi.set(app.services().downloads(), DownloadService.class, "published", null);
         screen.tick();
     }
 
@@ -188,7 +186,8 @@ final class DownloadPreviewClient {
                 });
                 return;
             }
-            if (app.services().library().snapshot().scanning() || app.services().library().snapshot().tracks().isEmpty()) return;
+            if (app.services().library().snapshot().scanning() || app.services().library().snapshot().tracks().isEmpty())
+                return;
             if (step == -1) {
                 if (serving == null) {
                     Path file = app.services().library().snapshot().tracks().getFirst().file();
@@ -214,7 +213,7 @@ final class DownloadPreviewClient {
                 app.open();
                 player = (MusicScreen) mc.gui.screen();
                 click(mc, "Downloads");
-                ((EditBox) field(mc.gui.screen(), "url")).setValue(address);
+                ((EditBox) SmokeUi.widget(mc.gui.screen(), EditBox.class, Text.get("text.darkmusic.video_or_collection_url"))).setValue(address);
                 click(mc, "Analyze");
                 step = 0;
                 return;
@@ -224,14 +223,14 @@ final class DownloadPreviewClient {
                 case 0 -> {
                     if (app.services().downloads().snapshot().analyzing()) return;
                     require(app.services().downloads().snapshot().preview() != null, "Local analysis failed: " + app.services().downloads().snapshot().message());
-                    require((int) field(field(mc.gui.screen(), "url"), "displayPos") == 0, "The short analyzed URL is stored but visually scrolled out of the input");
-                    require(field(mc.gui.screen(), "mode").toString().equals("VIDEO"), "Single video did not default to This Video Only");
+                    require((int) SmokeUi.field(SmokeUi.widget(mc.gui.screen(), EditBox.class, Text.get("text.darkmusic.video_or_collection_url")), EditBox.class, "displayPos") == 0, "The short analyzed URL is stored but visually scrolled out of the input");
+                    require(((DownloadScreen) mc.gui.screen()).view().mode().toString().equals("VIDEO"), "Single video did not default to This Video Only");
                     require(button(mc, "Tools").getWidth() == button(mc, "Analyze").getWidth(), "Tools and Analyze widths differ");
-                    var search = (EditBox) field(mc.gui.screen(), "search");
+                    var search = (EditBox) SmokeUi.widget(mc.gui.screen(), EditBox.class, Text.get("download.darkmusic.search"));
                     search.setValue("no matching title");
-                    require(((List<?>) field(mc.gui.screen(), "visible")).isEmpty(), "Preview search did not filter");
+                    require(((List<?>) ((DownloadScreen) mc.gui.screen()).view().entries()).isEmpty(), "Preview search did not filter");
                     search.setValue("");
-                    var rows = (RowList) field(mc.gui.screen(), "rows");
+                    var rows = (RowList) SmokeUi.widget(mc.gui.screen(), RowList.class, Text.get("text.darkmusic.preview_or_queue"));
                     rows.onClick(mouse(rows.getX() + 40, rows.getY() + 5), false);
                     mc.gui.screen().tick();
                     require(button(mc, "Existing Library Files").visible, "Selecting an entry did not show its existing-file control");
@@ -243,7 +242,7 @@ final class DownloadPreviewClient {
                     require(app.services().audition() != null, "No audition player");
                     var snapshot = app.services().audition().snapshot();
                     require(snapshot.status() != AuditionPlayer.Status.ERROR, "Audition failed: " + snapshot.error());
-                    var audio = (AudioBackend) field(app.services().audition(), "audio");
+                    var audio = (AudioBackend) SmokeUi.field(app.services().audition(), AuditionPlayer.class, "audio");
                     if (audio == null || audio.state().status() != AudioBackend.Status.PLAYING || audio.state().position() < .2)
                         return;
                     require(app.services().playback().state().status() == AudioBackend.Status.PAUSED, "Main music was not paused during audition");
@@ -258,34 +257,34 @@ final class DownloadPreviewClient {
                     require(app.services().downloads().snapshot().preview() != null, "Preview was lost when leaving Downloads");
                     require(app.services().audition() == null, "Audition survived leaving Downloads");
                     click(mc, "Downloads");
-                    require(((EditBox) field(mc.gui.screen(), "url")).getValue().equals(address), "Last analyzed URL was not restored");
+                    require(((EditBox) SmokeUi.widget(mc.gui.screen(), EditBox.class, Text.get("text.darkmusic.video_or_collection_url"))).getValue().equals(address), "Last analyzed URL was not restored");
                     require(button(mc, "Download One Video").active, "Restored preview was not usable");
                     step++;
                 }
                 case 3 -> {
                     String link = "https://example.com/collection";
-                    ((EditBox) field(mc.gui.screen(), "url")).setValue(link);
+                    ((EditBox) SmokeUi.widget(mc.gui.screen(), EditBox.class, Text.get("text.darkmusic.video_or_collection_url"))).setValue(link);
                     var entries = new ArrayList<DownloadModels.Entry>();
                     for (int i = 0; i < 5; i++)
                         entries.add(new DownloadModels.Entry(i + 1, app.services().library().snapshot().tracks().get(i % app.services().library().snapshot().tracks().size()).title(), "https://example.com/" + i, "Generic", Integer.toString(i), true));
-                    set(field(app.services().downloads(), "previews"), "preview", new DownloadModels.Preview(link, "Real collection titles", "Generic", true, false, 1, 5, false, entries));
-                    set(app.services().downloads(), "published", null);
+                    SmokeUi.set(SmokeUi.field(app.services().downloads(), DownloadService.class, "previews"), "com.darkmusic.client.download.DownloadPreview", "preview", new DownloadModels.Preview(link, "Real collection titles", "Generic", true, false, 1, 5, false, entries));
+                    SmokeUi.set(app.services().downloads(), DownloadService.class, "published", null);
                     mc.gui.screen().tick();
-                    require(field(mc.gui.screen(), "mode").toString().equals("SELECTED"), "A collection-only URL defaulted to a video mode");
-                    var rows = (RowList) field(mc.gui.screen(), "rows");
+                    require(((DownloadScreen) mc.gui.screen()).view().mode().toString().equals("SELECTED"), "A collection-only URL defaulted to a video mode");
+                    var rows = (RowList) SmokeUi.widget(mc.gui.screen(), RowList.class, Text.get("text.darkmusic.preview_or_queue"));
                     rows.onClick(mouse(rows.getX() + 4, rows.getY() + 4), false);
                     rows.onClick(mouse(rows.getX() + 4, rows.getY() + 36), false);
-                    require(((SongSelection) field(mc.gui.screen(), "selection")).size() == 2, "Checkbox selection failed");
-                    var mode = (AbstractWidget) field(mc.gui.screen(), "modeButton");
+                    require(((DownloadScreen) mc.gui.screen()).view().checked() == 2, "Checkbox selection failed");
+                    var mode = (AbstractWidget) SmokeUi.widget(mc.gui.screen(), AbstractWidget.class, Text.get("format.darkmusic.mode", ((DownloadScreen) mc.gui.screen()).view().modeLabel()));
                     mc.gui.screen().mouseClicked(mouse(mode.getX() + 3, mode.getY() + 3), false);
-                    require(field(mc.gui.screen(), "mode").toString().equals("RANGE"), "First N was not merged into Range");
-                    require(((SongSelection) field(mc.gui.screen(), "selection")).isEmpty() && field(rows, "selection") == null, "Range mode retained active checks");
-                    ((EditBox) field(mc.gui.screen(), "first")).setValue("3");
-                    ((EditBox) field(mc.gui.screen(), "last")).setValue("5");
-                    ((EditBox) field(mc.gui.screen(), "search")).setValue(entries.get(2).title());
-                    require(((List<?>) field(mc.gui.screen(), "visible")).size() == 1, "Collection search failed");
-                    require(((EditBox) field(mc.gui.screen(), "first")).getValue().equals("3"), "Filtering altered range indices");
-                    ((EditBox) field(mc.gui.screen(), "search")).setValue("");
+                    require(((DownloadScreen) mc.gui.screen()).view().mode().toString().equals("RANGE"), "First N was not merged into Range");
+                    require(((DownloadScreen) mc.gui.screen()).view().checked() == 0 && SmokeUi.field(rows, RowList.class, "selection") == null, "Range mode retained active checks");
+                    ((EditBox) SmokeUi.widget(mc.gui.screen(), EditBox.class, Text.get("download.darkmusic.range_start"))).setValue("3");
+                    ((EditBox) SmokeUi.widget(mc.gui.screen(), EditBox.class, Text.get("text.darkmusic.range_end"))).setValue("5");
+                    ((EditBox) SmokeUi.widget(mc.gui.screen(), EditBox.class, Text.get("download.darkmusic.search"))).setValue(entries.get(2).title());
+                    require(((List<?>) ((DownloadScreen) mc.gui.screen()).view().entries()).size() == 1, "Collection search failed");
+                    require(((EditBox) SmokeUi.widget(mc.gui.screen(), EditBox.class, Text.get("download.darkmusic.range_start"))).getValue().equals("3"), "Filtering altered range indices");
+                    ((EditBox) SmokeUi.widget(mc.gui.screen(), EditBox.class, Text.get("download.darkmusic.search"))).setValue("");
                     checkQueueControls(mc, app);
                     escape(mc);
                     click(mc, "Settings");

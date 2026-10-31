@@ -5,6 +5,7 @@ import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.gui.PipEditorScreen;
 import com.darkmusic.client.gui.PipScreen;
+import com.mojang.blaze3d.platform.Window;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
@@ -222,7 +223,7 @@ final class PipSmoothClient {
                 var audio = app.services().playback().state();
                 var capturedAudio = app.services().pip().audio();
                 offer("{\"kind\":\"capture\",\"epochMillis\":" + System.currentTimeMillis() + ",\"phase\":\"" + phase + "\",\"received\":" + app.services().pip().received() + ",\"uploaded\":" + app.services().pip().uploaded() + ",\"audioPackets\":" + (capturedAudio == null ? 0 : capturedAudio.packets()) + ",\"audioStatus\":\"" + (capturedAudio == null ? "off" : capturedAudio.status()) + "\",\"world\":" + (mc.level != null) + ",\"screen\":\"" + (mc.gui.screen() == null ? "HUD" : mc.gui.screen().getClass().getSimpleName()) + "\"}");
-                offer("{\"kind\":\"state\",\"nanos\":" + System.nanoTime() + ",\"status\":\"" + audio.status() + "\",\"position\":" + audio.position() + ",\"draws\":" + draws + ",\"uploads\":" + app.services().pip().uploaded() + ",\"dropped\":" + app.services().pip().dropped() + ",\"pip\":\"" + app.services().pip().status() + "\",\"focusSuccesses\":" + app.services().pip().focusSuccesses() + ",\"focusFailures\":" + app.services().pip().focusFailures() + ",\"fullscreen\":" + mc.getWindow().isFullscreen() + ",\"exclusive\":" + SmokeUi.field(mc.getWindow(), "exclusiveFullscreen") + ",\"refocuses\":" + refocuses + ",\"throttle\":\"" + mc.getFramerateLimitTracker().getThrottleReason() + "\",\"monitor\":" + GLFW.glfwGetWindowMonitor(mc.getWindow().handle()) + ",\"diagnosticDrops\":" + diagnosticDrops + "}");
+                offer("{\"kind\":\"state\",\"nanos\":" + System.nanoTime() + ",\"status\":\"" + audio.status() + "\",\"position\":" + audio.position() + ",\"draws\":" + draws + ",\"uploads\":" + app.services().pip().uploaded() + ",\"dropped\":" + app.services().pip().dropped() + ",\"pip\":\"" + app.services().pip().status() + "\",\"focusSuccesses\":" + app.services().pip().focusSuccesses() + ",\"focusFailures\":" + app.services().pip().focusFailures() + ",\"fullscreen\":" + mc.getWindow().isFullscreen() + ",\"exclusive\":" + SmokeUi.field(mc.getWindow(), Window.class, "exclusiveFullscreen") + ",\"refocuses\":" + refocuses + ",\"throttle\":\"" + mc.getFramerateLimitTracker().getThrottleReason() + "\",\"monitor\":" + GLFW.glfwGetWindowMonitor(mc.getWindow().handle()) + ",\"diagnosticDrops\":" + diagnosticDrops + "}");
             }
             if (stage == 2 && (Files.exists(folder.resolve("stop-minecraft")) || ticks > 36000)) {
                 closed = true;

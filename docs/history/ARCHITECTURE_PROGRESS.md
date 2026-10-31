@@ -188,6 +188,67 @@ classes and methods. It changes structure only: no thread, executor or persisted
   click predated the Settings sections, so it could not reach Reset to Defaults (it now uses `SmokeUi.click`). The
   capture then passed. The listening check (crossfade, gapless, an unplugged explicit device) is the player's own.
 
+## Maintenance follow-ups (2026-10-31)
+
+What the structure work left out, from v3.6.1 plus `6128318`..`10fe212`.
+
+- **Build.** `build.gradle` lost the Fabric and Loom template comments, a stray `;`, and the unused `maven-publish`
+  plugin and its empty `publishing` block. Every built archive lists the same entries with the same CRCs; the
+  dependency reports match; `tasks` loses only the Publishing group.
+- **Tests live with their subject.** The root test package went from 73 files to 14: the root package's own tests,
+  the structure guards and `PackagedJarTest`. 51 files moved with `git mv` to the package of the class they test
+  (`git log --follow` keeps their history), `TestMusic` among them into `testing`, where `Tracks` and `ToolsRunner`
+  joined it and `StorageTest.await` became `Await.of`. The other 8 root files were among thirteen classes named
+  after a review, audit, polish pass or release; those were split by subject and deleted, and the table below maps
+  each to its new classes. `ArchitectureTest` now keeps the root list and
+  rejects such names. The test list is unchanged: the same 799 test methods (12 skipped), by name and result.
+
+| Old class | Now |
+|---|---|
+| `AdvancedAudioTest` | `audio.AudioProcessorTest` (5), `audio.SpectrumTest`, `config.AudioSettingsTest`, `lyrics.LrcTest` |
+| `AuditRegressionTest` | `download.DownloadTest` (4), `library.MusicLibraryTest` (2), `config.ConfigStoreTest` (2), `playlist.PlaylistStoreTest` |
+| `CustomizationTest` | `config.SettingsTest`, `gui.ColorSpectrumTest`, `hud.ArtworkHudLayoutTest`, `hud.HudLayoutTest`, `library.SourceLinksTest`, `playlist.PlaylistStoreTest` |
+| `OpusMetadataRegressionTest` | `library.OpusMetadataTest` |
+| `PlayerRefinementsTest` | `config.SettingsTest`, `gui.PlayerLayoutTest`, `hud.VolumeFeedbackTest` |
+| `ReviewRegressionTest` | `config.AudioSettingsTest`, `download.DownloadPipelineTest`, `lyrics.LyricsServiceTest` |
+| `SpeedAndHudTest` | `audio.PcmRateConverterTest` (2), `config.SettingsTest`, `hud.HudLayoutTest`, `hud.HudScaleTest`, `library.ArtworkCacheTest` |
+| `UiPolishTest` | `download.DownloadJsonTest`, `gui.HelpTest`, `gui.ScrollBarTest`, `lyrics.LyricsServiceTest` (2) |
+| `audio.AudioCorrectness231Test` | `audio.LoudnessCacheTest`, `config.AudioSettingsTest` |
+| `gui.AudioUx231Test` | `gui.AudioParameterTest`, `gui.EnvironmentPickerScreenTest` |
+| `gui.FrontendPolishTest` | `config.SettingsTest` (2), `gui.AudioAnalyzerScreenTest`, `gui.EqualizerGraphTest`, `gui.MusicScreenTest`, `gui.PlayerLayoutTest`, `gui.UiStatusTest`, `gui.ValueSliderTest`, `hud.ArtworkHudLayoutTest`, `hud.HudLayoutTest`, `hud.HudTextTest` |
+| `cleanup.ReviewPerformanceTest` | `cleanup.DuplicateStorageTest`, `cleanup.DuplicateMatcherTest` |
+| `library.ReviewReliabilityTest` | `library.LibraryFilesTest`, `library.MediaFilesTest`, `library.MusicLibraryTest`, `library.TrackTest` |
+
+Records above and in [RELEASE-CHECKS.md](RELEASE-CHECKS.md) keep the old names; the methods kept theirs, so a
+search for a method name finds it.
+
+- **Reflection names its owner.** Smoke reflects only through `SmokeUi.field/set(owner, Declaring.class, "name")`;
+  `SmokeReflectionTest` checks each pair against that class, so a field moved to another class fails even when a
+  different class declares the same name (the blind spot the `DownloadService.preview` move showed). Gradle had
+  never re-run that test after a smoke-only change, because the smoke sources were no input of the test task; they
+  are now. Smoke reads screens through read-only queries (`MusicScreen.browser()`, `SettingsScreen.previewBounds()`,
+  `DownloadScreen.view()`) and finds widgets by label. Ratchets: smoke reflection 191 -> 105, test `getDeclared*`
+  92 -> 72.
+- **The deferred screen splits.** `MusicScreen` (945 -> 719 lines) hands its library browsing to `PlayerBrowser`
+  (no Minecraft types) and its dock to `TransportBar`; `SettingsScreen` (398 -> 350) its live preview to
+  `SettingsPreview`.
+- **Four large classes.** `MusicLibrary` (644 -> 577): the folder watcher is `LibraryWatcher`, which took the lock
+  that already guarded it; `scan` 89 -> 35 and `RootJob.run` 93 -> 29 lines. `LoudnessCache` (602 -> 434): the
+  readings and `loudness-cache.json` are `LoudnessStore`, with the locks written down as they are (flushLock, then
+  SAVING, then persistence; the cache's monitor never takes them); a real analysis wrote a byte-identical file
+  before and after. `RowList` (650 -> 626): drag-and-drop is `RowDrag`; `drawRow` 66 -> 26. `DownloadScreen`: its
+  changes go through `DownloadOperations`, which `ScreenOperationsTest` now enforces, and `init` 116 -> 9 lines.
+  Tests that reflected on the moved state call the new classes' package-private API instead.
+- **Checks.** `verify.ps1 -Clean -JavaOnly`: 802 tests (the 799 before, plus the reflection ratchet and the two
+  test-layout guards), 12 skipped, none failed, the download integration tests included; every test method has
+  the result it had before. Smoke sources compile. The `build.gradle` cleanup alone left every packaged archive
+  with the same entries and CRCs; the later batches add and change classes only. A real loudness analysis wrote
+  the same `loudness-cache.json` bytes before and after `LoudnessStore`. In the testing window: the smoke suite
+  passed every scenario after two smoke mappings were corrected (a read on the playlist editor named the track
+  picker; the Download button's label follows the mode, so `view()` now gives it); `-PcaptureMusic` and the PiP
+  checks `check-hud-menus`, `check-setup` and `check-spectrum` passed; `-DesktopIntegration` 802 tests, 6 skipped,
+  none failed; no run changed the private collection.
+
 ## Open items
 
 The items still open when this work ended are the Known limits in [ARCHITECTURE.md](../ARCHITECTURE.md#known-limits).

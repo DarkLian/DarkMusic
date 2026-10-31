@@ -7,6 +7,8 @@ import com.darkmusic.client.audio.PcmDecoder;
 import com.darkmusic.client.download.DownloadService;
 import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.Track;
+import com.darkmusic.client.testing.Await;
+import com.darkmusic.client.testing.TestMusic;
 import com.darkmusic.client.text.Text;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -132,7 +134,7 @@ class ResetStopTest {
             old.play(track, () -> {
             }, error -> {
             });
-            StorageTest.await(() -> old.state().status() == AudioBackend.Status.PLAYING && old.state().position() > .3);
+            Await.of(() -> old.state().status() == AudioBackend.Status.PLAYING && old.state().position() > .3);
             stall.set(true);
             assertTrue(stuck.await(5, TimeUnit.SECONDS), "the old player never wrote to its line again");
 
@@ -149,15 +151,15 @@ class ResetStopTest {
             playing.play(track, () -> {
             }, error -> {
             });
-            StorageTest.await(() -> playing.state().status() == AudioBackend.Status.PLAYING && playing.state().position() > .5);
+            Await.of(() -> playing.state().status() == AudioBackend.Status.PLAYING && playing.state().position() > .5);
             double before = playing.state().position();
-            StorageTest.await(() -> playing.state().position() > before + 1);
+            Await.of(() -> playing.state().position() > before + 1);
 
             release.countDown();
             assertTrue(old.awaitStopped(5), "the old player did not end once its line returned");
             assertTrue(oldLineClosed.get(), "the old player ended without closing its line");
             double after = playing.state().position();
-            StorageTest.await(() -> playing.state().status() == AudioBackend.Status.PLAYING
+            Await.of(() -> playing.state().status() == AudioBackend.Status.PLAYING
                 && playing.state().position() > after + .5);
         } finally {
             release.countDown();

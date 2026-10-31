@@ -82,15 +82,9 @@ class IndependentRootsTest {
     void watchRegistrationFailureKeepsSuccessfulRegistrations() throws Exception {
         Path first = Files.createDirectory(directory.resolve("first")), second = Files.createDirectory(directory.resolve("second"));
         try (var library = new MusicLibrary(directory.resolve("config"))) {
-            var replace = MusicLibrary.class.getDeclaredMethod("replaceWatcher", List.class);
-            replace.setAccessible(true);
-            replace.invoke(library, List.of(first, directory.resolve("missing"), second));
-            var field = MusicLibrary.class.getDeclaredField("watchKeys");
-            field.setAccessible(true);
-            assertEquals(Set.of(first, second), ((Map<?, ?>) field.get(library)).keySet());
-            var watcher = MusicLibrary.class.getDeclaredField("watcher");
-            watcher.setAccessible(true);
-            assertNotNull(watcher.get(library));
+            library.watcher().replace(List.of(first, directory.resolve("missing"), second));
+            assertEquals(Set.of(first, second), library.watcher().watched());
+            assertNotNull(library.watcher().service());
         }
     }
 }

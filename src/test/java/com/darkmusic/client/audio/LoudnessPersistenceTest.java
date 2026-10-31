@@ -58,9 +58,7 @@ class LoudnessPersistenceTest {
     }
 
     private static void flush(LoudnessCache cache) throws Exception {
-        var flush = LoudnessCache.class.getDeclaredMethod("flush");
-        flush.setAccessible(true);
-        flush.invoke(cache);
+        cache.store().flush();
     }
 
     @Test
@@ -158,7 +156,7 @@ class LoudnessPersistenceTest {
         var readings = new HashMap<String, LoudnessCache.Reading>();
         for (var t : List.of(restored, newer, offlineOld, offlineNew))
             readings.put(key(t), new LoudnessCache.Reading(-20, -3));
-        LoudnessCache.latestVersions(readings);
+        LoudnessStore.latestVersions(readings);
         assertEquals(Set.of(key(restored), key(offlineNew)), readings.keySet());
     }
 
@@ -285,12 +283,10 @@ class LoudnessPersistenceTest {
             var t = track("real-reference.opus", 1);
             cache.remember(t, key(t), new LoudnessCache.Reading(-20, -3));
             Path file = Files.createDirectory(temp.resolve("loudness-cache.json"));
-            var flush = LoudnessCache.class.getDeclaredMethod("flush");
-            flush.setAccessible(true);
-            flush.invoke(cache);
+            cache.store().flush();
             assertTrue(Files.isDirectory(file));
             Files.delete(file);
-            flush.invoke(cache);
+            cache.store().flush();
             assertTrue(JsonParser.parseString(Files.readString(file)).getAsJsonObject().has(key(t)));
         } finally {
             ExternalAudio.configure(null);

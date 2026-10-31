@@ -7,7 +7,6 @@ import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.*;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -24,15 +23,9 @@ class LoudnessWriteBackoffTest {
         var track = new Track("root", "unavailable.opus", directory.resolve("unavailable.opus"), "", "", "", 10, 1, 1, "");
         try (var cache = new LoudnessCache()) {
             cache.remember(track, track.file().toAbsolutePath() + ":1:1:TRACK", new LoudnessCache.Reading(-12, -1));
-            var flush = LoudnessCache.class.getDeclaredMethod("flush");
-            flush.setAccessible(true);
-            flush.invoke(cache);
-            var next = LoudnessCache.class.getDeclaredField("nextFlush");
-            next.setAccessible(true);
-            assertTrue(next.getLong(cache) - System.nanoTime() > TimeUnit.SECONDS.toNanos(50));
-            var results = LoudnessCache.class.getDeclaredField("results");
-            results.setAccessible(true);
-            assertEquals(1, ((Map<?, ?>) results.get(cache)).size());
+            cache.store().flush();
+            assertTrue(cache.store().nextFlush() - System.nanoTime() > TimeUnit.SECONDS.toNanos(50));
+            assertEquals(1, cache.store().readings().size());
         } finally {
             ExternalAudio.configure(null);
         }

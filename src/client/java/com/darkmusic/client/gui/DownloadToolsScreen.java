@@ -21,6 +21,8 @@ public final class DownloadToolsScreen extends LocalScreen {
 
         DownloadService downloads();
 
+        DownloadOperations downloadOperations();
+
     }
 
     private final Sources app;
@@ -40,17 +42,17 @@ public final class DownloadToolsScreen extends LocalScreen {
         int half = (width - 28) / 2;
         install = addRenderableWidget(Help.tip(UiButton.builder(Text.component("tools.darkmusic.install"), b -> {
             persist();
-            app.downloads().installTools();
+            app.downloadOperations().installTools();
         }).bounds(12, 34, half, 20).build(), Text.get("tools.darkmusic.install_help")));
         check = addRenderableWidget(UiButton.builder(Text.component("text.darkmusic.check_tools"), b -> {
             persist();
-            app.downloads().checkTools();
+            app.downloadOperations().checkTools();
         }).bounds(16 + half, 34, half, 20).build());
         advanced = addRenderableWidget(UiButton.builder(Text.component("tools.darkmusic.advanced"), b -> {
             persist();
             show(app.navigation().downloadPaths(this));
         }).bounds(12, 60, half, 20).build());
-        cancel = addRenderableWidget(Help.tip(UiButton.builder(Text.component("tools.darkmusic.cancel_operation"), b -> app.downloads().cancelTools()).bounds(16 + half, 60, half, 20).build(), Text.get("tools.darkmusic.cancel_help")));
+        cancel = addRenderableWidget(Help.tip(UiButton.builder(Text.component("tools.darkmusic.cancel_operation"), b -> app.downloadOperations().cancelTools()).bounds(16 + half, 60, half, 20).build(), Text.get("tools.darkmusic.cancel_help")));
         tools = addRenderableWidget(new ToolCards(12, 110, width - 24, height - 156));
         UiButton.style(install, UiButton.Style.PRIMARY);
         UiButton.style(advanced, UiButton.Style.SUBTLE);
@@ -58,14 +60,14 @@ public final class DownloadToolsScreen extends LocalScreen {
         details = addRenderableWidget(UiButton.builder(Text.component("download.diag.title"), b -> {
             var diagnostic = app.downloads().toolDiagnostic();
             if (diagnostic != null)
-                show(new DownloadDiagnosticScreen(app, this, diagnostic, app.downloads()::checkTools));
+                show(new DownloadDiagnosticScreen(app, this, diagnostic, app.downloadOperations()::checkTools));
         }).bounds(width - 108, height - 36, 96, 20).build());
         displayed = null;
         tick();
     }
 
     private void persist() {
-        app.downloads().configure(new ToolPaths(app.settings().ytDlpPath, app.settings().ffmpegPath, app.settings().ffprobePath, app.settings().javascriptPath));
+        app.downloadOperations().configure(new ToolPaths(app.settings().ytDlpPath, app.settings().ffmpegPath, app.settings().ffprobePath, app.settings().javascriptPath));
     }
 
     @Override

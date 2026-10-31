@@ -1,5 +1,6 @@
 package com.darkmusic.client;
 
+import com.darkmusic.client.testing.TestMusic;
 import com.google.gson.JsonParser;
 import com.jcraft.jorbis.Info;
 import org.junit.jupiter.api.Test;

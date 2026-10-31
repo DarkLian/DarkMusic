@@ -1,7 +1,9 @@
 package com.darkmusic.smoke;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.darkmusic.client.Warnings;
 import com.darkmusic.client.audio.AudioBackend;
+import com.darkmusic.client.audio.JavaSoundBackend;
 import com.darkmusic.client.audio.PlaybackController;
 import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.config.VisualColors;
@@ -31,6 +33,7 @@ import java.util.*;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -91,14 +94,6 @@ public final class SmokeClient implements ClientModInitializer {
 
     private void escape(Minecraft mc) {
         mc.gui.screen().keyPressed(new KeyEvent(256, 0, 0));
-    }
-
-    private Object field(Object object, String name) {
-        return SmokeUi.field(object, name);
-    }
-
-    private Object field(String name) {
-        return SmokeUi.field(player, name);
     }
 
     private void checkVolumeBindings(Minecraft mc, DarkMusicClient app) throws Exception {
@@ -216,13 +211,16 @@ public final class SmokeClient implements ClientModInitializer {
         }
     }
 
-    private void row(Minecraft mc, Object screen, String name, int index, boolean activate) throws Exception {
-        var rows = (RowList) field(screen, name);
-        if (!rows.visible && name.equals("navigation")) {
+    /**
+     * Clicks a row of the list rows supplies. The collections list may be hidden; it is opened and read again.
+     */
+    private void row(Minecraft mc, Supplier<RowList> list, boolean collections, int index, boolean activate) throws Exception {
+        var rows = list.get();
+        if (!rows.visible && collections) {
             SmokeUi.click(mc, Text.get("ui.darkmusic.collections"));
-            rows = (RowList) field(screen, name);
+            rows = list.get();
         }
-        int height = (int) field(rows, "rowHeight");
+        int height = (int) SmokeUi.field(rows, RowList.class, "rowHeight");
         // The first 24 pixels of a song row are its checkbox: selecting checks it, activating double-clicks past it.
         var at = mouse(rows.getX() + (activate ? 40 : 4), rows.getY() + index * height + 4);
         if (activate) rows.onClick(at, false);
@@ -231,12 +229,12 @@ public final class SmokeClient implements ClientModInitializer {
 
     private void view(Minecraft mc, String name) throws Exception {
         SmokeUi.library(mc);
-        for (int i = 0; i < 4 && !field("mode").equals(name); i++) {
-            String compact = "View: " + field("mode");
+        for (int i = 0; i < 4 && !player.browser().mode().equals(name); i++) {
+            String compact = "View: " + player.browser().mode();
             boolean cycle = mc.gui.screen().children().stream().anyMatch(x -> x instanceof AbstractWidget b && b.getMessage().getString().equals(translated(compact)));
             click(mc, cycle ? compact : name);
         }
-        require(field("mode").equals(name), "View did not switch to " + name);
+        require(player.browser().mode().equals(name), "View did not switch to " + name);
     }
 
     /**
@@ -244,9 +242,9 @@ public final class SmokeClient implements ClientModInitializer {
      */
     @SuppressWarnings("unchecked")
     private void selectGroup(Minecraft mc, String id) throws Exception {
-        int index = ((List<String>) field("groups")).indexOf(id);
+        int index = ((List<String>) player.browser().groups()).indexOf(id);
         require(index >= 0, "Playlist is not listed: " + id);
-        row(mc, player, "navigation", index, false);
+        row(mc, () -> (RowList) SmokeUi.widget(player, RowList.class, Text.get("text.darkmusic.library_navigation")), true, index, false);
     }
 
     private void checkPlaylistBrowsing(Minecraft mc, DarkMusicClient app) throws Exception {
@@ -254,27 +252,27 @@ public final class SmokeClient implements ClientModInitializer {
         var first = tracks.getFirst();
         var second = tracks.get(1);
         selectGroup(mc, playlistId);
-        require(field("group").equals(playlistId), "Smoke playlist was not selected");
+        require(player.browser().group().equals(playlistId), "Smoke playlist was not selected");
         app.services().playlists().removeAll(playlistId, tracks.stream().map(Track::id).collect(Collectors.toSet()));
         app.services().playlists().addAll(playlistId, List.of(second, first));
         player.tick();
-        require(field("visible").equals(List.of(second, first)), "Playlist order was lost");
+        require(player.browser().visible().equals(List.of(second, first)), "Playlist order was lost");
         String duplicate = app.services().playlists().create("Smoke test");
         app.services().playlists().add(duplicate, first);
         player.tick();
         selectGroup(mc, duplicate);
-        require(field("group").equals(duplicate) && field("visible").equals(List.of(first)), "Duplicate names confused selection");
+        require(player.browser().group().equals(duplicate) && player.browser().visible().equals(List.of(first)), "Duplicate names confused selection");
         app.services().playlists().rename(duplicate, "Renamed");
         player.tick();
-        require(field("group").equals(duplicate), "Rename lost selection");
+        require(player.browser().group().equals(duplicate), "Rename lost selection");
         app.services().playlists().delete(duplicate);
         player.tick();
-        require(field("group").equals(((List<?>) field("groups")).getFirst()), "Deletion did not fall back to the first playlist");
+        require(player.browser().group().equals(((List<?>) player.browser().groups()).getFirst()), "Deletion did not fall back to the first playlist");
         selectGroup(mc, playlistId);
-        var search = (EditBox) field("search");
+        var search = (EditBox) SmokeUi.widget(player, EditBox.class, Text.get("text.darkmusic.search_songs"));
         search.setValue(second.relativePath());
-        require(field("visible").equals(List.of(second)), "Playlist search failed");
-        row(mc, player, "songs", 0, true);
+        require(player.browser().visible().equals(List.of(second)), "Playlist search failed");
+        row(mc, () -> (RowList) SmokeUi.widget(player, RowList.class, Text.get("text.darkmusic.songs_enter_or_double_click_to_play")), false, 0, true);
         // The backend reports the new track from its own thread; the controller records the request at once.
         var requested = app.services().playback().upNextSnapshot().current();
         require(requested != null && requested.id().equals(second.id()), "Playlist playback failed: requested " + (requested == null ? null : requested.title()) + ", expected " + second.title());
@@ -282,12 +280,12 @@ public final class SmokeClient implements ClientModInitializer {
         var missing = new Track(first.rootId(), "missing.mp3", first.file(), "Missing", "", "", 0, 0, 0, "");
         app.services().playlists().add(playlistId, missing);
         player.tick();
-        require(field("playlistNotice").toString().equals(Text.get("format.darkmusic.missing_entries", 1)), "Missing entry notice absent");
+        require(player.browser().playlistNotice().toString().equals(Text.get("format.darkmusic.missing_entries", 1)), "Missing entry notice absent");
         app.services().playlists().removeAll(playlistId, Set.of(missing.id()));
         String empty = app.services().playlists().create("Empty");
         player.tick();
         selectGroup(mc, empty);
-        require(((List<?>) field("visible")).isEmpty(), "Empty playlist exposed all songs");
+        require(((List<?>) player.browser().visible()).isEmpty(), "Empty playlist exposed all songs");
         // These playlists are deleted on purpose; play from the library so that is not a missing playback source.
         app.services().playback().play(tracks, second);
         player.tick();
@@ -295,24 +293,24 @@ public final class SmokeClient implements ClientModInitializer {
         app.services().playlists().delete(empty);
         app.services().playlists().delete(playlistId);
         player.tick();
-        require(((List<?>) field("visible")).isEmpty(), "No-playlists state exposed library");
+        require(((List<?>) player.browser().visible()).isEmpty(), "No-playlists state exposed library");
         playlistId = app.services().playlists().create("Smoke test");
         app.services().playlists().addAll(playlistId, tracks);
         player.tick();
     }
 
     private void checkNavigationAndJump(DarkMusicClient app) throws Exception {
-        var search = (EditBox) field("search");
+        var search = (EditBox) SmokeUi.widget(player, EditBox.class, Text.get("text.darkmusic.search_songs"));
         var current = app.services().playback().state().track();
         require(current != null, "Jump test needs current playback");
-        var visible = (List<?>) field("visible");
+        var visible = (List<?>) player.browser().visible();
         require(visible.stream().anyMatch(t -> ((Track) t).id().equals(current.id())), "Playing track missing before filtering");
         search.setValue("No matching title for navigation check");
-        require(((List<?>) field("visible")).isEmpty(), "Search did not hide playing track");
+        require(((List<?>) player.browser().visible()).isEmpty(), "Search did not hide playing track");
         player.jumpToPlaying();
-        var selected = (Track) field("selected");
+        var selected = (Track) player.browser().selected();
         require(selected.id().equals(current.id()), "Jump did not select the currently playing track");
-        require(((EditBox) field("search")).getValue().isEmpty(), "Jump did not clear incompatible search");
+        require(((EditBox) SmokeUi.widget(player, EditBox.class, Text.get("text.darkmusic.search_songs"))).getValue().isEmpty(), "Jump did not clear incompatible search");
         require(app.services().playback().state().track().id().equals(current.id()), "Jump changed playback");
         var originalSource = app.services().playback().source();
         for (var origin : List.of(new PlaybackController.Source("All", "", "", app.services().library().rootId()),
@@ -320,15 +318,15 @@ public final class SmokeClient implements ClientModInitializer {
             new PlaybackController.Source("Playlists", playlistId, "", app.services().library().rootId()),
             new PlaybackController.Source("Artists", current.artist(), current.title(), app.services().library().rootId()),
             new PlaybackController.Source("Albums", current.album(), "", app.services().library().rootId()))) {
-            SmokeUi.set(app.services().playback(), "source", origin);
-            ((EditBox) field("search")).setValue("No matches before source jump");
+            SmokeUi.set(app.services().playback(), PlaybackController.class, "source", origin);
+            ((EditBox) SmokeUi.widget(player, EditBox.class, Text.get("text.darkmusic.search_songs"))).setValue("No matches before source jump");
             player.jumpToPlaying();
-            require(field("mode").equals(origin.mode()) && field("group").equals(origin.group()), "Jump lost playback source: " + origin);
+            require(player.browser().mode().equals(origin.mode()) && player.browser().group().equals(origin.group()), "Jump lost playback source: " + origin);
             // Since v2.0.0 a jump clears the search so the playing song is always visible.
-            require(((EditBox) field("search")).getValue().isEmpty(), "Jump kept a search that can hide the playing song");
-            require(((Track) field("selected")).id().equals(current.id()), "Source jump selected a different track");
-            var groups = (List<?>) field("groups");
-            var rows = (List<RowList.Row>) field(field("navigation"), "rows");
+            require(((EditBox) SmokeUi.widget(player, EditBox.class, Text.get("text.darkmusic.search_songs"))).getValue().isEmpty(), "Jump kept a search that can hide the playing song");
+            require(((Track) player.browser().selected()).id().equals(current.id()), "Source jump selected a different track");
+            var groups = (List<?>) player.browser().groups();
+            var rows = (List<RowList.Row>) SmokeUi.field(SmokeUi.widget(player, RowList.class, Text.get("text.darkmusic.library_navigation")), RowList.class, "rows");
             var tracks = app.services().library().snapshot().tracks();
             long count = origin.mode().equals("Playlists") ? app.services().playlists().resolve(origin.group(), tracks).size() : tracks.stream().filter(track -> switch (origin.mode()) {
                 case "Artists" -> track.artist().equals(origin.group());
@@ -337,14 +335,14 @@ public final class SmokeClient implements ClientModInitializer {
             }).count();
             require(rows.get(groups.indexOf(origin.group())).title().endsWith(" (" + count + ")"), "Navigation count differs from total playable tracks: " + origin);
         }
-        SmokeUi.set(app.services().playback(), "source", originalSource);
+        SmokeUi.set(app.services().playback(), PlaybackController.class, "source", originalSource);
         player.jumpToPlaying();
-        var list = (RowList) field("songs");
+        var list = (RowList) SmokeUi.widget(player, RowList.class, Text.get("text.darkmusic.songs_enter_or_double_click_to_play"));
         require(Text.get("text.darkmusic.scroll_long_text").equals("text.darkmusic.scroll_long_text"), "Long-text hover hint remains translated");
-        var originalRows = (List<RowList.Row>) field(list, "rows");
+        var originalRows = (List<RowList.Row>) SmokeUi.field(list, RowList.class, "rows");
         list.rows(IntStream.range(0, 100).mapToObj(i -> new RowList.Row(current.title(), "")).toList());
         list.reveal(99);
-        require(list.selected() == 99 && (int) field(list, "scroll") > 0, "Jump did not scroll the target row into view");
+        require(list.selected() == 99 && (int) SmokeUi.field(list, RowList.class, "scroll") > 0, "Jump did not scroll the target row into view");
         list.rows(originalRows);
     }
 
@@ -355,8 +353,8 @@ public final class SmokeClient implements ClientModInitializer {
         require(mc.gui.screen() instanceof ColorsScreen, "Spectrum colors did not open");
         click(mc, "Aurora Borealis");
         require(app.services().settings().spectrumColors.preset == VisualColors.Preset.AURORA, "Preset did not apply");
-        var start = (EditBox) field(mc.gui.screen(), "start");
-        var end = (EditBox) field(mc.gui.screen(), "end");
+        var start = (EditBox) SmokeUi.field(mc.gui.screen(), ColorsScreen.class, "start");
+        var end = (EditBox) SmokeUi.field(mc.gui.screen(), ColorsScreen.class, "end");
         start.setValue("#55AAFF");
         end.setValue("#FFAACC");
         require(app.services().settings().spectrumColors.color(0) == 0xFF55AAFF && app.services().settings().spectrumColors.color(1) == 0xFFFFAACC, "Custom mixed colors failed");
@@ -403,7 +401,8 @@ public final class SmokeClient implements ClientModInitializer {
                 });
                 return;
             }
-            if (app.services().library().snapshot().scanning() || app.services().library().snapshot().tracks().size() < 3) return;
+            if (app.services().library().snapshot().scanning() || app.services().library().snapshot().tracks().size() < 3)
+                return;
             musicCount = app.services().library().snapshot().tracks().size();
             var audio = app.services().playback().state();
             if (audio.status() == AudioBackend.Status.ERROR || !app.services().warnings().current().isBlank())
@@ -453,7 +452,7 @@ public final class SmokeClient implements ClientModInitializer {
                 case 0 -> {
                     var coverTrack = app.services().library().snapshot().tracks().stream().filter(t -> t.relativePath().contains("Departure")).findFirst();
                     coverTrack.ifPresent(app.services().artwork()::get);
-                    var slider = (ValueSlider) field("progress");
+                    var slider = (ValueSlider) SmokeUi.seekBar(player);
                     // The player ignores a seek until its own tick sees the track playing with a known duration;
                     // ffmpeg can take longer than one check interval to start the first track.
                     if (!slider.active || app.services().playback().state().status() != AudioBackend.Status.PLAYING) {
@@ -461,7 +460,7 @@ public final class SmokeClient implements ClientModInitializer {
                         stage = 0;
                         return;
                     }
-                    var generation = (AtomicLong) field(field(app.services().playback(), "audio"), "generation");
+                    var generation = (AtomicLong) SmokeUi.field(SmokeUi.field(app.services().playback(), PlaybackController.class, "audio"), JavaSoundBackend.class, "generation");
                     long before = generation.get();
                     double y = slider.getY() + 8;
                     mc.gui.screen().mouseClicked(mouse(slider.getX() + 12, y), false);
@@ -535,18 +534,18 @@ public final class SmokeClient implements ClientModInitializer {
                     var coverTrack = app.services().library().snapshot().tracks().stream().filter(t -> t.relativePath().contains("Departure")).findFirst();
                     if (coverTrack.isPresent())
                         require(app.services().artwork().get(coverTrack.get()) != null, "Real artwork did not become a Minecraft texture");
-                    var rows = (List<RowList.Row>) field(field(mc.gui.screen(), "lists"), "rows");
+                    var rows = (List<RowList.Row>) SmokeUi.field(SmokeUi.field(mc.gui.screen(), PlaylistScreen.class, "lists"), RowList.class, "rows");
                     // Favorite Music is built in and listed first; check the playlist this run created.
                     String expected = "Smoke test (" + app.services().playlists().resolve(playlistId, app.services().library().snapshot().tracks()).size() + ")";
                     int smokeRow = rows.stream().map(RowList.Row::title).toList().indexOf(expected);
                     require(smokeRow >= 0, "Manage Playlists count differs from playable tracks: " + rows.stream().map(RowList.Row::title).toList() + " expected " + expected);
-                    row(mc, mc.gui.screen(), "lists", smokeRow, false);
+                    row(mc, () -> (RowList) SmokeUi.field(mc.gui.screen(), PlaylistScreen.class, "lists"), false, smokeRow, false);
                     click(mc, "Add Songs");
                 }
                 case 7 -> {
                     require(mc.gui.screen() instanceof TrackPickerScreen, "Picker not opened");
                     click(mc, "Select All");
-                    var selection = (SongSelection) field(mc.gui.screen(), "selection");
+                    var selection = (SongSelection) SmokeUi.field(mc.gui.screen(), TrackPickerScreen.class, "selection");
                     require(selection.selected().size() == musicCount - 1, "Select All did not exclude the existing song: " + selection.selected().size() + " of " + musicCount + ", eligible " + app.services().playlists().availableToAdd(playlistId, app.services().library().snapshot().tracks()).size());
                     // The picker's search box is its only text input.
                     var search = mc.gui.screen().children().stream().filter(EditBox.class::isInstance).map(EditBox.class::cast).findFirst().orElseThrow();
@@ -563,7 +562,7 @@ public final class SmokeClient implements ClientModInitializer {
                 case 8 -> {
                     click(mc, "Add Selected");
                     require(app.services().playlists().get(playlistId).entries().size() == musicCount, "Bulk add did not deduplicate");
-                    row(mc, mc.gui.screen(), "entries", 0, false);
+                    row(mc, () -> (RowList) SmokeUi.field(mc.gui.screen(), PlaylistScreen.class, "entries"), false, 0, false);
                     mc.gui.screen().tick();
                     click(mc, "Remove Selected");
                     require(app.services().playlists().get(playlistId).entries().size() == musicCount - 1, "Bulk removal failed");
@@ -590,7 +589,7 @@ public final class SmokeClient implements ClientModInitializer {
                     require(app.services().settings().speed == 1, "Speed reset failed");
                     // The player syncs its sliders from settings on the next screen tick.
                     mc.gui.screen().tick();
-                    var speed = (ValueSlider) field("speed");
+                    var speed = (ValueSlider) SmokeUi.widget(player, ValueSlider.class, Text.get("format.darkmusic.speed", "1.0"));
                     speed.setFocused(true);
                     boolean stepped = speed.keyPressed(new KeyEvent(262, 0, 0));
                     require(app.services().settings().speed == 1.1, "Speed slider step failed: handled " + stepped + ", speed " + app.services().settings().speed);
@@ -637,28 +636,28 @@ public final class SmokeClient implements ClientModInitializer {
                     mc.gui.setScreen(new PlaylistScreen(app.sources(), player));
                 }
                 case 15 -> {
-                    var lists = (List<RowList.Row>) field(field(mc.gui.screen(), "lists"), "rows");
+                    var lists = (List<RowList.Row>) SmokeUi.field(SmokeUi.field(mc.gui.screen(), PlaylistScreen.class, "lists"), RowList.class, "rows");
                     int smokeRow = lists.stream().map(RowList.Row::title).toList().indexOf(lists.stream().map(RowList.Row::title).filter(t -> t.startsWith("Smoke test (")).findFirst().orElse(""));
                     require(smokeRow >= 0, "Smoke playlist missing from Manage Playlists: " + lists.stream().map(RowList.Row::title).toList());
-                    row(mc, mc.gui.screen(), "lists", smokeRow, false);
+                    row(mc, () -> (RowList) SmokeUi.field(mc.gui.screen(), PlaylistScreen.class, "lists"), false, smokeRow, false);
                     var first = app.services().library().snapshot().tracks().getFirst();
                     app.services().playlists().add(playlistId, new Track(first.rootId(), "missing.mp3", first.file(), "Missing", "", "", 0, 0, 0, ""));
                     mc.gui.screen().tick();
-                    ((SongSelection) field(mc.gui.screen(), "selection")).choose(musicCount, false, false);
+                    ((SongSelection) SmokeUi.field(mc.gui.screen(), PlaylistScreen.class, "selection")).choose(musicCount, false, false);
                     mc.gui.screen().tick();
                     click(mc, "Remove Selected");
                     require(app.services().playlists().get(playlistId).entries().size() == musicCount, "Missing entry removal failed");
                 }
                 case 16 -> {
                     app.services().warn("Smoke transient warning");
-                    SmokeUi.set(app.services().warnings(), "warningUntil", 0L);
+                    SmokeUi.set(app.services().warnings(), Warnings.class, "warningUntil", 0L);
                 }
                 case 17 -> {
                     escape(mc);
                     click(mc, "Downloads");
                     require(mc.gui.screen() instanceof DownloadScreen, "Downloader not opened");
                     require(button(mc, "Download One Video").active == false, "Downloads enabled before analysis");
-                    ((EditBox) field(mc.gui.screen(), "url")).setValue("file:///invalid");
+                    ((EditBox) SmokeUi.widget(mc.gui.screen(), EditBox.class, Text.get("text.darkmusic.video_or_collection_url"))).setValue("file:///invalid");
                     click(mc, "Analyze");
                 }
                 case 18 -> {
@@ -671,7 +670,7 @@ public final class SmokeClient implements ClientModInitializer {
                 case 19 -> {
                     escape(mc);
                     require(mc.gui.screen() instanceof DownloadScreen, "Tool Escape navigation failed");
-                    require(((EditBox) field(mc.gui.screen(), "url")).getValue().equals("file:///invalid"), "URL lost across navigation");
+                    require(((EditBox) SmokeUi.widget(mc.gui.screen(), EditBox.class, Text.get("text.darkmusic.video_or_collection_url"))).getValue().equals("file:///invalid"), "URL lost across navigation");
                     click(mc, "Queue / Entries");
                     require(!button(mc, "Cancel All").active && !button(mc, "Clear Finished").active, "Empty queue actions should be disabled");
                     mc.options.guiScale().set(6);

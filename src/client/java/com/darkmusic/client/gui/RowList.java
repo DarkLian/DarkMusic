@@ -12,6 +12,7 @@ import com.darkmusic.client.render.UiStatus;
 import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Tooltip;
@@ -35,7 +36,6 @@ import java.util.function.IntToDoubleFunction;
 import java.util.function.IntUnaryOperator;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /**
@@ -88,13 +88,7 @@ public final class RowList extends AbstractWidget {
 
     private double fractionalScroll;
     private Consumer<PlaylistDrag> reorder;
-    private MouseButtonEvent pressed;
-    private int pressedIndex;
-    private PlaylistDrag drag;
-    private double pointerX, pointerY, grabOffset;
-    private List<Integer> order = List.of(), dropping;
-    private double[] from = new double[0], targets = new double[0];
-    private long animation;
+    private final RowDrag drag = new RowDrag();
     private IntPredicate playing = i -> false;
     private IntPredicate favorite = i -> false;
 
@@ -199,28 +193,15 @@ public final class RowList extends AbstractWidget {
     public void rows(List<Row> rows) {
         // Comparing against the lazy form would build every row through its factory.
         if (!lazyRows && this.rows.equals(rows)) {
-            if (dropping != null) cancelDrag();
+            if (drag.dropping()) cancelDrag();
             return;
         }
         lazyRows = false;
         hoveredRow = -2;
         resetClicks();
-        if (dropping != null && dropping.stream().map(this.rows::get).toList().equals(rows)) {
-            var prior = dropping;
-            double[] nextFrom = new double[rows.size()];
-            for (int i = 0; i < prior.size(); i++) {
-                int old = prior.get(i);
-                nextFrom[i] = drag != null && old >= drag.start() && old < drag.start() + drag.count()
-                    ? (pointerY - grabOffset - getY() + scroll) / rowHeight + old - drag.start() : position(old);
-            }
-            selected = prior.indexOf(selected);
+        if (drag.lands(this.rows, rows)) {
+            selected = drag.land(selected, rows.size(), reorder != null, getY(), scroll, rowHeight);
             this.rows = List.copyOf(rows);
-            resetOrder();
-            from = nextFrom;
-            animation = System.nanoTime();
-            drag = null;
-            pressed = null;
-            dropping = null;
         } else {
             cancelDrag();
             this.rows = List.copyOf(rows);
@@ -291,38 +272,16 @@ public final class RowList extends AbstractWidget {
     }
 
     private void resetOrder() {
-        if (reorder == null) {
-            order = List.of();
-            from = targets = new double[0];
-            return;
-        }
-        order = IntStream.range(0, rows.size()).boxed().toList();
-        from = new double[rows.size()];
-        targets = new double[rows.size()];
-        for (int i = 0; i < rows.size(); i++) from[i] = targets[i] = i;
-    }
-
-    private double position(int index) {
-        if (from.length == 0) return index;
-        double t = Math.clamp((System.nanoTime() - animation) / 150_000_000.0, 0, 1), ease = 1 - Math.pow(1 - t, 3);
-        return from[index] + (targets[index] - from[index]) * ease;
+        drag.reset(rows.size(), reorder != null);
     }
 
     private void preview() {
-        if (drag == null) return;
-        int boundary = Math.clamp((int) Math.floor((pointerY - getY() + scroll) / rowHeight + .5), 0, rows.size());
-        var next = drag.atBoundary(boundary, rows.size());
-        if (next.equals(drag)) return;
-        for (int i = 0; i < rows.size(); i++) from[i] = position(i);
-        drag = next;
-        order = drag.order(rows.size());
-        for (int slot = 0; slot < order.size(); slot++) targets[order.get(slot)] = slot;
-        animation = System.nanoTime();
+        drag.preview(getY(), scroll, rowHeight, rows.size());
     }
 
     public void tickDrag() {
-        if (drag == null || pointerX < getX() || pointerX >= getRight()) return;
-        int change = pointerY < getY() + 20 ? -8 : pointerY >= getBottom() - 20 ? 8 : 0;
+        if (!drag.dragging() || !drag.pointerWithin(getX(), getRight())) return;
+        int change = drag.edgeScroll(getY(), getBottom());
         scroll += change;
         clamp();
         if (change != 0) preview();
@@ -330,12 +289,14 @@ public final class RowList extends AbstractWidget {
 
     public boolean cancelDrag() {
         scrollbar.cancel();
-        if (drag == null && pressed == null) return false;
-        drag = null;
-        pressed = null;
-        dropping = null;
-        resetOrder();
-        return true;
+        return drag.cancel(rows.size(), reorder != null);
+    }
+
+    /**
+     * The drag-and-drop state, for tests.
+     */
+    RowDrag dragState() {
+        return drag;
     }
 
     public void emptyMessage(String message) {
@@ -364,20 +325,21 @@ public final class RowList extends AbstractWidget {
         UiTheme.panel(g, getX(), getY(), width, height);
         g.enableScissor(getX(), getY(), getRight(), getBottom());
         for (int slot = Math.max(0, scroll / rowHeight - 1), last = Math.min(rows.size(), (scroll + height) / rowHeight + 2); slot < last; slot++) {
-            int i = reorder == null ? slot : order.get(slot);
-            if (drag != null && i >= drag.start() && i < drag.start() + drag.count()) continue;
-            int y = getY() + (int) Math.round(position(i) * rowHeight) - scroll;
+            int i = reorder == null ? slot : drag.rowAt(slot);
+            if (drag.carries(i)) continue;
+            int y = getY() + (int) Math.round(drag.position(i) * rowHeight) - scroll;
             drawRow(g, i, y, mx, my);
         }
-        if (drag != null) {
-            int marker = getY() + drag.insertion() * rowHeight - scroll;
+        if (drag.dragging()) {
+            var dragged = drag.current();
+            int marker = getY() + dragged.insertion() * rowHeight - scroll;
             g.fill(getX(), marker - 1, getRight(), marker + 1, 0xFFDED8FF);
-            int top = (int) Math.round(pointerY - grabOffset);
-            int first = Math.max(0, (getY() - top) / rowHeight), last = Math.min(drag.count(), (getBottom() - top) / rowHeight + 1);
+            int top = (int) Math.round(drag.carriedTop());
+            int first = Math.max(0, (getY() - top) / rowHeight), last = Math.min(dragged.count(), (getBottom() - top) / rowHeight + 1);
             for (int offset = first; offset < last; offset++) {
                 int y = top + offset * rowHeight;
                 g.fill(getX(), y, getRight(), y + rowHeight, 0xEE62578B);
-                drawRow(g, drag.start() + offset, y, -1, -1);
+                drawRow(g, dragged.start() + offset, y, -1, -1);
             }
         }
         if (rows.isEmpty()) {
@@ -385,7 +347,7 @@ public final class RowList extends AbstractWidget {
             horizontal.draw(g, font, "empty", emptyMessage, getX() + 30, getY() + 13, Math.max(1, width - 40), UiTheme.SECONDARY);
         }
         int hidden = rows.size() * rowHeight - height;
-        if (hidden > 0 && drag == null)
+        if (hidden > 0 && !drag.dragging())
             UiTheme.edgeFades(g, getX() + 1, getY() + 1, width - 11, height - 2, scroll > 0, scroll < hidden, UiTheme.SURFACE);
         scrollbar.configure(getRight() - 9, getY(), height, rows.size() * rowHeight, height);
         scrollbar.extractRenderState(g, mx, my, d);
@@ -401,6 +363,32 @@ public final class RowList extends AbstractWidget {
             g.fill(getX(), y, getRight(), y + rowHeight - 1, UiTheme.HOVER);
         if (selection != null ? selection.checked(i) : selected == i)
             g.fill(getX() + 1, y + 2, getX() + 3, y + rowHeight - 3, UiTheme.ACCENT);
+        int rightInset = statusIcons(g, font, i, y);
+        Row row = rows.get(i);
+        boolean twoLines = rowHeight >= 28 && (!row.subtitle().isBlank() || !row.status().isBlank());
+        int lineGap = 4;
+        int titleY = twoLines ? y + (rowHeight - (font.lineHeight * 2 + lineGap)) / 2 : y + (rowHeight - font.lineHeight) / 2;
+        int inset = leadingIcons(g, font, i, y, titleY, twoLines);
+        horizontal.draw(g, font, "title" + i, row.title(), getX() + inset, titleY, Math.max(1, width - inset - rightInset), UiTheme.TEXT);
+        if (twoLines) {
+            if (row.status().isBlank())
+                horizontal.draw(g, font, "subtitle" + i, row.subtitle(), getX() + inset, titleY + font.lineHeight + lineGap, Math.max(1, width - inset - rightInset), tint.applyAsInt(i));
+            else
+                horizontal.drawStatus(g, font, "subtitle" + i, row.status(), row.subtitle(), getX() + inset, titleY + font.lineHeight + lineGap,
+                    Math.max(1, width - inset - rightInset), UiStatus.color(row.tone()), UiTheme.SECONDARY);
+        }
+        if (progress != null) {
+            double value = progress.applyAsDouble(i);
+            if (value >= 0)
+                g.fill(getX() + inset, y + rowHeight - 3, getX() + inset + (int) Math.round(Math.clamp(value, 0, 1) * Math.max(1, width - inset - 9)), y + rowHeight - 2, tint.applyAsInt(i));
+        }
+    }
+
+    /**
+     * The status icons at the row's right edge: playing, then the lyrics state and lyrics. Returns the text's right
+     * inset.
+     */
+    private int statusIcons(GuiGraphicsExtractor g, Font font, int i, int y) {
         boolean current = playing.test(i);
         var lyric = lyricInfo(i);
         // Status icons fill 14-pixel slots from the right at equal gaps, centred on the row: playing, lyrics status,
@@ -417,11 +405,14 @@ public final class RowList extends AbstractWidget {
             left -= gap + slot;
             UiIcon.LYRICS.draw(g, left, slotY, slot, UiStatus.lyricsColor(lyric));
         }
-        int rightInset = current || lyric != null ? getRight() - left + 4 : 9;
-        Row row = rows.get(i);
-        boolean twoLines = rowHeight >= 28 && (!row.subtitle().isBlank() || !row.status().isBlank());
-        int lineGap = 4;
-        int titleY = twoLines ? y + (rowHeight - (font.lineHeight * 2 + lineGap)) / 2 : y + (rowHeight - font.lineHeight) / 2;
+        return current || lyric != null ? getRight() - left + 4 : 9;
+    }
+
+    /**
+     * What precedes the title: the checkbox, the favorite heart, and the artwork or the folder chevron and icon.
+     * Returns the title's left inset.
+     */
+    private int leadingIcons(GuiGraphicsExtractor g, Font font, int i, int y, int titleY, boolean twoLines) {
         int inset = selection == null ? 5 : 25;
         if (selection != null)
             UiTheme.checkbox(g, getX() + 6, y + (rowHeight - 11) / 2, 11, selection.checked(i), active);
@@ -447,19 +438,7 @@ public final class RowList extends AbstractWidget {
             icons.apply(i).draw(g, getX() + inset, iconY, 12, UiTheme.ACCENT);
             inset += 18;
         }
-        horizontal.draw(g, font, "title" + i, row.title(), getX() + inset, titleY, Math.max(1, width - inset - rightInset), UiTheme.TEXT);
-        if (twoLines) {
-            if (row.status().isBlank())
-                horizontal.draw(g, font, "subtitle" + i, row.subtitle(), getX() + inset, titleY + font.lineHeight + lineGap, Math.max(1, width - inset - rightInset), tint.applyAsInt(i));
-            else
-                horizontal.drawStatus(g, font, "subtitle" + i, row.status(), row.subtitle(), getX() + inset, titleY + font.lineHeight + lineGap,
-                    Math.max(1, width - inset - rightInset), UiStatus.color(row.tone()), UiTheme.SECONDARY);
-        }
-        if (progress != null) {
-            double value = progress.applyAsDouble(i);
-            if (value >= 0)
-                g.fill(getX() + inset, y + rowHeight - 3, getX() + inset + (int) Math.round(Math.clamp(value, 0, 1) * Math.max(1, width - inset - 9)), y + rowHeight - 2, tint.applyAsInt(i));
-        }
+        return inset;
     }
 
     @Override
@@ -480,8 +459,7 @@ public final class RowList extends AbstractWidget {
                 return;
             }
             if (reorder != null && selection != null && event.x() >= getX() + 24 && !event.hasShiftDown() && !event.hasControlDownWithQuirk()) {
-                pressed = event;
-                pressedIndex = index;
+                drag.press(event.x(), event.y(), index);
                 return;
             }
             selected = index;
@@ -499,14 +477,13 @@ public final class RowList extends AbstractWidget {
             scrollbar.drag(event.y());
             return;
         }
-        if (pressed == null) return;
-        pointerX = event.x();
-        pointerY = event.y();
-        if (drag == null && Math.hypot(event.x() - pressed.x(), event.y() - pressed.y()) >= 4) {
+        if (!drag.pressed()) return;
+        drag.pointer(event.x(), event.y());
+        if (drag.moved()) {
+            int pressedIndex = drag.pressedIndex();
             if (!selection.checked(pressedIndex)) selection.choose(pressedIndex, false, false);
             selected = pressedIndex;
-            drag = PlaylistDrag.connected(selection.keys(), selection.selected(), pressedIndex);
-            grabOffset = pressed.y() - getY() - drag.start() * rowHeight + scroll;
+            drag.start(PlaylistDrag.connected(selection.keys(), selection.selected(), pressedIndex), getY(), scroll, rowHeight);
         }
         preview();
     }
@@ -517,31 +494,30 @@ public final class RowList extends AbstractWidget {
             scrollbar.cancel();
             return;
         }
-        if (pressed == null) return;
-        if (drag != null) {
-            pointerX = event.x();
-            pointerY = event.y();
+        if (!drag.pressed()) return;
+        if (drag.dragging()) {
+            drag.pointer(event.x(), event.y());
             preview();
-            if (isMouseOver(event.x(), event.y()) && drag.insertion() != drag.start()) {
+            if (isMouseOver(event.x(), event.y()) && drag.current().insertion() != drag.current().start()) {
                 finishDrop();
             } else cancelDrag();
         } else {
-            selected = pressedIndex;
+            selected = drag.pressedIndex();
             selection.choose(selected, false, false);
             action.accept(selected, false);
-            pressed = null;
+            drag.release();
         }
     }
 
-    private void finishDrop() {
-        dropping = drag.order(rows.size());
+    void finishDrop() {
+        var dropped = drag.drop(rows.size());
         try {
-            reorder.accept(drag);
+            reorder.accept(dropped);
         } catch (RuntimeException failure) {
             LoggerFactory.getLogger("darkmusic").warn("Playlist reorder failed", failure);
             warnings.accept(Text.failure(failure, "playlist.status.save_failed"));
         } finally {
-            if (dropping != null) cancelDrag();
+            if (drag.dropping()) cancelDrag();
         }
     }
 
@@ -558,7 +534,7 @@ public final class RowList extends AbstractWidget {
     @Override
     public boolean mouseScrolled(double x, double y, double dx, double dy) {
         if (!isMouseOver(x, y)) return false;
-        if (drag != null || scrollbar.dragging()) return true;
+        if (drag.dragging() || scrollbar.dragging()) return true;
         if (horizontal.scroll(x, y, dx, dy, HorizontalText.shiftDown())) return true;
         if (HorizontalText.horizontalIntent(dx, dy)) return false;
         scrollBy(-dy * rowHeight * 2);

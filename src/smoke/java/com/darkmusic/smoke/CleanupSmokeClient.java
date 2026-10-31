@@ -70,7 +70,8 @@ final class CleanupSmokeClient {
         try {
             if (++ticks > 4000) throw new AssertionError("Cleanup timeout: " + stage);
             var app = DarkMusicClient.INSTANCE;
-            if (app == null || !app.services().playlistsReady() || !mc.isGameLoadFinished() || mc.gui.overlay() != null) return;
+            if (app == null || !app.services().playlistsReady() || !mc.isGameLoadFinished() || mc.gui.overlay() != null)
+                return;
             if (stage == -2) {
                 var tools = Path.of(System.getProperty("darkmusic.downloadTools"));
                 String suffix = System.getProperty("os.name").startsWith("Windows") ? ".exe" : "";
@@ -83,21 +84,23 @@ final class CleanupSmokeClient {
                 return;
             }
             if (stage == -1) {
-                if (app.services().library().snapshot().scanning() || app.services().library().snapshot().tracks().size() < 2) return;
+                if (app.services().library().snapshot().scanning() || app.services().library().snapshot().tracks().size() < 2)
+                    return;
                 SmokeUi.displayReady(mc);
                 a = app.services().library().snapshot().tracks().get(0);
                 b = app.services().library().snapshot().tracks().get(1);
                 pair = new DuplicateResult("layout-only", a, b, "layout-a", "layout-b", Set.of(DuplicateResult.Evidence.TITLE_DURATION), DuplicateResult.Strength.POSSIBLE);
                 results = new SmartCleanupScreen(app.sources(), null);
                 mc.gui.setScreen(results);
-                SmokeUi.press(mc, (AbstractWidget) SmokeUi.field(results, "audio"));
+                SmokeUi.press(mc, (AbstractWidget) SmokeUi.field(results, SmartCleanupScreen.class, "audio"));
                 SmokeUi.click(mc, Text.get("cleanup.start"));
                 since = ticks;
                 stage = 0;
                 return;
             }
             if (stage == 0) {
-                if (app.sources().cleanup().snapshot().running() || ticks - since < 20 || !app.sources().cleanupReviews().ready()) return;
+                if (app.sources().cleanup().snapshot().running() || ticks - since < 20 || !app.sources().cleanupReviews().ready())
+                    return;
                 check(app.sources().cleanup().snapshot().stage() == DuplicateScanner.Stage.COMPLETE, "Real collection scan completes");
                 System.out.println("CLEANUP_REAL_SCAN: tracks=" + app.sources().cleanup().snapshot().total() + ", pairs=" + app.sources().cleanup().snapshot().pairs().size() + ", unavailable=" + app.sources().cleanup().snapshot().unavailable() + ", audioFailed=" + app.sources().cleanup().snapshot().audioFailed());
                 var comparison = new DuplicateComparisonScreen(app.sources(), results, pair);
@@ -133,7 +136,7 @@ final class CleanupSmokeClient {
                     return;
                 capture(mc, "comparison");
                 SmokeUi.click(mc, Text.get("cleanup.play_a"));
-                audition = (ComparisonAudition) SmokeUi.field(mc.gui.screen(), "audition");
+                audition = (ComparisonAudition) SmokeUi.field(mc.gui.screen(), DuplicateComparisonScreen.class, "audition");
                 since = ticks;
                 stage = 2;
             } else if (stage == 2) {
@@ -141,7 +144,7 @@ final class CleanupSmokeClient {
                 if (ticks - since < 100) return;
                 check(app.services().playback().state().status() == AudioBackend.Status.PAUSED, "Main music paused during preview");
                 check(queue.equals(app.services().playback().upNextSnapshot().manual()), "Preview preserves Up Next");
-                var output = (AudioBackend) SmokeUi.field(audition, "preview");
+                var output = (AudioBackend) SmokeUi.field(audition, ComparisonAudition.class, "preview");
                 previewPosition = output.state().position();
                 check(previewPosition > 3, "Preview advanced before pause");
                 SmokeUi.click(mc, Text.get("cleanup.pause_a"));
@@ -149,21 +152,21 @@ final class CleanupSmokeClient {
                 stage = 5;
             } else if (stage == 5) {
                 if (ticks - since < 20) return;
-                var output = (AudioBackend) SmokeUi.field(audition, "preview");
+                var output = (AudioBackend) SmokeUi.field(audition, ComparisonAudition.class, "preview");
                 check(output.state().status() == AudioBackend.Status.PAUSED, "Preview pauses");
                 previewPosition = output.state().position();
                 since = ticks;
                 stage = 6;
             } else if (stage == 6) {
                 if (ticks - since < 20) return;
-                var output = (AudioBackend) SmokeUi.field(audition, "preview");
+                var output = (AudioBackend) SmokeUi.field(audition, ComparisonAudition.class, "preview");
                 check(Math.abs(output.state().position() - previewPosition) < .1, "Paused preview position is stable");
                 SmokeUi.click(mc, Text.get("cleanup.play_a"));
                 since = ticks;
                 stage = 7;
             } else if (stage == 7) {
                 if (ticks - since < 20) return;
-                var output = (AudioBackend) SmokeUi.field(audition, "preview");
+                var output = (AudioBackend) SmokeUi.field(audition, ComparisonAudition.class, "preview");
                 check(output.state().status() == AudioBackend.Status.PLAYING && output.state().position() > previewPosition + .25, "Preview resumes from paused position");
                 SmokeUi.click(mc, Text.get("cleanup.play_b"));
                 since = ticks;
@@ -175,7 +178,8 @@ final class CleanupSmokeClient {
                 since = ticks;
                 stage = 4;
             } else if (stage == 4) {
-                if (app.services().playback().state().status() != AudioBackend.Status.PLAYING || ticks - since < 20) return;
+                if (app.services().playback().state().status() != AudioBackend.Status.PLAYING || ticks - since < 20)
+                    return;
                 check(queue.equals(app.services().playback().upNextSnapshot().manual()), "Closing preview preserves queue");
                 check(a.equals(app.services().playback().state().track()), "Closing preview restores original song");
                 capture(mc, "results");

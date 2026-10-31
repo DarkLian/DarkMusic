@@ -32,6 +32,7 @@ import com.darkmusic.client.gui.MusicScreen;
 import com.darkmusic.client.gui.Navigation;
 import com.darkmusic.client.gui.PipScreen;
 import com.darkmusic.client.gui.PlayerQueries;
+import com.darkmusic.client.gui.DownloadOperations;
 import com.darkmusic.client.gui.PlaylistOperations;
 import com.darkmusic.client.gui.PlaylistScreen;
 import com.darkmusic.client.gui.SettingsScreen;
@@ -83,6 +84,7 @@ public final class ClientSources implements MusicScreen.Sources, SettingsScreen.
     private final Warnings warnings;
     private final PlaybackCommands commands;
     private final PlaylistActions playlistActions;
+    private final DownloadActions downloadActions;
     private final FolderActions folders;
     private final MediaActions media;
     private final BackupActions backups;
@@ -97,6 +99,7 @@ public final class ClientSources implements MusicScreen.Sources, SettingsScreen.
         this.warnings = services.warnings();
         this.commands = commands;
         this.playlistActions = playlistActions;
+        downloadActions = new DownloadActions(services);
         this.folders = folders;
         this.media = media;
         this.backups = backups;
@@ -298,6 +301,11 @@ public final class ClientSources implements MusicScreen.Sources, SettingsScreen.
     @Override
     public PlaylistOperations playlistOperations() {
         return playlistActions;
+    }
+
+    @Override
+    public DownloadOperations downloadOperations() {
+        return downloadActions;
     }
 
     @Override

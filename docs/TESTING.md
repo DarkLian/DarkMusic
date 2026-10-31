@@ -41,6 +41,12 @@ them together. CI setup is shared by both workflows in `.github/actions/setup-to
 `src/smoke` compiles only with `-Psmoke`, so compile it after changing client members or Sources interfaces. Give
 every wait in a test a timeout, so that a regression fails instead of hanging.
 
+A test lives in the package of the class it tests and is named after it (`<Subject>Test`). The root test package
+holds only tests of the root package's own classes, the structure guards (`ArchitectureTest`, `MethodLengthTest`,
+`ScreenOperationsTest`, `SettingsSettersTest`, `SmokeReflectionTest`) and `PackagedJarTest`; `ArchitectureTest`
+lists them and rejects test class names taken from a review, audit, polish pass or release. Shared fixtures are
+public classes in `testing`: `TestMusic` (the private collection), `Tracks`, `Await`, `ToolsRunner` and `JavaTools`.
+
 Two build quirks are expected. Running `clean` and `build` as separate invocations, as `verify.ps1 -Clean` does,
 leaves `Fabric-Loom-Client-Only-Entries` out of the JAR manifest; one invocation writes it, and the mod is
 client-only either way. A clean `dotnet publish` gives helper binaries with different bytes, so each build's

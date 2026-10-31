@@ -22,6 +22,8 @@ public final class DownloadDuplicateScreen extends LocalScreen {
     public interface Sources {
         DownloadService downloads();
 
+        DownloadOperations downloadOperations();
+
         ArtworkCache artwork();
 
         void openFolder(Path directory);
@@ -54,11 +56,11 @@ public final class DownloadDuplicateScreen extends LocalScreen {
         rows.rowTooltips(false);
         int w = (width - 32) / 3;
         addRenderableWidget(UiButton.builder(Text.component("download.library.skip"), b -> {
-            app.downloads().resolveDuplicateChoice(choice.id(), true);
+            app.downloadOperations().resolveDuplicateChoice(choice.id(), true);
             onClose();
         }).bounds(12, height - 28, w, 20).build());
         addRenderableWidget(UiButton.builder(Text.component("download.library.anyway"), b -> {
-            app.downloads().resolveDuplicateChoice(choice.id(), false);
+            app.downloadOperations().resolveDuplicateChoice(choice.id(), false);
             onClose();
         }).bounds(16 + w, height - 28, w, 20).build());
         addRenderableWidget(UiButton.builder(Text.component("cleanup.location"), b -> open()).bounds(20 + w * 2, height - 28, w, 20).build());
@@ -72,7 +74,7 @@ public final class DownloadDuplicateScreen extends LocalScreen {
 
     @Override
     protected Screen returnScreen() {
-        app.downloads().cancelDuplicateChoice(choice.id());
+        app.downloadOperations().cancelDuplicateChoice(choice.id());
         return super.returnScreen();
     }
 
