@@ -37,8 +37,7 @@ class MethodLengthTest {
     private static final Map<String, Allowed> ALLOWED = Map.ofEntries(
         hot("AudioProcessor.process", 127, "the per-sample DSP chain, run for every frame"),
         hot("SoundEnvironmentProcessor$Engine.process", 88, "the per-sample environment loop, run for every frame"),
-        data("EnvironmentRecipes.recipe", 149, "a 22-case switch of preset parameters: a table written as code"),
-        hot("SpectrumRenderer.bars", 87, "draws every spectrum bar each frame"));
+        data("EnvironmentRecipes.recipe", 149, "a 22-case switch of preset parameters: a table written as code"));
 
     // G1 records one previously invisible existing lambda. From this baseline debt only goes down.
     private static final int MAX_DEBT = 0;

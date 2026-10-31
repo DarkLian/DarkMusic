@@ -5,15 +5,21 @@ import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.cleanup.DuplicateResult;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.gui.*;
+import com.darkmusic.client.hud.HudPreview;
+import com.darkmusic.client.library.Track;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
+import org.lwjgl.glfw.GLFW;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
+import java.util.ArrayList;
 
 /**
  * Paused, settled original captures for the remaining-debt refactor; isolated capture-run settings only.
@@ -44,19 +50,32 @@ final class RemainingCaptureClient {
                 || app.services().library().snapshot().tracks().size() < 2) return;
             if (state == -1) {
                 var tracks = app.services().library().snapshot().tracks();
-                app.services().playback().play(tracks, tracks.getFirst());
+                var source = tracks.getFirst();
+                // Short display labels derive from the real metadata; source audio/artwork/identity stay original.
+                var display = new Track(source.rootId(), source.relativePath(), source.file(), shortLabel(source.title()),
+                    shortLabel(source.artist()), source.album(), source.duration(), source.size(), source.modified(), source.problem());
+                var order = new ArrayList<>(tracks);
+                order.set(0, display);
+                app.services().playback().play(order, display);
                 state++;
                 return;
             }
             if (!paused) {
                 if (app.services().playback().state().status() != AudioBackend.Status.PLAYING) return;
                 app.services().playback().pause();
+                app.services().playback().seek(83);
                 paused = true;
                 return;
             }
-            if (frame == 0) mc.gui.setScreen(screen(app, state));
-            if (frame == 3 || frame == 5) capture(mc, state, frame == 3 ? "a" : "b");
-            if (++frame > 6) {
+            var playback = app.services().playback().state();
+            if (playback.status() != AudioBackend.Status.PAUSED || Math.abs(playback.position() - 83) > .001) return;
+            if (frame == 0) {
+                mc.gui.setScreen(screen(app, state));
+                mc.gui.screen().setFocused(null);
+                GLFW.glfwSetCursorPos(mc.getWindow().handle(), 1918, 1078);
+            }
+            if (frame == 5 || frame == 7) capture(mc, state, frame == 5 ? "a" : "b");
+            if (++frame > 8) {
                 frame = 0;
                 state++;
             }
@@ -108,9 +127,36 @@ final class RemainingCaptureClient {
             default -> {
                 app.services().settings().hudStyle = Settings.HudStyle.values()[(index - 10) % Settings.HudStyle.values().length];
                 if (index == 14) app.services().settings().hudRaised = false;
-                yield new HudEditorScreen(sources, null);
+                yield new OpaqueEditor(new HudEditorScreen(sources, null));
             }
         };
+    }
+
+    private static String shortLabel(String value) {
+        return value.substring(0, Math.min(8, value.length()));
+    }
+
+    /**
+     * Preserve the actual editor/HUD renderer, with an opaque test backdrop over the title panorama.
+     */
+    private static final class OpaqueEditor extends Screen implements HudPreview {
+        private final HudEditorScreen editor;
+
+        OpaqueEditor(HudEditorScreen editor) {
+            super(Component.empty());
+            this.editor = editor;
+        }
+
+        @Override
+        protected void init() {
+            editor.init(width, height);
+        }
+
+        @Override
+        public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float delta) {
+            g.fill(0, 0, width, height, 0xFF111420);
+            editor.extractRenderState(g, x, y, delta);
+        }
     }
 
     private void capture(Minecraft mc, int index, String repeat) throws Exception {

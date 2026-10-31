@@ -133,50 +133,59 @@ public final class SpectrumRenderer {
         mesh.begin(width, hudHeight, settings.hudShape, settings.spectrumOpacity);
         if (settings.visualQuality.glow)
             SpectrumHalo.draw(g, settings, x, y, width, height, levels, bands, downward, hudHeight);
-        if (!settings.spectrumStyle.bars()) {
-            // At most 384 columns, even on large windows. Reuse the analysis snapshot above.
-            int columns = Math.min(width, settings.visualQuality.detail), previous = 0, previousPeak = 0;
-            float previousExact = 0;
-            for (int i = 0; i < columns; i++) {
-                double position = columns == 1 ? 0 : i / (double) (columns - 1);
-                boolean spike = settings.spectrumStyle == Settings.SpectrumStyle.SPIKE || settings.spectrumStyle == Settings.SpectrumStyle.FILLED_SPIKE;
-                float value = spike ? SpectrumCurve.spike(levels, bands, position) : SpectrumCurve.sample(levels, bands, position);
-                int h = barHeight(value, height);
-                // Slope from the unrounded curve, so gentle slopes shade smoothly instead of flickering at each pixel step.
-                float exact = Float.isFinite(value) ? Math.clamp(value, 0, 1) * height : 0;
-                if (i == 0) {
-                    previous = h;
-                    previousExact = exact;
-                }
-                boolean filled = settings.spectrumStyle == Settings.SpectrumStyle.FILLED_WAVE || settings.spectrumStyle == Settings.SpectrumStyle.FILLED_SPIKE;
-                int low = filled ? 0 : Math.max(0, Math.min(h, previous) - 2);
-                int high = filled ? h : Math.max(h, previous);
-                int left = x + i * width / columns, right = x + (i + 1) * width / columns;
-                int top = downward ? y + low : y + height - high;
-                int bottom = downward ? y + high : y + height - low;
-                int peak = settings.visualQuality.trails || settings.visualQuality.peakHold
-                    ? barHeight(spike ? SpectrumCurve.spike(peaks, bands, position) : SpectrumCurve.sample(peaks, bands, position), height) : 0;
-                if (i == 0) previousPeak = peak;
-                if (settings.visualQuality.trails) {
-                    int tailLow = filled ? h : Math.max(0, Math.min(peak, previousPeak) - 2);
-                    int tailHigh = filled ? peak : Math.max(peak, previousPeak);
-                    if (tailHigh > 0)
-                        trail(left, right, y, height, tailLow, tailHigh, settings.spectrumColors.color(position), downward);
-                }
-                if (settings.visualQuality.peakHold) {
-                    if (peak > 0)
-                        rawFill(left, downward ? y + peak - 1 : y + height - peak, right, downward ? y + peak : y + height - peak + 1, settings.spectrumColors.color(position));
-                }
-                if (h > 0)
-                    mesh.contour(left, top, right, bottom, settings.spectrumColors.color(position),
-                        (exact - previousExact) * columns / (double) width, filled, settings.spectrumFinish);
+        if (!settings.spectrumStyle.bars()) contour(settings, request, bands);
+        else barRow(settings, request, bands);
+        mesh.submit(g);
+    }
+
+    private void contour(Settings settings, Bars request, int bands) {
+        int x = request.x(), y = request.y(), width = request.width(), height = request.height();
+        boolean downward = request.downward();
+        // At most 384 columns, even on large windows. Reuse the analysis snapshot above.
+        int columns = Math.min(width, settings.visualQuality.detail), previous = 0, previousPeak = 0;
+        float previousExact = 0;
+        for (int i = 0; i < columns; i++) {
+            double position = columns == 1 ? 0 : i / (double) (columns - 1);
+            boolean spike = settings.spectrumStyle == Settings.SpectrumStyle.SPIKE || settings.spectrumStyle == Settings.SpectrumStyle.FILLED_SPIKE;
+            float value = spike ? SpectrumCurve.spike(levels, bands, position) : SpectrumCurve.sample(levels, bands, position);
+            int h = barHeight(value, height);
+            // Slope from the unrounded curve, so gentle slopes shade smoothly instead of flickering at each pixel step.
+            float exact = Float.isFinite(value) ? Math.clamp(value, 0, 1) * height : 0;
+            if (i == 0) {
                 previous = h;
                 previousExact = exact;
-                previousPeak = peak;
             }
-            mesh.submit(g);
-            return;
+            boolean filled = settings.spectrumStyle == Settings.SpectrumStyle.FILLED_WAVE || settings.spectrumStyle == Settings.SpectrumStyle.FILLED_SPIKE;
+            int low = filled ? 0 : Math.max(0, Math.min(h, previous) - 2);
+            int high = filled ? h : Math.max(h, previous);
+            int left = x + i * width / columns, right = x + (i + 1) * width / columns;
+            int top = downward ? y + low : y + height - high;
+            int bottom = downward ? y + high : y + height - low;
+            int peak = settings.visualQuality.trails || settings.visualQuality.peakHold
+                ? barHeight(spike ? SpectrumCurve.spike(peaks, bands, position) : SpectrumCurve.sample(peaks, bands, position), height) : 0;
+            if (i == 0) previousPeak = peak;
+            if (settings.visualQuality.trails) {
+                int tailLow = filled ? h : Math.max(0, Math.min(peak, previousPeak) - 2);
+                int tailHigh = filled ? peak : Math.max(peak, previousPeak);
+                if (tailHigh > 0)
+                    trail(left, right, y, height, tailLow, tailHigh, settings.spectrumColors.color(position), downward);
+            }
+            if (settings.visualQuality.peakHold) {
+                if (peak > 0)
+                    rawFill(left, downward ? y + peak - 1 : y + height - peak, right, downward ? y + peak : y + height - peak + 1, settings.spectrumColors.color(position));
+            }
+            if (h > 0)
+                mesh.contour(left, top, right, bottom, settings.spectrumColors.color(position),
+                    (exact - previousExact) * columns / (double) width, filled, settings.spectrumFinish);
+            previous = h;
+            previousExact = exact;
+            previousPeak = peak;
         }
+    }
+
+    private void barRow(Settings settings, Bars request, int bands) {
+        int x = request.x(), y = request.y(), width = request.width(), height = request.height();
+        boolean downward = request.downward();
         int bars = Math.min(bands, width / 2);
         sideBevel = width / bars - 1 >= 3;
         for (int i = 0; i < bars; i++) {
@@ -209,6 +218,6 @@ public final class SpectrumRenderer {
             if (h > 0)
                 fill(settings, left, top, Math.max(left + 1, right), top + h, settings.spectrumColors.color(bars <= 1 ? 0 : i / (double) (bars - 1)));
         }
-        mesh.submit(g);
     }
+
 }

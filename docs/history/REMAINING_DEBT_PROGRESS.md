@@ -20,7 +20,7 @@ verification, with commits waiting for approval. Six untracked local plan files 
 | U10 | Environment header, short controls, advanced controls and saved environments are private sections; Off/blank/device/outdoor predicates named. | GUI/environment-preset suites and guards pass. MAX_DEBT 3. Native queue and comparison pending. |
 | U11 | Audio profile, normalization, equalizer, effects, transitions/game controls and saved-profile actions are private sections. | GUI/audio-settings suites and guards pass. Original-hint, neutral disabling, save status and rename/delete scope preserved. MAX_DEBT 2. Native advanced/queue checks pending. |
 | U12 | One immutable FrameLayout per frame; card, artwork/image/caption/spectrum, text/status/progress groups retain draw order and matrix/scissor boundaries. | HUD/render suites and guards pass. MAX_DEBT 1 (only the exposed PiP install lambda remains). Native default/preview and before/after comparisons pending. |
-| Visual U | All 30 after-UI captures match the corresponding 30 baseline captures pixel for pixel, with no masks. | Original fullscreen 1920x1080, GUI scale 2, SmoothFont, real collection; private remaining-before/remaining-after-ui folders. Each pair on unchanged UI was also identical. |
+| Visual U audit | The first comparison script was invalid: Pillow's RGBA bounding-box default ignored RGB differences when alpha matched. | RGB recheck found title marquees, translucent editor over animated panorama, and inconsistent hover/status regions. Original captures are retained; do not count the initial comparison as passing. Deterministic capture harness and baseline rerun are required. |
 | L1 | Named picker job, process launcher and result/wait phase; ownership cleanup and OPEN/CANCELLED order retained. | New admission/cancellation/forced-stop/start/exit/cleanup tests pass before/after the split. Actual child dialog approve/cancel passes on the desktop before/after. |
 | L2 | Named captured-release job and staging, manifest-properties and installer-copy phases. | New direct staging tests pass before/after: valid manifest/helper, checksum/identity/version/dependency/ZIP rejection before installer publication, installed-JAR preservation. Existing update/recovery/pruning/packaging and command-consent suites pass. No actual user mod was staged/replaced. |
 | L3 | Named setup job with immutable RuntimePackage value passed to archive preparation, unpack/repair and activation. | New busy/close, graphics refusal/cancellation and distinct error-label tests pass before/after; all PiP/packaging/architecture/method suites pass. MAX_DEBT is now 0. Live runtime and native PiP checks pending. |
@@ -31,6 +31,7 @@ verification, with commits waiting for approval. Six untracked local plan files 
 | H1 | Full-track envelope folding/normalization is a private final phase; per-sample accumulation unchanged. | Exact goldens and waveform/guard suites pass. Primary median 70,933.9 → 70,875.0 ns/analysis (−0.083%); larger spread 5,450.5 ns. Keep; hot entry removed. |
 | H2 | FFT window/transform is a private per-block phase, separate from onset/band publication. | Exact waveform/band/DSP goldens, SpectrumTest and guards pass. Primary median 28,406.0 → 26,331.8 ns/block (−7.302%); larger spread 6,219.1 ns. Keep under the stated noise rule; no speedup claim. Hot entry removed. |
 | H3 | Circular progress ring and spectrum contour are private per-frame phases; bar/vertex arithmetic unchanged. | Every raw vertex golden and HUD/guard suites pass. Primary median 146,775.4 → 155,520.5 ns/frame (+5.958%); larger spread 15,823.7 ns. Keep under the stated noise rule; result does not prove zero cost on all systems. Hot entry removed. |
+| H4 | Spectrum contour and bar row are private per-frame phases; update, halo, mesh submission order retained. | Exact rectangle/gradient goldens, render/spectrum suites and guards pass. Primary median 14,857.7 → 15,188.8 ns/frame (+2.228%); larger spread 746.9 ns. Keep; hot entry removed. |
 
 G2 bytecode sizes: AudioProcessor 1731, environment Engine 1474, SpectrumAnalyzer 1099, TrackWaveform 804,
 CircularHudMesh.Rings 1570, SpectrumRenderer.bars 1428 bytes. No hot method exceeds 8000 bytes.
@@ -61,7 +62,14 @@ worker-only delayed runs, actual states and stacks. No production playback arith
 Temporary ignored IDEA run configuration: DarkMusic Remaining Lyrics; delete it after follow-up, preserve user
 breakpoints (two disabled exception breakpoints). Timing runs were stopped while waiting, before any measurements.
 
-Baseline captures: 15 screen/HUD states, two original 1920x1080 GUI-scale-2 captures each, all pairs pixel-identical
-without masks. Stored privately in docs/images_private/remaining-before. Playback paused, visualizer/transitions off;
+Visual audit recovery: v2 capture fixes playback at paused position 83, moves the pointer outside controls, uses
+short display labels derived from real metadata to avoid title scrolling, and draws an opaque test backdrop behind
+the real HUD editor so the animated title panorama cannot bleed through. No original music/metadata/artwork changed.
+The original UI source from HEAD is temporarily applied for a fresh baseline; final source is preserved in
+.local-tools/verification/remaining/visual-baseline-final. visual-source-state.json records this window.
+Restore with visual-baseline.py restore through IDEA apply_patch before running guards or resuming implementation.
+
+Initial captures: 15 screen/HUD states, two original 1920x1080 GUI-scale-2 captures each. Their initial RGBA
+comparison was invalid (see visual audit above). Stored privately in docs/images_private/remaining-before. Playback paused, visualizer/transitions off;
 real collection/artwork and SmoothFont, isolated capture-run configuration. First harness attempt failed because
 resetting isolated settings cleared tool paths; the harness now reapplies the existing managed tool paths.
