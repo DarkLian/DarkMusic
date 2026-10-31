@@ -101,6 +101,20 @@ public final class PlaylistScreen extends LocalScreen {
         int sidebar = compact ? width - 24 : Math.clamp(width / 5, 128, 184);
         int entryX = compact ? 12 : 20 + sidebar;
         int entryWidth = compact ? width - 24 : width - 32 - sidebar;
+        playlistControls(compact, sidebar);
+        playlistLists(compact, sidebar, entryX, entryWidth);
+        int footerStart = children().size();
+        entryActions(entryX, entryWidth);
+        if (compact && browsing)
+            for (int i = footerStart; i < children().size(); i++)
+                if (children().get(i) instanceof AbstractWidget widget)
+                    widget.visible = false;
+        refresh();
+        lists.scrollOffset(listScroll);
+        entries.scrollOffset(entryScroll);
+    }
+
+    private void playlistControls(boolean compact, int sidebar) {
         var create = UiButton.icon(button(Text.get("text.darkmusic.new"), 12, 38, sidebar - 56, () -> show(new TextPromptScreen(this, Text.get("text.darkmusic.create_playlist"), "", text -> {
             selectedId = app.playlistOperations().create(text);
             selection.clear();
@@ -122,6 +136,9 @@ public final class PlaylistScreen extends LocalScreen {
             }));
         }, Text.get("confirm.darkmusic.delete_help")), UiIcon.DELETE, true);
         create.visible = rename.visible = delete.visible = !compact || browsing;
+    }
+
+    private void playlistLists(boolean compact, int sidebar, int entryX, int entryWidth) {
         lists = addRenderableWidget(new RowList(12, 86, sidebar, height - 98, 28, Text.get("view.darkmusic.playlists"), (i, activated) -> {
             if (i < 0 || i >= playlistIds.size()) return;
             String id = playlistIds.get(i);
@@ -149,7 +166,9 @@ public final class PlaylistScreen extends LocalScreen {
             app.playlistOperations().moveBlock(selectedId, move.start(), move.count(), move.insertion());
             refreshEntries();
         });
-        int footerStart = children().size();
+    }
+
+    private void entryActions(int entryX, int entryWidth) {
         int actionWidth = Math.min(164, (entryWidth - 4) / 2);
         add = button(Text.get("text.darkmusic.add_songs"), entryX, 38, actionWidth, () -> {
             if (selected() != null) {
@@ -180,13 +199,6 @@ public final class PlaylistScreen extends LocalScreen {
         UiButton.style(delete, UiButton.Style.DESTRUCTIVE);
         UiButton.style(remove, UiButton.Style.DESTRUCTIVE);
         lists.emptyMessage(Text.get("ui.darkmusic.no_playlists"));
-        if (compact && browsing)
-            for (int i = footerStart; i < children().size(); i++)
-                if (children().get(i) instanceof AbstractWidget widget)
-                    widget.visible = false;
-        refresh();
-        lists.scrollOffset(listScroll);
-        entries.scrollOffset(entryScroll);
     }
 
     private void refresh() {

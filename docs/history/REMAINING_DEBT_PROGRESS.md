@@ -16,6 +16,7 @@ verification, with commits waiting for approval. Six untracked local plan files 
 | U6 | Current/manual lists, automatic list and queue actions are private sections; double-click and checked-row rules retained. | GUI/UpNext suites and guards pass; all reflected fields preserved. MAX_DEBT 7. Native queue/cleanup checks pending. |
 | U7 | PiP setup/admission rows remain in populate; capture controls form a private section. | GUI/PiP suites and guards pass. MAX_DEBT 6. Native PiP checks and comparison pending. |
 | U8 | Color preset grid, paging and color fields are private visual sections. | GUI suites and guards pass; reflected fields preserved. MAX_DEBT 5. Native smoke/comparison pending. |
+| U9 | Playlist controls, lists and entry actions are private sections; compact-state readback happens before rebuilding. | GUI/playlist suites and guards pass, reflected fields preserved. MAX_DEBT 4. Native default/queue/cleanup/reset and comparison pending. |
 
 G2 bytecode sizes: AudioProcessor 1731, environment Engine 1474, SpectrumAnalyzer 1099, TrackWaveform 804,
 CircularHudMesh.Rings 1570, SpectrumRenderer.bars 1428 bytes. No hot method exceeds 8000 bytes.
