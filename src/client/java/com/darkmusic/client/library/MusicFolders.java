@@ -15,8 +15,8 @@ public final class MusicFolders {
     }
 
     public static Map<Path, String> resolve(Settings settings, Path builtIn) {
-        Path destination = Path.of(settings.musicDirectory.isBlank() ? builtIn.toString() : settings.musicDirectory).toAbsolutePath().normalize();
-        if (settings.musicFolders == null) settings.musicFolders = List.of(destination.toString());
+        Path destination = destination(settings, builtIn);
+        settings.musicFolders = folders(settings, builtIn);
         var paths = new LinkedHashSet<String>();
         paths.addAll(settings.musicFolders);
         paths.add(destination.toString());
@@ -47,6 +47,18 @@ public final class MusicFolders {
         }
         settings.musicFolders = roots.keySet().stream().map(Path::toString).toList();
         return Collections.unmodifiableMap(roots);
+    }
+
+    /**
+     * The registered folders. Settings that were never activated, such as fresh defaults, have none yet: then the
+     * destination is the only folder.
+     */
+    public static List<String> folders(Settings settings, Path builtIn) {
+        return settings.musicFolders != null ? settings.musicFolders : List.of(destination(settings, builtIn).toString());
+    }
+
+    private static Path destination(Settings settings, Path builtIn) {
+        return Path.of(settings.musicDirectory.isBlank() ? builtIn.toString() : settings.musicDirectory).toAbsolutePath().normalize();
     }
 
     public static boolean overlaps(Collection<Path> existing, Path candidate) {

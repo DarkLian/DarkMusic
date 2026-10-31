@@ -54,7 +54,7 @@ public final class FolderActions {
                             return;
                         }
                         var settings = services.settings();
-                        var folders = new ArrayList<>(settings.musicFolders);
+                        var folders = new ArrayList<>(MusicFolders.folders(settings, services.config().defaultMusic()));
                         if (!folders.contains(canonical.toString())) folders.add(canonical.toString());
                         settings.musicFolders = List.copyOf(folders);
                         settings.musicDirectory = canonical.toString();
@@ -99,7 +99,7 @@ public final class FolderActions {
                         return;
                     }
                     var settings = services.settings();
-                    var folders = new ArrayList<>(settings.musicFolders);
+                    var folders = new ArrayList<>(MusicFolders.folders(settings, services.config().defaultMusic()));
                     folders.add(canonical.toString());
                     settings.musicFolders = List.copyOf(folders);
                     activate(services.library().root());
@@ -116,7 +116,8 @@ public final class FolderActions {
             return false;
         }
         if (directory.equals(services.library().root())) return false;
-        services.settings().musicFolders = services.settings().musicFolders.stream().filter(p -> !Path.of(p).equals(directory)).toList();
+        var settings = services.settings();
+        settings.musicFolders = MusicFolders.folders(settings, services.config().defaultMusic()).stream().filter(p -> !Path.of(p).equals(directory)).toList();
         activate(services.library().root());
         return true;
     }

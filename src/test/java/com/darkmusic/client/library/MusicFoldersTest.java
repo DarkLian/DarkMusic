@@ -26,6 +26,24 @@ class MusicFoldersTest {
     @TempDir
     Path directory;
 
+    /**
+     * Fresh defaults have no folder list until they are activated; choosing, adding or removing a folder before then
+     * starts from the destination, as activation would.
+     */
+    @Test
+    void settingsNeverActivatedHaveTheDestinationAsTheirOnlyFolder() {
+        Path builtIn = directory.resolve("default"), chosen = directory.resolve("chosen");
+        var s = new Settings();
+        assertNull(s.musicFolders);
+        assertEquals(List.of(builtIn.toAbsolutePath().normalize().toString()), MusicFolders.folders(s, builtIn));
+        s.musicDirectory = chosen.toString();
+        assertEquals(List.of(chosen.toAbsolutePath().normalize().toString()), MusicFolders.folders(s, builtIn));
+        assertNull(s.musicFolders, "Reading the folders does not activate the settings");
+        assertEquals(MusicFolders.folders(s, builtIn), new ArrayList<>(MusicFolders.resolve(s, builtIn).keySet()).stream().map(Path::toString).toList());
+        s.musicFolders = List.of("kept");
+        assertEquals(List.of("kept"), MusicFolders.folders(s, builtIn));
+    }
+
     @Test
     void migrationAndDestinationChangesPreserveRegisteredRootsAndIdentities() throws Exception {
         Path original = directory.resolve("collection"), other = directory.resolve("other"), builtIn = directory.resolve("default");

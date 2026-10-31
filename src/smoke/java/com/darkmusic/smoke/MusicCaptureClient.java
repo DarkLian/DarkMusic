@@ -44,10 +44,12 @@ final class MusicCaptureClient {
 
     private void click(Minecraft mc, String key) {
         String label = Text.get(key);
+        // Settings shows one section at a time; the shared helper opens the section that holds the control.
+        if (mc.gui.screen() instanceof SettingsScreen) {
+            SmokeUi.click(mc, label);
+            return;
+        }
         AbstractWidget button = mc.gui.screen().children().stream().filter(c -> c instanceof AbstractWidget w && w.getMessage().getString().equals(label)).map(c -> (AbstractWidget) c).findFirst().orElseThrow();
-        if (!button.visible && mc.gui.screen() instanceof SettingsScreen)
-            for (int i = 0; i < 50 && !button.visible; i++)
-                mc.gui.screen().mouseScrolled(20, mc.gui.screen().height - 20, 0, -1);
         require(button.active && button.visible, "Unavailable capture control " + label);
         mc.gui.screen().mouseClicked(new MouseButtonEvent(button.getX() + 3, button.getY() + 3, new MouseButtonInfo(0, 0)), false);
     }
