@@ -261,14 +261,7 @@ public final class MediaActions {
                 if (!player.awaitIdle(10))
                     throw new IOException(Text.get("library.darkmusic.file_busy"));
                 deleted = new AudioDeletion().delete(plan, mode, token, progress);
-                for (var track : deleted.removed()) {
-                    try {
-                        SourceLinks.forget(track.file());
-                        DownloadArchive.forgetRecorded(track.file());
-                    } catch (IOException cleanupFailure) {
-                        LoggerFactory.getLogger("darkmusic").warn("Could not remove deleted-file provenance", cleanupFailure);
-                    }
-                }
+                forgetDeletedProvenance(deleted);
             } catch (Exception failure) {
                 problem = failure;
             }
@@ -323,5 +316,16 @@ public final class MediaActions {
             }
         }
         return new ImportTarget(root, rootId, folder);
+    }
+
+    private static void forgetDeletedProvenance(AudioDeletion.Result deleted) {
+        for (var track : deleted.removed()) {
+            try {
+                SourceLinks.forget(track.file());
+                DownloadArchive.forgetRecorded(track.file());
+            } catch (IOException cleanupFailure) {
+                LoggerFactory.getLogger("darkmusic").warn("Could not remove deleted-file provenance", cleanupFailure);
+            }
+        }
     }
 }

@@ -27,9 +27,10 @@ This is an incremental record: a pending item is not a completed check.
 | D2.8 | `ExternalAudio.openAt` | An explicit probe/process opener makes the existing lifecycle testable. The anonymous pipe is now `DecoderPipe`, retaining its watchdog, volatile flags and process ownership. Five new lifecycle tests, actual Opus metadata/seeking/output/media/loudness suites and guards passed before and after. |
 | D2.9 | `ManagedTools.install` | Ordered release/asset planning, manifest creation and asset preparation are named phases. Added install-lock, failed repair and failed pointer-publication checks; the pointer case also passed against the original checkpoint. Managed-tool/deadline/PiP unit suites, guards, and published-tool install/conversion integration passed before and after. |
 | D2.10a | `MediaActions.importAudio` | Destination resolution returns an immutable `ImportTarget`; busy flags, captured services, browse execution and client publication keep their order. Media-actions/deletion/companion suites and guards passed before and after. This also checks the unchanged deletion method before D2.10b. |
+| D2.10b | `MediaActions.deleteAudio` | Deleted-file provenance cleanup is a named phase; each cleanup exception and the outer failure handling retain their boundaries. Media-actions/deletion/companion suites and guards passed after the split. |
 
 Ratchets after these completed batches: `MAX_CLIENT_LINES` 289, `MAX_SERVICES_LINES` 572,
-`MAX_DEBT` 15, `MAX_TEST_REFLECTION` 7, `MAX_SMOKE_REFLECTION` 105. The untested-root list is down from 9 to 5.
+`MAX_DEBT` 14, `MAX_TEST_REFLECTION` 7, `MAX_SMOKE_REFLECTION` 105. The untested-root list is down from 9 to 5.
 
 ## Baseline limitations to carry forward
 
@@ -44,12 +45,13 @@ Ratchets after these completed batches: `MAX_CLIENT_LINES` 289, `MAX_SERVICES_LI
 
 ## Current batch
 
-D2.10b: `MediaActions.deleteAudio`. Move deleted-file provenance cleanup into a named phase while retaining
-per-file cleanup failure handling and all busy-flag, suspension, publication and refusal paths.
+D2.11: `RestoreJournal.recover`. New tests prove all originals/current/held files are inspected before applying
+the first target; absent and unsafe journals preserve targets. These and the archive/restore/operation suites passed
+against the original method. Next, make inspection return an immutable plan and let apply receive only that plan.
 
 ## Remaining implementation order
 
-1. D2.10b deletion action, D2.11 restore journal.
+1. D2.11 restore journal.
    Keep one method per batch and run its tests before and after. Lower the debt count only when its guard passes.
 2. D1.0: seeded dither/injected clock constructor and `audio/PcmCapture`, using real collection clips.
    Prove 20 repeated hashes per scenario before moving clock or normalization state; save the baseline hashes.
@@ -72,7 +74,8 @@ Current scratch work is under ignored `.local-tools/verification/deferred`:
 - Completed boundaries: `01-client-collaborator-tests`, `02-download-diagnostic-phases`,
   `03-backup-restore-preparation`, `04-artwork-cache-phases`, `05-metadata-edit-phases`,
   `06-download-pipeline-phases`, `07-source-index-inspection`, `08-duplicate-scan-phases`,
-  `09-external-decoder-lifecycle`, `10-managed-tool-install-phases`, `11-import-destination-plan`.
+  `09-external-decoder-lifecycle`, `10-managed-tool-install-phases`, `11-import-destination-plan`,
+  `12-deletion-provenance-phase`.
 - Refactoring helpers emit patches for IDEA's `apply_patch`; IDEA's `reformat_file` formats the resulting sources.
   Native file writes followed immediately by formatting can race the IDE document cache. Use IDE patches for source
   edits. Java sources in Git use LF; preserve those endings.
