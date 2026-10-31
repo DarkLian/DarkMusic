@@ -336,7 +336,10 @@ final class LyricsSmokeClient {
                 since = ticks;
                 stage = 4;
             } else if (stage == 4) {
-                if (ticks - since < 15 || Math.abs(app.services().playback().state().position() - 5) > .25) return;
+                var state = app.services().playback().state();
+                // submit() publishes the target position while still SEEKING. Toggle would pause that request again.
+                if (ticks - since < 15 || state.status() != AudioBackend.Status.PAUSED || Math.abs(state.position() - 5) > .25)
+                    return;
                 check(app.services().lyrics().get(a).current(app.services().playback().state().position()) >= 0, "Seek updates lyrics");
                 app.services().playback().speed(1.5);
                 app.services().playback().toggle();

@@ -25,6 +25,8 @@ verification, with commits waiting for approval. Six untracked local plan files 
 | L2 | Named captured-release job and staging, manifest-properties and installer-copy phases. | New direct staging tests pass before/after: valid manifest/helper, checksum/identity/version/dependency/ZIP rejection before installer publication, installed-JAR preservation. Existing update/recovery/pruning/packaging and command-consent suites pass. No actual user mod was staged/replaced. |
 | L3 | Named setup job with immutable RuntimePackage value passed to archive preparation, unpack/repair and activation. | New busy/close, graphics refusal/cancellation and distinct error-label tests pass before/after; all PiP/packaging/architecture/method suites pass. MAX_DEBT is now 0. Live runtime and native PiP checks pending. |
 | H0 exactness | Before changing any hot loop, fixed direct DSP hashes for neutral/EQ/limiter/full chain and all 24 presets, plus waveform/band arrays, spectrum rectangles/gradients and circular vertices. | Three identical repeats each, then a separate non-recording golden run passed. Raw IEEE bits are hashed. Only hashes/counts are tracked; private audio stays in memory. Six opt-in cost checks use 10,000 warm-up calls and 15 rounds of 1,000 calls, median and p10–p90/full spread; normal builds skip them. Timing baseline pending native checks finishing. |
+| Native U/L | Eight of nine suite scenarios passed; all three PiP native checks and published-runtime integration passed. | Original collection 53 files unchanged. Lyrics timed out in stage 5 after its actual write/admission checks passed. Debugger reproduction proved a pre-existing harness race: target position 5 was published during SEEKING, and Toggle paused again. The harness now waits for PAUSED too; verification pending. Live LRCLIB still fails. |
+| Native harness follow-up | Controlled seek delay after the fix kept speed at 1.0 and never toggled while SEEKING; resuming the worker completed the whole lyrics smoke. | Passing run 40987579-15c6-4646-bd89-c939d474877c. Agent breakpoints and temporary IDEA configuration removed, user breakpoints unchanged. Separate non-debug lyrics rerun and then two quiet timing baselines are running sequentially. |
 
 G2 bytecode sizes: AudioProcessor 1731, environment Engine 1474, SpectrumAnalyzer 1099, TrackWaveform 804,
 CircularHudMesh.Rings 1570, SpectrumRenderer.bars 1428 bytes. No hot method exceeds 8000 bytes.
@@ -49,6 +51,11 @@ read-only renderer mesh query, and null-extractor mesh submission for headless g
 Timing is loop/geometry CPU cost, including a concrete consuming vertex sink; GPU driver/submission cost is excluded.
 Machine: AMD Ryzen 7 7800X3D (8 cores/16 threads), Microsoft OpenJDK 25.0.4.1. Timing runs wait for native/build
 jobs to finish. IDE/system background processes are retained; no claim of a dedicated benchmark machine.
+
+Runtime investigation uses the ij-debugger skill. lyrics-race-evidence.md records natural passing and controlled
+worker-only delayed runs, actual states and stacks. No production playback arithmetic/control flow changed.
+Temporary ignored IDEA run configuration: DarkMusic Remaining Lyrics; delete it after follow-up, preserve user
+breakpoints (two disabled exception breakpoints). Timing runs were stopped while waiting, before any measurements.
 
 Baseline captures: 15 screen/HUD states, two original 1920x1080 GUI-scale-2 captures each, all pairs pixel-identical
 without masks. Stored privately in docs/images_private/remaining-before. Playback paused, visualizer/transitions off;

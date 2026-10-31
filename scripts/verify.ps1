@@ -5,6 +5,8 @@ param(
     [switch]$Clean,
     [switch]$DesktopIntegration,
     [switch]$JavaOnly,
+    # Explicit CPU cost observations; normally combine with -Tests '*HotLoopTest.*Cost' and no other jobs.
+    [switch]$PerfChecks,
     # Runs only these test classes or patterns (Gradle --tests), with the same excerpts, instead of the full build.
     [string[]]$Tests = @()
 )
@@ -73,6 +75,7 @@ try {
     $arguments = @(if ($Tests) { 'test'; $Tests | ForEach-Object { '--tests', $_ } } else { 'build' })
     $arguments += @('-PrequireMusic', "-PmusicDirectory=$verificationDirectory")
     if ($JavaOnly) { $arguments += '-PjavaOnly' }
+    if ($PerfChecks) { $arguments += '-PperfChecks' }
     if ($ToolsDirectory) { $arguments += @('-PdownloadIntegration', "-PdownloadToolsDirectory=$ToolsDirectory") }
     if ($DesktopIntegration) { $arguments += '-PdesktopIntegration' }
     Invoke-Gradle @arguments

@@ -92,6 +92,7 @@ test {
     systemProperty 'darkmusic.test.music', realMusicDirectory
     systemProperty 'darkmusic.test.requireMusic', providers.gradleProperty('requireMusic').isPresent()
     testLogging { events 'failed', 'skipped' }
+    if (providers.gradleProperty('perfChecks').isPresent()) testLogging.showStandardStreams = true
     systemProperty 'darkmusic.jar', tasks.named('jar').get().archiveFile.get().asFile.absolutePath
     if (providers.gradleProperty('downloadIntegration').isPresent()) {
         def executableSuffix = System.getProperty('os.name').startsWith('Windows') ? '.exe' : ''
