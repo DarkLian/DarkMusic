@@ -36,6 +36,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -132,11 +133,13 @@ class MediaActionsTest {
     }
 
     @AfterEach
-    void close() {
+    void close() throws InterruptedException {
         library.close();
         lyrics.close();
         playback.close();
-        io.shutdownNow();
+        // Windows cannot delete the temporary folder while a save still has a file in it open.
+        io.shutdown();
+        assertTrue(io.awaitTermination(10, TimeUnit.SECONDS));
     }
 
     private void drain() {

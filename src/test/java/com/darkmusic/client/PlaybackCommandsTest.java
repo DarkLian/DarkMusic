@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -57,10 +58,12 @@ class PlaybackCommandsTest {
     private PlaybackCommands commands;
 
     @AfterEach
-    void close() {
+    void close() throws InterruptedException {
         if (library != null) library.close();
         playback.close();
-        io.shutdownNow();
+        // Windows cannot delete the temporary folder while a save still has a file in it open.
+        io.shutdown();
+        assertTrue(io.awaitTermination(10, TimeUnit.SECONDS));
     }
 
     private PlaybackCommands commands() {

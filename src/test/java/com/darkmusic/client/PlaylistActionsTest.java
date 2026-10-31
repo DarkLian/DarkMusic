@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -39,8 +40,10 @@ class PlaylistActionsTest {
         Tracks.of("r", "b.opus", Path.of("b.opus")), Tracks.of("r", "c.opus", Path.of("c.opus")));
 
     @AfterEach
-    void close() {
-        io.shutdownNow();
+    void close() throws InterruptedException {
+        // Windows cannot delete the temporary folder while a save still has a file in it open.
+        io.shutdown();
+        assertTrue(io.awaitTermination(10, TimeUnit.SECONDS));
     }
 
     private void refusesEverything(String id) {
