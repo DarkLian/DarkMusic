@@ -121,3 +121,13 @@ re-enters that same monitor for cancellation; ordinary client-tick start/cancel/
 as before. Job still only locks LyricsService.this and never reads walk fields. Retry ticking still precedes
 availability checks. The five named lyrics suites passed before and after; architecture and method guards passed.
 Next: record settings/preset serialization fingerprints before moving the environment recipe table.
+
+### X3 completed
+
+EnvironmentRecipes owns the preset table and space helper. SoundEnvironmentSettings.recipe remains the compatible
+public facade; the data-method guard follows EnvironmentRecipes. The optional Parameters move was left out to
+preserve the existing public nested type. Before/after suites passed, including all 24 enum recipes, saved-preset
+JSON fingerprints and the actual local config: its raw bytes equal its typed JSON round trip, and both it and a
+saved preset derived from it retained their pre-move SHA-256. Original config was only read, never written.
+Next: runtime Lyrics Options save/restore and busy admission on a disposable real-audio copy, final smoke/build,
+and final architecture/testing evidence.

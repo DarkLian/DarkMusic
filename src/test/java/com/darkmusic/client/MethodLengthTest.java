@@ -44,7 +44,7 @@ class MethodLengthTest {
         debt("SettingsScreen.init", 64),
         hot("SoundEnvironmentProcessor$Engine.process", 88, "the per-sample environment loop, run for every frame"),
         debt("SoundEnvironmentScreen.populate", 111),
-        data("SoundEnvironmentSettings.recipe", 149, "a 22-case switch of preset parameters: a table written as code"),
+        data("EnvironmentRecipes.recipe", 149, "a 22-case switch of preset parameters: a table written as code"),
         hot("SpectrumAnalyzer.analyze", 75, "the per-block FFT and band fold"),
         hot("SpectrumRenderer.bars", 87, "draws every spectrum bar each frame"),
         hot("TrackWaveform.analyze", 72, "one pass over every sample of a song"),
