@@ -173,6 +173,23 @@ public final class AudioSettingsScreen extends LocalScreen {
         normalizationY = -1;
         analysisButton = null;
         var a = app.settings().audio;
+        playbackProfile(a);
+        int effectsStart = rows.size();
+        normalizationControls(a);
+        equalizerControls(a);
+        effectControls(a);
+        for (int i = effectsStart; i < rows.size(); i++) rows.get(i).active = !a.neutral;
+        transitionAndGameControls(a);
+        saveProfile(a);
+        savedProfileActions(a);
+        scrollbar = addRenderableWidget(new ScrollBar(() -> scroll, value -> {
+            scroll = value;
+            position();
+        }));
+        position();
+    }
+
+    private void playbackProfile(AudioSettings a) {
         section("audio.darkmusic.section_playback");
         row("device.title", null, () -> show(new OutputDeviceScreen(app, this)), "device.help");
         row("analyzer.title", null, () -> show(new AudioAnalyzerScreen(app, this, AudioComparison.Mode.AUDIO_OPTIONS)), "analyzer.help");
@@ -186,7 +203,9 @@ public final class AudioSettingsScreen extends LocalScreen {
         rows.getLast().setMessage(Component.literal(Text.get("audio.darkmusic.profile") + ": " + Text.get("audio.darkmusic.value." + a.profile.toLowerCase(Locale.ROOT))));
         info(() -> Text.get("audio.profile_description." + a.profile.toLowerCase(Locale.ROOT)));
         choice("audio.darkmusic.listening", a.listening, AudioSettings.Listening.values(), v -> a.listening = v, "audio.darkmusic.listening_help");
-        int effectsStart = rows.size();
+    }
+
+    private void normalizationControls(AudioSettings a) {
         section("audio.darkmusic.section_loudness");
         toggle("audio.darkmusic.normalization", () -> a.normalization, v -> a.normalization = v, "audio.darkmusic.normalization_help");
         if (a.normalization) {
@@ -206,6 +225,9 @@ public final class AudioSettingsScreen extends LocalScreen {
             normalizationY = cursor;
             cursor += 20;
         }
+    }
+
+    private void equalizerControls(AudioSettings a) {
         section("audio.darkmusic.section_equalizer");
         toggle("audio.darkmusic.eq", () -> a.equalizer, v -> a.equalizer = v, "audio.darkmusic.eq_help");
         if (a.equalizer) {
@@ -228,13 +250,18 @@ public final class AudioSettingsScreen extends LocalScreen {
                 place(Help.tip(graph, Text.get("audio.darkmusic.band_help") + " " + Text.get("audio.darkmusic.eq_graph.help")));
             }
         }
+    }
+
+    private void effectControls(AudioSettings a) {
         section("audio.darkmusic.section_effects");
         slider(a.bass / 6, "audio.darkmusic.bass", v -> String.format(Locale.ROOT, "%.1f dB", a.bass), v -> a.bass(v * 6), 12, "audio.darkmusic.bass_help");
         slider(a.width / 1.5, "audio.darkmusic.width", v -> Math.round(a.width * 100) + "%", v -> a.width(v * 1.5), 30, "audio.darkmusic.width_help");
         toggle("audio.darkmusic.night", () -> a.compressor, v -> a.compressor = v, "audio.darkmusic.night_help");
         choice("audio.darkmusic.reverb", a.reverb, AudioSettings.Reverb.values(), v -> a.reverb = v, "audio.darkmusic.reverb_help");
         toggle("audio.darkmusic.limiter", () -> a.limiter, v -> a.limiter = v, "audio.darkmusic.limiter_help");
-        for (int i = effectsStart; i < rows.size(); i++) rows.get(i).active = !a.neutral;
+    }
+
+    private void transitionAndGameControls(AudioSettings a) {
         section("audio.darkmusic.section_transitions");
         toggle("audio.darkmusic.gapless", () -> a.gapless, v -> a.gapless = v, "audio.darkmusic.transition_help");
         slider(a.crossfade / 10, "audio.darkmusic.crossfade", v -> String.format(Locale.ROOT, "%.1f s", a.crossfade), v -> a.crossfade(v * 10), 20, "audio.darkmusic.crossfade_help");
@@ -250,6 +277,9 @@ public final class AudioSettingsScreen extends LocalScreen {
             slider((a.duckHold - .1) / 1.9, "audio.darkmusic.duck_hold", v -> String.format(Locale.ROOT, "%.1f s", a.duckHold), v -> a.duckHold(.1 + v * 1.9), 19, "audio.darkmusic.duck_hold_help");
             slider((a.duckRelease - .1) / 1.9, "audio.darkmusic.duck_release", v -> String.format(Locale.ROOT, "%.1f s", a.duckRelease), v -> a.duckRelease(.1 + v * 1.9), 19, "audio.darkmusic.duck_release_help");
         }
+    }
+
+    private void saveProfile(AudioSettings a) {
         section("audio.saved_profiles");
         // Reserve a status line only when there is something to report.
         if (!notice.isEmpty() || app.warning().equals(Text.get("error.save_settings"))) {
@@ -272,6 +302,9 @@ public final class AudioSettingsScreen extends LocalScreen {
                 notice = Text.get("preset.saved");
                 app.save();
             })), "audio.darkmusic.save_profile_help").runs();
+    }
+
+    private void savedProfileActions(AudioSettings a) {
         // The saved profile whose sound is playing now; Rename and Delete act on it.
         String chosen = a.savedName();
         for (String name : List.copyOf(a.savedProfiles.keySet())) {
@@ -301,11 +334,6 @@ public final class AudioSettingsScreen extends LocalScreen {
             if (chosen != null) rows.getLast().setMessage(Text.component("audio.darkmusic.delete_profile", chosen));
             rows.getLast().active = chosen != null;
         }
-        scrollbar = addRenderableWidget(new ScrollBar(() -> scroll, value -> {
-            scroll = value;
-            position();
-        }));
-        position();
     }
 
     private void position() {

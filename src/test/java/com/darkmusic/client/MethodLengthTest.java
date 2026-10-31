@@ -36,7 +36,6 @@ class MethodLengthTest {
     // Most are debt. A hot loop or a table written as code is long on purpose and names why.
     private static final Map<String, Allowed> ALLOWED = Map.ofEntries(
         hot("AudioProcessor.process", 127, "the per-sample DSP chain, run for every frame"),
-        debt("AudioSettingsScreen.init", 144),
         hot("CircularHudMesh$Rings.buildVertices", 73, "builds the circular HUD mesh each frame"),
         debt("NowPlayingHud.renderAt", 147),
         debt("PipRuntime.begin$lambda", 83),
@@ -47,7 +46,7 @@ class MethodLengthTest {
         hot("TrackWaveform.analyze", 72, "one pass over every sample of a song"));
 
     // G1 records one previously invisible existing lambda. From this baseline debt only goes down.
-    private static final int MAX_DEBT = 3;
+    private static final int MAX_DEBT = 2;
 
     enum Kind {DEBT, DATA, HOT}
 
