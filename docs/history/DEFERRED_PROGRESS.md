@@ -24,9 +24,10 @@ This is an incremental record: a pending item is not a completed check.
 | D2.5 | `DownloadPipeline.download` | Preflight, fetch, collection, conversion, validation, commit and cleanup are separate phases. One per-call `Phase` retains stage/tool attribution and incoming-file ownership. Added failure tests at five phase boundaries and malformed optional metadata; focused suites and real-tool download integration passed before and after; guards passed. |
 | D2.6 | `LibrarySourceIndex.drain` | Per-track inspection returns an `Indexed` value; coalescing, publication, dirty-cache retry and monitor identity stay in place. Added unavailable-track, failed-save/retry, unchanged-cache and closed-admission checks. Source-index/download-awareness tests passed before and after; guards passed. |
 | D2.7 | `DuplicateScanner.scan` | Reading, matching and fingerprinting return phase values. Reading/fingerprinting return original failure objects with their final counters, preserving outer cancellation/failure handling and final cache persistence. Added failed-save/retry and cancellation-after-progress checks. Duplicate storage, real-audio cleanup, reconciliation and guards passed before and after. |
+| D2.8 | `ExternalAudio.openAt` | An explicit probe/process opener makes the existing lifecycle testable. The anonymous pipe is now `DecoderPipe`, retaining its watchdog, volatile flags and process ownership. Five new lifecycle tests, actual Opus metadata/seeking/output/media/loudness suites and guards passed before and after. |
 
 Ratchets after these completed batches: `MAX_CLIENT_LINES` 289, `MAX_SERVICES_LINES` 572,
-`MAX_DEBT` 18, `MAX_TEST_REFLECTION` 7, `MAX_SMOKE_REFLECTION` 105. The untested-root list is down from 9 to 5.
+`MAX_DEBT` 17, `MAX_TEST_REFLECTION` 7, `MAX_SMOKE_REFLECTION` 105. The untested-root list is down from 9 to 5.
 
 ## Baseline limitations to carry forward
 
@@ -41,12 +42,12 @@ Ratchets after these completed batches: `MAX_CLIENT_LINES` 289, `MAX_SERVICES_LI
 
 ## Current batch
 
-D2.8: `ExternalAudio.openAt`. Add an explicit opener seam for fake probe/process lifecycle checks before moving
-the existing anonymous decoder pipe into a named class. Preserve watchdog, abort, close and failed-open ownership.
+D2.9: `ManagedTools.install`. Add install-lock and failed-repair coverage, then extract release planning, the
+manifest value and ordered asset preparation. Preserve pointer publication, rollback and staging cleanup.
 
 ## Remaining implementation order
 
-1. D2.8 external decoder lifecycle, D2.9 managed tools, D2.10 import/deletion actions, D2.11 restore journal.
+1. D2.9 managed tools, D2.10 import/deletion actions, D2.11 restore journal.
    Keep one method per batch and run its tests before and after. Lower the debt count only when its guard passes.
 2. D1.0: seeded dither/injected clock constructor and `audio/PcmCapture`, using real collection clips.
    Prove 20 repeated hashes per scenario before moving clock or normalization state; save the baseline hashes.
@@ -68,7 +69,8 @@ Current scratch work is under ignored `.local-tools/verification/deferred`:
   or creates commits. `batches/sequence.txt`, `.tree` and incremental `.patch` files preserve completed boundaries.
 - Completed boundaries: `01-client-collaborator-tests`, `02-download-diagnostic-phases`,
   `03-backup-restore-preparation`, `04-artwork-cache-phases`, `05-metadata-edit-phases`,
-  `06-download-pipeline-phases`, `07-source-index-inspection`, `08-duplicate-scan-phases`.
+  `06-download-pipeline-phases`, `07-source-index-inspection`, `08-duplicate-scan-phases`,
+  `09-external-decoder-lifecycle`.
 - Refactoring helpers emit patches for IDEA's `apply_patch`; IDEA's `reformat_file` formats the resulting sources.
   Native file writes followed immediately by formatting can race the IDE document cache. Use IDE patches for source
   edits. Java sources in Git use LF; preserve those endings.

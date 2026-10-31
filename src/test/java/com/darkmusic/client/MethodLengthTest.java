@@ -35,7 +35,6 @@ class MethodLengthTest {
         hot("CircularHudMesh$Rings.buildVertices", 73, "builds the circular HUD mesh each frame"),
         debt("ColorsScreen.init", 86),
         debt("DuplicateComparisonScreen.init", 70),
-        debt("ExternalAudio.openAt", 116),
         debt("JavaSoundBackend.changeOutput", 61),
         debt("LocalCommands.register", 82),
         debt("LyricsOptionsScreen.populate", 64),
@@ -57,7 +56,7 @@ class MethodLengthTest {
         debt("UpNextScreen.init", 73));
 
     // The debt entries; this only goes down as they are split.
-    private static final int MAX_DEBT = 18;
+    private static final int MAX_DEBT = 17;
 
     enum Kind {DEBT, DATA, HOT}
 

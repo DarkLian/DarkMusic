@@ -90,8 +90,29 @@ public final class ExternalAudio {
     }
 
     public static OpenedAudio openAt(Path file, double seconds) throws Exception {
+        return openAt(file, seconds, new Opener() {
+            public JsonObject probe(Path path) throws Exception {
+                return ExternalAudio.probe(path, false);
+            }
+
+            public Process start(List<String> command) throws IOException {
+                return new ProcessBuilder(command).start();
+            }
+        });
+    }
+
+    interface Opener {
+        JsonObject probe(Path path) throws Exception;
+
+        Process start(List<String> command) throws Exception;
+    }
+
+    /**
+     * For tests: the same decoder lifecycle with explicit probe and process creation.
+     */
+    static OpenedAudio openAt(Path file, double seconds, Opener opener) throws Exception {
         if (!Double.isFinite(seconds) || seconds < 0) throw new IllegalArgumentException("Invalid seek position");
-        JsonObject info = probe(file, false);
+        JsonObject info = opener.probe(file);
         var streams = info.getAsJsonArray("streams");
         if (streams == null || streams.isEmpty())
             throw new IOException(Text.get("audio.error.stream"));
@@ -106,7 +127,7 @@ public final class ExternalAudio {
             int input = command.indexOf("-i");
             command.addAll(input, List.of("-ss", BigDecimal.valueOf(offset).toPlainString()));
         }
-        Process process = new ProcessBuilder(command).start();
+        Process process = opener.start(command);
         boolean registered = false;
         try {
             process.getOutputStream().close();
@@ -121,64 +142,7 @@ public final class ExternalAudio {
                 } catch (IOException ignored) {
                 }
             });
-            InputStream pipe = new FilterInputStream(process.getInputStream()) {
-                private volatile boolean closed, reading;
-                private volatile long started;
-                private final Thread watchdog = Thread.ofVirtual().name("darkmusic-codec-watch").start(() -> {
-                    try {
-                        while (!closed) {
-                            Thread.sleep(500);
-                            if (reading && System.nanoTime() - started > TimeUnit.SECONDS.toNanos(15)) {
-                                process.destroyForcibly();
-                                break;
-                            }
-                        }
-                    } catch (InterruptedException ignored) {
-                    }
-                });
-
-                @Override
-                public int read(byte[] b, int off, int len) throws IOException {
-                    started = System.nanoTime();
-                    reading = true;
-                    try {
-                        int n = in.read(b, off, len);
-                        if (n < 0) {
-                            try {
-                                boolean exited = process.waitFor(2, TimeUnit.SECONDS);
-                                if (exited) drain.join(500);
-                                if (!exited || process.exitValue() != 0) {
-                                    synchronized (errors) {
-                                        throw new IOException(Text.get("audio.error.decode"), new IOException(errors.toString()));
-                                    }
-                                }
-                            } catch (InterruptedException e) {
-                                Thread.currentThread().interrupt();
-                                throw new IOException(e);
-                            }
-                        }
-                        return n;
-                    } finally {
-                        reading = false;
-                    }
-                }
-
-                @Override
-                public void close() throws IOException {
-                    closed = true;
-                    watchdog.interrupt();
-                    process.descendants().forEach(ProcessHandle::destroyForcibly);
-                    process.destroy();
-                    try {
-                        if (!process.waitFor(500, TimeUnit.MILLISECONDS)) process.destroyForcibly();
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        process.destroyForcibly();
-                    } finally {
-                        super.close();
-                    }
-                }
-            };
+            InputStream pipe = new DecoderPipe(process, drain, errors);
             var result = new AudioInputStream(pipe, new AudioFormat(AudioFormat.Encoding.PCM_FLOAT, rate, 32, channels, channels * 4, rate, false), -1) {
                 @Override
                 public void close() throws IOException {
@@ -205,6 +169,81 @@ public final class ExternalAudio {
                 } catch (IOException ignored) {
                 }
                 process.waitFor(1, TimeUnit.SECONDS);
+            }
+        }
+    }
+
+    /**
+     * One process's existing read watchdog and pipe ownership; no extra thread or monitor.
+     */
+    private static final class DecoderPipe extends FilterInputStream {
+        private final Process process;
+        private final Thread drain;
+        private final StringBuilder errors;
+        private volatile boolean closed, reading;
+        private volatile long started;
+        private final Thread watchdog;
+
+        DecoderPipe(Process process, Thread drain, StringBuilder errors) {
+            super(process.getInputStream());
+            this.process = process;
+            this.drain = drain;
+            this.errors = errors;
+            watchdog = Thread.ofVirtual().name("darkmusic-codec-watch").start(this::watch);
+        }
+
+        private void watch() {
+            try {
+                while (!closed) {
+                    Thread.sleep(500);
+                    if (reading && System.nanoTime() - started > TimeUnit.SECONDS.toNanos(15)) {
+                        process.destroyForcibly();
+                        break;
+                    }
+                }
+            } catch (InterruptedException ignored) {
+            }
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            started = System.nanoTime();
+            reading = true;
+            try {
+                int n = in.read(b, off, len);
+                if (n < 0) {
+                    try {
+                        boolean exited = process.waitFor(2, TimeUnit.SECONDS);
+                        if (exited) drain.join(500);
+                        if (!exited || process.exitValue() != 0) {
+                            synchronized (errors) {
+                                throw new IOException(Text.get("audio.error.decode"), new IOException(errors.toString()));
+                            }
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IOException(e);
+                    }
+                }
+                return n;
+            } finally {
+                reading = false;
+            }
+        }
+
+        @Override
+        public void close() throws IOException {
+            closed = true;
+            watchdog.interrupt();
+            process.descendants().forEach(ProcessHandle::destroyForcibly);
+            process.destroy();
+            try {
+                if (!process.waitFor(500, TimeUnit.MILLISECONDS)) process.destroyForcibly();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                process.destroyForcibly();
+            } finally {
+                super.close();
             }
         }
     }
