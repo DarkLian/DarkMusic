@@ -3,6 +3,32 @@
 Implementing the local REMAINING_DEBT_PLAN.md from 18d95ae. The user authorized continuous implementation and
 verification, with commits waiting for approval. Six untracked local plan files are preserved.
 
+## Current status
+
+G, all U/L batches, H0 and H1–H4 are implemented and verified. MAX_DEBT is **0**. The only remaining long
+methods are the two original per-sample hot entries and the recipe data entry. H5/H6 have not been attempted:
+the plan explicitly requires the owed human listening/device check first. Results were requested asynchronously
+at the start; none or an explicit waiver has been supplied. No listening or physical unplug result is invented.
+AudioProcessor is unchanged; the environment Engine only gained package visibility for the H0 fixtures.
+
+- Final `scripts/verify.ps1 -Clean -DesktopIntegration`: **937 tests, 12 explicit skips, zero failures/errors**.
+  All new exact-output checks and the eight-by-twenty backend PCM golden scenarios ran without skipping.
+  Six skips are the opt-in timing tests; their separate before/after measurements ran successfully.
+- All nine native suite scenarios passed across the suite and the corrected Lyrics rerun. Final post-H1–H4
+  default, lyrics and preview scenarios passed again, including the actual lyric-write/admission checks.
+- PiP HUD/menu/setup/spectrum checks, published-runtime installation and the final post-split spectrum rerun passed.
+- Visual verification: **60 full-resolution RGBA comparisons, zero differing pixels**, no masks/cropping/resizing.
+  Both unchanged-code repeats and every baseline/final pair passed; the broken initial comparison is retained
+  as an audit correction below, not counted as passing evidence.
+- Hosted-style absence check: **26 tests, 9 expected skips, zero failures/errors** (six opt-in costs and three
+  private-audio-dependent checks). Circular geometry and the architecture/method guards still ran.
+- All **53 private collection files unchanged**. Live LRCLIB was executed and failed; direct endpoint recheck
+  returned **HTTP 502**, matching the previous baseline. It was not converted to a skip.
+- IDEA formatting and `git diff --check` pass. Final UI source is restored, agent debugger probes/config removed,
+  and the user's disabled exception breakpoints preserved. No commits, staging, push, tag or release performed.
+
+The batch table is chronological: these final checks supersede earlier notes saying native/visual checks were pending.
+
 ## Completed batches
 
 | Batch | Change | Evidence |
@@ -49,7 +75,7 @@ lambdas share the longest span, and other synthetic/bridge methods remain exclud
 
 Current evidence and separate commit boundaries are under ignored .local-tools/verification/remaining.
 checkpoint.ps1 captures trees in an alternate index, preserving the user's index and local plans; it creates no commits.
-Source edits use IDEA apply_patch and its built-in formatter. Start with deterministic visual captures before U.
+Source edits use IDEA apply_patch and its built-in formatter. Deterministic visual verification completed through V3.
 
 H0 test seams leave hot method bodies unchanged: package-visible environment Engine, a direct analyzer wrapper,
 read-only renderer mesh query, and null-extractor mesh submission for headless geometry capture (no GPU work).
@@ -59,8 +85,8 @@ jobs to finish. IDE/system background processes are retained; no claim of a dedi
 
 Runtime investigation uses the ij-debugger skill. lyrics-race-evidence.md records natural passing and controlled
 worker-only delayed runs, actual states and stacks. No production playback arithmetic/control flow changed.
-Temporary ignored IDEA run configuration: DarkMusic Remaining Lyrics; delete it after follow-up, preserve user
-breakpoints (two disabled exception breakpoints). Timing runs were stopped while waiting, before any measurements.
+Temporary ignored IDEA run configuration DarkMusic Remaining Lyrics was removed after follow-up; the user's
+two disabled exception breakpoints were preserved. Timing runs were stopped while waiting, before measurements.
 
 Visual audit recovery: v2 capture fixes playback at paused position 83, moves the pointer outside controls, uses
 short display labels derived from real metadata to avoid title scrolling, and draws an opaque test backdrop behind
@@ -81,6 +107,11 @@ already bit-verified final renderer loops; final UI source has been restored and
 Both capture tasks emitted their current-run pass markers and Gradle BUILD SUCCESSFUL. visual-v3.json and the
 original images under remaining-before-v3/remaining-after-v3 are authoritative; v1/v2 remain failed/superseded evidence.
 Final default/lyrics/preview smoke, clean desktop verification, PiP spectrum follow-up and hosted-style checks are running.
+
+Final verification completed; the Current status above and final-desktop-results.json, final-no-music-results.json,
+final-smoke/summary.txt, final-summary.txt and visual-v3.json are authoritative. Separate source/doc batch trees
+remain in batches/sequence.txt and incremental patches, using an alternate index only. All six local plans stay
+untracked. Commits wait for the user's request, with H5/H6 still behind the explicit listening prerequisite.
 
 Initial captures: 15 screen/HUD states, two original 1920x1080 GUI-scale-2 captures each. Their initial RGBA
 comparison was invalid (see visual audit above). Stored privately in docs/images_private/remaining-before. Playback paused, visualizer/transitions off;
