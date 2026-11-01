@@ -343,7 +343,10 @@ publication and synchronization with close retain their order. Their [branch rev
 distinguishes checked paths from independent filesystem fault-injection work.
 
 Measured splits separate waveform envelope finalization, the FFT transform, circular progress/contour geometry,
-and rectangular contour/bar-row geometry. Every pre-split golden bit is preserved; their median cost changes fit
-the recorded before/after spread. This does not establish a universal zero-cost result. No new helper runs once
-per sample. AudioProcessor.process and SoundEnvironmentProcessor.Engine.process remain hot entries, unchanged
-pending the owed human listening/device protocol; EnvironmentRecipes.recipe remains a data entry.
+rectangular contour/bar-row geometry, environment input/space/noise phases and the DSP chain's tone, stereo,
+reverb/compression, comparison, environment and protection phases. Every pre-split golden bit is preserved;
+median cost changes fit the recorded before/after spread. This does not establish a universal zero-cost result.
+New per-sample helpers are private and guarded at 325 encoded bytes. AudioProcessor shares a worker-owned stereo
+scratch pair across phases without per-sample allocation; configuration snapshots, arithmetic, diagnostics and
+limiter transition order are preserved. Both sample-loop hot entries are removed. EnvironmentRecipes.recipe
+remains the sole allowlist entry, classified as data. Human listening results are distinct from automated evidence.

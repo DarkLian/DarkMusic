@@ -28,6 +28,8 @@ public final class AudioProcessor {
     private double protectionFade = 1, protectionStep;
     private double dryEnergy, wetEnergy, levelGain = 1, limiterReduction, estimatedPeak;
     private double feed, compressionWet;
+    // Worker-owned current frame; phases share stereo values without per-sample allocation.
+    private double frameLeft, frameRight;
 
     public void configure(AudioSettings value) {
         settings = value;
@@ -126,14 +128,7 @@ public final class AudioProcessor {
         double gainSmoothing = 1 - Math.exp(-1 / (rate * .02));
         if (s.neutral && aoWet == 0 && !limited && protectionFade == 1 && environment.isDry()
             && diagnostics.panels() == 0 && !audition.levelMatched()) {
-            for (int i = 0; i < count; i += channels) {
-                gain += (target - gain) * gainSmoothing;
-                duck += (duckTarget - duck) * duckSmoothing;
-                for (int c = 0; c < channels; c++) {
-                    double value = pcm[i + c] * gain * duck;
-                    pcm[i + c] = (float) (Double.isFinite(value) ? value : 0);
-                }
-            }
+            neutralBlock(pcm, count, target, gainSmoothing, duckTarget, duckSmoothing);
             return;
         }
         boolean truePeak = effects && s.limiter && e.protection == AudioEnhancements.Protection.TRUE_PEAK;
@@ -142,100 +137,140 @@ public final class AudioProcessor {
             duck += (duckTarget - duck) * duckSmoothing;
             double originalL = pcm[i], originalR = channels == 2 ? pcm[i + 1] : originalL;
             diagnostics.capture(0, i, originalL, originalR);
-            double l = originalL, r = originalR;
+            frameLeft = originalL;
+            frameRight = originalR;
             headroom += (filters.headroom() - headroom) * smoothing;
             width += (s.width - width) * smoothing;
             feed += ((e.crossfeed ? e.crossfeedAmount : 0) - feed) * smoothing;
             compressionWet += ((s.compressor ? 1 : 0) - compressionWet) * smoothing;
             if (effects || aoWet > 1e-8) {
-                l = filters.sample(l * headroom, 0);
-                r = filters.sample(r * headroom, 1);
-                for (var band : dynamic) {
-                    l = band.sample(l, 0);
-                    r = band.sample(r, 1);
-                }
-                l = deEsser.sample(l, 0);
-                r = deEsser.sample(r, 1);
-                if (channels == 2) {
-                    double mid = (l + r) * .5, side = (l - r) * .5 * width, trim = 1 / Math.max(1, width);
-                    l = (mid + side) * trim;
-                    r = (mid - side) * trim;
-                    if (feed > 1e-8) {
-                        crossfeed.process(l, r, feed);
-                        l = crossfeed.left;
-                        r = crossfeed.right;
-                    }
-                }
-                reverb.process(l, r);
-                l = reverb.left;
-                r = reverb.right;
-                if (compressionWet > 1e-8) {
-                    // Preserve the legacy detector's master/mix reference while applying
-                    // its linked gain before Environment and the common master stage.
-                    double amount = 1 + (compressor.apply(l * gain * duck, r * gain * duck) - 1) * compressionWet;
-                    l *= amount;
-                    r *= amount;
-                }
+                filterTone();
+                stereoOptions();
+                reverbCompression();
             }
-            aoWet += ((effects && !bypassAo ? 1 : 0) - aoWet) * smoothing;
-            if (aoWet < 1e-8) aoWet = 0;
-            l = originalL + (l - originalL) * aoWet;
-            r = originalR + (r - originalR) * aoWet;
-            if (audition.mode() == AudioComparison.Mode.AUDIO_OPTIONS) {
-                double match = match(originalL, originalR, l, r, audition.levelMatched(), audition.bypassed());
-                l *= match;
-                r *= match;
-            }
-            diagnostics.capture(1, i, l, r);
-            double environmentInputL = l, environmentInputR = r;
-            environment.process(l, r, bypassEnvironment);
-            l = environment.left;
-            r = environment.right;
-            if (audition.mode() != AudioComparison.Mode.AUDIO_OPTIONS) {
-                double match = match(audition.mode() == AudioComparison.Mode.ENVIRONMENT ? environmentInputL : originalL,
-                    audition.mode() == AudioComparison.Mode.ENVIRONMENT ? environmentInputR : originalR, l, r, audition.levelMatched(), audition.bypassed());
-                l *= match;
-                r *= match;
-            }
-            diagnostics.capture(2, i, l, r);
-            l *= gain * duck;
-            r *= gain * duck;
-            if (truePeak || limited) {
-                // A restart must not replay audio the limiter held from when it last ran.
-                if (!feeding) protection.begin(rate);
-                feeding = true;
-                protection.frame(l, r);
-            } else feeding = false;
-            if (truePeak != limited) {
-                // Mixing the direct signal with the delayed one would cancel some frequencies; switch on silence.
-                protectionFade = Math.max(0, protectionFade - protectionStep);
-                if (protectionFade == 0 && (!truePeak || protection.primed())) limited = truePeak;
-            } else if (protectionFade < 1) protectionFade = Math.min(1, protectionFade + protectionStep);
-            if (limited) {
-                l = protection.left;
-                r = protection.right;
-                limiterReduction = protection.reductionDb;
-                estimatedPeak = protection.estimatedPeak;
-            } else {
-                limiterReduction = 0;
-                estimatedPeak = Math.max(Math.abs(l), Math.abs(r));
-            }
-            if (protectionFade < 1) {
-                l *= protectionFade;
-                r *= protectionFade;
-            }
+            blendOptions(originalL, originalR, effects, bypassAo, audition);
+            diagnostics.capture(1, i, frameLeft, frameRight);
+            applyEnvironment(originalL, originalR, bypassEnvironment, audition);
+            diagnostics.capture(2, i, frameLeft, frameRight);
+            frameLeft *= gain * duck;
+            frameRight *= gain * duck;
+            feedProtection(truePeak);
+            switchProtection(truePeak);
             if (effects && s.limiter && !truePeak) {
-                double before = Math.max(Math.abs(l), Math.abs(r));
-                l = limit(l);
-                r = limit(r);
-                double after = Math.max(Math.abs(l), Math.abs(r));
+                double before = Math.max(Math.abs(frameLeft), Math.abs(frameRight));
+                frameLeft = limit(frameLeft);
+                frameRight = limit(frameRight);
+                double after = Math.max(Math.abs(frameLeft), Math.abs(frameRight));
                 limiterReduction = before > 0 ? -AudioDynamics.db(after / before) : 0;
             }
-            if (!Double.isFinite(l)) l = 0;
-            if (!Double.isFinite(r)) r = 0;
-            diagnostics.capture(3, i, l, r);
-            pcm[i] = (float) l;
-            if (channels == 2) pcm[i + 1] = (float) r;
+            if (!Double.isFinite(frameLeft)) frameLeft = 0;
+            if (!Double.isFinite(frameRight)) frameRight = 0;
+            diagnostics.capture(3, i, frameLeft, frameRight);
+            pcm[i] = (float) frameLeft;
+            if (channels == 2) pcm[i + 1] = (float) frameRight;
+        }
+    }
+
+    private void neutralBlock(float[] pcm, int count, double target, double gainSmoothing, double duckTarget, double duckSmoothing) {
+        for (int i = 0; i < count; i += channels) {
+            gain += (target - gain) * gainSmoothing;
+            duck += (duckTarget - duck) * duckSmoothing;
+            for (int c = 0; c < channels; c++) {
+                double value = pcm[i + c] * gain * duck;
+                pcm[i + c] = (float) (Double.isFinite(value) ? value : 0);
+            }
+        }
+    }
+
+    private void filterTone() {
+        frameLeft = filters.sample(frameLeft * headroom, 0);
+        frameRight = filters.sample(frameRight * headroom, 1);
+        for (var band : dynamic) {
+            frameLeft = band.sample(frameLeft, 0);
+            frameRight = band.sample(frameRight, 1);
+        }
+        frameLeft = deEsser.sample(frameLeft, 0);
+        frameRight = deEsser.sample(frameRight, 1);
+    }
+
+    private void stereoOptions() {
+        if (channels == 2) {
+            double mid = (frameLeft + frameRight) * .5, side = (frameLeft - frameRight) * .5 * width, trim = 1 / Math.max(1, width);
+            frameLeft = (mid + side) * trim;
+            frameRight = (mid - side) * trim;
+            if (feed > 1e-8) {
+                crossfeed.process(frameLeft, frameRight, feed);
+                frameLeft = crossfeed.left;
+                frameRight = crossfeed.right;
+            }
+        }
+    }
+
+    private void reverbCompression() {
+        reverb.process(frameLeft, frameRight);
+        frameLeft = reverb.left;
+        frameRight = reverb.right;
+        if (compressionWet > 1e-8) {
+            // Preserve the legacy detector's master/mix reference while applying
+            // its linked gain before Environment and the common master stage.
+            double amount = 1 + (compressor.apply(frameLeft * gain * duck, frameRight * gain * duck) - 1) * compressionWet;
+            frameLeft *= amount;
+            frameRight *= amount;
+        }
+    }
+
+    private void blendOptions(double originalL, double originalR, boolean effects, boolean bypassAo, AudioComparison audition) {
+        aoWet += ((effects && !bypassAo ? 1 : 0) - aoWet) * smoothing;
+        if (aoWet < 1e-8) aoWet = 0;
+        frameLeft = originalL + (frameLeft - originalL) * aoWet;
+        frameRight = originalR + (frameRight - originalR) * aoWet;
+        if (audition.mode() == AudioComparison.Mode.AUDIO_OPTIONS) {
+            double match = match(originalL, originalR, frameLeft, frameRight, audition.levelMatched(), audition.bypassed());
+            frameLeft *= match;
+            frameRight *= match;
+        }
+    }
+
+    private void applyEnvironment(double originalL, double originalR, boolean bypassEnvironment, AudioComparison audition) {
+        double environmentInputL = frameLeft, environmentInputR = frameRight;
+        environment.process(frameLeft, frameRight, bypassEnvironment);
+        frameLeft = environment.left;
+        frameRight = environment.right;
+        if (audition.mode() != AudioComparison.Mode.AUDIO_OPTIONS) {
+            double match = match(audition.mode() == AudioComparison.Mode.ENVIRONMENT ? environmentInputL : originalL,
+                audition.mode() == AudioComparison.Mode.ENVIRONMENT ? environmentInputR : originalR, frameLeft, frameRight, audition.levelMatched(), audition.bypassed());
+            frameLeft *= match;
+            frameRight *= match;
+        }
+    }
+
+    private void feedProtection(boolean truePeak) {
+        if (truePeak || limited) {
+            // A restart must not replay audio the limiter held from when it last ran.
+            if (!feeding) protection.begin(rate);
+            feeding = true;
+            protection.frame(frameLeft, frameRight);
+        } else feeding = false;
+    }
+
+    private void switchProtection(boolean truePeak) {
+        if (truePeak != limited) {
+            // Mixing the direct signal with the delayed one would cancel some frequencies; switch on silence.
+            protectionFade = Math.max(0, protectionFade - protectionStep);
+            if (protectionFade == 0 && (!truePeak || protection.primed())) limited = truePeak;
+        } else if (protectionFade < 1) protectionFade = Math.min(1, protectionFade + protectionStep);
+        if (limited) {
+            frameLeft = protection.left;
+            frameRight = protection.right;
+            limiterReduction = protection.reductionDb;
+            estimatedPeak = protection.estimatedPeak;
+        } else {
+            limiterReduction = 0;
+            estimatedPeak = Math.max(Math.abs(frameLeft), Math.abs(frameRight));
+        }
+        if (protectionFade < 1) {
+            frameLeft *= protectionFade;
+            frameRight *= protectionFade;
         }
     }
 

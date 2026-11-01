@@ -361,7 +361,10 @@ warm-up calls and 15 measured rounds of 1,000 calls, printing raw rounds, median
 Timing is observational and never asserts a CI performance threshold. GPU submission is excluded from headless
 geometry timing. Workloads, noise rule and actual results are in [the measurement record](history/REMAINING_DEBT_MEASUREMENTS.md).
 H5/H6 require the listening/device rows above before touching either per-sample method, then listening again after
-the DSP change. Those human results have not been supplied in this session.
+the DSP change. The user confirmed continuation before H5/H6. Detailed human observations, including post-DSP listening,
+remain unrecorded. All automated PCM goldens passed after each split; they do not substitute for those observations.
+MethodLengthTest checks each new per-sample helper is private/static and at most 325 encoded bytes, with stale-name
+checks. Both sample-loop candidates met the original exactness/cost rule; the measurement record lists their data.
 
 The remaining-debt capture mode uses the real screens/HUD renderer with isolated capture-run settings, private
 audio/artwork and SmoothFont. It pauses at a fixed position, moves the pointer outside controls, uses short display

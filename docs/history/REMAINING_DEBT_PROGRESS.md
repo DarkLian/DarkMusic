@@ -6,9 +6,10 @@ H5/H6. Six untracked local plan files are preserved.
 
 ## Current status
 
-G, all U/L batches, H0 and H1-H5 are implemented and verified. MAX_DEBT is **0**. H5 meets the exactness/cost
-rule and removes its hot entry. H6 is next; AudioProcessor.process and the recipe data entry remain long.
-The user confirmed proceeding with H5/H6; no detailed listening/device observations were supplied or invented.
+G, all U/L batches and H0-H6 are implemented. MAX_DEBT is **0**; only EnvironmentRecipes.recipe remains as a
+data entry. Both per-sample candidates pass fixed PCM goldens and the cost rule. Clean desktop/native follow-up
+is in progress after H6. The user confirmed proceeding; detailed human listening/device observations, including
+post-DSP listening, remain unrecorded and are not invented.
 
 - Final `scripts/verify.ps1 -Clean -DesktopIntegration`: **937 tests, 12 explicit skips, zero failures/errors**.
   All new exact-output checks and the eight-by-twenty backend PCM golden scenarios ran without skipping.
@@ -136,3 +137,17 @@ checks for Code before reading its size; the separate 16-test architecture/metho
 the larger p10-p90 spread 5.114. Keep the split and remove its hot entry. The preceding all-six-method cost run
 also supplies the H6 immediate pre-split control (AudioProcessor median 167.129, spread 9.656 microseconds),
 with H5 already present; the original H56 baseline remains available for comparison.
+
+H5 committed as `e238152`. H6 candidate exactness/guard run passed **200 tests, 4 opt-in cost skips, zero
+failures/errors**, including all direct preset hashes, the 160 backend PCM captures, comparison modes and DSP
+continuity tests. A worker-owned stereo scratch pair shares values between private phases without allocating in
+the sample loop. Diagnostic stages, settings snapshots, arithmetic, neutral fast-path gain/duck order and limiter
+latency/feeding/fade order are preserved. Per-sample helpers measure 58-198 encoded bytes, all below 325; the
+process method is below 60 compiled lines and its hot entry is removed provisionally. Cost is running before
+retention. Exact-test XML and summary are saved independently of subsequent timing runs.
+
+H6 cost passed: 167.129 to 169.419 microseconds per 256 stereo frames (+1.370%), absolute delta 2.289 below
+the larger p10-p90 spread 9.656. Comparison with the fresh original H56 baseline also fits (delta 0.691 below
+4.970). Keep the private phases, remove the last hot entry, and start clean desktop plus default/advanced/queue
+native follow-up. No timing test imposes a CI threshold. The user-authorized continuation does not create a
+post-DSP human listening result; that observation remains explicitly unrecorded.

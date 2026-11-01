@@ -20,12 +20,18 @@ before/after spread. A retained split is not a claim of zero cost or a speedup o
 | CircularHudMesh.Rings.buildVertices | 146.775 | 155.521 | +5.958% | 15.824 | Keep progress/contour phases under the noise rule |
 | SpectrumRenderer.bars | 14.858 | 15.189 | +2.228% | 0.747 | Keep contour/bar-row phases |
 | SoundEnvironmentProcessor.Engine.process, 256 stereo frames | 19.353 | 19.847 | +2.556% | 5.114 | Keep input/space/noise phases |
-| AudioProcessor.process, 256 stereo frames | 166.665 | Not attempted | — | Baseline 5.767 | Listening prerequisite pending |
+| AudioProcessor.process, 256 stereo frames | 167.129 | 169.419 | +1.370% | 9.656 | Keep private DSP phases |
 
-All five attempted candidates matched their fixed goldens and passed focused functional/guard suites before
+All six attempted candidates matched their fixed goldens and passed focused functional/guard suites before
 retention. H1-H4 helpers are final-analysis, per-block or per-frame calls. H5's private per-sample helpers are guarded at
 325 encoded bytes: smoothInput 151, smoothSpace 236 and generatedNoise 216. No per-sample allocations were added.
-H5 uses fresh quiet H56 baseline 2; the user confirmed continuation after publication. H6 is next.
+H5 uses fresh quiet H56 baseline 2; the user confirmed continuation after publication. H6 uses the immediate
+H5-retained run as its pre-split control, chosen before attempting H6 (167.129 median, p10 165.130, p90 174.786).
+H6's after p10/p90 are 168.087/172.441. Its 2.289 median delta is below 9.656; comparison to H56 baseline 2
+also fits (168.728 to 169.419, +0.410%, delta 0.691 below 4.970). No speedup or universal zero-cost claim is made.
+H6 helpers filterTone/stereoOptions/reverbCompression/blendOptions/applyEnvironment/feedProtection/switchProtection
+are private and respectively 129/126/114/145/143/58/198 bytes. Worker-owned stereo scratch adds no per-sample
+allocation; neutralBlock runs once per buffer. Both per-sample hot entries are removed; only recipe data remains.
 
 ## Workloads and scope
 

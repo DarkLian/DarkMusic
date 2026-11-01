@@ -36,14 +36,20 @@ class MethodLengthTest {
     // Every method over the limit, with its length. Lower these as methods are split; never raise one or add one.
     // Most are debt. A hot loop or a table written as code is long on purpose and names why.
     private static final Map<String, Allowed> ALLOWED = Map.ofEntries(
-        hot("AudioProcessor.process", 127, "the per-sample DSP chain, run for every frame"),
         data("EnvironmentRecipes.recipe", 149, "a 22-case switch of preset parameters: a table written as code"));
 
     // Per-sample splits must fit the default hot inline budget and remain non-virtual.
     private static final Set<String> SAMPLE_HELPERS = Set.of(
         "SoundEnvironmentProcessor$Engine.smoothInput",
         "SoundEnvironmentProcessor$Engine.smoothSpace",
-        "SoundEnvironmentProcessor$Engine.generatedNoise");
+        "SoundEnvironmentProcessor$Engine.generatedNoise",
+        "AudioProcessor.filterTone",
+        "AudioProcessor.stereoOptions",
+        "AudioProcessor.reverbCompression",
+        "AudioProcessor.blendOptions",
+        "AudioProcessor.applyEnvironment",
+        "AudioProcessor.feedProtection",
+        "AudioProcessor.switchProtection");
 
     // G1 records one previously invisible existing lambda. From this baseline debt only goes down.
     private static final int MAX_DEBT = 0;
