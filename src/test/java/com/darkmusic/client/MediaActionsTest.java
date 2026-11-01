@@ -12,6 +12,9 @@ import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.SourceLinks;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.lyrics.LyricsService;
+import com.darkmusic.client.lyrics.LyricsDocument;
+import com.darkmusic.client.lyrics.LyricWriteGate;
+import com.darkmusic.client.library.LyricsFiles;
 import com.darkmusic.client.playlist.PlaylistStore;
 import com.darkmusic.client.testing.Await;
 import com.darkmusic.client.testing.FakeAudio;
@@ -425,6 +428,164 @@ class MediaActionsTest {
         assertEquals(List.of(tracks.get(1)), result.get().cancelled());
         assertTrue(Files.notExists(tracks.get(0).file()));
         assertTrue(Files.exists(tracks.get(1).file()));
+    }
+
+    /**
+     * Disposable identity documents test coordination, not audio decoding.
+     */
+    private Track policyTrack() throws Exception {
+        Path file = Files.writeString(root.resolve("queued.identity"), "Disposable file transaction fixture");
+        library.setRoot(root, "r");
+        Await.of(() -> !library.snapshot().scanning());
+        return new Track("r", file.getFileName().toString(), file, "", "", "", 0,
+            Files.size(file), Files.getLastModifiedTime(file).toMillis(), "");
+    }
+
+    private static LyricsDocument queuedLyrics() {
+        return LyricsDocument.of("test", "", "", "", "", 1, "und", LyricsDocument.Variant.UNKNOWN,
+            false, false, "[00:00.00]Queued lyrics");
+    }
+
+    private CompletableFuture<Track> renamePolicyTrack(Track track) {
+        var original = new MediaFiles.Fields("", "", "", "queued", ".identity");
+        var requested = new MediaFiles.Fields("", "", "", "renamed", ".identity");
+        return media.editMetadata(track, original, requested);
+    }
+
+    @Test
+    @Timeout(20)
+    void queuedLyricWriteSettlesBeforeMetadataRenameStarts() throws Exception {
+        var track = policyTrack();
+        byte[] original = Files.readAllBytes(track.file());
+        deferBrowse = true;
+        try (var gate = new LyricWriteGate(lyrics.lookup)) {
+            var worker = Executors.newSingleThreadExecutor();
+            try {
+                var saved = new LyricsActions(() -> lyrics, state).save(track, queuedLyrics(), false);
+                assertEquals(1, gate.queued());
+                var result = renamePolicyTrack(track);
+                assertTrue(state.mediaBusy);
+                var task = worker.submit(browsing.remove());
+                Await.of(() -> task.isDone() || gate.queued() >= 2);
+                assertFalse(task.isDone(), "metadata staging must wait for the admitted lyric write");
+                assertTrue(Files.exists(track.file()));
+                assertFalse(Files.exists(root.resolve("renamed.identity")));
+                gate.release();
+                saved.get(5, TimeUnit.SECONDS);
+                task.get(5, TimeUnit.SECONDS);
+                drain();
+                var renamed = result.get(5, TimeUnit.SECONDS);
+                assertFalse(state.mediaBusy);
+                assertArrayEquals(original, Files.readAllBytes(renamed.file()));
+                assertFalse(Files.exists(LyricsFiles.sidecar(track.file())));
+                assertTrue(Files.readString(LyricsFiles.sidecar(renamed.file())).contains("Queued lyrics"));
+            } finally {
+                gate.release();
+                worker.shutdownNow();
+                assertTrue(worker.awaitTermination(5, TimeUnit.SECONDS));
+            }
+        }
+    }
+
+    @Test
+    @Timeout(20)
+    void queuedLyricWriteSettlesBeforeDeletionStarts() throws Exception {
+        var track = scanned(1).getFirst();
+        var plan = new AudioDeletion.Plan(library.roots(), List.of(item(track)), false, List.of(), false);
+        deferBrowse = true;
+        try (var gate = new LyricWriteGate(lyrics.lookup)) {
+            var worker = Executors.newSingleThreadExecutor();
+            try {
+                var saved = new LyricsActions(() -> lyrics, state).save(track, queuedLyrics(), false);
+                assertEquals(1, gate.queued());
+                var result = media.deleteAudio(plan, AudioDeletion.Mode.PERMANENT, new ProcessRunner.Token(), p -> {
+                });
+                var task = worker.submit(browsing.remove());
+                Await.of(() -> task.isDone() || gate.queued() >= 2);
+                assertFalse(task.isDone(), "deletion must wait for the admitted lyric write");
+                assertTrue(Files.exists(track.file()));
+                gate.release();
+                saved.get(5, TimeUnit.SECONDS);
+                task.get(5, TimeUnit.SECONDS);
+                drain();
+                assertEquals(List.of(track), result.get(5, TimeUnit.SECONDS).removed());
+                assertFalse(state.mediaBusy);
+                assertFalse(Files.exists(track.file()));
+                assertTrue(Files.exists(LyricsFiles.sidecar(track.file())), "unselected companions remain by consent");
+            } finally {
+                gate.release();
+                worker.shutdownNow();
+                assertTrue(worker.awaitTermination(5, TimeUnit.SECONDS));
+            }
+        }
+    }
+
+    private CompletableFuture<?> policyOperation(Track track, boolean edit) throws Exception {
+        if (edit) return renamePolicyTrack(track);
+        var plan = new AudioDeletion.Plan(library.roots(), List.of(item(track)), false, List.of(), false);
+        return media.deleteAudio(plan, AudioDeletion.Mode.PERMANENT, new ProcessRunner.Token(), p -> {
+        });
+    }
+
+    private void assertLyricBusy(CompletableFuture<?> result, Track track, byte[] before) throws Exception {
+        drain();
+        var failure = assertThrows(ExecutionException.class, () -> result.get(2, TimeUnit.SECONDS)).getCause();
+        assertInstanceOf(IOException.class, failure);
+        assertEquals(Text.get("library.darkmusic.file_busy"), failure.getMessage());
+        assertFalse(state.mediaBusy);
+        assertArrayEquals(before, Files.readAllBytes(track.file()));
+        assertFalse(Files.exists(root.resolve("renamed.identity")));
+        assertFalse(Files.exists(LyricsFiles.sidecar(track.file())));
+    }
+
+    @Test
+    @Timeout(35)
+    void lyricBarrierTimeoutLeavesEditAndDeletionUntouchedAndReleasesAdmission() throws Exception {
+        var track = policyTrack();
+        byte[] before = Files.readAllBytes(track.file());
+        deferBrowse = true;
+        for (boolean edit : List.of(true, false)) {
+            try (var gate = new LyricWriteGate(lyrics.lookup)) {
+                var worker = Executors.newSingleThreadExecutor();
+                try {
+                    var result = policyOperation(track, edit);
+                    var task = worker.submit(browsing.remove());
+                    Await.of(() -> gate.queued() > 0 || task.isDone());
+                    assertFalse(task.isDone());
+                    task.get(15, TimeUnit.SECONDS);
+                    assertLyricBusy(result, track, before);
+                } finally {
+                    gate.release();
+                    worker.shutdownNow();
+                    assertTrue(worker.awaitTermination(5, TimeUnit.SECONDS));
+                }
+            }
+        }
+    }
+
+    private void rejectedLyricBarrier(boolean shutdown) throws Exception {
+        var track = policyTrack();
+        byte[] before = Files.readAllBytes(track.file());
+        deferBrowse = true;
+        try (var gate = new LyricWriteGate(lyrics.lookup)) {
+            if (shutdown) gate.rejectNewWrites();
+            else gate.saturate();
+            for (boolean edit : List.of(true, false)) {
+                var result = policyOperation(track, edit);
+                browsing.remove().run();
+                assertLyricBusy(result, track, before);
+            }
+        }
+    }
+
+    @Test
+    void fullLyricQueueRefusesEditAndDeletionBeforeFileChanges() throws Exception {
+        rejectedLyricBarrier(false);
+    }
+
+    @Test
+    void closedLyricStorageRefusesEditAndDeletionBeforeFileChanges() throws Exception {
+        rejectedLyricBarrier(true);
     }
 
 }

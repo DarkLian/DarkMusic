@@ -7,6 +7,7 @@ import com.darkmusic.client.cleanup.LibrarySourceIndex;
 import com.darkmusic.client.library.ListeningHistory;
 import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.lyrics.LyricsService;
+import com.darkmusic.client.lyrics.LyricsLookup;
 import com.darkmusic.client.playlist.PlaylistStore;
 import com.darkmusic.client.tools.ProcessRunner;
 import com.darkmusic.client.gui.DesktopWindowGuard;
@@ -29,6 +30,9 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -183,14 +187,14 @@ public final class MediaActions {
         var player = services.playback();
         var store = services.playlists();
         var scanned = services.library();
+        var lyricWrites = services.lyrics().lookup;
         var resume = player.suspendForEdit();
         var result = new CompletableFuture<Track>();
         var task = services.browse(() -> {
             Track replacement = track;
             Exception problem = null;
             try {
-                if (!player.awaitIdle(10))
-                    throw new IOException(Text.get("library.darkmusic.file_busy"));
+                awaitMediaIdle(player, lyricWrites);
                 replacement = new MediaFiles().edit(track, original, fields, token);
             } catch (Exception e) {
                 problem = e;
@@ -260,7 +264,7 @@ public final class MediaActions {
         });
         var job = new DeletionJob(result);
         pendingDeletion = job;
-        var context = new DeletionContext(player, store, scanned, resume, result, job);
+        var context = new DeletionContext(player, store, scanned, services.lyrics().lookup, resume, result, job);
         var task = services.browse(() -> deleteFiles(context, plan, mode, token, progress));
         if (task == null) {
             job.start();
@@ -273,6 +277,7 @@ public final class MediaActions {
     }
 
     private record DeletionContext(PlaybackController player, PlaylistStore store, MusicLibrary scanned,
+                                   LyricsLookup lyricWrites,
                                    PlaybackController.EditResume resume, CompletableFuture<AudioDeletion.Result> result,
                                    DeletionJob job) {
     }
@@ -297,14 +302,25 @@ public final class MediaActions {
         }
     }
 
+    private static void awaitMediaIdle(PlaybackController player, LyricsLookup lyricWrites) throws IOException, InterruptedException {
+        if (!player.awaitIdle(10)) throw new IOException(Text.get("library.darkmusic.file_busy"));
+        try {
+            lyricWrites.writesSettled().get(10, TimeUnit.SECONDS);
+        } catch (ExecutionException | TimeoutException failed) {
+            throw new IOException(Text.get("library.darkmusic.file_busy"), failed);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interrupted;
+        }
+    }
+
     private void deleteFiles(DeletionContext context, AudioDeletion.Plan plan, AudioDeletion.Mode mode,
                              ProcessRunner.Token token, Consumer<AudioDeletion.Progress> progress) {
         if (!context.job().start()) return;
         AudioDeletion.Result deleted = null;
         Exception problem = null;
         try {
-            if (!context.player().awaitIdle(10))
-                throw new IOException(Text.get("library.darkmusic.file_busy"));
+            awaitMediaIdle(context.player(), context.lyricWrites());
             deleted = new AudioDeletion().delete(plan, mode, token, progress);
             forgetDeletedProvenance(deleted);
         } catch (Exception failure) {

@@ -405,7 +405,11 @@ Artwork transfer tests decode private embedded covers into real NativeImage allo
 failure and both close/transfer orders with latches, and verify native disposal without a GPU context. Native
 smoke still checks the default Minecraft registration path. Deletion tests include a real ten-second unsignalled
 backend wait; shutdown cancels a queued deletion without relying on its discarded runnable. Completed/partial
-results survive service shutdown and provenance-cleanup failure.
+results survive service shutdown and provenance-cleanup failure. Lyric storage latches pin admitted saves before
+metadata rename/deletion, actual ten-second waits and full/closed queue refusal. Selected deletion companions
+must still match their confirmed paths, attributes and hashes before removing the song; added, changed, missing
+or newly shared companions refuse deletion. A fresh confirmation then removes the song and selected companions
+without leaving the queued save behind; unselected companions remain by consent.
 
 ManagedTools symlink tests print `MANAGED_SYMLINK_CHECK` with the host when they run. Windows without symlink
 privilege explicitly skips; Linux CI must execute them. Low-space tests reject before asset downloads or bundle

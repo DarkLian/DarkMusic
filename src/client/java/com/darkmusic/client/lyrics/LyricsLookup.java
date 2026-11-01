@@ -708,6 +708,14 @@ public final class LyricsLookup implements AutoCloseable {
         });
     }
 
+    /**
+     * Completes after every storage operation admitted before this call.
+     */
+    public CompletableFuture<Void> writesSettled() {
+        return submit(() -> {
+        });
+    }
+
     public CompletableFuture<Void> save(Track track, LyricsDocument document, boolean replace) {
         return submit(() -> {
             if (!sameFile(track) || !document.available())

@@ -142,6 +142,7 @@ public final class AudioDeletion {
                     var attributes = validate(plan.roots(), item.track());
                     if (!sameIdentity(item, attributes))
                         throw new IOException(Text.get("library.darkmusic.file_changed"));
+                    checkCompanions(plan, item);
                     if (mode == Mode.TRASH) {
                         if (!plan.trashSupported() || !trash.supported())
                             throw new IOException(Text.get("delete_audio.trash_failed"));
@@ -158,11 +159,7 @@ public final class AudioDeletion {
                             token.check();
                             if (LyricsFiles.shared(item.file()))
                                 throw new IOException("Lyrics are shared with another audio file");
-                            var a = Files.readAttributes(companion.file(), BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-                            if (!a.isRegularFile() || Files.isSymbolicLink(companion.file()) || a.size() != companion.size()
-                                || a.lastModifiedTime().toMillis() != companion.modified() || !Objects.equals(a.fileKey(), companion.fileKey())
-                                || !hash(companion.file()).equals(companion.hash())
-                                || !companion.file().toRealPath().getParent().equals(item.file().getParent().toRealPath()))
+                            if (!sameCompanion(companion, item.file()))
                                 throw new IOException("Companion changed after confirmation");
                             var track = new Track(item.track().rootId(), item.track().relativePath(), companion.file(), "", "", "", 0, companion.size(), companion.modified(), "");
                             if (!plan.trashSupported() || !trash.supported() || !trash.move(new Item(track, companion.file(), companion.fileKey(), companion.hash()))
@@ -185,6 +182,40 @@ public final class AudioDeletion {
             trash.close();
         }
         return new Result(removed, failed, cancelled, companionFailures);
+    }
+
+    /**
+     * Refuse stale selected companions before removing their audio; never expand the user's confirmation.
+     */
+    private static void checkCompanions(Plan plan, Item item) throws IOException {
+        if (!plan.trashCompanions()) return;
+        var confirmed = new HashMap<Path, Companion>();
+        for (Companion companion : plan.companions()) {
+            if (companion.audio().id().equals(item.track().id())) confirmed.put(companion.file(), companion);
+        }
+        try {
+            if (LyricsFiles.shared(item.file())) {
+                if (!confirmed.isEmpty()) throw new IOException("Companions became shared");
+                return;
+            }
+            for (Path path : LyricsFiles.companions(item.file())) {
+                Companion expected = confirmed.remove(path);
+                if (Files.notExists(path, LinkOption.NOFOLLOW_LINKS) && expected == null) continue;
+                if (expected == null || !sameCompanion(expected, item.file()))
+                    throw new IOException("Companion changed after confirmation");
+            }
+            if (!confirmed.isEmpty()) throw new IOException("Unexpected confirmed companion");
+        } catch (IOException changed) {
+            throw new IOException(Text.get("library.darkmusic.file_busy"), changed);
+        }
+    }
+
+    private static boolean sameCompanion(Companion companion, Path audio) throws IOException {
+        var a = Files.readAttributes(companion.file(), BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        return a.isRegularFile() && !Files.isSymbolicLink(companion.file()) && a.size() == companion.size()
+            && a.lastModifiedTime().toMillis() == companion.modified() && Objects.equals(a.fileKey(), companion.fileKey())
+            && hash(companion.file()).equals(companion.hash())
+            && companion.file().toRealPath().getParent().equals(audio.getParent().toRealPath());
     }
 
     private BasicFileAttributes validate(Map<Path, String> roots, Track track) throws IOException {

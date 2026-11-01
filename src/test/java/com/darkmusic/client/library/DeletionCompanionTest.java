@@ -1,6 +1,13 @@
 package com.darkmusic.client.library;
 
 import com.darkmusic.client.tools.ProcessRunner;
+import com.darkmusic.client.lyrics.LyricsLookup;
+import com.darkmusic.client.lyrics.LyricsDocument;
+import com.darkmusic.client.lyrics.LyricWriteGate;
+import com.darkmusic.client.text.Text;
+
+import java.util.concurrent.TimeUnit;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -116,7 +123,7 @@ class DeletionCompanionTest {
     }
 
     @Test
-    void changedCompanionIsPreservedAndReportedSeparatelyFromRemovedAudio() throws Exception {
+    void changedCompanionRefusesAudioDeletionBeforeAnyTrashMove() throws Exception {
         var t = track("changed.dat");
         Path lrc = LyricsFiles.companions(t.file()).getFirst();
         Files.writeString(lrc, "before");
@@ -125,8 +132,9 @@ class DeletionCompanionTest {
         Files.writeString(lrc, "external changes after confirmation");
         var result = service.delete(plan.trashCompanions(true), AudioDeletion.Mode.TRASH, new ProcessRunner.Token(), p -> {
         });
-        assertEquals(List.of(t), result.removed());
-        assertEquals(List.of(lrc), result.companionFailures());
+        assertTrue(result.removed().isEmpty());
+        assertEquals(Text.get("library.darkmusic.file_busy"), result.failed().getFirst().message());
+        assertTrue(Files.exists(t.file()));
         assertEquals("external changes after confirmation", Files.readString(lrc));
     }
 
@@ -144,8 +152,9 @@ class DeletionCompanionTest {
         Files.writeString(sibling, "New sibling after confirmation");
         var result = deletion.delete(plan, AudioDeletion.Mode.TRASH, new ProcessRunner.Token(), p -> {
         });
-        assertEquals(List.of(mp3), result.removed());
-        assertEquals(List.of(lyric), result.companionFailures());
+        assertTrue(result.removed().isEmpty());
+        assertEquals(Text.get("library.darkmusic.file_busy"), result.failed().getFirst().message());
+        assertTrue(Files.exists(mp3.file()));
         assertEquals("Shared user lyrics", Files.readString(lyric));
         assertTrue(Files.exists(sibling));
     }
@@ -163,9 +172,55 @@ class DeletionCompanionTest {
         Files.setLastModifiedTime(lyric, modified);
         var result = service.delete(plan, AudioDeletion.Mode.TRASH, new ProcessRunner.Token(), p -> {
         });
-        assertEquals(List.of(t), result.removed());
-        assertEquals(List.of(lyric), result.companionFailures());
+        assertTrue(result.removed().isEmpty());
+        assertEquals(Text.get("library.darkmusic.file_busy"), result.failed().getFirst().message());
+        assertTrue(Files.exists(t.file()));
         assertEquals("after!", Files.readString(lyric));
+    }
+
+    @Test
+    void queuedSaveRequiresFreshCompanionConfirmationThenDeletesWithoutOrphans() throws Exception {
+        var t = track("queued-save.dat");
+        var deletion = service(false);
+        var plan = deletion.prepare(Map.of(temp, "root"), List.of(t)).trashCompanions(true);
+        assertTrue(plan.companions().isEmpty());
+        try (var lookup = new LyricsLookup(temp.resolve("config")); var gate = new LyricWriteGate(lookup)) {
+            var document = LyricsDocument.of("test", "", "", "", "", 1, "und",
+                LyricsDocument.Variant.UNKNOWN, false, false, "[00:00.00]Queued lyric text");
+            var saved = lookup.save(t, document, false);
+            var settled = lookup.writesSettled();
+            assertFalse(settled.isDone());
+            gate.release();
+            saved.get(5, TimeUnit.SECONDS);
+            settled.get(5, TimeUnit.SECONDS);
+            var stale = deletion.delete(plan, AudioDeletion.Mode.TRASH, new ProcessRunner.Token(), p -> {
+            });
+            assertTrue(stale.removed().isEmpty());
+            assertEquals(Text.get("library.darkmusic.file_busy"), stale.failed().getFirst().message());
+            assertTrue(Files.exists(t.file()));
+            assertTrue(Files.exists(LyricsFiles.sidecar(t.file())));
+            var confirmed = deletion.prepare(Map.of(temp, "root"), List.of(t)).trashCompanions(true);
+            var removed = deletion.delete(confirmed, AudioDeletion.Mode.TRASH, new ProcessRunner.Token(), p -> {
+            });
+            assertEquals(List.of(t), removed.removed());
+            assertTrue(removed.companionFailures().isEmpty());
+            assertFalse(Files.exists(t.file()));
+            for (Path path : LyricsFiles.companions(t.file())) assertFalse(Files.exists(path));
+        }
+    }
+
+    @Test
+    void missingConfirmedCompanionRefusesDeletion() throws Exception {
+        var t = track("missing.dat");
+        Path lrc = Files.writeString(LyricsFiles.sidecar(t.file()), "confirmed lyrics");
+        var deletion = service(false);
+        var plan = deletion.prepare(Map.of(temp, "root"), List.of(t)).trashCompanions(true);
+        Files.delete(lrc);
+        var result = deletion.delete(plan, AudioDeletion.Mode.TRASH, new ProcessRunner.Token(), p -> {
+        });
+        assertTrue(result.removed().isEmpty());
+        assertEquals(Text.get("library.darkmusic.file_busy"), result.failed().getFirst().message());
+        assertTrue(Files.exists(t.file()));
     }
 
 }

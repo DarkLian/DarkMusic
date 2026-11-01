@@ -192,6 +192,9 @@ and reset. `ClientReset` holds the reset steps: what to stop, clear and rebuild.
 or reset holds it; the holder releases it. Reset requires `idle` but not `accepting`: an output switch may still be
 in flight, and closing the old backend completes that switch as not applied. Edits require only `idle`, so an output
 switch can overlap an edit; the edit waits for playback to go idle on its captured player.
+Edits and deletion then wait up to ten seconds for the captured lyric storage worker to settle previously admitted
+writes; rejection or timeout reports file-busy before file changes. When companion removal was selected, deletion
+also refuses a stale confirmation snapshot before touching that song, preserving the reviewed paths and identities.
 
 ### Callbacks across replacement
 
@@ -234,8 +237,6 @@ of it (as the analyzer label says).
   reset phases and their ordering over fake services. The collaborators' admission rules have unit tests; a successful output switch, a
   successful metadata edit and Trash deletion need a device, the tools or the desktop helper and stay with the
   integration tests and the smoke suite.
-- A lyric save already queued on the lyrics storage worker when a metadata edit starts is not stopped by the
-  admission; reaching that needs leaving Lyrics Options and starting the edit elsewhere first.
 - A player stuck in its audio line's write keeps that line open until Minecraft exits. This was tested on the Windows
   default device only.
 - Retained screens re-read settings when shown again, and the confirmation screen cannot be left while a reset or
@@ -359,3 +360,10 @@ staged tag/artwork/format rejection, refused cleanup, disk exhaustion, managed-t
 ownership and deletion shutdown. Tests exposed and fixed two behaviors: discarded queued deletions could retain
 the media lock and unfinished future, and failed texture registrations could bypass the cache entry bound.
 The worker-start/cancel gate and shared artwork trim phase address those cases. No audio arithmetic changed.
+
+## Known-limit quick fixes
+
+[The quick-fix record](history/KNOWN_LIMITS_FIX_PROGRESS.md) covers stale download scratch recovery under the
+workspace lease and a lyric storage barrier before metadata edits/deletion. A queued save may invalidate an earlier
+deletion confirmation, so selected companions are rechecked before removing the song. Changed confirmation
+snapshots require confirmation again; unchecked and shared companions retain their existing consent rules.
