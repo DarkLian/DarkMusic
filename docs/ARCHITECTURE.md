@@ -243,8 +243,6 @@ of it (as the analyzer label says).
 - `mediaBusy` is released by its holder, relying on exclusive admission rather than an operation lease; admission
   makes overlap unreachable (see Exclusive operations). A deletion job atomically arbitrates queued cancellation
   against worker start, so shutdown can release a discarded queued job without later deleting its files.
-- Refused download scratch cleanup leaves its item directory. An explicit workspace recovery constructor can
-  remove stale unleased items, but normal production preparation currently does not call that recovery path.
 - A rescan reuses a file's tags while its size and modification time are unchanged, so a replacement that keeps both
   shows the old tags until one changes.
 - `atomicWrite` falls back to a plain replace where the file system cannot move atomically, so there is no universal

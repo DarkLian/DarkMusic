@@ -410,9 +410,10 @@ results survive service shutdown and provenance-cleanup failure.
 ManagedTools symlink tests print `MANAGED_SYMLINK_CHECK` with the host when they run. Windows without symlink
 privilege explicitly skips; Linux CI must execute them. Low-space tests reject before asset downloads or bundle
 replacement. Download scratch refusal preserves published audio and repair receipts. The explicit
-DownloadWorkspace recovery constructor can sweep unleased stale work, but normal pipeline preparation currently
-uses recover=false and has no startup recovery caller; the fixture records this limitation rather than claiming
-startup cleanup happens.
+DownloadWorkspace recovery runs on the first pipeline preparation while holding its instance-wide lease.
+Only stale item directories are swept; live/shared users, unrelated paths and symlinks are preserved. Refused
+scans/removals are logged without failing otherwise writable workspaces. F5 verifies later preparation recovers
+scratch without changing published audio or its repair receipt.
 
 ArchitectureTest ratchets client Java lines over 150 Unicode characters at the existing 569-line baseline. Lower
 the count and budget together. `.editorconfig` shares a 120-character margin for future IDEA formatting. No mass

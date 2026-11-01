@@ -115,7 +115,7 @@ public final class DownloadPipeline {
     }
 
     synchronized void prepare() throws IOException {
-        if (workspace == null) workspace = new DownloadWorkspace(data, false);
+        if (workspace == null) workspace = new DownloadWorkspace(data);
         workspaceUsers++;
     }
 

@@ -18,10 +18,6 @@ final class DownloadWorkspace implements AutoCloseable {
     private final FileLock lock;
 
     DownloadWorkspace(Path data) throws IOException {
-        this(data, true);
-    }
-
-    DownloadWorkspace(Path data, boolean recover) throws IOException {
         Path directory = data.resolve("downloads");
         Files.createDirectories(directory);
         if (Files.isSymbolicLink(directory))
@@ -40,19 +36,25 @@ final class DownloadWorkspace implements AutoCloseable {
             Files.createDirectories(root);
             if (Files.isSymbolicLink(root))
                 throw new IOException(Text.get("text.darkmusic.download_scratch_folder_must_not_be_a_symbolic_link"));
-            if (recover) try (var children = Files.list(root)) {
-                for (Path child : children.filter(p -> p.getFileName().toString().startsWith("item-")).toList()) {
-                    if (Files.isSymbolicLink(child) || !Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS)) continue;
-                    try {
-                        FileTrees.remove(child);
-                    } catch (IOException e) {
-                        LoggerFactory.getLogger("darkmusic-download").warn("Could not remove stale download workspace {}", child, e);
-                    }
-                }
-            }
+            recover(root);
         } catch (IOException e) {
             close();
             throw e;
+        }
+    }
+
+    private static void recover(Path root) {
+        try (var children = Files.list(root)) {
+            for (Path child : children.filter(p -> p.getFileName().toString().startsWith("item-")).toList()) {
+                if (Files.isSymbolicLink(child) || !Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS)) continue;
+                try {
+                    FileTrees.remove(child);
+                } catch (IOException e) {
+                    LoggerFactory.getLogger("darkmusic-download").warn("Could not remove stale download workspace {}", child, e);
+                }
+            }
+        } catch (IOException failure) {
+            LoggerFactory.getLogger("darkmusic-download").warn("Could not inspect stale download workspace {}", root, failure);
         }
     }
 

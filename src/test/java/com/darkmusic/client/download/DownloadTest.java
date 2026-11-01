@@ -475,7 +475,9 @@ class DownloadTest {
         var ordinary = new DownloadPipeline(fake, data);
         ordinary.prepare();
         try {
-            assertTrue(Files.isDirectory(stale), "normal pipeline preparation currently does not sweep old work");
+            assertFalse(Files.exists(stale), "the next preparation recovers refused scratch work");
+            assertArrayEquals(published, Files.readAllBytes(saved.file()));
+            assertTrue(DownloadCommit.pending(destination, entry.key()));
         } finally {
             ordinary.close();
         }
