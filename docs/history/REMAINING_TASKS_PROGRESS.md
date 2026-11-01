@@ -58,3 +58,11 @@ Use `scripts/verify.ps1` for full checks and the existing managed tools and priv
   caller uses the recovery constructor. Ordinary startup therefore does not currently sweep refused scratch work;
   this is recorded rather than claiming automatic cleanup. The recovery constructor test preserves published
   audio/receipt while removing only its disposable stale work.
+
+- F9: injected worker/render handoff, native preparation, registration and release functions default to the original
+  Minecraft operations. Tests use real NativeImage allocations filled from private embedded artwork, without a
+  GPU context. A registration refusal closes its image and a subsequent cover works; latches force close before
+  and after the transfer check, and native pixel access confirms disposal. Pending saturation is exactly eight;
+  every admitted image is registered or closed and cache close releases all registered images. **21 focused tests
+  pass, zero skips/failures/errors**, including architecture/method guards. Native Minecraft rendering still needs
+  final smoke follow-up. The failed-registration entry bound is being checked separately.

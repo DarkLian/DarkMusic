@@ -18,6 +18,10 @@ import java.util.LinkedHashMap;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
+import java.util.function.Function;
+import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.concurrent.Executors;
 
 /**
@@ -27,11 +31,31 @@ public final class ArtworkCache implements AutoCloseable {
     public static final int MAX_SIZE = 1024;
     private final LinkedHashMap<String, Cover> cache = new LinkedHashMap<>(32, 0.75f, true);
     private final Set<String> pending = new HashSet<>();
-    private final ExecutorService worker = Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-artwork").factory());
+    private final ExecutorService worker;
+    private final Executor render;
+    private final Function<Pixels, NativeImage> prepare;
+    private final BiConsumer<Identifier, NativeImage> register;
+    private final Consumer<Identifier> release;
     private int cachedBytes;
     private volatile boolean closed;
     private int serial;
     private int entryLimit = 32;
+
+    public ArtworkCache() {
+        this(Executors.newSingleThreadExecutor(Thread.ofPlatform().daemon().name("darkmusic-artwork").factory()),
+            task -> Minecraft.getInstance().execute(task), ArtworkCache::prepareImage,
+            (id, image) -> Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(() -> "DarkMusic artwork", image)),
+            id -> Minecraft.getInstance().getTextureManager().release(id));
+    }
+
+    ArtworkCache(ExecutorService worker, Executor render, Function<Pixels, NativeImage> prepare,
+                 BiConsumer<Identifier, NativeImage> register, Consumer<Identifier> release) {
+        this.worker = worker;
+        this.render = render;
+        this.prepare = prepare;
+        this.register = register;
+        this.release = release;
+    }
 
     public void visibleRows(int rows) {
         entryLimit = Math.max(32, rows + 4);
@@ -150,7 +174,7 @@ public final class ArtworkCache implements AutoCloseable {
     public void close() {
         closed = true;
         worker.shutdownNow();
-        cache.values().stream().filter(Objects::nonNull).map(Cover::id).forEach(Minecraft.getInstance().getTextureManager()::release);
+        cache.values().stream().filter(Objects::nonNull).map(Cover::id).forEach(release);
         cachedBytes = 0;
         cache.clear();
         pending.clear();
@@ -205,21 +229,39 @@ public final class ArtworkCache implements AutoCloseable {
         return new Pixels(pixels, dimension, contentWidth, contentHeight, inset);
     }
 
+    static NativeImage prepareImage(Pixels image) {
+        if (image.values() == null) return null;
+        int size = image.dimension();
+        var prepared = new NativeImage(size, size, false);
+        try {
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++) prepared.setPixel(x, y, image.values()[y * size + x]);
+            return prepared;
+        } catch (RuntimeException | Error failure) {
+            prepared.close();
+            throw failure;
+        }
+    }
+
+    /**
+     * For tests: admission remains bounded while worker/render transfer is held.
+     */
+    int pendingCount() {
+        return pending.size();
+    }
+
     private void load(Track track, int limit, String key) {
         NativeImage owned = null;
         try {
             var image = readArtwork(track, limit);
-            int size = image.dimension();
-            NativeImage prepared = image.values() == null ? null : new NativeImage(size, size, false);
+            NativeImage prepared = prepare.apply(image);
             owned = prepared;
-            if (prepared != null) for (int y = 0; y < size; y++)
-                for (int x = 0; x < size; x++) prepared.setPixel(x, y, image.values()[y * size + x]);
             if (closed) return;
-            Minecraft.getInstance().execute(() -> publish(key, prepared, image));
+            render.execute(() -> publish(key, prepared, image));
             owned = null; // The render-thread callback now owns the native image.
         } finally {
             if (owned != null) owned.close();
-            Minecraft.getInstance().execute(() -> pending.remove(key));
+            render.execute(() -> pending.remove(key));
         }
     }
 
@@ -233,7 +275,7 @@ public final class ArtworkCache implements AutoCloseable {
         if (prepared != null) {
             id = Identifier.fromNamespaceAndPath("darkmusic", "artwork/" + serial++);
             try {
-                Minecraft.getInstance().getTextureManager().register(id, new DynamicTexture(() -> "DarkMusic artwork", prepared));
+                register.accept(id, prepared);
             } catch (RuntimeException failure) {
                 prepared.close();
                 LoggerFactory.getLogger("darkmusic").warn("Artwork texture registration failed", failure);
@@ -247,7 +289,7 @@ public final class ArtworkCache implements AutoCloseable {
             var entry = cache.entrySet().iterator().next();
             if (entry.getValue() != null) {
                 cachedBytes -= entry.getValue().size() * entry.getValue().size() * 4;
-                Minecraft.getInstance().getTextureManager().release(entry.getValue().id());
+                release.accept(entry.getValue().id());
             }
             cache.remove(entry.getKey());
         }
