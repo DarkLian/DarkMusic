@@ -31,6 +31,21 @@ No screen's Sources extends another screen's Sources; it may extend only shared 
 `ArchitectureTest.screensDoNotInheritTheSourcesOfScreensTheyOpen` enforces this with no exceptions. Pages of one
 group (audio, PiP, download tools) share their group's Sources.
 
+The screens sit in folders by feature, and the folders depend only downward:
+
+```
+gui            shared base: Navigation, LocalScreen, AudioPage, the *Operations interfaces and PlayerQueries,
+               and the types they name (HudElement, ColorPreview, AudioParameter, LyricsConsent, PlayerProgress)
+gui.widget     drawing and input pieces any screen may use (RowList, UiButton, ScrollBar, SongCard, the desktop dialogs)
+gui.player  gui.settings  gui.audio  gui.lyrics  gui.download  gui.library  gui.pip     one folder per feature
+```
+
+`gui.widget` depends on nothing else in `gui`; the base depends only on `gui.widget`; a feature folder depends only
+on the base and `gui.widget`, never on another feature. Screens open each other through `Navigation`, so a feature
+needs no import of the next. A class two features share belongs in the base or in `gui.widget`, not in one of them.
+`ArchitectureTest.guiFoldersDependOnlyDownward` enforces this on the compiled classes with no exceptions. The other
+package rules key on the first path segment, so every `gui.*` folder keeps `gui`'s place in the layering.
+
 Screens change playback, the queue and playlists only through `gui.TransportOperations`, `gui.QueueOperations` and
 `gui.PlaylistOperations`, which apply the admission once for every screen and return whether they ran; they read
 the player through `gui.PlayerQueries`. Each operation keeps the rule its screens checked before: starting a song,
@@ -258,9 +273,11 @@ of it (as the analyzer label says).
 
 ## Common changes
 
-- *Adding a destination screen*: its Sources, one `Navigation` method, one `ScreenNavigation` method and bound;
+- *Adding a destination screen*: put it in its feature folder under `gui` (a shared piece goes in `gui` or
+  `gui.widget`); its Sources, one `Navigation` method, one `ScreenNavigation` method and bound;
   `ClientSources` implements the new Sources with forwarding methods. Logic it needs goes into a named collaborator
   (or a new one), which `ClientSources` forwards to. `DarkMusicClient` and the other screens do not change.
+- *A new feature area*: a new `gui.<feature>` folder; `guiFoldersDependOnlyDownward` covers it without a change.
 - *Adding a player control or menu action*: put it in the collaborator that owns the area (`PlaybackCommands`,
   `FolderActions`, `MediaActions`, `BackupActions`, `OutputActions`); a new collaborator declares its `Inputs`, takes
   the fixed objects through its constructor, gets a root test, and is wired in `DarkMusicClient`'s fields. A
