@@ -19,12 +19,13 @@ before/after spread. A retained split is not a claim of zero cost or a speedup o
 | SpectrumAnalyzer.analyze, 2,048-point FFT / 64 bands | 28.406 | 26.332 | −7.302% | 6.219 | Keep transform phase; no speedup claim |
 | CircularHudMesh.Rings.buildVertices | 146.775 | 155.521 | +5.958% | 15.824 | Keep progress/contour phases under the noise rule |
 | SpectrumRenderer.bars | 14.858 | 15.189 | +2.228% | 0.747 | Keep contour/bar-row phases |
-| SoundEnvironmentProcessor.Engine.process, 256 stereo frames | 20.022 | Not attempted | — | Baseline 2.328 | Listening prerequisite pending |
+| SoundEnvironmentProcessor.Engine.process, 256 stereo frames | 19.353 | 19.847 | +2.556% | 5.114 | Keep input/space/noise phases |
 | AudioProcessor.process, 256 stereo frames | 166.665 | Not attempted | — | Baseline 5.767 | Listening prerequisite pending |
 
-All four attempted candidates matched their fixed goldens and passed focused functional/guard suites before
-retention. No extracted helper runs once per sample: these are final-analysis, per-block or per-frame calls.
-The two per-sample methods remain unchanged, behind the plan's human listening prerequisite.
+All five attempted candidates matched their fixed goldens and passed focused functional/guard suites before
+retention. H1-H4 helpers are final-analysis, per-block or per-frame calls. H5's private per-sample helpers are guarded at
+325 encoded bytes: smoothInput 151, smoothSpace 236 and generatedNoise 216. No per-sample allocations were added.
+H5 uses fresh quiet H56 baseline 2; the user confirmed continuation after publication. H6 is next.
 
 ## Workloads and scope
 

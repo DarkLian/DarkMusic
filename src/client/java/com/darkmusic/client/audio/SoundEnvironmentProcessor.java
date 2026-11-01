@@ -237,27 +237,8 @@ public final class SoundEnvironmentProcessor {
         }
 
         void process(double l, double r) {
-            trim += (targetTrim - trim) * parameterSmoothing;
-            noiseGain += (targetNoise - noiseGain) * parameterSmoothing;
-            drive += (p.drive - drive) * parameterSmoothing;
-            pan += (p.pan - pan) * parameterSmoothing;
-            echoGain += (p.echoGain - echoGain) * parameterSmoothing;
-            reverbWet += (p.wet - reverbWet) * parameterSmoothing;
-            if (p.wet == 0 && reverbWet < 1e-8) reverbWet = 0;
-            if (reverbWet > 0) acousticWasAudible = true;
-            else if (acousticWasAudible) {
-                // Fully bypassed acoustics must not replay a frozen tail when re-enabled later.
-                room.clear();
-                convolution = null;
-                convolutionReady = acousticWasAudible = false;
-                convolutionMix = 0;
-            }
-            dampingAmount += (p.damping - dampingAmount) * parameterSmoothing;
-            for (int i = 0; i < p.reflectionGains.length; i++)
-                reflectionGains[i] += (p.reflectionGains[i] - reflectionGains[i]) * parameterSmoothing;
-            convolutionMix += ((convolutionReady ? 1 : 0) - convolutionMix) * convolutionSmoothing;
-            highMix = toward(highMix, highOn ? 1 : 0);
-            lowMix = toward(lowMix, lowOn ? 1 : 0);
+            smoothInput();
+            smoothSpace();
             if (p.mono) l = r = (l + r) * .5;
             double highLeft = high.sample(l, 0), highRight = high.sample(r, 1);
             l = presence.sample(l + (highLeft - l) * highMix, 0);
@@ -267,23 +248,7 @@ public final class SoundEnvironmentProcessor {
                 l = Math.tanh(l * (1 + drive)) / divisor;
                 r = Math.tanh(r * (1 + drive)) / divisor;
             }
-            double generated = 0;
-            if (texture) {
-                double n = noise();
-                if (preset == SoundEnvironmentSettings.Preset.VINYL) {
-                    if (n > .9991) crackle = noise() * noiseGain * 8;
-                    crackle *= .97;
-                    generated = crackle + n * noiseGain * .12;
-                } else generated = n * noiseGain;
-            }
-            if (ambience) {
-                wind += (noise() - wind) * .001;
-                generated += wind * noiseGain * 4;
-                if (preset == SoundEnvironmentSettings.Preset.FOREST_CLEARING)
-                    generated += Math.sin(oscSin * 38) * Math.pow(Math.max(0, oscCos), 16) * noiseGain * .3;
-                if (preset == SoundEnvironmentSettings.Preset.UNDERWATER)
-                    generated += Math.sin(oscSin * 13) * wind * noiseGain;
-            }
+            double generated = generatedNoise();
             l += generated;
             r += generated;
             double lowLeft = low.sample(l, 0), lowRight = low.sample(r, 1);
@@ -325,6 +290,54 @@ public final class SoundEnvironmentProcessor {
             double next = oscSin * incCos + oscCos * incSin;
             oscCos = oscCos * incCos - oscSin * incSin;
             oscSin = next;
+        }
+
+        private void smoothInput() {
+            trim += (targetTrim - trim) * parameterSmoothing;
+            noiseGain += (targetNoise - noiseGain) * parameterSmoothing;
+            drive += (p.drive - drive) * parameterSmoothing;
+            pan += (p.pan - pan) * parameterSmoothing;
+            echoGain += (p.echoGain - echoGain) * parameterSmoothing;
+            reverbWet += (p.wet - reverbWet) * parameterSmoothing;
+        }
+
+        private void smoothSpace() {
+            if (p.wet == 0 && reverbWet < 1e-8) reverbWet = 0;
+            if (reverbWet > 0) acousticWasAudible = true;
+            else if (acousticWasAudible) {
+                // Fully bypassed acoustics must not replay a frozen tail when re-enabled later.
+                room.clear();
+                convolution = null;
+                convolutionReady = acousticWasAudible = false;
+                convolutionMix = 0;
+            }
+            dampingAmount += (p.damping - dampingAmount) * parameterSmoothing;
+            for (int i = 0; i < p.reflectionGains.length; i++)
+                reflectionGains[i] += (p.reflectionGains[i] - reflectionGains[i]) * parameterSmoothing;
+            convolutionMix += ((convolutionReady ? 1 : 0) - convolutionMix) * convolutionSmoothing;
+            highMix = toward(highMix, highOn ? 1 : 0);
+            lowMix = toward(lowMix, lowOn ? 1 : 0);
+        }
+
+        private double generatedNoise() {
+            double generated = 0;
+            if (texture) {
+                double n = noise();
+                if (preset == SoundEnvironmentSettings.Preset.VINYL) {
+                    if (n > .9991) crackle = noise() * noiseGain * 8;
+                    crackle *= .97;
+                    generated = crackle + n * noiseGain * .12;
+                } else generated = n * noiseGain;
+            }
+            if (ambience) {
+                wind += (noise() - wind) * .001;
+                generated += wind * noiseGain * 4;
+                if (preset == SoundEnvironmentSettings.Preset.FOREST_CLEARING)
+                    generated += Math.sin(oscSin * 38) * Math.pow(Math.max(0, oscCos), 16) * noiseGain * .3;
+                if (preset == SoundEnvironmentSettings.Preset.UNDERWATER)
+                    generated += Math.sin(oscSin * 13) * wind * noiseGain;
+            }
+            return generated;
         }
 
         private double toward(double mix, double target) {

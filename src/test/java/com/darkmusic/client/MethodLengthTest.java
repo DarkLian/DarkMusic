@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -36,8 +37,13 @@ class MethodLengthTest {
     // Most are debt. A hot loop or a table written as code is long on purpose and names why.
     private static final Map<String, Allowed> ALLOWED = Map.ofEntries(
         hot("AudioProcessor.process", 127, "the per-sample DSP chain, run for every frame"),
-        hot("SoundEnvironmentProcessor$Engine.process", 88, "the per-sample environment loop, run for every frame"),
         data("EnvironmentRecipes.recipe", 149, "a 22-case switch of preset parameters: a table written as code"));
+
+    // Per-sample splits must fit the default hot inline budget and remain non-virtual.
+    private static final Set<String> SAMPLE_HELPERS = Set.of(
+        "SoundEnvironmentProcessor$Engine.smoothInput",
+        "SoundEnvironmentProcessor$Engine.smoothSpace",
+        "SoundEnvironmentProcessor$Engine.generatedNoise");
 
     // G1 records one previously invisible existing lambda. From this baseline debt only goes down.
     private static final int MAX_DEBT = 0;
@@ -71,6 +77,7 @@ class MethodLengthTest {
     @Test
     void longestMethodsOnlyShrink() throws IOException, URISyntaxException {
         var lengths = measure();
+        assertTrue(lengths.keySet().containsAll(SAMPLE_HELPERS), "Update stale per-sample helper guards");
         var violations = new ArrayList<String>();
         lengths.forEach((method, length) -> {
             Integer allowed = ALLOWED.containsKey(method) ? ALLOWED.get(method).length() : null;
@@ -117,12 +124,8 @@ class MethodLengthTest {
                             public void visitEnd() {
                                 String key = type + "." + stableName(name);
                                 if (first <= last) lengths.merge(key, last - first, Math::max);
-                                if (ALLOWED.containsKey(key) || lambda && last - first > 40)
-                                    System.out.printf("METHOD_SIZE %s%s: %d lines, %d bytes%n",
-                                        key, descriptor, last - first, code.get(name + descriptor));
-                                if (ALLOWED.containsKey(key) && ALLOWED.get(key).kind() == Kind.HOT)
-                                    assertTrue(code.get(name + descriptor) <= 8000,
-                                        key + " exceeds the huge-method JIT threshold; split and measure it first");
+                                if (code.containsKey(name + descriptor))
+                                    reportSize(key, descriptor, access, last - first, code.get(name + descriptor), lambda);
                             }
                         };
                     }
@@ -130,6 +133,17 @@ class MethodLengthTest {
             }
         }
         return lengths;
+    }
+
+    private static void reportSize(String key, String descriptor, int access, int lines, int bytes, boolean lambda) {
+        if (ALLOWED.containsKey(key) || SAMPLE_HELPERS.contains(key) || lambda && lines > 40)
+            System.out.printf("METHOD_SIZE %s%s: %d lines, %d bytes%n", key, descriptor, lines, bytes);
+        if (ALLOWED.containsKey(key) && ALLOWED.get(key).kind() == Kind.HOT)
+            assertTrue(bytes <= 8000, key + " exceeds the huge-method JIT threshold; split and measure it first");
+        if (SAMPLE_HELPERS.contains(key)) {
+            assertTrue(bytes <= 325, key + " exceeds the hot inline bytecode budget");
+            assertTrue((access & (Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC)) != 0, key + " must be private or static");
+        }
     }
 
     static String stableName(String name) {

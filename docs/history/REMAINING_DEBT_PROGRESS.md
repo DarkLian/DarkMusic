@@ -6,12 +6,9 @@ H5/H6. Six untracked local plan files are preserved.
 
 ## Current status
 
-G, all U/L batches, H0 and H1–H4 are implemented and verified. MAX_DEBT is **0**. The only remaining long
-methods are the two original per-sample hot entries and the recipe data entry. H5/H6 have not been attempted:
-the plan explicitly requires the owed human listening/device check first. Results were requested asynchronously
-at the start. The user has now confirmed proceeding with H5/H6, resolving the prerequisite for implementation;
-no detailed listening rows or physical unplug observations were supplied, so none are invented.
-AudioProcessor is unchanged; the environment Engine only gained package visibility for the H0 fixtures.
+G, all U/L batches, H0 and H1-H5 are implemented and verified. MAX_DEBT is **0**. H5 meets the exactness/cost
+rule and removes its hot entry. H6 is next; AudioProcessor.process and the recipe data entry remain long.
+The user confirmed proceeding with H5/H6; no detailed listening/device observations were supplied or invented.
 
 - Final `scripts/verify.ps1 -Clean -DesktopIntegration`: **937 tests, 12 explicit skips, zero failures/errors**.
   All new exact-output checks and the eight-by-twenty backend PCM golden scenarios ran without skipping.
@@ -126,3 +123,16 @@ Initial captures: 15 screen/HUD states, two original 1920x1080 GUI-scale-2 captu
 comparison was invalid (see visual audit above). Stored privately in docs/images_private/remaining-before. Playback paused, visualizer/transitions off;
 real collection/artwork and SmoothFont, isolated capture-run configuration. First harness attempt failed because
 resetting isolated settings cleared tool paths; the harness now reapplies the existing managed tool paths.
+
+## H5/H6 continuation (after publication)
+
+All 25 verified batch commits were pushed through `0fe03d0`; the remote main ref was verified. Fresh quiet
+before runs `h56-before-1` and `h56-before-2` are saved, with the second selected before attempting either split.
+H5 extracts input/space smoothing and generated noise without changing arithmetic or per-sample allocations.
+The 200-test audio/guard run passed every audio check, including direct preset hashes and all backend PCM goldens;
+its only failure was a new size-report unboxing bug on abstract methods with no Code attribute. The reporter now
+checks for Code before reading its size; the separate 16-test architecture/method rerun passed. Helper sizes are
+151, 236 and 216 bytes, all private and below 325. H5 cost passed: 19.353 to 19.847 microseconds per 256 stereo frames (+2.556%), absolute delta 0.495 below
+the larger p10-p90 spread 5.114. Keep the split and remove its hot entry. The preceding all-six-method cost run
+also supplies the H6 immediate pre-split control (AudioProcessor median 167.129, spread 9.656 microseconds),
+with H5 already present; the original H56 baseline remains available for comparison.
