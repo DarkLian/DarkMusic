@@ -227,7 +227,7 @@ of it (as the analyzer label says).
   synchronization risk without clarifying its control flow.
 - Exact PCM and native smoke checks do not replace the human listening and physical device-unplug protocol in
   [TESTING.md](TESTING.md#exact-pcm-regression-checks-and-deferred-work-protocol). The user reported all listening
-  checks passed on 2026-11-01; physical-unplug confirmation remains pending. The named GPU transfer, cleanup, rollback, disk-space and shutdown cases now have
+  checks passed on 2026-11-01 and separately confirmed the physical-unplug check the same day. The named GPU transfer, cleanup, rollback, disk-space and shutdown cases now have
   [injected tests](history/REMAINING_TASKS_PROGRESS.md); further independent OS/driver failures are not exhaustive.
 - Which services are built (`DarkMusicClient.ready`, `ClientServices.buildHistories`/`buildServices`/
   `buildReplaceable`) is wiring, covered by compilation, review and smoke checks. `ClientResetTest` pins the real

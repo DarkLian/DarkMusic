@@ -73,8 +73,8 @@ the completed batches on 2026-11-01. The local plans and private evidence remain
 
 The user reported "All listening checks passed" on 2026-11-01. Listening rows 1-7 and 9-11 are recorded as
 passed on that report, including post-H5/H6 checks. Specific track and device identities were not supplied.
-Physical unplug row 8 requires separate confirmation and remains pending; the listening report is not labeled
-as a physical device action. The exact protocol is in TESTING.md. Automated PCM/native controls remain distinct
+The user separately confirmed the physical-unplug test on 2026-11-01. All eleven rows now pass on the user's
+reports; no detailed track/device identities are invented. The exact protocol is in TESTING.md. Automated PCM/native controls remain distinct
 from these user-reported listening observations.
 
 | Listening row | Status | Files/device used for human check |
@@ -86,7 +86,7 @@ from these user-reported listening observations.
 | 5: speed 1.5, Preserve Pitch, progress/lyrics | Passed (user report, 2026-11-01) | Not specified |
 | 6: pause/resume overlap | Passed (user report, 2026-11-01) | Not specified |
 | 7: output changes | Passed (user report, 2026-11-01) | Not specified |
-| 8: physically unplug explicit output | Awaiting explicit physical-test confirmation | Not specified |
+| 8: physically unplug explicit output | Passed (user report, 2026-11-01) | Not specified |
 | 9: mono/24-bit noise and channels | Passed (user report, 2026-11-01) | Not specified |
 | 10: strong EQ to Flat, loud positive-gain limiter | Passed (user report, 2026-11-01) | Not specified |
 | 11: Concert Hall/Telephone/Underwater/Orbital Echo switching | Passed (user report, 2026-11-01) | Not specified |

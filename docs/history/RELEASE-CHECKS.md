@@ -1,4 +1,18 @@
 # Release checks
+
+## v3.6.2: lyrics admission, initial folders, queued deletion and artwork bounds
+
+The user reported all listening checks passed and separately confirmed physical unplug on 2026-11-01, then
+explicitly requested v3.6.2. Clean Windows release validation at version 3.6.2 passed **960 tests, 14 explicit
+skips, zero failures/errors**, with the private collection and existing managed tools. Fixed PCM/visual/recipe
+checks ran; the additional optional local-config snapshot skip reports a changed player config rather than
+claiming equality to the historical snapshot. All five artifacts and matching external-extension manifests pass
+integrity/size/SHA-256 checks; no native executable/archive enters the mod JAR. The full nine-scenario native
+suite and publication status are recorded in [release progress](RELEASE-3.6.2_PROGRESS.md).
+
+PR #9 updates only the pinned Gradle wrapper-validation action to the upstream v6.4.1 commit. It was reviewed,
+passed three-platform checks and merged before the release candidate. No application security issue is inferred
+from the upstream advisory for the separate dependency-submission action.
 ## v3.6.1: True Peak switching, loudness cache merging, lifecycle fixes and .NET 8.0.33 helpers
 
 Clean Windows validation with `scripts/verify.ps1 -Clean` on Java 25 passed 789 tests: 778 passed, 11 skipped, zero

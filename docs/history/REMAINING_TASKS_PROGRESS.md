@@ -5,11 +5,11 @@ The existing debt plan is complete; this round addresses the recorded exceptiona
 
 ## Current status
 
-- R1: the user reported all listening checks passed on 2026-11-01. Rows 1-7 and 9-11 are recorded as passed.
-  Physical unplug row 8 is awaiting explicit confirmation; track/device details were not supplied.
+- R1: all eleven listening/device rows passed on the user's reports on 2026-11-01, including the separately
+  confirmed physical-unplug check. Specific track/device identities were not supplied.
 - R2: F1-F10 implemented; clean desktop and native follow-up pass. Two injected behavior bugs are fixed.
   Test destructive paths only in disposable fixtures; audio copies derive from the private collection.
-- R3: release decision requested asynchronously. Do not tag/publish until the decision and R1 results exist.
+- R3: the user explicitly requested release v3.6.2 on 2026-11-01. Version/notes are prepared; release validation is running.
 - R4: long-line ratchet and shared wrapping setting implemented and verified, without a mass reformat.
   Keep existing wildcard-import and multiple-declaration style.
 - Live LRCLIB: the opted-in production-provider check passed on 2026-11-01, without skipping. No endpoint or
@@ -124,3 +124,11 @@ passed, including H5 environment switches and H6 EQ/limiter checks. No particula
 observations are invented. A separate question requests confirmation of the physical-unplug row and the R3
 v3.6.2 release decision. Earlier pending-listening notes describe the state before this report.
 No code changed, so the verified 960-test build, native follow-ups and final all-platform CI remain applicable.
+
+## Physical-unplug confirmation and release authorization (2026-11-01)
+
+The user said "physical-unplug confirmed. Release v3.6.2". The shared table now records row 8 as passed; all
+R1 rows are complete on the user's reports, with no invented files/device identities. This explicitly authorizes
+R3 preparation, commit/push, v3.6.2 tagging and GitHub publication after release validation. No further confirmation
+is required. Version, install documentation and notes are prepared; release-specific checks and publication are
+tracked in RELEASE-3.6.2_PROGRESS.md. Earlier pending statements are historical.

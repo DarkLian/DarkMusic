@@ -9,7 +9,7 @@ H5/H6. Six untracked local plan files are preserved.
 G, all U/L batches and H0-H6 are implemented. MAX_DEBT is **0**; only EnvironmentRecipes.recipe remains as a
 data entry. Both per-sample candidates pass fixed PCM goldens and the cost rule. Final clean desktop verification and
 default/advanced/queue native follow-up pass after H6. On 2026-11-01 the user reported all listening checks passed,
-including post-DSP listening. Specific files/devices were not supplied; physical-unplug confirmation is pending.
+including post-DSP listening. Specific files/devices were not supplied; physical unplug was separately confirmed as passed on 2026-11-01.
 The current shared results are in DEFERRED_PROGRESS.md; earlier pending notes are historical.
 
 - Final post-H6 `scripts/verify.ps1 -Clean -DesktopIntegration`: **937 tests, 12 explicit skips, zero failures/errors**.
@@ -182,3 +182,7 @@ is inferred from automated checks or the prior authorization to proceed.
 
 User follow-up on 2026-11-01: all listening checks passed. See the shared human-verification table and
 REMAINING_TASKS_PROGRESS.md for the recorded report and the still-pending physical-unplug/release confirmations.
+
+The user separately confirmed the physical-unplug check and requested release v3.6.2 on 2026-11-01.
+All eleven shared human-verification rows are now passed on the user's reports. Release validation/publication
+is recorded in RELEASE-3.6.2_PROGRESS.md.
