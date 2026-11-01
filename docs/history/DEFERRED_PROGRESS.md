@@ -71,23 +71,25 @@ the completed batches on 2026-11-01. The local plans and private evidence remain
 
 ## Remaining human verification
 
-The user authorized commit and push after reviewing the implementation and verification summary. Separate
-batch boundaries are preserved below. Human listening/device rows remain unrecorded. The exact protocol is in TESTING.md. No human file/device result
-has been invented, and automated PCM or native controls are not described as listening results.
+The user reported "All listening checks passed" on 2026-11-01. Listening rows 1-7 and 9-11 are recorded as
+passed on that report, including post-H5/H6 checks. Specific track and device identities were not supplied.
+Physical unplug row 8 requires separate confirmation and remains pending; the listening report is not labeled
+as a physical device action. The exact protocol is in TESTING.md. Automated PCM/native controls remain distinct
+from these user-reported listening observations.
 
 | Listening row | Status | Files/device used for human check |
 |---|---|---|
-| 1: loud/quiet normalization, 5 s overlap | Pending human listening | None recorded |
-| 2: gapless album | Pending human listening | None recorded |
-| 3: album normalization | Pending human listening | None recorded |
-| 4: seek during overlap | Pending human listening | None recorded |
-| 5: speed 1.5, Preserve Pitch, progress/lyrics | Pending human listening | None recorded |
-| 6: pause/resume overlap | Pending human listening | None recorded |
-| 7: output changes | Pending human listening | None recorded |
-| 8: physically unplug explicit output | Pending physical test | None recorded |
-| 9: mono/24-bit noise and channels | Pending human listening | None recorded |
-| 10: strong EQ to Flat, loud positive-gain limiter | Pending post-H6 listening | None recorded |
-| 11: Concert Hall/Telephone/Underwater/Orbital Echo switching | Pending post-H5 listening | None recorded |
+| 1: loud/quiet normalization, 5 s overlap | Passed (user report, 2026-11-01) | Not specified |
+| 2: gapless album | Passed (user report, 2026-11-01) | Not specified |
+| 3: album normalization | Passed (user report, 2026-11-01) | Not specified |
+| 4: seek during overlap | Passed (user report, 2026-11-01) | Not specified |
+| 5: speed 1.5, Preserve Pitch, progress/lyrics | Passed (user report, 2026-11-01) | Not specified |
+| 6: pause/resume overlap | Passed (user report, 2026-11-01) | Not specified |
+| 7: output changes | Passed (user report, 2026-11-01) | Not specified |
+| 8: physically unplug explicit output | Awaiting explicit physical-test confirmation | Not specified |
+| 9: mono/24-bit noise and channels | Passed (user report, 2026-11-01) | Not specified |
+| 10: strong EQ to Flat, loud positive-gain limiter | Passed (user report, 2026-11-01) | Not specified |
+| 11: Concert Hall/Telephone/Underwater/Orbital Echo switching | Passed (user report, 2026-11-01) | Not specified |
 
 The original branch review retained exceptional fault-injection gaps. The subsequent
 [remaining-tasks round](REMAINING_TASKS_PROGRESS.md) forces the named restore/rollback, staged validation, cleanup,

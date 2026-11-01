@@ -8,8 +8,9 @@ H5/H6. Six untracked local plan files are preserved.
 
 G, all U/L batches and H0-H6 are implemented. MAX_DEBT is **0**; only EnvironmentRecipes.recipe remains as a
 data entry. Both per-sample candidates pass fixed PCM goldens and the cost rule. Final clean desktop verification and
-default/advanced/queue native follow-up pass after H6. The user confirmed proceeding; detailed human listening/device observations, including
-post-DSP listening, remain unrecorded and are not invented.
+default/advanced/queue native follow-up pass after H6. On 2026-11-01 the user reported all listening checks passed,
+including post-DSP listening. Specific files/devices were not supplied; physical-unplug confirmation is pending.
+The current shared results are in DEFERRED_PROGRESS.md; earlier pending notes are historical.
 
 - Final post-H6 `scripts/verify.ps1 -Clean -DesktopIntegration`: **937 tests, 12 explicit skips, zero failures/errors**.
   All new exact-output checks and the eight-by-twenty backend PCM golden scenarios ran without skipping.
@@ -178,3 +179,6 @@ the optional long-line ratchet and the successful live LRCLIB rerun on 2026-11-0
 listening/device table is in [DEFERRED_PROGRESS.md](DEFERRED_PROGRESS.md#remaining-human-verification), including
 post-H5 environment and post-H6 EQ/limiter listening. Those rows remain pending observations; no release result
 is inferred from automated checks or the prior authorization to proceed.
+
+User follow-up on 2026-11-01: all listening checks passed. See the shared human-verification table and
+REMAINING_TASKS_PROGRESS.md for the recorded report and the still-pending physical-unplug/release confirmations.

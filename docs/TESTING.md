@@ -363,8 +363,8 @@ warm-up calls and 15 measured rounds of 1,000 calls, printing raw rounds, median
 Timing is observational and never asserts a CI performance threshold. GPU submission is excluded from headless
 geometry timing. Workloads, noise rule and actual results are in [the measurement record](history/REMAINING_DEBT_MEASUREMENTS.md).
 H5/H6 require the listening/device rows above before touching either per-sample method, then listening again after
-the DSP change. The user confirmed continuation before H5/H6. Detailed human observations, including post-DSP listening,
-remain unrecorded. All automated PCM goldens passed after each split; they do not substitute for those observations.
+the DSP change. The user confirmed continuation before H5/H6 and reported all listening checks passed on 2026-11-01.
+Specific files/devices were not supplied; explicit physical-unplug confirmation remains pending. All automated PCM goldens passed after each split; they do not substitute for those observations.
 MethodLengthTest checks each new per-sample helper is private/static and at most 325 encoded bytes, with stale-name
 checks. Both sample-loop candidates met the original exactness/cost rule; the measurement record lists their data.
 

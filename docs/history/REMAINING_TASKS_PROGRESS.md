@@ -5,8 +5,8 @@ The existing debt plan is complete; this round addresses the recorded exceptiona
 
 ## Current status
 
-- R1: human listening/device rows are pending user observations. An asynchronous request is open; automated
-  tests must not be described as human listening or physical unplug evidence.
+- R1: the user reported all listening checks passed on 2026-11-01. Rows 1-7 and 9-11 are recorded as passed.
+  Physical unplug row 8 is awaiting explicit confirmation; track/device details were not supplied.
 - R2: F1-F10 implemented; clean desktop and native follow-up pass. Two injected behavior bugs are fixed.
   Test destructive paths only in disposable fixtures; audio copies derive from the private collection.
 - R3: release decision requested asynchronously. Do not tag/publish until the decision and R1 results exist.
@@ -115,3 +115,12 @@ Durable evidence: tasks/resume.json, a/d/b/c result summaries and before/after X
 final-desktop-results.json and archived XML, final-smoke/summary.txt, window-evidence.md and
 window-final/summary.txt. Final notes and the bounded smoke-state follow-up use a separate ordinary commit/push.
 R1 observations and the R3 release decision remain pending; automated checks do not supply those inputs.
+
+## User listening confirmation (2026-11-01)
+
+The user reported "All listening checks passed" after the final implementation. The shared table in
+[DEFERRED_PROGRESS.md](DEFERRED_PROGRESS.md#remaining-human-verification) records the ten listening rows as
+passed, including H5 environment switches and H6 EQ/limiter checks. No particular files/devices or detailed
+observations are invented. A separate question requests confirmation of the physical-unplug row and the R3
+v3.6.2 release decision. Earlier pending-listening notes describe the state before this report.
+No code changed, so the verified 960-test build, native follow-ups and final all-platform CI remain applicable.
