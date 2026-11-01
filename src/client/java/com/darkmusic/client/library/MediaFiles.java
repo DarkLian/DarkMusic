@@ -38,13 +38,42 @@ public final class MediaFiles {
     private final MetadataReader metadata = new MetadataReader();
     private final Runnable beforeCommit;
 
+    interface FileOps {
+        default void move(Path source, Path target) throws IOException {
+            Files.move(source, target);
+        }
+
+        default void deleteTree(Path work) throws IOException {
+            try (var paths = Files.list(work)) {
+                for (Path file : paths.toList()) Files.deleteIfExists(file);
+            }
+            Files.deleteIfExists(work);
+        }
+    }
+
+    @FunctionalInterface
+    interface Staged {
+        void ready(Path path) throws Exception;
+    }
+
+    private final FileOps files;
+    private final Staged afterStage;
+
     public MediaFiles() {
         this(() -> {
         });
     }
 
     MediaFiles(Runnable beforeCommit) {
+        this(beforeCommit, new FileOps() {
+        }, path -> {
+        });
+    }
+
+    MediaFiles(Runnable beforeCommit, FileOps files, Staged afterStage) {
         this.beforeCommit = beforeCommit;
+        this.files = files;
+        this.afterStage = afterStage;
     }
 
     public Imported importFiles(Path root, String rootId, String folder, List<Path> sources, ProcessRunner.Token token) throws Exception {
@@ -176,17 +205,17 @@ public final class MediaFiles {
             throw new IOException(Text.get("library.darkmusic.edit_space"));
     }
 
-    private static void moveCaseAware(Path source, Path target, Path temporary) throws IOException {
+    private void moveCaseAware(Path source, Path target, Path temporary) throws IOException {
         if (!Files.exists(target) || !Files.isSameFile(source, target)) {
-            Files.move(source, target);
+            files.move(source, target);
             return;
         }
-        Files.move(source, temporary);
+        files.move(source, temporary);
         try {
-            Files.move(temporary, target);
+            files.move(temporary, target);
         } catch (IOException failure) {
             try {
-                Files.move(temporary, source);
+                files.move(temporary, source);
             } catch (IOException rollback) {
                 failure.addSuppressed(rollback);
                 throw new AudioReplacement.RecoveryRequired(temporary, failure);
@@ -312,8 +341,9 @@ public final class MediaFiles {
         if (!sourceIdentity.hash().equals(SourceLinks.contentHash(staged)))
             throw new AudioReplacement.RecoveryRequired(staged, new IOException(Text.get("library.darkmusic.file_changed")));
         Files.copy(staged, retained, StandardCopyOption.COPY_ATTRIBUTES);
+        AudioFormats.Container container = null;
         if (tagsChanged) {
-            var container = AudioFormats.detect(source);
+            container = AudioFormats.detect(source);
             if (container == AudioFormats.Container.OPUS || container == AudioFormats.Container.WEBM)
                 remux(source, staged, work, requested, container, token);
             else {
@@ -327,6 +357,9 @@ public final class MediaFiles {
                 } else writeTags(tag, requested);
                 audio.commit();
             }
+        }
+        afterStage.ready(staged);
+        if (tagsChanged) {
             Fields actual = fields(new Track(track.rootId(), track.relativePath(), staged, "", "", "", 0, Files.size(staged), 0, ""));
             if (!actual.title().equals(requested.title()) || !actual.artist().equals(requested.artist()) || !actual.album().equals(requested.album()))
                 throw new IOException(Text.get("library.darkmusic.tags_not_saved"));
@@ -342,8 +375,8 @@ public final class MediaFiles {
         beforeCommit.run();
     }
 
-    private static void commitEdit(EditTarget plan, CompanionPaths paths, AudioReplacement.Edit edit, Path work, Path staged,
-                                   List<Integer> movedCompanions, Map<Integer, AudioReplacement.Identity> copiedCompanions) throws Exception {
+    private void commitEdit(EditTarget plan, CompanionPaths paths, AudioReplacement.Edit edit, Path work, Path staged,
+                            List<Integer> movedCompanions, Map<Integer, AudioReplacement.Identity> copiedCompanions) throws Exception {
         Path source = plan.source(), target = plan.target();
         boolean rename = plan.rename();
         String verifiedSource = plan.verifiedSource();
@@ -374,15 +407,12 @@ public final class MediaFiles {
         }
     }
 
-    private static void cleanupEditWork(Path work, boolean preserveWork) {
+    private void cleanupEditWork(Path work, boolean preserveWork) {
         if (preserveWork) {
             LoggerFactory.getLogger(MediaFiles.class).error("Original audio retained for recovery in {}", work);
         } else
             try {
-                try (var paths = Files.list(work)) {
-                    for (Path file : paths.toList()) Files.deleteIfExists(file);
-                }
-                Files.deleteIfExists(work);
+                files.deleteTree(work);
             } catch (IOException cleanup) {
                 LoggerFactory.getLogger(MediaFiles.class).warn("Could not remove metadata staging directory {}", work, cleanup);
             }

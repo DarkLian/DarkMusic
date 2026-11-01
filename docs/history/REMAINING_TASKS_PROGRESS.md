@@ -40,3 +40,12 @@ Use `scripts/verify.ps1` for full checks and the existing managed tools and priv
   DeletionJob now atomically owns start versus queued cancellation; cancellation releases the lock and completes
   the future without relying on the discarded runnable. Running cancellation retains partial removed/cancelled
   results until client publication. **33 focused tests pass**, with no skips; before/after XML and logs are saved.
+
+- F2-F4: narrow package-private MediaFiles move/cleanup operations and an after-staging hook default to the original
+  platform operations. Real private MP3 copies force wrong tags, missing artwork and changed format at each
+  validation boundary; all reject before commit and leave source/lyrics identical. Independent companion rollback
+  refusal keeps the original error, suppresses rollback failure and preserves recovery work without cleanup.
+  Cleanup refusal after successful metadata publication leaves the result intact. Combined B suites pass:
+  **68 tests, 2 explicit skips, zero failures/errors**. The skips are the opt-in desktop dialog and unavailable
+  Windows symlink privilege. One initial companion fixture used an unreserved .txt path; it was corrected to the
+  actual reserved .lrc.darkmusic.json companion, and the injected move/rollback assertions now execute.
