@@ -39,12 +39,28 @@ import static com.darkmusic.client.download.DownloadModels.*;
 public final class DownloadPipeline {
     private final ProcessRunner runner;
     private final Path data;
+    private final ScratchCleanup scratchCleanup;
+
+    @FunctionalInterface
+    interface ScratchCleanup {
+        void remove(Path path) throws IOException;
+    }
+
     private DownloadWorkspace workspace;
     private int workspaceUsers;
 
     public DownloadPipeline(ProcessRunner runner, Path data) {
+        this(runner, data, path -> {
+            try (var files = Files.walk(path)) {
+                for (Path file : files.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(file);
+            }
+        });
+    }
+
+    DownloadPipeline(ProcessRunner runner, Path data, ScratchCleanup scratchCleanup) {
         this.runner = runner;
         this.data = data;
+        this.scratchCleanup = scratchCleanup;
     }
 
     static List<String> convert(Toolchain tools, Path source, Path target, Path cover, JsonObject metadata, Entry entry) {
@@ -347,12 +363,10 @@ public final class DownloadPipeline {
         }
     }
 
-    private static void cleanup(Path work, Phase phase) {
+    private void cleanup(Path work, Phase phase) {
         try {
             if (phase.incoming != null) Files.deleteIfExists(phase.incoming);
-            try (var files = Files.walk(work)) {
-                for (Path file : files.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(file);
-            }
+            scratchCleanup.remove(work);
         } catch (IOException e) {
             LoggerFactory.getLogger("darkmusic-download").warn("Could not clean download scratch files in {}", work, e);
         }

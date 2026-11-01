@@ -41,13 +41,22 @@ public final class DesktopFolderPicker {
         Process start(Path initial, String title, String mode, Path result, Path log) throws Exception;
     }
 
-    static CompletableFuture<Path> choose(Path initial, String title, String mode, Launcher launcher) {
-        if (!OPEN.compareAndSet(false, true)) return CompletableFuture.completedFuture(null);
-        CANCELLED.set(false);
-        return CompletableFuture.supplyAsync(() -> dialogJob(initial, title, mode, launcher), task -> Thread.ofVirtual().name("darkmusic-folder-dialog").start(task));
+    @FunctionalInterface
+    interface ScratchCleanup {
+        void delete(Path file) throws IOException;
     }
 
-    private static Path dialogJob(Path initial, String title, String mode, Launcher launcher) {
+    static CompletableFuture<Path> choose(Path initial, String title, String mode, Launcher launcher) {
+        return choose(initial, title, mode, launcher, Files::deleteIfExists);
+    }
+
+    static CompletableFuture<Path> choose(Path initial, String title, String mode, Launcher launcher, ScratchCleanup cleanup) {
+        if (!OPEN.compareAndSet(false, true)) return CompletableFuture.completedFuture(null);
+        CANCELLED.set(false);
+        return CompletableFuture.supplyAsync(() -> dialogJob(initial, title, mode, launcher, cleanup), task -> Thread.ofVirtual().name("darkmusic-folder-dialog").start(task));
+    }
+
+    private static Path dialogJob(Path initial, String title, String mode, Launcher launcher, ScratchCleanup cleanup) {
         Path result = null, log = null;
         try {
             result = Files.createTempFile("darkmusic-folder-", ".txt");
@@ -62,7 +71,7 @@ public final class DesktopFolderPicker {
             active = null;
             for (Path file : new Path[]{result, log})
                 if (file != null) try {
-                    Files.deleteIfExists(file);
+                    cleanup.delete(file);
                 } catch (IOException ignored) {
                 }
             OPEN.set(false);

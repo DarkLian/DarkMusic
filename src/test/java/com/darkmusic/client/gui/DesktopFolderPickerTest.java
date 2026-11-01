@@ -197,4 +197,30 @@ class DesktopFolderPickerTest {
         assertEquals(TestMusic.featured().getParent().toRealPath(), dialog(true).toRealPath());
         assertNull(dialog(false));
     }
+
+    @Test
+    void refusedScratchCleanupKeepsTheSelectionAndReleasesAdmission() throws Exception {
+        var scratch = new ArrayList<Path>();
+        var attempted = new ArrayList<Path>();
+        try {
+            var selected = DesktopFolderPicker.choose(temporary, "cleanup", "folder", (initial, title, mode, result, log) -> {
+                scratch.add(result);
+                scratch.add(log);
+                Files.writeString(result, temporary.toString());
+                return exited(0);
+            }, file -> {
+                attempted.add(file);
+                throw new IOException("folder scratch cleanup denied");
+            }).get(5, TimeUnit.SECONDS);
+            assertEquals(temporary, selected);
+            assertFalse(DesktopFolderPicker.isOpen());
+            assertEquals(scratch, attempted);
+            for (Path file : scratch) assertTrue(Files.exists(file));
+            assertNull(DesktopFolderPicker.choose(temporary, "next", "folder", (initial, title, mode, result, log) -> exited(0))
+                .get(5, TimeUnit.SECONDS));
+        } finally {
+            for (Path file : scratch) Files.deleteIfExists(file);
+        }
+    }
+
 }

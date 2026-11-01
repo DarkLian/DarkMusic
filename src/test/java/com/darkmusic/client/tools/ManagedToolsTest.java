@@ -1,6 +1,8 @@
 package com.darkmusic.client.tools;
 
 import com.google.gson.JsonArray;
+import com.darkmusic.client.text.Text;
+import org.junit.jupiter.api.Assumptions;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
@@ -254,4 +256,51 @@ class ManagedToolsTest {
             token.check();
         }
     }
+
+    @Test
+    void diskExhaustionRejectsBeforeAssetsAndPreservesCurrentAndPreviousBundles() throws Exception {
+        var publisher = new Publisher();
+        new ManagedTools(temp, publisher).install(capabilities, new ProcessRunner.Token(), text -> {
+        });
+        Path active = ManagedTools.current(temp);
+        byte[] manifest = Files.readAllBytes(active.resolve("manifest.json"));
+        Path previous = Files.createDirectory(active.resolveSibling("bundle-" + UUID.randomUUID()));
+        Path sentinel = Files.writeString(previous.resolve("manifest.json"), "previous bundle identity fixture");
+        int binaries = publisher.binaries;
+        var failure = assertThrows(IOException.class,
+            () -> new ManagedTools(temp, publisher, path -> 0).install(capabilities, new ProcessRunner.Token(), text -> {
+            }));
+        assertEquals(Text.get("tools.error.disk"), failure.getMessage());
+        assertEquals(binaries, publisher.binaries, "no asset downloaded with insufficient space");
+        assertEquals(active, ManagedTools.current(temp));
+        assertArrayEquals(manifest, Files.readAllBytes(active.resolve("manifest.json")));
+        assertEquals("previous bundle identity fixture", Files.readString(sentinel));
+        try (var children = Files.list(active.getParent())) {
+            assertFalse(children.anyMatch(p -> p.getFileName().toString().startsWith("staging-")));
+        }
+    }
+
+    @Test
+    void linkedToolDirectoriesAreRejectedOnHostsWithSymlinkSupport() throws Exception {
+        for (boolean managed : List.of(false, true)) {
+            Path data = Files.createDirectory(temp.resolve("links-" + managed));
+            Path external = Files.createDirectory(temp.resolve("external-" + managed));
+            Path sentinel = Files.writeString(external.resolve("keep.txt"), "outside fixture stays intact");
+            Path link = managed ? Files.createDirectory(data.resolve("tools")).resolve("managed") : data.resolve("tools");
+            try {
+                Files.createSymbolicLink(link, external);
+            } catch (IOException | UnsupportedOperationException unavailable) {
+                Assumptions.abort("Symlink unavailable on " + System.getProperty("os.name") + ": " + unavailable.getClass().getSimpleName());
+            }
+            var publisher = new Publisher();
+            var failure = assertThrows(IOException.class,
+                () -> new ManagedTools(data, publisher).install(capabilities, new ProcessRunner.Token(), text -> {
+                }));
+            assertEquals(Text.get("tools.error.symlink"), failure.getMessage());
+            assertEquals(0, publisher.binaries);
+            assertEquals("outside fixture stays intact", Files.readString(sentinel));
+            System.out.println("MANAGED_SYMLINK_CHECK " + System.getProperty("os.name") + " managed=" + managed + " passed");
+        }
+    }
+
 }

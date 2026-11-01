@@ -31,6 +31,13 @@ public final class ManagedTools {
     private static final Set<String> HOSTS = Set.of("api.github.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com");
     private final Path data;
     private final Fetch fetch;
+    private final Space space;
+
+    @FunctionalInterface
+    interface Space {
+        long usable(Path path) throws IOException;
+    }
+
     private static final Map<Path, FileChannel> PINS = new HashMap<>();
     private static final Set<String> OWNED_FILES = Set.of("yt-dlp", "yt-dlp.exe", "ffmpeg", "ffmpeg.exe", "ffprobe", "ffprobe.exe", "deno", "deno.exe",
         "FFmpeg.LICENSE", "FFmpeg.README", "manifest.json", "usage.lock", "release.json", "asset.download");
@@ -97,8 +104,13 @@ public final class ManagedTools {
     }
 
     ManagedTools(Path data, Fetch fetch) {
+        this(data, fetch, path -> Files.getFileStore(path).getUsableSpace());
+    }
+
+    ManagedTools(Path data, Fetch fetch, Space space) {
         this.data = data.toAbsolutePath().normalize();
         this.fetch = fetch;
+        this.space = space;
     }
 
     /**
@@ -265,7 +277,7 @@ public final class ManagedTools {
                 var releases = releases(platform, stage, token);
                 var assets = releases.assets();
                 long bytes = assets.values().stream().mapToLong(a -> a.get("size").getAsLong()).sum();
-                if (Files.getFileStore(root).getUsableSpace() < bytes + 800_000_000L)
+                if (space.usable(root) < bytes + 800_000_000L)
                     throw new IOException(Text.get("tools.error.disk"));
                 var plannedManifest = manifest(platform, releases);
                 JsonObject manifest = plannedManifest.json(), hashes = plannedManifest.hashes();

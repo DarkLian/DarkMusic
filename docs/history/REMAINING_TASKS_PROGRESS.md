@@ -49,3 +49,12 @@ Use `scripts/verify.ps1` for full checks and the existing managed tools and priv
   **68 tests, 2 explicit skips, zero failures/errors**. The skips are the opt-in desktop dialog and unavailable
   Windows symlink privilege. One initial companion fixture used an unreserved .txt path; it was corrected to the
   actual reserved .lrc.darkmusic.json companion, and the injected move/rollback assertions now execute.
+
+- F5-F8: narrow scratch cleanup and usable-space seams preserve published downloads/repair receipts, folder-picker
+  selection/admission and active/previous tool bundles when cleanup or free-space checks fail. Managed-tool
+  symlink tests explicitly report the host: Windows currently skips for unavailable privilege; Linux CI must run.
+  The B suite above includes these tests. DownloadWorkspace's explicit recovery constructor sweeps stale item
+  directories under its lease, but normal production pipeline preparation passes recover=false and no production
+  caller uses the recovery constructor. Ordinary startup therefore does not currently sweep refused scratch work;
+  this is recorded rather than claiming automatic cleanup. The recovery constructor test preserves published
+  audio/receipt while removing only its disposable stale work.

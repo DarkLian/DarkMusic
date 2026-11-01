@@ -25,6 +25,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
@@ -447,4 +448,42 @@ class DownloadTest {
             throw new IOException("Unexpected command " + args);
         }
     }
+
+    @Test
+    void refusedScratchCleanupPreservesPublishedAudioAndItsRepairReceipt() throws Exception {
+        var fake = new FakeRunner();
+        var token = new ProcessRunner.Token();
+        Path data = Files.createDirectory(temp.resolve("cleanup-data"));
+        Path destination = Files.createDirectory(temp.resolve("cleanup-music"));
+        Files.createDirectory(destination.resolve(".darkmusic-sources.json"));
+        var chain = Toolchain.resolve(JavaTools.paths(), data, fake, token);
+        var entry = entry("cleanup");
+        var attempted = new AtomicReference<Path>();
+        var pipeline = new DownloadPipeline(fake, data, work -> {
+            attempted.set(work);
+            throw new IOException("download scratch cleanup denied");
+        });
+        var saved = pipeline.execute(entry, destination, chain, token, (status, detail) -> {
+        });
+        assertFalse(saved.skipped());
+        byte[] published = Files.readAllBytes(saved.file());
+        assertTrue(published.length > 0);
+        assertTrue(DownloadCommit.pending(destination, entry.key()));
+        Path stale = attempted.get();
+        assertNotNull(stale);
+        assertTrue(Files.isDirectory(stale));
+        var ordinary = new DownloadPipeline(fake, data);
+        ordinary.prepare();
+        try {
+            assertTrue(Files.isDirectory(stale), "normal pipeline preparation currently does not sweep old work");
+        } finally {
+            ordinary.close();
+        }
+        try (var recovery = new DownloadWorkspace(data)) {
+            assertFalse(Files.exists(stale), "the explicit recovery constructor can clean unleased work");
+            assertArrayEquals(published, Files.readAllBytes(saved.file()));
+            assertTrue(DownloadCommit.pending(destination, entry.key()));
+        }
+    }
+
 }
