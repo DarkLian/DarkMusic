@@ -82,6 +82,7 @@ failure and bounded idle wait. Tests exposed queued-deletion cancellation and fa
 each fix has its own commit after failing injected evidence.
 
 This is evidence for the named interleavings and operations, not exhaustive OS/filesystem/driver coverage. Local
-Windows symlink privilege is unavailable; Linux CI execution must be recorded. Normal download startup does not
+Windows symlink privilege is unavailable. Hosted Windows, Linux and macOS test tasks passed without a managed-tool
+symlink skip (run 41291633720); the remaining-tasks record retains the local/hosted distinction. Normal download startup does not
 currently invoke the stale-work recovery constructor; cleanup refusal leaves scratch work rather than damaging
 published audio or receipts. Human listening/device rows remain independent.

@@ -7,13 +7,13 @@ The existing debt plan is complete; this round addresses the recorded exceptiona
 
 - R1: human listening/device rows are pending user observations. An asynchronous request is open; automated
   tests must not be described as human listening or physical unplug evidence.
-- R2: F1-F10 implemented and focused tests pass; final clean desktop/native verification is running.
+- R2: F1-F10 implemented; clean desktop and native follow-up pass. Two injected behavior bugs are fixed.
   Test destructive paths only in disposable fixtures; audio copies derive from the private collection.
 - R3: release decision requested asynchronously. Do not tag/publish until the decision and R1 results exist.
 - R4: long-line ratchet and shared wrapping setting implemented and verified, without a mass reformat.
   Keep existing wildcard-import and multiple-declaration style.
-- Live LRCLIB: rerun the real integration, verify the provider endpoint/API if it fails, and retain any outage
-  as a dated failure rather than a skip.
+- Live LRCLIB: the opted-in production-provider check passed on 2026-11-01, without skipping. No endpoint or
+  provider change was needed after the previous HTTP 502.
 
 ## Resume notes
 
@@ -82,9 +82,36 @@ Use `scripts/verify.ps1` for full checks and the existing managed tools and priv
 Implementation batches are separate commits: 2339132 (A/F1/F2), 26e6fc6 (queued deletion fix/F10),
 92b5b92 (metadata F2-F4), 11afafc (cleanup/space/symlink F5-F8), 4ab6352 (native ownership seam/F9),
 007b600 (failed-registration bound fix), 8fdfa47 (R4). Source formatting uses IDEA; no guard budget increased.
-Final clean desktop and default/cleanup/lyrics/preview smoke are running. No release version has changed.
+Final clean desktop and default/cleanup/lyrics/preview smoke passed across the suite and window follow-up.
+No release version has changed.
 
 R1 still needs the user's eleven observations. R3 still needs the user's release decision and R1 completion;
 there is no tag/release. A future patch release should also describe the two newly exposed fixes above.
 All seven local plan files remain at their original paths so existing references stay valid; no unrelated files
 or original music were moved or changed.
+
+## Final verification
+
+- Clean Windows `scripts/verify.ps1 -Clean -DesktopIntegration`: **960 tests, 13 explicit skips, zero failures/errors**.
+  All fixed direct DSP and 160 backend PCM goldens, metadata corruption cases, real native artwork allocations and
+  actual desktop dialog tests ran. Six costs and optional live/provider/install/platform checks account for skips;
+  the separate opted-in live LRCLIB test passed. XML and complete skip details are saved under tasks/final-desktop-*.
+- Native cleanup, lyrics and preview passed. Initial default failed the unchanged windowed-framebuffer assertion
+  at tick 8. Two unchanged debugger reruns passed; the second recorded full=1920x1080/saved=1280x720 before F11,
+  then fullscreen=false and framebuffer/native/saved=1280x720 at tick 8. The initial failure's exact dimensions
+  were not captured, so no production window regression is claimed. The smoke now waits at most 100 ticks for
+  the required flag/native-monitor/framebuffer state, then keeps the same strict assertions. Separate final
+  default smoke passed, as did all 20 architecture/method/smoke-reflection checks. Production code did not change
+  after the clean desktop run. The initial failure remains in the evidence; it is not relabeled as passing.
+- All **53 private collection files unchanged** across native suite and follow-up. SmoothFont and the real
+  collection were used. No public screenshots, original audio edits, version bump, tag or release were created.
+- GitHub build run **41291633720** passed Windows, Ubuntu and macOS at dff8c2c. Every hosted test task executed
+  with skipped events enabled and none logged a managed-tool symlink skip, so the link checks ran on all three;
+  local Windows explicitly skipped for missing privilege. `tasks/ci-hosts.json` records this distinction.
+- Agent debugger logpoints/run configuration are removed, no debug session remains, and the user's two disabled
+  exception breakpoints are preserved. Scratch evidence and the saved temporary run config remain under tasks.
+
+Durable evidence: tasks/resume.json, a/d/b/c result summaries and before/after XML, live-lrclib.xml,
+final-desktop-results.json and archived XML, final-smoke/summary.txt, window-evidence.md and
+window-final/summary.txt. Final notes and the bounded smoke-state follow-up use a separate ordinary commit/push.
+R1 observations and the R3 release decision remain pending; automated checks do not supply those inputs.

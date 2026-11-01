@@ -417,3 +417,8 @@ startup cleanup happens.
 ArchitectureTest ratchets client Java lines over 150 Unicode characters at the existing 569-line baseline. Lower
 the count and budget together. `.editorconfig` shares a 120-character margin for future IDEA formatting. No mass
 reformat or import/declaration style change belongs to this ratchet.
+
+The desktop-window smoke retains its strict F11/native-monitor/window-size requirements and allows at most
+100 ticks for the native state to settle after the initial eight-tick wait. The remaining-tasks progress record
+preserves an initial failure, non-suspending debugger observations and the separate passing follow-up; it does
+not attribute an unmeasured dimension or claim a production-window regression.

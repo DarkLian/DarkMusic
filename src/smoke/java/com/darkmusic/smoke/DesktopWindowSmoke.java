@@ -36,9 +36,13 @@ public final class DesktopWindowSmoke {
             }
             case 2 -> {
                 if (++ticks < 8) return false;
-                require(!window.isFullscreen() && GLFW.glfwGetWindowMonitor(window.handle()) == 0,
+                boolean windowed = !window.isFullscreen() && GLFW.glfwGetWindowMonitor(window.handle()) == 0;
+                boolean smaller = window.getWidth() < 1920 && window.getHeight() < 1080;
+                // The flag and native resize notifications can settle on different ticks.
+                if ((!windowed || !smaller) && ticks < 100) return false;
+                require(windowed,
                     "F11 cannot exit fullscreen during a desktop request");
-                require(window.getWidth() < 1920 && window.getHeight() < 1080,
+                require(smaller,
                     "Windowed fallback still covers the entire fullscreen display");
                 second.close();
                 phase++;
