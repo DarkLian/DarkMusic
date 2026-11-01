@@ -11,7 +11,7 @@ integrity/size/SHA-256 checks; no native executable/archive enters the mod JAR. 
 with all 53 private files unchanged, including normal actual-device playback before tagging. Candidate main CI
 and the three-platform release workflow passed. v3.6.2 is published with five assets, each downloaded and checked;
 the public JAR's extension manifests match the public ZIPs. Java class bytes match the locally tested JAR.
-Full publication evidence is in [release progress](RELEASE-3.6.2_PROGRESS.md).
+Full publication evidence is in [release progress](2026-10-restructuring/RELEASE-3.6.2_PROGRESS.md).
 
 PR #9 updates only the pinned Gradle wrapper-validation action to the upstream v6.4.1 commit. It was reviewed,
 passed three-platform checks and merged before the release candidate. No application security issue is inferred

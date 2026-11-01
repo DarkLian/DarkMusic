@@ -42,8 +42,8 @@ them together. CI setup is shared by both workflows in `.github/actions/setup-to
 every wait in a test a timeout, so that a regression fails instead of hanging.
 
 A test lives in the package of the class it tests and is named after it (`<Subject>Test`). The root test package
-holds only tests of the root package's own classes, the structure guards (`ArchitectureTest`, `MethodLengthTest`,
-`ScreenOperationsTest`, `SettingsSettersTest`, `SmokeReflectionTest`) and `PackagedJarTest`; `ArchitectureTest`
+holds only tests of the root package's own classes, the structure guards (`ArchitectureTest`, `DocumentationLinksTest`,
+`MethodLengthTest`, `ScreenOperationsTest`, `SettingsSettersTest`, `SmokeReflectionTest`) and `PackagedJarTest`; `ArchitectureTest`
 lists them and rejects test class names taken from a review, audit, polish pass or release. Shared fixtures are
 public classes in `testing`: `TestMusic` (the private collection), `Tracks`, `Await`, `ToolsRunner`, `JavaTools` and
 `FakeAudio` (a player that plays nothing, for driving a real `PlaybackController`).
@@ -339,9 +339,9 @@ summary in the history. Do not claim a row passed without listening/performing i
 | 11 | Switch Concert Hall, Telephone, Underwater and Orbital Echo while playing | Same reverb/filter/echo character and smooth switches. |
 
 Then run `smoke.ps1 -Scenario advanced,queue`. The current session's exact results, external-provider failures and
-human/device rows still pending are in [deferred progress](history/DEFERRED_PROGRESS.md). GPU registration failure,
+human/device rows still pending are in [deferred progress](history/2026-10-restructuring/DEFERRED_PROGRESS.md). GPU registration failure,
 rare independent filesystem cleanup refusals and shutdown races have the specific limits recorded in the
-[I/O branch map](history/DEFERRED_BRANCH_MAP.md); a passing build is not a claim that they were all fault-injected.
+[I/O branch map](history/2026-10-restructuring/DEFERRED_BRANCH_MAP.md); a passing build is not a claim that they were all fault-injected.
 
 ## Remaining-debt exactness, timing and visual checks
 
@@ -361,7 +361,7 @@ golden; hosted CI cannot claim private-audio equality when it skips those checks
 The six timing methods run only with `-PperfChecks` (the script's `-PerfChecks` passes it through). Each uses 10,000
 warm-up calls and 15 measured rounds of 1,000 calls, printing raw rounds, median, p10/p90 spread and full range.
 Timing is observational and never asserts a CI performance threshold. GPU submission is excluded from headless
-geometry timing. Workloads, noise rule and actual results are in [the measurement record](history/REMAINING_DEBT_MEASUREMENTS.md).
+geometry timing. Workloads, noise rule and actual results are in [the measurement record](history/2026-10-restructuring/REMAINING_DEBT_MEASUREMENTS.md).
 H5/H6 require the listening/device rows above before touching either per-sample method, then listening again after
 the DSP change. The user confirmed continuation before H5/H6 and reported all listening checks passed on 2026-11-01.
 Specific files/devices were not supplied; physical unplug was separately confirmed as passed on 2026-11-01. All automated PCM goldens passed after each split; they do not substitute for those observations.
@@ -389,7 +389,7 @@ the harness race, and the corrected gate passed with the same controlled delay a
 
 ## Remaining-task fault checks and style ratchet
 
-The [progress record](history/REMAINING_TASKS_PROGRESS.md) distinguishes injected failures, fixed bugs, actual
+The [progress record](history/2026-10-restructuring/REMAINING_TASKS_PROGRESS.md) distinguishes injected failures, fixed bugs, actual
 integration results and human/release prerequisites. Fault fixtures use disposable host-filesystem paths. The
 NIO provider delegates to the real platform, including file keys, case aliases, atomic moves and locking; it never
 substitutes an in-memory filesystem. External-process/jaudiotagger paths use narrow package-private move, cleanup,

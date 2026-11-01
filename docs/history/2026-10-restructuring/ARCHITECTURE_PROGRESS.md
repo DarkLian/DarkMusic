@@ -2,7 +2,7 @@
 
 A record of the 2026-10-30 architecture work, started from v3.5.1 (`0792986`), and of its follow-up review the
 same day (batches 15 and 16), and of the maintenance batch 17. The current design is described in
-[ARCHITECTURE.md](../ARCHITECTURE.md), with the limits still open at its end; this file keeps the evidence: what
+[ARCHITECTURE.md](../../ARCHITECTURE.md), with the limits still open at its end; this file keeps the evidence: what
 was found, what changed and how it was checked. The work is finished.
 
 ## Findings
@@ -219,7 +219,7 @@ What the structure work left out, from v3.6.1 plus `6128318`..`10fe212`.
 | `cleanup.ReviewPerformanceTest` | `cleanup.DuplicateStorageTest`, `cleanup.DuplicateMatcherTest` |
 | `library.ReviewReliabilityTest` | `library.LibraryFilesTest`, `library.MediaFilesTest`, `library.MusicLibraryTest`, `library.TrackTest` |
 
-Records above and in [RELEASE-CHECKS.md](RELEASE-CHECKS.md) keep the old names; the methods kept theirs, so a
+Records above and in [RELEASE-CHECKS.md](../RELEASE-CHECKS.md) keep the old names; the methods kept theirs, so a
 search for a method name finds it.
 
 - **Reflection names its owner.** Smoke reflects only through `SmokeUi.field/set(owner, Declaring.class, "name")`;
@@ -302,8 +302,8 @@ default/advanced/queue smoke; all 53 private files are unchanged. Detailed post-
 
 ## Open items
 
-The items still open when this work ended are the Known limits in [ARCHITECTURE.md](../ARCHITECTURE.md#known-limits).
-The Loom manifest and helper-reproducibility build notes are in [the testing guide](../TESTING.md#build).
+The items still open when this work ended are the Known limits in [ARCHITECTURE.md](../../ARCHITECTURE.md#known-limits).
+The Loom manifest and helper-reproducibility build notes are in [the testing guide](../../TESTING.md#build).
 
 ## v3.6.2 completion (2026-11-01)
 

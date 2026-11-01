@@ -1,9 +1,12 @@
 package com.darkmusic.client;
 
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.ClassReader;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -44,7 +47,7 @@ class ArchitectureTest {
     private static final int MAX_LONG_LINES = 569;
     private static final Path TESTS = Path.of("src/test/java/com/darkmusic/client");
     private static final Set<String> ROOT_TESTS = new TreeSet<>(Set.of("ArchitectureTest", "ClientActionsTest", "ClientResetTest", "ScreenRequestsTest", "ShortcutsTest", "BackupActionsTest",
-        "BackupRestoreTest", "CleanupTest", "ClientStateTest", "DownloadActionsTest", "FolderActionsTest",
+        "BackupRestoreTest", "CleanupTest", "ClientStateTest", "DocumentationLinksTest", "DownloadActionsTest", "FolderActionsTest",
         "LibraryReconciliationTest", "LyricsActionsTest", "MediaActionsTest", "MethodLengthTest", "OutputActionsTest", "PackagedJarTest",
         "PlaybackCommandsTest", "PlaylistActionsTest", "ResetOperationTest", "ResetStopTest", "RestoreOperationTest",
         "ScreenOperationsTest", "SettingsSettersTest", "SmokeReflectionTest", "StartupShutdownTest", "WarningsTest"));
@@ -251,7 +254,7 @@ class ArchitectureTest {
     @Test
     void screensDoNotInheritTheSourcesOfScreensTheyOpen() throws IOException {
         var inheriting = new ArrayList<String>();
-        try (var files = Files.list(SOURCES.resolve("gui"))) {
+        try (var files = Files.walk(SOURCES.resolve("gui"))) {
             for (Path file : files.filter(p -> p.toString().endsWith(".java")).sorted().toList()) {
                 var declaration = SOURCES_DECLARATION.matcher(COMMENTS_AND_STRINGS.matcher(Files.readString(file)).replaceAll(" "));
                 if (declaration.find() && SCREEN_SOURCES.matcher(declaration.group(1)).find())
@@ -259,6 +262,45 @@ class ArchitectureTest {
             }
         }
         assertEquals(List.of(), inheriting);
+    }
+
+    /**
+     * The gui folders mean something: widget needs nothing else in gui, the base gui needs only widget, and a feature
+     * folder (player, settings, audio and so on) needs only the base and widget, never another feature. Screens reach
+     * each other through Navigation. A shared class belongs in the base or in widget.
+     */
+    @Test
+    void guiFoldersDependOnlyDownward() throws IOException, URISyntaxException {
+        var root = Path.of(DarkMusicClient.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+        var folder = Pattern.compile("com/darkmusic/client/gui/(?:([a-z]\\w*)/)?[A-Z]");
+        var violations = new TreeSet<String>();
+        int classes = 0;
+        try (var files = Files.walk(root.resolve("com/darkmusic/client/gui"))) {
+            for (Path file : files.filter(p -> p.toString().endsWith(".class")).toList()) {
+                byte[] bytes = Files.readAllBytes(file);
+                var reader = new ClassReader(bytes);
+                var own = folder.matcher(reader.getClassName());
+                assertTrue(own.find(), reader.getClassName());
+                String from = own.group(1) == null ? "" : own.group(1);
+                classes++;
+                for (int i = 1; i < reader.getItemCount(); i++) {
+                    int item = reader.getItem(i);
+                    // Tag 1 is a UTF-8 constant: class names and descriptors both appear there.
+                    if (item == 0 || reader.readByte(item - 1) != 1) continue;
+                    var reference = folder.matcher(new String(bytes, item + 2, reader.readUnsignedShort(item), StandardCharsets.ISO_8859_1));
+                    while (reference.find()) {
+                        String to = reference.group(1) == null ? "" : reference.group(1);
+                        boolean allowed = to.equals(from) || to.equals("widget") && !from.equals("widget")
+                            || to.isEmpty() && !from.equals("widget");
+                        if (!allowed)
+                            violations.add(reader.getClassName().replace("com/darkmusic/client/", "") + " -> "
+                                + (to.isEmpty() ? "gui" : "gui." + to));
+                    }
+                }
+            }
+        }
+        assertTrue(classes > 0, "No gui classes found; the check no longer reads them");
+        assertEquals(Set.of(), violations);
     }
 
     /**

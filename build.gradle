@@ -81,6 +81,9 @@ test {
     maxHeapSize = '512m'
     // SmokeReflectionTest reads the smoke sources, which no compile task feeds into the tests.
     inputs.dir('src/smoke/java').withPropertyName('smokeSources').withPathSensitivity(PathSensitivity.RELATIVE)
+    // DocumentationLinksTest reads every Markdown document.
+    inputs.files(fileTree(dir: '.', include: '**/*.md', exclude: ['build/**', 'run/**', '.local-tools/**', '.git/**', '.gradle/**', '.idea/**']))
+        .withPropertyName('markdownDocuments').withPathSensitivity(PathSensitivity.RELATIVE)
     systemProperty 'java.awt.headless', !providers.gradleProperty('desktopIntegration').isPresent()
     systemProperty 'darkmusic.test.lyricsNetwork', providers.gradleProperty('lyricsIntegration').isPresent()
     systemProperty 'darkmusic.test.perf', providers.gradleProperty('perfChecks').isPresent()

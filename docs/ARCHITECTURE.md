@@ -2,7 +2,7 @@
 
 How the client is put together: who owns what, which thread touches it, and how services start, get replaced
 and stop. Known limits and common changes are at the end. The October 2026 architecture work that produced this
-layout is recorded in [its progress log](history/ARCHITECTURE_PROGRESS.md).
+layout is recorded in [its progress log](history/2026-10-restructuring/ARCHITECTURE_PROGRESS.md).
 
 ## Dependency direction
 
@@ -84,6 +84,8 @@ Other guards, on compiled classes (ASM) or the smoke sources:
   package-private accessor ("For tests: ..."), never by reflection, and every test reflection names its class
   (`X.class` or `Class.forName("...")`). The remaining test reflection crosses a package (root into audio, download
   into hud, gui into render).
+- `DocumentationLinksTest`: every relative Markdown link and `#anchor` in the repository's documents reaches a file
+  and heading that exist, so moving a document cannot leave a dead link.
 - `ArchitectureTest.rootTestsAreAllowlisted` and `testClassesNameASubject`: tests live in their subject's package
   (the root holds the root package's tests, these guards and `PackagedJarTest`), named after what they test.
 - `ArchitectureTest.rootCollaboratorsHaveTests`: every root class is named by a test other than the structure guards,
@@ -229,9 +231,9 @@ of it (as the analyzer label says).
   moves, `mix` and `handoff` read cohesive collaborators. Moving this remaining cross-thread cluster would add
   synchronization risk without clarifying its control flow.
 - Exact PCM and native smoke checks do not replace the human listening and physical device-unplug protocol in
-  [TESTING.md](TESTING.md#exact-pcm-regression-checks-and-deferred-work-protocol). The user reported all listening
-  checks passed on 2026-11-01 and separately confirmed the physical-unplug check the same day. The named GPU transfer, cleanup, rollback, disk-space and shutdown cases now have
-  [injected tests](history/REMAINING_TASKS_PROGRESS.md); further independent OS/driver failures are not exhaustive.
+  [TESTING.md](TESTING.md#exact-pcm-regression-checks-and-deferred-work-protocol). The outcomes of
+  those checks are in the [release record](history/2026-10-restructuring/RELEASE-3.6.2_PROGRESS.md). The named GPU transfer, cleanup, rollback, disk-space and shutdown cases now have
+  [injected tests](history/2026-10-restructuring/REMAINING_TASKS_PROGRESS.md); further independent OS/driver failures are not exhaustive.
 - Which services are built (`DarkMusicClient.ready`, `ClientServices.buildHistories`/`buildServices`/
   `buildReplaceable`) is wiring, covered by compilation, review and smoke checks. `ClientResetTest` pins the real
   reset phases and their ordering over fake services. The collaborators' admission rules have unit tests; a successful output switch, a
@@ -284,8 +286,8 @@ of it (as the analyzer label says).
 
 ## Deferred refactors: file phases, audio state and library lyrics
 
-The completed batches and verification record are in [deferred progress](history/DEFERRED_PROGRESS.md).
-The [I/O branch review](history/DEFERRED_BRANCH_MAP.md) distinguishes exercised paths from fault-injection gaps.
+The completed batches and verification record are in [deferred progress](history/2026-10-restructuring/DEFERRED_PROGRESS.md).
+The [I/O branch review](history/2026-10-restructuring/DEFERRED_BRANCH_MAP.md) distinguishes exercised paths from fault-injection gaps.
 
 `PlaybackClock` owns the audio worker's device/source timeline, submitted and heard frames, offset and device rate.
 Its segments keep the expression order used for speed changes and handoffs. `Normalization` owns the worker's
@@ -325,8 +327,8 @@ UI layout/registration work outside this plan.
 
 ## Remaining UI and measured hot-loop work
 
-The [remaining-debt record](history/REMAINING_DEBT_PROGRESS.md) and
-[measurements](history/REMAINING_DEBT_MEASUREMENTS.md) carry the batch boundaries, exactness checks and limits.
+The [remaining-debt record](history/2026-10-restructuring/REMAINING_DEBT_PROGRESS.md) and
+[measurements](history/2026-10-restructuring/REMAINING_DEBT_MEASUREMENTS.md) carry the batch boundaries, exactness checks and limits.
 MethodLengthTest now measures synthetic lambdas separately under a stable enclosing-method key (compiler numeric
 suffixes are dropped; sibling lambdas share their longest span), and reports exact class-file Code lengths.
 Recording the previously invisible PiP install lambda added one existing debt entry once. All twelve UI entries
@@ -341,7 +343,7 @@ DesktopFolderPicker retains OPEN admission, admitted-call cancellation reset, ch
 release order. UpdateService captures the approved release, verifies the downloaded JAR before preparing installer
 properties/helper/manifest, and publishes pending only after the manifest closes. PipRuntime passes one immutable
 RuntimePackage through archive preparation, unpack/repair and activation; setup lock, cancellation checks, lease
-publication and synchronization with close retain their order. Their [branch review](history/REMAINING_DEBT_BRANCH_MAP.md)
+publication and synchronization with close retain their order. Their [branch review](history/2026-10-restructuring/REMAINING_DEBT_BRANCH_MAP.md)
 distinguishes checked paths from independent filesystem fault-injection work.
 
 Measured splits separate waveform envelope finalization, the FFT transform, circular progress/contour geometry,
@@ -355,7 +357,7 @@ remains the sole allowlist entry, classified as data. Human listening results ar
 
 ## Remaining-task fault follow-up
 
-[The injected-path record](history/REMAINING_TASKS_PROGRESS.md) covers restore retry, independent rollback failures,
+[The injected-path record](history/2026-10-restructuring/REMAINING_TASKS_PROGRESS.md) covers restore retry, independent rollback failures,
 staged tag/artwork/format rejection, refused cleanup, disk exhaustion, managed-tool symlinks, native artwork
 ownership and deletion shutdown. Tests exposed and fixed two behaviors: discarded queued deletions could retain
 the media lock and unfinished future, and failed texture registrations could bypass the cache entry bound.
@@ -363,7 +365,7 @@ The worker-start/cancel gate and shared artwork trim phase address those cases. 
 
 ## Known-limit quick fixes
 
-[The quick-fix record](history/KNOWN_LIMITS_FIX_PROGRESS.md) covers stale download scratch recovery under the
+[The quick-fix record](history/2026-10-restructuring/KNOWN_LIMITS_FIX_PROGRESS.md) covers stale download scratch recovery under the
 workspace lease and a lyric storage barrier before metadata edits/deletion. A queued save may invalidate an earlier
 deletion confirmation, so selected companions are rechecked before removing the song. Changed confirmation
 snapshots require confirmation again; unchecked and shared companions retain their existing consent rules.
