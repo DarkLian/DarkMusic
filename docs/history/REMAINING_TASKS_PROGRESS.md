@@ -71,3 +71,8 @@ Use `scripts/verify.ps1` for full checks and the existing managed tools and priv
   returned before trimming. `repeatedRegistrationFailuresStillRespectTheCacheEntryBound` failed before the fix;
   both failure and success now call the same trim phase. **22 focused tests pass**, zero skips/failures/errors.
   Before/after XML is retained; this behavior fix is a separate commit from the injection seam.
+
+- R4: shared `.editorconfig` now requests a 120-character margin for future Java formatting. A Unicode-character
+  count guard in ArchitectureTest ratchets client Java lines over 150 at **569**, exactly the `a518948` baseline;
+  no existing guard increased and no mass reformat occurred. Wildcard imports and combined declarations stay in
+  the established IDEA style. All **17 architecture/method guard tests pass**.

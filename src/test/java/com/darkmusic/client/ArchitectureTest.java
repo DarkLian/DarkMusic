@@ -40,6 +40,8 @@ class ArchitectureTest {
     private static final int MAX_CLIENT_LINES = 289;
     // ClientServices holds the services; it is the next place a hurried change would land. Lower this; never raise it.
     private static final int MAX_SERVICES_LINES = 572;
+    // Baseline a518948: count Unicode characters over 150 in client Java sources. Only lower this.
+    private static final int MAX_LONG_LINES = 569;
     private static final Path TESTS = Path.of("src/test/java/com/darkmusic/client");
     private static final Set<String> ROOT_TESTS = new TreeSet<>(Set.of("ArchitectureTest", "ClientActionsTest", "ClientResetTest", "ScreenRequestsTest", "ShortcutsTest", "BackupActionsTest",
         "BackupRestoreTest", "CleanupTest", "ClientStateTest", "DownloadActionsTest", "FolderActionsTest",
@@ -85,6 +87,18 @@ class ArchitectureTest {
     // A screen reaches the screens it opens through gui.Navigation, so its Sources never inherits theirs.
     private static final Pattern SOURCES_DECLARATION = Pattern.compile("interface Sources extends ([^{]*)\\{");
     private static final Pattern SCREEN_SOURCES = Pattern.compile("\\b(\\w+Screen)\\.Sources\\b");
+
+    @Test
+    void linesOver150CharactersOnlyShrink() throws IOException {
+        long count = 0;
+        try (var files = Files.walk(SOURCES)) {
+            for (Path path : files.filter(p -> p.toString().endsWith(".java")).toList())
+                count += Files.readAllLines(path).stream()
+                    .filter(line -> line.codePointCount(0, line.length()) > 150).count();
+        }
+        assertTrue(count <= MAX_LONG_LINES, "Long client-source lines grew: " + count);
+        assertEquals(MAX_LONG_LINES, count, "Lower MAX_LONG_LINES as long lines are removed");
+    }
 
     @Test
     void packagesDependOnlyDownward() throws IOException {
