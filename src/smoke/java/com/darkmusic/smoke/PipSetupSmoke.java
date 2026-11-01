@@ -1,7 +1,7 @@
 package com.darkmusic.smoke;
 
 import com.darkmusic.client.DarkMusicClient;
-import com.darkmusic.client.gui.PipScreen;
+import com.darkmusic.client.gui.pip.PipScreen;
 import com.darkmusic.client.text.Text;
 import com.google.gson.JsonParser;
 import net.minecraft.client.Minecraft;

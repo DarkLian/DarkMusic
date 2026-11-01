@@ -1,5 +1,9 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.gui.widget.RowList;
+import com.darkmusic.client.gui.widget.ScrollBar;
+import com.darkmusic.client.gui.widget.UiButton;
+import com.darkmusic.client.gui.widget.UiInput;
 import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.text.Text;
@@ -30,7 +34,7 @@ public abstract class LocalScreen extends Screen {
         return minecraft.gui.screen() == this && minecraft.level == openedIn && (minecraft.player == null || minecraft.player.isAlive());
     }
 
-    protected final void show(Screen next) {
+    public final void show(Screen next) {
         if (isCurrent()) minecraft.gui.setScreen(next);
     }
 

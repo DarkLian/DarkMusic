@@ -53,7 +53,7 @@ public interface Navigation {
 
     Screen hudEditor(Screen parent);
 
-    Screen hudEditor(Screen parent, HudEditorScreen.Element selected);
+    Screen hudEditor(Screen parent, HudElement selected);
 
     Screen musicFolders(Screen parent);
 
@@ -69,7 +69,7 @@ public interface Navigation {
     /**
      * A colour set edited beside a preview of what it colours.
      */
-    Screen colors(Screen parent, VisualColors target, String titleKey, ColorsScreen.Preview preview, String previewTitle);
+    Screen colors(Screen parent, VisualColors target, String titleKey, ColorPreview preview, String previewTitle);
 
     Screen downloadTools(Screen parent);
 

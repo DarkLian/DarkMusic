@@ -1,5 +1,7 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.gui.widget.UiButton;
+import com.darkmusic.client.gui.widget.UiInput;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiTheme;
 import com.darkmusic.client.text.Text;

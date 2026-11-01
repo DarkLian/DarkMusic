@@ -2,9 +2,9 @@ package com.darkmusic.smoke;
 
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.Repeat;
+import com.darkmusic.client.gui.pip.PipEditorScreen;
+import com.darkmusic.client.gui.pip.PipScreen;
 import com.darkmusic.client.tools.ProcessRunner;
-import com.darkmusic.client.gui.PipEditorScreen;
-import com.darkmusic.client.gui.PipScreen;
 import com.mojang.blaze3d.platform.Window;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;

@@ -2,8 +2,8 @@ package com.darkmusic.smoke;
 
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
-import com.darkmusic.client.gui.MusicScreen;
-import com.darkmusic.client.gui.SettingsScreen;
+import com.darkmusic.client.gui.player.MusicScreen;
+import com.darkmusic.client.gui.settings.SettingsScreen;
 import com.darkmusic.client.hud.HudSources;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.PauseScreen;

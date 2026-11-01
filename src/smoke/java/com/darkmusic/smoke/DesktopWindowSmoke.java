@@ -1,6 +1,6 @@
 package com.darkmusic.smoke;
 
-import com.darkmusic.client.gui.DesktopWindowGuard;
+import com.darkmusic.client.gui.widget.DesktopWindowGuard;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.KeyEvent;

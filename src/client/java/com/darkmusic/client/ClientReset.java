@@ -8,7 +8,7 @@ import com.darkmusic.client.config.ResetStorage;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.download.AuditionPlayer;
 import com.darkmusic.client.download.DownloadService;
-import com.darkmusic.client.gui.DesktopFolderPicker;
+import com.darkmusic.client.gui.widget.DesktopFolderPicker;
 import com.darkmusic.client.hud.SpeedFeedback;
 import com.darkmusic.client.hud.VolumeFeedback;
 import com.darkmusic.client.library.ImportHistory;

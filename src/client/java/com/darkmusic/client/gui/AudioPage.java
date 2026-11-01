@@ -1,6 +1,11 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.config.SettingsSource;
+import com.darkmusic.client.gui.widget.FocusRows;
+import com.darkmusic.client.gui.widget.Help;
+import com.darkmusic.client.gui.widget.ScrollBar;
+import com.darkmusic.client.gui.widget.SettingRow;
+import com.darkmusic.client.gui.widget.ValueSlider;
 import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;
@@ -28,7 +33,7 @@ public abstract class AudioPage<S extends AudioPage.Sources> extends LocalScreen
     private ScrollBar scrollbar;
     private Button back;
 
-    AudioPage(S app, Screen parent, String title) {
+    protected AudioPage(S app, Screen parent, String title) {
         super(Text.component(title), parent);
         this.app = app;
     }

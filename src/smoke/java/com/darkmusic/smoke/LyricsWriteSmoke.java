@@ -2,7 +2,7 @@ package com.darkmusic.smoke;
 
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.gui.ConfirmationScreen;
-import com.darkmusic.client.gui.LyricsOptionsScreen;
+import com.darkmusic.client.gui.lyrics.LyricsOptionsScreen;
 import com.darkmusic.client.library.LyricsFiles;
 import com.darkmusic.client.library.MediaFiles;
 import com.darkmusic.client.library.MetadataReader;

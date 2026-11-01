@@ -4,35 +4,37 @@ import com.darkmusic.client.cleanup.DuplicateResult;
 import com.darkmusic.client.config.VisualColors;
 import com.darkmusic.client.download.DownloadModels;
 import com.darkmusic.client.download.DownloadService;
-import com.darkmusic.client.gui.AudioDeletionScreen;
-import com.darkmusic.client.gui.AudioSettingsScreen;
-import com.darkmusic.client.gui.BackupScreen;
-import com.darkmusic.client.gui.ColorsScreen;
-import com.darkmusic.client.gui.DownloadDiagnosticScreen;
-import com.darkmusic.client.gui.DownloadDuplicateScreen;
-import com.darkmusic.client.gui.DownloadPathsScreen;
-import com.darkmusic.client.gui.DownloadScreen;
-import com.darkmusic.client.gui.DownloadToolsScreen;
-import com.darkmusic.client.gui.DuplicateComparisonScreen;
-import com.darkmusic.client.gui.ExistingDownloadsScreen;
-import com.darkmusic.client.gui.HudEditorScreen;
-import com.darkmusic.client.gui.IgnoredMatchesScreen;
-import com.darkmusic.client.gui.ImportHistoryScreen;
-import com.darkmusic.client.gui.LibraryManagerScreen;
-import com.darkmusic.client.gui.LyricsScreen;
-import com.darkmusic.client.gui.LyricsSettingsScreen;
-import com.darkmusic.client.gui.MetadataScreen;
-import com.darkmusic.client.gui.MusicFoldersScreen;
+import com.darkmusic.client.gui.ColorPreview;
+import com.darkmusic.client.gui.HudElement;
 import com.darkmusic.client.gui.Navigation;
-import com.darkmusic.client.gui.PipScreen;
-import com.darkmusic.client.gui.PlaylistScreen;
-import com.darkmusic.client.gui.SettingsScreen;
-import com.darkmusic.client.gui.SmartCleanupScreen;
-import com.darkmusic.client.gui.SongActionsScreen;
-import com.darkmusic.client.gui.SoundEnvironmentScreen;
-import com.darkmusic.client.gui.TrackPickerScreen;
-import com.darkmusic.client.gui.UpNextScreen;
-import com.darkmusic.client.gui.UpdateScreen;
+import com.darkmusic.client.gui.audio.AudioSettingsScreen;
+import com.darkmusic.client.gui.audio.SoundEnvironmentScreen;
+import com.darkmusic.client.gui.download.DownloadDiagnosticScreen;
+import com.darkmusic.client.gui.download.DownloadDuplicateScreen;
+import com.darkmusic.client.gui.download.DownloadPathsScreen;
+import com.darkmusic.client.gui.download.DownloadScreen;
+import com.darkmusic.client.gui.download.DownloadToolsScreen;
+import com.darkmusic.client.gui.download.ExistingDownloadsScreen;
+import com.darkmusic.client.gui.library.AudioDeletionScreen;
+import com.darkmusic.client.gui.library.DuplicateComparisonScreen;
+import com.darkmusic.client.gui.library.IgnoredMatchesScreen;
+import com.darkmusic.client.gui.library.ImportHistoryScreen;
+import com.darkmusic.client.gui.library.LibraryManagerScreen;
+import com.darkmusic.client.gui.library.MetadataScreen;
+import com.darkmusic.client.gui.library.MusicFoldersScreen;
+import com.darkmusic.client.gui.library.SmartCleanupScreen;
+import com.darkmusic.client.gui.lyrics.LyricsScreen;
+import com.darkmusic.client.gui.lyrics.LyricsSettingsScreen;
+import com.darkmusic.client.gui.pip.PipScreen;
+import com.darkmusic.client.gui.player.PlaylistScreen;
+import com.darkmusic.client.gui.player.SongActionsScreen;
+import com.darkmusic.client.gui.player.TrackPickerScreen;
+import com.darkmusic.client.gui.player.UpNextScreen;
+import com.darkmusic.client.gui.settings.BackupScreen;
+import com.darkmusic.client.gui.settings.ColorsScreen;
+import com.darkmusic.client.gui.settings.HudEditorScreen;
+import com.darkmusic.client.gui.settings.SettingsScreen;
+import com.darkmusic.client.gui.settings.UpdateScreen;
 import com.darkmusic.client.library.Track;
 import com.darkmusic.client.tools.DownloadDiagnostics;
 import net.minecraft.client.gui.screens.Screen;
@@ -133,7 +135,7 @@ final class ScreenNavigation<S extends SettingsScreen.Sources & UpNextScreen.Sou
     }
 
     @Override
-    public Screen hudEditor(Screen parent, HudEditorScreen.Element selected) {
+    public Screen hudEditor(Screen parent, HudElement selected) {
         return new HudEditorScreen(app, parent, selected);
     }
 
@@ -158,7 +160,7 @@ final class ScreenNavigation<S extends SettingsScreen.Sources & UpNextScreen.Sou
     }
 
     @Override
-    public Screen colors(Screen parent, VisualColors target, String titleKey, ColorsScreen.Preview preview, String previewTitle) {
+    public Screen colors(Screen parent, VisualColors target, String titleKey, ColorPreview preview, String previewTitle) {
         return new ColorsScreen(app, parent, target, titleKey, preview, previewTitle);
     }
 

@@ -2,7 +2,10 @@ package com.darkmusic.smoke;
 
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.Settings;
-import com.darkmusic.client.gui.*;
+import com.darkmusic.client.gui.pip.PipEditorScreen;
+import com.darkmusic.client.gui.pip.PipSpectrumScreen;
+import com.darkmusic.client.gui.settings.ColorsScreen;
+import com.darkmusic.client.gui.settings.SettingsScreen;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;

@@ -6,11 +6,11 @@ import net.minecraft.client.gui.screens.Screen;
 
 import java.util.concurrent.CompletableFuture;
 
-final class LyricsConsent {
+public final class LyricsConsent {
     private LyricsConsent() {
     }
 
-    static Screen request(SettingsSource app, Screen parent) {
+    public static Screen request(SettingsSource app, Screen parent) {
         // Cancel/Escape keeps networking off, and does not repeatedly interrupt the player.
         app.update(s -> {
             s.lyricsConsentVersion = 1;

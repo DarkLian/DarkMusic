@@ -1,6 +1,6 @@
 package com.darkmusic.client.playlist;
 
-import com.darkmusic.client.gui.SongSelection;
+import com.darkmusic.client.gui.widget.SongSelection;
 import com.darkmusic.client.testing.Tracks;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

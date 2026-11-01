@@ -2,7 +2,7 @@ package com.darkmusic.client.library;
 
 import com.darkmusic.client.backup.BackupArchive;
 import com.darkmusic.client.config.*;
-import com.darkmusic.client.gui.FolderTree;
+import com.darkmusic.client.gui.player.FolderTree;
 import com.darkmusic.client.playlist.PlaylistStore;
 import com.darkmusic.client.testing.Await;
 import org.junit.jupiter.api.Test;

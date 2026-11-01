@@ -2,8 +2,8 @@ package com.darkmusic.client;
 
 import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.config.Settings;
-import com.darkmusic.client.gui.MusicScreen;
 import com.darkmusic.client.gui.ShortcutKeys;
+import com.darkmusic.client.gui.player.MusicScreen;
 import com.darkmusic.client.text.Text;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;

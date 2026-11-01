@@ -1,6 +1,7 @@
 package com.darkmusic.client.gui;
 
 import com.darkmusic.client.config.SettingsSource;
+import com.darkmusic.client.gui.widget.ValueSlider;
 import com.darkmusic.client.hud.HudSources;
 import com.darkmusic.client.library.Track;
 
@@ -20,7 +21,15 @@ public final class PlayerProgress {
     private PlayerProgress() {
     }
 
-    static void configure(ValueSlider slider, Sources app, Supplier<Track> track) {
+    /**
+     * A position or length as minutes and seconds.
+     */
+    public static String time(double seconds) {
+        long value = (long) Math.max(0, Double.isFinite(seconds) ? seconds : 0);
+        return "%d:%02d".formatted(value / 60, value % 60);
+    }
+
+    public static void configure(ValueSlider slider, Sources app, Supplier<Track> track) {
         slider.trackOnly(true);
         slider.simpleProgress(true);
         slider.focusOutline(false);

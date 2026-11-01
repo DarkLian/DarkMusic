@@ -1,7 +1,7 @@
 package com.darkmusic.client.command;
 
 import com.darkmusic.client.audio.AudioBackend;
-import com.darkmusic.client.gui.FolderTree;
+import com.darkmusic.client.gui.player.FolderTree;
 import com.darkmusic.client.hud.TitleMarquee;
 import com.darkmusic.client.library.MusicLibrary;
 import com.darkmusic.client.library.Track;

@@ -1,10 +1,10 @@
 package com.darkmusic.client;
 
 import com.darkmusic.client.command.LocalCommands;
-import com.darkmusic.client.gui.HudEditorScreen;
-import com.darkmusic.client.gui.LyricsScreen;
-import com.darkmusic.client.gui.MusicScreen;
-import com.darkmusic.client.gui.PipScreen;
+import com.darkmusic.client.gui.lyrics.LyricsScreen;
+import com.darkmusic.client.gui.pip.PipScreen;
+import com.darkmusic.client.gui.player.MusicScreen;
+import com.darkmusic.client.gui.settings.HudEditorScreen;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;

@@ -2,7 +2,7 @@ package com.darkmusic.smoke;
 
 import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.config.Settings;
-import com.darkmusic.client.gui.SettingsScreen;
+import com.darkmusic.client.gui.settings.SettingsScreen;
 import com.darkmusic.client.text.Text;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;

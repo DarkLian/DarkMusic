@@ -1,5 +1,7 @@
 package com.darkmusic.client.gui;
 
+import com.darkmusic.client.gui.widget.Help;
+import com.darkmusic.client.gui.widget.ScrollBar;
 import com.darkmusic.client.render.HorizontalText;
 import com.darkmusic.client.render.UiIcon;
 import com.darkmusic.client.render.UiStatus;

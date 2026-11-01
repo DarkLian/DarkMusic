@@ -4,7 +4,20 @@ import com.darkmusic.client.DarkMusicClient;
 import com.darkmusic.client.audio.AudioBackend;
 import com.darkmusic.client.config.Settings;
 import com.darkmusic.client.config.WaveformSettings;
-import com.darkmusic.client.gui.*;
+import com.darkmusic.client.gui.ConfirmationScreen;
+import com.darkmusic.client.gui.LocalScreen;
+import com.darkmusic.client.gui.library.AudioDeletionScreen;
+import com.darkmusic.client.gui.lyrics.LyricCandidateScreen;
+import com.darkmusic.client.gui.lyrics.LyricsLibraryScreen;
+import com.darkmusic.client.gui.lyrics.LyricsOptionsScreen;
+import com.darkmusic.client.gui.lyrics.LyricsScreen;
+import com.darkmusic.client.gui.lyrics.LyricsSearchScreen;
+import com.darkmusic.client.gui.lyrics.LyricsSettingsScreen;
+import com.darkmusic.client.gui.player.MusicScreen;
+import com.darkmusic.client.gui.settings.HudEditorScreen;
+import com.darkmusic.client.gui.settings.SettingsScreen;
+import com.darkmusic.client.gui.widget.RowList;
+import com.darkmusic.client.gui.widget.UiButton;
 import com.darkmusic.client.hud.HudImages;
 import com.darkmusic.client.hud.LyricsHud;
 import com.darkmusic.client.library.ArtworkCache;
@@ -438,17 +451,17 @@ final class LyricsSmokeClient {
                 waveformSettings.init(960, 540);
                 // The HUD section has several groups (Appearance, Motion, Card, Progress); only the Progress heading counts.
                 var groups = ((List<?>) SmokeUi.field(waveformSettings, SettingsScreen.class, "subsections")).stream()
-                    .filter(group -> (int) SmokeUi.field(group, "com.darkmusic.client.gui.SettingsLayout$Subsection", "section") == 4
-                        && SmokeUi.field(group, "com.darkmusic.client.gui.SettingsLayout$Subsection", "title").equals(Text.get("progress.darkmusic.group"))).toList();
+                    .filter(group -> (int) SmokeUi.field(group, "com.darkmusic.client.gui.settings.SettingsLayout$Subsection", "section") == 4
+                        && SmokeUi.field(group, "com.darkmusic.client.gui.settings.SettingsLayout$Subsection", "title").equals(Text.get("progress.darkmusic.group"))).toList();
                 check(groups.size() == 1, "Progress uses the shared category heading renderer");
-                int groupY = (int) SmokeUi.field(groups.getFirst(), "com.darkmusic.client.gui.SettingsLayout$Subsection", "y");
+                int groupY = (int) SmokeUi.field(groups.getFirst(), "com.darkmusic.client.gui.settings.SettingsLayout$Subsection", "y");
                 var placed = (List<?>) SmokeUi.field(waveformSettings, SettingsScreen.class, "controls");
                 for (String label : List.of(
                     Text.get("hud.darkmusic.transparency", Math.round(app.services().settings().hudBackgroundTransparency * 100)),
                     Text.get("hud.darkmusic.background_gradient"),
                     Text.get("hud.darkmusic.background_colors"))) {
-                    var control = placed.stream().filter(row -> ((AbstractWidget) SmokeUi.field(row, "com.darkmusic.client.gui.SettingsLayout$Placed", "widget")).getMessage().getString().equals(label)).findFirst().orElseThrow();
-                    check((int) SmokeUi.field(control, "com.darkmusic.client.gui.SettingsLayout$Placed", "y") < groupY, "HUD background controls precede Progress Bar");
+                    var control = placed.stream().filter(row -> ((AbstractWidget) SmokeUi.field(row, "com.darkmusic.client.gui.settings.SettingsLayout$Placed", "widget")).getMessage().getString().equals(label)).findFirst().orElseThrow();
+                    check((int) SmokeUi.field(control, "com.darkmusic.client.gui.settings.SettingsLayout$Placed", "y") < groupY, "HUD background controls precede Progress Bar");
                 }
                 SmokeUi.click(mc, Text.get("waveform.style") + ": " + Text.get("waveform.style.filled"));
                 app.services().settings().waveform.style = WaveformSettings.Style.FILLED;
