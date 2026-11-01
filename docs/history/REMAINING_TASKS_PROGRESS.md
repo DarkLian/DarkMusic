@@ -9,7 +9,8 @@ The existing debt plan is complete; this round addresses the recorded exceptiona
   confirmed physical-unplug check. Specific track/device identities were not supplied.
 - R2: F1-F10 implemented; clean desktop and native follow-up pass. Two injected behavior bugs are fixed.
   Test destructive paths only in disposable fixtures; audio copies derive from the private collection.
-- R3: the user explicitly requested release v3.6.2 on 2026-11-01. Version/notes are prepared; release validation is running.
+- R3: [v3.6.2 is published](https://github.com/DarkLian/DarkMusic/releases/tag/v3.6.2) with five verified assets.
+  Clean release checks, all nine native scenarios and three-platform release CI passed. PR #9 is merged.
 - R4: long-line ratchet and shared wrapping setting implemented and verified, without a mass reformat.
   Keep existing wildcard-import and multiple-declaration style.
 - Live LRCLIB: the opted-in production-provider check passed on 2026-11-01, without skipping. No endpoint or
@@ -132,3 +133,16 @@ R1 rows are complete on the user's reports, with no invented files/device identi
 R3 preparation, commit/push, v3.6.2 tagging and GitHub publication after release validation. No further confirmation
 is required. Version, install documentation and notes are prepared; release-specific checks and publication are
 tracked in RELEASE-3.6.2_PROGRESS.md. Earlier pending statements are historical.
+
+## Completion: v3.6.2 published
+
+R1-R4 are complete. The user confirmed all listening checks and physical unplug and authorized v3.6.2.
+Release commit f7d5dc1 includes the reviewed/merged PR #9 pin update. Clean release verification passed
+960 tests (14 explicit skips), all nine native scenarios and both main/release CI on Windows/Linux/macOS.
+All 53 private files are unchanged. All five published assets were downloaded and verified; both external
+extension manifests and the Media Controls executable hash match, with no native payload in the mod JAR.
+The public Java class bytes match the locally tested build. The optional player-config snapshot skip records
+changed input rather than replacing its original golden. The existing unwired stale-scratch recovery limitation
+remains documented as the plan required. The seven local plans stay at their original untracked paths.
+
+[Release verification and publication record](RELEASE-3.6.2_PROGRESS.md).

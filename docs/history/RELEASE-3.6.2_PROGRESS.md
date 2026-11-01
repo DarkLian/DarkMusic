@@ -6,20 +6,26 @@ Publication, ordinary commits/push and tagging are authorized. Preserve the seve
 
 ## Current status
 
-- Version 3.6.2, README/guide and release notes prepared. Notes describe four user-visible fixes since v3.6.1;
-  internal restructuring gets one line. Optional Windows extensions remain separate verified assets.
-- Full clean desktop validation passed at version 3.6.2: **960 tests, 14 explicit skips, zero failures/errors**.
-  Fixed PCM/recipe/vertex goldens and desktop checks ran. The optional original-player-config snapshot check
-  skipped because the config changed after its historical snapshot; its fixed recipe golden still passed.
-- The nine-scenario native suite is running with the private collection, existing managed tools and SmoothFont.
-  A normal play session must pass before tagging.
-- All five artifacts exist and pass ZIP integrity checks. fabric.mod.json is version 3.6.2; both bundled
-  windows-x64 extension manifests match their external ZIP names, sizes and SHA-256. The mod JAR has no native
-  executable/archive payload. The extra artifact checker initially used paths without windows-x64; correcting
-  that test harness resolved its KeyError. No build artifact change was needed.
-- Commit/push only the reviewed release changes, verify main CI, then tag v3.6.2 and monitor the release workflow.
-  The workflow verifies the main ancestry/version tag, tests three hosts and publishes five assets.
-- No v3.6.2 tag or release existed at preflight. No production source arithmetic changes are part of this release bump.
+- **Published:** [DarkMusic v3.6.2](https://github.com/DarkLian/DarkMusic/releases/tag/v3.6.2), marked latest,
+  with all five assets. Annotated tag v3.6.2 points to tested release commit f7d5dc1; the tag was never moved.
+- Clean Windows release validation: **960 tests, 14 explicit skips, zero failures/errors**. Fixed PCM, recipes,
+  vertices and desktop checks ran. The additional optional local-config snapshot skip reports a changed player
+  config; its fixed serialization golden still passed. Player configuration was not reset or rewritten.
+- All **nine native scenarios passed** at version 3.6.2: default/restart, reset/restart, advanced, cleanup, queue,
+  lyrics and preview. Actual-device normal playback passed before tagging. All **53 private collection files
+  unchanged**, with SmoothFont and isolated smoke settings. No original audio or public screenshots changed.
+- All five local artifacts pass ZIP integrity and manifest checks. The artifact checker initially omitted the
+  windows-x64 path segment; its corrected check passes without changing build artifacts.
+- All five **published** assets were downloaded and independently checked for size, SHA-256 and ZIP integrity.
+  The public JAR is version 3.6.2, contains no native executable/archive payload, and both external-extension
+  manifests match the published ZIPs and release-note hashes. The Media Controls executable hash also matches.
+  All Java class bytes and other resources match the locally tested JAR; only the two package manifests differ,
+  binding the hosted extension archives rather than the local archives. Sources/third-party sources are published.
+- Candidate [main CI 41294142766](https://github.com/DarkLian/DarkMusic/actions/runs/41294142766) passed all hosts.
+  [Release workflow 41294743340](https://github.com/DarkLian/DarkMusic/actions/runs/41294743340) passed all three
+  host builds and publication. The new Gradle wrapper-validation pin was exercised in both workflows.
+- [PR #9](https://github.com/DarkLian/DarkMusic/pull/9) was reviewed and merged as 86d3a6d before the candidate.
+  All eleven human listening/device rows passed on the user's reports; explicit release authorization is recorded.
 
 ## Evidence and resume
 
@@ -47,3 +53,24 @@ recorded on main after the workflow completes; no tag is moved or rewritten.
 Local validation evidence: release-3.6.2/desktop-results.json and desktop-xml, artifacts.json/artifacts.log,
 collection-before.json and smoke per-scenario logs. The local mod JAR is 4,343,158 bytes; native extensions remain
 external packages. The helper runtime itself is unchanged from 3.6.1. No public screenshots were added.
+
+## Publication verification
+
+Release ID 430489626; candidate commit f7d5dc1244478463a4b330e62813f33ec6663d9b; annotated tag object
+2493d0d4594aa554f6b6a9f696bf366b8ac28b22. The remote peeled tag matches the candidate and GitHub reports v3.6.2
+as latest, non-draft and non-prerelease. The workflow publishes exactly these assets:
+
+- darkmusic-3.6.2.jar
+- darkmusic-3.6.2-sources.jar
+- darkmusic-3.6.2-third-party-sources.zip
+- darkmusic-pip-dependencies-3.6.2-windows-x64.zip
+- darkmusic-media-controls-3.6.2-windows-x64.zip
+
+Published mod JAR SHA-256: `f49b0ea30aaaf2af347243e96d10d6c6b5c3d23e362955b0968094d5c36a308a`.
+The helper archive hashes are appended to the GitHub release notes by the publication workflow and verified
+against both downloaded ZIPs and the manifests in the public JAR. Native packages remain optional and outside mods.
+
+Evidence: desktop-results.json/desktop-xml, artifacts.json, executable-check.py, smoke/summary.txt and scenario
+logs, collection-before/after.json, published-release.json, published-verification.json and
+local-published-comparison.json under ignored release-3.6.2. Final documentation is committed on main after
+publication; the tested release tag remains on f7d5dc1. All seven local plans are preserved untracked.

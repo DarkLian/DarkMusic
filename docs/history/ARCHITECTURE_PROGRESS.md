@@ -304,3 +304,12 @@ default/advanced/queue smoke; all 53 private files are unchanged. Detailed post-
 
 The items still open when this work ended are the Known limits in [ARCHITECTURE.md](../ARCHITECTURE.md#known-limits).
 The Loom manifest and helper-reproducibility build notes are in [the testing guide](../TESTING.md#build).
+
+## v3.6.2 completion (2026-11-01)
+
+The user subsequently confirmed all eleven listening/device rows, including physical unplug, and authorized
+v3.6.2. [The release is published](https://github.com/DarkLian/DarkMusic/releases/tag/v3.6.2); clean local checks
+passed 960 tests (14 explicit skips), all nine native scenarios passed, and main/release CI passed all three hosts.
+The remaining-tasks fault tests exposed and fixed queued-deletion cancellation and failed-artwork cache bounds;
+PR #9's verified wrapper-validation pin was merged. [Release evidence](RELEASE-3.6.2_PROGRESS.md) records all five
+public asset checks and unchanged private collection. Earlier pending-listening statements are historical.

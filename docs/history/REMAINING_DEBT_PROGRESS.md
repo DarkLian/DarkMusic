@@ -186,3 +186,7 @@ REMAINING_TASKS_PROGRESS.md for the recorded report and the still-pending physic
 The user separately confirmed the physical-unplug check and requested release v3.6.2 on 2026-11-01.
 All eleven shared human-verification rows are now passed on the user's reports. Release validation/publication
 is recorded in RELEASE-3.6.2_PROGRESS.md.
+
+Release follow-up complete: v3.6.2 is published from f7d5dc1 after all eleven user-confirmed human/device rows,
+clean 960-test release verification, all nine native scenarios and three-platform CI. All five public assets were
+downloaded and verified. See RELEASE-3.6.2_PROGRESS.md; PR #9 is also reviewed and merged.
