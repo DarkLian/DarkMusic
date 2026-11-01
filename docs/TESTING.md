@@ -320,7 +320,7 @@ success and through failure cleanup. Screenshots remain original fullscreen 1920
 effective GUI scale 2 with SmoothFont; they remain private until reviewed.
 
 Exact PCM equality and native controls do not establish what a listener hears or physical device-unplug recovery.
-Run the following once after normalization changes, and again if transition state is later moved. Use only private
+Run the following after normalization or DSP changes, and again if transition state is later moved. Use only private
 collection songs; record pass/fail, private file identities and device in ignored evidence, with a public result
 summary in the history. Do not claim a row passed without listening/performing it.
 
@@ -329,12 +329,14 @@ summary in the history. Do not claim a row passed without listening/performing i
 | 1 | Loud then quiet song, track normalization, 5 s crossfade | No level jump at either end of overlap. |
 | 2 | Consecutive gapless album tracks, crossfade off | No click, gap or overlap. |
 | 3 | Same album, album normalization | Consistent level across handoff. |
-| 4 | Seek during crossfade | No burst; incoming playback continues at the right position. |
-| 5 | Speed 1.5, Preserve Pitch on then off, across overlap | No boundary pitch glitch; progress and synced lyrics align. |
+| 4 | Seek during crossfade while the game is running under load | No burst; incoming playback continues at the right position. |
+| 5 | Speed 1.5, Preserve Pitch on then off, across overlap; play for ten minutes | No boundary pitch glitch; progress and synced lyrics align. |
 | 6 | Pause/resume during overlap | Crossfade continues without restarting. |
 | 7 | Switch output during playback and during overlap | Position and level continue. |
 | 8 | Select an explicit device, then physically unplug it | Same fallback/recovery as the baseline. |
 | 9 | Mono recording and 24-bit FLAC on stereo output | Correct channels and unchanged audible noise floor. |
+| 10 | Strong EQ preset then Flat; loud song, positive gain and limiter | No zipper noise, new clipping or pumping. |
+| 11 | Switch Concert Hall, Telephone, Underwater and Orbital Echo while playing | Same reverb/filter/echo character and smooth switches. |
 
 Then run `smoke.ps1 -Scenario advanced,queue`. The current session's exact results, external-provider failures and
 human/device rows still pending are in [deferred progress](history/DEFERRED_PROGRESS.md). GPU registration failure,
@@ -384,3 +386,34 @@ python scripts/compare-captures.py --before docs/images_private/remaining-before
 The Lyrics smoke waits for PAUSED as well as the target seek position before toggling resume. A seek publishes its
 target while still SEEKING; toggling then intentionally pauses the request. A worker-only debugger delay reproduced
 the harness race, and the corrected gate passed with the same controlled delay and in a separate normal desktop run.
+
+## Remaining-task fault checks and style ratchet
+
+The [progress record](history/REMAINING_TASKS_PROGRESS.md) distinguishes injected failures, fixed bugs, actual
+integration results and human/release prerequisites. Fault fixtures use disposable host-filesystem paths. The
+NIO provider delegates to the real platform, including file keys, case aliases, atomic moves and locking; it never
+substitutes an in-memory filesystem. External-process/jaudiotagger paths use narrow package-private move, cleanup,
+free-space or post-staging functions that default to the existing platform operations.
+
+```powershell
+./scripts/verify.ps1 -JavaOnly -Tests '*RestoreJournalTest','*AudioReplacementTest','*MediaFilesFaultTest'
+./scripts/verify.ps1 -JavaOnly -Tests '*MediaActionsTest','*ArtworkCacheTransferTest','*ManagedToolsTest'
+./scripts/verify.ps1 -JavaOnly -Tests '*DesktopFolderPickerTest','*DownloadTest','*ArchitectureTest'
+```
+
+Artwork transfer tests decode private embedded covers into real NativeImage allocations, force registration
+failure and both close/transfer orders with latches, and verify native disposal without a GPU context. Native
+smoke still checks the default Minecraft registration path. Deletion tests include a real ten-second unsignalled
+backend wait; shutdown cancels a queued deletion without relying on its discarded runnable. Completed/partial
+results survive service shutdown and provenance-cleanup failure.
+
+ManagedTools symlink tests print `MANAGED_SYMLINK_CHECK` with the host when they run. Windows without symlink
+privilege explicitly skips; Linux CI must execute them. Low-space tests reject before asset downloads or bundle
+replacement. Download scratch refusal preserves published audio and repair receipts. The explicit
+DownloadWorkspace recovery constructor can sweep unleased stale work, but normal pipeline preparation currently
+uses recover=false and has no startup recovery caller; the fixture records this limitation rather than claiming
+startup cleanup happens.
+
+ArchitectureTest ratchets client Java lines over 150 Unicode characters at the existing 569-line baseline. Lower
+the count and budget together. `.editorconfig` shares a 120-character margin for future IDEA formatting. No mass
+reformat or import/declaration style change belongs to this ratchet.

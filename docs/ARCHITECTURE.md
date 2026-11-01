@@ -227,8 +227,8 @@ of it (as the analyzer label says).
   synchronization risk without clarifying its control flow.
 - Exact PCM and native smoke checks do not replace the human listening and physical device-unplug protocol in
   [TESTING.md](TESTING.md#exact-pcm-regression-checks-and-deferred-work-protocol). Those human rows remain pending
-  for the deferred refactor; GPU registration failure and rare independent cleanup/shutdown faults are listed in
-  [the branch review](history/DEFERRED_BRANCH_MAP.md).
+  for the deferred/DSP refactors. The named GPU transfer, cleanup, rollback, disk-space and shutdown cases now have
+  [injected tests](history/REMAINING_TASKS_PROGRESS.md); further independent OS/driver failures are not exhaustive.
 - Which services are built (`DarkMusicClient.ready`, `ClientServices.buildHistories`/`buildServices`/
   `buildReplaceable`) is wiring, covered by compilation, review and smoke checks. `ClientResetTest` pins the real
   reset phases and their ordering over fake services. The collaborators' admission rules have unit tests; a successful output switch, a
@@ -241,7 +241,10 @@ of it (as the analyzer label says).
 - Retained screens re-read settings when shown again, and the confirmation screen cannot be left while a reset or
   restore runs, so no edit reaches a replaced settings object. This was checked by reading the code, not by a test.
 - `mediaBusy` is released by its holder, relying on exclusive admission rather than an operation lease; admission
-  makes overlap unreachable (see Exclusive operations).
+  makes overlap unreachable (see Exclusive operations). A deletion job atomically arbitrates queued cancellation
+  against worker start, so shutdown can release a discarded queued job without later deleting its files.
+- Refused download scratch cleanup leaves its item directory. An explicit workspace recovery constructor can
+  remove stale unleased items, but normal production preparation currently does not call that recovery path.
 - A rescan reuses a file's tags while its size and modification time are unchanged, so a replacement that keeps both
   shows the old tags until one changes.
 - `atomicWrite` falls back to a plain replace where the file system cannot move atomically, so there is no universal
@@ -350,3 +353,11 @@ New per-sample helpers are private and guarded at 325 encoded bytes. AudioProces
 scratch pair across phases without per-sample allocation; configuration snapshots, arithmetic, diagnostics and
 limiter transition order are preserved. Both sample-loop hot entries are removed. EnvironmentRecipes.recipe
 remains the sole allowlist entry, classified as data. Human listening results are distinct from automated evidence.
+
+## Remaining-task fault follow-up
+
+[The injected-path record](history/REMAINING_TASKS_PROGRESS.md) covers restore retry, independent rollback failures,
+staged tag/artwork/format rejection, refused cleanup, disk exhaustion, managed-tool symlinks, native artwork
+ownership and deletion shutdown. Tests exposed and fixed two behaviors: discarded queued deletions could retain
+the media lock and unfinished future, and failed texture registrations could bypass the cache entry bound.
+The worker-start/cancel gate and shared artwork trim phase address those cases. No audio arithmetic changed.

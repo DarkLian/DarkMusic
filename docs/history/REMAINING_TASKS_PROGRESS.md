@@ -7,10 +7,10 @@ The existing debt plan is complete; this round addresses the recorded exceptiona
 
 - R1: human listening/device rows are pending user observations. An asynchronous request is open; automated
   tests must not be described as human listening or physical unplug evidence.
-- R2: starting the real-filesystem fault-injection fixture, then F1/F2, F10, narrow file operations and F9.
+- R2: F1-F10 implemented and focused tests pass; final clean desktop/native verification is running.
   Test destructive paths only in disposable fixtures; audio copies derive from the private collection.
 - R3: release decision requested asynchronously. Do not tag/publish until the decision and R1 results exist.
-- R4: implement only the suggested long-line ratchet and shared wrapping setting, without a mass reformat.
+- R4: long-line ratchet and shared wrapping setting implemented and verified, without a mass reformat.
   Keep existing wildcard-import and multiple-declaration style.
 - Live LRCLIB: rerun the real integration, verify the provider endpoint/API if it fails, and retain any outage
   as a dated failure rather than a skip.
@@ -76,3 +76,15 @@ Use `scripts/verify.ps1` for full checks and the existing managed tools and priv
   count guard in ArchitectureTest ratchets client Java lines over 150 at **569**, exactly the `a518948` baseline;
   no existing guard increased and no mass reformat occurred. Wildcard imports and combined declarations stay in
   the established IDEA style. All **17 architecture/method guard tests pass**.
+
+## Publication and remaining prerequisites
+
+Implementation batches are separate commits: 2339132 (A/F1/F2), 26e6fc6 (queued deletion fix/F10),
+92b5b92 (metadata F2-F4), 11afafc (cleanup/space/symlink F5-F8), 4ab6352 (native ownership seam/F9),
+007b600 (failed-registration bound fix), 8fdfa47 (R4). Source formatting uses IDEA; no guard budget increased.
+Final clean desktop and default/cleanup/lyrics/preview smoke are running. No release version has changed.
+
+R1 still needs the user's eleven observations. R3 still needs the user's release decision and R1 completion;
+there is no tag/release. A future patch release should also describe the two newly exposed fixes above.
+All seven local plan files remain at their original paths so existing references stay valid; no unrelated files
+or original music were moved or changed.

@@ -170,3 +170,11 @@ Durable evidence is saved under ignored `.local-tools/verification/remaining`: `
 The initial 25 batches were pushed through `0fe03d0`; that GitHub build passed (run 41254773073). The subsequent
 H5/H6 source and verification documentation use ordinary separate commits and the user-authorized normal push.
 All six local plans remain untracked. No active verification jobs or temporary debugger probes remain.
+
+## Remaining-tasks follow-up
+
+[REMAINING_TASKS_PROGRESS.md](REMAINING_TASKS_PROGRESS.md) records the subsequent F1-F10 fault tests and two fixes,
+the optional long-line ratchet and the successful live LRCLIB rerun on 2026-11-01. The shared eleven-row human
+listening/device table is in [DEFERRED_PROGRESS.md](DEFERRED_PROGRESS.md#remaining-human-verification), including
+post-H5 environment and post-H6 EQ/limiter listening. Those rows remain pending observations; no release result
+is inferred from automated checks or the prior authorization to proceed.

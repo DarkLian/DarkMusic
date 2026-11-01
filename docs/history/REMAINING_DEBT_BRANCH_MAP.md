@@ -70,3 +70,18 @@ finite sanitization, diagnostics 3 and PCM writes in order. The neutral block re
 All new sample phases are private, below 325 encoded bytes, and allocation-free; current stereo scratch belongs
 to the same worker as the DSP histories. Pre-split fixed hashes for every preset, 160 backend captures, comparison
 and continuity suites pass. These checks do not establish a human listening/device observation.
+
+## Remaining-tasks fault-injection follow-up (2026-11-01)
+
+The original baseline review above is retained. [REMAINING_TASKS_PROGRESS.md](REMAINING_TASKS_PROGRESS.md) now
+supersedes its named unforced gaps: RestoreJournal retry after move/write/delete/journal failure;
+AudioReplacement and companion rollback error retention; each MediaFiles staged validation; metadata/download/
+picker cleanup refusal; managed-tool disk exhaustion and host-reported symlink checks; real NativeImage GPU
+registration/close-transfer/saturation; deletion storage/library/lyrics/client shutdown, stale player, provenance
+failure and bounded idle wait. Tests exposed queued-deletion cancellation and failed-texture cache-bound bugs;
+each fix has its own commit after failing injected evidence.
+
+This is evidence for the named interleavings and operations, not exhaustive OS/filesystem/driver coverage. Local
+Windows symlink privilege is unavailable; Linux CI execution must be recorded. Normal download startup does not
+currently invoke the stale-work recovery constructor; cleanup refusal leaves scratch work rather than damaging
+published audio or receipts. Human listening/device rows remain independent.

@@ -52,3 +52,18 @@ prove that every cleanup operation can fail safely. Explicit gaps are retained b
 Every extraction ran its focused suites before and after. Added cases were written and run before the respective
 move; the late pointer-publication case was also run against its original checkpoint. The remaining exceptional
 branches above are limitations of this verification, not evidence of a behavioral change or a coverage percentage.
+
+## Remaining-tasks fault-injection follow-up (2026-11-01)
+
+The original baseline review above is retained. [REMAINING_TASKS_PROGRESS.md](REMAINING_TASKS_PROGRESS.md) now
+supersedes its named unforced gaps: RestoreJournal retry after move/write/delete/journal failure;
+AudioReplacement and companion rollback error retention; each MediaFiles staged validation; metadata/download/
+picker cleanup refusal; managed-tool disk exhaustion and host-reported symlink checks; real NativeImage GPU
+registration/close-transfer/saturation; deletion storage/library/lyrics/client shutdown, stale player, provenance
+failure and bounded idle wait. Tests exposed queued-deletion cancellation and failed-texture cache-bound bugs;
+each fix has its own commit after failing injected evidence.
+
+This is evidence for the named interleavings and operations, not exhaustive OS/filesystem/driver coverage. Local
+Windows symlink privilege is unavailable; Linux CI execution must be recorded. Normal download startup does not
+currently invoke the stale-work recovery constructor; cleanup refusal leaves scratch work rather than damaging
+published audio or receipts. Human listening/device rows remain independent.
