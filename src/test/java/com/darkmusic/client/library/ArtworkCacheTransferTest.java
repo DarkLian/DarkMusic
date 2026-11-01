@@ -102,6 +102,21 @@ class ArtworkCacheTransferTest {
         }
     }
 
+    @Test
+    void repeatedRegistrationFailuresStillRespectTheCacheEntryBound() throws Exception {
+        try (var fixture = new Fixture()) {
+            for (int i = 0; i < 40; i++) {
+                fixture.failRegistration.set(true);
+                fixture.cache.thumbnail(track(i));
+                fixture.awaitWorker();
+                fixture.drain();
+            }
+            assertEquals(0, fixture.cache.pendingCount());
+            assertTrue(fixture.cache.entryCount() <= 32, "failed entries use the same viewport bound");
+            assertTrue(fixture.registered.isEmpty());
+        }
+    }
+
     private static void hold(CountDownLatch entered, CountDownLatch release, AtomicBoolean first) {
         if (!first.compareAndSet(true, false)) return;
         entered.countDown();

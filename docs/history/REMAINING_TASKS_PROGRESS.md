@@ -66,3 +66,8 @@ Use `scripts/verify.ps1` for full checks and the existing managed tools and priv
   every admitted image is registered or closed and cache close releases all registered images. **21 focused tests
   pass, zero skips/failures/errors**, including architecture/method guards. Native Minecraft rendering still needs
   final smoke follow-up. The failed-registration entry bound is being checked separately.
+
+- F9 follow-up bug: repeated registration refusals exceeded the cache entry bound because the failure branch
+  returned before trimming. `repeatedRegistrationFailuresStillRespectTheCacheEntryBound` failed before the fix;
+  both failure and success now call the same trim phase. **22 focused tests pass**, zero skips/failures/errors.
+  Before/after XML is retained; this behavior fix is a separate commit from the injection seam.

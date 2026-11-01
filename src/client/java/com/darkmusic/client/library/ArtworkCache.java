@@ -250,6 +250,13 @@ public final class ArtworkCache implements AutoCloseable {
         return pending.size();
     }
 
+    /**
+     * For tests: failed registrations must respect the same entry bound as covers.
+     */
+    int entryCount() {
+        return cache.size();
+    }
+
     private void load(Track track, int limit, String key) {
         NativeImage owned = null;
         try {
@@ -280,11 +287,16 @@ public final class ArtworkCache implements AutoCloseable {
                 prepared.close();
                 LoggerFactory.getLogger("darkmusic").warn("Artwork texture registration failed", failure);
                 cache.put(key, null);
+                trim();
                 return;
             }
         }
         cache.put(key, id == null ? null : new Cover(id, image.dimension(), image.width(), image.height(), image.inset()));
         if (id != null) cachedBytes += image.dimension() * image.dimension() * 4;
+        trim();
+    }
+
+    private void trim() {
         while (cache.size() > entryLimit || cachedBytes > 32 * 1024 * 1024) {
             var entry = cache.entrySet().iterator().next();
             if (entry.getValue() != null) {
