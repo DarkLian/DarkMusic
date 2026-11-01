@@ -1,6 +1,10 @@
 package com.darkmusic.client.library;
 
 import com.google.gson.JsonParser;
+import com.darkmusic.client.testing.FaultFileSystem;
+
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -62,4 +66,34 @@ class AudioReplacementTest {
         assertEquals("original", Files.readString(target));
         assertEquals("edited", Files.readString(staged));
     }
+
+    @Test
+    void independentRollbackFailureKeepsThePublicationFailureAndTheOriginalRecoveryCopy() throws Exception {
+        try (var fs = new FaultFileSystem()) {
+            Path target = Files.writeString(fs.wrap(directory.resolve("original.txt")), "original");
+            Path staged = Files.writeString(fs.wrap(directory.resolve("edited.txt")), "edited");
+            Path backup = fs.wrap(directory.resolve("backup.txt"));
+            var denied = new IOException("independent rollback denied");
+            var publication = new IOException("publication denied");
+            var reached = new AtomicBoolean();
+            fs.before((operation, path, to) -> {
+                if (operation.equals("move") && path.getFileName().toString().equals("backup.txt")) {
+                    reached.set(true);
+                    throw denied;
+                }
+            });
+            var recovery = assertThrows(AudioReplacement.RecoveryRequired.class,
+                () -> AudioReplacement.replace(staged, target, backup, (from, to, options) -> {
+                    throw publication;
+                }));
+            assertTrue(reached.get());
+            assertSame(publication, recovery.getCause());
+            assertEquals(1, publication.getSuppressed().length);
+            assertSame(denied, publication.getSuppressed()[0].getCause());
+            assertEquals("original", Files.readString(backup));
+            assertEquals("edited", Files.readString(staged));
+            assertFalse(Files.exists(target));
+        }
+    }
+
 }
