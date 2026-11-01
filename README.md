@@ -8,10 +8,10 @@ Picture-in-Picture view while you play.
 
 ## Install
 
-DarkMusic **v3.6.2** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for
+DarkMusic **v3.6.3** needs **Minecraft 26.2**, **Java 25**, **Fabric Loader 0.19.5 or newer**, and **Fabric API for
 Minecraft 26.2**.
 
-1. Download `darkmusic-3.6.2.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
+1. Download `darkmusic-3.6.3.jar` from [GitHub Releases](https://github.com/DarkLian/DarkMusic/releases/latest).
 2. Put it and Fabric API in your instance's `mods` folder.
 3. Start Minecraft and press **B** to open DarkMusic.
 4. Add songs under **Settings → General → Music Folders**, drag audio files into the player, or copy them to
@@ -138,6 +138,9 @@ Updates** checks on demand. Nothing downloads until you click, and the update in
 Your settings, library and playlists are kept.
 
 ## What's new
+
+**v3.6.3** fixes media edits and deletions racing a lyric-file write, and cleans up download
+folders left behind by an interrupted session ([release notes](docs/releases/RELEASE-3.6.3.md)).
 
 **v3.6.2** fixes lyric-file actions during metadata edits, choosing music folders before settings are activated,
 queued deletions during shutdown, and artwork-cache bounds after graphics failures
