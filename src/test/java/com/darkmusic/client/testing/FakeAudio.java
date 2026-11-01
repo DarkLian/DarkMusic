@@ -11,6 +11,13 @@ import java.util.function.Consumer;
 public final class FakeAudio implements AudioBackend {
     public volatile State state = new State(null, Status.STOPPED, 0, 0, "");
     public double lastSeek = -1, volume = -1, speed = -1;
+
+    @FunctionalInterface
+    public interface IdleWait {
+        boolean await(long seconds) throws InterruptedException;
+    }
+
+    public IdleWait idle = seconds -> true;
     public Runnable ended;
     public Consumer<String> failed;
 
@@ -54,6 +61,11 @@ public final class FakeAudio implements AudioBackend {
     @Override
     public void speed(double speed) {
         this.speed = speed;
+    }
+
+    @Override
+    public boolean awaitIdle(long seconds) throws InterruptedException {
+        return idle.await(seconds);
     }
 
     @Override

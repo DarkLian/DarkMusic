@@ -15,6 +15,12 @@ import com.darkmusic.client.lyrics.LyricsService;
 import com.darkmusic.client.playlist.PlaylistStore;
 import com.darkmusic.client.testing.Await;
 import com.darkmusic.client.testing.FakeAudio;
+
+import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CancellationException;
+
+import org.junit.jupiter.api.Timeout;
 import com.darkmusic.client.testing.TestMusic;
 import com.darkmusic.client.text.Text;
 import com.darkmusic.client.tools.ProcessRunner;
@@ -58,6 +64,7 @@ class MediaActionsTest {
     });
     private final ArrayDeque<Runnable> browsing = new ArrayDeque<>();
     private boolean ready = true, refuseBrowse, deferBrowse;
+    private PlaybackController activePlayback = playback;
     private int autoplayCancelled, copies;
     private Path root;
     private MusicLibrary library;
@@ -84,7 +91,7 @@ class MediaActionsTest {
             }
 
             public PlaybackController playback() {
-                return playback;
+                return activePlayback;
             }
 
             public PlaylistStore playlists() {
@@ -307,4 +314,117 @@ class MediaActionsTest {
         assertTrue(Files.exists(tracks.get(1).file()));
         assertEquals(List.of(tracks.get(1)), playlists.resolve(mix, tracks));
     }
+
+    @Test
+    void shutdownCancelsAQueuedDeletionEvenIfTheExecutorDiscardsItsTask() throws Exception {
+        var track = scanned(1).getFirst();
+        var plan = new AudioDeletion.Plan(library.roots(), List.of(item(track)), false, List.of(), false);
+        deferBrowse = true;
+        var result = media.deleteAudio(plan, AudioDeletion.Mode.PERMANENT, new ProcessRunner.Token(), p -> {
+        });
+        assertTrue(state.mediaBusy);
+        state.closed = true;
+        media.cancel();
+        var discarded = browsing.poll();
+        assertFalse(state.mediaBusy, "shutdown releases the queued operation without relying on its discarded runnable");
+        assertTrue(result.isCompletedExceptionally());
+        assertThrows(CancellationException.class, result::join);
+        discarded.run();
+        drain();
+        assertTrue(Files.exists(track.file()), "a delayed cancelled runnable cannot delete files");
+    }
+
+    private void deletionPublicationAfter(Runnable race) throws Exception {
+        var track = scanned(1).getFirst();
+        String mix = playlists.create("shutdown mix");
+        playlists.addAll(mix, List.of(track));
+        var plan = new AudioDeletion.Plan(library.roots(), List.of(item(track)), false, List.of(), false);
+        var result = media.deleteAudio(plan, AudioDeletion.Mode.PERMANENT, new ProcessRunner.Token(), p -> {
+        });
+        assertTrue(Files.notExists(track.file()));
+        race.run();
+        drain();
+        assertFalse(state.mediaBusy);
+        assertEquals(List.of(track), result.get(2, TimeUnit.SECONDS).removed());
+    }
+
+    @Test
+    void storageShutdownBeforePublicationKeepsTheCompletedDeletionResult() throws Exception {
+        deletionPublicationAfter(io::shutdown);
+    }
+
+    @Test
+    void libraryShutdownBeforePublicationKeepsTheCompletedDeletionResult() throws Exception {
+        deletionPublicationAfter(library::close);
+    }
+
+    @Test
+    void lyricsShutdownBeforePublicationKeepsTheCompletedDeletionResult() throws Exception {
+        deletionPublicationAfter(lyrics::close);
+    }
+
+    @Test
+    void clientShutdownBeforePublicationKeepsTheCompletedDeletionResult() throws Exception {
+        deletionPublicationAfter(() -> state.closed = true);
+    }
+
+    @Test
+    void replacementPlayerDoesNotReceiveTheOldDeletionPublication() throws Exception {
+        var replacement = new PlaybackController(new FakeAudio(), warnings::add);
+        try {
+            deletionPublicationAfter(() -> activePlayback = replacement);
+        } finally {
+            replacement.close();
+        }
+    }
+
+    @Test
+    @Timeout(20)
+    void aPermanentlyBlockedBackendWaitUsesTheTenSecondBoundAndReleasesTheLock() throws Exception {
+        var track = scanned(1).getFirst();
+        var never = new CountDownLatch(1);
+        audio.idle = seconds -> {
+            assertEquals(10, seconds);
+            return never.await(seconds, TimeUnit.SECONDS);
+        };
+        var plan = new AudioDeletion.Plan(library.roots(), List.of(item(track)), false, List.of(), false);
+        var result = media.deleteAudio(plan, AudioDeletion.Mode.PERMANENT, new ProcessRunner.Token(), p -> {
+        });
+        drain();
+        assertFalse(state.mediaBusy);
+        assertInstanceOf(IOException.class, assertThrows(ExecutionException.class, result::get).getCause());
+        assertTrue(Files.exists(track.file()));
+    }
+
+    @Test
+    void provenanceCleanupRefusalDoesNotLoseTheCompletedDeletionResult() throws Exception {
+        var track = scanned(1).getFirst();
+        Path provenance = Files.writeString(root.resolve(".darkmusic-sources.json"), "corrupted provenance fixture");
+        assertThrows(IOException.class, () -> SourceLinks.forget(track.file()));
+        var plan = new AudioDeletion.Plan(library.roots(), List.of(item(track)), false, List.of(), false);
+        var result = media.deleteAudio(plan, AudioDeletion.Mode.PERMANENT, new ProcessRunner.Token(), p -> {
+        });
+        drain();
+        assertFalse(state.mediaBusy);
+        assertEquals(List.of(track), result.get(2, TimeUnit.SECONDS).removed());
+        assertTrue(Files.notExists(track.file()));
+        assertEquals("corrupted provenance fixture", Files.readString(provenance));
+    }
+
+    @Test
+    void cancellationDuringDeletionKeepsThePartialResultAndReleasesOnPublication() throws Exception {
+        var tracks = scanned(2);
+        var plan = new AudioDeletion.Plan(library.roots(), List.of(item(tracks.get(0)), item(tracks.get(1))), false, List.of(), false);
+        var result = media.deleteAudio(plan, AudioDeletion.Mode.PERMANENT, new ProcessRunner.Token(), p -> {
+            if (p.completed() == 1) media.cancel();
+        });
+        assertTrue(state.mediaBusy);
+        drain();
+        assertFalse(state.mediaBusy);
+        assertEquals(List.of(tracks.get(0)), result.get().removed());
+        assertEquals(List.of(tracks.get(1)), result.get().cancelled());
+        assertTrue(Files.notExists(tracks.get(0).file()));
+        assertTrue(Files.exists(tracks.get(1).file()));
+    }
+
 }

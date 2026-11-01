@@ -32,3 +32,11 @@ Use `scripts/verify.ps1` for full checks and the existing managed tools and priv
 - Live LRCLIB: **2026-11-01 08:43 UTC**, the opted-in production-provider integration passed: one test, no skip,
   returning available LRCLIB documents for public test metadata. Saved XML and log are under tasks. The previous
   HTTP 502 did not recur; no provider or endpoint change was needed.
+
+- F10: closed playlist-storage/library/lyrics services, client shutdown and a replacement player preserve the completed
+  deletion result. A real ten-second never-signalled backend latch times out without deleting the file. Corrupt
+  disposable provenance forces the cleanup exception without losing the deletion result. A queued deletion test
+  failed before the fix: shutdown discarded its runnable, leaving mediaBusy true and its future incomplete.
+  DeletionJob now atomically owns start versus queued cancellation; cancellation releases the lock and completes
+  the future without relying on the discarded runnable. Running cancellation retains partial removed/cancelled
+  results until client publication. **33 focused tests pass**, with no skips; before/after XML and logs are saved.

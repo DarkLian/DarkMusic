@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
@@ -44,6 +46,7 @@ public final class MediaActions {
     private boolean importing;
     private String importDestination = "";
     private ProcessRunner.Token mediaToken;
+    private DeletionJob pendingDeletion;
 
     /**
      * What the media operations read when they start and again when they finish: reset replaces the services
@@ -96,6 +99,7 @@ public final class MediaActions {
      */
     void cancel() {
         if (mediaToken != null) mediaToken.cancel();
+        if (pendingDeletion != null) pendingDeletion.cancel();
     }
 
     private static IllegalStateException busy() {
@@ -254,48 +258,85 @@ public final class MediaActions {
         result.whenComplete((value, failure) -> {
             if (window != null) clientThread.execute(window::close);
         });
-        var task = services.browse(() -> {
-            AudioDeletion.Result deleted = null;
-            Exception problem = null;
-            try {
-                if (!player.awaitIdle(10))
-                    throw new IOException(Text.get("library.darkmusic.file_busy"));
-                deleted = new AudioDeletion().delete(plan, mode, token, progress);
-                forgetDeletedProvenance(deleted);
-            } catch (Exception failure) {
-                problem = failure;
-            }
-            var completed = deleted;
-            var failure = problem;
-            clientThread.execute(() -> {
-                state.mediaBusy = false;
-                var removed = completed == null ? Set.<String>of() : completed.removed().stream().map(Track::id).collect(Collectors.toSet());
-                try {
-                    store.removeTracks(removed);
-                } catch (RuntimeException storageClosed) {
-                    LoggerFactory.getLogger("darkmusic").warn("Deleted files require playlist reconciliation on restart", storageClosed);
-                }
-                if (!state.alive() || services.playback() != player) {
-                    if (completed != null) result.complete(completed);
-                    else result.completeExceptionally(failure);
-                    return;
-                }
-                services.lyrics().lookup.deleted(removed);
-                player.finishDeletion(resume, removed);
-                if (services.openCleanup() != null) services.openCleanup().deleted(removed);
-                if (services.openCleanupReviews() != null) services.openCleanupReviews().deleted(removed);
-                if (services.openSourceIndex() != null) services.openSourceIndex().deleted(removed);
-                if (!removed.isEmpty()) scanned.rescan();
-                if (failure == null) result.complete(completed);
-                else result.completeExceptionally(failure);
-            });
-        });
+        var job = new DeletionJob(result);
+        pendingDeletion = job;
+        var context = new DeletionContext(player, store, scanned, resume, result, job);
+        var task = services.browse(() -> deleteFiles(context, plan, mode, token, progress));
         if (task == null) {
+            job.start();
+            pendingDeletion = null;
             state.mediaBusy = false;
             player.finishDeletion(resume, Set.of());
             result.completeExceptionally(busy());
         }
         return result;
+    }
+
+    private record DeletionContext(PlaybackController player, PlaylistStore store, MusicLibrary scanned,
+                                   PlaybackController.EditResume resume, CompletableFuture<AudioDeletion.Result> result,
+                                   DeletionJob job) {
+    }
+
+    private final class DeletionJob {
+        private final AtomicBoolean started = new AtomicBoolean();
+        private final CompletableFuture<AudioDeletion.Result> result;
+
+        private DeletionJob(CompletableFuture<AudioDeletion.Result> result) {
+            this.result = result;
+        }
+
+        private boolean start() {
+            return started.compareAndSet(false, true);
+        }
+
+        private void cancel() {
+            if (!start()) return;
+            state.mediaBusy = false;
+            pendingDeletion = null;
+            result.completeExceptionally(new CancellationException("Queued deletion cancelled"));
+        }
+    }
+
+    private void deleteFiles(DeletionContext context, AudioDeletion.Plan plan, AudioDeletion.Mode mode,
+                             ProcessRunner.Token token, Consumer<AudioDeletion.Progress> progress) {
+        if (!context.job().start()) return;
+        AudioDeletion.Result deleted = null;
+        Exception problem = null;
+        try {
+            if (!context.player().awaitIdle(10))
+                throw new IOException(Text.get("library.darkmusic.file_busy"));
+            deleted = new AudioDeletion().delete(plan, mode, token, progress);
+            forgetDeletedProvenance(deleted);
+        } catch (Exception failure) {
+            problem = failure;
+        }
+        var completed = deleted;
+        var failure = problem;
+        clientThread.execute(() -> completeDeletion(context, completed, failure));
+    }
+
+    private void completeDeletion(DeletionContext context, AudioDeletion.Result completed, Exception failure) {
+        pendingDeletion = null;
+        state.mediaBusy = false;
+        var removed = completed == null ? Set.<String>of() : completed.removed().stream().map(Track::id).collect(Collectors.toSet());
+        try {
+            context.store().removeTracks(removed);
+        } catch (RuntimeException storageClosed) {
+            LoggerFactory.getLogger("darkmusic").warn("Deleted files require playlist reconciliation on restart", storageClosed);
+        }
+        if (!state.alive() || services.playback() != context.player()) {
+            if (completed != null) context.result().complete(completed);
+            else context.result().completeExceptionally(failure);
+            return;
+        }
+        services.lyrics().lookup.deleted(removed);
+        context.player().finishDeletion(context.resume(), removed);
+        if (services.openCleanup() != null) services.openCleanup().deleted(removed);
+        if (services.openCleanupReviews() != null) services.openCleanupReviews().deleted(removed);
+        if (services.openSourceIndex() != null) services.openSourceIndex().deleted(removed);
+        if (!removed.isEmpty()) context.scanned().rescan();
+        if (failure == null) context.result().complete(completed);
+        else context.result().completeExceptionally(failure);
     }
 
     private record ImportTarget(Path root, String rootId, String folder) {
