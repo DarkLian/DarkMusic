@@ -59,3 +59,14 @@ GPU, independent rollback/cleanup/storage and shutdown failures remain outside t
 
 The original exceptional cleanup-failure seams were not expanded, and successful integration does not prove every
 OS/filesystem/close race has been injected. No guard budget was raised to accommodate new code.
+
+## Per-sample DSP phases
+
+H5 keeps input smoothing, acoustic-tail reset, reflection/convolution/filter mix smoothing, mono/tone/drive,
+noise generation, low-pass/modulation, delay/reflections/room, pan/trim and history/oscillator advance in order.
+H6 keeps gain/duck, diagnostics 0, option smoothing/tone/stereo/reverb/compression/blend, diagnostics 1,
+environment/comparison match, diagnostics 2, master gain, limiter feeding/silent transition/fade/legacy limit,
+finite sanitization, diagnostics 3 and PCM writes in order. The neutral block retains its own direct path.
+All new sample phases are private, below 325 encoded bytes, and allocation-free; current stereo scratch belongs
+to the same worker as the DSP histories. Pre-split fixed hashes for every preset, 160 backend captures, comparison
+and continuity suites pass. These checks do not establish a human listening/device observation.

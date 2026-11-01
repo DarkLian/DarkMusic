@@ -7,11 +7,11 @@ H5/H6. Six untracked local plan files are preserved.
 ## Current status
 
 G, all U/L batches and H0-H6 are implemented. MAX_DEBT is **0**; only EnvironmentRecipes.recipe remains as a
-data entry. Both per-sample candidates pass fixed PCM goldens and the cost rule. Clean desktop/native follow-up
-is in progress after H6. The user confirmed proceeding; detailed human listening/device observations, including
+data entry. Both per-sample candidates pass fixed PCM goldens and the cost rule. Final clean desktop verification and
+default/advanced/queue native follow-up pass after H6. The user confirmed proceeding; detailed human listening/device observations, including
 post-DSP listening, remain unrecorded and are not invented.
 
-- Final `scripts/verify.ps1 -Clean -DesktopIntegration`: **937 tests, 12 explicit skips, zero failures/errors**.
+- Final post-H6 `scripts/verify.ps1 -Clean -DesktopIntegration`: **937 tests, 12 explicit skips, zero failures/errors**.
   All new exact-output checks and the eight-by-twenty backend PCM golden scenarios ran without skipping.
   Six skips are the opt-in timing tests; their separate before/after measurements ran successfully.
 - All nine native suite scenarios passed across the suite and the corrected Lyrics rerun. Final post-H1–H4
@@ -58,6 +58,9 @@ The batch table is chronological: these final checks supersede earlier notes say
 | H2 | FFT window/transform is a private per-block phase, separate from onset/band publication. | Exact waveform/band/DSP goldens, SpectrumTest and guards pass. Primary median 28,406.0 → 26,331.8 ns/block (−7.302%); larger spread 6,219.1 ns. Keep under the stated noise rule; no speedup claim. Hot entry removed. |
 | H3 | Circular progress ring and spectrum contour are private per-frame phases; bar/vertex arithmetic unchanged. | Every raw vertex golden and HUD/guard suites pass. Primary median 146,775.4 → 155,520.5 ns/frame (+5.958%); larger spread 15,823.7 ns. Keep under the stated noise rule; result does not prove zero cost on all systems. Hot entry removed. |
 | H4 | Spectrum contour and bar row are private per-frame phases; update, halo, mesh submission order retained. | Exact rectangle/gradient goldens, render/spectrum suites and guards pass. Primary median 14,857.7 → 15,188.8 ns/frame (+2.228%); larger spread 746.9 ns. Keep; hot entry removed. |
+| H5 | Environment input/space smoothing and generated noise become private sample phases. | All PCM goldens match. Helpers 151/236/216 bytes; 19.353 to 19.847 us/256 frames, delta below 5.114 us spread. Retained as e238152. |
+| H6 | Private tone/stereo/reverb/comparison/environment/protection phases share worker-owned stereo scratch, without per-sample allocation. | 200 focused tests (4 cost skips), exact PCM and continuity/comparison checks pass. Helpers 58-198 bytes; 167.129 to 169.419 us/256 frames, delta below 9.656 us spread. Retained as 47992d0. |
+| H5/H6 final | Clean desktop build and native default/advanced/queue follow-up. | 937 tests, 12 explicit skips, zero failures/errors; all three native scenarios pass. All 53 private files unchanged. Only recipe data remains allowed; no debt or hot entries. |
 
 G2 bytecode sizes: AudioProcessor 1731, environment Engine 1474, SpectrumAnalyzer 1099, TrackWaveform 804,
 CircularHudMesh.Rings 1570, SpectrumRenderer.bars 1428 bytes. No hot method exceeds 8000 bytes.
@@ -69,7 +72,7 @@ lambdas share the longest span, and other synthetic/bridge methods remain exclud
 - The previous refactor's human listening rows 1–9 and physical output unplug check have no recorded results.
   The user was asked asynchronously; H5/H6 remain behind that prerequisite unless explicitly waived.
 - Live LRCLIB previously returned HTTP 502. Recheck without hiding failure or converting it to a skip.
-- No release, tag, commit or push is part of this implementation turn.
+- The initial implementation saved batch trees; the user subsequently authorized commits and push. No tag or release.
 
 ## Resume record
 
@@ -151,3 +154,19 @@ the larger p10-p90 spread 9.656. Comparison with the fresh original H56 baseline
 4.970). Keep the private phases, remove the last hot entry, and start clean desktop plus default/advanced/queue
 native follow-up. No timing test imposes a CI threshold. The user-authorized continuation does not create a
 post-DSP human listening result; that observation remains explicitly unrecorded.
+
+## Final H5/H6 verification
+
+Both retained candidates are committed separately (`e238152`, `47992d0`). The final combined source passed
+`scripts/verify.ps1 -Clean -DesktopIntegration`: **937 tests, 12 explicit skips, zero failures/errors**. Direct
+Engine/AudioProcessor fixed goldens and all 160 backend PCM captures ran without skipping. The ordinary six cost
+skips are expected; the separate quiet measurements ran successfully. Native default, advanced and queue smoke
+all passed, with SmoothFont and the private collection; hashes confirm **all 53 collection files unchanged**.
+No public captures, tag or release were created. Detailed post-change human listening remains unrecorded.
+
+Durable evidence is saved under ignored `.local-tools/verification/remaining`: `h56-before-1/2.json`,
+`h5-after.json`, `h6-after.json`, raw `perf-*` XML, `h6-exact-results.json` and archived XML,
+`h56-final-desktop-results.json` and archived XML, plus `h56-final-smoke/summary.txt` and per-scenario logs.
+The initial 25 batches were pushed through `0fe03d0`; that GitHub build passed (run 41254773073). The subsequent
+H5/H6 source and verification documentation use ordinary separate commits and the user-authorized normal push.
+All six local plans remain untracked. No active verification jobs or temporary debugger probes remain.
