@@ -8,6 +8,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
@@ -28,6 +30,8 @@ public final class PipSession implements AutoCloseable {
     private volatile long focusSuccesses, focusFailures;
     private volatile long heartbeat = System.nanoTime();
     private final long started = System.nanoTime();
+    private final AtomicReference<PipTarget> pendingTarget = new AtomicReference<>();
+    private final AtomicBoolean sendingTarget = new AtomicBoolean();
 
     public PipSession(Path exe, PipSource source, long minecraft, PipSettings settings, int frameRate) {
         if (frameRate < 15 || frameRate > PipSettings.MAX_FRAME_RATE)
@@ -241,6 +245,23 @@ public final class PipSession implements AutoCloseable {
         if (!closed && (System.nanoTime() - heartbeat > TimeUnit.SECONDS.toNanos(10) || frames.published() == 0 && System.nanoTime() - started > TimeUnit.SECONDS.toNanos(25))) {
             status = "pip.disconnected";
             close();
+        }
+    }
+
+    public void target(PipTarget target) {
+        pendingTarget.set(target);
+        if (sendingTarget.compareAndSet(false, true))
+            Thread.ofVirtual().name("darkmusic-pip-target").start(this::writeTargets);
+    }
+
+    private void writeTargets() {
+        while (!closed) {
+            var target = pendingTarget.getAndSet(null);
+            if (target != null) write(target.command());
+            else {
+                sendingTarget.set(false);
+                if (pendingTarget.get() == null || !sendingTarget.compareAndSet(false, true)) return;
+            }
         }
     }
 

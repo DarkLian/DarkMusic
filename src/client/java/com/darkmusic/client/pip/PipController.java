@@ -11,7 +11,6 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWNativeWin32;
@@ -33,7 +32,9 @@ public final class PipController implements AutoCloseable {
     private PipSource source;
     private PipSession session;
     private String state = "pip.idle";
-    private long generation;
+    private long generation, updateNanos;
+    private PipFrame displayed;
+    private PipTargets targets = new PipTargets();
     private boolean preparing, closed;
     private CompletableFuture<Void> stopping = CompletableFuture.completedFuture(null);
 
@@ -145,6 +146,7 @@ public final class PipController implements AutoCloseable {
             stopping = session.termination();
         }
         session = null;
+        targets = new PipTargets();
         texture.close();
         state = "pip.idle";
     }
@@ -169,6 +171,10 @@ public final class PipController implements AutoCloseable {
         return session == null ? null : session.audio;
     }
 
+    public void focus(boolean toSource) {
+        if (session != null && session.healthy()) session.command(toSource ? "FOCUS" : "RETURN");
+    }
+
     public long focusSuccesses() {
         return session == null ? 0 : session.focusSuccesses();
     }
@@ -179,7 +185,7 @@ public final class PipController implements AutoCloseable {
 
     public PipSettings.Bounds bounds(int width, int height) {
         var f = frame();
-        return sources.settings().pip.bounds(width, height, f == null ? 16 : f.width(), f == null ? 9 : f.height());
+        return sources.settings().pip.bounds(width, height, f == null ? 16 : f.sourceWidth(), f == null ? 9 : f.sourceHeight());
     }
 
     public void overlay(GuiGraphicsExtractor g) {
@@ -189,7 +195,9 @@ public final class PipController implements AutoCloseable {
     }
 
     public void update() {
+        long start = System.nanoTime();
         if (session != null) texture.update(session.frames);
+        updateNanos = System.nanoTime() - start;
     }
 
     public void draw(GuiGraphicsExtractor g, PipSettings.Bounds b, boolean fullImage) {
@@ -202,10 +210,12 @@ public final class PipController implements AutoCloseable {
         if (f == null) {
             g.fill(b.x(), b.y(), b.x() + b.width(), b.y() + b.height(), 0xff111420);
         } else {
-            float u = fullImage ? 0 : (float) (f.width() * settings.left), v = fullImage ? 0 : (float) (f.height() * settings.top);
-            int w = fullImage ? f.width() : Math.max(1, (int) (f.width() * (settings.right - settings.left))), h = fullImage ? f.height() : Math.max(1, (int) (f.height() * (settings.bottom - settings.top)));
-            int color = ((int) Math.round(settings.opacity * 255) << 24) | 0xffffff;
-            g.blit(RenderPipelines.GUI_TEXTURED, texture.id(), b.x(), b.y(), u, v, b.width(), b.height(), w, h, f.width(), f.height(), color);
+            PipTrace.event("present", f, System.nanoTime(), updateNanos);
+            if (displayed != f) {
+                displayed = f;
+                PipTrace.event("display", f, System.nanoTime(), updateNanos);
+            }
+            drawFrame(g, b, fullImage, f, settings);
             // A thin dark frame separates the overlay from bright scenery; it fades with the overlay.
             if (!fullImage)
                 g.outline(b.x() - 1, b.y() - 1, b.width() + 2, b.height() + 2, ((int) Math.round(settings.opacity * 0x99) << 24) | 0x0B0D16);
@@ -217,6 +227,20 @@ public final class PipController implements AutoCloseable {
             var font = Minecraft.getInstance().font;
             g.text(font, HorizontalText.ellipsize(font, Text.get(status()), Math.max(1, b.width() - 6)), b.x() + 3, b.y() + 2, UiStatus.color(UiStatus.Tone.WARNING));
         }
+    }
+
+    private void drawFrame(GuiGraphicsExtractor g, PipSettings.Bounds b, boolean fullImage, PipFrame f, PipSettings settings) {
+        double left = fullImage ? 0 : settings.left, top = fullImage ? 0 : settings.top;
+        double right = fullImage ? 1 : settings.right, bottom = fullImage ? 1 : settings.bottom;
+        double scale = Minecraft.getInstance().getWindow().getGuiScale();
+        int physicalWidth = Math.max(1, (int) Math.round(b.width() * scale * Math.hypot(g.pose().m00(), g.pose().m01())));
+        int physicalHeight = Math.max(1, (int) Math.round(b.height() * scale * Math.hypot(g.pose().m10(), g.pose().m11())));
+        var request = targets.request(g, PipTarget.of(f, left, top, right, bottom, physicalWidth, physicalHeight), System.nanoTime());
+        if (request != null && session != null) session.target(request);
+        var mapping = PipMapping.of(f, left, top, right, bottom);
+        if (mapping != null) texture.draw(g, b, mapping, ((int) Math.round(settings.opacity * 255) << 24) | 0xffffff,
+            physicalWidth == f.width() && physicalHeight == f.height() && mapping.u0() == 0 && mapping.v0() == 0
+                && mapping.u1() == 1 && mapping.v1() == 1);
     }
 
     /**

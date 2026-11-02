@@ -1,0 +1,165 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>DarkMusic PiP Pattern</title>
+<style>html, body {
+    margin: 0;
+    overflow: hidden;
+    background: #000
+}
+
+canvas {
+    display: block
+}</style>
+<canvas id="pattern"></canvas>
+<script id="spec" type="application/json">
+    {
+        "version": 1,
+        "width": 1280,
+        "height": 720,
+        "markerSize": 32,
+        "markers": [
+            [
+                255,
+                0,
+                255
+            ],
+            [
+                0,
+                255,
+                255
+            ],
+            [
+                255,
+                255,
+                0
+            ],
+            [
+                0,
+                255,
+                0
+            ]
+        ],
+        "patches": [
+            [
+                0,
+                0,
+                0
+            ],
+            [
+                255,
+                255,
+                255
+            ],
+            [
+                127,
+                127,
+                127
+            ],
+            [
+                255,
+                0,
+                0
+            ],
+            [
+                0,
+                255,
+                0
+            ],
+            [
+                0,
+                0,
+                255
+            ]
+        ],
+        "zoneScale": 0.0125,
+        "text": "DarkMusic PiP: fine text 0123456789"
+    }
+</script>
+<script>
+    'use strict';
+    const spec = JSON.parse(document.getElementById('spec').textContent);
+    const params = new URLSearchParams(location.search);
+    const canvas = document.getElementById('pattern');
+    let frame = 0;
+    let cached;
+
+    function paint() {
+        const ratio = devicePixelRatio;
+        const w = Math.round(innerWidth * ratio), h = Math.round(innerHeight * ratio);
+        if (cached && canvas.width === w && canvas.height === h) return;
+        document.title = `DarkMusic PiP Pattern ${params.get("id") || "default"} ${w}x${h}`;
+        canvas.width = w;
+        canvas.height = h;
+        canvas.style.width = innerWidth + 'px';
+        canvas.style.height = innerHeight + 'px';
+        const ctx = canvas.getContext('2d', {alpha: false});
+        const pixels = ctx.createImageData(w, h), data = pixels.data;
+        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+            const row = Math.floor(y * 4 / h);
+            let c;
+            if (row === 0) {
+                const v = ((x + y) % 2) * 255;
+                c = [v, v, v];
+            } else if (row === 1) {
+                const v = (x % 2) * 255;
+                c = [v, v, v];
+            } else if (row === 2) {
+                const dx = x - w / 2, dy = y - 5 * h / 8;
+                const v = Math.floor((0.5 + 0.5 * Math.cos(spec.zoneScale * (dx * dx + dy * dy))) * 255 + 0.5);
+                c = [v, v, v];
+            } else {
+                const segment = Math.min(5, Math.floor(x * 6 / w));
+                c = spec.patches[segment];
+            }
+            if (y >= h - 64 && y < h - 32) {
+                const v = Math.floor(x * 255 / Math.max(1, w - 1) + 0.5);
+                c = [v, v, v];
+            }
+            if (y >= h - 32) {
+                const v = Math.floor(x * 255 / Math.max(1, w - 1) + 0.5);
+                c = [v, 255 - v, v];
+            }
+            const i = (y * w + x) * 4;
+            data[i] = c[0];
+            data[i + 1] = c[1];
+            data[i + 2] = c[2];
+            data[i + 3] = 255;
+        }
+        ctx.putImageData(pixels, 0, 0);
+        const m = spec.markerSize;
+        [[0, 0], [w - m, 0], [0, h - m], [w - m, h - m]].forEach(([x, y], i) => {
+            ctx.fillStyle = `rgb(${spec.markers[i].join(',')})`;
+            ctx.fillRect(x, y, m, m);
+        });
+        ctx.fillStyle = '#fff';
+        ctx.font = '16px sans-serif';
+        ctx.fillText(spec.text, 40, 60);
+        cached = document.createElement('canvas');
+        cached.width = w;
+        cached.height = h;
+        cached.getContext('2d').drawImage(canvas, 0, 0);
+    }
+
+    function animate() {
+        paint();
+        const w = canvas.width, h = canvas.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(cached, 0, 0);
+        {
+            const block = Math.max(1, Math.floor((w - 80) / 16));
+            for (let i = 0; i < 16; i++) {
+                ctx.fillStyle = (frame & (1 << i)) ? '#fff' : '#000';
+                ctx.fillRect(40 + i * block, 80, block, 24);
+            }
+            ctx.fillStyle = '#f00';
+            ctx.fillRect(frame % Math.max(1, w - 80) + 40, 112, 2, 24);
+            frame = (frame + 1) & 65535;
+        }
+        requestAnimationFrame(animate);
+    }
+
+    if (params.has('animated')) animate(); else {
+        paint();
+        addEventListener('resize', paint);
+    }
+</script>

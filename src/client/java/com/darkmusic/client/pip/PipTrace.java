@@ -1,6 +1,7 @@
 package com.darkmusic.client.pip;
 
 import java.nio.file.*;
+import java.time.Instant;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -28,7 +29,8 @@ public final class PipTrace {
             try {
                 Files.createDirectories(directory);
                 try (var out = Files.newBufferedWriter(directory.resolve("java-" + ProcessHandle.current().pid() + ".csv"))) {
-                    out.write("stage,sequence,nanos,capturedMicros,sentMicros,durationNanos,unixMicros\n");
+                    out.write("stage,sequence,nanos,capturedMicros,sentMicros,durationNanos,unixMicros,"
+                        + "width,height,sourceWidth,sourceHeight,cropX,cropY,cropWidth,cropHeight\n");
                     while (!closed || !pending.isEmpty()) {
                         var line = pending.poll(100, TimeUnit.MILLISECONDS);
                         if (line != null) {
@@ -37,7 +39,7 @@ public final class PipTrace {
                         }
                         if (pending.isEmpty()) out.flush();
                     }
-                    out.write("dropped," + dropped + ",0,0,0,0,0\n");
+                    out.write("dropped," + dropped + ",0,0,0,0,0,0,0,0,0,0,0,0,0\n");
                 }
             } catch (Exception ignored) { /* Diagnostics cannot fail playback/capture. */ }
         });
@@ -51,10 +53,18 @@ public final class PipTrace {
         }));
     }
 
+    private static long unixMicros() {
+        var now = Instant.now();
+        return now.getEpochSecond() * 1_000_000 + now.getNano() / 1000;
+    }
+
     public static void event(String stage, PipFrame frame, long nanos, long durationNanos) {
         var trace = INSTANCE;
         if (trace == null || trace.closed) return;
-        if (!trace.pending.offer(stage + "," + frame.sequence() + "," + nanos + "," + frame.capturedMicros() + "," + frame.sentMicros() + "," + durationNanos + "," + System.currentTimeMillis() * 1000))
+        if (!trace.pending.offer(stage + "," + frame.sequence() + "," + nanos + "," + frame.capturedMicros()
+            + "," + frame.sentMicros() + "," + durationNanos + "," + unixMicros() + "," + frame.width() + "," + frame.height()
+            + "," + frame.sourceWidth() + "," + frame.sourceHeight()
+            + "," + frame.cropX() + "," + frame.cropY() + "," + frame.cropWidth() + "," + frame.cropHeight()))
             trace.dropped.incrementAndGet();
     }
 }

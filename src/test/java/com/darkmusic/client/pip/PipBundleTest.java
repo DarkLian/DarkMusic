@@ -92,6 +92,9 @@ class PipBundleTest {
                 var result = new ProcessRunner().run(List.of(exe.toString(), "--pacer-test"), exe.getParent(), new ProcessRunner.Token(), Duration.ofSeconds(10), 1024);
                 assertEquals(0, result.exit(), result.output());
                 assertEquals("pass", result.output().strip());
+                var resample = new ProcessRunner().run(List.of(exe.toString(), "--resample-test"), exe.getParent(), new ProcessRunner.Token(), Duration.ofSeconds(10), 1024);
+                assertEquals(0, resample.exit(), resample.output());
+                assertEquals("pass", resample.output().strip());
                 var reliability = new ProcessRunner().run(List.of(exe.toString(), "--reliability-test"), exe.getParent(), new ProcessRunner.Token(), Duration.ofSeconds(15), 2048);
                 assertEquals(0, reliability.exit(), reliability.output());
                 assertEquals("pass", reliability.output().strip());

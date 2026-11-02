@@ -15,7 +15,7 @@ using WinRT;
 [ComImport, Guid("5B0D3235-4DBA-4D44-865E-8F1D0E4FD04D"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 internal interface MemoryAccess { void GetBuffer(out IntPtr buffer, out uint capacity); }
 
-internal sealed record Packet(byte[] Bytes, int Length, int Width, int Height, long Sequence, long Captured, long Callback) : IDisposable {
+internal sealed record Packet(byte[] Bytes, int Length, int Width, int Height, long Sequence, long Captured, long Callback, int SourceWidth, int SourceHeight, CaptureTarget Target) : IDisposable {
     public void Dispose() => ArrayPool<byte>.Shared.Return(Bytes);
 }
 
@@ -35,6 +35,13 @@ internal sealed class CaptureHost : Form {
     readonly Stopwatch clock=Stopwatch.StartNew();
     readonly CaptureTrace? trace=CaptureTrace.Create();
     Packet? pending;
+    volatile CaptureTarget? target;
+    SoftwareBitmap? cachedBitmap;
+    long cachedCaptured,cachedCallback;
+    CaptureTarget? lastConverted;
+    readonly Resampler resampler=new();
+    GpuResampler? gpu;
+    readonly AutoResetEvent gpuAvailable=new(false);
     IDirect3DDevice? device;
     Direct3D11CaptureFramePool? pool;
     GraphicsCaptureSession? session;
@@ -42,10 +49,10 @@ internal sealed class CaptureHost : Form {
     ProcessAudio? audio;
     readonly bool captureAudio;
     readonly string audioPipe;
-    long arrivals,converted,sent,replaced,busyDropped,sequence,lastReport;
+    long arrivals,converted,sent,replaced,busyDropped,sequence,lastReport,lastGpuReplaced;
     long copyMicros,writeMicros;
     long acquired,throttled,lastArrivalQpc,lastAcquireQpc,lastSource100ns,lastCopyQpc,lastTransferQpc;
-    int busy,width,height;
+    int busy,width,height,sourceRefreshRate;
     volatile bool stopping;
 
     CaptureHost(string[] args) {
@@ -65,7 +72,7 @@ internal sealed class CaptureHost : Form {
         timer.Tick+=(_,_)=>{
             if(!MinecraftValid()){Close();return;}
             if(!identity.Valid()){Finish("source_closed");return;}
-            if(clock.ElapsedMilliseconds-lastReport>=1000){lastReport=clock.ElapsedMilliseconds;Log(Native.IsIconic(source)?"minimized":"heartbeat",new{arrivals,acquired,converted,sent,replaced,busyDropped,throttled,copyMicros,writeMicros,lastArrivalQpc,lastAcquireQpc,lastSource100ns,lastCopyQpc,lastTransferQpc,qpcFrequency=Stopwatch.Frequency});}
+            if(clock.ElapsedMilliseconds-lastReport>=1000){RefreshInterval();lastReport=clock.ElapsedMilliseconds;Log(Native.IsIconic(source)?"minimized":"heartbeat",new{arrivals,acquired,converted,sent,replaced,busyDropped,throttled,copyMicros,writeMicros,lastArrivalQpc,lastAcquireQpc,lastSource100ns,lastCopyQpc,lastTransferQpc,gpuReplaced=gpu?.Replaced??0,qpcFrequency=Stopwatch.Frequency});}
         };
         _=Handle;
     }
@@ -80,18 +87,28 @@ internal sealed class CaptureHost : Form {
             device=Native.Device();captureItem=Native.Item(source);var item=captureItem;width=item.Size.Width;height=item.Size.Height;
             if(!CaptureBounds.Valid(width,height)){Finish("too_large");return;}
             item.Closed+=(_,_)=>Finish("source_closed");
-            pool=Direct3D11CaptureFramePool.CreateFreeThreaded(device,DirectXPixelFormat.B8G8R8A8UIntNormalized,2,item.Size);
+            if(Environment.GetEnvironmentVariable("DARKMUSIC_PIP_GPU")!="0")try{gpu=new GpuResampler(device);}catch(Exception error){Log("gpu_fallback",new{error=error.HResult});}
+            pool=Direct3D11CaptureFramePool.CreateFreeThreaded(device,DirectXPixelFormat.B8G8R8A8UIntNormalized,3,item.Size);
             pool.FrameArrived+=FrameArrived;session=pool.CreateCaptureSession(item);session.IsCursorCaptureEnabled=false;
             // The default 16 ms interval caps delivery near 48 FPS on a 144 Hz display, so follow the chosen limit; 4 ms stays a diagnostic override.
-            long? interval=Environment.GetEnvironmentVariable("DARKMUSIC_PIP_MIN_INTERVAL_MS")=="4"?40_000:CaptureInterval.TicksFor(cap);
+            sourceRefreshRate=CaptureInterval.SourceRefreshRate(source);
+            long? interval=Environment.GetEnvironmentVariable("DARKMUSIC_PIP_MIN_INTERVAL_MS")=="4"?40_000:CaptureInterval.TicksFor(cap,sourceRefreshRate);
             var intervalResult=CaptureInterval.Inspect(session,interval);
             trace?.Add("interval",intervalResult.Supported?1:0,intervalResult.Error,intervalResult.BeforeTicks,intervalResult.EffectiveTicks);
             trace?.Add("clock",0,0,UnixMicros(),Stopwatch.Frequency);
-            Log("configuration",new{interval=intervalResult,unixMicros=UnixMicros(),qpc=Stopwatch.GetTimestamp(),qpcFrequency=Stopwatch.Frequency});
-            _=WriteFrames();_=Task.Run(ReadCommands);session.StartCapture();timer.Start();
+            Log("configuration",new{interval=intervalResult,framePoolBuffers=3,gpuStage=gpu!=null,sourceRefreshRate,unixMicros=UnixMicros(),qpc=Stopwatch.GetTimestamp(),qpcFrequency=Stopwatch.Frequency});
+            _=WriteFrames();if(gpu!=null)new Thread(ReadGpu){IsBackground=true,Name="darkmusic-pip-gpu"}.Start();_=Task.Run(ReadCommands);session.StartCapture();timer.Start();
             if(captureAudio)_=RunAudio();
             Log("ready",new{width,height,cap});
         }catch(Exception ex){Finish(ex.Message=="hotkey_conflict"?"hotkey_conflict":"capture_error");}
+    }
+    void RefreshInterval(){
+        if(session==null||stopping||Environment.GetEnvironmentVariable("DARKMUSIC_PIP_MIN_INTERVAL_MS")=="4")return;
+        int rate=CaptureInterval.SourceRefreshRate(source);if(rate==0||rate==sourceRefreshRate)return;
+        sourceRefreshRate=rate;
+        var result=CaptureInterval.Inspect(session,CaptureInterval.TicksFor(cap,rate));
+        trace?.Add("interval",result.Supported?1:0,result.Error,result.BeforeTicks,result.EffectiveTicks);
+        Log("configuration",new{interval=result,sourceRefreshRate=rate});
     }
     async Task RunAudio(){
         await AudioRecovery.Run(async token=>{
@@ -107,14 +124,14 @@ internal sealed class CaptureHost : Form {
     }
     void RecreatePool(Direct3D11CaptureFramePool sender,Windows.Graphics.SizeInt32 size){
         width=size.Width;height=size.Height;
-        sender.Recreate(device!,DirectXPixelFormat.B8G8R8A8UIntNormalized,2,size);
+        sender.Recreate(device!,DirectXPixelFormat.B8G8R8A8UIntNormalized,3,size);
         lock(publication){pending?.Dispose();pending=null;}
         Log("resize",new{width,height});
     }
     async Task WriteFrames(){
         try{
             await pipe.WaitForConnectionAsync(cancel.Token);
-            var header=new byte[64];
+            var header=new byte[96];
             while(!cancel.IsCancellationRequested){
                 await available.WaitAsync(cancel.Token);
                 Packet? frame;lock(publication){frame=pending;pending=null;}
@@ -123,8 +140,9 @@ internal sealed class CaptureHost : Form {
                     header.AsSpan().Clear();
                     void I(int offset,int v)=>BinaryPrimitives.WriteInt32LittleEndian(header.AsSpan(offset,4),v);
                     void L(int offset,long v)=>BinaryPrimitives.WriteInt64LittleEndian(header.AsSpan(offset,8),v);
-                    I(0,0x49504d44);I(4,1);I(8,frame.Width);I(12,frame.Height);I(16,frame.Width*4);I(20,frame.Length);
+                    I(0,0x49504d44);I(4,2);I(8,frame.Width);I(12,frame.Height);I(16,frame.Width*4);I(20,frame.Length);
                     L(24,frame.Sequence);L(32,frame.Captured);L(40,UnixMicros());I(48,1);
+                    I(64,frame.SourceWidth);I(68,frame.SourceHeight);I(72,frame.Target.X);I(76,frame.Target.Y);I(80,frame.Target.Width);I(84,frame.Target.Height);
                     long start=Stopwatch.GetTimestamp();
                     await pipe.WriteAsync(header,cancel.Token);
                     await pipe.WriteAsync(frame.Bytes.AsMemory(0,frame.Length),cancel.Token);
@@ -139,7 +157,7 @@ internal sealed class CaptureHost : Form {
     async void FrameArrived(Direct3D11CaptureFramePool sender,object _){
         long callback=Interlocked.Increment(ref arrivals);lastArrivalQpc=Stopwatch.GetTimestamp();trace?.Add("arrival",callback,0);
         if(stopping)return;
-        if(Interlocked.CompareExchange(ref busy,1,0)!=0){Interlocked.Increment(ref busyDropped);return;}
+        if(Interlocked.CompareExchange(ref busy,1,0)!=0){Interlocked.Increment(ref busyDropped);trace?.Add("busy",callback,0);return;}
         Direct3D11CaptureFrame? frame=null;
         try{
             frame=Latest(sender);if(frame==null)return;
@@ -153,31 +171,81 @@ internal sealed class CaptureHost : Form {
             }
             long start=Stopwatch.GetTimestamp();
             long captured=UnixMicros()-Math.Max(0,(long)(start*1_000_000.0/Stopwatch.Frequency-frame.SystemRelativeTime.TotalMicroseconds));
-            using var bitmap=await SoftwareBitmap.CreateCopyFromSurfaceAsync(frame.Surface,BitmapAlphaMode.Ignore);
+            if(gpu!=null){
+                var request=(target??new CaptureTarget(0,0,width,height,width,height)).Clamp(width,height);
+                if(!gpu.Submit(frame.Surface,width,height,request,captured,callback)){
+                    frame.Dispose();frame=null;RecreatePool(sender,size);
+                }
+                gpuAvailable.Set();
+                long gpuDropped=gpu.Replaced;
+                if(gpuDropped>lastGpuReplaced){trace?.Add("staging_drop",callback,0,value:gpuDropped-lastGpuReplaced);lastGpuReplaced=gpuDropped;}
+                return;
+            }
+            var bitmap=await SoftwareBitmap.CreateCopyFromSurfaceAsync(frame.Surface,BitmapAlphaMode.Ignore);
+            trace?.Add("readback",callback,0,value:(long)Stopwatch.GetElapsedTime(start).TotalMicroseconds);
             if(!CaptureBounds.Matches(bitmap.PixelWidth,bitmap.PixelHeight,width,height)){
+                bitmap.Dispose();
                 // A queued surface may still belong to the previous pool after a resize.
                 frame.Dispose();frame=null;RecreatePool(sender,size);return;
             }
-            if(bitmap.BitmapPixelFormat!=BitmapPixelFormat.Bgra8)throw new InvalidOperationException("Unexpected capture pixel format");
-            int length=checked(width*height*4);byte[] bytes=ArrayPool<byte>.Shared.Rent(length);
-            try{
-                CopyRgba(bitmap,bytes,width,height);
-                var packet=new Packet(bytes,length,width,height,Interlocked.Increment(ref sequence),captured,callback);bytes=null!;
-                lastCopyQpc=Stopwatch.GetTimestamp();trace?.Add("copy",callback,packet.Sequence,lastSource100ns);
-                lock(publication){
-                    if(stopping){packet.Dispose();return;}
-                    if(pending!=null){pending.Dispose();replaced++;}
-                    pending=packet;if(available.CurrentCount==0)available.Release();
-                }
-                copyMicros=(long)Stopwatch.GetElapsedTime(start).TotalMicroseconds;Interlocked.Increment(ref converted);
-            }finally{if(bytes!=null)ArrayPool<byte>.Shared.Return(bytes);}
+            if(bitmap.BitmapPixelFormat!=BitmapPixelFormat.Bgra8){bitmap.Dispose();throw new InvalidOperationException("Unexpected capture pixel format");}
+            cachedBitmap?.Dispose();cachedBitmap=bitmap;cachedCaptured=captured;cachedCallback=callback;
+            ConvertBitmap(bitmap,captured,callback,start);
         }catch(Exception){if(!stopping)Finish("capture_error");}
         finally{try{frame?.Dispose();}catch{}Volatile.Write(ref busy,0);}
     }
-    static unsafe void CopyRgba(SoftwareBitmap bitmap,byte[] bytes,int width,int height){
+    void ReadGpu(){
+        try{using var wait=new CaptureWait();while(!stopping){
+            if(gpu!.TryRead(out var result)){
+                var r=result!;
+                var packet=new Packet(r.Bytes,r.Length,r.Target.OutWidth,r.Target.OutHeight,Interlocked.Increment(ref sequence),r.Captured,r.Callback,r.SourceWidth,r.SourceHeight,r.Target);
+                trace?.Add("readback",r.Callback,packet.Sequence,value:r.ReadbackMicros);
+                trace?.Add("convert",r.Callback,packet.Sequence,value:r.CopyMicros);
+                lastCopyQpc=Stopwatch.GetTimestamp();trace?.Add("copy",r.Callback,packet.Sequence);
+                Publish(packet);Interlocked.Increment(ref converted);
+            }else if(gpu.Pending)wait.Once();else gpuAvailable.WaitOne(100);
+        }}catch{if(!stopping)Finish("capture_error");}
+    }
+    void Publish(Packet packet){
+        lock(publication){
+            if(stopping){packet.Dispose();return;}
+            if(pending!=null){pending.Dispose();replaced++;}
+            pending=packet;lastConverted=packet.Target;if(available.CurrentCount==0)available.Release();
+        }
+    }
+    void ConvertBitmap(SoftwareBitmap bitmap,long captured,long callback,long start,bool targetOnly=false){
+            int width=bitmap.PixelWidth,height=bitmap.PixelHeight;
+            var requested=(target??new CaptureTarget(0,0,width,height,width,height)).Clamp(width,height);
+            if(targetOnly&&requested==lastConverted)return;
+            int length=checked(requested.OutWidth*requested.OutHeight*4);byte[] bytes=ArrayPool<byte>.Shared.Rent(length);
+            try{
+                long convertStart=Stopwatch.GetTimestamp();
+                CopyRgba(bitmap,bytes,width,height,requested);
+                trace?.Add("convert",callback,0,value:(long)Stopwatch.GetElapsedTime(convertStart).TotalMicroseconds);
+                var packet=new Packet(bytes,length,requested.OutWidth,requested.OutHeight,Interlocked.Increment(ref sequence),captured,callback,width,height,requested);bytes=null!;
+                lastCopyQpc=Stopwatch.GetTimestamp();trace?.Add("copy",callback,packet.Sequence,lastSource100ns);
+                Publish(packet);
+                copyMicros=(long)Stopwatch.GetElapsedTime(start).TotalMicroseconds;Interlocked.Increment(ref converted);
+            }finally{if(bytes!=null)ArrayPool<byte>.Shared.Return(bytes);}
+    }
+    async Task Reprocess(){
+        while(!stopping){
+            if(Interlocked.CompareExchange(ref busy,1,0)==0){
+                try{if(!stopping&&cachedBitmap!=null)ConvertBitmap(cachedBitmap,cachedCaptured,cachedCallback,Stopwatch.GetTimestamp(),true);}
+                catch{if(!stopping)Finish("capture_error");}
+                finally{Volatile.Write(ref busy,0);}
+                return;
+            }
+            await Task.Delay(1);
+        }
+    }
+    unsafe void CopyRgba(SoftwareBitmap bitmap,byte[] bytes,int width,int height,CaptureTarget target){
         using var locked=bitmap.LockBuffer(BitmapBufferAccessMode.Read);using var reference=locked.CreateReference();
         reference.As<MemoryAccess>().GetBuffer(out var pointer,out uint capacity);var plane=locked.GetPlaneDescription(0);
         if(plane.Stride<width*4||plane.StartIndex<0||(long)plane.StartIndex+(long)(height-1)*plane.Stride+(long)width*4>capacity)throw new InvalidOperationException("Invalid capture surface bounds");
+        if(target.X!=0||target.Y!=0||target.Width!=width||target.Height!=height||target.OutWidth!=width||target.OutHeight!=height){
+            resampler.Copy((byte*)pointer+plane.StartIndex,plane.Stride,bytes.AsSpan(0,target.OutWidth*target.OutHeight*4),target);return;
+        }
         var mask=Vector128.Create((byte)2,1,0,3,6,5,4,7,10,9,8,11,14,13,12,15);
         fixed(byte* output=bytes)for(int y=0;y<height;y++){
             byte* src=(byte*)pointer+plane.StartIndex+y*plane.Stride,dst=output+y*width*4;int x=0;
@@ -195,6 +263,7 @@ internal sealed class CaptureHost : Form {
         while(!stopping){
             string? line=await Console.In.ReadLineAsync();
             if(line==null||line=="STOP"){Finish("stopped");return;}
+            if(line.StartsWith("TARGET ",StringComparison.Ordinal)){var requested=CaptureTarget.Parse(line);if(requested!=null){target=requested;if(gpu!=null){try{gpu.Retarget(requested);gpuAvailable.Set();}catch{Finish("capture_error");return;}}else _=Task.Run(Reprocess);}continue;}
             if(line=="FOCUS"||line=="RETURN")try{BeginInvoke(()=>FocusTarget(line=="FOCUS"));}catch(InvalidOperationException){return;}
         }
     }
@@ -219,10 +288,14 @@ internal sealed class CaptureHost : Form {
     protected override void OnFormClosed(FormClosedEventArgs e){
         stopping=true;timer.Stop();cancel.Cancel();audio?.Dispose();
         // Disposal cancels a blocked pipe writer; an in-flight frame owns its own surface reference.
-        session?.Dispose();pool?.Dispose();pipe.Dispose();
+        session?.Dispose();pool?.Dispose();gpu?.Dispose();pipe.Dispose();
         lock(publication){pending?.Dispose();pending=null;}
         for(int id=1;id<=2;id++)Native.UnregisterHotKey(Handle,id);
         parent.Dispose();Log("closed",new{arrivals,converted,sent});base.OnFormClosed(e);
+        _=Task.Run(async()=>{
+            while(Interlocked.CompareExchange(ref busy,1,0)!=0)await Task.Delay(1);
+            try{cachedBitmap?.Dispose();cachedBitmap=null;}finally{Volatile.Write(ref busy,0);}
+        });
         trace?.Dispose();
     }
     internal static void RunMessageLoop(Form host,Action failure){
@@ -235,6 +308,9 @@ internal sealed class CaptureHost : Form {
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         if(args.Length==1&&args[0]=="--reliability-test"){bool pass=CaptureReliabilityTests.Run();Console.WriteLine(pass?"pass":"fail");return pass?0:2;}
         if(args.Length==1&&args[0]=="--pacer-test"){bool pass=FramePacer.SelfTest();Console.WriteLine(pass?"pass":"fail");return pass?0:2;}
+        if(args.Length==1&&args[0]=="--resample-test"){bool pass=Resampler.SelfTest();Console.WriteLine(pass?"pass":"fail");return pass?0:2;}
+        if(args.Length==1&&args[0]=="--resample-vectors"){ResamplerVectors.Run();return 0;}
+        if(args.Length==1&&args[0]=="--gpu-resample-vectors"){ResamplerVectors.Run(true);return 0;}
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
         try{
             if(args.Length==1&&args[0]=="--requirements"){

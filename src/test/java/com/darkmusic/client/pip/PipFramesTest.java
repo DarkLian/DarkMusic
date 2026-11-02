@@ -15,9 +15,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PipFramesTest {
     private static byte[] header(int width, int height, long sequence) {
-        return ByteBuffer.allocate(64).order(ByteOrder.LITTLE_ENDIAN)
-            .putInt(PipFrame.MAGIC).putInt(1).putInt(width).putInt(height).putInt(width * 4).putInt(width * height * 4)
-            .putLong(sequence).putLong(100).putLong(101).putInt(1).putInt(0).putLong(0).array();
+        return ByteBuffer.allocate(PipFrame.HEADER_BYTES).order(ByteOrder.LITTLE_ENDIAN)
+            .putInt(PipFrame.MAGIC).putInt(PipFrame.VERSION).putInt(width).putInt(height).putInt(width * 4).putInt(width * height * 4)
+            .putLong(sequence).putLong(100).putLong(101).putInt(1).putInt(0).putLong(0).putInt(width).putInt(height).putInt(0).putInt(0).putInt(width).putInt(height).putLong(0).array();
     }
 
     private static PipFrame frame(long sequence) throws IOException {
@@ -46,13 +46,34 @@ class PipFramesTest {
     @Test
     void invalidHeadersCannotAllocateUnboundedFrames() throws IOException {
         assertEquals(16, frame(1).bytes());
-        for (int offset : new int[]{0, 4, 8, 12, 16, 20, 48, 52, 56}) {
+        for (int offset : new int[]{0, 4, 8, 12, 16, 20, 48, 52, 56, 64, 68, 72, 76, 80, 84, 88}) {
             byte[] data = header(2, 2, 1);
             ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN).putInt(offset, Integer.MAX_VALUE);
             assertThrows(IOException.class, () -> PipFrame.decode(ByteBuffer.wrap(data), 0), "offset " + offset);
         }
         assertThrows(IOException.class, () -> PipFrame.decode(ByteBuffer.wrap(header(3841, 2160, 1)), 0));
         assertThrows(IOException.class, () -> PipFrame.decode(ByteBuffer.allocate(63), 0));
+    }
+
+    @Test
+    void v2CropMetadataIsIndependentOfOutputDimensions() throws Exception {
+        var data = ByteBuffer.wrap(header(2, 2, 1)).order(ByteOrder.LITTLE_ENDIAN);
+        data.putInt(64, 100).putInt(68, 80).putInt(72, 10).putInt(76, 20).putInt(80, 40).putInt(84, 30);
+        var f = PipFrame.decode(data.rewind(), 0);
+        assertEquals(100, f.sourceWidth());
+        assertEquals(80, f.sourceHeight());
+        assertEquals(10, f.cropX());
+        assertEquals(20, f.cropY());
+        assertEquals(40, f.cropWidth());
+        assertEquals(30, f.cropHeight());
+        data.putInt(72, 90);
+        assertThrows(IOException.class, () -> PipFrame.decode(data.rewind(), 0));
+        data.putInt(72, 10).putInt(80, 1);
+        assertThrows(IOException.class, () -> PipFrame.decode(data.rewind(), 0));
+        data.putInt(80, 40).putInt(84, 1);
+        assertThrows(IOException.class, () -> PipFrame.decode(data.rewind(), 0));
+        data.putInt(84, 30).putInt(4, 1);
+        assertThrows(IOException.class, () -> PipFrame.decode(data.rewind(), 0));
     }
 
     @Test
@@ -121,7 +142,7 @@ class PipFramesTest {
 
     @Test
     void truncatedAndStalledStreamsFailInsteadOfPublishingPartialPixels() throws Exception {
-        byte[] truncated = Arrays.copyOf(header(2, 2, 1), 70);
+        byte[] truncated = Arrays.copyOf(header(2, 2, 1), PipFrame.HEADER_BYTES + 6);
         try (var frames = new PipFrames(); var reader = new PipFrameReader(Channels.newChannel(new ByteArrayInputStream(truncated)), frames)) {
             assertThrows(EOFException.class, reader::read);
             assertNull(frames.latest());

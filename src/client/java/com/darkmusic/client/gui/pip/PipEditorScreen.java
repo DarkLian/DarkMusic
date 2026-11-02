@@ -58,7 +58,7 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
     private PipSettings.Bounds image() {
         if (!crop) return app.pip().bounds(width, height);
         var f = app.pip().frame();
-        double ratio = f == null ? 16 / 9.0 : f.width() / (double) f.height();
+        double ratio = f == null ? 16 / 9.0 : f.sourceWidth() / (double) f.sourceHeight();
         int w = width - 24, h = (int) (w / ratio);
         if (h > height - 90) {
             h = Math.max(16, height - 90);
@@ -94,7 +94,7 @@ public final class PipEditorScreen extends LocalScreen implements PipPreview {
             if (resizing) s.width((e.x() - b.x()) / width);
             else {
                 var f = app.pip().frame();
-                s.move(e.x() - offsetX, e.y() - offsetY, width, height, f == null ? 16 : f.width(), f == null ? 9 : f.height(), !HorizontalText.shiftDown());
+                s.move(e.x() - offsetX, e.y() - offsetY, width, height, f == null ? 16 : f.sourceWidth(), f == null ? 9 : f.sourceHeight(), !HorizontalText.shiftDown());
             }
         }
         return true;

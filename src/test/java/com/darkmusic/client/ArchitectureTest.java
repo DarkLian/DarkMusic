@@ -44,7 +44,7 @@ class ArchitectureTest {
     // ClientServices holds the services; it is the next place a hurried change would land. Lower this; never raise it.
     private static final int MAX_SERVICES_LINES = 572;
     // Baseline a518948: count Unicode characters over 150 in client Java sources. Only lower this.
-    private static final int MAX_LONG_LINES = 569;
+    private static final int MAX_LONG_LINES = 567;
     private static final Path TESTS = Path.of("src/test/java/com/darkmusic/client");
     private static final Set<String> ROOT_TESTS = new TreeSet<>(Set.of("ArchitectureTest", "ClientActionsTest", "ClientResetTest", "ScreenRequestsTest", "ShortcutsTest", "BackupActionsTest",
         "BackupRestoreTest", "CleanupTest", "ClientStateTest", "DocumentationLinksTest", "DownloadActionsTest", "FolderActionsTest",

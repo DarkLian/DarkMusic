@@ -44,6 +44,9 @@ loom {
             vmArg "-Ddarkmusic.pipDependencies=${file("build/libs/darkmusic-pip-dependencies-${project.version}-windows-x64.zip").absolutePath}"
             if (providers.gradleProperty('pipTrace').isPresent()) vmArg "-Ddarkmusic.pip.trace=${file(providers.gradleProperty('pipTrace').get()).absolutePath}"
             vmArg "-Ddarkmusic.pipFolder=${pipFolder.absolutePath}"
+            ['pipExactWidth', 'pipExactHeight'].each { key ->
+                if (providers.gradleProperty(key).isPresent()) vmArg "-Ddarkmusic.${key}=${providers.gradleProperty(key).get()}"
+            }
             source sourceSets.smoke
             runDir "build/${smokeFolder}".toString()
             vmArg "-Ddarkmusic.music=${realMusicDirectory}"

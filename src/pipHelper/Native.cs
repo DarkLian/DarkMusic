@@ -28,8 +28,8 @@ internal static class Native {
         [PreserveSig] int CreateForWindow(IntPtr hwnd,ref Guid iid,out IntPtr item);
         [PreserveSig] int CreateForMonitor(IntPtr monitor,ref Guid iid,out IntPtr item);
     }
-    internal static IDirect3DDevice Device() {
-        Marshal.ThrowExceptionForHR(D3D11CreateDevice(IntPtr.Zero,1,IntPtr.Zero,0x20,IntPtr.Zero,0,7,out var d,out _,out var c));
+    internal static IDirect3DDevice Device(bool warp=false) {
+        Marshal.ThrowExceptionForHR(D3D11CreateDevice(IntPtr.Zero,warp?5u:1u,IntPtr.Zero,0x20,IntPtr.Zero,0,7,out var d,out _,out var c));
         IntPtr dxgi=IntPtr.Zero,p=IntPtr.Zero;
         try {
             var iid=new Guid("54ec77fa-1377-44e6-8c32-88fd5f44c84c");

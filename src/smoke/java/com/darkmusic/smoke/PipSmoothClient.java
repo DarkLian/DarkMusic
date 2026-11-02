@@ -1,6 +1,7 @@
 package com.darkmusic.smoke;
 
 import com.darkmusic.client.DarkMusicClient;
+import com.google.gson.JsonParser;
 import com.darkmusic.client.config.Repeat;
 import com.darkmusic.client.gui.pip.PipEditorScreen;
 import com.darkmusic.client.gui.pip.PipScreen;
@@ -10,6 +11,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
@@ -37,6 +39,7 @@ final class PipSmoothClient {
     private int joinedTick;
     private boolean selecting;
     private int refocuses;
+    private String lastCapture = "", lastQuality = "";
 
     void start() {
         Thread.ofPlatform().daemon().name("pip-smoke-metrics").start(() -> {
@@ -76,8 +79,7 @@ final class PipSmoothClient {
             lastReceived = f.receivedNanos();
             offer("{\"kind\":\"frame\",\"nanos\":" + now + ",\"sequence\":" + f.sequence() + ",\"gapMicros\":" + gap / 1000 + ",\"ageMicros\":" + (System.currentTimeMillis() * 1000 - f.capturedMicros()) + ",\"screen\":\"" + (mc.gui.screen() == null ? "HUD" : mc.gui.screen().getClass().getSimpleName()) + "\"}");
         }
-        if (draws % 140 == 0)
-            offer("{\"kind\":\"render\",\"nanos\":" + now + ",\"gapMicros\":" + (lastRender == 0 ? 0 : (now - lastRender) / 1000) + ",\"draws\":" + draws + "}");
+        offer("{\"kind\":\"render\",\"nanos\":" + now + ",\"gapMicros\":" + (lastRender == 0 ? 0 : (now - lastRender) / 1000) + ",\"draws\":" + draws + "}");
         lastRender = now;
     }
 
@@ -120,8 +122,11 @@ final class PipSmoothClient {
             .thenAccept(sources -> mc.execute(() -> {
                 var matches = sources.stream().filter(s -> s.Title().contains(sourceTitle)).toList();
                 note("windows=" + sources.size() + " matches=" + matches.size());
-                if (matches.size() != 1)
+                if (matches.size() != 1) {
+                    closed = true;
+                    mc.stop();
                     throw new IllegalStateException("Expected one window titled " + sourceTitle + ", found " + matches.size());
+                }
                 app.services().pip().select(matches.getFirst());
                 mc.gui.setScreen(null);
             })).exceptionally(failure -> {
@@ -140,6 +145,52 @@ final class PipSmoothClient {
 
     private void offer(String line) {
         if (!measurements.offer(line)) diagnosticDrops++;
+    }
+
+    private void qualityRequested(Minecraft mc) throws IOException {
+        var path = folder.resolve("quality.json");
+        if (!Files.isRegularFile(path)) return;
+        var json = Files.readString(path);
+        if (json.equals(lastQuality)) return;
+        var q = JsonParser.parseString(json).getAsJsonObject();
+        var app = DarkMusicClient.INSTANCE;
+        var s = app.services().settings().pip;
+        if (q.has("width")) s.width(q.get("width").getAsDouble());
+        if (q.has("visible")) s.visible = q.get("visible").getAsBoolean();
+        if (q.has("crop")) s.cropPercent(q.get("crop").getAsString());
+        if (q.has("guiScale")) {
+            mc.options.guiScale().set(q.get("guiScale").getAsInt());
+            mc.resizeGui();
+        }
+        if (q.has("action")) {
+            switch (q.get("action").getAsString()) {
+                case "stop" -> app.services().pip().stop();
+                case "start" -> app.services().pip().start();
+                case "focus", "return" -> app.services().pip().focus(q.get("action").getAsString().equals("focus"));
+                default -> throw new IOException("Unknown smoke action");
+            }
+        }
+        if (q.has("editor") && q.get("editor").getAsBoolean())
+            mc.gui.setScreen(new PipEditorScreen(app.sources(), null, true));
+        else if (q.has("exact") && q.get("exact").getAsBoolean()) mc.gui.setScreen(new PipFidelityScreen());
+        else mc.gui.setScreen(null);
+        lastQuality = json;
+        note("quality nanos=" + System.nanoTime());
+    }
+
+    private void captureRequested(Minecraft mc) throws IOException {
+        var request = folder.resolve("capture");
+        if (!Files.isRegularFile(request) || DarkMusicClient.INSTANCE.services().pip().frame() == null) return;
+        var name = Files.readString(request).strip();
+        if (name.equals(lastCapture)) return;
+        if (!name.matches("[a-zA-Z0-9_-]{1,80}")) throw new IOException("Invalid capture name");
+        if (!mc.getWindow().isFullscreen() || mc.getWindow().getWidth() != 1920 || mc.getWindow().getHeight() != 1080)
+            throw new IOException("Fidelity captures require fullscreen 1920x1080");
+        var directory = Path.of(System.getProperty("darkmusic.privateImages")).resolve("pip-quality");
+        Files.createDirectories(directory.resolve("screenshots"));
+        Screenshot.grab(directory.toFile(), name + ".png", mc.gameRenderer.mainRenderTarget(), 1, text -> {
+        });
+        lastCapture = name;
     }
 
     private void tick(Minecraft mc) {
@@ -193,6 +244,8 @@ final class PipSmoothClient {
                 }
                 if (mc.gui.screen() instanceof PauseScreen) mc.gui.setScreen(null);
                 titledSource(mc, app);
+                if (Files.exists(folder.resolve("exact-bounds")) && app.services().pip().frame() != null && !(mc.gui.screen() instanceof PipFidelityScreen))
+                    mc.gui.setScreen(new PipFidelityScreen());
             }
             if (stage == 2 && Files.exists(folder.resolve("check-spectrum"))) {
                 if (spectrumCheck == null) spectrumCheck = new PipSpectrumSmoke();
@@ -207,6 +260,8 @@ final class PipSmoothClient {
                 if (hudMenusCheck.tick(mc, app)) Files.writeString(folder.resolve("stop-minecraft"), "done");
             }
             if (stage == 2 && ticks % 20 == 0) {
+                qualityRequested(mc);
+                captureRequested(mc);
                 if (Files.isRegularFile(folder.resolve("phase"))) {
                     String requested = Files.readString(folder.resolve("phase")).strip();
                     if (!requested.equals(phase) && Set.of("off", "video", "video4", "audio").contains(requested) && app.services().pip().source() != null) {
